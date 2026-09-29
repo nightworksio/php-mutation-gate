@@ -12,10 +12,12 @@ it('holds the path a test spells', function (): void {
     expect(new Holds('src/Kernel.php')->path())->toBe('src/Kernel.php');
 });
 
-it('stands on a class or a method, as often as a test needs', function (): void {
+it('stands on a class, a method or a function, as often as a test needs', function (): void {
     $attribute = new ReflectionClass(Holds::class)->getAttributes(Attribute::class)[0]->newInstance();
 
-    expect($attribute->flags)->toBe(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE);
+    expect($attribute->flags)->toBe(
+        Attribute::TARGET_CLASS | Attribute::TARGET_METHOD | Attribute::TARGET_FUNCTION | Attribute::IS_REPEATABLE,
+    );
 });
 
 it('is read from a test written with it', function (): void {

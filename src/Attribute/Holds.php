@@ -7,13 +7,12 @@ namespace NightWorksIO\MutationGate\Attribute;
 use Attribute;
 
 /**
- * Declares that the tests of a class, or one test method, hold a path: a tree,
- * or a file or directory inside one, spelt as the repository spells it. The
- * path is then mutated against the tests that hold it alone, once they are
- * shown to cover all of it. The gate reads it from the test file's tokens and
- * never loads the file.
+ * Declares that the tests of a class, one test method, or the test a closure
+ * becomes, hold a path: a tree, or a file or directory inside one, spelt as
+ * the repository spells it. The path is then mutated against the tests that
+ * hold it alone, once they are shown to cover all of it.
  */
-#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
+#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD | Attribute::TARGET_FUNCTION | Attribute::IS_REPEATABLE)]
 final readonly class Holds
 {
     public function __construct(private string $path)
