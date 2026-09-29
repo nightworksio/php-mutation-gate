@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Composer\ComposerTrees;
+use NightWorksIO\MutationGate\Adapter\Project\AutoloadTrees;
+use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -12,6 +15,7 @@ use NightWorksIO\MutationGate\Port\TreeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Project;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\Tree as Repository;
 
 // What every tree source answers over the fixture: src/Domain declares 100,
 // src/Http declares nothing and src/Generated declares 0 with a reason. One
@@ -20,6 +24,8 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 $sources = [
     'the fake' => fn(): TreeSource => TreeSourceFake::ofTheFixture(),
     'the manifests' => fn(): TreeSource => ComposerTrees::at(Project::ofTheFixture(), ['composer.json'], []),
+    'PhpUnitTrees' => fn(): TreeSource => PhpUnitTrees::in(Repository::at('tests/Fixtures/Trees'), Paths::none()),
+    'AutoloadTrees' => fn(): TreeSource => AutoloadTrees::in(Repository::at('tests/Fixtures/Trees')),
 ];
 
 afterEach(function (): void {

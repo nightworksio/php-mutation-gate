@@ -42,6 +42,15 @@ final class Scratch
         file_put_contents($file, $contents);
     }
 
+    /** A new directory holding a copy of one under the repository's tests. */
+    public static function copy(string $fixture): string
+    {
+        $root = self::directory();
+        exec(sprintf('cp -R %s/. %s', escapeshellarg(Tree::at($fixture)), escapeshellarg($root)));
+
+        return $root;
+    }
+
     /** Remove every directory made since the last sweep. */
     public static function sweep(): void
     {

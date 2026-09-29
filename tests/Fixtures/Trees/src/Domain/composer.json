@@ -1,0 +1,7 @@
+{
+    "extra": {
+        "mutation-gate": {
+            "floor": 100
+        }
+    }
+}

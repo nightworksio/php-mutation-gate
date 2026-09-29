@@ -71,6 +71,9 @@ parameters:
             # A file the gate wrote that does not hold its shape is refused inside
             # the codec that reads it, and answered at the codec's edge.
             - NightWorksIO\MutationGate\Core\Format\NotInShape
+            # A setting read as a type its definition does not make is a
+            # mistake in the code that asked.
+            - NightWorksIO\MutationGate\Core\Config\Definition\MisreadSetting
 
     ergebnis:
         # C4 is ergebnis's NoErrorSuppressionRule and the `switch` half of C5 is
@@ -451,13 +454,15 @@ services:
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoMagicMethodRule
         tags:
             - phpstan.rules.rule
-    # P2, with the one file that constructs a class by a name it read: the
-    # extension classes the Composer manifests name (ADR-0001).
+    # P2, with the two files that construct a class by a name they read: the
+    # extension classes the Composer manifests name (ADR-0001), and the
+    # extensions and adapters a config names by class (ADR-0002).
     -
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoDynamicAccessRule
         arguments:
             classNamedAtRuntimeIn:
                 - src/Cli/Discovery/Discovery.php
+                - src/Cli/Config/Chosen.php
         tags:
             - phpstan.rules.rule
     # Q3

@@ -1,0 +1,843 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v1/resources/mutation-gate.schema.json",
+    "title": "mutation-gate",
+    "description": "The config of nightworksio/mutation-gate: mutation-gate.json, .yaml, .yml or .neon.",
+    "type": "object",
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "minLength": 1
+        },
+        "extensions": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            },
+            "default": []
+        },
+        "preset": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "minLength": 1
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            ],
+            "default": []
+        },
+        "runner": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "minLength": 1
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "use": {
+                            "const": "pest"
+                        },
+                        "with": {
+                            "type": "object",
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "use"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "use": {
+                            "const": "infection"
+                        },
+                        "with": {
+                            "type": "object",
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "use"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "use": {
+                            "type": "string",
+                            "minLength": 1,
+                            "not": {
+                                "enum": [
+                                    "pest",
+                                    "infection"
+                                ]
+                            }
+                        },
+                        "with": {
+                            "type": "object"
+                        }
+                    },
+                    "required": [
+                        "use"
+                    ],
+                    "additionalProperties": false
+                }
+            ]
+        },
+        "treeSource": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "minLength": 1
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "use": {
+                            "const": "phpunit"
+                        },
+                        "with": {
+                            "type": "object",
+                            "properties": {
+                                "fallback": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "default": []
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "use"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "use": {
+                            "const": "composer"
+                        },
+                        "with": {
+                            "type": "object",
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "use"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "use": {
+                            "type": "string",
+                            "minLength": 1,
+                            "not": {
+                                "enum": [
+                                    "phpunit",
+                                    "composer"
+                                ]
+                            }
+                        },
+                        "with": {
+                            "type": "object"
+                        }
+                    },
+                    "required": [
+                        "use"
+                    ],
+                    "additionalProperties": false
+                }
+            ],
+            "default": {
+                "use": "phpunit",
+                "with": {
+                    "fallback": []
+                }
+            }
+        },
+        "trees": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "floor": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "reason": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "required": [
+                    "path"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "newCode": {
+            "type": "object",
+            "properties": {
+                "floor": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "default": 100
+                }
+            },
+            "additionalProperties": false
+        },
+        "uncovered": {
+            "enum": [
+                "count",
+                "exclude"
+            ],
+            "default": "count"
+        },
+        "baseline": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "mutation-gate.baseline.json"
+                },
+                "improvement": {
+                    "enum": [
+                        "require",
+                        "report"
+                    ],
+                    "default": "require"
+                }
+            },
+            "additionalProperties": false
+        },
+        "packages": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            },
+            "default": []
+        },
+        "reach": {
+            "type": "object",
+            "properties": {
+                "everything": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "default": []
+                }
+            },
+            "additionalProperties": false
+        },
+        "holds": {
+            "type": "object",
+            "properties": {
+                "hotPath": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 0.8
+                }
+            },
+            "additionalProperties": false
+        },
+        "shards": {
+            "type": "object",
+            "properties": {
+                "seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 600
+                },
+                "max": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 20
+                }
+            },
+            "additionalProperties": false
+        },
+        "costs": {
+            "type": "object",
+            "properties": {
+                "secondsPerLine": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "default": {
+                        "": 0.2
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "ci": {
+            "type": "object",
+            "properties": {
+                "plan": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "github"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "gitlab"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "buildkite"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "circleci"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "json"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "not": {
+                                        "enum": [
+                                            "github",
+                                            "gitlab",
+                                            "buildkite",
+                                            "circleci",
+                                            "json"
+                                        ]
+                                    }
+                                },
+                                "with": {
+                                    "type": "object"
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        }
+                    ]
+                },
+                "defaultBranch": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "gitlab": {
+                    "type": "object",
+                    "properties": {
+                        "template": {
+                            "type": "string",
+                            "minLength": 1,
+                            "default": ".gitlab/mutation-gate.yml"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "buildkite": {
+                    "type": "object",
+                    "properties": {
+                        "step": {
+                            "type": "object",
+                            "default": {}
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false
+        },
+        "proofs": {
+            "type": "object",
+            "properties": {
+                "store": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "directory"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "properties": {
+                                        "path": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "default": ".mutation-gate/ledger"
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "s3"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "properties": {
+                                        "bucket": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
+                                        "prefix": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "default": "mutation-gate"
+                                        },
+                                        "region": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "default": "us-east-1"
+                                        },
+                                        "endpoint": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        }
+                                    },
+                                    "required": [
+                                        "bucket"
+                                    ],
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "not": {
+                                        "enum": [
+                                            "directory",
+                                            "s3"
+                                        ]
+                                    }
+                                },
+                                "with": {
+                                    "type": "object"
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        }
+                    ],
+                    "default": {
+                        "use": "directory",
+                        "with": {
+                            "path": ".mutation-gate/ledger"
+                        }
+                    }
+                },
+                "ignore": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "default": []
+                },
+                "write": {
+                    "enum": [
+                        "auto",
+                        "never"
+                    ],
+                    "default": "auto"
+                }
+            },
+            "additionalProperties": false
+        },
+        "budget": {
+            "type": "string",
+            "pattern": "^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+        },
+        "timeouts": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "enum": [
+                        "confirm",
+                        "unjudged"
+                    ],
+                    "default": "confirm"
+                },
+                "seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 10
+                },
+                "retries": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 20
+                }
+            },
+            "additionalProperties": false
+        },
+        "flaky": {
+            "type": "object",
+            "properties": {
+                "confirmSurvivors": {
+                    "type": "boolean",
+                    "default": true
+                }
+            },
+            "additionalProperties": false
+        },
+        "ignores": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "mutant": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{12}$"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "mutator": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "reason": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "expires": {
+                                "type": "string",
+                                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                            }
+                        },
+                        "required": [
+                            "reason"
+                        ],
+                        "additionalProperties": false,
+                        "oneOf": [
+                            {
+                                "required": [
+                                    "mutant"
+                                ]
+                            },
+                            {
+                                "required": [
+                                    "path",
+                                    "mutator"
+                                ]
+                            }
+                        ]
+                    },
+                    "default": []
+                },
+                "maxDays": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "native": {
+                    "enum": [
+                        "refuse",
+                        "allow"
+                    ],
+                    "default": "refuse"
+                }
+            },
+            "additionalProperties": false
+        },
+        "reports": {
+            "type": "array",
+            "items": {
+                "anyOf": [
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "json"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "junit"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "sarif"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "html"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "type": "string",
+                                "minLength": 1,
+                                "not": {
+                                    "enum": [
+                                        "json",
+                                        "junit",
+                                        "sarif",
+                                        "html"
+                                    ]
+                                }
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object"
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    }
+                ]
+            },
+            "default": []
+        },
+        "badge": {
+            "type": "object",
+            "properties": {
+                "colors": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "default": {
+                        "brightgreen": 90,
+                        "green": 80,
+                        "yellow": 70,
+                        "orange": 60
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "pest": {
+            "type": "object",
+            "properties": {
+                "patch": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "canary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "mutation-canary"
+                }
+            },
+            "additionalProperties": false
+        },
+        "local": {
+            "type": "object",
+            "properties": {
+                "watchBudget": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "default": "60s"
+                },
+                "prePushBudget": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "default": "5m"
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "required": [
+        "runner"
+    ],
+    "additionalProperties": false
+}
