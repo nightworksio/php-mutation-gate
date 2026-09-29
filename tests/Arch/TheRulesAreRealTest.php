@@ -63,7 +63,7 @@ it('reads a claimed mechanism as a word, not as part of another', function (): v
         ->and(Rules::claimsTheKind('the @phpstan-type line', 'phpstan'))->toBeFalse();
 });
 
-it('reads an identifier bounded, so H1 is not found in H10', function (): void {
+it('reads an identifier bounded, so a short one is not found inside a longer one', function (): void {
     expect(Rules::carriesTheRule('H1', ['(H10)']))->toBeFalse()
         ->and(Rules::carriesTheRule('H1', ['(H1, C9)']))->toBeTrue()
         ->and(Rules::carriesTheRule('R1', ['GOV-R1']))->toBeFalse();

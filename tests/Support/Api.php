@@ -35,8 +35,9 @@ final readonly class Api
 {
     /**
      * Every class-like PSR-4 places under a directory of `src`, loaded. A file
-     * whose path names a class it does not declare is left out here and refused
-     * by W1.
+     * whose path names a class it does not declare is left out here, never
+     * loaded, and refused by W1: the autoloader includes such a file again on
+     * every lookup, and the second include redeclares what the first declared.
      *
      * @return list<ReflectionClass<object>>
      */
@@ -46,6 +47,10 @@ final readonly class Api
 
         foreach (Tree::filesUnder($directory) as $path) {
             $class = Source::classAtPath($path);
+
+            if (Source::at($path)->declares() !== [$class]) {
+                continue;
+            }
 
             if (class_exists($class) || interface_exists($class) || enum_exists($class) || trait_exists($class)) {
                 $found[] = new ReflectionClass($class);
