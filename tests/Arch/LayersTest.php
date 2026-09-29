@@ -5,7 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Tests\Support\Layer;
 use NightWorksIO\MutationGate\Tests\Support\Source;
 
-// A1–A4, over the class names each file under src writes, imports included.
+// A1–A5, over the class names each file under src writes, imports included.
 // Read with the parser rather than with Pest's architecture expectations, which
 // raise on a namespace that holds no class yet.
 
@@ -102,7 +102,30 @@ it('lets a layer name only itself and the layers before it', function (): void {
 
     // A4
     expect($offenders)->toBe([], sprintf(
-        "These name a layer that comes after their own:\n  %s\n\nThe layers are Core, Port, Config, Extension, Adapter and Cli, in that order, so only the CLI wires adapters to the core (A4).",
+        "These name a layer that comes after their own:\n  %s\n\nThe layers are Core, Attribute, Port, Config, Extension, Adapter and Cli, in that order, so only the CLI wires adapters to the core (A4).",
+        implode("\n  ", $offenders),
+    ));
+});
+
+it('keeps the attribute to PHP alone, and named by nothing else under src', function (): void {
+    $offenders = namesRefusedIn(
+        Layer::Attribute,
+        static fn(Source $source, string $name): bool => ! isPhpItself($name),
+    );
+
+    foreach (Layer::cases() as $layer) {
+        $offenders = $layer === Layer::Attribute ? $offenders : [
+            ...$offenders,
+            ...namesRefusedIn(
+                $layer,
+                static fn(Source $source, string $name): bool => Layer::Attribute->holds($name),
+            ),
+        ];
+    }
+
+    // A5
+    expect($offenders)->toBe([], sprintf(
+        "These cross the attribute's boundary:\n  %s\n\nTests write #[Holds] and the gate reads its tokens (A5).",
         implode("\n  ", $offenders),
     ));
 });

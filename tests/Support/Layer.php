@@ -14,6 +14,7 @@ use function str_starts_with;
 enum Layer: string
 {
     case Core = 'Core';
+    case Attribute = 'Attribute';
     case Port = 'Port';
     case Config = 'Config';
     case Extension = 'Extension';
@@ -32,7 +33,7 @@ enum Layer: string
     public function isPublic(): bool
     {
         return match ($this) {
-            self::Port, self::Config, self::Extension => true,
+            self::Attribute, self::Port, self::Config, self::Extension => true,
             self::Core, self::Adapter, self::Cli => false,
         };
     }

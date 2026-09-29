@@ -55,7 +55,10 @@ it('seals every class, and keeps every value readonly', function (): void {
             $offenders[] = sprintf('%s is not final', $class->getName());
         }
 
-        $immutable = Layer::Core->holds($class->getName()) || Layer::Config->holds($class->getName()) || Layer::Extension->holds($class->getName());
+        $immutable = array_any(
+            [Layer::Core, Layer::Attribute, Layer::Config, Layer::Extension],
+            static fn(Layer $layer): bool => $layer->holds($class->getName()),
+        );
 
         if ($immutable && ! $class->isReadOnly() && ! $class->implementsInterface(Throwable::class)) {
             $offenders[] = sprintf('%s is not readonly', $class->getName());

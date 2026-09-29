@@ -5,10 +5,10 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Tests\Support\Api;
 use NightWorksIO\MutationGate\Tests\Support\Layer;
 
-// C1, C2, D1, D2 and D3, over the API surface: every class in Port, Config and
-// Extension, and every core type their public signatures reach; and C2 again
-// over every class in the core. Read by reflection, because a nullable return
-// or a primitive parameter is not a name an import shows.
+// C1, C2, D1, D2 and D3, over the API surface: every class in Attribute, Port,
+// Config and Extension, and every core type their public signatures reach; and
+// C2 again over every class in the core. Read by reflection, because a nullable
+// return or a primitive parameter is not a name an import shows.
 
 /** The primitives D2 keeps to named constructors. */
 const PRIMITIVES = ['string', 'int', 'float'];
@@ -114,7 +114,8 @@ it('takes a primitive only in a named constructor on the public API', function (
 
     foreach (Api::surface() as $class) {
         foreach (Api::publicMethodsOf($class) as $method) {
-            if ($method->isStatic()) {
+            // PHP builds an attribute by calling its constructor with the arguments the attribute is written with.
+            if ($method->isStatic() || ($method->isConstructor() && $class->getAttributes(Attribute::class) !== [])) {
                 continue;
             }
 

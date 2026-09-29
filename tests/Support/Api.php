@@ -29,8 +29,8 @@ use function trait_exists;
 
 /**
  * The classes under `src`, loaded, and the API surface among them: every class
- * in Port, Config and Extension, and every core type their public signatures
- * reach, followed as far as it goes (ADR-0001).
+ * in Attribute, Port, Config and Extension, and every core type their public
+ * signatures reach, followed as far as it goes (ADR-0001).
  */
 final readonly class Api
 {
@@ -66,6 +66,7 @@ final readonly class Api
     {
         $surface = [];
         $pending = [
+            ...self::classesUnder(Layer::Attribute->directory()),
             ...self::classesUnder(Layer::Port->directory()),
             ...self::classesUnder(Layer::Config->directory()),
             ...self::classesUnder(Layer::Extension->directory()),
