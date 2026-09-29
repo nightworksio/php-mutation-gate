@@ -117,7 +117,7 @@ type their public signatures reach (ADR-0001).
 | Rule | Says | Enforced by |
 |---|---|---|
 | **P1** | No `__get`, `__set`, `__isset`, `__unset`, `__call` or `__callStatic` | phpstan: own rule |
-| **P2** | No variable variable and no dynamic class, method or property name | phpstan: own rule |
+| **P2** | No variable variable and no dynamic class, method or property name, but for the one file that constructs the extension classes Composer names | phpstan: own rule, with that file named in `phpstan.neon` |
 | **P3** | No `func_get_args()`, no `#[AllowDynamicProperties]` | phpstan `disallowed-calls` |
 | **P4** | No reflection in `src` | phpstan `disallowed-calls`, scoped by path |
 | **Q1** | Nothing reconfigures the runtime: `ini_set`, `setlocale`, error handlers | phpstan `disallowed-calls` |

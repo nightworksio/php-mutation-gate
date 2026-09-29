@@ -15,7 +15,7 @@ use function sprintf;
  * package that registered it. A package that registers a name again replaces
  * its own entry; two packages registering one name is a conflict.
  *
- * @template-covariant T
+ * @template-covariant T of object
  */
 final readonly class Entries
 {
@@ -23,15 +23,17 @@ final readonly class Entries
      * @param string                                         $kind    what is registered, as a message names it
      * @param array<string, array{origin: string, entry: T}> $entries by name
      */
-    public function __construct(private string $kind, private array $entries = []) {}
+    public function __construct(private string $kind, private array $entries = [])
+    {
+    }
 
     /**
-     * @template U
+     * @template U of object
      *
-     * @param  U                $entry
+     * @param  U         $entry
      * @return self<T|U>
      */
-    public function with(string $name, string $origin, mixed $entry): self
+    public function with(string $name, string $origin, object $entry): self
     {
         $entries = $this->entries;
         $entries[$name] = ['origin' => $origin, 'entry' => $entry];
@@ -40,7 +42,7 @@ final readonly class Entries
     }
 
     /** @return T|CannotJudge */
-    public function find(string $name): mixed
+    public function find(string $name): object
     {
         return array_key_exists($name, $this->entries)
             ? $this->entries[$name]['entry']
@@ -50,7 +52,7 @@ final readonly class Entries
     /**
      * The names both register, each said as the sentence the user reads.
      *
-     * @param  self<mixed>  $other
+     * @param  self<object> $other
      * @return list<string>
      */
     public function conflictsWith(self $other): array
@@ -61,7 +63,13 @@ final readonly class Entries
             $ours = array_key_exists($name, $this->entries) ? $this->entries[$name]['origin'] : $theirs['origin'];
 
             if ($ours !== $theirs['origin']) {
-                $conflicts[] = sprintf('Two packages register a %s named "%s": %s and %s.', $this->kind, $name, $ours, $theirs['origin']);
+                $conflicts[] = sprintf(
+                    'Two packages register a %s named "%s": %s and %s.',
+                    $this->kind,
+                    $name,
+                    $ours,
+                    $theirs['origin'],
+                );
             }
         }
 
@@ -71,7 +79,7 @@ final readonly class Entries
     /**
      * These entries and another's; where both name the same thing, the other's.
      *
-     * @template U
+     * @template U of object
      *
      * @param  self<U>   $other
      * @return self<T|U>
