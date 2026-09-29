@@ -1,4 +1,4 @@
-# ADR-0011: The package holds itself to the gate it ships, and to the standards of the project it came from
+# ADR-0011: The package holds itself to the gate it ships, and to the standards of the in-house project
 
 **Status:** Accepted
 **Date:** 2026-09-29
@@ -14,13 +14,12 @@ show. The maintainer's decisions for this package are:
 - it has no release at all until all 20 accepted features are in.
 
 The package also takes the code-quality, testing, tooling and architecture
-standards of the in-house project its gate was extracted from, reusing whatever
+standards of the in-house project whose gate it generalises, reusing whatever
 carries over. And it stands alone: nothing in its CI, its dev tooling, its
 Composer dependencies, its documentation or its runtime reaches into another
 organisation's repository.
 
-The in-house project's toolchain was inventoried for this ADR. Its main parts
-are:
+This ADR inventories the in-house project's toolchain. Its main parts are:
 
 - Composer scripts and dev dependencies;
 - a `phpstan.neon` with 18 rules of its own;
@@ -106,7 +105,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | typos, actionlint, markdownlint, lychee | config files, run by a shared hygiene workflow in another repository | **Adapted** | The config files are copied. The jobs are this repository's own `hygiene` workflow. |
    | gitleaks, osv-scanner | a shared security workflow in another repository | **Adapted** | This repository's own `security` workflow |
    | commitlint, DCO, attribution | shared workflows in another repository, plus `.githooks/commit-msg` | **Adapted** | This repository's own workflows and the scripts they run, plus its own `.githooks/commit-msg` |
-   | Signed commits | branch protection `required_signatures` | **Copied** | Plus a `signatures` job that checks every commit of a pull request is verified |
+   | Signed commits | branch protection `required_signatures` | **Copied** | The ruleset on `main` requires signed commits |
    | CODEOWNERS | the one maintainer | **Copied** | `* @lessevv` |
    | Dependabot | Composer weekly in groups, Actions daily with a cooldown, commit prefix `build` | **Adapted** | The same cadence, with groups for this package's tools |
    | `.githooks` | `pre-commit` (Pint on staged files), `commit-msg`, `pre-push` (refuses a direct push to `main`) | **Copied** | |
@@ -139,7 +138,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    archive. So do the arch helpers and the Guards support. Shipping them would
    make them public API, with their own versioning and support, and the
    package's product is the gate. They are kept free of anything
-   gate-specific, so they can later move into a rules package of their own.
+   gate-specific, so they can move into a rules package of their own.
    That is a separate decision.
 
 6. **CI, as far as a library needs it.** Every job below is this repository's
@@ -149,7 +148,6 @@ about Laravel, NativePHP or the project's modules, and does not.
    |-----|------|----------|
    | what changed | Skips the PHP jobs for a documentation-only change | yes |
    | dco, commitlint, attribution | Every commit's `Signed-off-by`, conventional subject and trailers | yes |
-   | signatures | Every commit of the pull request is verified | yes |
    | hygiene | actionlint, typos, lychee (links) and markdownlint | yes |
    | security | gitleaks and osv-scanner | yes |
    | rules | `pest --testsuite=Arch` | yes |
@@ -170,14 +168,16 @@ about Laravel, NativePHP or the project's modules, and does not.
      judge);
    - the config: the PHP builder, the JSON Schema, and the meaning of every
      setting;
-   - the file formats: the baseline, the JSON report and the ledger;
+   - the file formats: the baseline, the JSON report, the ledger, and the plan
+     as `plan --ci=json` prints it;
    - the action's and the reusable workflow's inputs, outputs, secrets and job
      names;
    - the eight ports, `Extension`, `Extensions`, `Configurable`, the `Core`
      value types the ports use, and the `#[Holds]` attribute.
 
-   Everything else is marked `@internal`, and that includes the plan file,
-   which only passes between jobs of one version. A removal is deprecated with
+   Everything else is marked `@internal`, and that includes
+   `.mutation-gate/plan.json` and the shard result files, which only pass
+   between jobs of one version. A removal is deprecated with
    a warning for at least one minor release first, and happens only in a major.
 
 8. **The package, its CI and its GitHub integration live in one repository,
@@ -189,6 +189,10 @@ about Laravel, NativePHP or the project's modules, and does not.
    - **A composite action, `action.yml` at the root**, listed on the
      Marketplace as `mutation-gate`, or as `PHP Mutation Gate` if that name is
      taken, with branding.
+
+     An action's inputs are strings, so the Type column gives the format of
+     the value. `cache` is the one boolean, and the reusable workflow declares
+     it as `boolean` and the rest as `string`.
 
      | Input | Type | Default |
      |-------|------|---------|
@@ -218,7 +222,8 @@ about Laravel, NativePHP or the project's modules, and does not.
        sticky PR comment, and saves the ledger when the run may write it
        (ADR-0007).
      - With `shard` it runs that one shard of the plan in `.mutation-gate/`,
-       which is how the reusable workflow uses it.
+       which is how the reusable workflow uses it. Its outputs are then
+       empty, because the verdict comes later.
    - **A reusable workflow, `.github/workflows/mutation-gate.yml`**, called with
      `workflow_call`, for sharded runs.
      - **Inputs** are the action's less `shard`, with the same types and
@@ -230,10 +235,13 @@ about Laravel, NativePHP or the project's modules, and does not.
        reports are uploaded as the artifact `mutation-gate-reports`.
      - **Jobs:**
        - `plan` sets up as the action does, restores the ledgers, runs
-         `plan --ci=github` and uploads `.mutation-gate` as an artifact;
+         `plan --ci=github` and uploads `.mutation-gate` as an artifact. The
+         action has no plan-only or verdict-only mode, so this job and the
+         verdict job run the CLI after the same setup steps;
        - `shard`, one matrix job per shard, checks out the calling repository,
          and this repository at `job.workflow_sha` (the commit the workflow
-         was called at) into a directory of its own. It runs the action from
+         was called at) into a directory of its own. It downloads the plan's
+         artifact into `.mutation-gate/`, and runs the action from
          that directory with `shard`, so the workflow and the action are
          always the same commit, and uploads its result file;
        - `verdict` runs whenever the run was not cancelled, even after a failed
@@ -244,6 +252,12 @@ about Laravel, NativePHP or the project's modules, and does not.
        - `publish` pushes the badge and trend to the `mutation-gate` branch
          (ADR-0009). It runs only on the default branch, and it is the only job
          that asks for `contents: write`.
+     - **Permissions.** Every job has `contents: read`. `plan` and `verdict`
+       also have `actions: read`, because the GitHub `ChangeSource` reads
+       workflow runs to prove that a merged pull request's run passed
+       (ADR-0005). `verdict` has `pull-requests: write` for the comment, and
+       `publish` has `contents: write`. The one-step action needs the first
+       three in its one job.
    - **Pinning.** Every action either one uses is pinned by a full commit SHA
      with its tag in a comment, and Dependabot moves the pins. The README's
      examples pin this repository the same way.
@@ -252,8 +266,9 @@ about Laravel, NativePHP or the project's modules, and does not.
      major tag (`v1`) to each new release.
    - **Dogfooding.** The package's own CI runs its self-gate through the local
      reusable workflow, whose shard jobs run the action from the same commit
-     (decision 1), so both are exercised on every pull request by the code in
-     that pull request.
+     (decision 1). So the workflow and the action's shard mode are exercised on
+     every pull request by the code in that pull request. The action's one-job
+     mode runs the same setup steps and the same CLI.
 
 9. **Commits and releases.**
    - **Every commit:**
@@ -284,7 +299,7 @@ about Laravel, NativePHP or the project's modules, and does not.
     | Optional: `symfony/yaml`, `nette/neon`, `async-aws/s3` | ^7.4 \|\| ^8.0, ^3.4 and ^3 | lowest and highest |
 
     A runner release outside these ranges is added in a minor release, once
-    its contract suite passes. Infection is still 0.x, so each of its minor
+    its contract suite passes. Infection is 0.x, so each of its minor
     releases is treated as a potential break.
 
 ## Alternatives considered

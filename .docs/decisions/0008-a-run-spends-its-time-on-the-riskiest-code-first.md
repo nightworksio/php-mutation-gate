@@ -12,9 +12,9 @@ what it mutates.
   minutes, not the hour a full run takes. A run that stops early must spend
   those minutes where a survivor is most likely. What it did not get to must
   never read as passed.
-- **Timeouts.** The in-house gate's worst shard spent fifteen to thirty minutes
-  mostly on timeouts. Those were mutants of code every test runs through, whose
-  covering tests took nearly as long as the limit. A timeout there is not a test
+- **Timeouts.** The in-house gate's worst shard spends fifteen to thirty minutes
+  mostly on timeouts. Those are mutants of code every test runs through, whose
+  covering tests take nearly as long as the limit. A timeout there is not a test
   saying what broke. It is the clock running out.
 - **Flaky tests.** A test that sometimes fails kills mutants it did not detect,
   and a test that sometimes passes lets real survivors go. Either way the score
@@ -37,7 +37,8 @@ presets for Laravel, Symfony and plain libraries.
      none by default. Watch and pre-push set their own (ADR-0010).
    - **The order.** Units are ordered by risk. Ties go by path.
      1. Units with changed lines, whose mutants the new-code floor judges.
-     2. Units whose last result had a survived, unjudged or flaky mutant.
+     2. Units whose last recorded result has a survivor or a mutant too slow
+        to judge.
      3. Units never mutated.
      4. Units reached by a changed test or test support.
      5. Everything else, most recently changed first.
@@ -71,13 +72,13 @@ presets for Laravel, Symfony and plain libraries.
    comes from the coverage run: Pest's map, or the JUnit times of the covering
    test classes, which Infection sums the same way.
    - **Under half the limit.** Tests that normally finish quickly ran past the
-     limit with the mutant in place. The mutant broke something (a loop that no
-     longer ends, say), so it is **killed by timeout**. It counts as killed and
+     limit with the mutant in place. The mutant broke something (a loop that
+     never ends, say), so it is **killed by timeout**. It counts as killed and
      is reported under that name. Under Infection's own formula this holds for
      every timeout the configured cap did not decide.
    - **Half the limit or more.** The limit says nothing about this mutant, so it
-     is **unjudged: too slow to judge**. Infection's skipped mutants are always
-     here. The hint points at holding the path with a group (ADR-0005) or
+     is **too slow to judge**, and counts as not killed. Infection's skipped
+     mutants are always here. The hint points at holding the path with a group (ADR-0005) or
      raising `timeouts.seconds`.
    - **Retry (Infection only).** Before the rule is applied, each timed-out or
      skipped mutant that the configured cap decided is run once more with
@@ -88,8 +89,8 @@ presets for Laravel, Symfony and plain libraries.
      `timeouts.retries` mutants are retried per shard, an integer, 20 by
      default. Pest's limit cannot be raised, so Pest has no retry.
    - **The mode.** `timeouts.mode` is `confirm` by default, as described above,
-     or `unjudged`, which makes every timeout unjudged, for projects that want
-     no kill they cannot see.
+     or `unjudged`, which makes every timeout too slow to judge, for projects
+     that want no kill they cannot see.
 
    Triage reads the recorded status and the coverage run's times, so it is
    applied at verdict time, and a unit whose timeouts are too slow to judge is
@@ -184,7 +185,7 @@ presets for Laravel, Symfony and plain libraries.
 |--------|-------------|
 | **Count unjudged mutants as killed, or leave them out of the score** | Either way, a run that stopped early reads as better than it is. The approved rule is that unjudged mutants are reported and never passed. |
 | **Order individual mutants by risk** | Neither runner takes a mutant order. Per-unit batches are the finest order the gate controls. |
-| **Count every timeout as killed** (both runners' default) | Counts the clock running out as a test saying what broke, which is how the in-house gate's slowest shard filled with timeouts. |
+| **Count every timeout as killed** (both runners' default) | Counts the clock running out as a test saying what broke, which is how the in-house gate's slowest shard fills with timeouts. |
 | **Count every timeout as unjudged** | Loses real detections: a mutant that makes a loop run forever is caught by the timeout and by nothing else. Kept as the strict mode. |
 | **Retry every killed mutant to catch flaky kills** | Doubles the cost of every run to find a rare problem. Survivor confirmation is cheap. Flaky kills are hunted on demand with `triage`. |
 | **Native ignore markers, as the runners ship them** | No reason, no expiry, no staleness check, and different per runner. The config holds one list for every runner. |

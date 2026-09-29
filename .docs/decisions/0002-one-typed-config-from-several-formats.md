@@ -16,8 +16,7 @@ trying mutation-gate on an existing project should get a useful run from
 `composer require --dev` and one command. Someone adopting it for a team needs
 every setting written down, reviewed and validated.
 
-The maintainer asked for several formats rather than one ("can't we support
-different methods"). The approved set is:
+Several formats are approved rather than one:
 
 - a PHP builder, as the canonical format;
 - JSON, with a published JSON Schema;
@@ -183,8 +182,8 @@ cannot.
      declaring trees never adds them to the ones `phpunit.xml` or a preset
      found.
    - The command-line options that set config are `--runner=<name>`,
-     `--report=<name>:<path>` (repeatable, adding to `reports`),
-     `--changed-since=<ref>` (ADR-0005) and `--budget=<duration>` (ADR-0008).
+     `--report=<name>:<path>` (repeatable, adding to `reports`) and
+     `--budget=<duration>` (ADR-0008).
 
 6. **Validation reports everything at once, by path.** A config with three
    mistakes prints three errors, each with its path and what was expected:
@@ -206,10 +205,10 @@ cannot.
 
 | Option | Why it lost |
 |--------|-------------|
-| **PHP only** | Simplest, and it is what Rector and Pint's PHP configs do. The maintainer asked for more, and JSON with a schema is what editors and CI templates can read, check and write without running PHP. |
+| **PHP only** | Simplest, and it is what Rector and Pint's PHP configs do. The approved scope has more, and JSON with a schema is what editors and CI templates can read, check and write without running PHP. |
 | **Each format with its own loader producing `Config` directly** | Four implementations of every rule, and a setting drifts in one of them. One tree and one validator make the formats equivalent by construction. |
 | **A hand-written JSON Schema as the source of truth** | The schema cannot express every rule (a tree path that exists, an expiry within `ignores.maxDays`), so the validator would still be needed, and the two would drift. Generating the schema from the validator's definitions keeps one source. |
-| **`mutation.php` (and `mutation.json`, …)**, as the feature list words it | A generic name a project may already use for something else, as the in-house gate's own script does. `mutation-gate.*` matches the package and the binary, and cannot be mistaken for another tool's file. |
+| **`mutation.php` (and `mutation.json`, …)** | A generic name a project may already use for something else, as the in-house gate's own script does. `mutation-gate.*` matches the package and the binary, and cannot be mistaken for another tool's file. |
 | **Precedence when several config files exist** (as `phpunit.xml` over `phpunit.xml.dist`) | Invites a forgotten local file that silently wins. The gate is a CI decision, and one file is one answer. |
 | **Silently ignoring unknown keys** | The most common config mistake is a typo, and ignoring it makes a stricter setting quietly not apply. |
 | **Floors only in each package's `composer.json` `extra`** (the in-house gate's way) | Kept as a tree source for monorepos (ADR-0005), not as the only way: a single-package project should not need to edit `composer.json` to set a floor, and the baseline file carries floors that rise (ADR-0003). |

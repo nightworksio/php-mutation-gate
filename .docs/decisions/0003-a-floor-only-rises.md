@@ -37,8 +37,9 @@ itself, and goes up with the tests.
    | survived, uncovered, unjudged, flaky; timed out or skipped and too slow to judge (ADR-0008) | not killed |
    | ignored, with a reason (ADR-0008) | left out |
 
-   **Score = killed ÷ (all mutants − ignored) × 100, truncated to two
-   decimals.** A set with nothing left to count has no score: no mutants, or
+   **Score = killed ÷ (all mutants − ignored − excluded uncovered) × 100,
+   truncated to two decimals**, where uncovered mutants are excluded only under
+   `uncovered: exclude`. A set with nothing left to count has no score: no mutants, or
    every mutant ignored. It passes, and the report says *nothing to mutate*
    rather than showing 100%. "No mutants" and "every mutant killed" must never
    print the same way.
@@ -92,7 +93,8 @@ itself, and goes up with the tests.
    package's trees, keyed by their path from the root (ADR-0005).
 
 4. **A tree is judged whole.** Its score is taken over every unit in it (a unit
-   is a file, ADR-0005). Each unit's result comes from one of three places:
+   is a file or a held path, ADR-0005). Each unit's result comes from one of
+   three places:
    - this run;
    - a proof in the ledger whose key still matches (ADR-0007);
    - in a change-scoped run, for a unit the change does not reach (ADR-0005),
@@ -136,7 +138,7 @@ itself, and goes up with the tests.
    `"lowered": {"from": …, "reason": "…"}` on that tree. The gate reads the base
    branch's file through `ChangeSource` (ADR-0001) and fails otherwise. The
    `lowered` entry is dropped the next time the floor is raised. A tree may
-   leave the file only when it no longer exists.
+   leave the file only when its path is gone.
 
 8. **New code has a floor of its own, 100 by default.** In a pull-request run,
    and in pre-push and watch mode (ADR-0010), one more set is judged: the
@@ -156,8 +158,9 @@ itself, and goes up with the tests.
    variable is set, as every supported CI sets it) stops with exit code 2 and
    says: run `mutation-gate baseline --write` and commit it. A local full run
    writes the missing entries at the measured score and says to commit them.
-   There is deliberately no default floor, as in the in-house gate: a tree that
-   inherits a default is exempt from the decision rather than held to it.
+   There is deliberately no default floor, like the in-house gate, which has
+   none: a tree that inherits a default is exempt from the decision rather than
+   held to it.
 
 ## Alternatives considered
 

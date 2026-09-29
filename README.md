@@ -54,7 +54,7 @@ composer require --dev nightworksio/mutation-gate
 
 Requirements:
 
-- PHP 8.5 or later, with pcov or Xdebug for coverage.
+- PHP 8.5 or a later 8.x, with pcov or Xdebug for coverage.
 - One of the two runners:
   - **Pest**: `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0, on
     the PHPUnit 13 release Pest pins;
@@ -106,7 +106,7 @@ to write one.
 | `verdict --plan=<file> --results=<dir>` | Merge every shard's results, judge the floors, write reports and the ledger |
 | `baseline [--write]` | Show, or write, floors raised to what was measured |
 | `reproduce <id>` | Run one mutant again and show why it survives |
-| `triage <path> [--repeat=<n>]` | Run a file n times (5 by default) and list every mutant whose result varied |
+| `triage <path> [--repeat=<n>]` | Run a unit n times (5 by default) and list every mutant whose result varied |
 | `watch` | Re-judge what each save reaches |
 | `pre-push` | Judge the commits being pushed, as CI will |
 | `hook install` / `hook uninstall` | Add or remove the pre-push hook |
@@ -126,7 +126,7 @@ Options:
 | `--budget=<duration>` | `run` | Stop after this long, riskiest code first | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `--coverage=<dir>` | `plan`, `run` without a plan | Read the coverage an earlier job wrote instead of running the suite | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--ci=<name>` | `plan`, `run` | Use this CI's plan format instead of the detected one | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
-| `--shards=<n>` | `plan` | Cut exactly n shards | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `--shards=<n>` | `plan`, `run` without a plan | Cut exactly n shards | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--plan=<file>`, `--shard=<id>`, `--results=<dir>` | `run`, `verdict` | The plan, the shard and the results directory | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--publish-dir=<dir>` | `verdict`, `run` without a plan | Where the badge and trend are written, `.mutation-gate/publish` by default | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 
@@ -310,10 +310,10 @@ Environment variables the gate reads:
 
 | Variable | What it does | Decided in |
 |----------|--------------|------------|
-| `CI` | Set: a tree with no floor stops the run, and the badge and trend are written | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `CI` | Set: a tree with no floor stops the run, and on the default branch the badge and trend are written | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI` | Choose the CI plan, and under GitHub Actions the annotations and step summary | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `SHARD`, `CI_NODE_INDEX`, `CI_NODE_TOTAL`, `BUILDKITE_PARALLEL_JOB`, `BUILDKITE_PARALLEL_JOB_COUNT`, `CIRCLE_NODE_INDEX`, `CIRCLE_NODE_TOTAL`, `CI_JOB_NAME`, `PARENT_PIPELINE_ID` | Which shard a job is, and how GitLab's child pipeline finds the plan | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
-| `GITHUB_TOKEN` | Lets the sticky PR comment be posted | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `GITHUB_TOKEN` | Lets the sticky PR comment be posted, and the GitHub change source prove which pull request's run passed | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | Credentials for the S3 proof store | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 
 Files the gate reads and writes:
@@ -470,8 +470,8 @@ Here is what the examples rely on:
 
 - **Branch protection** should require the verdict's check. In the one-step
   example it is `mutation testing`. With the reusable workflow it is the
-  `verdict` job, shown as `mutation / verdict`. The verdict fails when any
-  planned shard left no result.
+  `verdict` job, shown as `mutation / verdict`. The verdict says *cannot
+  judge* (exit code 2) when any planned shard left no result.
 - **The schedule** is the weekly full run.
 - **The badge and trend** are published to a `mutation-gate` branch:
 

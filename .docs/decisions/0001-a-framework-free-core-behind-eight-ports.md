@@ -33,15 +33,18 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
 
 ## Decision
 
-1. **Six layers, each in its own namespace under `NightWorksIO\MutationGate`,
-   in this order: `Core`, `Port`, `Config`, `Extension`, `Adapter\<Name>`,
-   `Cli`.** A layer names only itself and the layers before it.
+1. **Seven layers, each in its own namespace under `NightWorksIO\MutationGate`,
+   in this order: `Core`, `Attribute`, `Port`, `Config`, `Extension`,
+   `Adapter\<Name>`, `Cli`.** A layer names only itself and the layers before
+   it.
    - **`Core`** decides. It holds the values: trees, units, mutants, reach,
      plans, shards, proofs and verdicts. It also holds the steps that turn one
      into the next: *plan*, *run a shard* and *judge*. It performs no I/O. It
      does not read a file, start a process, open a socket, read the clock or
      draw a random number. It is handed everything it reads as a value, and
      everything it produces is a value.
+   - **`Attribute`** holds `#[Holds]` (ADR-0005). It names nothing, and nothing
+     in `src` names it, because the gate reads it from tokens. It is public API.
    - **`Port`** holds the eight interfaces through which the gate asks the
      outside world, and nothing else. They are public API.
    - **`Config`** is the PHP builder of ADR-0002. It is public API.
@@ -63,7 +66,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    | Port | Answers | First adapters |
    |------|---------|----------------|
    | `Runner` | Its identity and versions, the suite's groups, a per-test coverage map, which tests can judge a file, and every mutant's result for a run over some files judged by some tests | Pest, Infection (ADR-0004) |
-   | `TreeSource` | Which trees exist, the floor each one declares, and which package each belongs to | `phpunit.xml` `<source>`, Composer autoload, monorepo manifests (ADR-0002, ADR-0005) |
+   | `TreeSource` | Which trees exist, the floor each one declares, and which package each belongs to | `phpunit` (`phpunit.xml` `<source>`) and `composer` (autoload paths), each reading declared floors from manifests (ADR-0002, ADR-0005) |
    | `CostModel` | What a unit costs a runner in seconds, and what a finished shard teaches it | Learned timings, lines × seconds per line (ADR-0006) |
    | `ProofStore` | The ledgers of proved results this run may read, and where to write the new one | Directory, S3-compatible (ADR-0007) |
    | `CiPlan` | A plan in a CI's own format, and which shard this job is | GitHub, GitLab, Buildkite, CircleCI, JSON (ADR-0006) |
@@ -73,7 +76,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
 
    Time is read through PSR-20's `Psr\Clock\ClockInterface`, a standard
    interface rather than a ninth port. `Psr\Clock` is the only package outside
-   PHP that `Core`, `Port`, `Config` and `Extension` may name.
+   PHP that `Core`, `Attribute`, `Port`, `Config` and `Extension` may name.
 
 3. **The seed's seams map onto the ports, and do not survive as names.**
 
@@ -132,16 +135,16 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
 5. **The arch tests that hold the boundary.** Each of the following is a Pest
    arch test or a PHPStan rule, listed in `ARCHITECTURE.md` beside what enforces
    it (ADR-0011):
-   - `Core`, `Port`, `Config` and `Extension` name nothing outside the package
-     but PHP and `Psr\Clock`.
+   - `Core`, `Attribute`, `Port`, `Config` and `Extension` name nothing outside
+     the package but PHP and `Psr\Clock`.
    - A layer names only itself and the layers before it.
    - The filesystem, the standard streams, processes, the network, the
      environment, the system clock and waiting belong to adapters and `Cli`.
      Nothing in `src` draws a random number. The spaze disallowed-calls lists
      enforce these, scoped by path.
    - `Port` holds interfaces only, and no port method answers `void`.
-   - The API surface is every class in `Port`, `Config` and `Extension`, and
-     every `Core` type their public signatures reach. On it, no signature takes
+   - The API surface is every class in `Attribute`, `Port`, `Config` and
+     `Extension`, and every `Core` type their public signatures reach. On it, no signature takes
      or returns `null`, an array or `mixed`, and a bare string, int or float is
      taken only by a named constructor.
    - An `Adapter\<Name>` uses no other `Adapter\*`.
@@ -163,7 +166,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
 | Option | Why it lost |
 |--------|-------------|
 | **Keep one script, made configurable** | This is the in-house gate's shape. Every new runner, CI or store becomes a branch inside the code that decides, and the planning, reach and proof logic stays untestable without a real repository, a real Pest and a real CI. |
-| **Pest and Infection adapters as separate packages** (`mutation-gate-pest`, `mutation-gate-infection`) | The approved scope ships both in v1, and a user would install two packages to use one. Splitting adds a version matrix between core and adapters before anyone needs it. They ship in the package, registered through the same discovery a third-party adapter uses, so splitting them later changes no interface. |
+| **Pest and Infection adapters as separate packages** (`mutation-gate-pest`, `mutation-gate-infection`) | The approved scope ships both in v1, and a user would install two packages to use one. Splitting adds a version matrix between core and adapters before anyone needs it. They ship in the package, registered through the same discovery a third-party adapter uses, so splitting them changes no interface. |
 | **A Composer plugin that writes a generated registry at install time** (the approach of `phpstan/extension-installer`) | Needs an `allow-plugins` entry in every consuming project, and the registry goes stale when the plugin is not allowed to run. Reading `installed.json` at startup costs one JSON decode. |
 | **Discovery by scanning for classes that implement `Extension`** | Loads every class in `vendor` to find a handful, and an extension is enabled merely by being autoloadable, where naming it in `composer.json` is a declaration. |
 | **A ninth port for the clock** | Time is needed for ignore expiry and the time budget, and PSR-20 already is that interface. A port of our own would add a type every adapter author has to learn. |

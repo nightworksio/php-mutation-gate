@@ -78,9 +78,12 @@ The pieces already exist in the design:
    script can call it instead.
 
 4. **Local runs share CI's code paths.** `watch` and `pre-push` are the same
-   plan, run and verdict steps (ADR-0006), in one process, with the directory
-   proof store and the console reporter. There is no local-only logic that could
-   disagree with CI.
+   plan, run and verdict steps (ADR-0006), in one process, with the console
+   reporter and the directory proof store: at `proofs.store`'s path when the
+   config's store is `directory`, and at `.mutation-gate/ledger` otherwise.
+   The one local-only rule is pre-push's: it also blocks on an unjudged mutant,
+   which CI counts as not killed, so a push the hook lets through has had every
+   mutant the change reaches judged.
 
 ## Alternatives considered
 
