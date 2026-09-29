@@ -376,7 +376,7 @@ final readonly class Fixtures
                 })->only();
                 PHP, 'commits no focused test and no unexplained skip'),
             Fixture::notDrivable('G7', 'A floor is a number over the whole run, so no one snippet breaks it; `pest --coverage --min=100` fails the CI run below it.'),
-            Fixture::notDrivable('G8', 'A floor is a number over the whole run, so no one snippet breaks it; the mutation gate fails the CI run below it.'),
+            Fixture::notDrivable('G8', 'A floor is a number over the whole run, so no one snippet breaks it; `pest --mutate --everything --min=100` fails the CI run below it.'),
             Fixture::edit('G9', 'phpunit.xml', 'failOnWarning="true"', 'failOnWarning="false"', 'fails the run on every diagnostic', 'failOnWarning is not'),
         ];
     }

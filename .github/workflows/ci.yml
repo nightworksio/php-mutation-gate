@@ -1,0 +1,349 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A pull request pushed again cancels the run on its old head, which nobody will
+# read. Every other event is grouped by its own run, so it is never cancelled
+# and never cancels.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: '8.5'
+
+# The fast PHP gates share one job and one install. The slow ones (the planted
+# rules, coverage, the lowest dependencies and mutation) each have their own,
+# and mutation waits for the tests: mutating code whose tests already fail
+# measures nothing.
+
+jobs:
+  # Which of the PHP gates are worth running at all. A documentation change
+  # starts none of them, and asking costs one checkout.
+  scope:
+    name: what changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: diff
+        env:
+          # A pull request is measured against its base, and a push to main
+          # against the commit before it.
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          # No base to compare against means every gate runs.
+          if [ -z "${BASE}" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "No usable base commit, so every gate runs."
+            exit 0
+          fi
+          changed="$(git diff --name-only "${BASE}" HEAD)"
+          # Anything that is not documentation is code, so a new kind of file
+          # runs the gates. ARCHITECTURE.md is the rule tables the Guards suite
+          # plants a violation of each of, so it is code here. Under .github/,
+          # only this file runs a PHP gate.
+          code=false
+          while IFS= read -r path; do
+            case "${path}" in
+            ARCHITECTURE.md | .github/workflows/ci.yml) code=true ;;
+            '' | .docs/* | *.md | LICENSE | .github/*) continue ;;
+            *) code=true ;;
+            esac
+          done <<< "${changed}"
+          echo "code=${code}" >> "$GITHUB_OUTPUT"
+          if [ "${code}" = false ]; then
+            echo "Documentation only; the PHP gates are skipped."
+          fi
+
+  # The record of every commit a pull request brings: a human signed it off,
+  # no tool is credited for it, and its subject is conventional. Each reads the
+  # pull request's base..head, so none runs on a push to main.
+  dco:
+    name: dco
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 .github/scripts/dco_check.py "${BASE_SHA}" "${HEAD_SHA}"
+
+  attribution:
+    name: attribution
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # The body as well as the commits, because a squash merge writes the pull
+      # request's title and body into the commit that lands on main.
+      - env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s\n\n%s\n' "${PR_TITLE}" "${PR_BODY}" \
+            | python3 .github/scripts/attribution_check.py "${BASE_SHA}" "${HEAD_SHA}" --body-on-stdin
+
+  commitlint:
+    name: commitlint
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: python3 .github/scripts/commit_lint.py "${BASE_SHA}" "${HEAD_SHA}" --title "${PR_TITLE}"
+
+  # Workflow lint, spelling, links and Markdown, over every change.
+  hygiene:
+    uses: ./.github/workflows/hygiene.yml
+
+  # Secrets in the history, and known vulnerabilities in what the lock file
+  # installs.
+  security:
+    uses: ./.github/workflows/security.yml
+
+  # R1 — the rules, before anything slower gets a chance to hide a broken
+  # boundary. The Arch suite reads ARCHITECTURE.md against the code, so it runs
+  # on every change, documentation included.
+  rules:
+    name: rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - run: vendor/bin/pest --testsuite=Arch
+
+  # Every rule refuses a violation of itself, planted in a copy of the checkout
+  # under the runner's temporary directory, never in the checkout itself.
+  #
+  # Each PHP gate below runs where `scope` says code changed, and also where
+  # `scope` itself did not succeed: a checkout that broke leaves no output, and
+  # no output is not a "no".
+  guards:
+    name: the rules refuse violations
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - run: composer test:guards
+
+  # The package's metadata, formatting, static analysis, dead idioms and
+  # dependency hygiene. One install, one PHP, no coverage driver.
+  checks:
+    name: checks
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .phpstan-cache
+            .rector-cache
+          key: analysis-${{ runner.os }}-${{ github.sha }}
+          restore-keys: analysis-${{ runner.os }}-
+      # Cheapest first, so a misplaced brace fails in seconds rather than after
+      # the analyser has walked the tree.
+      - run: composer validate --strict
+      - run: composer normalize --dry-run
+      - run: composer audit
+      - run: composer lint
+      - run: composer analyse
+      - run: composer refactor
+      - run: composer deps
+
+  # G7 — every line of src covered, by scripts/coverage.sh. The clover and
+  # JUnit reports it writes are what `sonar` hands SonarCloud, so the suite runs
+  # once for both. It runs on pushes to main as well, because `sonar` analyses
+  # main from its report.
+  tests:
+    name: tests and coverage
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - run: composer test:report
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-report
+          path: |
+            coverage/clover.xml
+            coverage/junit.xml
+          if-no-files-found: error
+          retention-days: 1
+
+  # The suite against the oldest release of every dependency the constraints in
+  # composer.json admit, so a lower bound that no longer works is found here
+  # rather than by whoever installs it.
+  lowest:
+    name: lowest dependencies
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      # `lowest` is `composer update --prefer-lowest --prefer-stable`.
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        with:
+          dependency-versions: lowest
+      - run: composer test
+
+  # G8 — every mutant of src is killed. Pest's own mutation run at a floor of
+  # 100, over every file of src whether a test reaches it or not, so an
+  # uncovered mutant counts against the score. Once the gate has a binary this
+  # job becomes the package's reusable workflow with the same id and name:
+  #
+  #   mutation:
+  #     name: mutation testing
+  #     uses: ./.github/workflows/mutation-gate.yml
+  mutation:
+    name: mutation testing
+    needs: [scope, tests]
+    if: ${{ !cancelled() && needs.tests.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      # While src holds no PHP file there is nothing to mutate, and PHPUnit
+      # refuses to process coverage for an empty source. Once it holds one, a
+      # run that generates no mutant scores 0 and fails the floor.
+      - run: |
+          set -euo pipefail
+          if [ -z "$(find src -name '*.php' -print -quit)" ]; then
+            echo "src holds no PHP file, so there is nothing to mutate."
+            exit 0
+          fi
+          vendor/bin/pest --mutate --everything --parallel --min=100 --exclude-testsuite=Guards
+
+  # SonarCloud, fed the reports `tests` wrote rather than running the suite a
+  # second time. A pull request from a fork or from Dependabot is given no
+  # SONAR_TOKEN, so there is nothing to scan with and the job is skipped.
+  sonar:
+    name: sonarcloud
+    needs: tests
+    if: ${{ !cancelled() && needs.tests.result == 'success' && (github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # SonarCloud reads history to attribute an issue to the change that
+          # introduced it, which is what makes "new code" a usable gate.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-report
+          path: coverage
+      # `sonar.qualitygate.wait` holds the step until SonarCloud has processed
+      # the analysis, so the counts `gate` reads are this commit's.
+      - uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8.2.2
+        with:
+          args: -Dsonar.qualitygate.wait=true
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # Zero issues, which SonarCloud's free quality gate cannot express: a green
+  # quality gate is not a clean project. This asks for both numbers — the issues
+  # this pull request brings, and the issues open against main — and refuses
+  # either above zero.
+  #
+  # `!cancelled()` rather than `needs` alone, which would make this job vanish
+  # when the scan fails. It runs, says why there is nothing to read, and fails.
+  gate:
+    name: gate
+    needs: [tests, sonar]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SCAN: ${{ needs.sonar.result }}
+          TESTS: ${{ needs.tests.result }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        run: bash .github/scripts/sonar_gate.sh

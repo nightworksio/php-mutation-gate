@@ -1,0 +1,41 @@
+# OpenSSF Scorecard: the repository's supply-chain posture, published so anyone
+# can read it without being trusted with anything.
+name: scorecard
+
+on:
+  workflow_dispatch:
+  # A change to the branch protection is a change to the posture.
+  branch_protection_rule:
+  schedule:
+    - cron: "0 6 * * 1"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  analysis:
+    name: scorecard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # Writing the SARIF back puts the findings in the security tab.
+      security-events: write
+      # Scorecard signs its result, so the published entry traces to this run.
+      id-token: write
+      contents: read
+      # Reading the workflow runs is how it judges the pipeline itself.
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v3
+        with:
+          sarif_file: results.sarif
