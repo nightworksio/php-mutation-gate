@@ -1,0 +1,237 @@
+# ADR-0002: One typed Config, read from PHP, JSON, YAML or NEON, and none needed to start
+
+**Status:** Accepted
+**Date:** 2026-09-29
+
+## Context
+
+The in-house gate has no config file. Its trees come from `phpunit.xml` through
+a test-support class. Each floor comes from the Composer manifest nearest its
+tree, under a key in `extra`. What "decides how the gate runs" is a regular
+expression inside the script. That works for one repository and for nobody
+else.
+
+A public package needs a config, and it needs to start without one. Someone
+trying mutation-gate on an existing project should get a useful run from
+`composer require --dev` and one command. Someone adopting it for a team needs
+every setting written down, reviewed and validated.
+
+The maintainer asked for several formats rather than one ("can't we support
+different methods"). The approved set is:
+
+- a PHP builder, as the canonical format;
+- JSON, with a published JSON Schema;
+- YAML, when `symfony/yaml` is installed;
+- NEON, when `nette/neon` is installed.
+
+All four produce one typed `Config`. Non-PHP formats name extensions by class
+string. The risk of several formats is several meanings: a setting that means
+one thing in PHP and another in YAML, or that one format can express and another
+cannot.
+
+## Decision
+
+1. **One meaning, reached one way.** Each `ConfigLoader` (ADR-0001) reads its
+   file into the same untyped tree of maps, lists and scalars. One validator
+   turns that tree into the typed, immutable `Config`. The PHP builder is no
+   exception: its methods are typed for the person writing it, and underneath
+   they write the same tree, which goes through the same validator. So any
+   config converts to any other, and `mutation-gate config:show` prints the
+   effective config of a project whatever format it is written in. Config is
+   data. A closure or an object other than the builder's own values is refused.
+   Code that has to run belongs in an extension (ADR-0001).
+
+2. **Where the config is found.**
+   - `--config=<path>`, accepted by every command, names it.
+   - Otherwise the gate looks in the working directory for `mutation-gate.php`,
+     `mutation-gate.json`, `mutation-gate.yaml`, `mutation-gate.yml` and
+     `mutation-gate.neon`.
+   - Two of them present is an error (exit code 2), not a precedence rule,
+     because a second file somebody forgot is a second answer nobody reads.
+   - None present is zero-config (decision 5).
+
+   `mutation-gate init --format=php|json|yaml|neon` (default `php`) writes a
+   starting file holding exactly what zero-config found, so adopting a file
+   changes nothing until somebody edits it. It also adds `.mutation-gate/` to
+   `.gitignore`. `mutation-gate config:show --format=php|json|yaml|neon`
+   (default `json`) prints the effective config in any of the four formats.
+
+3. **The four formats.**
+   - **PHP** (canonical, and the one the documentation leads with). The file
+     returns the builder:
+
+     ```php
+     <?php
+
+     declare(strict_types=1);
+
+     use NightWorksIO\MutationGate\Config\Floor;
+     use NightWorksIO\MutationGate\Config\Gate;
+     use NightWorksIO\MutationGate\Config\Ignore;
+     use NightWorksIO\MutationGate\Config\Preset;
+     use NightWorksIO\MutationGate\Config\Report;
+     use NightWorksIO\MutationGate\Config\Runner;
+     use NightWorksIO\MutationGate\Config\Tree;
+
+     return Gate::configure()
+         ->preset(Preset::laravel())
+         ->runner(Runner::pest())
+         ->trees(
+             Tree::at('app/Domain', floor: 100),
+             Tree::at('app/Http', floor: 80),
+         )
+         ->newCode(Floor::of(100))
+         ->ignoring(
+             Ignore::mutant('3f9a1c2b7d04', because: 'Both branches build the same list', until: '2027-03-31'),
+         )
+         ->reporting(Report::sarif('build/mutation.sarif'), Report::html('build/mutation'));
+     ```
+
+     Primitives appear only in named constructors (`Tree::at`, `Floor::of`), as
+     the conventions ask of a public API (ADR-0011).
+   - **JSON**. The schema ships in the package at
+     `resources/mutation-gate.schema.json` and is published at
+     `https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v1/resources/mutation-gate.schema.json`,
+     so an editor completes and checks the file. The validator accepts the
+     `$schema` key and ignores its value:
+
+     ```json
+     {
+         "$schema": "vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json",
+         "preset": "laravel",
+         "runner": "pest",
+         "trees": [
+             { "path": "app/Domain", "floor": 100 },
+             { "path": "app/Http", "floor": 80 }
+         ],
+         "newCode": { "floor": 100 },
+         "ignores": {
+             "entries": [
+                 { "mutant": "3f9a1c2b7d04", "reason": "Both branches build the same list", "expires": "2027-03-31" }
+             ]
+         },
+         "reports": [
+             { "use": "sarif", "path": "build/mutation.sarif" },
+             { "use": "html", "path": "build/mutation" }
+         ]
+     }
+     ```
+
+   - **YAML**, read with `symfony/yaml`, and **NEON**, read with `nette/neon`.
+     - Both are in `suggest`, not `require`. Their loaders are registered only
+       when the library is installed. A `mutation-gate.yaml` without
+       `symfony/yaml` stops the run with exit code 2 and prints the
+       `composer require --dev symfony/yaml` that fixes it.
+     - **Dates need no quotes.** The YAML loader parses with
+       `Yaml::PARSE_DATETIME`, and NEON reads a date as a date by itself. Each
+       loader turns such a value back into the `YYYY-MM-DD` string the
+       validator expects.
+     - **Mutant ids are always quoted.** Both parsers read an unquoted id such
+       as `12e456789012` as a number. The validator refuses a mutant id that is
+       not a string, and its message says to quote it.
+
+4. **How a setting names an adapter or an extension.** Wherever a setting
+   chooses an adapter (the `runner`, the `treeSource`, the proof store
+   `proofs.store`, the CI plan `ci.plan`, a `reports` entry, or a `preset`),
+   the value is either a name an extension registered (`"pest"`, `"sarif"`)
+   or a class string with its options:
+
+   ```json
+   {
+       "extensions": ["Acme\\GateSlack\\SlackExtension"],
+       "reports": [
+           { "use": "Acme\\GateSlack\\SlackReporter", "with": { "channel": "#ci" } }
+       ]
+   }
+   ```
+
+   - The object form is `{"use": <name or class>, "with": <options>}`. A
+     `reports` entry is always an object, and it also carries `path`, where a
+     file report is written (ADR-0009).
+   - `extensions` lists extension classes to load in addition to those found
+     through Composer (ADR-0001). It is a list of class strings, empty by
+     default.
+   - A class named in `use` implements the port and
+     `NightWorksIO\MutationGate\Extension\Configurable`, whose one method is a
+     named constructor from a validated `Options` value. The class validates
+     its own options and returns its errors as an outcome, and they are
+     reported with the same path prefix as the gate's own
+     (`reports[0].with.channel`).
+   - The schema leaves `with` open for a class string, because it cannot know a
+     third party's options, and checks it strictly for every built-in name.
+
+5. **Zero-config: what the gate assumes when no file exists.**
+
+   | Setting | Default |
+   |---------|---------|
+   | Preset | `laravel` when `composer.json` requires `laravel/framework`, `symfony` when it requires `symfony/framework-bundle`, otherwise `library` (ADR-0008) |
+   | Runner | Pest when `pestphp/pest-plugin-mutate` is installed, Infection when `infection/infection` is. Both installed stops the run and asks the config to choose. |
+   | Trees | The `phpunit` tree source: one tree per `<directory>` and `<file>` under `<source><include>` in the `phpunit.xml` PHPUnit itself would read (`phpunit.xml`, else `phpunit.xml.dist`), minus `<source><exclude>`. Without a `<source>`, the preset's trees (ADR-0008); for `library` that is one tree per `autoload` path in `composer.json`, not `autoload-dev`. No tree at all is exit code 2. |
+   | Test directories | The `<directory>` entries under `<testsuites>` in the same file |
+   | Floors | Each tree's declared floor from the nearest manifest, and its baseline floor (ADR-0003, ADR-0005); new code at 100 |
+   | Proof store | A directory, `.mutation-gate/ledger`; in the GitHub Action, that directory kept in the Actions cache (ADR-0007) |
+   | CI plan | Detected from `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE` or `CIRCLECI`, otherwise JSON (ADR-0006) |
+   | Reports | The console, plus what the environment offers: annotations and the step summary under GitHub Actions, and the sticky PR comment on a pull request with a token (ADR-0009) |
+
+   Settings resolve in this order, later winning: zero-config defaults, then
+   presets (`preset` takes one name or a list, applied in order), then the
+   config file, then command-line options.
+   - When two layers set the same key, maps merge by key, and a scalar from the
+     later layer replaces the earlier one.
+   - Lists concatenate, and an entry equal to an earlier one is dropped.
+   - `trees` is the exception: a layer that sets it replaces the list whole, so
+     declaring trees never adds them to the ones `phpunit.xml` or a preset
+     found.
+   - The command-line options that set config are `--runner=<name>`,
+     `--report=<name>:<path>` (repeatable, adding to `reports`),
+     `--changed-since=<ref>` (ADR-0005) and `--budget=<duration>` (ADR-0008).
+
+6. **Validation reports everything at once, by path.** A config with three
+   mistakes prints three errors, each with its path and what was expected:
+   `trees[1].floor: expected a number from 0 to 100, got "80"`. Types are
+   strict, so a string is not a number. An unknown key is an error and suggests
+   the nearest known one (`newcode` → `newCode`), because a misspelt key that is
+   silently ignored is a setting that silently does nothing. Durations are
+   written `90s`, `15m` or `1h30m`. Dates are `YYYY-MM-DD`. Paths are relative
+   to the config file, or to the working directory when there is none. The
+   README's configuration reference lists every key
+   with its type, its default and the ADR that decides it.
+
+7. **The schema is generated, not written.** `mutation-gate config:schema`
+   prints JSON Schema (draft 2020-12) from the same definitions the validator
+   uses. The committed `resources/mutation-gate.schema.json` must equal that
+   output, and a test fails when the two differ.
+
+## Alternatives considered
+
+| Option | Why it lost |
+|--------|-------------|
+| **PHP only** | Simplest, and it is what Rector and Pint's PHP configs do. The maintainer asked for more, and JSON with a schema is what editors and CI templates can read, check and write without running PHP. |
+| **Each format with its own loader producing `Config` directly** | Four implementations of every rule, and a setting drifts in one of them. One tree and one validator make the formats equivalent by construction. |
+| **A hand-written JSON Schema as the source of truth** | The schema cannot express every rule (a tree path that exists, an expiry within `ignores.maxDays`), so the validator would still be needed, and the two would drift. Generating the schema from the validator's definitions keeps one source. |
+| **`mutation.php` (and `mutation.json`, …)**, as the feature list words it | A generic name a project may already use for something else, as the in-house gate's own script does. `mutation-gate.*` matches the package and the binary, and cannot be mistaken for another tool's file. |
+| **Precedence when several config files exist** (as `phpunit.xml` over `phpunit.xml.dist`) | Invites a forgotten local file that silently wins. The gate is a CI decision, and one file is one answer. |
+| **Silently ignoring unknown keys** | The most common config mistake is a typo, and ignoring it makes a stricter setting quietly not apply. |
+| **Floors only in each package's `composer.json` `extra`** (the in-house gate's way) | Kept as a tree source for monorepos (ADR-0005), not as the only way: a single-package project should not need to edit `composer.json` to set a floor, and the baseline file carries floors that rise (ADR-0003). |
+| **Callables in the PHP config** (a closure deciding what reaches what) | Cannot be converted to JSON, cannot be part of the proof key (ADR-0007) and cannot be shown by `config:show`. An extension is the place for code. |
+
+## Consequences
+
+**A first run needs no file.** `vendor/bin/mutation-gate` in a project with a
+`phpunit.xml` `<source>` and Pest installed plans, runs and reports.
+
+**Every format can say everything.** A setting added to the builder is in the
+tree, the validator and the generated schema at once, and the test that compares
+the committed schema fails until it is regenerated.
+
+**YAML and NEON cost nothing unless used.** The package's `require` stays small.
+
+**Extension authors validate their own options.** Their errors read like the
+gate's own.
+
+## Related
+
+- [ADR-0001](0001-a-framework-free-core-behind-eight-ports.md): the ConfigLoader port and extension discovery
+- [ADR-0003](0003-a-floor-only-rises.md): the baseline that zero-config floors come from
+- [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): monorepo tree sources
+- [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): presets
