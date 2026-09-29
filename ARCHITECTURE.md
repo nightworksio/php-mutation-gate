@@ -28,10 +28,10 @@ phpstan/Rules/ this repository's own analyser rules.
 tests/
   Arch/        the rules in this document that the suite enforces.
   Unit/        one test file per source file, mirroring src.
-  Contract/    one suite per port, run against its fake and every adapter.
+  Contract/    one directory per port: its suite, run against its fake and every adapter.
   Fakes/       a hand-written fake of every port.
   Guards/      the planted violation of every rule.
-  Support/     what the Arch suite and the guards read the tree with.
+  Support/     what the Arch suite and the guards read the tree with, and what other tests share.
 ```
 
 The layers are ordered: Core, Port, Config, Extension, Adapter, Cli. A layer
@@ -68,7 +68,7 @@ without a repository, a runner or a CI.
 | Rule | Says | Enforced by |
 |---|---|---|
 | **C1** | A port answers with a value or an outcome, never with nothing | arch: no port method answers `void` |
-| **C2** | No `null` crosses the public API, in either direction | arch: every public method of the API surface |
+| **C2** | No `null` crosses the public API, in either direction, and no type in the core is nullable | arch: every public method of the API surface, and every method and property in the core |
 | **C3** | Every thrown exception is the package's own | phpstan `disallowed-calls` on the bare exceptions' constructors |
 | **C4** | No `@` suppression | phpstan: ergebnis `NoErrorSuppressionRule` |
 | **C5** | `match`, never `switch`; and no `else` | phpstan: ergebnis `NoSwitchRule` + `disallowedControlStructures` |
@@ -117,7 +117,7 @@ type their public signatures reach (ADR-0001).
 | Rule | Says | Enforced by |
 |---|---|---|
 | **P1** | No `__get`, `__set`, `__isset`, `__unset`, `__call` or `__callStatic` | phpstan: own rule |
-| **P2** | No variable variable and no dynamic class, method or property name | phpstan: own rule |
+| **P2** | No variable variable and no dynamic class, method or property name, but for the one file that constructs the extension classes Composer names | phpstan: own rule, with that file named in `phpstan.neon` |
 | **P3** | No `func_get_args()`, no `#[AllowDynamicProperties]` | phpstan `disallowed-calls` |
 | **P4** | No reflection in `src` | phpstan `disallowed-calls`, scoped by path |
 | **Q1** | Nothing reconfigures the runtime: `ini_set`, `setlocale`, error handlers | phpstan `disallowed-calls` |
@@ -140,7 +140,7 @@ osv-scanner, which read the repository rather than the code.
 | Rule | Says | Enforced by |
 |---|---|---|
 | **G1** | No mocking library; every port has a hand-written fake | arch: over the text of every test |
-| **G2** | Every port has a fake in `tests/Fakes` and one contract suite in `tests/Contract`, run against the fake and every adapter | arch: every interface under `src/Port` |
+| **G2** | Every port has a fake in `tests/Fakes` and one contract suite in `tests/Contract/<Port>`, run against the fake and every adapter | arch: every interface under `src/Port` |
 | **G4** | No dev dependency is reachable from `src`, and every dependency is used | `composer-dependency-analyser` |
 | **G5** | One assertion idiom: Pest's `expect()`, never PHPUnit's `assert*` | arch: over the text of every test |
 | **G6** | No committed `->only()`, and no `->skip()` without the reason | arch: over the text of every test |

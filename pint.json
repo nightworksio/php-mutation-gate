@@ -24,6 +24,7 @@
         "void_return": true,
         "fully_qualified_strict_types": true,
         "phpdoc_align": false,
+        "single_line_empty_body": false,
         "single_line_throw": false,
         "trailing_comma_in_multiline": {
             "elements": ["arrays", "arguments", "parameters", "match"]

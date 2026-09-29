@@ -1,0 +1,15 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Cli\Gate;
+use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Output\ConsoleOutput;
+
+$autoload = $GLOBALS['_composer_autoload_path'] ?? dirname(__DIR__) . '/vendor/autoload.php';
+require $autoload;
+
+$output = new ConsoleOutput();
+
+exit(Gate::in((string) getcwd(), dirname($autoload))->run(new ArgvInput(), $output, $output->getErrorOutput()));

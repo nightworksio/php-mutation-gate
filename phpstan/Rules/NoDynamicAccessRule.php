@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\PHPStan\Rules;
 
+use function array_any;
 use function is_string;
 
 use PhpParser\Node;
@@ -21,18 +22,25 @@ use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 
 use function sprintf;
+use function str_ends_with;
 
 /**
  * P2 — a name in this codebase is written down.
  *
  * `new $class`, `$object->$property`, `$class::method()` and `$$name` put what
  * is reached for beyond the analyser and beyond every layer rule, which read the
- * names a file writes.
+ * names a file writes. A class name read at runtime is allowed only in the files
+ * the configuration names, where reading it is the file's whole purpose.
  *
  * @implements Rule<Expr>
  */
-final class NoDynamicAccessRule implements Rule
+final readonly class NoDynamicAccessRule implements Rule
 {
+    /** @param list<string> $classNamedAtRuntimeIn files, relative to the repository, that may construct or call a class by a name they read */
+    public function __construct(private array $classNamedAtRuntimeIn = [])
+    {
+    }
+
     public function getNodeType(): string
     {
         return Expr::class;
@@ -41,7 +49,7 @@ final class NoDynamicAccessRule implements Rule
     /** @return list<IdentifierRuleError> */
     public function processNode(Node $node, Scope $scope): array
     {
-        $what = $this->dynamicPart($node);
+        $what = $this->dynamicPart($node, $scope);
 
         if ($what === '') {
             return [];
@@ -58,7 +66,7 @@ final class NoDynamicAccessRule implements Rule
         ];
     }
 
-    private function dynamicPart(Node $node): string
+    private function dynamicPart(Node $node, Scope $scope): string
     {
         if ($node instanceof Variable && ! is_string($node->name)) {
             return 'this variable variable';
@@ -68,7 +76,15 @@ final class NoDynamicAccessRule implements Rule
             return 'this property name';
         }
 
-        return $this->namesAClassAtRuntime($node) ? 'this class name' : '';
+        return $this->namesAClassAtRuntime($node) && ! $this->mayNameAClassAtRuntime($scope) ? 'this class name' : '';
+    }
+
+    private function mayNameAClassAtRuntime(Scope $scope): bool
+    {
+        return array_any(
+            $this->classNamedAtRuntimeIn,
+            static fn(string $file): bool => str_ends_with($scope->getFile(), sprintf('/%s', $file)),
+        );
     }
 
     private function namesAClassAtRuntime(Node $node): bool

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Rector\CodingStyle\Rector\ArrowFunction\ArrowFunctionDelegatingCallToFirstClassCallableRector;
 use Rector\Config\RectorConfig;
 use Rector\Php55\Rector\String_\StringClassNameToClassConstantRector;
 
@@ -25,6 +26,9 @@ return RectorConfig::configure()
         // An architecture rule names namespaces, and a namespace with no class
         // of that name is not a class constant.
         StringClassNameToClassConstantRector::class => [__DIR__ . '/tests/Arch'],
+        // Pest binds a closure in a dataset to the test case before calling it,
+        // and the closure of a static method cannot be bound.
+        ArrowFunctionDelegatingCallToFirstClassCallableRector::class => [__DIR__ . '/tests/Contract'],
     ])
     ->withImportNames(importShortClasses: false)
     ->withCache(__DIR__ . '/.rector-cache');
