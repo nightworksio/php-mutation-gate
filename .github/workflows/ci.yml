@@ -286,7 +286,10 @@ jobs:
             echo "src holds no PHP file, so there is nothing to mutate."
             exit 0
           fi
-          vendor/bin/pest --mutate --everything --parallel --min=100 --exclude-testsuite=Guards
+          # --covered-only: G7 holds every executable line of src at 100%, so
+          # the only mutants this leaves out sit on lines no coverage driver can
+          # execute, such as constant declarations.
+          vendor/bin/pest --mutate --everything --covered-only --parallel --min=100 --exclude-testsuite=Guards
 
   # SonarCloud, fed the reports `tests` wrote rather than running the suite a
   # second time. A pull request from a fork or from Dependabot is given no
