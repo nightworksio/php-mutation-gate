@@ -58,7 +58,7 @@ final readonly class Platform
             $extensions[$extension] = sprintf('%s', phpversion($extension));
         }
 
-        $settings = ini_get_all(details: false);
+        $settings = ini_get_all();
         $ini = [];
 
         foreach (array_keys(is_array($settings) ? $settings : []) as $name) {
