@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_keys;
 use function get_loaded_extensions;
 use function implode;
+use function ini_get;
 use function ini_get_all;
 use function is_array;
-use function is_string;
 use function ksort;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -24,8 +25,8 @@ use function sprintf;
 final readonly class Platform
 {
     /**
-     * @param array<string, string>    $extensions each extension's version, by name
-     * @param array<array-key, string> $ini        each setting's value, by name, empty where it has none
+     * @param array<string, string> $extensions each extension's version, by name
+     * @param array<string, string> $ini        each setting's value, by name, empty where it has none
      */
     private function __construct(
         private string $php,
@@ -37,8 +38,8 @@ final readonly class Platform
     }
 
     /**
-     * @param array<string, string>    $extensions
-     * @param array<array-key, string> $ini
+     * @param array<string, string> $extensions
+     * @param array<string, string> $ini
      */
     public static function of(string $php, array $extensions, array $ini, string $system, string $architecture): self
     {
@@ -60,8 +61,9 @@ final readonly class Platform
         $settings = ini_get_all(details: false);
         $ini = [];
 
-        foreach (is_array($settings) ? $settings : [] as $name => $value) {
-            $ini[$name] = is_string($value) ? $value : '';
+        foreach (array_keys(is_array($settings) ? $settings : []) as $name) {
+            $setting = sprintf('%s', $name);
+            $ini[$setting] = sprintf('%s', ini_get($setting));
         }
 
         return self::of(PHP_VERSION, $extensions, $ini, PHP_OS_FAMILY, php_uname('m'));

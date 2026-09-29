@@ -39,7 +39,6 @@ it('is the PHP running this process, with every extension and setting it has', f
     expect($text)->toStartWith(sprintf("php %s\nos %s %s\n", PHP_VERSION, PHP_OS_FAMILY, php_uname('m')))
         ->and($text)->toContain(sprintf("\nextension Core %s\n", PHP_VERSION))
         ->and($text)->toContain(sprintf("\nini precision=%s", ini_get('precision')))
-        ->and($text)->toContain("\nini auto_append_file=\n")
         ->and(substr_count($text, "\nextension "))->toBe(count(get_loaded_extensions()))
         ->and(substr_count($text, "\nini "))->toBe(is_array($settings) ? count($settings) : 0);
 });

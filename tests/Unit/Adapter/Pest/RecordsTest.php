@@ -80,6 +80,16 @@ it('keeps each mutant\'s latest status, and none for one Pest never ran', functi
     expect($statuses)->toBe(['tested', 'timeout', 'none']);
 });
 
+it('keeps every outcome of a run stopped before any mutant finished', function () use ($results): void {
+    $records = Records::in($results([
+        ['event' => 'outcome', 'id' => 'a', 'status' => 'untested'],
+        ['event' => 'outcome', 'id' => 'b', 'status' => 'timeout'],
+    ]));
+
+    expect($records instanceof Records ? [$records->statusOf('a'), $records->statusOf('b')] : [])
+        ->toBe(['untested', 'timeout']);
+});
+
 it('measures only a mutant that ran for some time', function () use ($results): void {
     $records = Records::in($results([
         ['event' => 'finished', 'id' => 'ran', 'status' => 'tested', 'duration' => 0.5],

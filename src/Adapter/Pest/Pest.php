@@ -72,12 +72,12 @@ final readonly class Pest implements Runner
     public function coverage(CoverageRequest $request): CoverageMap|CannotJudge
     {
         $directory = $this->project->directory($request->directory());
-        $ran = $request->runs()
-            ? $this->shell->run(Invocation::coverage($request, $directory))
-            : Ran::finished(succeeded: true, output: '');
+        if ($request->runs()) {
+            $ran = $this->shell->run(Invocation::coverage($request, $directory));
 
-        if (! $ran->succeeded()) {
-            return CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
+            if (! $ran->succeeded()) {
+                return CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
+            }
         }
 
         $file = CoverageFile::at(sprintf('%s/%s', $directory, Invocation::MAP));

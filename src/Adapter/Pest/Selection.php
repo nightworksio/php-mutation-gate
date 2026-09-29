@@ -13,7 +13,6 @@ use function explode;
 use function implode;
 use function mb_strlen;
 use function preg_match;
-use function preg_replace;
 use function sprintf;
 use function str_replace;
 
@@ -34,9 +33,6 @@ final readonly class Selection
 
     /** A test's class, by its name within its namespace. */
     private const string CLASS_NAME = '/(?:^|\\\\)([^\\\\]*)::/';
-
-    /** What PHPUnit appends to a test's id, and not to the name `--filter` is matched against. */
-    private const string RUN = '/ \((?:repetition|attempt) \d+ of \d+\)/';
 
     private const string EVALUABLE = '__pest_evaluable_';
 
@@ -106,8 +102,7 @@ final readonly class Selection
     private static function selects(string $test): bool
     {
         $piece = self::pieceOf($test);
-        $name = preg_replace(self::RUN, '', explode('#', $test)[0]) ?? '';
 
-        return $piece !== '' && preg_match(sprintf('"%s"', $piece), $name) === 1;
+        return $piece !== '' && preg_match(sprintf('"%s"', $piece), explode('#', $test)[0]) === 1;
     }
 }

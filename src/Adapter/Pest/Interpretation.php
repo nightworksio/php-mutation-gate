@@ -124,7 +124,7 @@ final readonly class Interpretation
             }
 
             $path = $this->project->relative($planned['file']);
-            $key = MutantId::hash($path, $planned['mutator'], Diff::fromPest($planned['diff']), 0)->value();
+            $key = sprintf("%s\n%s\n%s", $path->value(), $planned['mutator'], Diff::fromPest($planned['diff']));
             $occurrence = $this->occurrences($seen, $key);
             $mutants = $mutants->with($this->mutant($id, $planned, $records, $selection, $occurrence));
             $seen[] = $key;

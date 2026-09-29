@@ -14,6 +14,10 @@ it('is a program with its arguments, no environment of its own and no deadline',
         ->and($command->deadline())->toEqual(Unlimited::time());
 });
 
+it('lists its arguments in order, however they were spread', function (): void {
+    expect(Command::of(...['program' => 'git', 'command' => 'status'])->arguments())->toBe(['git', 'status']);
+});
+
 it('runs Pest on the PHP that runs the gate', function (): void {
     expect(Command::pest('--list-groups')->arguments())->toBe([PHP_BINARY, 'vendor/bin/pest', '--list-groups']);
 });

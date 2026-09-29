@@ -10,7 +10,6 @@ use function count;
 use function file_get_contents;
 use function file_put_contents;
 use function is_file;
-use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 
@@ -139,9 +138,8 @@ final readonly class Patch
     {
         return array_all(self::hunks(), static function (Hunk $hunk) use ($vendor): bool {
             $file = sprintf(self::SOURCE, $vendor, $hunk->file());
-            $source = is_file($file) ? file_get_contents($file) : false;
 
-            return is_string($source) && $hunk->isAppliedTo($source);
+            return is_file($file) && $hunk->isAppliedTo(sprintf('%s', file_get_contents($file)));
         });
     }
 
@@ -167,11 +165,12 @@ final readonly class Patch
     private static function read(string $vendor, Hunk $hunk): string|CannotJudge
     {
         $file = sprintf(self::SOURCE, $vendor, $hunk->file());
-        $source = is_file($file) ? file_get_contents($file) : false;
 
-        if (! is_string($source)) {
+        if (! is_file($file)) {
             return CannotJudge::because(sprintf('pest:patch cannot read %s. Is pest-plugin-mutate installed?', $file));
         }
+
+        $source = sprintf('%s', file_get_contents($file));
 
         return $hunk->isAppliedTo($source) || $hunk->fits($source) ? $source : CannotJudge::because(sprintf(
             'pest:patch patched nothing: the lines it rewrites have moved in %s. Install a supported version.',

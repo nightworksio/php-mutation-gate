@@ -52,7 +52,8 @@ final readonly class TestFiles
         $named = Paths::none();
 
         foreach ($files as $file) {
-            $class = preg_replace(self::NOT_IN_A_CLASS_NAME, '', basename($file->value(), self::SUFFIX)) ?? '';
+            $name = basename($file->value(), self::SUFFIX);
+            $class = preg_replace(self::NOT_IN_A_CLASS_NAME, '', $name) ?? $name;
 
             if (array_any($classes, static fn(string $selected): bool => str_ends_with($class, $selected))) {
                 $named = $named->with($file);
@@ -65,7 +66,7 @@ final readonly class TestFiles
     /** @return list<string> every PHP file under a directory, by its path on disk */
     private static function under(string $directory): array
     {
-        $entries = is_dir($directory) ? scandir($directory) : false;
+        $entries = is_dir($directory) ? scandir($directory) : [];
         $found = [];
 
         foreach (is_array($entries) ? $entries : [] as $entry) {

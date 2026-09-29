@@ -29,7 +29,7 @@ final readonly class Diff
     {
         $lines = [];
 
-        foreach (explode("\n", new OutputFormatter()->format($diff) ?? '') as $line) {
+        foreach (explode("\n", new OutputFormatter()->formatAndWrap($diff, 0)) as $line) {
             $lines[] = str_starts_with($line, self::INDENT) ? mb_substr($line, mb_strlen(self::INDENT)) : $line;
         }
 

@@ -54,9 +54,7 @@ final readonly class Records
 
     public static function in(string $file): self|CannotJudge
     {
-        $text = is_file($file) ? file_get_contents($file) : false;
-
-        if (! is_string($text)) {
+        if (! is_file($file)) {
             return CannotJudge::because(sprintf(
                 'Pest wrote no results to %s. Is pestphp/pest-plugin allowed to run in composer.json?',
                 $file,
@@ -65,7 +63,7 @@ final readonly class Records
 
         $records = new self([], [], [], [], ended: false);
 
-        foreach (explode("\n", $text) as $line) {
+        foreach (explode("\n", sprintf('%s', file_get_contents($file))) as $line) {
             $records = $records->read($line);
         }
 
@@ -169,12 +167,14 @@ final readonly class Records
     {
         $id = $this->text($record, 'id');
         $status = $this->text($record, 'status');
-        $duration = array_key_exists('duration', $record) && is_float($record['duration']) ? $record['duration'] : 0.0;
+        $durations = array_key_exists('duration', $record) && is_float($record['duration'])
+            ? [...$this->durations, $id => $record['duration']]
+            : $this->durations;
 
         return new self(
             $this->planned,
             [...$this->statuses, $id => $status],
-            [...$this->durations, $id => $duration],
+            $durations,
             [...$this->finished, $id => $status],
             $this->ended,
         );

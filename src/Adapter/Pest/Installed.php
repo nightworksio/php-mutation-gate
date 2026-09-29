@@ -37,17 +37,16 @@ final readonly class Installed
 
     public static function versionsIn(string $manifest): Versions|CannotJudge
     {
-        $text = is_file($manifest) ? file_get_contents($manifest) : false;
-        $decoded = is_string($text) ? json_decode($text, associative: true) : false;
+        if (! is_file($manifest)) {
+            return self::unlisted($manifest, self::DRIVEN);
+        }
+
+        $decoded = json_decode(sprintf('%s', file_get_contents($manifest)), associative: true);
         $found = self::found(is_array($decoded) ? self::listIn($decoded, 'packages') : []);
         $missing = array_diff(self::DRIVEN, array_keys($found));
 
         if ($missing !== []) {
-            return CannotJudge::because(sprintf(
-                '%s does not list %s, so the gate cannot say which Pest judges the mutants. Run composer install.',
-                $manifest,
-                implode(', ', $missing),
-            ));
+            return self::unlisted($manifest, $missing);
         }
 
         $versions = Versions::none();
@@ -57,6 +56,16 @@ final readonly class Installed
         }
 
         return $versions;
+    }
+
+    /** @param array<string> $missing */
+    private static function unlisted(string $manifest, array $missing): CannotJudge
+    {
+        return CannotJudge::because(sprintf(
+            '%s does not list %s, so the gate cannot say which Pest judges the mutants. Run composer install.',
+            $manifest,
+            implode(', ', $missing),
+        ));
     }
 
     /**
