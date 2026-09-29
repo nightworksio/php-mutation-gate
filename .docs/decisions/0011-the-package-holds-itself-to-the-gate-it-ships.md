@@ -241,8 +241,8 @@ about Laravel, NativePHP or the project's modules, and does not.
        - `shard`, one matrix job per shard, checks out the calling repository,
          and this repository at `job.workflow_sha` (the commit the workflow
          was called at) into a directory of its own. It downloads the plan's
-         artifact into `.mutation-gate/`, and runs the action from
-         that directory with `shard`, so the workflow and the action are
+         artifact into `.mutation-gate/`, and runs the action from the
+         checkout of this repository with `shard`, so the workflow and the action are
          always the same commit, and uploads its result file;
        - `verdict` runs whenever the run was not cancelled, even after a failed
          shard. It restores the ledgers and the files published last time,

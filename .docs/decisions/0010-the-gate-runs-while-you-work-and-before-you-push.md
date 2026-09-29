@@ -103,8 +103,9 @@ The pieces already exist in the design:
 discovers.
 
 **The same verdict everywhere.** A push that passes the hook fails in CI only
-through something the hook could not see: a flaky test, the other packages of a
-monorepo, or a slower runner.
+through a flaky test, the other packages of a monorepo, a slower runner, or an
+improved score that `baseline.improvement: require` makes the pull request
+commit (ADR-0003).
 
 **The local ledger is disposable.** Deleting `.mutation-gate/` costs one full
 local run and nothing else. The directory belongs in `.gitignore`, and `init`

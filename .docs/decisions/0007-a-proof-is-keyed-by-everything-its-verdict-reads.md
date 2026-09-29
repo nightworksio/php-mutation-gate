@@ -228,8 +228,8 @@ any test. Proofs pay for themselves on:
 
 - retried and re-run jobs;
 - re-runs of unchanged code;
-- test-only changes elsewhere, except for units whose values ADR-0004's
-  decision 8 judges, whose keys hold every test file;
+- test-only changes elsewhere, except for held units and for units whose
+  values ADR-0004's decision 8 judges, whose keys hold every test file;
 - the scheduled full run, which re-mutates only what moved since the last one.
 
 Reach (ADR-0005), not proofs, is what keeps a pull request small.

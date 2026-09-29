@@ -5,8 +5,9 @@
 
 ## Context
 
-The in-house gate holds every tree to a mutation floor of 100, and it enforces
-that by invocation rather than by reading. Pest reports no score in a form a
+The in-house gate holds each tree to the floor its nearest manifest declares,
+100 for all but four, and it enforces that by invocation rather than by
+reading. Pest reports no score in a form a
 program can read. It offers `--min`, which fails a run below a percentage. So
 the in-house gate groups trees by floor, runs Pest once per group with
 `--min=<floor>`, and reads the exit code. At 100 that is exact: one surviving

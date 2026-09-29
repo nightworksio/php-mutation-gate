@@ -644,9 +644,10 @@ vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id>   # on
 vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
 ```
 
-Check out the branch by name (`git checkout -B <branch>`) before each step,
-because the JSON plan takes the run's ref from git's current branch. On a
-detached `HEAD` a run writes no ledger and publishes nothing
+Check out the branch by name (`git checkout -B <branch>`) before `plan`,
+because the JSON plan takes the run's ref from git's current branch, and `run`
+and `verdict` take it from the plan. A plan made on a detached `HEAD` writes no
+ledger and publishes nothing
 ([ADR-0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md)).
 The JSON plan never treats a run as a pull request, so there the new-code
 floor applies only in pre-push and watch. Pass `--changed-since` with a
