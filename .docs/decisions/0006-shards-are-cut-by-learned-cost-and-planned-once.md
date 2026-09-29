@@ -60,10 +60,13 @@ Two parts of that do not carry over to a public package.
      - judges every tree and the new code (ADR-0003);
      - writes the reports (ADR-0009) and the updated ledger (ADR-0007).
 
-   A shard never re-cuts. The plan records the commit it was made on, and a
-   shard running on a different checkout stops with exit code 2.
+   A shard never re-cuts. The plan records the commit it was made on, the
+   run's ref, whether it is a pull request and the default branch (decision
+   5). `run` and `verdict` with a plan take all four from it, and a shard
+   running on a different checkout stops with exit code 2.
    `mutation-gate`, or `mutation-gate run` without `--plan`, does all three in
-   one process and takes the options of `plan` and `verdict`.
+   one process and takes the options of `plan`, and `verdict`'s
+   `--publish-dir`.
 
 2. **The verdict is the one check a branch protects.** It reads the result
    files, not the CI's job statuses. A shard that crashed, was cancelled or
@@ -97,7 +100,8 @@ Two parts of that do not carry over to a public package.
    - **What a shard teaches.** A shard's mutation time is measured from the end
      of its opening run to its last mutant, and shared among its units. Each
      unit's share is in proportion to its mutants' durations:
-     - from Pest, the durations the plugin records;
+     - from Pest, the durations the plugin records, and for a mutant judged
+       by reference (ADR-0004, decision 8) the time of its judging runs;
      - from Infection, which reports none, each mutant's stand-in, the JUnit
        time of the tests that cover its line.
 
@@ -144,7 +148,10 @@ Two parts of that do not carry over to a public package.
    run's ref, which is its proof scope (ADR-0007); whether it is a pull
    request, for the new-code set and `baseline.improvement` (ADR-0003); and
    the default branch, for the ledger it reads and for the badge and trend
-   (ADR-0009).
+   (ADR-0009). `plan` reads them from the CI, and a job given a plan reads
+   them from the plan, so every shard and the verdict judge as the plan did,
+   whatever variables their own jobs receive, as in a GitLab child
+   pipeline.
 
    | CI | Ref | Pull request | Default branch |
    |----|-----|--------------|----------------|
@@ -152,13 +159,15 @@ Two parts of that do not carry over to a public package.
    | GitLab CI | `CI_COMMIT_REF_NAME` | `CI_MERGE_REQUEST_IID` is set | `CI_DEFAULT_BRANCH` |
    | Buildkite | `BUILDKITE_BRANCH` | `BUILDKITE_PULL_REQUEST` is not `false` | `BUILDKITE_PIPELINE_DEFAULT_BRANCH` |
    | CircleCI | `CIRCLE_BRANCH` | `CIRCLE_PULL_REQUEST` is set | `ci.defaultBranch` |
-   | JSON, and local runs | git's current branch | never | `ci.defaultBranch` |
+   | JSON, and local runs | git's current branch; with a detached `HEAD`, none | never | `ci.defaultBranch` |
 
-   On a pull request the scope is `refs/pull/<n>`, where n is the number the
-   CI names, and otherwise `refs/heads/<branch>`. `ci.defaultBranch` is a
-   branch name. By default it is the branch git's `refs/remotes/origin/HEAD`
-   points at, and `main` when there is none. Set in the config, it replaces
-   the CI's own answer too.
+   On a pull request the scope is `refs/pull/<n>`, where n is the number the CI
+   names, and otherwise `refs/heads/<branch>`. A run with no ref, on a detached
+   `HEAD` under the JSON plan, in CI or locally, has no scope of its own: it
+   reads the default branch's ledger and writes none (ADR-0007).
+   `ci.defaultBranch` is a branch name. By default it is the branch git's
+   `refs/remotes/origin/HEAD` points at, and `main` when there is none. Set in
+   the config, it replaces the CI's own answer too.
 
 6. **GitHub is wired by the package itself** (ADR-0011). The composite action
    runs the whole gate in one job, or one shard when given `shard`. The

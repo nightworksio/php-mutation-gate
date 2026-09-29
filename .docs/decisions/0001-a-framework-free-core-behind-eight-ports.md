@@ -43,8 +43,9 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
      does not read a file, start a process, open a socket, read the clock or
      draw a random number. It is handed everything it reads as a value, and
      everything it produces is a value.
-   - **`Attribute`** holds `#[Holds]` (ADR-0005). It names nothing, and nothing
-     in `src` names it, because the gate reads it from tokens. It is public API.
+   - **`Attribute`** holds `#[Holds]` (ADR-0005). It names nothing. The gate
+     reads it from tokens, and only the Pest adapter's plugin names it, to turn
+     it into a group (ADR-0004). It is public API.
    - **`Port`** holds the eight interfaces through which the gate asks the
      outside world, and nothing else. They are public API.
    - **`Config`** is the PHP builder of ADR-0002. It is public API.
@@ -52,8 +53,9 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
      and `Configurable` (below and ADR-0002). It is public API.
    - **`Adapter\<Name>`** implements a port against one outside thing: Pest,
      Infection, git, the GitHub API, a directory, S3, a YAML parser. An adapter
-     may use the layers before it and the one library it adapts, and no other
-     adapter. Adapters that speak HTTP (the GitHub API, S3) use
+     may use the layers before it and the packages of the tool it adapts (for
+     Pest: `pestphp/pest`, `pestphp/pest-plugin-mutate` and
+     `phpunit/php-code-coverage`), and no other adapter. Adapters that speak HTTP (the GitHub API, S3) use
      `symfony/http-client`, which `async-aws/s3` is built on too, and
      `symfony/process` starts every process.
    - **`Cli`** is the composition root. It is the only place adapters are

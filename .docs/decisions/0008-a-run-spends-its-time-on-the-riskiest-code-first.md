@@ -68,9 +68,9 @@ presets for Laravel, Symfony and plain libraries.
      tests take at least `timeouts.seconds` is skipped, never run.
 
    For every timed-out or skipped mutant the gate works out the limit that
-   applied to it, and compares the covering tests' own time with it. That time
-   comes from the coverage run: Pest's map, or the JUnit times of the covering
-   test classes, which Infection sums the same way.
+   applied to it, and compares its judging tests' own time with it (ADR-0004,
+   decision 5). That time comes from the coverage run: Pest's map, or the JUnit
+   times of the judging test classes, which Infection sums the same way.
    - **Under half the limit.** Tests that normally finish quickly ran past the
      limit with the mutant in place. The mutant broke something (a loop that
      never ends, say), so it is **killed by timeout**. It counts as killed and
@@ -100,16 +100,20 @@ presets for Laravel, Symfony and plain libraries.
    - **Survivor confirmation.** Each survived mutant is run once more, alone,
      before it counts. Killed the second time means **flaky**. Survived again
      means a confirmed survivor. Survivors are few, so this is cheap.
-     `flaky.confirmSurvivors` is a boolean, `true` by default.
+     `flaky.confirmSurvivors` is a boolean, `true` by default. A mutant
+     judged by reference (ADR-0004, decision 8) is run again through those
+     same steps, against its judging tests.
    - **Proofs that disagree.** When two results for one key differ (the
      default branch's ledger and a pull request's, say, or two verdicts that
      wrote one scope), the mutants that differ are flaky, and neither result
      is used (ADR-0007).
    - **What a flaky mutant does.** It counts as not killed, keeps its unit out
-     of the ledger, and is reported with its covering tests, which are the
+     of the ledger, and is reported with its judging tests, which are the
      suspects.
    - **On demand.** `mutation-gate triage <path> --repeat=<n>` runs a unit n
-     times, 5 by default, and lists every mutant whose status varied. This is
+     times, 5 by default, and lists every mutant whose status varied. Its
+     mutants judged by reference run through ADR-0004's decision 8 each
+     time. This is
      the tool for a kill that might be flaky. A flaky kill cannot be told from a
      real one without re-running every killed mutant, and the gate does not do
      that unasked.

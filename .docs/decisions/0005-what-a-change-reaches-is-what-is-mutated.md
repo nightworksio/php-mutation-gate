@@ -87,7 +87,12 @@ The same repository has two more needs.
         default.
 
       A root file reaches every package. The CI definition that runs the gate
-      is one of these files, except when every line its change touched is an
+      is one of these files: under GitHub Actions the workflow
+      `GITHUB_WORKFLOW_REF` names; on GitLab the file `CI_CONFIG_PATH` names
+      (`.gitlab-ci.yml` by default) and the file `ci.gitlab.template` names;
+      on Buildkite `.buildkite/pipeline.yml`; on CircleCI
+      `.circleci/config.yml`; and none under the JSON plan or locally. It
+      reaches everything except when every line its change touched is an
       action pin (`uses: owner/repo@<40-hex sha>`, with or without a trailing
       comment). A pin move changes which revision of an action runs, not how
       the gate cuts, runs or judges.
@@ -172,19 +177,59 @@ The same repository has two more needs.
    extension, not a fork.
 
 9. **Holding tests: a path can be judged by the tests that hold it.**
-   - **How a test declares it:**
-     - In Pest, `pest()->group('holds:<path>')` for a whole file, or
-       `->group('holds:<path>')` on single tests.
-     - In PHPUnit classes, the attribute
-       `#[NightWorksIO\MutationGate\Attribute\Holds('<path>')]`, which is
-       repeatable, on a class or a method. PHPUnit's own
-       `#[Group('holds:<path>')]` works too. The Pest runner selects held
-       tests by group alone, so it refuses `#[Holds]` (ADR-0004).
+   - **How a test declares it.** The attribute is
+     `#[NightWorksIO\MutationGate\Attribute\Holds('<path>')]`, repeatable,
+     and allowed on a class, a method or a function, which in PHP includes a
+     closure.
+     - In Pest: `#[Holds]` on the closure passed to `it()`, `test()` or
+       `arch()`, which holds that test, or on the closure passed to
+       `describe()`, which holds every test inside it at any depth. Groups
+       work too: `pest()->group('holds:<path>')` for a whole file,
+       `->group('holds:<path>')` on one test or one `describe`. The package's
+       Pest plugin turns each `#[Holds]` into the matching group before Pest
+       builds the test (ADR-0004), so Pest selects both kinds the same way.
+     - In PHPUnit classes: `#[Holds]` on a class or a method, or PHPUnit's own
+       `#[Group('holds:<path>')]`. Under Pest, a PHPUnit class also needs the
+       `#[Group]` beside its `#[Holds]`, because Pest cannot add a group to a
+       class it did not build.
    - **How the gate reads it.**
      - Groups come from the runner's own listing (ADR-0004), so the answer is
        the groups the runner will actually select by.
      - `#[Holds]` is read from test files by their tokens, without loading them,
        so reading it runs no test code.
+     - Under Pest the group listing is the answer, because the plugin has
+       turned every `#[Holds]` into a group. Every path that tokens find must
+       appear there as `holds:<path>`. Otherwise the run stops with exit code
+       2 and says the package's Pest plugin is not loaded.
+   - **What the gate refuses** (exit code 2, with the file and line), each for
+     a reason at source:
+     - **`#[Holds]` on a `beforeEach` or dataset closure, or on a named
+       function.** Pest never passes those to the filter, so no group could
+       follow from them.
+     - **`#[Holds]` on a closure kept in a variable.** Tokens cannot tell which
+       test the closure becomes, so the gate cannot check it against the group
+       listing.
+     - **`#[Holds]` in `tests/Pest.php`.** Pest loads that file before it
+       starts any plugin, so its tests register before the filter exists.
+     - **Under Pest, `#[Holds]` on a PHPUnit class or method without the
+       matching `#[Group]`.** Pest loads a PHPUnit class file with a plain
+       `include`, and only its own closure tests pass through the filter.
+       PHPUnit reads groups only from its own attributes, and its `Group` is
+       final (the Alternatives below). The gate reads both attributes from
+       tokens, and the message prints the exact line to add:
+       `#[Group('holds:<path>')]`.
+     - **Under Infection, a path that is not one string literal**, such as a
+       constant. The gate reads `#[Holds]` from tokens there, and tokens cannot
+       evaluate an expression. Under Pest such a path works on a closure,
+       because the plugin evaluates it and the group listing reports it.
+     - **Under Pest, a path that is not one string literal on a PHPUnit class
+       or method.** The plugin never sees that class, and tokens cannot check
+       that its `#[Group]` matches.
+
+     Each message names the group form to use instead. A held test
+     chained with `->depends()` on a test outside its group is not refused:
+     PHPUnit skips it, it covers nothing, and the coverage check of decision
+     10 names the lines the group then misses.
    - **What the path must be.** It has to be a tree, or a file or directory that
      exists inside one, spelt as the repository spells it. Anything else stops
      the run with exit code 2. A misspelt path would otherwise be mutated
@@ -232,7 +277,9 @@ The same repository has two more needs.
 | **Reach every dependent package whenever a package's source changes** | Every change to a shared core package would re-mutate the whole monorepo. Kept for changes that alter how a package's tests run (its manifest and test setup), which is where a dependent's verdict genuinely moves. |
 | **A config file per package** | Two places answer for one monorepo, and a package's file could quietly contradict the root's. One root config, with floors in the manifests beside the code they hold, keeps one answer. |
 | **Declaring held paths in config instead of in tests** | Puts the claim "these tests hold that code" away from the tests that make it. A group or attribute moves with the test, and the coverage check keeps it honest. |
-| **Reading `#[Holds]` by reflection** | Loads test classes, which can run code at load time. Tokens are enough to read an attribute's argument. |
+| **Reading `#[Holds]` by reflection** | Loads test classes, which can run code at load time. Tokens are enough to read an attribute's argument. The Pest plugin reads it by reflection only inside Pest's own runs, which load the test files anyway. |
+| **`#[Holds]` refused under Pest, with groups as the only Pest form** | One attribute would then mean different things per runner. The plugin can add the group at the point Pest adds its own, so the attribute works with both. |
+| **Translating `#[Holds]` on a PHPUnit class run by Pest** | PHPUnit takes groups only from its own `Group` attribute, which is final, and the only other hook is PHPUnit's `@internal` metadata registry. Asking for the `#[Group]` beside it costs one line and patches nothing. |
 | **Failing, not warning, on an unheld hot path** | The verdict is still right, only slow. A failure would make adopting the gate on a framework app mean restructuring tests first. |
 
 ## Consequences

@@ -43,8 +43,8 @@ The pieces already exist in the design:
      changes, the changed tests are run again under coverage and their entries
      in the map are replaced, so what a changed test reaches stays true. A
      change that reaches everything (ADR-0005, rule 1) rebuilds the map.
-   - **Proofs.** Results go into the local ledger (`.mutation-gate/ledger`), so
-     reverting an edit costs nothing: its key is proved already.
+   - **Proofs.** Results go into the local ledger, the directory store of
+     decision 4, so reverting an edit costs nothing: its key is proved already.
    - **Verdict.** Watch mode judges the new-code floor over everything changed
      since `HEAD`. It shows tree scores with carried results, but does not
      enforce them. It never writes the baseline.
@@ -59,12 +59,13 @@ The pieces already exist in the design:
      budget of `local.prePushBudget`, a duration, `5m` by default. It judges the
      new-code floor and the floors of the trees the change reaches, with
      carried results completing each tree (ADR-0003).
-   - **Exit code.** Non-zero blocks the push. That covers a survivor on changed
-     lines, a tree below its floor, and unjudged mutants, because a run that ran
-     out of time did not judge them (ADR-0008). The message says how to judge
-     them: `mutation-gate run --changed-since=<base>`. Git's own
-     `git push --no-verify` skips the hook, and the gate adds no bypass of its
-     own.
+   - **Exit code.** Non-zero blocks the push. That covers new code below its
+     floor, a tree below its floor, and unjudged mutants, because a run that ran
+     out of time or could not reach them did not judge them (ADR-0008). The
+     message gives each unjudged mutant's reason and what would judge it: more
+     time (`mutation-gate run --changed-since=<base>`), a test that reaches the
+     value (ADR-0004, decision 8), or an ignore with its reason. Git's own `git
+     push --no-verify` skips the hook, and the gate adds no bypass of its own.
    - **Proofs.** The local ledger makes a second push of the same code
      immediate.
 
@@ -102,8 +103,9 @@ The pieces already exist in the design:
 discovers.
 
 **The same verdict everywhere.** A push that passes the hook fails in CI only
-through something the hook could not see: a flaky test, the other packages of a
-monorepo, or a slower runner.
+through a flaky test, the other packages of a monorepo, a slower runner, or an
+improved score that `baseline.improvement: require` makes the pull request
+commit (ADR-0003).
 
 **The local ledger is disposable.** Deleting `.mutation-gate/` costs one full
 local run and nothing else. The directory belongs in `.gitignore`, and `init`

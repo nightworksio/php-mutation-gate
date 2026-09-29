@@ -43,7 +43,10 @@ has to bring its result with it.
    every mutant's raw record (ADR-0004), with its status before triage, ignores
    and floors are applied. A proof is written only for a unit that ran to the
    end:
-   - no unjudged mutant, whatever the cause (ADR-0004);
+   - no unjudged mutant (ADR-0004), except one that ADR-0004's decision 8 left
+     unjudged because of what the code holds: no test references the value,
+     or the reference is ambiguous beyond the bound. The same key gives the
+     same answer, so such a unit is still proved;
    - no flaky mutant;
    - no *cannot judge*.
 
@@ -82,21 +85,29 @@ has to bring its result with it.
       blob id of its content as it is on disk. That means tracked files and
       untracked files git does not ignore. It includes source, `composer.json`,
       `composer.lock`, the PHPUnit and runner configs, templates, translations
-      and documentation. Four exceptions:
+      and documentation. Five exceptions:
       - **The gate's config file** is left out, because item 3 already holds
         what of it affects results. Each `composer.json` is hashed with its
         `extra.mutation-gate` entry removed, for the same reason.
-      - **CI definition files** are left out, except the one that runs the
-        gate. That one is included as its text with comments and action pins
+      - **CI definition files** are left out, except the ones that run the
+        gate (ADR-0005, rule 1). That one is included as its text with comments and action pins
         (`uses: owner/repo@<sha>`) removed. A pin move or a comment is not a
         change to how a mutant runs. The seed does the same.
       - **The baseline file** only holds floors.
+      - **The gate's own files** are left out whatever `.gitignore` says:
+        `.mutation-gate/`, the directory store's `path`, the `--publish-dir`
+        and every `reports` path. The ledger changes after every run, and a
+        key that held it would never match again.
       - **`proofs.ignore`**, a list of globs, empty by default, is the
         project's own statement that no test reads those paths (`docs/**`,
         say).
    7. **Of the test directories, only what can judge this unit**:
       - the test files the runner says can judge it (ADR-0004). For a held unit,
-        that is every test file, because any file can join a group;
+        that is every test file, because any file can join a group. So it is,
+        under Pest, for a unit whose tokens hold a class or interface constant,
+        a property default, an enum case, a plain function's or closure's
+        parameter default or an attribute argument, because any file can come to
+        reference it (ADR-0004, decisions 5 and 8);
       - the support those files name, and the support that names in turn,
         matched by the class and function names each file declares. Matching
         over-reads on purpose: a word that happens to match brings the file in;
@@ -105,8 +116,11 @@ has to bring its result with it.
       - every test file the coverage map does not know;
       - with the Pest patch on, every test in the canary group.
    8. **The unit**: its path and, for each of its covered lines, the ids of the
-      tests that cover it. If the tests covering a line change, the unit is
-      judged again even when no file changed.
+      tests that cover it. For a unit decision 8 of ADR-0004 applies to, also
+      the ids of the tests covering each reference line it follows, and of
+      those covering its owners' files, for the fallback. If the tests
+      covering a line change, the unit is judged again even when no file
+      changed.
 
    Where a key cannot be computed, the unit always runs and is never recorded.
    That happens with no git, or with no coverage map. Every doubt resolves the
@@ -136,8 +150,11 @@ has to bring its result with it.
    }
    ```
 
-   - `run` names the run that established the proof, as `<ci>:<its run id>`;
-     on GitHub that is `github:<GITHUB_RUN_ID>/<GITHUB_RUN_ATTEMPT>`.
+   - `run` names the run that established the proof: on GitHub
+     `github:<GITHUB_RUN_ID>/<GITHUB_RUN_ATTEMPT>`, on GitLab
+     `gitlab:<CI_PIPELINE_ID>`, on Buildkite `buildkite:<BUILDKITE_BUILD_ID>`,
+     on CircleCI `circleci:<CIRCLE_WORKFLOW_ID>`, and otherwise
+     `local:<time of the run>`.
    - A mutant that was not killed keeps its full record, so reports can show a
      proved survivor. A killed one keeps its id, line, mutator and status,
      which ignores and the stale-ignore check need (ADR-0008). A timed-out or
@@ -154,10 +171,10 @@ has to bring its result with it.
 4. **The ProofStore port reads and writes one ledger per scope.** A scope is a
    ref: `refs/heads/<branch>` or `refs/pull/<n>`.
    - **Reading and writing.** A run reads its own scope and the default
-     branch's, and writes only its own. The default branch's scope is written
-     only by runs on that branch itself: pushes and scheduled runs. A pull
-     request therefore cannot plant a proof that the default branch will
-     trust.
+     branch's, and writes only its own. A run with no ref has no scope and
+     writes nothing (ADR-0006). The default branch's scope is written only by
+     runs on that branch itself: pushes and scheduled runs. A pull request
+     therefore cannot plant a proof that the default branch will trust.
    - **Who writes.** Only the verdict writes, after merging every shard's
      results. `proofs.write` is `auto` by default, which writes the run's own
      scope, or `never`, which makes the store read-only.
@@ -167,7 +184,7 @@ has to bring its result with it.
    | Backend | What it is |
    |---------|------------|
    | **Directory** (`directory`) | One file per scope, `<path>/<scope>/ledger.json`, where `path` is `.mutation-gate/ledger` by default (`proofs.store: {use: directory, with: {path: …}}`). The default locally, and the base of every CI cache: GitLab's `cache:`, Buildkite's cache plugins and CircleCI's `save_cache` keep the directory. |
-   | **GitHub Actions cache** | The directory store, kept by the action and the reusable workflow (ADR-0011) when their `cache` input is `true`, as it is by default. The cache service is reachable only from inside an action, so PHP never calls it. Before the run, `actions/cache/restore` restores two entries, each into its scope's directory: the newest under the prefix `mutation-gate-ledger-<ref>-`, and the newest under `mutation-gate-ledger-<default branch ref>-`. After the verdict, `actions/cache/save` saves the run's own scope as `mutation-gate-ledger-<ref>-<SHA-256 of its ledger>`, so an unchanged ledger is not saved twice. |
+   | **GitHub Actions cache** | The directory store, kept by the action and the reusable workflow (ADR-0011) when their `cache` input is `true`, as it is by default. The cache service is reachable only from inside an action, so PHP never calls it. Before the run, `actions/cache/restore` restores two entries, each into its scope's directory: the newest under the prefix `mutation-gate-ledger-<SHA-256 of the ref>-`, and the newest under `mutation-gate-ledger-<SHA-256 of the default branch's ref>-`. After the verdict, `actions/cache/save` saves the run's own scope as `mutation-gate-ledger-<SHA-256 of the ref>-<SHA-256 of its ledger>`, so an unchanged ledger is not saved twice. Digests of the refs keep one scope's prefix from being a prefix of another's. |
    | **S3-compatible** (`s3`: AWS S3, Cloudflare R2, MinIO) | One object per scope, `<prefix>/<scope>/ledger.json`, through `async-aws/s3`, which is in `suggest`. Its options are `bucket` (required), `prefix` (`mutation-gate` by default), `region` (`us-east-1` by default; R2 takes `auto`) and `endpoint` (AWS's own by default; R2's is `https://<account>.r2.cloudflarestorage.com`). Credentials come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and, when set, `AWS_SESSION_TOKEN`. |
 
    When two verdicts write one scope at the same time, the last write wins. The
@@ -193,7 +210,7 @@ has to bring its result with it.
 
 | Option | Why it lost |
 |--------|-------------|
-| **Key over the files the judging tests executed** (the in-house gate's key) | Misses what no coverage map records: constants, defaults, attributes read by reflection, classes found by scanning. The key can then match while the result it names has changed. |
+| **Key over the files the covering tests executed** (the in-house gate's key) | Misses what no coverage map records: constants, defaults, attributes read by reflection, classes found by scanning. The key can then match while the result it names has changed. |
 | **One proof per shard** (the in-house gate's) | A shard's contents move with every timing (ADR-0006), and one changed file in it invalidates the whole shard. |
 | **Only *passed* in a proof** | Enough at a floor of 100. Below it, a tree's score needs every unit's counts. |
 | **Floors or ignores in the key** | Raising a floor or adding an ignore would re-run every unit, though no mutant's result depends on either. |
@@ -211,7 +228,8 @@ any test. Proofs pay for themselves on:
 
 - retried and re-run jobs;
 - re-runs of unchanged code;
-- test-only changes elsewhere;
+- test-only changes elsewhere, except for held units and for units whose
+  values ADR-0004's decision 8 judges, whose keys hold every test file;
 - the scheduled full run, which re-mutates only what moved since the last one.
 
 Reach (ADR-0005), not proofs, is what keeps a pull request small.
@@ -225,7 +243,7 @@ signed, and the README says where the boundary lies for each store.
 ## Related
 
 - [ADR-0003](0003-a-floor-only-rises.md): why a proof carries counts
-- [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): runner identity and judging tests
+- [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): runner identity, and the tests that can judge a unit
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): `last-passed` and the scheduled full run
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): timings, and the verdict that writes the ledger
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): why budget-cut and flaky units are never recorded
