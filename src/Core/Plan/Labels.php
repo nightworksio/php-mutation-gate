@@ -8,9 +8,6 @@ use function array_filter;
 use function array_key_last;
 use function array_keys;
 use function array_map;
-use function array_search;
-use function array_unique;
-use function array_values;
 use function count;
 use function implode;
 use function in_array;
@@ -21,6 +18,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 use function sprintf;
@@ -47,7 +45,7 @@ final readonly class Labels
             $shards = $shards->with($run === [] ? Shard::empty($id) : Shard::of(
                 $id,
                 $run[0]->package(),
-                Units::of(...array_map(static fn(Weighed $unit) => $unit->unit(), $run)),
+                Units::of(...array_map(static fn(Weighed $unit): Unit => $unit->unit(), $run)),
                 Seconds::of(Runs::costOf($run)),
                 self::labelOf($at, $named),
             ));
@@ -62,18 +60,22 @@ final readonly class Labels
      */
     private static function treesOf(array $run, Trees $trees): array
     {
-        return array_values(array_unique(array_map(
-            static fn(Weighed $unit): string => self::treeOf($unit->unit()->path(), $trees),
-            $run,
-        )));
+        $taken = [];
+
+        foreach ($run as $unit) {
+            $tree = self::treeOf($unit->unit()->path(), $trees);
+            $taken = in_array($tree, $taken, strict: true) ? $taken : [...$taken, $tree];
+        }
+
+        return $taken;
     }
 
     private static function treeOf(Path $unit, Trees $trees): string
     {
-        $holding = array_values(array_filter(
+        $holding = array_filter(
             iterator_to_array($trees, preserve_keys: false),
             static fn(Tree $tree): bool => self::holds($tree, $unit),
-        ));
+        );
 
         if ($holding === []) {
             return $unit->value();
@@ -107,7 +109,7 @@ final readonly class Labels
                 $named,
                 static fn(array $trees): bool => in_array($tree, $trees, strict: true),
             ));
-            $part = (int) array_search($at, $spans, strict: true) + 1;
+            $part = count(array_filter($spans, static fn(int $span): bool => $span <= $at));
 
             return count($spans) === 1 ? $tree : sprintf('%s, part %d of %d', $tree, $part, count($spans));
         }, $named[$at]));

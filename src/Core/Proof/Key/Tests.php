@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
-use function array_fill_keys;
+use function array_flip;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_pop;
+use function count;
 use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -120,13 +121,13 @@ final readonly class Tests
      */
     private function reachedFrom(array $from): array
     {
-        $seen = array_fill_keys($from, true);
+        $seen = array_flip($from);
         $pending = $from;
 
         while ($pending !== []) {
             foreach ($this->supportNamedBy(array_pop($pending)) as $found) {
                 $pending = array_key_exists($found, $seen) ? $pending : [...$pending, $found];
-                $seen[$found] = true;
+                $seen[$found] = count($seen);
             }
         }
 

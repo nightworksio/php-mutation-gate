@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use function array_filter;
 use function array_map;
-use function array_values;
 use function explode;
 use function implode;
 
@@ -42,7 +41,7 @@ final readonly class CiDefinition
         );
         $unpinned = array_map(
             static fn(string $line): string => preg_replace(self::PIN, '$1', $line) ?? $line,
-            array_values($lines),
+            $lines,
         );
 
         return new self($path, implode("\n", $unpinned));

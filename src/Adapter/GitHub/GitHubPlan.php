@@ -108,9 +108,9 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         $payload = is_file($event) ? file_get_contents($event) : '';
 
         try {
-            $event = Node::decode($payload === false ? '' : $payload);
+            $read = Node::decode($payload === false ? '' : $payload);
 
-            return RunOn::branchNamed($event->field('repository')->field('default_branch')->text());
+            return RunOn::branchNamed($read->field('repository')->field('default_branch')->text());
         } catch (NotInShape) {
             return CannotTell::because('The event payload does not name the default branch.');
         }

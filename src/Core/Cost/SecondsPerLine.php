@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Cost;
 
 use function array_filter;
 use function array_key_last;
-use function array_values;
 use function mb_strlen;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -24,14 +23,14 @@ final readonly class SecondsPerLine
     /** The default: every path, at a fifth of a second a line. */
     private const float STANDARD = 0.2;
 
-    /** @param list<LineRate> $rates */
+    /** @param array<LineRate> $rates */
     private function __construct(private array $rates)
     {
     }
 
     public static function of(LineRate ...$rates): self
     {
-        return new self(array_values($rates));
+        return new self($rates);
     }
 
     /** `{"": 0.2}` */
@@ -42,7 +41,7 @@ final readonly class SecondsPerLine
 
     public function forPath(Path $path): Seconds
     {
-        $covering = array_values(array_filter($this->rates, static fn(LineRate $rate): bool => $rate->covers($path)));
+        $covering = array_filter($this->rates, static fn(LineRate $rate): bool => $rate->covers($path));
 
         if ($covering === []) {
             return Seconds::of(0.0);

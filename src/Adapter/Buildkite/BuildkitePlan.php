@@ -67,14 +67,14 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
         return new self($variables, $step, $to);
     }
 
-    /** `{"step": {…}}`, printed to the standard output. */
+    /** `{"step": {…}}`, printed to the output. */
     public static function fromOptions(Options $options): self|Invalid
     {
         $with = json_decode($options->json(), associative: true);
         $step = is_array($with) && array_key_exists('step', $with) ? $with['step'] : [];
 
         return is_array($step) && ($step === [] || ! array_is_list($step))
-            ? self::printing('php://stdout', self::keyed($step), Variables::of(getenv()))
+            ? self::printing('php://output', self::keyed($step), Variables::of(getenv()))
             : Invalid::because(Problem::at('step', 'The step template is a map of step keys.'));
     }
 

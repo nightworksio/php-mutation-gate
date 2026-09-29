@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_map;
+use function array_slice;
 use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -24,6 +25,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use function preg_match;
 
 use stdClass;
+
+use function usort;
 
 /**
  * A ledger as its file holds it, `"format": 1`. Reading keeps each
@@ -59,7 +62,7 @@ final readonly class LedgerFile
         $proofs = [];
         $timings = [];
 
-        foreach ($ledger->proofs()->newest(self::KEPT) as $proof) {
+        foreach (self::newestOf($ledger->proofs()) as $proof) {
             $proofs[$proof->key()->value()] = self::proof($proof);
         }
 
@@ -100,6 +103,23 @@ final readonly class LedgerFile
         }
 
         return $ledger;
+    }
+
+    /**
+     * The newest {@see KEPT} proofs, by when their runs established them,
+     * newest first; of two as new, the one held first.
+     *
+     * @return list<Proof>
+     */
+    private static function newestOf(Proofs $proofs): array
+    {
+        $newest = iterator_to_array($proofs, preserve_keys: false);
+        usort(
+            $newest,
+            static fn(Proof $one, Proof $other): int => $other->run()->at()->value() <=> $one->run()->at()->value(),
+        );
+
+        return array_slice($newest, 0, self::KEPT);
     }
 
     /** @return array<string, mixed> */

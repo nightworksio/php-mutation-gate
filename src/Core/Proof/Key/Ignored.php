@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use function array_any;
-use function array_values;
 use function fnmatch;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -16,7 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
  */
 final readonly class Ignored
 {
-    /** @param list<string> $globs */
+    /** @param array<string> $globs */
     private function __construct(private array $globs)
     {
     }
@@ -28,7 +27,7 @@ final readonly class Ignored
 
     public static function globs(string ...$globs): self
     {
-        return new self(array_values($globs));
+        return new self($globs);
     }
 
     public function matches(Path $path): bool

@@ -26,6 +26,9 @@ use function sprintf;
  */
 final readonly class Cut
 {
+    /** The size of a shard where the count is fixed, which the workload decides rather than the config. */
+    private const float UNSIZED = 0.0;
+
     private function __construct(private float $seconds, private int $most, private bool $exact)
     {
     }
@@ -39,7 +42,7 @@ final readonly class Cut
     /** Exactly this many shards, as `--shards=<n>` asks. */
     public static function exactly(int $count): self
     {
-        return new self(0.0, $count, exact: true);
+        return new self(self::UNSIZED, $count, exact: true);
     }
 
     public function cut(Workload $work, Trees $trees): Shards|CannotJudge

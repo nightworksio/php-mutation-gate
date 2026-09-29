@@ -8,15 +8,13 @@ use function array_key_last;
 use function array_keys;
 use function array_map;
 use function explode;
-use function in_array;
-use function is_array;
 use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use PhpToken;
 
 use function preg_match_all;
 use function str_replace;
-use function token_get_all;
 use function trim;
 
 /**
@@ -57,7 +55,7 @@ final readonly class PhpFile
 
     public static function read(Contents $source): self
     {
-        $tokens = token_get_all($source->text());
+        $tokens = PhpToken::tokenize($source->text());
         $reading = Reading::start();
 
         foreach ($tokens as $token) {
@@ -89,16 +87,13 @@ final readonly class PhpFile
         return array_map(strval(...), array_keys($this->names));
     }
 
-    /** @param array{0: int, 1: string, 2: int}|string $token */
-    private static function isSilent(array|string $token): bool
+    private static function isSilent(PhpToken $token): bool
     {
-        return is_array($token)
-            && (in_array($token[0], self::SILENT, strict: true)
-                || ($token[0] === T_INLINE_HTML && trim($token[1]) === ''));
+        return $token->is(self::SILENT) || ($token->is(T_INLINE_HTML) && trim($token->text) === '');
     }
 
     /**
-     * @param  list<array{0: int, 1: string, 2: int}|string> $tokens
+     * @param  array<PhpToken>     $tokens
      * @return array<string, true>
      */
     private static function mentionedIn(array $tokens): array
@@ -106,11 +101,9 @@ final readonly class PhpFile
         $names = [];
 
         foreach ($tokens as $token) {
-            $lower = is_array($token) ? mb_strtolower($token[1]) : '';
-            $kind = is_array($token) ? $token[0] : 0;
-
-            $names += in_array($kind, self::NAME_TOKENS, strict: true) ? [self::lastSegmentOf($lower) => true] : [];
-            $names += in_array($kind, self::TEXT_TOKENS, strict: true) ? self::wordsIn($lower) : [];
+            $lower = mb_strtolower($token->text);
+            $names += $token->is(self::NAME_TOKENS) ? [self::lastSegmentOf($lower) => true] : [];
+            $names += $token->is(self::TEXT_TOKENS) ? self::wordsIn($lower) : [];
         }
 
         return $names;

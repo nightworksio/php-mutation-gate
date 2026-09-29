@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
-use function array_values;
 use function count;
 
 use Countable;
@@ -15,14 +14,14 @@ use function usort;
 /** The units a plan cuts into shards, each weighed. */
 final readonly class Workload implements Countable
 {
-    /** @param list<Weighed> $units */
+    /** @param array<Weighed> $units */
     private function __construct(private array $units)
     {
     }
 
     public static function of(Weighed ...$units): self
     {
-        return new self(array_values($units));
+        return new self($units);
     }
 
     /**

@@ -62,6 +62,9 @@ parameters:
             # A floor or a score out of range is a mistake in the code that
             # built it, never something a caller can answer.
             - NightWorksIO\MutationGate\Core\Score\NotAPercentage
+            # A file the gate wrote that does not hold its shape is refused inside
+            # the codec that reads it, and answered at the codec's edge.
+            - NightWorksIO\MutationGate\Core\Format\NotInShape
 
     ergebnis:
         # C4 is ergebnis's NoErrorSuppressionRule and the `switch` half of C5 is

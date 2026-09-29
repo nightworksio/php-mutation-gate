@@ -10,7 +10,6 @@ use function getenv;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
-use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -42,7 +41,7 @@ final readonly class JsonPlan implements CiPlan, Configurable
 
     public static function fromOptions(Options $options): self
     {
-        return self::printing('php://stdout', Variables::of(getenv()));
+        return self::printing('php://output', Variables::of(getenv()));
     }
 
     public function publish(Plan $plan): Written|CannotJudge
@@ -57,7 +56,7 @@ final readonly class JsonPlan implements CiPlan, Configurable
         return WhichShard::in($this->variables, $plan);
     }
 
-    public function runOn(): RunOn|CannotTell
+    public function runOn(): CannotTell
     {
         return CannotTell::because('The JSON plan knows nothing of the run, so git names its branch.');
     }

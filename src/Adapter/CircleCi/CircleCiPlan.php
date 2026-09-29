@@ -46,7 +46,7 @@ final readonly class CircleCiPlan implements CiPlan, Configurable
 
     public static function fromOptions(Options $options): self
     {
-        return self::printing('php://stdout', Variables::of(getenv()));
+        return self::printing('php://output', Variables::of(getenv()));
     }
 
     public function publish(Plan $plan): Written|CannotJudge

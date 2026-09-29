@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use function in_array;
-use function is_array;
-use function max;
 use function mb_strtolower;
+
+use PhpToken;
 
 /**
  * Where a reading of a PHP file's top level has got to, one token at a time.
  * The depth counts every bracket, brace and attribute still open, so a
- * statement is at the top level only while it is zero. The opener is the
- * token that opened the statement being read, and naming says the next bare
- * name is the one a declaration declares.
+ * statement is at the top level only while it is zero. The opener is the id
+ * of the token that opened the statement being read, and naming says the next
+ * bare name is the one a declaration declares.
  */
 final readonly class Reading
 {
@@ -40,7 +40,7 @@ final readonly class Reading
     private function __construct(
         private int $depth,
         private bool $atStart,
-        private int|string $opener,
+        private int $opener,
         private bool $naming,
         private array $declares,
         private bool $refused,
@@ -49,7 +49,7 @@ final readonly class Reading
 
     public static function start(): self
     {
-        return new self(0, atStart: true, opener: '', naming: false, declares: [], refused: false);
+        return new self(0, atStart: true, opener: T_OPEN_TAG, naming: false, declares: [], refused: false);
     }
 
     /** Whether the file does something at the top level, so reading it stopped. */
@@ -64,29 +64,31 @@ final readonly class Reading
         return $this->declares;
     }
 
-    /**
-     * The reading once this token is read.
-     *
-     * @param array{0: int, 1: string, 2: int}|string $token
-     */
-    public function then(array|string $token): self
+    /** The reading once this token is read. */
+    public function then(PhpToken $token): self
     {
-        $kind = is_array($token) ? $token[0] : $token;
         $opens = $this->depth === 0 && $this->atStart;
 
-        if ($opens && ! in_array($kind, self::DECLARING, strict: true)) {
+        if ($opens && ! $token->is(self::DECLARING)) {
             return $this->refusing();
         }
 
-        $read = $opens ? $this->opening($kind) : $this;
+        $read = $opens ? $this->opening($token->id) : $this;
 
-        return $read->named($kind, is_array($token) ? $token[1] : $token)->nested($kind);
+        return $read->named($token)->nested($token);
     }
 
     /** A new statement at the top level, opened by this token. */
-    private function opening(int|string $kind): self
+    private function opening(int $kind): self
     {
-        return new self(0, atStart: false, opener: $kind, naming: false, declares: $this->declares, refused: false);
+        return new self(
+            0,
+            atStart: false,
+            opener: $kind,
+            naming: $this->naming,
+            declares: $this->declares,
+            refused: false,
+        );
     }
 
     /** The statement at the top level ended, so the next token opens another. */
@@ -96,7 +98,7 @@ final readonly class Reading
             0,
             atStart: true,
             opener: $this->opener,
-            naming: false,
+            naming: $this->naming,
             declares: $this->declares,
             refused: false,
         );
@@ -107,55 +109,55 @@ final readonly class Reading
         return new self($this->depth, $this->atStart, $this->opener, $this->naming, $this->declares, refused: true);
     }
 
-    private function named(int|string $kind, string $text): self
+    private function named(PhpToken $token): self
     {
         if ($this->depth !== 0) {
             return $this;
         }
 
-        if ($this->naming && $kind === T_STRING) {
+        if ($this->naming && $token->is(T_STRING)) {
             return new self(
                 0,
                 $this->atStart,
                 $this->opener,
                 naming: false,
-                declares: [...$this->declares, mb_strtolower($text)],
+                declares: [...$this->declares, mb_strtolower($token->text)],
                 refused: false,
             );
         }
 
-        $names = in_array($kind, self::NAMING, strict: true) || ($kind === ',' && $this->opener === T_CONST);
+        $names = $token->is(self::NAMING) || ($token->is(',') && $this->opener === T_CONST);
 
         return new self(0, $this->atStart, $this->opener, $names || $this->naming, $this->declares, refused: false);
     }
 
-    private function nested(int|string $kind): self
+    private function nested(PhpToken $token): self
     {
-        if (in_array($kind, self::OPENING, strict: true)) {
-            return $this->opened($kind);
+        if ($token->is(self::OPENING)) {
+            return $this->opened($token);
         }
 
-        if (in_array($kind, self::CLOSING, strict: true)) {
-            return $this->closed($kind);
+        if ($token->is(self::CLOSING)) {
+            return $this->closed($token);
         }
 
-        return $kind === ';' && $this->depth === 0 ? $this->ended() : $this;
+        return $token->is(';') && $this->depth === 0 ? $this->ended() : $this;
     }
 
-    private function opened(int|string $kind): self
+    private function opened(PhpToken $token): self
     {
-        return $kind === '{' && $this->depth === 0 && in_array($this->opener, self::ENCLOSING, strict: true)
+        return $token->is('{') && $this->depth === 0 && in_array($this->opener, self::ENCLOSING, strict: true)
             ? $this->refusing()
             : new self($this->depth + 1, $this->atStart, $this->opener, $this->naming, $this->declares, refused: false);
     }
 
-    private function closed(int|string $kind): self
+    private function closed(PhpToken $token): self
     {
-        $depth = max(0, $this->depth - 1);
+        $depth = $this->depth - 1;
 
         return new self(
             $depth,
-            $depth === 0 && $this->ends($kind),
+            $depth === 0 && $this->ends($token),
             $this->opener,
             $this->naming,
             $this->declares,
@@ -164,8 +166,8 @@ final readonly class Reading
     }
 
     /** Whether closing this bracket at the top level ends the statement it is in. */
-    private function ends(int|string $kind): bool
+    private function ends(PhpToken $token): bool
     {
-        return ($kind === '}' && $this->opener !== T_USE) || ($kind === ']' && $this->opener === T_ATTRIBUTE);
+        return ($token->is('}') && $this->opener !== T_USE) || ($token->is(']') && $this->opener === T_ATTRIBUTE);
     }
 }

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Ci;
 use function array_keys;
 use function count;
 use function implode;
+use function intval;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -71,7 +72,7 @@ final readonly class WhichShard
             ));
         }
 
-        return self::shardOf((int) $value + 1 - $from, $plan);
+        return self::shardOf(intval($value) + 1 - $from, $plan);
     }
 
     /** Whether the jobs the CI started, where it says, are as many as the plan's shards. */

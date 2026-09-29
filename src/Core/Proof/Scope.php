@@ -16,7 +16,7 @@ final readonly class Scope
      * A branch's ref, with no whitespace, no empty segment and no `.` or `..`
      * segment, or a pull request's, with nothing but its number.
      */
-    private const string REF = '#^refs/(?:heads/(?!.*(?:^|/)\.{1,2}(?:/|$))(?!.*//)[^/\s]\S*(?<!/)|pull/[1-9]\d*)$#D';
+    private const string REF = '#^refs/(?:heads/(?!(?:.*/)?\.{1,2}(?:/|$))(?!.*//)[^/\s]\S*(?<!/)|pull/[1-9]\d*)$#D';
 
     private function __construct(private string $ref)
     {

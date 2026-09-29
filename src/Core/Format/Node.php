@@ -66,7 +66,7 @@ final readonly class Node
     /** @throws NotInShape */
     public function number(): float
     {
-        return is_int($this->value) || is_float($this->value) ? (float) $this->value : throw $this->refused('a number');
+        return is_int($this->value) || is_float($this->value) ? $this->value : throw $this->refused('a number');
     }
 
     /**

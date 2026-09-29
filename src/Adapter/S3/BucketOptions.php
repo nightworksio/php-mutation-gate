@@ -70,7 +70,7 @@ final readonly class BucketOptions
         return $this->options[self::PREFIX];
     }
 
-    /** @return array<string, string> the client's configuration */
+    /** @return array{region: string, endpoint?: string, pathStyleEndpoint?: string} the client's configuration */
     public function configuration(): array
     {
         $endpoint = $this->options[self::ENDPOINT];
