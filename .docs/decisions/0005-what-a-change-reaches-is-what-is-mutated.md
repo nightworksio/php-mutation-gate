@@ -198,9 +198,12 @@ The same repository has two more needs.
        2 and says the package's Pest plugin is not loaded.
    - **What the gate refuses** (exit code 2, with the file and line), each for
      a reason at source:
-     - **`#[Holds]` on any other closure** (a `beforeEach`, a dataset, a
-       closure kept in a variable). Pest never passes those closures to the
-       filter, so no group could follow from them.
+     - **`#[Holds]` on a `beforeEach` or dataset closure, or on a named
+       function.** Pest never passes those to the filter, so no group could
+       follow from them.
+     - **`#[Holds]` on a closure kept in a variable.** Tokens cannot tell which
+       test the closure becomes, so the gate cannot check it against the group
+       listing.
      - **`#[Holds]` in `tests/Pest.php`.** Pest loads that file before it
        starts any plugin, so its tests register before the filter exists.
      - **Under Pest, `#[Holds]` on a PHPUnit class or method without the
@@ -212,10 +215,13 @@ The same repository has two more needs.
        `#[Group('holds:<path>')]`.
      - **Under Infection, a path that is not one string literal**, such as a
        constant. The gate reads `#[Holds]` from tokens there, and tokens cannot
-       evaluate an expression. Under Pest such a path works, because the
-       plugin evaluates it and the group listing reports it.
+       evaluate an expression. Under Pest such a path works on a closure,
+       because the plugin evaluates it and the group listing reports it.
+     - **Under Pest, a path that is not one string literal on a PHPUnit class
+       or method.** The plugin never sees that class, and tokens cannot check
+       that its `#[Group]` matches.
 
-     Each message names the group that replaces the attribute. A held test
+     Each message names the group form to use instead. A held test
      chained with `->depends()` on a test outside its group is not refused:
      PHPUnit skips it, it covers nothing, and the coverage check of decision
      10 names the lines the group then misses.

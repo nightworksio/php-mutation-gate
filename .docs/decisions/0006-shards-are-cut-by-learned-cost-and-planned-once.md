@@ -63,7 +63,8 @@ Two parts of that do not carry over to a public package.
    A shard never re-cuts. The plan records the commit it was made on, and a
    shard running on a different checkout stops with exit code 2.
    `mutation-gate`, or `mutation-gate run` without `--plan`, does all three in
-   one process and takes the options of `plan` and `verdict`.
+   one process and takes the options of `plan`, and `verdict`'s
+   `--publish-dir`.
 
 2. **The verdict is the one check a branch protects.** It reads the result
    files, not the CI's job statuses. A shard that crashed, was cancelled or
@@ -152,13 +153,15 @@ Two parts of that do not carry over to a public package.
    | GitLab CI | `CI_COMMIT_REF_NAME` | `CI_MERGE_REQUEST_IID` is set | `CI_DEFAULT_BRANCH` |
    | Buildkite | `BUILDKITE_BRANCH` | `BUILDKITE_PULL_REQUEST` is not `false` | `BUILDKITE_PIPELINE_DEFAULT_BRANCH` |
    | CircleCI | `CIRCLE_BRANCH` | `CIRCLE_PULL_REQUEST` is set | `ci.defaultBranch` |
-   | JSON, and local runs | git's current branch | never | `ci.defaultBranch` |
+   | JSON, and local runs | git's current branch; with a detached `HEAD`, none | never | `ci.defaultBranch` |
 
-   On a pull request the scope is `refs/pull/<n>`, where n is the number the
-   CI names, and otherwise `refs/heads/<branch>`. `ci.defaultBranch` is a
-   branch name. By default it is the branch git's `refs/remotes/origin/HEAD`
-   points at, and `main` when there is none. Set in the config, it replaces
-   the CI's own answer too.
+   On a pull request the scope is `refs/pull/<n>`, where n is the number the CI
+   names, and otherwise `refs/heads/<branch>`. A run with no ref, on a detached
+   `HEAD` outside CI, has no scope of its own: it reads the default branch's
+   ledger and writes none (ADR-0007). `ci.defaultBranch` is a branch name. By
+   default it is the branch git's `refs/remotes/origin/HEAD` points at, and
+   `main` when there is none. Set in the config, it replaces the CI's own answer
+   too.
 
 6. **GitHub is wired by the package itself** (ADR-0011). The composite action
    runs the whole gate in one job, or one shard when given `shard`. The

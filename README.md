@@ -135,8 +135,8 @@ Options:
 Exit codes: `0` passed, `1` failed, `2` could not judge. The last means, for
 example, an invalid config, an opening test run that failed, or a shard with
 no results. `run` with a plan exits `0` once its shard's result is written,
-because the verdict judges it, and `2` when it cannot write it or the plan
-belongs to another commit.
+because the verdict judges it, and `2` when it cannot write it, the plan
+belongs to another commit, or the CI's shard count differs from the plan's.
 
 ## Configuration
 
@@ -314,15 +314,15 @@ Environment variables that change what the gate does:
 
 | Variable | What it does | Decided in |
 |----------|--------------|------------|
-| `CI` | Set: a tree with no floor stops the run, and on the default branch the badge and trend are written | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `CI` | Set: a tree with no floor stops the run, `baseline.improvement` applies, and on the default branch the badge and trend are written. Unset: a full run writes missing floors and raises improved ones | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI` | Choose the CI plan, and under GitHub Actions the annotations and step summary | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `SHARD`, `CI_NODE_INDEX`, `CI_NODE_TOTAL`, `BUILDKITE_PARALLEL_JOB`, `BUILDKITE_PARALLEL_JOB_COUNT`, `CIRCLE_NODE_INDEX`, `CIRCLE_NODE_TOTAL`, `CI_JOB_NAME`, `PARENT_PIPELINE_ID` | Which shard a job is, and how GitLab's child pipeline finds the plan | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `GITHUB_REF`, `GITHUB_EVENT_NAME`, `GITHUB_EVENT_PATH`, `CI_COMMIT_REF_NAME`, `CI_MERGE_REQUEST_IID`, `CI_DEFAULT_BRANCH`, `BUILDKITE_BRANCH`, `BUILDKITE_PULL_REQUEST`, `BUILDKITE_PIPELINE_DEFAULT_BRANCH`, `CIRCLE_BRANCH`, `CIRCLE_PULL_REQUEST` | The run's ref, whether it is a pull request, and the default branch | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `GITHUB_OUTPUT`, `GITHUB_STEP_SUMMARY` | Where the GitHub plan and the step summary are written | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
-| `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT` | The run a proof names | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, `CI_PIPELINE_ID`, `BUILDKITE_BUILD_ID`, `CIRCLE_WORKFLOW_ID` | The run a proof names | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `GITHUB_TOKEN` | Lets the sticky PR comment be posted, and the GitHub change source prove which pull request's run passed | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | Credentials for the S3 proof store | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
-| `MUTATION_GATE_RESULTS` | Set by the Pest adapter for its own plugin; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `MUTATION_GATE_RESULTS`, `MUTATION_GATE_GUARD` | Set by the Pest adapter for its own plugin; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 
 Files the gate reads and writes:
 
@@ -333,6 +333,7 @@ Files the gate reads and writes:
 | `.mutation-gate/plan.json`, `.mutation-gate/coverage/`, `.mutation-gate/results/<id>.json` | The plan, its coverage and each shard's result | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `.mutation-gate/pipeline.yml` | GitLab's child pipeline | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `.mutation-gate/ledger/<scope>/ledger.json` | The proof ledger of one ref | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `.mutation-gate/mutants/<native id>.php` | The mutated file of a mutant judged by reference (Pest) | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `.mutation-gate/publish/badge.json`, `trend.json`, `trend.svg` | The badge and trend | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 
 ### Holding tests

@@ -55,11 +55,13 @@ itself, and goes up with the tests.
    (ADR-0007).
 
    `uncovered` is about executable lines that no test covers. A mutant on a
-   line that is not executable at all (a constant's value, a property's
-   default, an enum case's value, a parameter's default or an attribute's
-   argument) is not uncovered. The gate judges it against the tests that
-   reference its symbol (ADR-0004, decision 8), and it scores as the result:
-   killed, survived, or unjudged when no test reaches it.
+   line that is not executable at all (a class or interface constant's value,
+   a property's default, an enum case's value, a default of a plain
+   function's or closure's parameter, or an attribute's argument) is not
+   uncovered. The gate judges it against the tests that reference its symbol
+   (ADR-0004, decision 8), and it scores as the result: killed, survived, timed
+   out (triaged as ADR-0008 says), or unjudged for a reason decision 8
+   gives.
 
 2. **A floor belongs to a tree, and a tree is a path.** Trees come from a tree
    source (ADR-0002, ADR-0005), or from `trees` in the config: a list of

@@ -138,7 +138,7 @@ sees the same verdict.
    | uncovered | `NoCoverage`, or `Ignored` under `uncovered: exclude` |
    | ignored, and ignored by a native marker | `Ignored` |
 
-   Covering tests, hints and reproduce commands go in each mutant's
+   Judging tests, hints and reproduce commands go in each mutant's
    `description`. The schema requires a column for each location. The gate
    takes it from the file's tokens, and a mutant it cannot place there spans
    its lines from the first column to the end. The viewer's licence
@@ -195,8 +195,8 @@ sees the same verdict.
 7. **Every survivor says what the tests miss.** Each runner adapter maps its
    native mutator names to a family. Each family has one sentence, filled in
    from the diff and from the enclosing function, found by the file's tokens.
-   The sentence always names the covering tests: up to three, then *and n
-   more*.
+   The sentence always names the judging tests (ADR-0004): up to three, then
+   *and n more*.
 
    | Family | Example | What the hint says |
    |--------|---------|--------------------|

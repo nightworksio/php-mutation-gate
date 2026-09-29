@@ -144,8 +144,8 @@ its parser attributes. Both change when the checkout moves.
        run in the shard, and the timeout rule is applied at verdict time
        (ADR-0008);
      - unjudged: no result, because the budget ran out, the runner stopped
-       first, or a covering test could not be put in Pest's filter
-       (decision 3).
+       first, a covering test could not be put in Pest's filter (decision 3),
+       or decision 8 could not judge it, with its reason.
 
      An Infection mutant that Infection reports as ignored (its
      `ignoreSourceCodeByRegex`) is recorded as *ignored by a native marker*
@@ -172,9 +172,9 @@ its parser attributes. Both change when the checkout moves.
      - `--covered-only` and `--min` are never passed. Uncovered mutants are
        always reported, and `uncovered: exclude` is applied by the gate
        (ADR-0003).
-     - Pest runs with the project root as its working directory, and one Pest
-       invocation at a time runs in a checkout, because each writes its opening
-       map to the same path.
+     - Pest runs with the project root as its working directory, and one
+       `--mutate` invocation at a time runs in a checkout, because each writes
+       its opening map to the same path.
    - **Where Pest's filter cannot hold the covering tests.** The adapter builds
      Pest's filter from the gate's coverage map, as Pest does. A mutant with a
      covering test whose id that filter cannot express is recorded as
@@ -184,9 +184,10 @@ its parser attributes. Both change when the checkout moves.
    - **A small Pest plugin** ships in this package, listed in its
      `composer.json` under `extra.pest.plugins`, which is how Pest finds
      plugins. It implements Pest's `Bootable` and `TestCaseMethodFilter`
-     contracts, and it does three jobs: it turns `#[Holds]` into groups, it
-     reports results, and it keeps the mutated file of each mutant Pest leaves
-     uncovered on a line that is not executable (decision 8).
+     contracts, and it does four jobs. It turns `#[Holds]` into groups and
+     reports results, both described below. For decision 8, it keeps the
+     mutated file of each mutant Pest leaves uncovered on a line that is not
+     executable, and it guards each judging run.
    - **It turns `#[Holds]` into groups** (ADR-0005).
      - In `boot()` it registers itself as a filter on Pest's test repository.
        Pest boots plugins before it loads any test file, in the main process,
@@ -335,14 +336,25 @@ its parser attributes. Both change when the checkout moves.
      where the filter would not fit. The seed computes the same set.
    - **Infection** runs the covering test cases' classes, and the adapter
      answers with their files.
+   - **A unit whose tokens hold a class or interface constant, a property
+     default, an enum case, a plain parameter default or an attribute
+     argument** can have mutants that decision 8 judges by reference, so for
+     it the answer is every test file.
+
+   A mutant's *judging tests* are the tests that decide its result: its
+   covering tests, or for decision 8 the test files it selected and, where
+   used, the fallback. Timeout triage, flaky triage and hints name these
+   (ADR-0008, ADR-0009).
 
 6. **Reproducing one mutant is runner-neutral.** `mutation-gate reproduce <id>`
    runs the runner over the one file with only that mutator: Pest's `--path`
    with `--mutator=<class name>`, or Infection's positional path with the
    narrowed config of decision 4. It finds the mutant by the gate's id and
-   prints the diff, the covering tests and the runner's own output for it.
+   prints the diff, the judging tests and the runner's own output for it.
    Pest's `--id=<native id>` is used for that last run once the native id is
-   known on this machine.
+   known on this machine. A mutant decision 8 judged is re-run through decision
+   8's steps instead, against its judging tests, because Pest reports it
+   uncovered before any test runs.
 
 7. **One contract suite for every runner.** `tests/Contract/Runner` holds a
    fixture library with a known killed, survived, uncovered, timed-out and
@@ -352,8 +364,11 @@ its parser attributes. Both change when the checkout moves.
    For Pest's `#[Holds]`, the suite asserts the exact set of tests Pest runs
    for `--group=holds:<path>`, serially and under `--parallel`, and in a
    mutant's child process:
+
    - a held `it()`, `test()` and `arch()` closure, with `function` and with
      `fn`;
+   - a held closure whose path is a class constant, not a literal;
+   - a PHPUnit class with `#[Holds]` and its matching `#[Group]`, run by Pest;
    - a held `describe`, with a nested `describe`, a higher-order test and a
      skipped test inside;
    - a held test with a dataset, where every row is selected;
@@ -361,6 +376,7 @@ its parser attributes. Both change when the checkout moves.
      selected;
    - two `#[Holds]` on one closure;
    - `--list-groups`, which shows every `holds:` group.
+
    CI runs the suite against the lowest and highest supported version of each
    runner (ADR-0011).
 
@@ -371,11 +387,14 @@ its parser attributes. Both change when the checkout moves.
      property declarations, parameters of plain functions and closures, and
      attribute arguments. Pest marks every mutant there *uncovered* and runs no
      test. The gate takes these mutants from the `Uncovered` events, by the
-     kind of the node at the mutant's line, and judges them itself. A global
-     `const` or `define()` sits on an executable line, so an uncovered mutant
-     there stays uncovered. Infection never generates mutants on these lines:
-     it mutates only inside functions and their signatures, and a contract
-     test proves it emits none.
+     kind of the node at the mutant's line, and judges them itself.
+     - A global `const` or `define()` sits on an executable line, so an
+       uncovered mutant there stays uncovered.
+     - Infection never generates mutants on constants, enum cases, property
+       declarations or attribute arguments: it mutates only inside functions
+       and their signatures. A parameter default is in a signature, so
+       Infection mutates it and reports it as it reports any mutant. A
+       contract test proves both.
    - **Which tests judge it.** A scan of tokens, with names resolved through
      namespaces, imports and aliases, finds every reference to the symbol:
      - in test files, the test files themselves;
@@ -383,7 +402,7 @@ its parser attributes. Both change when the checkout moves.
        read from the coverage map. So a constant read through `self::RATE`
        inside a covered method is judged by that method's tests. References
        are followed through constant expressions and defaults, at most three
-       steps deep.
+       steps deep, and a longer chain counts as ambiguous.
 
      What counts as a reference:
      - `Owner::NAME`, and `self::`, `static::` and `parent::` inside the owner
@@ -395,14 +414,25 @@ its parser attributes. Both change when the checkout moves.
        serialisation all read it;
      - a static property through `Owner::$name`;
      - an instance property's default through any creation of the owner;
-     - a parameter default through the covering tests of the callers.
-   - **When the scan is ambiguous** (a variable class such as `$class::NAME`,
-     a `constant()` call on a non-literal name, reflection on the owner, or
-     `static::NAME` that a subclass overrides), the gate adds the test files
-     that cover the owner's file. That fallback is bounded: at most 10 test
-     files, whose JUnit times add up to at most 10% of the suite's time.
-     Beyond the bound the mutant is unjudged, and its reason says why, for
-     example *ambiguous reference; `Theme` is covered by 152 test files*.
+     - a plain function's parameter default through the covering tests of the
+       lines that call it.
+
+     An attribute's argument and a closure's parameter default have no
+     reference a token scan can follow, so they are always ambiguous. In a
+     held unit (ADR-0005), every set below is limited to the holding group.
+   - **The fallback** is the set of test files that cover the owner's file.
+     It is used when it has at most 10 test files:
+     - when the scan is ambiguous (a variable class such as `$class::NAME`, a
+       `constant()` call on a non-literal name, reflection on the owner, or
+       `static::NAME` that a subclass overrides), the fallback is added to
+       what the scan found;
+     - when the direct references leave the mutant alive, it runs against the
+       fallback too before it counts as a survivor.
+
+     An ambiguous mutant whose fallback is over the bound is unjudged, and its
+     reason says why, for example *ambiguous reference; `Theme` is covered by
+     152 test files*. An unambiguous survivor whose fallback is over the bound
+     stays a survivor.
    - **No reference** makes the mutant unjudged, with the reason *no test
      reaches this value*. It is never passed.
    - **How it runs.** Pest serves a mutated file to a process through an
@@ -412,24 +442,27 @@ its parser attributes. Both change when the checkout moves.
      every `--parallel` worker, which inherits the environment. The gate uses
      the same mechanism Pest uses for its own mutants:
      1. The plugin copies each such mutant's mutated file from its
-        `Uncovered` event into `.mutation-gate/mutants/<id>.php`.
+        `Uncovered` event to `.mutation-gate/mutants/<native id>.php`.
      2. The selected tests run once as they are. If they fail, every mutant
         they would judge is unjudged: *the selected tests fail on their own*.
      3. For each mutant, the gate runs `vendor/bin/pest --no-tia --bail
-        --colors=never --log-junit=<file>` over the selected test files, with
-        the two variables set, from the project root. Several mutants run at
-        once, each serially, with Pest's own parallel tokens.
-     4. A failing test kills the mutant. A run that passes makes it a
-        survivor, but only after the same run over the fallback set, within
-        its bound, also passes. A timeout uses Pest's own limit. A missing
-        mutated file is errored, never killed.
-   - **Guards.** The plugin records, in that process, whether the original file
-     was loaded before the override started, and whether it was loaded at
-     all. Composer's `files` autoload, `tests/Pest.php` and datasets can load a
-     class before any plugin starts. Either case makes the mutant unjudged:
-     *loaded before the override*, or *never loaded*. So does a run with
-     `opcache.enable_cli` or `opcache.file_cache` on, because a cached original
-     could be served instead of the mutant.
+        --colors=never --log-junit=<file>` over the selected test files, from
+        the project root, with the two variables and `MUTATION_GATE_GUARD`
+        set. Several mutants run at once, each serially, with Pest's own
+        parallel tokens.
+     4. A failing test kills the mutant, and a passing run leaves it alive for
+        the fallback above. A timeout uses Pest's own limit. A missing mutated
+        file makes it unjudged, *mutated file missing*, never killed.
+   - **Guards.** When `MUTATION_GATE_GUARD` names a file, the plugin writes to
+     it whether the original file was loaded before the override started,
+     whether it was loaded at all, and the opcache settings. Composer's
+     `files` autoload, `tests/Pest.php` and datasets can load a class before
+     any plugin starts. Each of these makes the mutant unjudged, with its
+     reason:
+     - *loaded before the override*;
+     - *never loaded*;
+     - `opcache.enable_cli` or `opcache.file_cache` on, because a cached
+       original could be served instead of the mutant.
    - **Costs.** Each run's time goes into the cost model like any other
      mutant's (ADR-0006).
    - **Contract tests**, one per kind of symbol:
@@ -440,15 +473,18 @@ its parser attributes. Both change when the checkout moves.
        duplicate value;
      - a static property default, and an instance property default reached
        only through the fallback;
-     - a plain function's parameter default;
+     - a plain function's parameter default, a closure's parameter default,
+       and an attribute's argument;
      - a global `const` in a `files` autoload file, which stays uncovered;
      - no reference, and a same-named constant in another class that does not
        count;
-     - `$class::NAME` inside and beyond the bound;
+     - `$class::NAME` inside and beyond the bound, and a chain four steps deep;
+     - a held unit, where only the holding group judges;
      - a symlinked project root, a dataset that loads the enum early, and a
        missing mutated file;
      - the override under `--parallel`, and several test files as arguments;
-     - Infection, which emits no mutant on these lines.
+     - Infection, which emits no mutant on constants, enum cases, properties
+       or attribute arguments.
 
 ## Alternatives considered
 

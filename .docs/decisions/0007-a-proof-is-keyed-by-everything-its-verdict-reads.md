@@ -43,7 +43,10 @@ has to bring its result with it.
    every mutant's raw record (ADR-0004), with its status before triage, ignores
    and floors are applied. A proof is written only for a unit that ran to the
    end:
-   - no unjudged mutant, whatever the cause (ADR-0004);
+   - no unjudged mutant (ADR-0004), except one that ADR-0004's decision 8 left
+     unjudged because of what the code holds: no test references the value,
+     or the reference is ambiguous beyond the bound. The same key gives the
+     same answer, so such a unit is still proved;
    - no flaky mutant;
    - no *cannot judge*.
 
@@ -97,8 +100,10 @@ has to bring its result with it.
    7. **Of the test directories, only what can judge this unit**:
       - the test files the runner says can judge it (ADR-0004). For a held unit,
         that is every test file, because any file can join a group. So it is
-        for a unit with a mutant on a line that is not executable, because any
-        file can come to reference its symbol (ADR-0004, decision 8);
+        for a unit whose tokens hold a class or interface constant, a property
+        default, an enum case, a plain parameter default or an attribute
+        argument, because any file can come to reference it (ADR-0004,
+        decisions 5 and 8);
       - the support those files name, and the support that names in turn,
         matched by the class and function names each file declares. Matching
         over-reads on purpose: a word that happens to match brings the file in;
@@ -107,8 +112,11 @@ has to bring its result with it.
       - every test file the coverage map does not know;
       - with the Pest patch on, every test in the canary group.
    8. **The unit**: its path and, for each of its covered lines, the ids of the
-      tests that cover it. If the tests covering a line change, the unit is
-      judged again even when no file changed.
+      tests that cover it. For a unit decision 8 of ADR-0004 applies to, also
+      the ids of the tests covering each reference line it follows, and of
+      those covering its owners' files, for the fallback. If the tests
+      covering a line change, the unit is judged again even when no file
+      changed.
 
    Where a key cannot be computed, the unit always runs and is never recorded.
    That happens with no git, or with no coverage map. Every doubt resolves the
@@ -138,8 +146,11 @@ has to bring its result with it.
    }
    ```
 
-   - `run` names the run that established the proof, as `<ci>:<its run id>`;
-     on GitHub that is `github:<GITHUB_RUN_ID>/<GITHUB_RUN_ATTEMPT>`.
+   - `run` names the run that established the proof: on GitHub
+     `github:<GITHUB_RUN_ID>/<GITHUB_RUN_ATTEMPT>`, on GitLab
+     `gitlab:<CI_PIPELINE_ID>`, on Buildkite `buildkite:<BUILDKITE_BUILD_ID>`,
+     on CircleCI `circleci:<CIRCLE_WORKFLOW_ID>`, and otherwise
+     `local:<time of the run>`.
    - A mutant that was not killed keeps its full record, so reports can show a
      proved survivor. A killed one keeps its id, line, mutator and status,
      which ignores and the stale-ignore check need (ADR-0008). A timed-out or
@@ -156,10 +167,10 @@ has to bring its result with it.
 4. **The ProofStore port reads and writes one ledger per scope.** A scope is a
    ref: `refs/heads/<branch>` or `refs/pull/<n>`.
    - **Reading and writing.** A run reads its own scope and the default
-     branch's, and writes only its own. The default branch's scope is written
-     only by runs on that branch itself: pushes and scheduled runs. A pull
-     request therefore cannot plant a proof that the default branch will
-     trust.
+     branch's, and writes only its own. A run with no ref has no scope and
+     writes nothing (ADR-0006). The default branch's scope is written only by
+     runs on that branch itself: pushes and scheduled runs. A pull request
+     therefore cannot plant a proof that the default branch will trust.
    - **Who writes.** Only the verdict writes, after merging every shard's
      results. `proofs.write` is `auto` by default, which writes the run's own
      scope, or `never`, which makes the store read-only.
@@ -213,7 +224,8 @@ any test. Proofs pay for themselves on:
 
 - retried and re-run jobs;
 - re-runs of unchanged code;
-- test-only changes elsewhere;
+- test-only changes elsewhere, except for units whose values ADR-0004's
+  decision 8 judges, whose keys hold every test file;
 - the scheduled full run, which re-mutates only what moved since the last one.
 
 Reach (ADR-0005), not proofs, is what keeps a pull request small.
