@@ -52,13 +52,13 @@ jobs:
           fi
           changed="$(git diff --name-only "${BASE}" HEAD)"
           # Anything that is not documentation is code, so a new kind of file
-          # runs the gates. ARCHITECTURE.md is the rule tables the Guards suite
-          # plants a violation of each of, so it is code here. Under .github/,
-          # only this file runs a PHP gate.
+          # runs the gates. ARCHITECTURE.md holds the rule tables the Guards
+          # suite reads, so it is code here. Under .github/, only this file and
+          # the scripts it runs start a PHP gate.
           code=false
           while IFS= read -r path; do
             case "${path}" in
-            ARCHITECTURE.md | .github/workflows/ci.yml) code=true ;;
+            ARCHITECTURE.md | .github/workflows/ci.yml | .github/scripts/*) code=true ;;
             '' | .docs/* | *.md | LICENSE | .github/*) continue ;;
             *) code=true ;;
             esac
@@ -259,17 +259,12 @@ jobs:
           dependency-versions: lowest
       - run: composer test
 
-  # G8 — every mutant of src is killed. Pest's own mutation run at a floor of
+  # G8 — every mutant of src is killed: Pest's own mutation run at a floor of
   # 100, over every file of src whether a test reaches it or not, so an
-  # uncovered mutant counts against the score. Once the gate has a binary this
-  # job becomes the package's reusable workflow with the same id and name:
-  #
-  #   mutation:
-  #     name: mutation testing
-  #     uses: ./.github/workflows/mutation-gate.yml
+  # uncovered mutant counts against the score.
   mutation:
     name: mutation testing
-    needs: [scope, tests]
+    needs: tests
     if: ${{ !cancelled() && needs.tests.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
