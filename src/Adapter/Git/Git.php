@@ -126,7 +126,7 @@ final readonly class Git implements ChangeSource
 
     private function withUntracked(Changes $changes, string $untracked): Changes
     {
-        foreach (self::paths($untracked) as $path) {
+        foreach ($this->paths($untracked) as $path) {
             $read = $this->read(Path::of($path));
             $lines = $read instanceof Contents ? Diff::whole($read->text()) : Lines::none();
             $changes = $changes->with(Change::added(Path::of($path), $lines));
@@ -142,7 +142,7 @@ final readonly class Git implements ChangeSource
      */
     private function onDisk(string $listed): array
     {
-        return array_filter(self::paths($listed), fn(string $path): bool => is_file($this->pathTo($path)));
+        return array_filter($this->paths($listed), fn(string $path): bool => is_file($this->pathTo($path)));
     }
 
     /**
@@ -168,7 +168,7 @@ final readonly class Git implements ChangeSource
                 Digest::of($digest),
             ),
             $paths,
-            self::lines($hashed),
+            $this->lines($hashed),
         ));
     }
 
@@ -206,7 +206,7 @@ final readonly class Git implements ChangeSource
      *
      * @return list<string>
      */
-    private static function paths(string $listed): array
+    private function paths(string $listed): array
     {
         $paths = explode("\0", $listed);
         array_pop($paths);
@@ -219,7 +219,7 @@ final readonly class Git implements ChangeSource
      *
      * @return list<string>
      */
-    private static function lines(string $printed): array
+    private function lines(string $printed): array
     {
         $lines = explode("\n", $printed);
         array_pop($lines);

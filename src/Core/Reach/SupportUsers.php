@@ -100,7 +100,7 @@ final readonly class SupportUsers
                 return Reason::that(sprintf(self::ELSEWHERE, $path->value(), $package));
             }
 
-            $tests = $role === Role::Test ? $tests->with($path) : $tests;
+            $tests = $role === Role::TestFile ? $tests->with($path) : $tests;
         }
 
         return $tests;
@@ -111,7 +111,7 @@ final readonly class SupportUsers
         $inPackage = $path->relativeTo($this->packages->holding($path)->path());
 
         return match (true) {
-            $this->layout->isTest($inPackage) => Role::Test,
+            $this->layout->isTest($inPackage) => Role::TestFile,
             $this->layout->isSupport($inPackage) => Role::Support,
             default => Role::Other,
         };

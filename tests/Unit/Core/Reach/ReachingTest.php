@@ -181,17 +181,17 @@ it('reaches every unit of its package where a test was deleted, or no map says w
 })->with([
     'deleted' => [
         fn(): Change => Change::deleted(Path::of('tests/Unit/MoneyTest.php')),
-        fn(): Judges => Judges::none(),
+        Judges::none(),
         '`tests/Unit/MoneyTest.php` was deleted, so every unit of the project is reached.',
     ],
     'deleted in a package' => [
         fn(): Change => Change::deleted(Path::of('packages/money/tests/MoneyTest.php')),
-        fn(): Judges => Judges::none(),
+        Judges::none(),
         '`packages/money/tests/MoneyTest.php` was deleted, so every unit of packages/money is reached.',
     ],
     'no map' => [
         fn(): Change => Change::modified(Path::of('tests/Unit/MoneyTest.php'), Lines::of(Line::of(9))),
-        fn(): NoMap => NoMap::toRead(),
+        NoMap::toRead(),
         'No coverage map says what `tests/Unit/MoneyTest.php` runs, so every unit of the project is reached.',
     ],
 ]);
@@ -245,12 +245,12 @@ it('reaches every unit of its package where changed support cannot be followed',
 })->with([
     'it runs code' => [
         fn(): Sources => Sources::none()->withNow(Path::of('tests/Fakes/ClockFake.php'), Contents::of("<?php\n\nboot();\n")),
-        fn(): Judges => Judges::none(),
+        Judges::none(),
         '`tests/Fakes/ClockFake.php` runs code when it is loaded, so every unit of the project is reached.',
     ],
     'no map' => [
-        fn(): Sources => Sources::none(),
-        fn(): NoMap => NoMap::toRead(),
+        Sources::none(),
+        NoMap::toRead(),
         'No coverage map says what `tests/Fakes/ClockFake.php` runs, so every unit of the project is reached.',
     ],
 ]);

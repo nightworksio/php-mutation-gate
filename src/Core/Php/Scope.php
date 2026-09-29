@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_filter;
 use function array_key_exists;
-use function array_key_last;
+use function array_last;
 use function array_values;
 use function count;
 use function explode;
@@ -60,8 +60,8 @@ final readonly class Scope
 
         foreach ($statement as $token) {
             [$prefix, $clause, $imports] = match (true) {
-                $token->is('{') => [self::prefixIn($clause), [], $imports],
-                $token->is(self::CLAUSE_ENDS) => [$prefix, [], [...$imports, ...self::importedBy($prefix, $clause)]],
+                $token->is('{') => [$this->prefixIn($clause), [], $imports],
+                $token->is(self::CLAUSE_ENDS) => [$prefix, [], [...$imports, ...$this->importedBy($prefix, $clause)]],
                 default => [$prefix, [...$clause, $token], $imports],
             };
         }
@@ -113,9 +113,9 @@ final readonly class Scope
      * @param  list<PhpToken>        $clause
      * @return array<string, string>
      */
-    private static function importedBy(string $prefix, array $clause): array
+    private function importedBy(string $prefix, array $clause): array
     {
-        $names = self::namesIn($clause);
+        $names = $this->namesIn($clause);
 
         if ($names === []) {
             return [];
@@ -123,7 +123,7 @@ final readonly class Scope
 
         $name = ltrim(sprintf('%s%s', $prefix, $names[0]->text), '\\');
 
-        return [mb_strtolower(count($names) > 1 ? $names[1]->text : self::lastSegmentOf($name)) => $name];
+        return [mb_strtolower(count($names) > 1 ? $names[1]->text : $this->lastSegmentOf($name)) => $name];
     }
 
     /**
@@ -131,9 +131,9 @@ final readonly class Scope
      *
      * @param list<PhpToken> $clause
      */
-    private static function prefixIn(array $clause): string
+    private function prefixIn(array $clause): string
     {
-        $names = self::namesIn($clause);
+        $names = $this->namesIn($clause);
 
         return $names === [] ? '' : sprintf('%s\\', $names[0]->text);
     }
@@ -144,15 +144,15 @@ final readonly class Scope
      * @param  list<PhpToken> $clause
      * @return list<PhpToken>
      */
-    private static function namesIn(array $clause): array
+    private function namesIn(array $clause): array
     {
         return array_values(array_filter($clause, static fn(PhpToken $token): bool => $token->is(self::NAMES)));
     }
 
-    private static function lastSegmentOf(string $name): string
+    private function lastSegmentOf(string $name): string
     {
         $segments = explode('\\', $name);
 
-        return $segments[array_key_last($segments)];
+        return array_last($segments);
     }
 }

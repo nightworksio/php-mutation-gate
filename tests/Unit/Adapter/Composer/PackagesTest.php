@@ -95,9 +95,11 @@ it('counts a package found twice once', function (): void {
     expect($packages->directories())->toEqual([Path::root(), Path::of('packages/money')]);
 });
 
-it('cannot judge a manifest it cannot read', /** @param array<string, string> $files */ function (array $files): void {
-    expect(Packages::in(Disk::at(Project::with($files)), ['packages/*']))->toBeInstanceOf(CannotJudge::class);
+it('cannot judge a manifest it cannot read', function (string $path, string $manifest): void {
+    $project = Project::with(['composer.json' => '{}', $path => $manifest]);
+
+    expect(Packages::in(Disk::at($project), ['packages/*']))->toBeInstanceOf(CannotJudge::class);
 })->with([
-    'the root' => [['composer.json' => '{']],
-    'a package' => [['composer.json' => '{}', 'packages/money/composer.json' => '[']],
+    'the root' => ['composer.json', '{'],
+    'a package' => ['packages/money/composer.json', '['],
 ]);

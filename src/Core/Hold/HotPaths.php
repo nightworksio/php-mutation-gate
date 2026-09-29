@@ -55,7 +55,7 @@ final readonly class HotPaths
 
         foreach ($tests < self::SMALLEST_SUITE ? [] : $suite->files() as $file) {
             $running = count($suite->testsCoveringFile($file));
-            $warnings = $running / $tests >= $this->share && ! self::isHeld($file, $held)
+            $warnings = $running / $tests >= $this->share && ! $this->isHeld($file, $held)
                 ? $warnings->with(Warning::that(sprintf(self::SAID, $file->value(), $running, $tests)))
                 : $warnings;
         }
@@ -63,7 +63,7 @@ final readonly class HotPaths
         return $warnings;
     }
 
-    private static function isHeld(Path $file, Units $held): bool
+    private function isHeld(Path $file, Units $held): bool
     {
         foreach ($held as $unit) {
             if ($unit->isHeld() && $file->within($unit->path())) {

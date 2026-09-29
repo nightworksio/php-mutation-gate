@@ -65,25 +65,32 @@ it('finds no tree where no manifest autoloads anything', function (): void {
         ->and(ComposerTrees::at(Project::with([]), ['composer.json'], [])->trees())->toEqual(Trees::none());
 });
 
-it('cannot judge the trees where a manifest cannot be read or declares a floor it cannot use', /** @param array<string, string> $files */ function (array $files, string $said): void {
-    $trees = ComposerTrees::at(Project::with($files), ['composer.json', 'modules/*/composer.json'], ['packages/*'])->trees();
+it('cannot judge the trees where a manifest cannot be read or declares a floor it cannot use', function (string $root, string $path, string $manifest, string $said): void {
+    $project = Project::with(['composer.json' => $root, $path => $manifest]);
+    $trees = ComposerTrees::at($project, ['composer.json', 'modules/*/composer.json'], ['packages/*'])->trees();
 
     expect($trees)->toBeInstanceOf(CannotJudge::class)
         ->and($trees instanceof CannotJudge ? $trees->why() : '')->toBe($said);
 })->with([
-    'the root' => [['composer.json' => '{'], 'composer.json is not a JSON object.'],
-    'a package' => [['composer.json' => '{}', 'packages/money/composer.json' => '['], 'packages/money/composer.json is not a JSON object.'],
-    'a module' => [['composer.json' => '{}', 'modules/billing/composer.json' => '1'], 'modules/billing/composer.json is not a JSON object.'],
+    'the root' => ['{}', 'composer.json', '{', 'composer.json is not a JSON object.'],
+    'a package' => ['{}', 'packages/money/composer.json', '[', 'packages/money/composer.json is not a JSON object.'],
+    'a module' => ['{}', 'modules/billing/composer.json', '1', 'modules/billing/composer.json is not a JSON object.'],
     'a manifest above a tree' => [
-        ['composer.json' => '{"autoload": {"psr-4": {"App\\\\": "src/Domain/"}}}', 'src/composer.json' => '{'],
+        '{"autoload": {"psr-4": {"App\\\\": "src/Domain/"}}}',
+        'src/composer.json',
+        '{',
         'src/composer.json is not a JSON object.',
     ],
     'a floor' => [
-        ['composer.json' => '{"autoload": {"psr-4": {"App\\\\": "src/"}}, "extra": {"mutation-gate": {"floor": 0}}}'],
+        '{}',
+        'composer.json',
+        '{"autoload": {"psr-4": {"App\\\\": "src/"}}, "extra": {"mutation-gate": {"floor": 0}}}',
         'composer.json declares extra.mutation-gate.floor as 0 without a floorReason beside it.',
     ],
     'a floor for new lines' => [
-        ['composer.json' => '{"autoload": {"psr-4": {"App\\\\": "src/"}}, "extra": {"mutation-gate": {"newCodeFloor": 101}}}'],
+        '{}',
+        'composer.json',
+        '{"autoload": {"psr-4": {"App\\\\": "src/"}}, "extra": {"mutation-gate": {"newCodeFloor": 101}}}',
         'composer.json: extra.mutation-gate.newCodeFloor is not a number from 0 to 100.',
     ],
 ]);

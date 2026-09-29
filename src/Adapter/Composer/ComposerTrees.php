@@ -118,14 +118,14 @@ final readonly class ComposerTrees implements TreeSource
     {
         $above = $this->manifestsAbove($path);
 
-        return $above instanceof CannotJudge ? $above : self::treeFrom($path, $above, $packages->holding($path));
+        return $above instanceof CannotJudge ? $above : $this->treeFrom($path, $above, $packages->holding($path));
     }
 
     /** @param list<Manifest> $above the manifests at and above the tree, the nearest first */
-    private static function treeFrom(Path $path, array $above, Package $package): Tree|CannotJudge
+    private function treeFrom(Path $path, array $above, Package $package): Tree|CannotJudge
     {
-        $declared = self::declared($above);
-        $newCode = self::newCode($above);
+        $declared = $this->declared($above);
+        $newCode = $this->newCode($above);
 
         return match (true) {
             $declared instanceof CannotJudge => $declared,
@@ -162,7 +162,7 @@ final readonly class ComposerTrees implements TreeSource
     }
 
     /** @param list<Manifest> $above */
-    private static function declared(array $above): Floor|Exempt|Undeclared|CannotJudge
+    private function declared(array $above): Floor|Exempt|Undeclared|CannotJudge
     {
         foreach ($above as $manifest) {
             $floor = $manifest->floor();
@@ -176,7 +176,7 @@ final readonly class ComposerTrees implements TreeSource
     }
 
     /** @param list<Manifest> $above */
-    private static function newCode(array $above): Floor|Undeclared|CannotJudge
+    private function newCode(array $above): Floor|Undeclared|CannotJudge
     {
         foreach ($above as $manifest) {
             $floor = $manifest->newCodeFloor();

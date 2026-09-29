@@ -100,28 +100,52 @@ it('asks about twenty commits, and no more', function (int $commits, bool $prove
     'twenty-one' => [21, false],
 ]);
 
-it('reads everything since the base when a commit cannot be proved', /** @param Closure(array<string, mixed>): array<string, mixed> $spoil */ function (Closure $spoil) use ($source): void {
-    $changes = PassedPullRequests::over($source(), answering($spoil(provedCommits(['one', 'two']))), PULL_REQUESTS_RUN)
+/**
+ * What GitHub says of the commits `one` and `two`, spoilt in one way that
+ * leaves a commit unproved.
+ *
+ * @param  array<string, mixed> $answers
+ * @return array<string, mixed>
+ */
+function spoilt(string $how, array $answers): array
+{
+    return match ($how) {
+        'GitHub cannot compare' => array_diff_key($answers, [sprintf('%s/compare/base...head', PULL_REQUESTS_API) => true]),
+        'the count does not add up' => [...$answers, ...provedCommits(['one', 'two'], 3)],
+        'no pull request is known' => array_diff_key($answers, [sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => true]),
+        'the pull request was not merged' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [['merged_at' => null, 'head' => ['sha' => 'pr-two']]]],
+        'the pull request says nothing of a merge' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [['head' => ['sha' => 'pr-two']]]],
+        'its head is another tree' => [...$answers, sprintf('%s/git/commits/pr-two', PULL_REQUESTS_API) => ['tree' => ['sha' => 'tree-other']]],
+        'its head cannot be read' => array_diff_key($answers, [sprintf('%s/git/commits/pr-two', PULL_REQUESTS_API) => true]),
+        'no run is known' => array_diff_key($answers, [sprintf('%s/actions/runs?head_sha=pr-two&event=pull_request&status=success', PULL_REQUESTS_API) => true]),
+        'no run of this workflow passed' => [...$answers, sprintf('%s/actions/runs?head_sha=pr-two&event=pull_request&status=success', PULL_REQUESTS_API) => [
+            'workflow_runs' => [['path' => '.github/workflows/lint.yml', 'conclusion' => 'success'], ['path' => '.github/workflows/gate.yml', 'conclusion' => 'failure']],
+        ]],
+        'the commit names no tree' => [
+            ...$answers,
+            sprintf('%s/compare/base...head', PULL_REQUESTS_API) => ['total_commits' => 1, 'commits' => [['sha' => 'one', 'commit' => []]]],
+            sprintf('%s/git/commits/pr-one', PULL_REQUESTS_API) => ['tree' => []],
+        ],
+        default => $answers,
+    };
+}
+
+it('reads everything since the base when a commit cannot be proved', function (string $how) use ($source): void {
+    $changes = PassedPullRequests::over($source(), answering(spoilt($how, provedCommits(['one', 'two']))), PULL_REQUESTS_RUN)
         ->changesSince(Revision::ref('base'));
 
     expect($changes)->toEqual(CannotTell::because('base is not a revision this repository has.'));
 })->with([
-    'GitHub cannot compare' => static fn(array $answers): array => array_diff_key($answers, [sprintf('%s/compare/base...head', PULL_REQUESTS_API) => true]),
-    'the count does not add up' => static fn(array $answers): array => [...$answers, ...provedCommits(['one', 'two'], 3)],
-    'no pull request is known' => static fn(array $answers): array => array_diff_key($answers, [sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => true]),
-    'the pull request was not merged' => static fn(array $answers): array => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [['merged_at' => null, 'head' => ['sha' => 'pr-two']]]],
-    'the pull request says nothing of a merge' => static fn(array $answers): array => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [['head' => ['sha' => 'pr-two']]]],
-    'its head is another tree' => static fn(array $answers): array => [...$answers, sprintf('%s/git/commits/pr-two', PULL_REQUESTS_API) => ['tree' => ['sha' => 'tree-other']]],
-    'its head cannot be read' => static fn(array $answers): array => array_diff_key($answers, [sprintf('%s/git/commits/pr-two', PULL_REQUESTS_API) => true]),
-    'no run is known' => static fn(array $answers): array => array_diff_key($answers, [sprintf('%s/actions/runs?head_sha=pr-two&event=pull_request&status=success', PULL_REQUESTS_API) => true]),
-    'no run of this workflow passed' => static fn(array $answers): array => [...$answers, sprintf('%s/actions/runs?head_sha=pr-two&event=pull_request&status=success', PULL_REQUESTS_API) => [
-        'workflow_runs' => [['path' => '.github/workflows/lint.yml', 'conclusion' => 'success'], ['path' => '.github/workflows/gate.yml', 'conclusion' => 'failure']],
-    ]],
-    'the commit names no tree' => static fn(array $answers): array => [
-        ...$answers,
-        sprintf('%s/compare/base...head', PULL_REQUESTS_API) => ['total_commits' => 1, 'commits' => [['sha' => 'one', 'commit' => []]]],
-        sprintf('%s/git/commits/pr-one', PULL_REQUESTS_API) => ['tree' => []],
-    ],
+    'GitHub cannot compare',
+    'the count does not add up',
+    'no pull request is known',
+    'the pull request was not merged',
+    'the pull request says nothing of a merge',
+    'its head is another tree',
+    'its head cannot be read',
+    'no run is known',
+    'no run of this workflow passed',
+    'the commit names no tree',
 ]);
 
 it('asks GitHub where GITHUB_API_URL says, with GITHUB_TOKEN', function () use ($source, $uncommitted): void {
@@ -135,16 +159,21 @@ it('asks GitHub where GITHUB_API_URL says, with GITHUB_TOKEN', function () use (
         ->and($response->getRequestOptions()['headers'])->toContain('Authorization: Bearer secret');
 });
 
-it('is the source underneath where the environment names no run', /** @param array<string, string> $environment */ function (array $environment) use ($source): void {
+it('is the source underneath where the environment lacks what names a run', function (string $name) use ($source): void {
     $underneath = $source();
+    $environment = array_diff_key(PULL_REQUESTS_RUN, [$name => true]);
+
+    expect(PassedPullRequests::over($underneath, answering([]), $environment))->toBe($underneath);
+})->with(['GITHUB_REPOSITORY', 'GITHUB_SHA', 'GITHUB_WORKFLOW_REF']);
+
+it('is the source underneath where the environment names no run', function (string $name, string $value) use ($source): void {
+    $underneath = $source();
+    $environment = [...PULL_REQUESTS_RUN, $name => $value];
 
     expect(PassedPullRequests::over($underneath, answering([]), $environment))->toBe($underneath);
 })->with([
-    'no repository' => [array_diff_key(PULL_REQUESTS_RUN, ['GITHUB_REPOSITORY' => true])],
-    'an empty repository' => [[...PULL_REQUESTS_RUN, 'GITHUB_REPOSITORY' => '']],
-    'no commit' => [array_diff_key(PULL_REQUESTS_RUN, ['GITHUB_SHA' => true])],
-    'no workflow' => [array_diff_key(PULL_REQUESTS_RUN, ['GITHUB_WORKFLOW_REF' => true])],
-    'a workflow spelt some other way' => [[...PULL_REQUESTS_RUN, 'GITHUB_WORKFLOW_REF' => 'gate.yml']],
+    'an empty repository' => ['GITHUB_REPOSITORY', ''],
+    'a workflow spelt some other way' => ['GITHUB_WORKFLOW_REF', 'gate.yml'],
 ]);
 
 it('asks GitHub at its own address with no token where the environment names neither', function () use ($source): void {

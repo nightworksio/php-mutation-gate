@@ -116,7 +116,7 @@ final readonly class Holdings
             $units[$unit->path()->value()] = $unit;
         }
 
-        return self::apart(array_values($units));
+        return $this->apart(array_values($units));
     }
 
     private function unitOf(Holding $holding, Trees $trees, Fingerprints $files): Unit|CannotJudge
@@ -141,7 +141,7 @@ final readonly class Holdings
             return CannotJudge::because(sprintf(self::TWICE, $holding->declared()));
         }
 
-        return $by instanceof Group ? $by : Filter::matching(self::filterFor($holders));
+        return $by instanceof Group ? $by : Filter::matching($this->filterFor($holders));
     }
 
     /**
@@ -175,7 +175,7 @@ final readonly class Holdings
      *
      * @param list<string> $holders
      */
-    private static function filterFor(array $holders): string
+    private function filterFor(array $holders): string
     {
         return sprintf('/^(?:%s)/', implode('|', array_map(
             static fn(string $holder): string => str_contains($holder, '::')
@@ -186,7 +186,7 @@ final readonly class Holdings
     }
 
     /** @param list<Unit> $units */
-    private static function apart(array $units): Units|CannotJudge
+    private function apart(array $units): Units|CannotJudge
     {
         foreach ($units as $outer) {
             foreach ($units as $inner) {

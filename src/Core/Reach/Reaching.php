@@ -91,9 +91,9 @@ final readonly class Reaching
         $deciding = $this->decidingIn($change, $packages);
 
         return match (true) {
-            $deciding instanceof Path => self::decided($reach, $deciding, $packages->holding($deciding), $packages),
-            $this->layout->runsTheGate($path) => self::definitionChanged($reach, $change, $sources),
-            $this->isSource($path) => self::sourceChanged($reach, $change),
+            $deciding instanceof Path => $this->decided($reach, $deciding, $packages->holding($deciding), $packages),
+            $this->layout->runsTheGate($path) => $this->definitionChanged($reach, $change, $sources),
+            $this->isSource($path) => $this->sourceChanged($reach, $change),
             default => $tests->reach($reach, $change),
         };
     }
@@ -123,7 +123,7 @@ final readonly class Reaching
         return false;
     }
 
-    private static function decided(Reach $reach, Path $path, Package $package, Packages $packages): Reach
+    private function decided(Reach $reach, Path $path, Package $package, Packages $packages): Reach
     {
         if ($package->path()->equals(Path::root())) {
             return $reach->everywhere(Reason::that(sprintf(self::DECIDES, $path->value())));
@@ -138,7 +138,7 @@ final readonly class Reaching
         );
     }
 
-    private static function definitionChanged(Reach $reach, Change $change, Sources $sources): Reach
+    private function definitionChanged(Reach $reach, Change $change, Sources $sources): Reach
     {
         $before = $sources->before($change->previousPath());
         $after = $sources->now($change->path());
@@ -148,7 +148,7 @@ final readonly class Reaching
             : $reach->everywhere(Reason::that(sprintf(self::DECIDES, $change->path()->value())));
     }
 
-    private static function sourceChanged(Reach $reach, Change $change): Reach
+    private function sourceChanged(Reach $reach, Change $change): Reach
     {
         $path = $change->path();
 

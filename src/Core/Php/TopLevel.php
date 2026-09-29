@@ -99,7 +99,7 @@ final readonly class TopLevel
 
         foreach ($this->statements as $statement) {
             $names = self::opens($statement, self::NAMING)
-                ? [...$names, self::firstOf($statement, [T_STRING])]
+                ? [...$names, $this->firstOf($statement, [T_STRING])]
                 : $names;
         }
 
@@ -113,7 +113,7 @@ final readonly class TopLevel
 
         foreach ($this->statements as $statement) {
             $scope = match (true) {
-                $statement[0]->is(T_NAMESPACE) => $scope->inside(self::firstOf($statement, self::NAMESPACES)),
+                $statement[0]->is(T_NAMESPACE) => $scope->inside($this->firstOf($statement, self::NAMESPACES)),
                 $statement[0]->is(T_USE) => $scope->importing(...$statement),
                 default => $scope,
             };
@@ -174,7 +174,7 @@ final readonly class TopLevel
      * @param non-empty-list<PhpToken> $statement
      * @param list<int|string>         $kinds
      */
-    private static function firstOf(array $statement, array $kinds): string
+    private function firstOf(array $statement, array $kinds): string
     {
         foreach (array_slice($statement, self::beginningOf($statement)) as $token) {
             if ($token->is($kinds)) {

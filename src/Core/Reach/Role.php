@@ -8,7 +8,7 @@ namespace NightWorksIO\MutationGate\Core\Reach;
 enum Role
 {
     /** A file of test cases. */
-    case Test;
+    case TestFile;
 
     /** Test support: PHP under a test directory that is no file of test cases. */
     case Support;

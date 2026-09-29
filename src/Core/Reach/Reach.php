@@ -156,8 +156,8 @@ final readonly class Reach
     {
         return $this->everywhere
             || $this->wholly->has($this->packages->holding($unit->path())->path())
-            || self::anyWithin($this->files, $unit->path())
-            || self::anyAround($this->trees, $unit->path());
+            || $this->anyWithin($this->files, $unit->path())
+            || $this->anyAround($this->trees, $unit->path());
     }
 
     /** Whether the change reaches anything in a package, which is planned only if it does. */
@@ -199,7 +199,7 @@ final readonly class Reach
     }
 
     /** Whether any of these paths is a unit's own path, or inside it. */
-    private static function anyWithin(Paths $paths, Path $unit): bool
+    private function anyWithin(Paths $paths, Path $unit): bool
     {
         foreach ($paths as $path) {
             if ($path->within($unit)) {
@@ -211,7 +211,7 @@ final readonly class Reach
     }
 
     /** Whether a unit is inside any of these paths. */
-    private static function anyAround(Paths $paths, Path $unit): bool
+    private function anyAround(Paths $paths, Path $unit): bool
     {
         foreach ($paths as $path) {
             if ($unit->within($path)) {

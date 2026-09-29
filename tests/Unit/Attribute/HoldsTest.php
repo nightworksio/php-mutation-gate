@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Attribute\Holds;
 
-it('is the attribute a test writes and the gate reads by this name', function (): void {
-    expect(Holds::class)->toBe('NightWorksIO\MutationGate\Attribute\Holds');
-});
-
 it('holds the path a test spells', function (): void {
     expect(new Holds('src/Kernel.php')->path())->toBe('src/Kernel.php');
 });

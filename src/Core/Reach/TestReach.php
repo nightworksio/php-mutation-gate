@@ -77,7 +77,7 @@ final readonly class TestReach
         if ($gone || $this->coverage instanceof NoMap) {
             return $reach->wholly(
                 Paths::of($package->path()),
-                Reason::that(sprintf($gone ? self::GONE : self::NO_MAP, $path->value(), self::named($package))),
+                Reason::that(sprintf($gone ? self::GONE : self::NO_MAP, $path->value(), $this->named($package))),
             );
         }
 
@@ -91,11 +91,11 @@ final readonly class TestReach
     {
         $path = $change->path();
         $users = SupportUsers::in($this->layout, $this->packages, $this->sources)
-            ->of($path, $this->declaredBy($change), self::named($package));
+            ->of($path, $this->declaredBy($change), $this->named($package));
 
         if ($users instanceof Reason || $this->coverage instanceof NoMap) {
             return $reach->wholly(Paths::of($package->path()), $users instanceof Reason ? $users : Reason::that(
-                sprintf(self::NO_MAP, $path->value(), self::named($package)),
+                sprintf(self::NO_MAP, $path->value(), $this->named($package)),
             ));
         }
 
@@ -144,7 +144,7 @@ final readonly class TestReach
         return $reach;
     }
 
-    private static function named(Package $package): string
+    private function named(Package $package): string
     {
         return $package->path()->equals(Path::root()) ? self::PROJECT : $package->path()->value();
     }
