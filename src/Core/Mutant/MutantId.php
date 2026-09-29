@@ -18,10 +18,9 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 
 use function preg_match;
-use function preg_replace;
+use function preg_match_all;
 use function sprintf;
 use function str_starts_with;
-use function trim;
 
 /**
  * The gate's own id of a mutant: twelve lowercase hex characters that name
@@ -34,6 +33,9 @@ final readonly class MutantId
     private const int LENGTH = 12;
 
     private const string SPELLING = '/^[0-9a-f]{12}$/D';
+
+    /** A run of anything but whitespace. */
+    private const string WORD = '/\S+/';
 
     /** The line a unified diff's first hunk starts with; what comes before it is the header. */
     private const string HUNK = '@@';
@@ -86,7 +88,8 @@ final readonly class MutantId
 
         foreach (is_int($hunk) ? array_slice($lines, $hunk) : $lines as $line) {
             if (str_starts_with($line, '-') || str_starts_with($line, '+')) {
-                $changed[] = sprintf('%s%s', mb_substr($line, 0, 1), trim(preg_replace('/\s+/u', ' ', mb_substr($line, 1)) ?? ''));
+                preg_match_all(self::WORD, mb_substr($line, 1), $words);
+                $changed[] = sprintf('%s%s', mb_substr($line, 0, 1), implode(' ', $words[0]));
             }
         }
 

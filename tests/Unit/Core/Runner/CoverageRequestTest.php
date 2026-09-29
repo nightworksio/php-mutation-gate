@@ -22,7 +22,8 @@ it('asks for the whole suite\'s map another job left in a directory', function (
 
     expect($request->runs())->toBeFalse()
         ->and($request->tests())->toEqual(WholeSuite::tests())
-        ->and($request->directory()->value())->toBe('build/coverage');
+        ->and($request->directory()->value())->toBe('build/coverage')
+        ->and($request->processes())->toEqual(Processes::of(1));
 });
 
 it('runs across as many processes as it is given, leaving the rest as it was', function (): void {

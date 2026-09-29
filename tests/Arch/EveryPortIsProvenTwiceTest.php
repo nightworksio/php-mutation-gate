@@ -15,6 +15,11 @@ it('proves every port against its fake and against every adapter', function (): 
     $offenders = [];
 
     foreach (Api::classesUnder(Layer::Port->directory()) as $port) {
+        // A port that is not an interface is A2's to refuse, and no class implements it.
+        if (! $port->isInterface()) {
+            continue;
+        }
+
         $name = $port->getShortName();
         $contract = sprintf('tests/Contract/%1$s/%1$sTest.php', $name);
         $fakes = array_values(array_filter(

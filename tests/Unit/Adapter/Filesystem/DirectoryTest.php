@@ -57,3 +57,35 @@ it('cannot judge writing over a directory', function (): void {
 
     expect(Directory::at($root)->write(Path::of('report'), Contents::of('x')))->toEqual(CannotJudge::because(sprintf('%s/report could not be written.', $root)));
 });
+
+it('cannot judge a file it cannot read', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'plan.json', '{}');
+    chmod(sprintf('%s/plan.json', $root), 0o000);
+    set_error_handler(static fn(): bool => true);
+    $read = Directory::at($root)->read(Path::of('plan.json'));
+    restore_error_handler();
+
+    expect($read)->toEqual(CannotJudge::because(sprintf('%s/plan.json could not be read.', $root)));
+});
+
+it('cannot judge a file it could not write', function (): void {
+    $root = Scratch::directory();
+    chmod($root, 0o500);
+    set_error_handler(static fn(): bool => true);
+    $written = Directory::at($root)->write(Path::of('plan.json'), Contents::of('{}'));
+    restore_error_handler();
+    chmod($root, 0o700);
+
+    expect($written)->toEqual(CannotJudge::because(sprintf('%s/plan.json could not be written.', $root)));
+});
+
+it('cannot judge a file whose directory it could not make', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'report', 'a file where a directory should be');
+    set_error_handler(static fn(): bool => true);
+    $written = Directory::at($root)->write(Path::of('report/index.html'), Contents::of('<html>'));
+    restore_error_handler();
+
+    expect($written)->toEqual(CannotJudge::because(sprintf('%s/report/index.html could not be written.', $root)));
+});

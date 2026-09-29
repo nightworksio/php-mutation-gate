@@ -60,7 +60,7 @@ final readonly class CoverageMap
 
     public function files(): Paths
     {
-        return Paths::of(...array_map(Path::of(...), array_map(strval(...), array_keys($this->lines))));
+        return Paths::of(...array_map(Path::of(...), array_keys($this->lines)));
     }
 
     public function linesCovered(Path $file): Lines

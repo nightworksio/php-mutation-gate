@@ -19,3 +19,7 @@ it('applies only the mutators it names, each once, in the order named', function
         ->and($named)->toHaveCount(2)
         ->and(iterator_to_array($named, preserve_keys: true))->toBe(['A\\LessThan', 'B\\Plus']);
 });
+
+it('keeps the first name it is given', function (): void {
+    expect(iterator_to_array(Mutators::named('A\\LessThan', 'B\\Plus'), preserve_keys: true))->toBe(['A\\LessThan', 'B\\Plus']);
+});

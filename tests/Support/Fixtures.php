@@ -367,11 +367,11 @@ final readonly class Fixtures
 
                 namespace NightWorksIO\MutationGate\Core;
 
-                use Symfony\Component\Process\Process;
+                use PhpParser\ParserFactory;
 
                 final readonly class PlantedDevOnly
                 {
-                    public function __construct(private Process $process) {}
+                    public function __construct(private ParserFactory $parsers) {}
                 }
                 PHP),
             Fixture::suite('G5', 'tests/Unit/Core/PlantedAssertTest.php', <<<'PHP'

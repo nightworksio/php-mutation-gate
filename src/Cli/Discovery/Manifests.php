@@ -48,15 +48,14 @@ final readonly class Manifests
     public static function installed(string $json, string $file): array|CannotJudge
     {
         $installed = json_decode($json, associative: true);
-        $packages = is_array($installed) && array_key_exists('packages', $installed) ? $installed['packages'] : false;
 
-        if (! is_array($packages) || ! array_is_list($packages)) {
+        if (! is_array($installed) || ! array_key_exists('packages', $installed) || ! is_array($installed['packages']) || ! array_is_list($installed['packages'])) {
             return CannotJudge::because(sprintf('%s is not the list of installed packages Composer 2 writes, so the extensions they name cannot be read.', $file));
         }
 
         $declared = [];
 
-        foreach ($packages as $package) {
+        foreach ($installed['packages'] as $package) {
             $found = self::declaredBy($package, $file);
 
             if ($found instanceof CannotJudge) {

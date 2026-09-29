@@ -9,8 +9,6 @@ use function file_exists;
 use function file_get_contents;
 use function file_put_contents;
 use function is_dir;
-use function is_file;
-use function is_string;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -44,9 +42,9 @@ final readonly class Directory
             return Missing::at($path);
         }
 
-        $text = is_file($file) ? file_get_contents($file) : false;
+        $text = is_dir($file) ? false : file_get_contents($file);
 
-        return is_string($text) ? Contents::of($text) : CannotJudge::because(sprintf('%s could not be read.', $file));
+        return $text === false ? CannotJudge::because(sprintf('%s could not be read.', $file)) : Contents::of($text);
     }
 
     /** Write a file, creating the directories it needs and replacing what was there. */
