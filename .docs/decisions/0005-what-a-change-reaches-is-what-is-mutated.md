@@ -87,7 +87,12 @@ The same repository has two more needs.
         default.
 
       A root file reaches every package. The CI definition that runs the gate
-      is one of these files, except when every line its change touched is an
+      is one of these files: under GitHub Actions the workflow
+      `GITHUB_WORKFLOW_REF` names; on GitLab the file `CI_CONFIG_PATH` names
+      (`.gitlab-ci.yml` by default) and the file `ci.gitlab.template` names;
+      on Buildkite `.buildkite/pipeline.yml`; on CircleCI
+      `.circleci/config.yml`; and none under the JSON plan or locally. It
+      reaches everything except when every line its change touched is an
       action pin (`uses: owner/repo@<40-hex sha>`, with or without a trailing
       comment). A pin move changes which revision of an action runs, not how
       the gate cuts, runs or judges.

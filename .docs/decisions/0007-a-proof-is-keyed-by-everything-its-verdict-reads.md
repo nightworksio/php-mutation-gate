@@ -89,8 +89,8 @@ has to bring its result with it.
       - **The gate's config file** is left out, because item 3 already holds
         what of it affects results. Each `composer.json` is hashed with its
         `extra.mutation-gate` entry removed, for the same reason.
-      - **CI definition files** are left out, except the one that runs the
-        gate. That one is included as its text with comments and action pins
+      - **CI definition files** are left out, except the ones that run the
+        gate (ADR-0005, rule 1). That one is included as its text with comments and action pins
         (`uses: owner/repo@<sha>`) removed. A pin move or a comment is not a
         change to how a mutant runs. The seed does the same.
       - **The baseline file** only holds floors.

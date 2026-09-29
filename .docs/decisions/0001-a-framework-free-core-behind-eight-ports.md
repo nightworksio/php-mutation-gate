@@ -53,8 +53,9 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
      and `Configurable` (below and ADR-0002). It is public API.
    - **`Adapter\<Name>`** implements a port against one outside thing: Pest,
      Infection, git, the GitHub API, a directory, S3, a YAML parser. An adapter
-     may use the layers before it and the one library it adapts, and no other
-     adapter. Adapters that speak HTTP (the GitHub API, S3) use
+     may use the layers before it and the packages of the tool it adapts (for
+     Pest: `pestphp/pest`, `pestphp/pest-plugin-mutate` and
+     `phpunit/php-code-coverage`), and no other adapter. Adapters that speak HTTP (the GitHub API, S3) use
      `symfony/http-client`, which `async-aws/s3` is built on too, and
      `symfony/process` starts every process.
    - **`Cli`** is the composition root. It is the only place adapters are

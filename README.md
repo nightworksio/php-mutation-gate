@@ -318,6 +318,7 @@ Environment variables that change what the gate does:
 | `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI` | Choose the CI plan, and under GitHub Actions the annotations and step summary | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `SHARD`, `CI_NODE_INDEX`, `CI_NODE_TOTAL`, `BUILDKITE_PARALLEL_JOB`, `BUILDKITE_PARALLEL_JOB_COUNT`, `CIRCLE_NODE_INDEX`, `CIRCLE_NODE_TOTAL`, `CI_JOB_NAME`, `PARENT_PIPELINE_ID` | Which shard a job is, and how GitLab's child pipeline finds the plan | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `GITHUB_REF`, `GITHUB_EVENT_NAME`, `GITHUB_EVENT_PATH`, `CI_COMMIT_REF_NAME`, `CI_MERGE_REQUEST_IID`, `CI_DEFAULT_BRANCH`, `BUILDKITE_BRANCH`, `BUILDKITE_PULL_REQUEST`, `BUILDKITE_PIPELINE_DEFAULT_BRANCH`, `CIRCLE_BRANCH`, `CIRCLE_PULL_REQUEST` | The run's ref, whether it is a pull request, and the default branch | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `GITHUB_WORKFLOW_REF`, `CI_CONFIG_PATH` | Which CI definition runs the gate, for reach and the proof key | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `GITHUB_OUTPUT`, `GITHUB_STEP_SUMMARY` | Where the GitHub plan and the step summary are written | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, `CI_PIPELINE_ID`, `BUILDKITE_BUILD_ID`, `CIRCLE_WORKFLOW_ID` | The run a proof names | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `GITHUB_TOKEN` | Lets the sticky PR comment be posted, and the GitHub change source prove which pull request's run passed | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
@@ -341,7 +342,7 @@ Files the gate reads and writes:
 Some code is run by every test: a composition root, a service provider or a
 kernel. Each mutant of it would run the whole suite. Declare instead which tests
 hold it. The path is then mutated against those tests alone, once they are shown
-to cover all of it.
+to cover every line of it that the whole suite covers.
 
 ```php
 // A Pest test, or every test in a describe
@@ -644,22 +645,22 @@ vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id>   # on
 vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
 ```
 
-Check out the branch by name (`git checkout -B <branch>`) before `plan`,
-because the JSON plan takes the run's ref from git's current branch, and `run`
-and `verdict` take it from the plan. A plan made on a detached `HEAD` writes no
+Check out the branch by name (`git checkout -B <branch>`) before `plan`, because
+the JSON plan takes the run's ref from git's current branch, and `run` and
+`verdict` take it from the plan. A plan made on a detached `HEAD` writes no
 ledger and publishes nothing
 ([ADR-0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md)).
-The JSON plan never treats a run as a pull request, so there the new-code
-floor applies only in pre-push and watch. Pass `--changed-since` with a
-change's base, or `last-passed` on the default branch, and leave it out of a
-weekly scheduled full run. Carry
-`.mutation-gate/` from job to job, and keep `.mutation-gate/ledger` between
-runs with whatever cache your CI has, keyed by branch. Proofs can also live in
-S3 or R2
+The JSON plan never treats a run as a pull request, so there the new-code floor
+applies only in pre-push and watch. Pass `--changed-since` with a change's base,
+or `last-passed` on the default branch, and leave it out of a weekly scheduled
+full run. Run the verdict even when a shard job failed, so a missing result is
+judged *cannot judge*. Carry `.mutation-gate/` from job to job, and keep
+`.mutation-gate/ledger` between runs with whatever cache your CI has, keyed by
+branch. Proofs can also live in S3 or R2
 ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
 To publish the badge and trend, restore the published files into
-`.mutation-gate/publish` before the verdict on your default branch, and
-publish that directory after it.
+`.mutation-gate/publish` before the verdict on your default branch, and publish
+that directory after it.
 
 ## Local use
 

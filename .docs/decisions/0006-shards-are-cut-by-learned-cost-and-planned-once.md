@@ -100,7 +100,8 @@ Two parts of that do not carry over to a public package.
    - **What a shard teaches.** A shard's mutation time is measured from the end
      of its opening run to its last mutant, and shared among its units. Each
      unit's share is in proportion to its mutants' durations:
-     - from Pest, the durations the plugin records;
+     - from Pest, the durations the plugin records, and for a mutant judged
+       by reference (ADR-0004, decision 8) the time of its judging runs;
      - from Infection, which reports none, each mutant's stand-in, the JUnit
        time of the tests that cover its line.
 

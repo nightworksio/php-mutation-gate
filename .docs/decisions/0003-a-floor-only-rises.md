@@ -40,8 +40,10 @@ itself, and goes up with the tests.
 
    **Score = killed ÷ (all mutants − ignored − excluded uncovered) × 100,
    truncated to two decimals**, where "ignored" covers both kinds of ignore,
-   and uncovered mutants are excluded only under `uncovered: exclude`. A set with nothing left to count has no score: no mutants, or
-   every mutant ignored. It passes, and the report says *nothing to mutate*
+   and uncovered mutants are excluded only under `uncovered: exclude`.
+
+   A set with nothing left to count has no score: no mutants, or every mutant
+   ignored or, under `uncovered: exclude`, left out as uncovered. It passes, and the report says *nothing to mutate*
    rather than showing 100%. "No mutants" and "every mutant killed" must never
    print the same way.
 
@@ -97,11 +99,11 @@ itself, and goes up with the tests.
 
    It holds floors and nothing else: no counts, no dates, no commit. So it
    changes only when a floor moves, and two pull requests conflict on it only
-   when both move the same tree. Keys are sorted and each tree is on its own
-   line, so a moved floor is a one-line diff. The file is committed rather than
-   stored with the proofs (ADR-0007) because a floor moving is a decision, and a
-   reviewer should see it. In a monorepo, one baseline at the root holds every
-   package's trees, keyed by their path from the root (ADR-0005).
+   when both move the same tree. Keys are sorted and each floor is on a line of
+   its own, so a moved floor is a one-line diff. The file is committed rather
+   than stored with the proofs (ADR-0007) because a floor moving is a decision,
+   and a reviewer should see it. In a monorepo, one baseline at the root holds
+   every package's trees, keyed by their path from the root (ADR-0005).
 
 4. **A tree is judged whole.** Its score is taken over every unit in it (a unit
    is a file or a held path, ADR-0005). Each unit's result comes from one of
@@ -168,8 +170,10 @@ itself, and goes up with the tests.
 9. **A tree with no floor anywhere is not quietly held to none.** With no
    declared floor and no baseline entry, a CI run (the `CI` environment
    variable is set, as every supported CI sets it) stops with exit code 2 and
-   says: run `mutation-gate baseline --write` and commit it. A local full run
-   writes the missing entries at the measured score and says to commit them.
+   says: run `mutation-gate baseline --write` and commit it. Pre-push stops on
+   it the same way, because it makes the judgement CI will make (ADR-0010). A
+   local full run writes the missing entries at the measured score and says to
+   commit them.
    There is deliberately no default floor, like the in-house gate, which has
    none: a tree that inherits a default is exempt from the decision rather than
    held to it.
