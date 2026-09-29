@@ -70,7 +70,7 @@ final readonly class PhpFile
         return $this->holdings;
     }
 
-    /** @param array<int, PhpToken> $tokens */
+    /** @param array<PhpToken> $tokens */
     private static function mentioned(array $tokens, Scope $scope): Names
     {
         $names = Names::of();

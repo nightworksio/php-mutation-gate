@@ -56,7 +56,7 @@ final readonly class Answer
         return $items;
     }
 
-    /** @param list<string> $keys */
+    /** @param array<string> $keys */
     private function at(array $keys): mixed
     {
         $value = $this->data;

@@ -48,6 +48,7 @@ it('says what changed from the base to what is on disk, committed or not, tracke
         ->write('src/E.php', "<?php\ne1\ne2\ne3\ne4\ne5\ne6\n")
         ->write('src/J.php', "<?php\nkeep\ndrop\n")
         ->write('src/say "hi".php', "<?php\n")
+        ->write('src/two words.php', "<?php\n")
         ->commit('The base.');
     $repository->git('tag', 'base');
     $repository->write('src/A.php', "<?php\none\nTWO\nthree\nfour\n")->commit('After the base.');
@@ -59,6 +60,7 @@ it('says what changed from the base to what is on disk, committed or not, tracke
     $repository->git('add', 'src/G.php');
     $repository->write('src/J.php', "<?php\nkeep\n");
     $repository->write('src/say "hi".php', "<?php\n// hi\n");
+    $repository->write('src/two words.php', "<?php\n// two\n");
     $repository->write('src/H.php', "<?php\nh\nh");
     $repository->write('src/I.php', '');
     $repository->write('ignored.php', "<?php\n");
@@ -71,6 +73,7 @@ it('says what changed from the base to what is on disk, committed or not, tracke
         'src/G.php' => ['added', [1, 2], 'src/G.php'],
         'src/J.php' => ['modified', [], 'src/J.php'],
         'src/say "hi".php' => ['modified', [2], 'src/say "hi".php'],
+        'src/two words.php' => ['modified', [2], 'src/two words.php'],
         'src/H.php' => ['added', [1, 2, 3], 'src/H.php'],
         'src/I.php' => ['added', [], 'src/I.php'],
     ]);
@@ -130,7 +133,7 @@ it('cannot tell what changed where git cannot read what the base held', function
     $said = Git::at($repository->root)->changesSince(Revision::ref('base'));
 
     expect($said)->toBeInstanceOf(CannotTell::class)
-        ->and($said instanceof CannotTell ? $said->why() : '')->toStartWith('git diff --no-ext-diff --find-renames --relative --unified=0 ');
+        ->and($said instanceof CannotTell ? $said->why() : '')->toStartWith('git diff --find-renames --relative --name-status -z ');
 });
 
 it('cannot tell anything outside a repository', function (): void {

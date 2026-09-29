@@ -19,7 +19,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  *
  * @param array<string, int> $runs
  */
-$suite = static function (int $tests, array $runs): CoverageMap {
+function suiteRunning(int $tests, array $runs): CoverageMap
+{
     $map = CoverageMap::empty();
 
     for ($test = 1; $test <= $tests; ++$test) {
@@ -33,22 +34,22 @@ $suite = static function (int $tests, array $runs): CoverageMap {
     }
 
     return $map;
-};
+}
 
-it('names a file the given share of a suite of twenty tests runs, and no file fewer run', function () use ($suite): void {
-    $map = $suite(20, ['src/Kernel.php' => 16, 'src/Money.php' => 15]);
+it('names a file the given share of a suite of twenty tests runs, and no file fewer run', function (): void {
+    $map = suiteRunning(20, ['src/Kernel.php' => 16, 'src/Money.php' => 15]);
 
     expect(HotPaths::standard()->in($map, Units::none()))->toEqual(Warnings::of(Warning::that(
         '`src/Kernel.php` is run by 16 of 20 tests and nothing holds it; each of its mutants runs most of the suite.',
     )));
 });
 
-it('names nothing in a suite of fewer than twenty tests', function () use ($suite): void {
-    expect(HotPaths::standard()->in($suite(19, ['src/Kernel.php' => 19]), Units::none()))->toEqual(Warnings::none());
+it('names nothing in a suite of fewer than twenty tests', function (): void {
+    expect(HotPaths::standard()->in(suiteRunning(19, ['src/Kernel.php' => 19]), Units::none()))->toEqual(Warnings::none());
 });
 
-it('names no file a held unit holds, whether it is the unit or inside it', function () use ($suite): void {
-    $map = $suite(20, ['src/Kernel.php' => 20, 'src/Http/Controller.php' => 20, 'src/Money.php' => 20]);
+it('names no file a held unit holds, whether it is the unit or inside it', function (): void {
+    $map = suiteRunning(20, ['src/Kernel.php' => 20, 'src/Http/Controller.php' => 20, 'src/Money.php' => 20]);
     $units = Units::of(
         Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')),
         Unit::held(Path::of('src/Http'), Group::named('holds:src/Http')),
@@ -60,8 +61,8 @@ it('names no file a held unit holds, whether it is the unit or inside it', funct
     )));
 });
 
-it('takes the share of the suite that makes a file hot', function () use ($suite): void {
-    $map = $suite(40, ['src/Kernel.php' => 20, 'src/Money.php' => 19]);
+it('takes the share of the suite that makes a file hot', function (): void {
+    $map = suiteRunning(40, ['src/Kernel.php' => 20, 'src/Money.php' => 19]);
 
     expect(HotPaths::atShare(0.5)->in($map, Units::none()))->toEqual(Warnings::of(Warning::that(
         '`src/Kernel.php` is run by 20 of 40 tests and nothing holds it; each of its mutants runs most of the suite.',

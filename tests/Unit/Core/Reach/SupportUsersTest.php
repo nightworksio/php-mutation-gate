@@ -16,8 +16,13 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
-/** @param array<string, string> $files */
-$users = static function (array $files): SupportUsers {
+/**
+ * Who uses the changed support among these files, by path, in a project of one tree.
+ *
+ * @param array<string, string> $files
+ */
+function supportUsersAmong(array $files): SupportUsers
+{
     $sources = Sources::none();
 
     foreach ($files as $path => $text) {
@@ -29,14 +34,14 @@ $users = static function (array $files): SupportUsers {
         Packages::of(Trees::of(Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root())))),
         $sources,
     );
-};
+}
 
 $fake = "<?php\n\nnamespace Tests\\Fakes;\n\nfinal class ClockFake {}\n";
 
 $clockFake = static fn(): Names => Names::of('Tests\Fakes\ClockFake');
 
-it('finds each test that names the changed support, through the support that names it in turn', function () use ($users, $fake, $clockFake): void {
-    $found = $users([
+it('finds each test that names the changed support, through the support that names it in turn', function () use ($fake, $clockFake): void {
+    $found = supportUsersAmong([
         'tests/Support/Ledgers.php' => "<?php\n\nnamespace Tests\\Support;\n\nfinal class Ledgers { public function clock(): Clocks {} }\n",
         'tests/Support/Clocks.php' => "<?php\n\nnamespace Tests\\Support;\n\nuse Tests\\Fakes\\ClockFake;\n\nfinal class Clocks { public ClockFake \$clock; }\n",
         'tests/Fakes/ClockFake.php' => $fake,
@@ -50,8 +55,8 @@ it('finds each test that names the changed support, through the support that nam
     expect($found)->toEqual(Paths::of(Path::of('tests/Unit/ClockTest.php'), Path::of('tests/Unit/LedgerTest.php')));
 });
 
-it('finds no test where nothing names the changed support', function () use ($users, $fake, $clockFake): void {
-    $found = $users([
+it('finds no test where nothing names the changed support', function () use ($fake, $clockFake): void {
+    $found = supportUsersAmong([
         'tests/Fakes/ClockFake.php' => $fake,
         'tests/Unit/MoneyTest.php' => "<?php\n\nit('adds', fn () => 1);\n",
     ])->of(Path::of('tests/Fakes/ClockFake.php'), $clockFake(), 'the project');
@@ -59,8 +64,8 @@ it('finds no test where nothing names the changed support', function () use ($us
     expect($found)->toEqual(Paths::none());
 });
 
-it('reaches the whole package where support that names it runs code when it is loaded', function () use ($users, $fake, $clockFake): void {
-    $found = $users([
+it('reaches the whole package where support that names it runs code when it is loaded', function () use ($fake, $clockFake): void {
+    $found = supportUsersAmong([
         'tests/Fakes/ClockFake.php' => $fake,
         'tests/Datasets/Clocks.php' => "<?php\n\nuse Tests\\Fakes\\ClockFake;\n\ndataset('clocks', [new ClockFake()]);\n",
         'tests/Unit/ClockTest.php' => "<?php\n\nuse Tests\\Fakes\\ClockFake;\n\nit('ticks', fn () => new ClockFake());\n",
@@ -69,16 +74,16 @@ it('reaches the whole package where support that names it runs code when it is l
     expect($found)->toEqual(Reason::that('`tests/Datasets/Clocks.php` runs code when it is loaded, so every unit of packages/money is reached.'));
 });
 
-it('reaches the whole package where the changed support itself runs code when it is loaded', function () use ($users, $clockFake): void {
-    $found = $users([
+it('reaches the whole package where the changed support itself runs code when it is loaded', function () use ($clockFake): void {
+    $found = supportUsersAmong([
         'tests/Fakes/ClockFake.php' => "<?php\n\nnamespace Tests\\Fakes;\n\nfinal class ClockFake {}\n\nClockFake::register();\n",
     ])->of(Path::of('tests/Fakes/ClockFake.php'), $clockFake(), 'the project');
 
     expect($found)->toEqual(Reason::that('`tests/Fakes/ClockFake.php` runs code when it is loaded, so every unit of the project is reached.'));
 });
 
-it('reaches the whole package where something that is no test names the changed support', function () use ($users, $fake, $clockFake): void {
-    $found = $users([
+it('reaches the whole package where something that is no test names the changed support', function () use ($fake, $clockFake): void {
+    $found = supportUsersAmong([
         'tests/Fakes/ClockFake.php' => $fake,
         'tests/Unit/ClockTest.php' => "<?php\n\nuse Tests\\Fakes\\ClockFake;\n\nit('ticks', fn () => new ClockFake());\n",
         'src/Wiring.php' => "<?php\n\nnamespace App;\n\nfinal class Wiring { public const string CLOCK = \\Tests\\Fakes\\ClockFake::class; }\n",

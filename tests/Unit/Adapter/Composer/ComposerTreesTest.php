@@ -65,7 +65,7 @@ it('finds no tree where no manifest autoloads anything', function (): void {
         ->and(ComposerTrees::at(Project::with([]), ['composer.json'], [])->trees())->toEqual(Trees::none());
 });
 
-it('cannot judge the trees where a manifest cannot be read or declares a floor it cannot use', function (array $files, string $said): void {
+it('cannot judge the trees where a manifest cannot be read or declares a floor it cannot use', /** @param array<string, string> $files */ function (array $files, string $said): void {
     $trees = ComposerTrees::at(Project::with($files), ['composer.json', 'modules/*/composer.json'], ['packages/*'])->trees();
 
     expect($trees)->toBeInstanceOf(CannotJudge::class)

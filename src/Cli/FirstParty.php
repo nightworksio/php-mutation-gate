@@ -19,7 +19,6 @@ use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use Symfony\Component\HttpClient\HttpClient;
 
@@ -47,10 +46,10 @@ final readonly class FirstParty implements Extension
             ->withCiPlan(Name::of('buildkite'), BuildkitePlan::fromOptions(...))
             ->withCiPlan(Name::of('circleci'), CircleCiPlan::fromOptions(...))
             ->withCiPlan(Name::of('json'), JsonPlan::fromOptions(...))
-            ->withChangeSource(Name::of('git'), static fn(Options $options): ChangeSource => Git::at(self::HERE))
+            ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Git::at(self::HERE))
             ->withChangeSource(
                 Name::of('github'),
-                static fn(Options $options): ChangeSource => PassedPullRequests::over(
+                static fn(): ChangeSource => PassedPullRequests::over(
                     Git::at(self::HERE),
                     HttpClient::create(),
                     getenv(),

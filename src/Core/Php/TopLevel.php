@@ -53,7 +53,7 @@ final readonly class TopLevel
     {
     }
 
-    /** @param array<int, PhpToken> $tokens a file's significant tokens, in order */
+    /** @param array<PhpToken> $tokens a file's significant tokens, in order */
     public static function of(array $tokens): self
     {
         $statements = [];

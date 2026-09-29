@@ -8,6 +8,7 @@ use function array_any;
 use function array_key_exists;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 
@@ -89,7 +90,6 @@ final readonly class Packages
     private static function related(Disk $disk, array $directories): self|CannotJudge
     {
         $manifests = [];
-        $named = [];
 
         foreach ($directories as $directory) {
             $manifest = Manifest::in($disk, $directory);
@@ -99,22 +99,49 @@ final readonly class Packages
             }
 
             $manifests[$directory->value()] = [$directory, $manifest];
-            $named = $manifest instanceof Manifest ? [...$named, $manifest->name() => $directory] : $named;
         }
 
+        $named = self::named($manifests);
         $packages = [];
 
         foreach ($manifests as [$directory, $manifest]) {
-            $package = Package::at($directory);
-
-            foreach ($manifest instanceof Manifest ? $manifest->requires() : [] as $required) {
-                $package = array_key_exists($required, $named) ? $package->dependingOn($named[$required]) : $package;
-            }
-
-            $packages[] = $package;
+            $packages[] = self::package($directory, $manifest, $named);
         }
 
         return new self($packages);
+    }
+
+    /**
+     * The directory of each package that has a manifest, by the name it declares.
+     *
+     * @param  array<string, array{Path, Manifest|Missing}> $manifests
+     * @return array<string, Path>
+     */
+    private static function named(array $manifests): array
+    {
+        $named = [];
+
+        foreach ($manifests as [$directory, $manifest]) {
+            $named = $manifest instanceof Manifest ? [...$named, $manifest->name() => $directory] : $named;
+        }
+
+        return $named;
+    }
+
+    /**
+     * The package at a directory, depending on each of the named packages its manifest requires.
+     *
+     * @param array<string, Path> $named
+     */
+    private static function package(Path $directory, Manifest|Missing $manifest, array $named): Package
+    {
+        $package = Package::at($directory);
+
+        foreach ($manifest instanceof Manifest ? $manifest->requires() : [] as $required) {
+            $package = array_key_exists($required, $named) ? $package->dependingOn($named[$required]) : $package;
+        }
+
+        return $package;
     }
 
     /**

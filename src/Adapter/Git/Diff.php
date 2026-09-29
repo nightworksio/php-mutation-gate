@@ -10,8 +10,6 @@ use function count;
 use function explode;
 use function intval;
 use function is_string;
-use function mb_strlen;
-use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -21,26 +19,31 @@ use NightWorksIO\MutationGate\Core\File\Path;
 
 use function preg_match;
 use function preg_match_all;
-use function str_starts_with;
+use function rtrim;
 use function stripcslashes;
 
 /** What git's diffs say: which paths changed and how, and which lines each gained on its new side. */
 final readonly class Diff
 {
     /**
-     * One entry of `--name-status -z`: its kind, the path it came from (empty
-     * but for a rename), and its path.
+     * One entry of `--name-status -z`: its kind, the path it came from ended
+     * by its NUL (empty but for a rename, whose score is 0 to 100), and its path.
      */
-    private const string ENTRY = '~(?|(R)\d*\0([^\0]*)\0([^\0]*)\0|([A-Z])\d*\0()([^\0]*)\0)~';
+    private const string ENTRY = <<<'REGEX'
+        ~(?<kind>[A-Z])\d*\0
+        (?<from>(?:(?<=R\d\0|R\d\d\0|R\d\d\d\0)[^\0]*\0)?)
+        (?<path>[^\0]*)\0~x
+        REGEX;
 
     /** The header of a hunk of `--unified=0`, with where its new side starts and how many lines it spans. */
     private const string HUNK = '~^@@ -\d+(?:,\d+)? \+(?<start>\d+)(?:,(?<count>\d+))? @@~';
 
-    /** How `--unified=0` names the new side of a file. */
-    private const string NEW_SIDE = '+++ b/';
-
-    /** How it names the new side of a file whose name it had to quote. */
-    private const string QUOTED = '+++ "b/';
+    /**
+     * How `--unified=0` names the new side of a file: in double quotes where
+     * it had to escape the name, and with a tab after it where the name holds
+     * a space.
+     */
+    private const string NEW_SIDE = '~^\+\+\+ (?<quote>"?)b/(?<path>.*?)"?\t?$~';
 
     /**
      * Every changed path, from `git diff --name-status -z`, with the lines
@@ -54,7 +57,8 @@ final readonly class Diff
         $changes = Changes::none();
 
         foreach ($entries as $entry) {
-            $changes = $changes->with(self::change($entry[1], $entry[2], $entry[3], $lines));
+            $from = rtrim($entry['from'], "\0");
+            $changes = $changes->with(self::change($entry['kind'], $from, $entry['path'], $lines));
         }
 
         return $changes;
@@ -114,11 +118,11 @@ final readonly class Diff
     /** The file a line of the patch starts, or the one before it where it starts none. */
     private static function newSideIn(string $line, string $file): string
     {
-        return match (true) {
-            str_starts_with($line, self::NEW_SIDE) => mb_substr($line, mb_strlen(self::NEW_SIDE)),
-            str_starts_with($line, self::QUOTED) => stripcslashes(mb_substr($line, mb_strlen(self::QUOTED), -1)),
-            default => $file,
-        };
+        if (preg_match(self::NEW_SIDE, $line, $side) !== 1) {
+            return $file;
+        }
+
+        return $side['quote'] === '' ? $side['path'] : stripcslashes($side['path']);
     }
 
     /** These lines, and the ones a hunk spans from its start. */
