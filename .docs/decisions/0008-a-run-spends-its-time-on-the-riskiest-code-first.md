@@ -48,7 +48,7 @@ presets for Laravel, Symfony and plain libraries.
      opening run. When the next batch does not fit, none is started. At the
      deadline the runner is stopped.
    - **Unjudged mutants.** Every mutant the budget left without a result is
-     *unjudged*. An unjudged mutant:
+     *unjudged*. Such a mutant:
      - counts as not killed (ADR-0003);
      - is listed by unit in every report, with the command that judges it;
      - keeps its unit out of the ledger (ADR-0007);
@@ -57,31 +57,41 @@ presets for Laravel, Symfony and plain libraries.
      A budgeted run can fail for lack of time. It can never pass a mutant it did
      not judge.
 
-2. **Timeout triage tells a detection from the clock running out.** Pest's
-   limit per mutant is its opening run's duration plus the larger of 5 s and
-   20%, and it cannot be changed. Infection's is `timeouts.seconds`, an
-   integer, 10 by default as Infection's own, and 30 in the Laravel and
-   Symfony presets. For every timed-out mutant the gate compares the covering
-   tests' own time, from the coverage run's JUnit report, with the limit.
+2. **Timeout triage tells a detection from the clock running out.** Each
+   runner sets a limit per mutant (ADR-0004):
+   - **Pest's** is its opening run's duration plus the larger of 5 s and 20%,
+     and it cannot be changed.
+   - **Infection's** is the smaller of 5 s plus five times the covering tests'
+     own time, and `timeouts.seconds`: an integer, 10 by default as Infection's
+     own, and 30 in the Laravel and Symfony presets. A mutant whose covering
+     tests take at least `timeouts.seconds` is skipped, never run.
+
+   For every timed-out or skipped mutant the gate works out the limit that
+   applied to it, and compares the covering tests' own time with it. That time
+   comes from the coverage run: Pest's map, or the JUnit times of the covering
+   test classes, which Infection sums the same way.
    - **Under half the limit.** Tests that normally finish quickly ran past the
      limit with the mutant in place. The mutant broke something (a loop that no
      longer ends, say), so it is **killed by timeout**. It counts as killed and
-     is reported under that name.
+     is reported under that name. Under Infection's own formula this holds for
+     every timeout the configured cap did not decide.
    - **Half the limit or more.** The limit says nothing about this mutant, so it
-     is **unjudged: too slow to judge**. The hint points at holding the path
-     with a group (ADR-0005) or raising the limit. Infection's own *skipped*
-     mutants (covering tests at least as slow as the timeout) are reported the
-     same way.
-   - **Retry (Infection only).** Before the rule is applied, a timed-out mutant
-     is run once more at twice the limit, narrowed to its file and mutator
-     (ADR-0004). If it finishes, its real status replaces the timeout. At most
+     is **unjudged: too slow to judge**. Infection's skipped mutants are always
+     here. The hint points at holding the path with a group (ADR-0005) or
+     raising `timeouts.seconds`.
+   - **Retry (Infection only).** Before the rule is applied, each timed-out or
+     skipped mutant that the configured cap decided is run once more with
+     `timeouts.seconds` doubled, narrowed to its file and mutator (ADR-0004).
+     If it finishes, its real status replaces the timeout. If not, the rule is
+     applied with the doubled limit. A mutant whose limit came from the formula
+     is not retried, because a higher cap would not change it. At most
      `timeouts.retries` mutants are retried per shard, an integer, 20 by
      default. Pest's limit cannot be raised, so Pest has no retry.
    - **The mode.** `timeouts.mode` is `confirm` by default, as described above,
      or `unjudged`, which makes every timeout unjudged, for projects that want
      no kill they cannot see.
 
-   Triage reads the recorded timeout and the coverage run's times, so it is
+   Triage reads the recorded status and the coverage run's times, so it is
    applied at verdict time, and a unit whose timeouts are too slow to judge is
    still recorded (ADR-0007): running it again would give the same answer.
 
@@ -119,7 +129,7 @@ presets for Laravel, Symfony and plain libraries.
    ```
 
    - **Two shapes.** One mutant, by the gate's id (ADR-0004). Or a path glob
-     with a mutator name or family (ADR-0009).
+     with a mutator, by its full name (ADR-0004), or a family (ADR-0009).
    - **Every entry needs a non-empty `reason`.** `expires` (`YYYY-MM-DD`) is
      optional. `ignores.maxDays`, an integer with no limit by default, requires
      every entry to expire within that many days of the run.

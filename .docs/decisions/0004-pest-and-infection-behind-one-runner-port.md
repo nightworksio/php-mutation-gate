@@ -14,37 +14,60 @@ The gate needs four things from whatever mutates the code:
   it.
 
 v1 supports two runners: Pest's own mutation testing (`pestphp/pest-plugin-mutate`)
-and Infection. Their capabilities were read from source: pest-plugin-mutate
-5.0.2 with Pest 5.2, and Infection 0.35.5, with every option named here
-checked against 0.35.0 as well. They differ in ways that shape the adapters.
+and Infection. Their capabilities were read from source and tried in scratch
+projects: pest-plugin-mutate 5.0.2 with Pest 5.2.1, and Infection 0.35.5, with
+every option named here checked against 0.35.0 as well. They differ in ways
+that shape the adapters.
 
-- **Pest writes no machine-readable mutation report.** Its output is console
+**Pest.**
+
+- **It writes no machine-readable mutation report.** Its output is console
   text. Under `--parallel` each mutant prints as one character, and only escaped
   and uncovered mutants get a line with an `ID:`. The in-house gate never parses
   it. It reads only the exit code of `--min`.
-- **Pest emits an in-process event for every mutant**, through
-  `Pest\Mutate\Event\Facade`: `Tested`, `Untested`, `Uncovered` and `Timeout`.
-  Each carries a `MutationTest` with its `Mutation` (file, mutator, start and
-  end line, diff, id) and `duration()`. The facade and the events carry no
-  `@internal` tag, but Pest documents none of them and promises nothing about
-  them.
-- **Pest has five statuses:** `none`, `tested`, `untested`, `uncovered` and
-  `timeout`. `tested` covers every non-zero exit, so a crash counts as a kill.
-  The timeout is not configurable. It is the opening run's duration plus the
-  larger of 5 s and 20 %, truncated to whole seconds.
-- **`covers()` and `mutates()` narrow a Pest run.** Each puts its test file in
-  the group `__pest_mutate_only`, and restricts the run to that group unless
-  `--everything`, `--path` or `--class` is given.
-- **Pest opens every run with the whole suite under coverage.** It has no
-  option to take a map another run wrote. The in-house gate patches Pest's
-  vendor code to make it take one. A second patch covers a line that every test
-  covers. Pest builds one `--filter` argument naming every covering test, and
-  for such a line that argument grows past the kernel's limit, so the child
-  process never starts (`posix_spawn() failed: Argument list too long`).
-- **Infection does not run Pest suites.** Support was removed in infection PR
-  #2047, first released in 0.29.13. Its bundled framework is PHPUnit.
-  Codeception, phpspec and Testo adapters install separately.
-- **Infection writes a JSON log, but only when the config file asks** (`logs.json`;
+- **It emits in-process events**, through `Pest\Mutate\Event\Facade`, in the
+  Pest process that runs the mutants: `Tested`, `Untested`, `Uncovered` and
+  `Timeout` per mutant, and `FinishMutationSuite` at the end. Each carries a
+  `MutationTest` with its `Mutation`: file, mutator, start and end line, diff
+  and id. A mutant's `duration()` is set only after its event fires, so
+  durations, and the mutants that never ran, are read at `FinishMutationSuite`.
+  The facade and the events carry no `@internal` tag, but Pest documents none
+  of them. The interfaces a Pest plugin implements, `Pest\Contracts\Plugins\*`,
+  are `@internal`.
+- **It has five statuses:** `none`, `tested`, `untested`, `uncovered` and
+  `timeout`. `tested` covers every non-zero exit of a mutant's child process: a
+  failed assertion, a crash, and a `--filter` that matches no test, which Pest
+  answers with "No tests found." and exit code 1. A covering test whose id does
+  not fit Pest's filter pattern is dropped from the filter, which can leave a
+  covered mutant `uncovered`.
+- **Its timeout is not configurable.** It is the opening run's duration plus
+  the larger of 5 s and 20 %, truncated to whole seconds.
+- **`covers()` and `mutates()` narrow a run.** Each puts its test file in the
+  group `__pest_mutate_only`, and restricts the run to that group and its
+  classes unless `--path`, `--class` or `--everything` is given.
+- **It caches generated mutants** under its own vendor directory, pointing at
+  mutated sources kept beside them. A cache restored without those files turns
+  survivors into kills. `--no-cache` turns the cache off.
+- **Its opening run always takes the whole suite under coverage**, into a fixed
+  path in its vendor directory. `--coverage-php` cannot be combined with
+  `--mutate`, and no option takes a map another run wrote. The in-house gate
+  patches Pest's vendor code to make it take one. A second patch covers a line
+  that every test covers. Pest builds one `--filter` argument naming every
+  covering test, and for such a line that argument grows past the kernel's
+  limit, so the child process never starts (`posix_spawn() failed: Argument
+  list too long`).
+- **Mutator names are short class names, and some are shared:** two
+  `BitwiseAndToBitwiseOr` classes exist, in different namespaces. `--mutator`
+  accepts a fully qualified class name.
+- **Each Pest release pins one PHPUnit release.** Pest 5.2.1 requires PHPUnit
+  13.3.4 exactly, so a Pest project runs PHPUnit 13.
+
+**Infection.**
+
+- **It does not run Pest suites.** Support was removed in infection PR #2047,
+  first released in 0.29.13. Its bundled framework is PHPUnit. Codeception,
+  phpspec and Testo adapters install separately.
+- **It writes a JSON log, but only when the config file asks** (`logs.json`;
   its only JSON flag, `--logger-summary-json`, writes the totals alone).
   - The log has `stats` and per-status arrays: `killed`,
     `killedByStaticAnalysis`, `escaped`, `timeouted`, `errored`,
@@ -52,24 +75,38 @@ checked against 0.35.0 as well. They differ in ways that shape the adapters.
   - Each entry is `{mutator: {mutatorName, originalSourceCode,
     mutatedSourceCode, originalFilePath, originalStartLine}, diff,
     processOutput}`. It has **no mutant id and no duration**.
-  - Killed mutants are listed at every `--log-verbosity` but `none`.
   - `uncovered` is empty unless `--with-uncovered` is given, even when
     `stats.notCoveredCount` is not.
-  - `stats.skippedCount` has no array. Infection skips a mutant, without
-    running it, when its covering tests together take at least the timeout.
-- **Infection reuses a coverage run natively.** `--coverage=<dir>` takes
+  - `stats.skippedCount` has no array. The text log (`logs.text`) lists
+    skipped mutants under `Skipped mutants:`, each as
+    `<n>) <path>:<line>    [M] <mutator> [ID] <hash>` followed by its diff.
+  - `--log-verbosity=none` writes no log file at all. `default` and `all` write
+    the same JSON.
+- **Its per-mutant timeout is `min(5 s + 5 × T, timeout)`**, where `T` is the
+  sum of the JUnit times of the test classes covering the mutant, and
+  `timeout` is the config value in seconds, 10 by default. A mutant whose `T`
+  is at least `timeout` is *skipped*: never run.
+- **It reuses a coverage run natively.** `--coverage=<dir>` takes
   `coverage-xml/index.xml` plus one JUnit file, and `--skip-initial-tests` then
-  skips its own opening run. Its timeout is a config value in seconds, 10 by
-  default.
-- **Infection passes `--test-framework-extra-args` to its opening run, and to
-  each mutant run less `--configuration`, `--filter` and `--testsuite`**, which
-  its PHPUnit adapter declares opening-run only. Each mutant run executes the
-  test classes the opening run's coverage names, or with
-  `--only-covering-test-cases` the covering test methods alone.
-- **Neither runner's own mutant id identifies a mutant across machines.** Pest's
-  is `xxh3(realpath . mutator . mutated source)`. Infection's is an md5 over the
-  file path, the mutator name, the mutation's index for that mutator and its
-  parser attributes. Both change when the checkout moves.
+  skips its own opening run.
+- **It passes `--test-framework-extra-args` to its opening run, and to each
+  mutant run less `--configuration`, `--filter` and `--testsuite`**, which its
+  PHPUnit adapter declares opening-run only. Each mutant run executes the test
+  classes the coverage names, or with `--only-covering-test-cases` the covering
+  test methods alone. A mutant run that executes no test counts as escaped.
+- **`--mutators=<names>` replaces the config's mutator settings**, so a mutator
+  configured in `infection.json5` behaves differently when named on the command
+  line.
+- **Relative paths in its config resolve against the config file's
+  directory**, except `bootstrap`, which resolves against the working
+  directory.
+- **On GitHub Actions it writes annotations of its own** unless given
+  `--logger-github=false`.
+
+**Both.** Neither runner's own mutant id identifies a mutant across machines.
+Pest's is `xxh3(realpath . mutator . mutated source)`. Infection's is an md5
+over the file path, the mutator name, the mutation's index for that mutator and
+its parser attributes. Both change when the checkout moves.
 
 ## Decision
 
@@ -91,7 +128,8 @@ checked against 0.35.0 as well. They differ in ways that shape the adapters.
 2. **Every mutant is normalised to one record.**
    - **id**: the gate's own, 12 lowercase hex characters of a SHA-256 over:
      - the path relative to the repository;
-     - the mutator;
+     - the mutator's full name: its class name for Pest, its name for
+       Infection;
      - the removed and added lines of the diff, with whitespace collapsed;
      - the mutant's position among mutants in the same file that share
        everything above.
@@ -99,42 +137,54 @@ checked against 0.35.0 as well. They differ in ways that shape the adapters.
      The line number is not an input, so an id survives code above it moving.
      The runner's native id is kept alongside for use within the same run only.
    - **where and what**: file, start and end line where the runner gives them,
-     the native mutator name, its family (ADR-0009), and the diff.
-   - **status**: killed, survived, uncovered, timed out, errored or unjudged.
+     the mutator's full name, its family (ADR-0009), and the diff.
+   - **status**, as the runner reported it:
+     - killed, survived, uncovered or errored;
+     - timed out, or skipped (Infection's: too slow to run at all). Timeout
+       triage judges both at verdict time (ADR-0008);
+     - unjudged: no result, because the budget ran out or the runner stopped
+       first.
+
      An Infection mutant that Infection's own config ignored is recorded as
      *ignored by a native marker* (decision 4, ADR-0008). Flaky and ignored
      are otherwise applied later by the gate (ADR-0008).
    - **duration**, where the runner reports one.
 
 3. **The Pest adapter** (`pestphp/pest` ^5.1, `pestphp/pest-plugin-mutate`
-   ^5.0).
+   ^5.0, and the PHPUnit 13 release Pest pins).
    - **Invocation:**
 
      ```text
-     vendor/bin/pest --mutate --everything --parallel --path=<files>
+     vendor/bin/pest --mutate --no-cache --parallel --path=<files>
          [--ignore=<held paths>] [--group=<holds group>] [--processes=<n>]
      ```
 
-     - `--everything` and `--path` make the gate, not a test's `covers()` or
-       `mutates()`, decide what is mutated and which tests judge it. A contract
-       test proves that a suite using `covers()` is still judged by every
-       covering test.
+     - `--path` makes the gate, not a test's `covers()` or `mutates()`, decide
+       what is mutated and which tests judge it. A contract test proves that a
+       suite using `covers()` is still judged by every covering test.
+     - `--no-cache` keeps a stale cache from deciding a result.
      - `--covered-only` and `--min` are never passed. Uncovered mutants are
        always reported, and `uncovered: exclude` is applied by the gate
        (ADR-0003).
+     - Pest runs with the project root as its working directory, and one Pest
+       invocation at a time runs in a checkout, because each writes its opening
+       map to the same path.
    - **Results** come from a small Pest plugin shipped in this package and
      listed in its `composer.json` under `extra.pest.plugins`, which is how Pest
      finds plugins.
-     - It is inert unless the environment variable `MUTATION_GATE_RESULTS`
-       names a file, which only the adapter sets. When it does, it subscribes to
-       the mutate plugin's events and writes one JSON line per mutant: native
-       id, file, lines, mutator, diff, status and duration.
+     - It implements Pest's `Bootable` contract, and it is inert unless the
+       environment variable `MUTATION_GATE_RESULTS` names a file, which only the
+       adapter sets. Inside a mutant's child process it does nothing.
+     - At `FinishMutationSuite` it walks the suite's mutants and writes one JSON
+       line per mutant: native id, file, lines, mutator class, diff, status and
+       duration. That walk is the only place that sees a mutant with no result.
      - The adapter fails closed. The records must add up to the counts on Pest's
        own summary line (`Mutations: … untested, … uncovered, … pending, …
        timeout, … tested`), and a missing file or a mismatch is *cannot judge*.
-     - Because the events are undocumented, only the pest-plugin-mutate
-       versions the contract suite covers are allowed, and `composer.json`
-       declares a `conflict` for the rest.
+     - Because the plugin contracts are `@internal` and the events are
+       undocumented, only the pest-plugin-mutate versions the contract suite
+       covers are allowed, and `composer.json` declares a `conflict` for the
+       rest.
    - **Statuses**:
 
      | Pest status | Gate status |
@@ -145,18 +195,21 @@ checked against 0.35.0 as well. They differ in ways that shape the adapters.
      | `timeout` | timed out |
      | `none` left at the end (Pest's *pending*) | unjudged |
 
-   - **Coverage**:
+   - **Coverage** is an invocation of its own, never part of a mutation run:
      - `vendor/bin/pest --parallel --coverage-php=<dir>/coverage.php
-       --log-junit=<dir>/junit.xml` under pcov or Xdebug. The map is read with
-       `phpunit/php-code-coverage`. This is the layout `--coverage=<dir>`
-       expects from an earlier job (ADR-0006).
+       --log-junit=<dir>/junit.xml` under pcov or Xdebug, without `--coverage`,
+       whose own report path would win. The map is read with
+       `phpunit/php-code-coverage`, and its `testResults` carry each test's
+       duration. This is the layout `--coverage=<dir>` expects from an earlier
+       job (ADR-0006).
      - Groups come from `vendor/bin/pest --list-groups --colors=never`. A
        listing without `Available test group` is *cannot judge*, never *no
        groups*.
    - **The in-house gate's two patches are an opt-in.** Enabling it is
      `pest.patch: true` (a boolean, `false` by default), plus
      `@php vendor/bin/mutation-gate pest:patch` in `post-install-cmd` and
-     `post-update-cmd`. The command applies both patches:
+     `post-update-cmd`. The command applies both patches to
+     pest-plugin-mutate:
      - Shards open on a canary group (`pest.canary`, a group name,
        `mutation-canary` by default) and read the map the planning job wrote,
        instead of each running the whole suite again.
@@ -179,22 +232,27 @@ checked against 0.35.0 as well. They differ in ways that shape the adapters.
 
      ```text
      vendor/bin/infection --configuration=<generated> --threads=<n|max>
-         --no-progress --with-uncovered
+         --no-progress --with-uncovered --logger-github=false
          [--coverage=<dir> --skip-initial-tests]
          [--test-framework-extra-args=<group or filter>]
          [--only-covering-test-cases] <files>
      ```
 
+     `--log-verbosity` is left at its default, and never `none`.
    - **Configuration.** The adapter writes a config per invocation. It starts
      from the project's own `infection.json5` when there is one (mutators,
      `bootstrap`, `phpUnit`, `initialTestsPhpOptions`, `testFrameworkExtraArgs`)
      and overrides what the gate owns:
-     - `logs.json` points at the results file, and every other log is off.
-     - `timeout` is `timeouts.seconds` (ADR-0008).
-     - `minMsi` and `minCoveredMsi` are removed.
+     - every path is absolute, and `phpUnit.configDir` is set, because the
+       generated file lives under `.mutation-gate/`;
+     - `logs.json` and `logs.text` point into the results directory, and every
+       other log is off;
+     - `timeout` is `timeouts.seconds` (ADR-0008);
+     - `minMsi` and `minCoveredMsi` are removed;
      - `tmpDir` is under `.mutation-gate/`.
-   - **Held paths** (ADR-0005) are passed through
-     `--test-framework-extra-args`.
+   - **Held paths** (ADR-0005) always take coverage from their own opening run,
+     never from a whole-suite map, so `--skip-initial-tests` is never passed for
+     them. The narrowing goes through `--test-framework-extra-args`.
      - A group, `--group=holds:<path>`, narrows the opening run and every
        mutant run.
      - `#[Holds]` becomes a `--filter` naming the holding tests. It narrows the
@@ -202,11 +260,11 @@ checked against 0.35.0 as well. They differ in ways that shape the adapters.
        recorded. The adapter adds `--only-covering-test-cases`, so a mutant
        runs the holding test methods rather than their whole classes.
      - A contract test proves both.
-   - **Results.** The adapter reads `logs.json`, and the log must add up, or
-     the run is *cannot judge*:
+   - **Results.** The adapter reads `logs.json`, and the skipped mutants from
+     `logs.text`. The logs must add up, or the run is *cannot judge*:
 
-     | `stats` count | Array | Gate status |
-     |---------------|-------|-------------|
+     | `stats` count | Where the mutants are | Gate status |
+     |---------------|-----------------------|-------------|
      | `killedCount` | `killed` | killed |
      | `killedByStaticAnalysisCount` | `killedByStaticAnalysis` | killed |
      | `escapedCount` | `escaped` | survived |
@@ -214,17 +272,11 @@ checked against 0.35.0 as well. They differ in ways that shape the adapters.
      | `syntaxErrorCount` | `syntaxErrors` | errored |
      | `timeOutCount` | `timeouted` | timed out |
      | `notCoveredCount` | `uncovered` | uncovered |
-     | `skippedCount` | none | unjudged, *too slow to judge*, as a count |
+     | `skippedCount` | `Skipped mutants:` in `logs.text` | skipped |
      | `ignoredCount` | `ignored` | ignored by a native marker when `ignores.native: allow`; otherwise *cannot judge*, because the run refuses native markers before it starts (ADR-0008) |
 
-     - Each count must equal the length of its array, and `totalMutantsCount`
-       must equal the sum of the counts.
-     - **Skipped mutants are known only as a count.** Before a run, the adapter
-       applies Infection's own rule to the coverage run's JUnit times, and runs
-       each unit with a line Infection would skip in an invocation of its own.
-       Its skipped count then belongs to that unit, as that many unjudged
-       mutants with no id. A skipped count in an invocation of several units is
-       *cannot judge*.
+     Each count must equal the number of its mutants, and `totalMutantsCount`
+     must equal the sum of the counts.
    - **Coverage** comes from `vendor/bin/phpunit --coverage-xml=<dir>/coverage-xml
      --log-junit=<dir>/junit.xml`. That is the layout `--coverage` expects, and
      the gate reads its per-line `covered by` entries as its own map, so one run
@@ -232,9 +284,11 @@ checked against 0.35.0 as well. They differ in ways that shape the adapters.
    - **Scope.** The adapter refuses a `testFramework` other than `phpunit`, and
      a `phpUnit.customPath` that points at Pest. A Pest project uses the Pest
      adapter.
-   - **Timeouts.** A timed-out mutant is run again by narrowing to its file and
-     its mutator (`<file> --mutators=<name>`) with the timeout doubled, and it is
-     matched back by the gate's id (ADR-0008).
+   - **Narrowing to one mutator.** A retry (ADR-0008) or a reproduce runs the
+     mutant's file with a generated config whose `mutators` block keeps only
+     that mutator, with the project's settings for it. `--mutators` is never
+     used, because it drops those settings and the mutant could change. The
+     mutant is matched back by the gate's id.
 
 5. **Which tests can judge a file is the runner's answer, not a guess.** The
    content key needs it (ADR-0007).
@@ -248,15 +302,18 @@ checked against 0.35.0 as well. They differ in ways that shape the adapters.
      answers with their files.
 
 6. **Reproducing one mutant is runner-neutral.** `mutation-gate reproduce <id>`
-   runs the runner over the one file with only that mutator. That is Pest's
-   `--path` with `--mutator`, or Infection's positional path with `--mutators`.
-   It finds the mutant by the gate's id and prints the diff, the covering tests
-   and the runner's own output for it. Pest's `--id=<native id>` is used for
-   that last run once the native id is known on this machine.
+   runs the runner over the one file with only that mutator: Pest's `--path`
+   with `--mutator=<class name>`, or Infection's positional path with the
+   narrowed config of decision 4. It finds the mutant by the gate's id and
+   prints the diff, the covering tests and the runner's own output for it.
+   Pest's `--id=<native id>` is used for that last run once the native id is
+   known on this machine.
 
 7. **One contract suite for every runner.** `tests/Contract/Runner` holds a
    fixture library with a known killed, survived, uncovered, timed-out and
    held mutant. Every adapter must produce the same normalised records for it.
+   The library also holds what each runner gets wrong on its own: for Pest, a
+   test whose name its filter cannot express; for Infection, a mutant it skips.
    CI runs the suite against the lowest and highest supported version of each
    runner (ADR-0011).
 
@@ -269,7 +326,7 @@ checked against 0.35.0 as well. They differ in ways that shape the adapters.
 | **Infection for Pest projects** | Infection removed Pest support. Pointing its PHPUnit adapter at `vendor/bin/pest` depends on PHPUnit-shaped filters and JUnit that Pest does not promise. |
 | **Pest's `--id` or Infection's id as the gate's id** | Both hash an absolute path, so an id printed in CI does not exist on a developer's machine, and an ignore written against it would never match. |
 | **Infection's id from the Stryker report embedded in its HTML log** | Means parsing JSON out of an HTML page, and the gate needs no native id: narrowing to file and mutator finds a mutant in a handful of runs. |
-| **Skipped mutants read from Infection's text or HTML log** | The text log has no schema. The HTML log's embedded report gives skipped mutants the status `Ignored`, the same as ignored ones. Running a unit Infection would skip on its own makes the count exact. |
+| **Skipped mutants from Infection's HTML log, or only as a count** | The HTML log's embedded report gives skipped mutants the status `Ignored`, the same as ignored ones. A count alone gives no file, id or diff to report. The text log names each one, and the JSON log's count checks it. |
 | **Passing `--covered-only`, or leaving out `--with-uncovered`, under `uncovered: exclude`** | The runners would then report uncovered mutants differently, Infection's log would not add up, and changing the setting would re-run every unit. The gate applies it at verdict time instead. |
 | **Patching Pest by default** | Edits another package's vendor code on every install without being asked. Opt-in keeps that a visible decision in the project's own `composer.json`. |
 | **Waiting for Pest to offer a report or a shared map** | Not in this package's control. The adapter works with what the supported versions ship, and the contract suite finds out when that changes. |
@@ -279,13 +336,11 @@ checked against 0.35.0 as well. They differ in ways that shape the adapters.
 
 **Every mutant is on record, from either runner.** The verdict, the baseline,
 the proofs, the reports and the hints all read the same normalised records.
-Infection's skipped mutants are the one exception, and they are counted per
-unit.
 
-**The Pest adapter depends on an undocumented API.** Each pest-plugin-mutate
-release has to pass the contract suite before its `conflict` entry is relaxed.
-A Pest release that moves the events fails the contract suite, not a user's
-gate.
+**The Pest adapter depends on an undocumented API and `@internal` plugin
+contracts.** Each pest-plugin-mutate release has to pass the contract suite
+before its `conflict` entry is relaxed. A Pest release that moves them fails
+the contract suite, not a user's gate.
 
 **Sharded Pest runs are fastest with the patch.** Without it each shard pays
 one opening suite. The README says so beside the CI examples.

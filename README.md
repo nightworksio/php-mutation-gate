@@ -56,7 +56,8 @@ Requirements:
 
 - PHP 8.5 or later, with pcov or Xdebug for coverage.
 - One of the two runners:
-  - **Pest**: `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0;
+  - **Pest**: `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0, on
+    the PHPUnit 13 release Pest pins;
   - **Infection**: `infection/infection` ~0.35.0, with PHPUnit 12 or 13.
 
   Infection does not run Pest suites, so a Pest project uses Pest's own

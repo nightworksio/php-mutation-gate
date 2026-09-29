@@ -86,8 +86,11 @@ sees the same verdict.
      ```
 
      Errors mark mutants in a failing set, and warnings mark the rest. GitHub
-     shows at most 10 error and 10 warning annotations per step, so they are
-     ranked: changed lines first, then trees that failed. The step summary
+     keeps at most 10 error, 10 warning and 10 notice annotations per step, and
+     50 per job, and drops the rest silently. So the gate writes all its
+     annotations from one step, ranked: changed lines first, then trees that
+     failed. The Infection adapter turns Infection's own annotations off
+     (ADR-0004), so they do not use up that step's share. The step summary
      always carries the full table.
    - **The sticky PR comment.**
      - **Where it lives.** One comment per pull request, found by the hidden
@@ -119,19 +122,25 @@ sees the same verdict.
    and inlined, so the page loads nothing from a network. The viewer is the
    same one Infection's HTML log embeds.
 
+   The viewer computes its own score: killed and timed out over those plus
+   survived and no coverage, leaving out every other status. Each mutant is
+   therefore given the viewer status that the gate's score treats the same
+   way, so the page shows the gate's score. The gate's own status goes in
+   `statusReason`.
+
    | Gate status | Viewer status |
    |-------------|---------------|
-   | killed, and killed by timeout | `Killed`, `Timeout` |
-   | survived | `Survived` |
-   | uncovered | `NoCoverage` |
-   | errored | `RuntimeError` |
-   | ignored, and ignored by a native marker | `Ignored`, with the reason |
-   | unjudged and flaky | `Pending`, with the reason in `statusReason` |
+   | killed, and errored | `Killed` |
+   | killed by timeout | `Timeout` |
+   | survived, unjudged, flaky, and too slow to judge | `Survived` |
+   | uncovered | `NoCoverage`, or `Ignored` under `uncovered: exclude` |
+   | ignored, and ignored by a native marker | `Ignored` |
 
    Covering tests, hints and reproduce commands go in each mutant's
-   `description`. Infection's skipped mutants have no record, so the page
-   counts them per file instead. The viewer's licence (Apache-2.0) is shipped
-   with it.
+   `description`. The schema requires a column for each location. The gate
+   takes it from the file's tokens, and a mutant it cannot place there spans
+   its lines from the first column to the end. The viewer's licence
+   (Apache-2.0) is shipped with it.
 
 5. **The badge and the trend on the default branch.**
    - **The badge.** The verdict writes `badge.json` for shields.io's endpoint

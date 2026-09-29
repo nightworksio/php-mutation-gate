@@ -34,7 +34,7 @@ itself, and goes up with the tests.
    |--------|--------------|
    | killed, errored (the mutant crashed the tests) | killed |
    | timed out, and judged a kill by timeout triage (ADR-0008) | killed |
-   | survived, uncovered, unjudged, flaky | not killed |
+   | survived, uncovered, unjudged, flaky; timed out or skipped and too slow to judge (ADR-0008) | not killed |
    | ignored, with a reason (ADR-0008) | left out |
 
    **Score = killed ÷ (all mutants − ignored) × 100, truncated to two
