@@ -48,4 +48,11 @@ return (new Configuration())
     // The S3 proof store's client, which is suggested rather than required: a
     // project that keeps its ledger in a bucket installs it, and the adapter
     // is built only when the config chooses it.
-    ->ignoreErrorsOnPackages(['async-aws/core', 'async-aws/s3'], [ErrorType::DEV_DEPENDENCY_IN_PROD]);
+    ->ignoreErrorsOnPackages(['async-aws/core', 'async-aws/s3'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // The Pest adapter and its plugin run only in a project that runs Pest,
+    // which installs these; composer.json suggests Pest, and its `conflict`
+    // holds pest-plugin-mutate to the release the runner contract suite passes.
+    ->ignoreErrorsOnPackages(
+        ['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/php-code-coverage'],
+        [ErrorType::DEV_DEPENDENCY_IN_PROD],
+    );

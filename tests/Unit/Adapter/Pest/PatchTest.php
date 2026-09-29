@@ -1,0 +1,98 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Adapter\Pest\Patch;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
+use Symfony\Component\Process\Process;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
+
+/** The three files the patch changes, relative to pest-plugin-mutate's source. */
+const PATCHED = ['MutationTest.php', 'Plugins/Mutate.php', 'Tester/MutationTestRunner.php'];
+
+/** A vendor directory holding a copy of the installed pest-plugin-mutate's three files. */
+$vendor = static function (): string {
+    $vendor = Scratch::directory();
+
+    foreach (PATCHED as $file) {
+        $installed = (string) file_get_contents(Tree::at(sprintf('vendor/pestphp/pest-plugin-mutate/src/%s', $file)));
+        Scratch::write($vendor, sprintf('pestphp/pest-plugin-mutate/src/%s', $file), $installed);
+    }
+
+    return $vendor;
+};
+
+/** A file of the copy, as it is now. */
+$source = static fn(string $vendor, string $file): string => (string) file_get_contents(
+    sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $vendor, $file),
+);
+
+it('patches the three files, leaving each one PHP', function () use ($vendor, $source): void {
+    $at = $vendor();
+
+    expect(Patch::isAppliedIn($at))->toBeFalse()
+        ->and(Patch::applyIn($at))->toBe('pest:patch patched 3 of the 3 files it changes in pest-plugin-mutate.')
+        ->and(Patch::isAppliedIn($at))->toBeTrue()
+        ->and($source($at, 'MutationTest.php'))->toContain("...(strlen(\$filter) < 100000 ? [\$filter] : []),\n")
+        ->and($source($at, 'Plugins/Mutate.php'))
+        ->toContain("if ((string) getenv('MUTATION_GATE_SHARED_COVERAGE') !== '') {\n")
+        ->and($source($at, 'Plugins/Mutate.php'))
+        ->toContain("\$arguments[] = '--group='.getenv('MUTATION_GATE_CANARY');\n")
+        ->and($source($at, 'Tester/MutationTestRunner.php'))
+        ->toContain("\$seconds = (float) getenv('MUTATION_GATE_SUITE_SECONDS');\n")
+        ->and($source($at, 'Tester/MutationTestRunner.php'))
+        ->toContain("\$shared = (string) getenv('MUTATION_GATE_SHARED_COVERAGE');\n");
+
+    foreach (PATCHED as $file) {
+        $lint = new Process([PHP_BINARY, '-l', sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $at, $file)]);
+        $lint->run();
+
+        expect($lint->isSuccessful())->toBeTrue();
+    }
+});
+
+it('finds the patch in place and changes nothing when patching again', function () use ($vendor, $source): void {
+    $at = $vendor();
+    Patch::applyIn($at);
+    $patched = array_map(static fn(string $file): string => $source($at, $file), PATCHED);
+
+    expect(Patch::applyIn($at))->toBe('pest:patch patched 0 of the 3 files it changes in pest-plugin-mutate.')
+        ->and(array_map(static fn(string $file): string => $source($at, $file), PATCHED))->toBe($patched);
+});
+
+it('patches only the files that are not patched yet', function () use ($vendor, $source): void {
+    $at = $vendor();
+    $pristine = $source($at, 'Tester/MutationTestRunner.php');
+    Patch::applyIn($at);
+    file_put_contents(sprintf('%s/pestphp/pest-plugin-mutate/src/Tester/MutationTestRunner.php', $at), $pristine);
+
+    expect(Patch::isAppliedIn($at))->toBeFalse()
+        ->and(Patch::applyIn($at))->toBe('pest:patch patched 1 of the 3 files it changes in pest-plugin-mutate.')
+        ->and(substr_count($source($at, 'Tester/MutationTestRunner.php'), 'MUTATION_GATE_SUITE_SECONDS'))->toBe(1);
+});
+
+it('writes nothing when a line it rewrites has moved', function () use ($vendor, $source): void {
+    $at = $vendor();
+    $moved = sprintf('%s/pestphp/pest-plugin-mutate/src/Plugins/Mutate.php', $at);
+    file_put_contents($moved, str_replace('return $arguments;', 'return $moved;', $source($at, 'Plugins/Mutate.php')));
+    $before = $source($at, 'MutationTest.php');
+
+    expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
+        'pest:patch patched nothing: the lines it rewrites have moved in %s. Install a supported version.',
+        $moved,
+    )))->and($source($at, 'MutationTest.php'))->toBe($before);
+});
+
+it('cannot patch a pest-plugin-mutate that is not installed', function (): void {
+    $at = Scratch::directory();
+
+    expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
+        'pest:patch cannot read %s/pestphp/pest-plugin-mutate/src/MutationTest.php. Is pest-plugin-mutate installed?',
+        $at,
+    )))->and(Patch::isAppliedIn($at))->toBeFalse();
+});

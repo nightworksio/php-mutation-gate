@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+>
+    <!-- The suffix keeps these tests out of the package's own suites. -->
+    <testsuites>
+        <testsuite name="Fixture">
+            <directory suffix="Spec.php">tests</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory>src</directory>
+            <directory>legacy</directory>
+        </include>
+    </source>
+</phpunit>

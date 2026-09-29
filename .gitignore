@@ -6,3 +6,6 @@
 /.phpunit.result.cache
 /.mutation-gate/
 /.phpactor.json
+/tests/Contract/Runner/fixture/vendor/
+/tests/Contract/Runner/fixture/composer.lock
+/tests/Contract/Runner/fixture/.mutation-gate/

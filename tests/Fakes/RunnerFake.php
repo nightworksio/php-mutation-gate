@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Fakes;
 
+use function in_array;
+use function iterator_to_array;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -17,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -29,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Port\Runner;
+use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 
 use function sprintf;
 use function str_starts_with;
@@ -48,26 +53,24 @@ final readonly class RunnerFake implements Runner
     ) {
     }
 
-    /** The runner over the contract suite's fixture library. */
+    /** The runner over the contract suite's fixture library, which knows each change's mutant. */
     public static function ofTheFixture(): self
     {
-        $money = Path::of('src/Money.php');
-        $held = Path::of('src/Held.php');
+        $mutants = Mutants::none();
+
+        foreach (Library::CHANGES as $name => $change) {
+            [$mutator, $family] = Library::FAKE[$name];
+            $mutants = $mutants->with(self::mutant($change, $mutator, $family));
+        }
 
         return new self(
             Identity::of('fake', Versions::of(Version::of('fake/runner', '1.0.0', 'abc123')), Digest::of('php')),
-            Groups::of(Group::named('holds:src/Held.php'), Group::named('slow')),
+            Groups::of(Group::named('holds:src/Held.php'), Group::named(Library::CANARY)),
             CoverageMap::empty()
-                ->covered($money, Line::of(10), TestId::of('MoneyTest::adds'))
-                ->covered($held, Line::of(5), TestId::of('HeldTest::holds'))
+                ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
+                ->covered(Path::of('src/Held.php'), Line::of(11), TestId::of('HeldTest::doubles'))
                 ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.2)),
-            Mutants::of(
-                self::mutant($money, 10, 'Plus', MutantStatus::Killed),
-                self::mutant($money, 11, 'LessThan', MutantStatus::Survived),
-                self::mutant($money, 20, 'Minus', MutantStatus::Uncovered),
-                self::mutant($money, 30, 'While', MutantStatus::TimedOut),
-                self::mutant($held, 5, 'Plus', MutantStatus::Killed),
-            ),
+            $mutants,
             Paths::of(Path::of('tests/MoneyTest.php')),
         );
     }
@@ -97,7 +100,11 @@ final readonly class RunnerFake implements Runner
         $found = Mutants::none();
 
         foreach ($this->library as $mutant) {
-            if ($this->within($mutant->location()->file(), $request->files()) && ! $this->within($mutant->location()->file(), $request->leftOut())) {
+            $file = $mutant->location()->file();
+
+            $asked = $this->within($file, $request->files()) && ! $this->within($file, $request->leftOut());
+
+            if ($asked && $this->applies($request->mutators(), $mutant)) {
                 $found = $found->with($mutant);
             }
         }
@@ -120,18 +127,29 @@ final readonly class RunnerFake implements Runner
         return $found;
     }
 
-    private static function mutant(Path $file, int $line, string $mutator, MutantStatus $status): Mutant
+    /** @param array{file: string, line: int, removed: string, added: string, status: MutantStatus} $change */
+    private static function mutant(array $change, string $mutator, MutatorFamily $family): Mutant
     {
-        $diff = sprintf("@@ @@\n-line %d\n+%s %d", $line, $mutator, $line);
+        $file = Path::of($change['file']);
+        $line = Line::of($change['line']);
+        $diff = sprintf("@@ @@\n-%s\n+%s", $change['removed'], $change['added']);
 
         return Mutant::of(
             MutantId::hash($file, $mutator, $diff, 0),
-            sprintf('%s-%d', $mutator, $line),
-            Location::of($file, Line::of($line), Line::of($line)),
-            Mutation::of($mutator, MutatorFamily::None, $diff),
-            $status,
+            sprintf('%s-%d', $mutator, $change['line']),
+            Location::of($file, $line, $line),
+            Mutation::of($mutator, $family, $diff),
+            $change['status'],
             Unmeasured::duration(),
         );
+    }
+
+    /** Whether a request's mutators make this mutant. */
+    private function applies(Mutators $mutators, Mutant $mutant): bool
+    {
+        $named = iterator_to_array($mutators, preserve_keys: false);
+
+        return $mutators->isAll() || in_array($mutant->mutation()->mutator(), $named, strict: true);
     }
 
     /** Whether a file is one of these paths, or inside one of them. */

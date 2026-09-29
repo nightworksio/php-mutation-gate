@@ -11,7 +11,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * One mutant as a runner reported it: where it is, what it changed, whether a
  * test caught it, how long it ran where the runner says, and, for a mutant
  * that timed out, the seconds the runner allowed it. The native id is the
- * runner's own, and means something only within the run that printed it.
+ * runner's own, and means something only within the run that printed it. A
+ * mutant the runner left unjudged can say why.
  */
 final readonly class Mutant
 {
@@ -23,6 +24,7 @@ final readonly class Mutant
         private MutantStatus $status,
         private Seconds|Unmeasured $duration,
         private Seconds|Unmeasured $limit,
+        private Reason|Unreported $reason,
     ) {
     }
 
@@ -34,21 +36,28 @@ final readonly class Mutant
         MutantStatus $status,
         Seconds|Unmeasured $duration,
     ): self {
-        return new self($id, $nativeId, $location, $mutation, $status, $duration, Unmeasured::duration());
+        return new self(
+            $id,
+            $nativeId,
+            $location,
+            $mutation,
+            $status,
+            $duration,
+            Unmeasured::duration(),
+            Unreported::reason(),
+        );
     }
 
     /** This mutant, with the seconds its runner allowed it. */
     public function withLimit(Seconds $limit): self
     {
-        return new self(
-            $this->id,
-            $this->nativeId,
-            $this->location,
-            $this->mutation,
-            $this->status,
-            $this->duration,
-            $limit,
-        );
+        return clone($this, ['limit' => $limit]);
+    }
+
+    /** This mutant, saying why it has the status it has. */
+    public function because(Reason $reason): self
+    {
+        return clone($this, ['reason' => $reason]);
     }
 
     public function id(): MutantId
@@ -85,5 +94,10 @@ final readonly class Mutant
     public function limit(): Seconds|Unmeasured
     {
         return $this->limit;
+    }
+
+    public function reason(): Reason|Unreported
+    {
+        return $this->reason;
     }
 }

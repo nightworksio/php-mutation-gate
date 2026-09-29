@@ -46,20 +46,27 @@
         "laravel/pint": "^1.32",
         "nikic/php-parser": "^5.9",
         "pestphp/pest": "^5.2",
+        "pestphp/pest-plugin-mutate": "^5.0.2",
         "phpstan/phpstan": "^2.2",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-strict-rules": "^2.0",
+        "phpunit/php-code-coverage": "^14.3",
         "rector/rector": "^2.6",
         "roave/security-advisories": "dev-latest",
         "shipmonk/composer-dependency-analyser": "^1.8",
         "shipmonk/phpstan-rules": "^4.4",
         "spaze/phpstan-disallowed-calls": "^4.14",
+        "symfony/finder": "^7.4 || ^8.0",
         "tomasvotruba/cognitive-complexity": "^1.2",
         "tomasvotruba/type-coverage": "^2.3"
+    },
+    "conflict": {
+        "pestphp/pest-plugin-mutate": "<5.0.2 || >5.0.2"
     },
     "suggest": {
         "async-aws/s3": "To keep proofs in S3 or R2 (^3)",
         "nette/neon": "To read a mutation-gate.neon config",
+        "pestphp/pest": "To mutate with Pest (^5.1), through the Pest adapter and its plugin",
         "symfony/yaml": "To read a mutation-gate.yaml config"
     },
     "minimum-stability": "stable",
@@ -93,6 +100,11 @@
         "mutation-gate": {
             "extensions": [
                 "NightWorksIO\\MutationGate\\Cli\\FirstParty"
+            ]
+        },
+        "pest": {
+            "plugins": [
+                "NightWorksIO\\MutationGate\\Adapter\\Pest\\Plugin"
             ]
         }
     },
