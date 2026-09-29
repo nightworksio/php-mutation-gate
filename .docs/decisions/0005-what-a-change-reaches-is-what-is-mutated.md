@@ -55,9 +55,10 @@ The same repository has two more needs.
        default branch (ADR-0011).
 
    In both modes the proof ledger then decides which considered units actually
-   run (ADR-0007). A unit the change does not reach carries its base result
-   into its tree's score (ADR-0003). A unit with no base result to carry is
-   treated as reached, so a change-scoped run on an empty ledger is a full run.
+   run (ADR-0007). A unit the change does not reach carries its newest result
+   from the ledgers the run reads, its own scope's and the default branch's,
+   into its tree's score (ADR-0003). A unit with no result to carry is treated
+   as reached, so a change-scoped run on an empty ledger is a full run.
 
 3. **What counts as changed.**
    - **Paths**: the diff from the merge base of `<ref>` and `HEAD` to the
@@ -93,8 +94,8 @@ The same repository has two more needs.
    2. **A changed source file in a tree reaches that unit.**
    3. **A changed test reaches every unit its tests execute**, according to the
       coverage map.
-      - It also reaches the trees a layout rule says it judges, such as a
-        module's tests judging that module's code.
+      - A changed test inside a module's directory (decision 7) also reaches
+        every tree of that module.
       - A test that asserts less changes no line of the code it judged. The map
         is the only way to find that code again.
       - A deleted test, or no map to read, reaches everything.
@@ -114,12 +115,12 @@ The same repository has two more needs.
 
    Where git cannot say what changed, everything is reached.
 
-5. **On the default branch, a tree a pull request already proved is not
-   mutated again.** On a push, the reach runs from `last-passed`. With the
-   GitHub `ChangeSource`, which reads pull requests and workflow runs through
-   GitHub's API with `GITHUB_TOKEN`, a commit whose tree is the tree of a
-   merged pull request's head, and whose run passed, reaches nothing: the
-   branch was up to date, so its run judged exactly the tree that landed. The gate asks at most
+5. **On the default branch, a tree a pull request already proved is not mutated
+   again.** On a push, the reach runs from `last-passed`. With the GitHub
+   `ChangeSource`, which reads pull requests and workflow runs through GitHub's
+   API with `GITHUB_TOKEN`, a commit whose tree is the tree of a merged pull
+   request's head, and whose run passed, reaches nothing: the branch was up to
+   date, so its run judged exactly the tree that landed. The gate asks at most
    twenty commits back. A longer range, or one commit it cannot prove, is
    mutated in full.
 
@@ -129,7 +130,7 @@ The same repository has two more needs.
    - a dependency the lock moved;
    - a module whose tests run the code another module changed.
 
-   The documented GitHub setup includes a weekly scheduled full run on the
+   Every documented CI setup includes a weekly scheduled full run on the
    default branch. Proofs keep that run to the units whose key moved (ADR-0007).
 
 7. **Monorepos: modules share a suite, packages have their own.**
@@ -151,8 +152,9 @@ The same repository has two more needs.
        hold a PHPUnit config.
      - A package reads no config file of its own. The root config applies to
        every package, the tree source (decision 8) finds its trees in its own
-       directory, and its manifest declares floors with the same `extra.mutation-gate` keys a
-       module uses. The root baseline holds every package's trees.
+       directory, and its manifest declares floors with the same
+       `extra.mutation-gate` keys a module uses. The root baseline holds every
+       package's trees.
      - A shard never mixes packages.
    - **Reach follows the dependency graph.** A change that reaches everything in
      package A (rule 1) also reaches everything in each package that depends on
@@ -164,9 +166,10 @@ The same repository has two more needs.
 8. **The tree source is data.** `treeSource` chooses the `TreeSource` adapter
    (ADR-0001) that finds the trees when the config lists none: `phpunit`, the
    default, reads `phpunit.xml`'s `<source>` and falls back to the preset's
-   trees (ADR-0002); `composer` takes one tree per `autoload` path of the project's
-   `composer.json`, and of each package's. Declared floors come from manifests as in decision 7. A
-   layout the built-ins do not read is an extension, not a fork.
+   trees (ADR-0002); `composer` takes one tree per `autoload` path of the
+   project's `composer.json`, and of each package's. Declared floors come from
+   manifests as in decision 7. A layout the built-ins do not read is an
+   extension, not a fork.
 
 9. **Holding tests: a path can be judged by the tests that hold it.**
    - **How a test declares it:**

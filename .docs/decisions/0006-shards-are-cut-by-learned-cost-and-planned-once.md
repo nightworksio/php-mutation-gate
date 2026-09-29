@@ -52,7 +52,8 @@ Two parts of that do not carry over to a public package.
      - It exits 0 once its result file is written, whatever its mutants did,
        because the verdict judges them. A runner's *cannot judge* is written
        into the result file with the runner's output, so the verdict reports
-       it. The shard exits 2 only when it cannot write the file at all.
+       it. The shard exits 2 only when it cannot write the file, or when the
+       plan does not match the checkout or the CI's shard count.
    - **`mutation-gate verdict --plan=<file> --results=<dir>`**:
      - requires a result file for every shard in the plan;
      - merges them with proved and carried results;
@@ -80,7 +81,7 @@ Two parts of that do not carry over to a public package.
      about `shards.seconds` each (an integer, 600 by default). The number of
      shards is the total cost over that size, rounded up. Each cut falls on the
      first unit that takes its shard past an equal share, and no shard is
-     empty.
+     empty unless `--shards` fixes the count (decision 5).
    - There are never more than `shards.max` shards (an integer, 20 by default).
      Past that limit, shards grow instead.
    - **Floors do not separate shards.** The verdict adds up per-mutant
@@ -126,7 +127,7 @@ Two parts of that do not carry over to a public package.
    | **GitHub Actions** (`github`) | `shards=<JSON array of {id, label}>` in `$GITHUB_OUTPUT`, read by `strategy.matrix.shard: ${{ fromJson(…) }}`. The plan file travels as an artifact. An empty array skips the matrix job, and the verdict still runs. GitHub's limit of 256 jobs per matrix caps `shards.max` there. | The `--shard=<id>` the matrix passes |
    | **GitLab CI** (`gitlab`) | `parallel:matrix` must be in a pipeline before it starts, so `plan --ci=gitlab` writes a child pipeline, `.mutation-gate/pipeline.yml`. It holds one job with `parallel: matrix: [{SHARD: ["1", "2", …]}]` and a verdict job that needs it and runs `when: always`. Both fetch the plan with `needs: [{pipeline: $PARENT_PIPELINE_ID, job: <plan job>}]`, where the plan job's name is the `CI_JOB_NAME` `plan` ran under. Both extend the hidden job `.mutation-gate`, which the project defines for image and setup in the file `ci.gitlab.template` names (`.gitlab/mutation-gate.yml` by default), and the child pipeline includes that file. The parent triggers it with `trigger: include: - artifact: …` and `strategy: mirror`, so the trigger job takes the child's result. | `SHARD` |
    | **Buildkite** (`buildkite`) | `plan --ci=buildkite` prints steps for `buildkite-agent pipeline upload`: one command step per shard, a `wait` with `continue_on_failure: true`, then the verdict step. Each is built from `ci.buildkite.step`, a map of step keys (agents, plugins, env) merged into every generated step, empty by default. Plan and results travel with `buildkite-agent artifact`. | The `--shard=<id>` in each step |
-   | **CircleCI** (`circleci`) | Parallelism is fixed in the config. The plan job runs `plan --shards=<N>`, with N equal to the mutation job's `parallelism`, and persists `.mutation-gate` to the workspace. The verdict job requires the mutation job with the status `terminal`, so it runs after a failure too. | `CIRCLE_NODE_INDEX` + 1 (the variable is 0-based). A `CIRCLE_NODE_TOTAL` that differs from the plan's count is *cannot judge*. |
+   | **CircleCI** (`circleci`) | Parallelism is fixed in the config. The plan job runs `plan --shards=<N>`, with N equal to the mutation job's `parallelism`, and persists `.mutation-gate` to the workspace. The verdict job requires the mutation job with the status `terminal`, so it runs after a failure too. | `CIRCLE_NODE_INDEX` + 1 (the variable is 0-based). A `CIRCLE_NODE_TOTAL` that differs from the plan's count stops the shard with exit code 2. |
    | **Generic JSON** (`json`) | `plan --ci=json` prints `{"plan": "<digest>", "commit": "<sha>", "shards": [{"id": 1, "label": "…", "seconds": 540, "units": ["src/A.php", …]}]}` | `--shard=<id>` |
 
    `--shards=<N>`, accepted by `plan`, works on any CI and cuts exactly N
@@ -136,8 +137,28 @@ Two parts of that do not carry over to a public package.
    (`BUILDKITE_PARALLEL_JOB`, 0-based, and `BUILDKITE_PARALLEL_JOB_COUNT`) are
    served: without `--shard`, `run` reads the first of `SHARD`,
    `CI_NODE_INDEX`, `BUILDKITE_PARALLEL_JOB` and `CIRCLE_NODE_INDEX` the
-   detected CI sets, adding 1 to the 0-based ones. A CI the built-ins do not cover is an extension
-   (ADR-0001).
+   detected CI sets, adding 1 to the 0-based ones. A CI the built-ins do not
+   cover is an extension (ADR-0001).
+
+   The CiPlan port also answers three things other decisions rely on: the
+   run's ref, which is its proof scope (ADR-0007); whether it is a pull
+   request, for the new-code set and `baseline.improvement` (ADR-0003); and
+   the default branch, for the ledger it reads and for the badge and trend
+   (ADR-0009).
+
+   | CI | Ref | Pull request | Default branch |
+   |----|-----|--------------|----------------|
+   | GitHub Actions | `GITHUB_REF` | `GITHUB_EVENT_NAME` is `pull_request` | the event payload at `GITHUB_EVENT_PATH` |
+   | GitLab CI | `CI_COMMIT_REF_NAME` | `CI_MERGE_REQUEST_IID` is set | `CI_DEFAULT_BRANCH` |
+   | Buildkite | `BUILDKITE_BRANCH` | `BUILDKITE_PULL_REQUEST` is not `false` | `BUILDKITE_PIPELINE_DEFAULT_BRANCH` |
+   | CircleCI | `CIRCLE_BRANCH` | `CIRCLE_PULL_REQUEST` is set | `ci.defaultBranch` |
+   | JSON, and local runs | git's current branch | never | `ci.defaultBranch` |
+
+   On a pull request the scope is `refs/pull/<n>`, where n is the number the
+   CI names, and otherwise `refs/heads/<branch>`. `ci.defaultBranch` is a
+   branch name. By default it is the branch git's `refs/remotes/origin/HEAD`
+   points at, and `main` when there is none. Set in the config, it replaces
+   the CI's own answer too.
 
 6. **GitHub is wired by the package itself** (ADR-0011). The composite action
    runs the whole gate in one job, or one shard when given `shard`. The

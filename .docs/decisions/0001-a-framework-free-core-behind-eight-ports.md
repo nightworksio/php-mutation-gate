@@ -69,9 +69,9 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    | `TreeSource` | Which trees exist, the floor each one declares, and which package each belongs to | `phpunit` (`phpunit.xml` `<source>`) and `composer` (autoload paths), each reading declared floors from manifests (ADR-0002, ADR-0005) |
    | `CostModel` | What a unit costs a runner in seconds, and what a finished shard teaches it | Learned timings, lines × seconds per line (ADR-0006) |
    | `ProofStore` | The ledgers of proved results this run may read, and where to write the new one | Directory, S3-compatible (ADR-0007) |
-   | `CiPlan` | A plan in a CI's own format, and which shard this job is | GitHub, GitLab, Buildkite, CircleCI, JSON (ADR-0006) |
+   | `CiPlan` | A plan in a CI's own format; which shard this job is; and the run's ref, whether it is a pull request, and the default branch | GitHub, GitLab, Buildkite, CircleCI, JSON (ADR-0006) |
    | `Reporter` | Writing a verdict for one audience | Console, JSON, JUnit, SARIF, HTML, GitHub annotations and step summary, PR comment, badge and trend (ADR-0009) |
-   | `ChangeSource` | The repository as version control sees it: what changed since a base and on which lines, every file with a digest of its content, and a file as it was at the base | git, with GitHub as a source for the base (ADR-0005) |
+   | `ChangeSource` | The repository as version control sees it: what changed since a base and on which lines, every file with a digest of its content and the time it last changed, and a file as it was at the base | git, with GitHub as a source for the base (ADR-0005) |
    | `ConfigLoader` | One config file read into the untyped tree that ADR-0002 validates | PHP, JSON, YAML, NEON (ADR-0002) |
 
    Time is read through PSR-20's `Psr\Clock\ClockInterface`, a standard
@@ -144,9 +144,9 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
      enforce these, scoped by path.
    - `Port` holds interfaces only, and no port method answers `void`.
    - The API surface is every class in `Attribute`, `Port`, `Config` and
-     `Extension`, and every `Core` type their public signatures reach. On it, no signature takes
-     or returns `null`, an array or `mixed`, and a bare string, int or float is
-     taken only by a named constructor.
+     `Extension`, and every `Core` type their public signatures reach. On it, no
+     signature takes or returns `null`, an array or `mixed`, and a bare string,
+     int or float is taken only by a named constructor.
    - An `Adapter\<Name>` uses no other `Adapter\*`.
    - Only `Cli` constructs adapters.
    - Every port has a hand-written fake in `tests/Fakes`, and one contract suite

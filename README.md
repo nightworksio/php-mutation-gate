@@ -125,15 +125,18 @@ Options:
 | `--changed-since=<ref>` | `plan`, `run` without a plan | Mutate only what the change since `<ref>` reaches; `last-passed` is the newest passing commit | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `--budget=<duration>` | `run` | Stop after this long, riskiest code first | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `--coverage=<dir>` | `plan`, `run` without a plan | Read the coverage an earlier job wrote instead of running the suite | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
-| `--ci=<name>` | `plan`, `run` | Use this CI's plan format instead of the detected one | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `--ci=<name>` | `plan`, `run` | Set `ci.plan`: this CI's format instead of the detected one | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--shards=<n>` | `plan`, `run` without a plan | Cut exactly n shards | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
-| `--plan=<file>`, `--shard=<id>`, `--results=<dir>` | `run`, `verdict` | The plan, the shard and the results directory | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `--plan=<file>` | `run`, `verdict` | The plan the shards and the verdict follow | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `--shard=<id>` | `run` with a plan | The shard to mutate, instead of the one the CI names | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `--results=<dir>` | `verdict` | Where every shard's result is | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--publish-dir=<dir>` | `verdict`, `run` without a plan | Where the badge and trend are written, `.mutation-gate/publish` by default | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 
 Exit codes: `0` passed, `1` failed, `2` could not judge. The last means, for
 example, an invalid config, an opening test run that failed, or a shard with
 no results. `run` with a plan exits `0` once its shard's result is written,
-because the verdict judges it.
+because the verdict judges it, and `2` when it cannot write it or the plan
+belongs to another commit.
 
 ## Configuration
 
@@ -272,6 +275,7 @@ chooses an adapter takes a registered name or `{"use": <name or class>,
 | `shards.max` | integer | `20` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `costs.secondsPerLine` | map of path prefix to number | `{"": 0.2}` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.plan` | adapter: `github`, `gitlab`, `buildkite`, `circleci`, `json` | detected from the environment | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `ci.defaultBranch` | branch name | the CI's answer, else git's `origin/HEAD`, else `main` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.gitlab.template` | path | `.gitlab/mutation-gate.yml` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.buildkite.step` | map of step keys | `{}` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `proofs.store` | adapter: `directory`, `s3` | `directory` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
@@ -306,15 +310,19 @@ In a `composer.json`, under `extra.mutation-gate`:
 | `floorReason` | string | none; required when `floor` is 0 | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `newCodeFloor` | number, 0 to 100 | `newCode.floor` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 
-Environment variables the gate reads:
+Environment variables that change what the gate does:
 
 | Variable | What it does | Decided in |
 |----------|--------------|------------|
 | `CI` | Set: a tree with no floor stops the run, and on the default branch the badge and trend are written | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI` | Choose the CI plan, and under GitHub Actions the annotations and step summary | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `SHARD`, `CI_NODE_INDEX`, `CI_NODE_TOTAL`, `BUILDKITE_PARALLEL_JOB`, `BUILDKITE_PARALLEL_JOB_COUNT`, `CIRCLE_NODE_INDEX`, `CIRCLE_NODE_TOTAL`, `CI_JOB_NAME`, `PARENT_PIPELINE_ID` | Which shard a job is, and how GitLab's child pipeline finds the plan | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `GITHUB_REF`, `GITHUB_EVENT_NAME`, `GITHUB_EVENT_PATH`, `CI_COMMIT_REF_NAME`, `CI_MERGE_REQUEST_IID`, `CI_DEFAULT_BRANCH`, `BUILDKITE_BRANCH`, `BUILDKITE_PULL_REQUEST`, `BUILDKITE_PIPELINE_DEFAULT_BRANCH`, `CIRCLE_BRANCH`, `CIRCLE_PULL_REQUEST` | The run's ref, whether it is a pull request, and the default branch | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `GITHUB_OUTPUT`, `GITHUB_STEP_SUMMARY` | Where the GitHub plan and the step summary are written | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT` | The run a proof names | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `GITHUB_TOKEN` | Lets the sticky PR comment be posted, and the GitHub change source prove which pull request's run passed | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | Credentials for the S3 proof store | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `MUTATION_GATE_RESULTS` | Set by the Pest adapter for its own plugin; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 
 Files the gate reads and writes:
 
@@ -359,8 +367,9 @@ A proof ledger lets each step skip what an earlier run already proved.
 
 Two things the setup relies on:
 
-- **The weekly run.** The schedule in the GitHub examples is part of the design,
-  not an extra. It catches what a change's reach cannot see
+- **The weekly run.** A weekly scheduled full run on the default branch is part
+  of the design on every CI, not an extra. It catches what a change's reach
+  cannot see
   ([ADR-0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md)).
 - **The optional Pest patches.** For sharded Pest runs, enabling them
   (`pest.patch: true`, plus `@php vendor/bin/mutation-gate pest:patch` in
@@ -369,9 +378,12 @@ Two things the setup relies on:
 
 The proof ledger's trust boundary is the store's access control. On GitHub,
 cache scoping keeps a pull request from writing what the default branch reads.
-On other CIs, key the ledger's cache by branch, as the examples below do. On
-S3, only trusted runs should hold credentials that can write the default
-branch's prefix
+On GitLab, separate caches for protected branches do the same, and they also
+keep merge requests from reading the default branch's ledger. On Buildkite and
+CircleCI a branch's pipeline config picks its cache key, so a cache is no
+boundary there. Wherever a pull request must read the default branch's proofs
+safely, keep the ledger in S3, with credentials that can write the default
+branch's prefix held only by default-branch runs
 ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
 
 ### Use it in GitHub Actions
@@ -488,7 +500,9 @@ Here is what the examples rely on:
 writes a child pipeline and the parent triggers it. Define a hidden job,
 `.mutation-gate`, that sets the image and installs dependencies, in the file
 `ci.gitlab.template` names (`.gitlab/mutation-gate.yml` by default). The
-generated jobs extend it, and so does the plan job.
+generated jobs extend it, and so does the plan job. A merge request is judged
+from its base, the default branch from the last commit that passed, and a
+weekly scheduled pipeline mutates everything.
 
 ```yaml
 include:
@@ -498,7 +512,13 @@ mutation-plan:
   stage: test
   extends: .mutation-gate
   script:
-    - vendor/bin/mutation-gate plan --ci=gitlab
+    - |
+      case "$CI_PIPELINE_SOURCE" in
+        merge_request_event) base="--changed-since=$CI_MERGE_REQUEST_DIFF_BASE_SHA" ;;
+        schedule) base="" ;;
+        *) base="--changed-since=last-passed" ;;
+      esac
+      vendor/bin/mutation-gate plan --ci=gitlab $base
   artifacts:
     paths: [.mutation-gate/]
 
@@ -527,18 +547,25 @@ steps:
     artifact_paths: ".mutation-gate/**/*"
     command:
       - composer install
-      - vendor/bin/mutation-gate plan --ci=buildkite | buildkite-agent pipeline upload
+      - |
+        if [ "$BUILDKITE_PULL_REQUEST" != "false" ]; then base="--changed-since=origin/$BUILDKITE_PULL_REQUEST_BASE_BRANCH"
+        elif [ "$BUILDKITE_SOURCE" = "schedule" ]; then base=""
+        else base="--changed-since=last-passed"; fi
+        vendor/bin/mutation-gate plan --ci=buildkite $base | buildkite-agent pipeline upload
 ```
 
 The uploaded steps are one step per shard, a `wait` that continues on failure,
 then the verdict. Each is built from your step template (`ci.buildkite.step`),
-and they pass the plan and results with `buildkite-agent artifact`. Keep
-`.mutation-gate/ledger` with a cache plugin keyed by branch.
+and they pass the plan and results with `buildkite-agent artifact`. Schedule
+the pipeline weekly for the full run, and keep `.mutation-gate/ledger` with a
+cache plugin keyed by branch.
 
 ### CircleCI
 
 CircleCI's parallelism is fixed in the config, so the plan cuts exactly that
 many shards, and each `mutation` node reads its shard from `CIRCLE_NODE_INDEX`.
+The ledger's cache keys use a checksum of the branch name, so no branch's key
+is a prefix of another's.
 
 ```yaml
 jobs:
@@ -546,12 +573,20 @@ jobs:
     docker: [{ image: <a PHP 8.5 image with pcov> }]
     steps:
       - checkout
+      - run: |
+          mkdir -p .mutation-gate
+          echo "$CIRCLE_BRANCH" > .mutation-gate/branch
+          echo main > .mutation-gate/default-branch
       - restore_cache:
           keys:
-            - mutation-gate-ledger-{{ .Branch }}-
-            - mutation-gate-ledger-main-
+            - mutation-gate-ledger-{{ checksum ".mutation-gate/branch" }}-
+            - mutation-gate-ledger-{{ checksum ".mutation-gate/default-branch" }}-
       - run: composer install
-      - run: vendor/bin/mutation-gate plan --shards=4
+      - run: |
+          if [ "<< pipeline.trigger_source >>" = "scheduled_pipeline" ]; then base=""
+          elif [ -n "$CIRCLE_PULL_REQUEST" ]; then base="--changed-since=origin/main"
+          else base="--changed-since=last-passed"; fi
+          vendor/bin/mutation-gate plan --shards=4 $base
       - persist_to_workspace: { root: ., paths: [.mutation-gate] }
   mutation:
     parallelism: 4
@@ -570,7 +605,7 @@ jobs:
       - run: composer install
       - run: vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
       - save_cache:
-          key: mutation-gate-ledger-{{ .Branch }}-{{ .Revision }}
+          key: mutation-gate-ledger-{{ checksum ".mutation-gate/branch" }}-{{ .Revision }}
           paths: [.mutation-gate/ledger]
 
 workflows:
@@ -581,9 +616,9 @@ workflows:
       - mutation-verdict: { requires: [{ mutation: terminal }] }
 ```
 
-`main` stands for your default branch. The verdict requires `mutation` with
-the status `terminal`, so it runs, and says *cannot judge*, even when a shard
-failed.
+`main` stands for your default branch. Add a weekly scheduled pipeline for the
+full run. The verdict requires `mutation` with the status `terminal`, so it
+runs, and says *cannot judge*, even when a shard failed.
 
 ### Any other CI
 
@@ -593,9 +628,11 @@ vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id>   # on
 vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
 ```
 
-Carry `.mutation-gate/` from job to job, and keep `.mutation-gate/ledger`
-between runs with whatever cache your CI has, keyed by branch. Proofs can also
-live in S3 or R2
+Pass `--changed-since` with a pull request's base, or `last-passed` on the
+default branch, and leave it out of a weekly scheduled full run. Carry
+`.mutation-gate/` from job to job, and keep `.mutation-gate/ledger` between
+runs with whatever cache your CI has, keyed by branch. Proofs can also live in
+S3 or R2
 ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
 To publish the badge and trend, restore the published files into
 `.mutation-gate/publish` before the verdict on your default branch, and
