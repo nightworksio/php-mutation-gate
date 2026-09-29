@@ -1,6 +1,6 @@
 # ADR-0007: A proof is keyed by everything its result could depend on, so a skip is never wrong
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ## Context

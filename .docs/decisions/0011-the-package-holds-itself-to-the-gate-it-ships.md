@@ -1,6 +1,6 @@
 # ADR-0011: The package holds itself to the gate it ships, and to the companion's standards
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ## Context
@@ -104,7 +104,7 @@ about Laravel, NativePHP or the companion's modules, and does not.
    | CODEOWNERS | `* @lessevv` | **Copied** | |
    | Dependabot | Composer weekly in groups, Actions daily with a cooldown, commit prefix `build` | **Adapted** | The same cadence, with groups for this package's tools |
    | `.githooks` | `pre-commit` (Pint on staged files), `commit-msg`, `pre-push` (refuses a direct push to `main`) | **Copied** | |
-   | `.editorconfig`, `.gitattributes` | `/.github export-ignore` | **Adapted** | A library's archive is what users download, so `tests`, `docs`, `phpstan`, `.github` and dotfiles are `export-ignore` as well. |
+   | `.editorconfig`, `.gitattributes` | `/.github export-ignore` | **Adapted** | A library's archive is what users download, so `tests`, `.docs`, `phpstan`, `.github` and dotfiles are `export-ignore` as well. |
    | CodeQL | `codeql.yml`, `analyze` required | **Adapted** | CodeQL has no PHP analysis. It runs for the workflows, the reusable workflow and `action.yml`. |
    | OpenSSF Scorecard | `scorecard.yml` | **Copied** | A public package is what Scorecard exists for |
    | Mutation jobs | `mutation-scope`, a `mutation` matrix, `mutation-gate`, driven by `scripts/mutation.php` | **Adapted** | They become this package's reusable workflow: plan, shards and verdict (decision 8) |
@@ -222,7 +222,7 @@ about Laravel, NativePHP or the companion's modules, and does not.
      - carries no AI co-author trailer (the attribution check).
    - **A commit that implements a decision** names it in a `Spec:` trailer:
      `Spec: 0006`, or several numbers. The commit-msg hook checks that each
-     number is an ADR in `docs/decisions`.
+     number is an ADR in `.docs/decisions`.
    - **The first release is 1.0.0.** It is tagged only when all 20 features are
      implemented, tested, gated at 100% and documented in the README. Nothing
      is tagged before that: no 0.x and no release candidates. Until then the

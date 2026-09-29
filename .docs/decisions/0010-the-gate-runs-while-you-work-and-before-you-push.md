@@ -1,6 +1,6 @@
 # ADR-0010: The gate runs while you work and before you push, with the same verdict CI gives
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ## Context

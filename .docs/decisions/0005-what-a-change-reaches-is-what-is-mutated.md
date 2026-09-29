@@ -1,6 +1,6 @@
 # ADR-0005: What a change reaches is what is mutated, package by package, judged by the tests that hold it
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ## Context

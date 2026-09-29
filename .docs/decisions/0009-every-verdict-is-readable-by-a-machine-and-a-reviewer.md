@@ -1,6 +1,6 @@
 # ADR-0009: Every verdict is readable by a machine, a reviewer and a badge, and every survivor says how to reproduce it and what the tests miss
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ## Context

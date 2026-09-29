@@ -1,6 +1,6 @@
 # ADR-0003: A tree's floor only rises, is committed beside the code, and new code has a floor of its own
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ## Context

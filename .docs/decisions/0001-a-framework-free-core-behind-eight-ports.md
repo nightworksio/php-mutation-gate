@@ -1,6 +1,6 @@
 # ADR-0001: A framework-free core behind eight ports, with adapters found through Composer
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ## Context

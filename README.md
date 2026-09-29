@@ -1,7 +1,7 @@
 # mutation-gate
 
 > **In design, not yet released.** This README describes what the decisions in
-> [`docs/decisions`](docs/decisions/README.md) settle, and nothing more. There
+> [`.docs/decisions`](.docs/decisions/README.md) settle, and nothing more. There
 > is no code yet. Nothing is tagged until all twenty features below are built,
 > tested and gated at 100%, and the first release will be 1.0.0.
 
@@ -27,26 +27,26 @@ It is extracted from the mutation gate of the lemonfiber companion app,
 
 | | Feature | Decided in |
 |---|---------|------------|
-| **Adoption** | Zero-config start: trees from `phpunit.xml`'s `<source>`, and an optional config file | [0002](docs/decisions/0002-one-typed-config-from-several-formats.md) |
-| | Floors that only rise: a committed baseline, which fails on regression and rises on improvement | [0003](docs/decisions/0003-a-floor-only-rises.md) |
-| | Pull-request mode: changed lines and what the change reaches, with a stricter floor for new code | [0003](docs/decisions/0003-a-floor-only-rises.md), [0005](docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
-| | Monorepos: a floor per package and module, with reach that follows the dependencies | [0005](docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
-| **CI and speed** | A cost model that learns how long each file takes from earlier shards | [0006](docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
-| | Sharding on any CI: GitHub Actions, GitLab, Buildkite, CircleCI, or a JSON plan | [0006](docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
-| | A proof cache keyed by content, stored in the GitHub cache, a directory or S3/R2 | [0007](docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
-| **Reporting** | JSON, JUnit and SARIF, and line annotations on GitHub | [0009](docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
-| | Holding tests: Pest `holds:` groups and a `#[Holds]` attribute, a check that a group covers what it holds, and a warning for code every test runs through that nothing holds | [0005](docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
-| | Infection as well as Pest | [0004](docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
-| **Local use** | Watch mode and a pre-push hook | [0010](docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
-| | One command that reproduces each survivor | [0004](docs/decisions/0004-pest-and-infection-behind-one-runner-port.md), [0009](docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
-| | For each survivor, what the tests miss | [0009](docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
-| **Run control** | A time budget that runs the riskiest code first, and reports anything unjudged instead of passing it | [0008](docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
-| | Triage of timeouts and flaky tests | [0008](docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
-| | Ignores for equivalent mutants, each with a reason and an optional expiry | [0008](docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
-| | Presets for Laravel, Symfony and plain libraries | [0008](docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
-| **Visibility** | An HTML report | [0009](docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
-| | A sticky comment on the pull request | [0009](docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
-| | A badge (a shields.io endpoint) and a trend on the default branch | [0009](docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| **Adoption** | Zero-config start: trees from `phpunit.xml`'s `<source>`, and an optional config file | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
+| | Floors that only rise: a committed baseline, which fails on regression and rises on improvement | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
+| | Pull-request mode: changed lines and what the change reaches, with a stricter floor for new code | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| | Monorepos: a floor per package and module, with reach that follows the dependencies | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| **CI and speed** | A cost model that learns how long each file takes from earlier shards | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| | Sharding on any CI: GitHub Actions, GitLab, Buildkite, CircleCI, or a JSON plan | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| | A proof cache keyed by content, stored in the GitHub cache, a directory or S3/R2 | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| **Reporting** | JSON, JUnit and SARIF, and line annotations on GitHub | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| | Holding tests: Pest `holds:` groups and a `#[Holds]` attribute, a check that a group covers what it holds, and a warning for code every test runs through that nothing holds | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| | Infection as well as Pest | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| **Local use** | Watch mode and a pre-push hook | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
+| | One command that reproduces each survivor | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| | For each survivor, what the tests miss | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| **Run control** | A time budget that runs the riskiest code first, and reports anything unjudged instead of passing it | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| | Triage of timeouts and flaky tests | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| | Ignores for equivalent mutants, each with a reason and an optional expiry | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| | Presets for Laravel, Symfony and plain libraries | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| **Visibility** | An HTML report | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| | A sticky comment on the pull request | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| | A badge (a shields.io endpoint) and a trend on the default branch | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 
 ## Install
 
@@ -110,7 +110,7 @@ to write one.
 | `hook install` / `hook uninstall` | Add or remove the pre-push hook |
 | `init --format=php\|json\|yaml\|neon` | Write a config holding what zero-config found |
 | `config:show` / `config:schema` | Print the effective config, or the JSON Schema |
-| `pest:patch` | Apply the optional Pest patches ([ADR-0004](docs/decisions/0004-pest-and-infection-behind-one-runner-port.md)) |
+| `pest:patch` | Apply the optional Pest patches ([ADR-0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md)) |
 
 Exit codes: `0` passed, `1` failed, `2` could not judge. The last means, for
 example, an invalid config, an opening test run that failed, or a shard with
@@ -217,7 +217,7 @@ A setting that names an adapter takes either a registered name (`"pest"`,
 `"sarif"`) or a class with its options (`{"use": "Acme\\Gate\\SlackReporter",
 "with": {"channel": "#ci"}}`). Packages that offer adapters are found through
 `extra.mutation-gate.extensions` in their `composer.json`
-([ADR-0001](docs/decisions/0001-a-framework-free-core-behind-eight-ports.md)).
+([ADR-0001](.docs/decisions/0001-a-framework-free-core-behind-eight-ports.md)).
 
 ### Holding tests
 
@@ -251,7 +251,7 @@ A proof ledger lets each step skip what an earlier run already proved.
 Two things the setup relies on:
 - **The weekly run.** The schedule in the GitHub examples is part of the design,
   not an extra. It catches what a change's reach cannot see
-  ([ADR-0005](docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md)).
+  ([ADR-0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md)).
 - **The optional Pest patches.** For sharded Pest runs, enabling them
   (`pest.patch: true`, plus `@php vendor/bin/mutation-gate pest:patch` in
   `post-install-cmd` and `post-update-cmd`) lets every shard reuse the planning
@@ -444,7 +444,7 @@ vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.muta
 
 Carry `.mutation-gate/` from job to job, and keep `.mutation-gate/ledger`
 between runs with whatever cache your CI has. Proofs can also live in S3 or R2
-([ADR-0007](docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
+([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
 
 ## Local use
 
@@ -458,7 +458,7 @@ and `init` adds it there.
 
 ## How it is built
 
-The design is recorded as [decisions](docs/decisions/README.md):
+The design is recorded as [decisions](.docs/decisions/README.md):
 - a framework-free core behind eight ports;
 - Pest and Infection as adapters;
 - a content-keyed proof ledger;

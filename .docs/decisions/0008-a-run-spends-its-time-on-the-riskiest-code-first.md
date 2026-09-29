@@ -1,6 +1,6 @@
 # ADR-0008: A run spends its time on the riskiest code first, and never passes what it did not judge
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ## Context

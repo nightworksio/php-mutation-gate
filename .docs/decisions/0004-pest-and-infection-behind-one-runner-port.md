@@ -1,6 +1,6 @@
 # ADR-0004: Pest and Infection behind one Runner port, each reporting every mutant
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR-0002: One typed Config, read from PHP, JSON, YAML or NEON, and none needed to start
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ## Context

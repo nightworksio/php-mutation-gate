@@ -1,6 +1,6 @@
 # ADR-0006: Shards are cut by learned cost, planned once, and rendered for any CI
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ## Context
