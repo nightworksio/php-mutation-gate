@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Hold;
 
 use function array_any;
 use function array_map;
-use function array_values;
 use function implode;
 use function is_string;
 use function mb_strlen;
@@ -116,7 +115,7 @@ final readonly class Holdings
             $units[$unit->path()->value()] = $unit;
         }
 
-        return $this->apart(array_values($units));
+        return $this->apart($units);
     }
 
     private function unitOf(Holding $holding, Trees $trees, Fingerprints $files): Unit|CannotJudge
@@ -185,7 +184,7 @@ final readonly class Holdings
         )));
     }
 
-    /** @param list<Unit> $units */
+    /** @param array<string, Unit> $units by path */
     private function apart(array $units): Units|CannotJudge
     {
         foreach ($units as $outer) {

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Composer;
 
-use function array_values;
 use function dirname;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -65,7 +64,7 @@ final readonly class ComposerTrees implements TreeSource
             }
         }
 
-        return Trees::of(...array_values($trees));
+        return Trees::of(...$trees);
     }
 
     /**

@@ -191,8 +191,13 @@ final readonly class Git implements ChangeSource
     private function read(Path $path): Contents|Missing
     {
         $file = $this->pathTo($path->value());
-        $text = is_file($file) ? file_get_contents($file) : false;
 
+        return is_file($file) ? $this->contentsOf($path, file_get_contents($file)) : Missing::at($path);
+    }
+
+    /** What a file holds, or that it is missing where it could not be read. */
+    private function contentsOf(Path $path, string|false $text): Contents|Missing
+    {
         return is_string($text) ? Contents::of($text) : Missing::at($path);
     }
 

@@ -22,12 +22,13 @@ it('finds a tree for each path the root manifest autoloads, each with the floor 
     $root = Project::with([
         'composer.json' => '{"autoload": {"psr-4": {"App\\\\": "src/", "Lib\\\\": "lib/"}, "classmap": ["src/"]}, "extra": {"mutation-gate": {"floor": 80, "newCodeFloor": 90}}}',
         'src/composer.json' => '{"extra": {"mutation-gate": {"floor": 100}}}',
+        'lib/composer.json' => '{"extra": {"mutation-gate": {"newCodeFloor": 95}}}',
     ]);
     $package = Package::at(Path::root());
 
     expect(ComposerTrees::at($root, ['composer.json'], [])->trees())->toEqual(Trees::of(
         Tree::at(Path::of('src'), Floor::of(100), $package)->withNewCodeFloor(Floor::of(90)),
-        Tree::at(Path::of('lib'), Floor::of(80), $package)->withNewCodeFloor(Floor::of(90)),
+        Tree::at(Path::of('lib'), Floor::of(80), $package)->withNewCodeFloor(Floor::of(95)),
     ));
 });
 

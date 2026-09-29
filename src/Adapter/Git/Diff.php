@@ -35,15 +35,18 @@ final readonly class Diff
         (?<path>[^\0]*)\0~x
         REGEX;
 
-    /** The header of a hunk of `--unified=0`, with where its new side starts and how many lines it spans. */
-    private const string HUNK = '~^@@ -\d+(?:,\d+)? \+(?<start>\d+)(?:,(?<count>\d+))? @@~';
+    /** Where each file's part of a patch starts, past the first. */
+    private const string PART = "\ndiff --git ";
 
     /**
-     * How `--unified=0` names the new side of a file: in double quotes where
-     * it had to escape the name, and with a tab after it where the name holds
-     * a space.
+     * How a part of `--unified=0` names its file's new side: in double quotes
+     * where git had to escape the name, and with a tab after it where the name
+     * holds a space. It comes before any hunk, so the first line like it is it.
      */
-    private const string NEW_SIDE = '~^\+\+\+ (?<quote>"?)b/(?<path>.*?)"?\t?$~';
+    private const string NEW_SIDE = '~^\+\+\+ "?b/(?<path>.*?)"?\t?$~m';
+
+    /** Each hunk header of a part, with where its new side starts and how many lines it spans. */
+    private const string HUNK = '~^@@ -\d+(?:,\d+)? \+(?<start>\d+)(?:,(?<count>\d+))? @@~m';
 
     /**
      * Every changed path, from `git diff --name-status -z`, with the lines
@@ -72,17 +75,10 @@ final readonly class Diff
     public static function lines(string $patch): array
     {
         $lines = [];
-        $file = '';
 
-        foreach (explode("\n", $patch) as $line) {
-            $file = self::newSideIn($line, $file);
-
-            if (preg_match(self::HUNK, $line, $hunk, PREG_UNMATCHED_AS_NULL) === 1) {
-                $lines[$file] = self::spanning(
-                    self::linesOf($lines, $file),
-                    intval($hunk['start']),
-                    is_string($hunk['count']) ? intval($hunk['count']) : 1,
-                );
+        foreach (explode(self::PART, $patch) as $part) {
+            if (preg_match(self::NEW_SIDE, $part, $side) === 1) {
+                $lines[stripcslashes($side['path'])] = self::gainedIn($part);
             }
         }
 
@@ -115,14 +111,18 @@ final readonly class Diff
         return array_key_exists($path, $lines) ? $lines[$path] : Lines::none();
     }
 
-    /** The file a line of the patch starts, or the one before it where it starts none. */
-    private static function newSideIn(string $line, string $file): string
+    /** The lines the hunks of one file's part of a patch gained. */
+    private static function gainedIn(string $part): Lines
     {
-        if (preg_match(self::NEW_SIDE, $line, $side) !== 1) {
-            return $file;
+        preg_match_all(self::HUNK, $part, $hunks, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
+        $lines = Lines::none();
+
+        foreach ($hunks as $hunk) {
+            $count = is_string($hunk['count']) ? intval($hunk['count']) : 1;
+            $lines = self::spanning($lines, intval($hunk['start']), $count);
         }
 
-        return $side['quote'] === '' ? $side['path'] : stripcslashes($side['path']);
+        return $lines;
     }
 
     /** These lines, and the ones a hunk spans from its start. */

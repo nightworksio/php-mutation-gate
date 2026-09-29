@@ -177,14 +177,20 @@ final readonly class Manifest
     private static function decoded(Path $directory, string $text): self|CannotJudge
     {
         try {
-            $data = json_decode($text, associative: true, flags: JSON_THROW_ON_ERROR);
+            return self::objectIn($directory, json_decode($text, associative: true, flags: JSON_THROW_ON_ERROR));
         } catch (JsonException) {
-            $data = false;
+            return self::notAnObject($directory);
         }
+    }
 
-        return is_array($data)
-            ? new self($directory, $data)
-            : CannotJudge::because(sprintf(self::NOT_AN_OBJECT, self::fileIn($directory)->value()));
+    private static function objectIn(Path $directory, mixed $data): self|CannotJudge
+    {
+        return is_array($data) ? new self($directory, $data) : self::notAnObject($directory);
+    }
+
+    private static function notAnObject(Path $directory): CannotJudge
+    {
+        return CannotJudge::because(sprintf(self::NOT_AN_OBJECT, self::fileIn($directory)->value()));
     }
 
     private static function fileIn(Path $directory): Path

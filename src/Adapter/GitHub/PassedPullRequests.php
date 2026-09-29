@@ -136,16 +136,17 @@ final readonly class PassedPullRequests implements ChangeSource
         return $pulls instanceof Answer && $tree !== '' && array_any(
             $pulls->items(),
             fn(Answer $pull): bool => $pull->text('merged_at') !== ''
-                && $this->treeOf($pull->text('head', 'sha')) === $tree
+                && $this->hasTree($pull->text('head', 'sha'), $tree)
                 && $this->passed($pull->text('head', 'sha')),
         );
     }
 
-    private function treeOf(string $commit): string
+    /** Whether a commit is of this tree. */
+    private function hasTree(string $commit, string $tree): bool
     {
         $answer = $this->api->get(sprintf('/repos/%s/git/commits/%s', $this->repository, $commit));
 
-        return $answer instanceof Answer ? $answer->text('tree', 'sha') : '';
+        return $answer instanceof Answer && $answer->text('tree', 'sha') === $tree;
     }
 
     /** Whether a run of this workflow passed for a pull request at this head. */

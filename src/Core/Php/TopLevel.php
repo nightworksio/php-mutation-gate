@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_all;
 use function array_key_exists;
-use function array_map;
 use function array_slice;
 use function count;
 use function implode;
@@ -68,7 +67,7 @@ final readonly class TopLevel
                 default => 0,
             };
 
-            if ($depth === 0 && $token->is(self::ENDS)) {
+            if ($depth < 1 && $token->is(self::ENDS)) {
                 $statements[] = $statement;
                 $statement = [];
             }
@@ -125,7 +124,7 @@ final readonly class TopLevel
     /** Tokens as text, joined by spaces. */
     public static function spelt(PhpToken ...$tokens): string
     {
-        return implode(' ', array_map(static fn(PhpToken $token): string => $token->text, $tokens));
+        return implode(' ', $tokens);
     }
 
     /**

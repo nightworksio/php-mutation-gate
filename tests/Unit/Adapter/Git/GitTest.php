@@ -115,6 +115,28 @@ it('reads the lines a change gained with no external diff, whatever the reposito
     ]);
 });
 
+it('follows a rename whatever the repository configures', function (): void {
+    $repository = Repository::empty()->write('src/E.php', "<?php\ne1\ne2\ne3\ne4\ne5\ne6\n")->commit('The base.');
+    $repository->git('tag', 'base');
+    $repository->git('config', 'diff.renames', 'false');
+    $repository->git('mv', 'src/E.php', 'src/F.php');
+    $repository->write('src/F.php', "<?php\ne1\ne2\nE3\ne4\ne5\ne6\n");
+
+    expect(changesByPath(Git::at($repository->root)->changesSince(Revision::ref('base'))))->toEqual([
+        'src/F.php' => ['renamed', [4], 'src/E.php'],
+    ]);
+});
+
+it('says an untracked file it cannot read was added, with no lines', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $repository->git('tag', 'base');
+    symlink('nowhere', sprintf('%s/src/Link.php', $repository->root));
+
+    expect(changesByPath(Git::at($repository->root)->changesSince(Revision::ref('base'))))->toEqual([
+        'src/Link.php' => ['added', [], 'src/Link.php'],
+    ]);
+});
+
 it('cannot tell what changed since a revision it does not have, or one spelt as an option', function (string $revision): void {
     $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
     $said = Git::at($repository->root)->changesSince(Revision::ref($revision));

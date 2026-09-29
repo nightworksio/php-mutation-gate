@@ -37,11 +37,6 @@ final readonly class Packages
     public static function in(Disk $disk, array $globs): self|CannotJudge
     {
         $root = Manifest::in($disk, Path::root());
-
-        if ($root instanceof CannotJudge) {
-            return $root;
-        }
-
         $directories = [Path::root()];
 
         foreach ($globs as $glob) {

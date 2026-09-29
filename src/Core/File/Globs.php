@@ -5,19 +5,18 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\File;
 
 use function array_any;
-use function array_values;
 
 /** Patterns over paths, any one of which may match. */
 final readonly class Globs
 {
-    /** @param list<Glob> $globs */
+    /** @param array<Glob> $globs */
     private function __construct(private array $globs)
     {
     }
 
     public static function of(Glob ...$globs): self
     {
-        return new self(array_values($globs));
+        return new self($globs);
     }
 
     public function with(Glob $glob): self

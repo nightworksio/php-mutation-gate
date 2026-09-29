@@ -33,7 +33,10 @@ it('only declares when every statement at the top is a declaration or an import'
             }
         }
 
-        abstract class Base {}
+        abstract class Base
+        {
+            public const string NAME = 'base';
+        }
 
         interface Priced {}
 
@@ -97,6 +100,10 @@ it('names each class, interface, trait, enum and function declared at the top, a
         PHP;
 
     expect($top($code)->declared())->toBe(['Money', 'Priced', 'Counted', 'Currency', 'format']);
+});
+
+it('names what is declared before a last statement with no end', function () use ($top): void {
+    expect($top("<?php\n\nclass Money {}\n\nboot()")->declared())->toBe(['Money']);
 });
 
 it('declares nothing where nothing is declared', function () use ($top): void {
