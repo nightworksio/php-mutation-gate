@@ -42,7 +42,7 @@ it('reads the extensions every installed package names, in order', function (): 
 
 it('cannot judge an installed.json that is not Composer 2\'s list of packages', function (string $json): void {
     expect(Manifests::installed($json, 'vendor/composer/installed.json'))
-        ->toEqual(CannotJudge::because('vendor/composer/installed.json is not the list of installed packages Composer 2 writes, so the extensions they name cannot be read.'));
+        ->toEqual(CannotJudge::because('vendor/composer/installed.json is not the list of installed packages Composer 2 writes, so their extensions cannot be read.'));
 })->with(['', '[{"name": "acme/one"}]', '{"dev": true}', '{"packages": {"acme/one": {}}}', '{"packages": "none"}']);
 
 it('cannot judge an installed package whose extensions are not a list of class names', function (): void {

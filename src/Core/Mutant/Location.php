@@ -10,7 +10,9 @@ use NightWorksIO\MutationGate\Core\File\Path;
 /** Where a mutant is: its file, the line it starts on, and the line it ends on where the runner says. */
 final readonly class Location
 {
-    private function __construct(private Path $file, private Line $start, private Line|Unreported $end) {}
+    private function __construct(private Path $file, private Line $start, private Line|Unreported $end)
+    {
+    }
 
     public static function of(Path $file, Line $start, Line|Unreported $end): self
     {

@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Core;
 /** Something was written, and where it went. */
 final readonly class Written
 {
-    private function __construct(private string $where) {}
+    private function __construct(private string $where)
+    {
+    }
 
     public static function to(string $where): self
     {

@@ -9,7 +9,9 @@ final readonly class Revision
 {
     private const string WORKING_TREE = 'the working tree';
 
-    private function __construct(private string $name, private bool $workingTree) {}
+    private function __construct(private string $name, private bool $workingTree)
+    {
+    }
 
     public static function ref(string $ref): self
     {

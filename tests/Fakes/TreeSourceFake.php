@@ -17,7 +17,9 @@ use NightWorksIO\MutationGate\Port\TreeSource;
 /** A tree source that answers the trees it was given. */
 final readonly class TreeSourceFake implements TreeSource
 {
-    public function __construct(private Trees|CannotJudge $trees) {}
+    public function __construct(private Trees|CannotJudge $trees)
+    {
+    }
 
     /** The trees of the contract suite's fixture: one at each kind of declared floor. */
     public static function ofTheFixture(): self

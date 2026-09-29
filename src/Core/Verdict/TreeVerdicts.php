@@ -22,7 +22,9 @@ use Traversable;
 final readonly class TreeVerdicts implements Countable, IteratorAggregate
 {
     /** @param list<TreeVerdict> $verdicts */
-    private function __construct(private array $verdicts) {}
+    private function __construct(private array $verdicts)
+    {
+    }
 
     public static function none(): self
     {

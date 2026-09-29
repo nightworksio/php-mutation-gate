@@ -34,7 +34,11 @@ final readonly class Console
     {
         $application = new Application(self::NAME);
         $application->setAutoExit(boolean: false);
-        $application->getDefinition()->addOption(new InputOption('no-extensions', mode: InputOption::VALUE_NONE, description: 'Load this package\'s own extension and no other'));
+        $application->getDefinition()->addOption(new InputOption(
+            'no-extensions',
+            mode: InputOption::VALUE_NONE,
+            description: 'Load this package\'s own extension and no other',
+        ));
 
         foreach (self::COMMANDS as $name => $description) {
             $application->addCommand(NotBuilt::command($name, $description));

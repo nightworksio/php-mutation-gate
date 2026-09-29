@@ -16,7 +16,9 @@ final readonly class Score
 
     private const int WHOLE = 10_000;
 
-    private function __construct(private int $hundredths) {}
+    private function __construct(private int $hundredths)
+    {
+    }
 
     /** @throws NotAPercentage */
     public static function ofHundredths(int $hundredths): self

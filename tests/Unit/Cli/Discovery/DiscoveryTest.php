@@ -82,7 +82,7 @@ it('cannot judge a manifest it cannot read, the root before the installed packag
     expect($discovery('not json', 'not json either')->extensions(firstPartyOnly: false))
         ->toEqual(CannotJudge::because('composer.json is not a JSON object, so the extensions it names cannot be read.'))
         ->and($discovery('{}', 'not json either')->extensions(firstPartyOnly: false))
-        ->toEqual(CannotJudge::because('composer/installed.json is not the list of installed packages Composer 2 writes, so the extensions they name cannot be read.'));
+        ->toEqual(CannotJudge::because('composer/installed.json is not the list of installed packages Composer 2 writes, so their extensions cannot be read.'));
 });
 
 it('cannot judge a manifest that is a directory', function (): void {

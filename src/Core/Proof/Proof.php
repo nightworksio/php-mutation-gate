@@ -14,7 +14,9 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
  */
 final readonly class Proof
 {
-    private function __construct(private Digest $key, private Path $unit, private Mutants $mutants) {}
+    private function __construct(private Digest $key, private Path $unit, private Mutants $mutants)
+    {
+    }
 
     public static function of(Digest $key, Path $unit, Mutants $mutants): self
     {

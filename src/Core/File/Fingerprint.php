@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Core\File;
 /** A file and the digest of what it holds. */
 final readonly class Fingerprint
 {
-    private function __construct(private Path $path, private Digest $digest) {}
+    private function __construct(private Path $path, private Digest $digest)
+    {
+    }
 
     public static function of(Path $path, Digest $digest): self
     {

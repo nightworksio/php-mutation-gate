@@ -16,7 +16,8 @@ final readonly class Tree
         private Path $path,
         private Floor|Exempt|Undeclared $declared,
         private Package $package,
-    ) {}
+    ) {
+    }
 
     public static function at(Path $path, Floor|Exempt|Undeclared $declared, Package $package): self
     {

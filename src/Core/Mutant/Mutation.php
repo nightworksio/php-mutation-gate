@@ -11,7 +11,9 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
  */
 final readonly class Mutation
 {
-    private function __construct(private string $mutator, private MutatorFamily $family, private string $diff) {}
+    private function __construct(private string $mutator, private MutatorFamily $family, private string $diff)
+    {
+    }
 
     public static function of(string $mutator, MutatorFamily $family, string $diff): self
     {

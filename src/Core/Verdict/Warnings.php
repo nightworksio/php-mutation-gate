@@ -22,7 +22,9 @@ use Traversable;
 final readonly class Warnings implements Countable, IteratorAggregate
 {
     /** @param list<Warning> $warnings */
-    private function __construct(private array $warnings) {}
+    private function __construct(private array $warnings)
+    {
+    }
 
     public static function none(): self
     {

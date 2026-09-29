@@ -8,5 +8,7 @@ namespace NightWorksIO\MutationGate\Cli\Discovery;
 final readonly class Declared
 {
     /** @param string $origin the package that names it */
-    public function __construct(public string $origin, public string $class) {}
+    public function __construct(public string $origin, public string $class)
+    {
+    }
 }

@@ -43,7 +43,9 @@ use function str_starts_with;
 final readonly class Source
 {
     /** @param list<Node> $statements the file's statements, with every name resolved */
-    private function __construct(public string $path, private array $statements) {}
+    private function __construct(public string $path, private array $statements)
+    {
+    }
 
     /** The file at a path relative to the repository. */
     public static function at(string $path): self

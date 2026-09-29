@@ -16,7 +16,9 @@ final class CiPlanFake implements CiPlan
     /** @var list<Plan> */
     public private(set) array $published = [];
 
-    public function __construct(private readonly ShardId $thisJob) {}
+    public function __construct(private readonly ShardId $thisJob)
+    {
+    }
 
     public function publish(Plan $plan): Written
     {

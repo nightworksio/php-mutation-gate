@@ -37,7 +37,9 @@ use function str_ends_with;
 final readonly class NoDynamicAccessRule implements Rule
 {
     /** @param list<string> $classNamedAtRuntimeIn files, relative to the repository, that may construct or call a class by a name they read */
-    public function __construct(private array $classNamedAtRuntimeIn = []) {}
+    public function __construct(private array $classNamedAtRuntimeIn = [])
+    {
+    }
 
     public function getNodeType(): string
     {

@@ -24,7 +24,9 @@ use Traversable;
 final readonly class Fingerprints implements Countable, IteratorAggregate
 {
     /** @param array<string, Fingerprint> $fingerprints by path */
-    private function __construct(private array $fingerprints) {}
+    private function __construct(private array $fingerprints)
+    {
+    }
 
     public static function none(): self
     {

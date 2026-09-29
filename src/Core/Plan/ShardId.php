@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 /** A shard's number in its plan, counted from 1. */
 final readonly class ShardId
 {
-    private function __construct(private int $number) {}
+    private function __construct(private int $number)
+    {
+    }
 
     public static function of(int $number): self
     {

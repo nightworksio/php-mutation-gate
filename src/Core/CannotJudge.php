@@ -10,7 +10,9 @@ namespace NightWorksIO\MutationGate\Core;
  */
 final readonly class CannotJudge
 {
-    private function __construct(private string $why) {}
+    private function __construct(private string $why)
+    {
+    }
 
     public static function because(string $why): self
     {

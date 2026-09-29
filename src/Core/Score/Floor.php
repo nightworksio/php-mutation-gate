@@ -20,7 +20,9 @@ final readonly class Floor
     /** Enough decimals to undo binary noise, such as 0.29 × 100 being 28.999…, and none that matter. */
     private const int NOISE = 6;
 
-    private function __construct(private int $hundredths) {}
+    private function __construct(private int $hundredths)
+    {
+    }
 
     /** @throws NotAPercentage */
     public static function of(float $percent): self

@@ -26,7 +26,9 @@ use Traversable;
 final readonly class Timings implements Countable, IteratorAggregate
 {
     /** @param array<string, Timing> $timings by unit */
-    private function __construct(private array $timings) {}
+    private function __construct(private array $timings)
+    {
+    }
 
     public static function none(): self
     {
@@ -54,7 +56,9 @@ final readonly class Timings implements Countable, IteratorAggregate
 
     public function secondsFor(Path $unit): Seconds|Unmeasured
     {
-        return array_key_exists($unit->value(), $this->timings) ? $this->timings[$unit->value()]->seconds() : Unmeasured::duration();
+        return array_key_exists($unit->value(), $this->timings)
+            ? $this->timings[$unit->value()]->seconds()
+            : Unmeasured::duration();
     }
 
     public function count(): int

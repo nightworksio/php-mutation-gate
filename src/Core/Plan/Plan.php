@@ -28,7 +28,9 @@ use Traversable;
 final readonly class Plan implements Countable, IteratorAggregate
 {
     /** @param array<int, Shard> $shards by number, in the order they were added */
-    private function __construct(private array $shards) {}
+    private function __construct(private array $shards)
+    {
+    }
 
     public static function of(Shard ...$shards): self
     {
@@ -43,9 +45,15 @@ final readonly class Plan implements Countable, IteratorAggregate
 
     public function shard(ShardId $id): Shard|CannotJudge
     {
-        return array_key_exists($id->number(), $this->shards)
-            ? $this->shards[$id->number()]
-            : CannotJudge::because(sprintf('The plan has no shard %d. It holds %d shards, so this job was not planned from it.', $id->number(), count($this->shards)));
+        if (! array_key_exists($id->number(), $this->shards)) {
+            return CannotJudge::because(sprintf(
+                'The plan has no shard %d. It holds %d shards, so this job was not planned from it.',
+                $id->number(),
+                count($this->shards),
+            ));
+        }
+
+        return $this->shards[$id->number()];
     }
 
     public function count(): int

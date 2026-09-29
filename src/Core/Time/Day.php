@@ -19,12 +19,17 @@ final readonly class Day
 
     private const string WRITTEN = '/^(?<y>\d{4})-(?<m>\d{2})-(?<d>\d{2})$/D';
 
-    private function __construct(private string $value) {}
+    private function __construct(private string $value)
+    {
+    }
 
     /** A day as a config writes it. */
     public static function of(string $day): self|CannotJudge
     {
-        if (preg_match(self::WRITTEN, $day, $parts) !== 1 || ! checkdate((int) $parts['m'], (int) $parts['d'], (int) $parts['y'])) {
+        if (
+            preg_match(self::WRITTEN, $day, $parts) !== 1
+            || ! checkdate((int) $parts['m'], (int) $parts['d'], (int) $parts['y'])
+        ) {
             return CannotJudge::because(sprintf('"%s" is not a day. Write it as YYYY-MM-DD.', $day));
         }
 

@@ -9,7 +9,9 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 /** The units one CI job mutates. */
 final readonly class Shard
 {
-    private function __construct(private ShardId $id, private Units $units) {}
+    private function __construct(private ShardId $id, private Units $units)
+    {
+    }
 
     public static function of(ShardId $id, Units $units): self
     {

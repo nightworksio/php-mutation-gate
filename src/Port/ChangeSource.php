@@ -18,7 +18,10 @@ use NightWorksIO\MutationGate\Core\File\Path;
  */
 interface ChangeSource
 {
-    /** Every path changed from the merge base of this revision and HEAD to the working tree, with its added and modified lines. */
+    /**
+     * Every path changed from the merge base of this revision and HEAD to the
+     * working tree, with its added and modified lines.
+     */
     public function changesSince(Revision $base): Changes|CannotTell;
 
     /** Every file in the working tree that is not ignored, with the digest of what it holds. */

@@ -11,7 +11,12 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 /** One tree, the score its mutants reached, and whether that met its floor. */
 final readonly class TreeVerdict
 {
-    private function __construct(private Tree $tree, private Score|NothingToMutate $score, private Judgement $judgement) {}
+    private function __construct(
+        private Tree $tree,
+        private Score|NothingToMutate $score,
+        private Judgement $judgement,
+    ) {
+    }
 
     public static function of(Tree $tree, Score|NothingToMutate $score, Judgement $judgement): self
     {

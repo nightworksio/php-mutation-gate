@@ -21,7 +21,9 @@ final readonly class Seconds
     /** Hours, minutes and seconds, each optional and in that order: `90s`, `15m`, `1h30m`. */
     private const string DURATION = '/^(?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?:(?<s>\d+)s)?$/D';
 
-    private function __construct(private float $seconds) {}
+    private function __construct(private float $seconds)
+    {
+    }
 
     public static function of(float $seconds): self
     {
@@ -35,7 +37,10 @@ final readonly class Seconds
             return CannotJudge::because(sprintf('"%s" is not a duration. Write it as 90s, 15m or 1h30m.', $duration));
         }
 
-        return new self(intval($parts['h']) * self::PER_HOUR + intval($parts['m']) * self::PER_MINUTE + intval($parts['s']));
+        $hours = intval($parts['h']) * self::PER_HOUR;
+        $minutes = intval($parts['m']) * self::PER_MINUTE;
+
+        return new self($hours + $minutes + intval($parts['s']));
     }
 
     public function seconds(): float

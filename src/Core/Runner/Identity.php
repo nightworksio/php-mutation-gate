@@ -13,7 +13,9 @@ use NightWorksIO\MutationGate\Core\File\Digest;
  */
 final readonly class Identity
 {
-    private function __construct(private string $runner, private Versions $versions, private Digest $platform) {}
+    private function __construct(private string $runner, private Versions $versions, private Digest $platform)
+    {
+    }
 
     public static function of(string $runner, Versions $versions, Digest $platform): self
     {

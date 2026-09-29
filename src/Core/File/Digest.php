@@ -11,7 +11,9 @@ final readonly class Digest
 {
     private const string ALGORITHM = 'sha256';
 
-    private function __construct(private string $value) {}
+    private function __construct(private string $value)
+    {
+    }
 
     /** A digest something else took, as it spells it. */
     public static function of(string $value): self

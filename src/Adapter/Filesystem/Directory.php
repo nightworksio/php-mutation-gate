@@ -27,7 +27,9 @@ use function sprintf;
  */
 final readonly class Directory
 {
-    private function __construct(private string $root) {}
+    private function __construct(private string $root)
+    {
+    }
 
     public static function at(string $root): self
     {
@@ -56,7 +58,11 @@ final readonly class Directory
             return CannotJudge::because(sprintf('%s could not be written.', $file));
         }
 
-        return file_put_contents($file, $contents->text()) === false ? CannotJudge::because(sprintf('%s could not be written.', $file)) : Written::to($file);
+        $written = file_put_contents($file, $contents->text());
+
+        return $written === false
+            ? CannotJudge::because(sprintf('%s could not be written.', $file))
+            : Written::to($file);
     }
 
     private function pathTo(Path $path): string

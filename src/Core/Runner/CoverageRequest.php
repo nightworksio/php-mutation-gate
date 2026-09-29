@@ -20,7 +20,8 @@ final readonly class CoverageRequest
         private Path $directory,
         private bool $runs,
         private Processes $processes,
-    ) {}
+    ) {
+    }
 
     public static function running(WholeSuite|Group $tests, Path $into): self
     {

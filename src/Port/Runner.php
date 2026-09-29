@@ -29,13 +29,19 @@ interface Runner
     /** The suite's groups, as the runner itself lists them. */
     public function groups(): Groups|CannotJudge;
 
-    /** Which tests run which line, with each test's duration, by running the suite or a group, or by reading a map another job wrote. */
+    /**
+     * Which tests run which line, with each test's duration, by running the
+     * suite or a group, or by reading a map another job wrote.
+     */
     public function coverage(CoverageRequest $request): CoverageMap|CannotJudge;
 
     /** The test files that can judge a mutant of this file, by the runner's own rules for selecting them. */
     public function judges(Path $file, CoverageMap $map): Paths|CannotJudge;
 
-    /** Every mutant's result for the requested files, judged by the tests the request names, and how many were skipped with no record. */
+    /**
+     * Every mutant's result for the requested files, judged by the tests the
+     * request names, and how many were skipped with no record.
+     */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge;
 
     /** These mutants run again, each allowed this long, matched back by the gate's id. */

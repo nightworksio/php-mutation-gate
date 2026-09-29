@@ -24,7 +24,9 @@ use Traversable;
 final readonly class Mutators implements Countable, IteratorAggregate
 {
     /** @param list<string> $names */
-    private function __construct(private array $names) {}
+    private function __construct(private array $names)
+    {
+    }
 
     public static function all(): self
     {

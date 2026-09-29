@@ -45,7 +45,8 @@ final readonly class RunnerFake implements Runner
         private CoverageMap $map,
         private Mutants $library,
         private Paths $judges,
-    ) {}
+    ) {
+    }
 
     /** The runner over the contract suite's fixture library. */
     public static function ofTheFixture(): self

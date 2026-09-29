@@ -75,55 +75,73 @@ final readonly class Extensions
     /** @param Closure(Options): (Runner|Invalid) $build */
     public function withRunner(Name $name, Closure $build): self
     {
-        return clone($this, ['runners' => $this->runners->with($name->value(), $this->origin->name(), $build)]);
+        return clone($this, [
+            'runners' => $this->runners->with($name->value(), $this->origin->name(), $build),
+        ]);
     }
 
     /** @param Closure(Options): (TreeSource|Invalid) $build */
     public function withTreeSource(Name $name, Closure $build): self
     {
-        return clone($this, ['treeSources' => $this->treeSources->with($name->value(), $this->origin->name(), $build)]);
+        return clone($this, [
+            'treeSources' => $this->treeSources->with($name->value(), $this->origin->name(), $build),
+        ]);
     }
 
     /** @param Closure(Options): (CostModel|Invalid) $build */
     public function withCostModel(Name $name, Closure $build): self
     {
-        return clone($this, ['costModels' => $this->costModels->with($name->value(), $this->origin->name(), $build)]);
+        return clone($this, [
+            'costModels' => $this->costModels->with($name->value(), $this->origin->name(), $build),
+        ]);
     }
 
     /** @param Closure(Options): (ProofStore|Invalid) $build */
     public function withProofStore(Name $name, Closure $build): self
     {
-        return clone($this, ['proofStores' => $this->proofStores->with($name->value(), $this->origin->name(), $build)]);
+        return clone($this, [
+            'proofStores' => $this->proofStores->with($name->value(), $this->origin->name(), $build),
+        ]);
     }
 
     /** @param Closure(Options): (CiPlan|Invalid) $build */
     public function withCiPlan(Name $name, Closure $build): self
     {
-        return clone($this, ['ciPlans' => $this->ciPlans->with($name->value(), $this->origin->name(), $build)]);
+        return clone($this, [
+            'ciPlans' => $this->ciPlans->with($name->value(), $this->origin->name(), $build),
+        ]);
     }
 
     /** @param Closure(Options): (Reporter|Invalid) $build */
     public function withReporter(Name $name, Closure $build): self
     {
-        return clone($this, ['reporters' => $this->reporters->with($name->value(), $this->origin->name(), $build)]);
+        return clone($this, [
+            'reporters' => $this->reporters->with($name->value(), $this->origin->name(), $build),
+        ]);
     }
 
     /** @param Closure(Options): (ChangeSource|Invalid) $build */
     public function withChangeSource(Name $name, Closure $build): self
     {
-        return clone($this, ['changeSources' => $this->changeSources->with($name->value(), $this->origin->name(), $build)]);
+        return clone($this, [
+            'changeSources' => $this->changeSources->with($name->value(), $this->origin->name(), $build),
+        ]);
     }
 
     /** @param Closure(Options): (ConfigLoader|Invalid) $build */
     public function withConfigLoader(Name $name, Closure $build): self
     {
-        return clone($this, ['configLoaders' => $this->configLoaders->with($name->value(), $this->origin->name(), $build)]);
+        return clone($this, [
+            'configLoaders' => $this->configLoaders->with($name->value(), $this->origin->name(), $build),
+        ]);
     }
 
     /** A config fragment with a name, applied before the config file so the project's own settings win. */
     public function withPreset(Name $name, Document $fragment): self
     {
-        return clone($this, ['presets' => $this->presets->with($name->value(), $this->origin->name(), $fragment)]);
+        return clone($this, [
+            'presets' => $this->presets->with($name->value(), $this->origin->name(), $fragment),
+        ]);
     }
 
     /**
@@ -146,7 +164,10 @@ final readonly class Extensions
         ];
 
         if ($conflicts !== []) {
-            return CannotJudge::because(sprintf('%s Remove one of the packages, or run with --no-extensions.', implode(' ', $conflicts)));
+            return CannotJudge::because(sprintf(
+                '%s Remove one of the packages, or run with --no-extensions.',
+                implode(' ', $conflicts),
+            ));
         }
 
         return clone($this, [

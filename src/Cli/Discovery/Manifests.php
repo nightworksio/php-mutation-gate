@@ -35,9 +35,14 @@ final readonly class Manifests
     {
         $manifest = json_decode($json, associative: true);
 
-        return is_array($manifest)
-            ? self::declaredBy($manifest, $file)
-            : CannotJudge::because(sprintf('%s is not a JSON object, so the extensions it names cannot be read.', $file));
+        if (! is_array($manifest)) {
+            return CannotJudge::because(sprintf(
+                '%s is not a JSON object, so the extensions it names cannot be read.',
+                $file,
+            ));
+        }
+
+        return self::declaredBy($manifest, $file);
     }
 
     /**
@@ -49,8 +54,16 @@ final readonly class Manifests
     {
         $installed = json_decode($json, associative: true);
 
-        if (! is_array($installed) || ! array_key_exists('packages', $installed) || ! is_array($installed['packages']) || ! array_is_list($installed['packages'])) {
-            return CannotJudge::because(sprintf('%s is not the list of installed packages Composer 2 writes, so the extensions they name cannot be read.', $file));
+        if (
+            ! is_array($installed)
+            || ! array_key_exists('packages', $installed)
+            || ! is_array($installed['packages'])
+            || ! array_is_list($installed['packages'])
+        ) {
+            return CannotJudge::because(sprintf(
+                '%s is not the list of installed packages Composer 2 writes, so their extensions cannot be read.',
+                $file,
+            ));
         }
 
         $declared = [];
@@ -76,12 +89,17 @@ final readonly class Manifests
      */
     private static function declaredBy(mixed $manifest, string $file): array|CannotJudge
     {
-        $origin = is_array($manifest) && array_key_exists('name', $manifest) && is_string($manifest['name']) ? $manifest['name'] : $file;
+        $origin = is_array($manifest) && array_key_exists('name', $manifest) && is_string($manifest['name'])
+            ? $manifest['name']
+            : $file;
         $classes = self::at($manifest, self::WHERE_EXTENSIONS_ARE);
         $names = is_array($classes) ? array_values(array_filter($classes, is_string(...))) : [];
 
         if ($names !== $classes) {
-            return CannotJudge::because(sprintf('%s names extra.mutation-gate.extensions, and it is not a list of class names.', $origin));
+            return CannotJudge::because(sprintf(
+                '%s names extra.mutation-gate.extensions, and it is not a list of class names.',
+                $origin,
+            ));
         }
 
         return array_map(static fn(string $class): Declared => new Declared($origin, $class), $names);

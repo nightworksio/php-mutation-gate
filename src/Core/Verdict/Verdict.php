@@ -12,7 +12,9 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
  */
 final readonly class Verdict
 {
-    private function __construct(private TreeVerdicts $trees, private Mutants $mutants, private Warnings $warnings) {}
+    private function __construct(private TreeVerdicts $trees, private Mutants $mutants, private Warnings $warnings)
+    {
+    }
 
     public static function of(TreeVerdicts $trees, Mutants $mutants, Warnings $warnings): self
     {

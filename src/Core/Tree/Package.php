@@ -12,7 +12,9 @@ use NightWorksIO\MutationGate\Core\File\Path;
  */
 final readonly class Package
 {
-    private function __construct(private Path $path) {}
+    private function __construct(private Path $path)
+    {
+    }
 
     public static function at(Path $path): self
     {

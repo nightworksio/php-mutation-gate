@@ -17,7 +17,9 @@ use function sprintf;
 final readonly class ConfigLoaderFake implements ConfigLoader
 {
     /** @param array<string, string> $files the JSON each file reads into, by path */
-    public function __construct(private array $files) {}
+    public function __construct(private array $files)
+    {
+    }
 
     /** The contract suite's fixture: one config, as every format would write it. */
     public static function ofTheFixture(): self

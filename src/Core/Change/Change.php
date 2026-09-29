@@ -18,7 +18,8 @@ final readonly class Change
         private Path $path,
         private Path $previousPath,
         private Lines $lines,
-    ) {}
+    ) {
+    }
 
     public static function added(Path $path, Lines $lines): self
     {

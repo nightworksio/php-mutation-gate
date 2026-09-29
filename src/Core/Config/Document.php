@@ -17,12 +17,17 @@ use function sprintf;
  */
 final readonly class Document
 {
-    private function __construct(private string $json) {}
+    private function __construct(private string $json)
+    {
+    }
 
     public static function ofJson(string $json): self|CannotJudge
     {
         if (! json_validate($json)) {
-            return CannotJudge::because(sprintf('A config was read into text that is not JSON: %s.', json_last_error_msg()));
+            return CannotJudge::because(sprintf(
+                'A config was read into text that is not JSON: %s.',
+                json_last_error_msg(),
+            ));
         }
 
         return new self($json);

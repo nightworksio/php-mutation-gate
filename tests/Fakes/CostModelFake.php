@@ -21,7 +21,9 @@ use NightWorksIO\MutationGate\Port\CostModel;
  */
 final readonly class CostModelFake implements CostModel
 {
-    public function __construct(private Seconds $guess) {}
+    public function __construct(private Seconds $guess)
+    {
+    }
 
     public function cost(Unit $unit, Timings $learned): Seconds
     {

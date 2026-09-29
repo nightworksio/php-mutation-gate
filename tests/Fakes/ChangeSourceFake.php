@@ -29,7 +29,9 @@ use function sprintf;
 final readonly class ChangeSourceFake implements ChangeSource
 {
     /** @param array<string, array<string, string>> $files what each file holds, by revision name and path */
-    public function __construct(private Revision $base, private Changes $changes, private array $files) {}
+    public function __construct(private Revision $base, private Changes $changes, private array $files)
+    {
+    }
 
     /** The repository of the contract suite's fixture: a base, and a working tree that changed one line and added a file. */
     public static function ofTheFixture(): self

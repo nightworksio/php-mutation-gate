@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Extension;
 /** Where an extension came from: the Composer package that names it. */
 final readonly class Origin
 {
-    private function __construct(private string $name) {}
+    private function __construct(private string $name)
+    {
+    }
 
     public static function of(string $name): self
     {

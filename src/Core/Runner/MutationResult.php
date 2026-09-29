@@ -14,7 +14,9 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
  */
 final readonly class MutationResult
 {
-    private function __construct(private Mutants $mutants, private int $skipped) {}
+    private function __construct(private Mutants $mutants, private int $skipped)
+    {
+    }
 
     public static function of(Mutants $mutants, int $skipped): self
     {

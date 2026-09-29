@@ -20,7 +20,8 @@ final readonly class Fixture
         public string $marker,
         public string $evidence,
         public string $replacing,
-    ) {}
+    ) {
+    }
 
     /** A file the analyser reads; `$marker` must appear in a message it reports for that file. */
     public static function analyser(string $rule, string $path, string $code, string $marker): self

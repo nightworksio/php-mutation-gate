@@ -22,7 +22,9 @@ use Traversable;
 final readonly class Mutants implements Countable, IteratorAggregate
 {
     /** @param list<Mutant> $mutants */
-    private function __construct(private array $mutants) {}
+    private function __construct(private array $mutants)
+    {
+    }
 
     public static function none(): self
     {

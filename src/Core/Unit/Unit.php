@@ -15,7 +15,9 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  */
 final readonly class Unit
 {
-    private function __construct(private Path $path, private WholeSuite|Group|Filter $judgedBy) {}
+    private function __construct(private Path $path, private WholeSuite|Group|Filter $judgedBy)
+    {
+    }
 
     public static function file(Path $path): self
     {

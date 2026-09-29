@@ -9,7 +9,9 @@ final readonly class Options
 {
     private const string NONE = '{}';
 
-    private function __construct(private string $json) {}
+    private function __construct(private string $json)
+    {
+    }
 
     public static function none(): self
     {

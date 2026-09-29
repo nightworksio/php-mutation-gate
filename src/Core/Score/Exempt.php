@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Score;
 /** A declared floor of 0, which is not mutated, and the reason it carries. */
 final readonly class Exempt
 {
-    private function __construct(private string $reason) {}
+    private function __construct(private string $reason)
+    {
+    }
 
     public static function because(string $reason): self
     {

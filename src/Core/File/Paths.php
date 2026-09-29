@@ -22,7 +22,9 @@ use Traversable;
 final readonly class Paths implements Countable, IteratorAggregate
 {
     /** @param list<Path> $paths */
-    private function __construct(private array $paths) {}
+    private function __construct(private array $paths)
+    {
+    }
 
     public static function none(): self
     {

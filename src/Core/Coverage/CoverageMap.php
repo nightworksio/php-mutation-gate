@@ -28,7 +28,9 @@ final readonly class CoverageMap
      * @param TestIds                            $tests     every test the map knows
      * @param array<string, Seconds>             $durations each timed test's duration, by id
      */
-    private function __construct(private array $lines, private TestIds $tests, private array $durations) {}
+    private function __construct(private array $lines, private TestIds $tests, private array $durations)
+    {
+    }
 
     public static function empty(): self
     {
@@ -89,7 +91,9 @@ final readonly class CoverageMap
 
     public function durationOf(TestId $test): Seconds|Unmeasured
     {
-        return array_key_exists($test->value(), $this->durations) ? $this->durations[$test->value()] : Unmeasured::duration();
+        return array_key_exists($test->value(), $this->durations)
+            ? $this->durations[$test->value()]
+            : Unmeasured::duration();
     }
 
     /** @return array<int, TestIds> */

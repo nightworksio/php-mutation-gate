@@ -26,7 +26,9 @@ use Traversable;
 final readonly class Lines implements Countable, IteratorAggregate
 {
     /** @param array<int, Line> $lines by number, ascending */
-    private function __construct(private array $lines) {}
+    private function __construct(private array $lines)
+    {
+    }
 
     public static function none(): self
     {

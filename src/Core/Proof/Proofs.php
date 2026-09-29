@@ -24,7 +24,9 @@ use Traversable;
 final readonly class Proofs implements Countable, IteratorAggregate
 {
     /** @param array<string, Proof> $proofs by key */
-    private function __construct(private array $proofs) {}
+    private function __construct(private array $proofs)
+    {
+    }
 
     public static function none(): self
     {

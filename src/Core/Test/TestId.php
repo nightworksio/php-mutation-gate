@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Test;
 /** A test as its runner names it in a coverage report. */
 final readonly class TestId
 {
-    private function __construct(private string $value) {}
+    private function __construct(private string $value)
+    {
+    }
 
     public static function of(string $value): self
     {

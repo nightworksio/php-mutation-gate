@@ -23,7 +23,9 @@ use Traversable;
 final readonly class Versions implements Countable, IteratorAggregate
 {
     /** @param array<string, Version> $versions by package */
-    private function __construct(private array $versions) {}
+    private function __construct(private array $versions)
+    {
+    }
 
     public static function none(): self
     {

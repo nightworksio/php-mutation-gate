@@ -32,7 +32,9 @@ final readonly class Discovery
 
     private const string INSTALLED = 'composer/installed.json';
 
-    public function __construct(private Directory $project, private Directory $vendor) {}
+    public function __construct(private Directory $project, private Directory $vendor)
+    {
+    }
 
     /** The registry of every declared extension, or of this package's own alone. */
     public function extensions(bool $firstPartyOnly): Extensions|CannotJudge
@@ -96,7 +98,12 @@ final readonly class Discovery
     private function add(Extensions $registry, Declared $one): Extensions|CannotJudge
     {
         if (! is_a($one->class, Extension::class, allow_string: true)) {
-            return CannotJudge::because(sprintf('%s names %s as a mutation-gate extension, and it is not a class that implements %s.', $one->origin, $one->class, Extension::class));
+            return CannotJudge::because(sprintf(
+                '%s names %s as a mutation-gate extension, and it is not a class that implements %s.',
+                $one->origin,
+                $one->class,
+                Extension::class,
+            ));
         }
 
         return $registry->merge(new ($one->class)()->extend(new Extensions(Origin::of($one->origin))));

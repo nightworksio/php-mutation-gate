@@ -22,7 +22,9 @@ use Traversable;
 final readonly class Invalid implements Countable, IteratorAggregate
 {
     /** @param list<Problem> $problems */
-    private function __construct(private array $problems) {}
+    private function __construct(private array $problems)
+    {
+    }
 
     public static function because(Problem $problem, Problem ...$more): self
     {

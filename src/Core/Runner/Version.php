@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 /** The exact installed version of one package a runner drives, and its source reference. */
 final readonly class Version
 {
-    private function __construct(private string $package, private string $version, private string $reference) {}
+    private function __construct(private string $package, private string $version, private string $reference)
+    {
+    }
 
     public static function of(string $package, string $version, string $reference): self
     {

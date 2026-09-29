@@ -40,7 +40,9 @@ final readonly class MutantId
     /** The line a unified diff's first hunk starts with; what comes before it is the header. */
     private const string HUNK = '@@';
 
-    private function __construct(private string $value) {}
+    private function __construct(private string $value)
+    {
+    }
 
     /**
      * The id of a mutant, from its repository-relative path, its mutator by
@@ -54,7 +56,8 @@ final readonly class MutantId
     public static function hash(Path $file, string $mutator, string $diff, int $occurrence): self
     {
         $fields = [$file->value(), $mutator, ...self::changedLinesOf($diff), sprintf('%d', $occurrence)];
-        $canonical = implode("\n", array_map(static fn(string $field): string => sprintf('%d:%s', mb_strlen($field), $field), $fields));
+        $sized = array_map(static fn(string $field): string => sprintf('%d:%s', mb_strlen($field), $field), $fields);
+        $canonical = implode("\n", $sized);
 
         return new self(mb_substr(hash(self::ALGORITHM, $canonical), 0, self::LENGTH));
     }
@@ -63,7 +66,10 @@ final readonly class MutantId
     public static function parse(string $id): self|CannotJudge
     {
         if (preg_match(self::SPELLING, $id) !== 1) {
-            return CannotJudge::because(sprintf('"%s" is not a mutant id. An id is twelve lowercase hex characters, as every report prints it.', $id));
+            return CannotJudge::because(sprintf(
+                '"%s" is not a mutant id. An id is twelve lowercase hex characters, as every report prints it.',
+                $id,
+            ));
         }
 
         return new self($id);

@@ -31,11 +31,21 @@ final readonly class MutationRequest
         private Uncovered $uncovered,
         private Processes $processes,
         private Path|Fresh $coverage,
-    ) {}
+    ) {
+    }
 
     public static function of(Paths $files, WholeSuite|Group|Filter $judgedBy): self
     {
-        return new self($files, $judgedBy, Paths::none(), Mutators::all(), Unlimited::time(), Uncovered::Count, Processes::of(1), Fresh::coverage());
+        return new self(
+            $files,
+            $judgedBy,
+            Paths::none(),
+            Mutators::all(),
+            Unlimited::time(),
+            Uncovered::Count,
+            Processes::of(1),
+            Fresh::coverage(),
+        );
     }
 
     /** This request, leaving out paths inside its files that a group judges in a run of its own. */

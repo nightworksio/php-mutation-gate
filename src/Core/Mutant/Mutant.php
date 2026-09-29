@@ -21,7 +21,8 @@ final readonly class Mutant
         private Mutation $mutation,
         private MutantStatus $status,
         private Seconds|Unmeasured $duration,
-    ) {}
+    ) {
+    }
 
     public static function of(
         MutantId $id,

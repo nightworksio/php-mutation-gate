@@ -23,7 +23,9 @@ use Traversable;
 final readonly class TestIds implements Countable, IteratorAggregate
 {
     /** @param array<string, TestId> $tests by id */
-    private function __construct(private array $tests) {}
+    private function __construct(private array $tests)
+    {
+    }
 
     public static function none(): self
     {

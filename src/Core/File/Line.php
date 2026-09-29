@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Core\File;
 /** A line of a file, counted from 1. */
 final readonly class Line
 {
-    private function __construct(private int $number) {}
+    private function __construct(private int $number)
+    {
+    }
 
     public static function of(int $number): self
     {

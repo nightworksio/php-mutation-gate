@@ -23,7 +23,9 @@ use Traversable;
 final readonly class Groups implements Countable, IteratorAggregate
 {
     /** @param array<string, Group> $groups by name */
-    private function __construct(private array $groups) {}
+    private function __construct(private array $groups)
+    {
+    }
 
     public static function none(): self
     {

@@ -19,7 +19,9 @@ final readonly class Path
 {
     private const string ROOT = '.';
 
-    private function __construct(private string $value) {}
+    private function __construct(private string $value)
+    {
+    }
 
     public static function of(string $path): self
     {

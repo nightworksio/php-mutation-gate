@@ -18,7 +18,9 @@ use function sprintf;
 final readonly class Ledger
 {
     /** @param array<string, Revision> $passed the newest passing commit, by branch */
-    private function __construct(private Proofs $proofs, private Timings $timings, private array $passed) {}
+    private function __construct(private Proofs $proofs, private Timings $timings, private array $passed)
+    {
+    }
 
     public static function empty(): self
     {
