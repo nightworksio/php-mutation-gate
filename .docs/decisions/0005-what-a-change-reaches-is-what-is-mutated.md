@@ -24,12 +24,12 @@ On the default branch it mutates what was reached since the last commit that
 passed. It mutates nothing when every commit in between is the tree of a pull
 request that already passed.
 
-Two more needs came from the same repository.
+The same repository has two more needs.
 
 - **Code that every test runs through.** The composition root and each module's
   service provider are covered by the whole suite. So every mutant there is run
-  against the whole suite, and on a runner that made one shard take fifteen to
-  thirty minutes, mostly in timeouts. A test file there can declare
+  against the whole suite, which on its runners makes one shard take fifteen
+  to thirty minutes, mostly in timeouts. A test file there can declare
   `pest()->group('holds:<path>')`. That path is then mutated against its group
   alone, once the group is shown to cover all of it.
 - **Monorepos.** That repository is a monorepo of modules, each with a manifest
@@ -116,9 +116,10 @@ Two more needs came from the same repository.
 
 5. **On the default branch, a tree a pull request already proved is not
    mutated again.** On a push, the reach runs from `last-passed`. With the
-   GitHub `ChangeSource`, a commit whose tree is the tree of a merged pull
-   request's head, and whose run passed, reaches nothing: the branch was up to
-   date, so its run judged exactly the tree that landed. The gate asks at most
+   GitHub `ChangeSource`, which reads pull requests and workflow runs through
+   GitHub's API with `GITHUB_TOKEN`, a commit whose tree is the tree of a
+   merged pull request's head, and whose run passed, reaches nothing: the
+   branch was up to date, so its run judged exactly the tree that landed. The gate asks at most
    twenty commits back. A longer range, or one commit it cannot prove, is
    mutated in full.
 
@@ -174,7 +175,8 @@ Two more needs came from the same repository.
      - In PHPUnit classes, the attribute
        `#[NightWorksIO\MutationGate\Attribute\Holds('<path>')]`, which is
        repeatable, on a class or a method. PHPUnit's own
-       `#[Group('holds:<path>')]` works too.
+       `#[Group('holds:<path>')]` works too. The Pest runner selects held
+       tests by group alone, so it refuses `#[Holds]` (ADR-0004).
    - **How the gate reads it.**
      - Groups come from the runner's own listing (ADR-0004), so the answer is
        the groups the runner will actually select by.
@@ -223,7 +225,7 @@ Two more needs came from the same repository.
 | **Infection's `--git-diff-filter`/`--git-diff-lines`** | Only one runner has it, and it knows nothing of tests reaching code, holding groups or packages. The gate computes changes once, for every runner. |
 | **The diff against the base commit rather than the merge base** | On a branch behind its base, the base's newer commits read as the branch's own changes. |
 | **Reach only through the coverage map, even for source changes** | A changed file is always mutated, whether or not a map exists. The map is needed for what a changed test reaches, where the diff shows no source change. |
-| **A changed source file also reaches every unit whose tests run it** | Would re-run most of a project for a change to shared code, to catch mutants whose killing test changed behaviour indirectly. The scheduled full run catches those at a fraction of the cost. The in-house gate made the same trade. |
+| **A changed source file also reaches every unit whose tests run it** | Would re-run most of a project for a change to shared code, to catch mutants whose killing test changed behaviour indirectly. The scheduled full run catches those at a fraction of the cost. The in-house gate makes the same trade. |
 | **Reach every dependent package whenever a package's source changes** | Every change to a shared core package would re-mutate the whole monorepo. Kept for changes that alter how a package's tests run (its manifest and test setup), which is where a dependent's verdict genuinely moves. |
 | **A config file per package** | Two places answer for one monorepo, and a package's file could quietly contradict the root's. One root config, with floors in the manifests beside the code they hold, keeps one answer. |
 | **Declaring held paths in config instead of in tests** | Puts the claim "these tests hold that code" away from the tests that make it. A group or attribute moves with the test, and the coverage check keeps it honest. |

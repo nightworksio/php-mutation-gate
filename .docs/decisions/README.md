@@ -28,4 +28,4 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md) | A run spends its time on the riskiest code first, and never passes what it did not judge | Accepted |
 | [0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) | Every verdict is readable by a machine, a reviewer and a badge, and every survivor says how to reproduce it and what the tests miss | Accepted |
 | [0010](0010-the-gate-runs-while-you-work-and-before-you-push.md) | The gate runs while you work and before you push, with the same verdict CI gives | Accepted |
-| [0011](0011-the-package-holds-itself-to-the-gate-it-ships.md) | The package holds itself to the gate it ships, and to the standards of the project it came from | Accepted |
+| [0011](0011-the-package-holds-itself-to-the-gate-it-ships.md) | The package holds itself to the gate it ships, and to the standards of the in-house project | Accepted |

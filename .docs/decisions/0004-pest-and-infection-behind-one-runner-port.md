@@ -14,7 +14,7 @@ The gate needs four things from whatever mutates the code:
   it.
 
 v1 supports two runners: Pest's own mutation testing (`pestphp/pest-plugin-mutate`)
-and Infection. Their capabilities were read from source and tried in scratch
+and Infection. What follows comes from their source and from scratch
 projects: pest-plugin-mutate 5.0.2 with Pest 5.2.1, and Infection 0.35.5, with
 every option named here checked against 0.35.0 as well. They differ in ways
 that shape the adapters.
@@ -64,8 +64,8 @@ that shape the adapters.
 
 **Infection.**
 
-- **It does not run Pest suites.** Support was removed in infection PR #2047,
-  first released in 0.29.13. Its bundled framework is PHPUnit. Codeception,
+- **It does not run Pest suites.** Releases from 0.29.13 on have no Pest
+  adapter (infection PR #2047). Its bundled framework is PHPUnit. Codeception,
   phpspec and Testo adapters install separately.
 - **It writes a JSON log, but only when the config file asks** (`logs.json`;
   its only JSON flag, `--logger-summary-json`, writes the totals alone).
@@ -128,8 +128,8 @@ its parser attributes. Both change when the checkout moves.
 2. **Every mutant is normalised to one record.**
    - **id**: the gate's own, 12 lowercase hex characters of a SHA-256 over:
      - the path relative to the repository;
-     - the mutator's full name: its class name for Pest, its name for
-       Infection;
+     - the mutator's full name: its fully qualified class name for Pest, its
+       name for Infection;
      - the removed and added lines of the diff, with whitespace collapsed;
      - the mutant's position among mutants in the same file that share
        everything above.
@@ -169,6 +169,15 @@ its parser attributes. Both change when the checkout moves.
      - Pest runs with the project root as its working directory, and one Pest
        invocation at a time runs in a checkout, because each writes its opening
        map to the same path.
+   - **Where Pest's filter cannot hold the covering tests.** The adapter builds
+     Pest's filter from the gate's coverage map, as Pest does. A mutant with a
+     covering test whose id that filter cannot express is recorded as
+     unjudged, with the test named as the reason, never as killed or uncovered:
+     Pest would have run no test for it and called the mutant killed, or
+     dropped the test and called it uncovered.
+   - **`#[Holds]` is refused under Pest** (exit code 2), with a message naming
+     the group that replaces it: `->group('holds:<path>')` or
+     `#[Group('holds:<path>')]`. Pest selects held tests by group alone.
    - **Results** come from a small Pest plugin shipped in this package and
      listed in its `composer.json` under `extra.pest.plugins`, which is how Pest
      finds plugins.
@@ -330,7 +339,7 @@ its parser attributes. Both change when the checkout moves.
 | **Passing `--covered-only`, or leaving out `--with-uncovered`, under `uncovered: exclude`** | The runners would then report uncovered mutants differently, Infection's log would not add up, and changing the setting would re-run every unit. The gate applies it at verdict time instead. |
 | **Patching Pest by default** | Edits another package's vendor code on every install without being asked. Opt-in keeps that a visible decision in the project's own `composer.json`. |
 | **Waiting for Pest to offer a report or a shared map** | Not in this package's control. The adapter works with what the supported versions ship, and the contract suite finds out when that changes. |
-| **Codeception and phpspec through Infection** | Their coverage and group listing are not PHPUnit's, and nothing in the gate's reach, holds or proof key has been checked against them. An extension can add them later through the same port. |
+| **Codeception and phpspec through Infection** | Their coverage and group listing are not PHPUnit's, and nothing in the gate's reach, holds or proof key has been checked against them. An extension can add them through the same port. |
 
 ## Consequences
 

@@ -18,7 +18,7 @@ the git blobs of three things:
 The key is stored as a GitHub Actions cache entry named after it, which holds
 one small marker file.
 
-The seed found that key too narrow and rebuilt it per unit. A test can depend
+The seed holds that key too narrow and builds it per unit. A test can depend
 on code no coverage map records:
 
 - a class constant;
@@ -49,8 +49,9 @@ has to bring its result with it.
    - no *cannot judge*.
 
    A proof with survivors is still a proof, because its survivors are its
-   result. Floors, the baseline, ignores, timeout triage and the time budget
-   are applied at verdict time and are not in the key. So raising a floor or
+   result. Floors, the baseline, ignores and the timeout rule of ADR-0008 apply
+   at verdict time and are not in the key. A budget decides only whether a unit
+   finishes, and an unfinished unit is never recorded. So raising a floor or
    adding an ignore re-runs nothing.
 
 2. **The content key is a SHA-256 over all of the following, in this order.**
@@ -64,10 +65,11 @@ has to bring its result with it.
         `timeouts.seconds`, `timeouts.retries`, `flaky.confirmSurvivors`, and
         what decides the trees and packages (`trees[].path`, `treeSource`,
         `packages`).
-      - Left out: floors (`trees[].floor`, `newCode`), `baseline`,
-        `uncovered`, `ignores`, `timeouts.mode`, `budget`, `reports`, `badge`,
-        `ci`, `shards`, `costs`, `proofs`, `reach`, `holds`, `local` and
-        `extensions`.
+      - Left out: floors and their reasons (`trees[].floor`,
+        `trees[].reason`, `newCode`), `baseline`, `uncovered`, `ignores`,
+        `timeouts.mode`, `budget`, `reports`, `badge`, `ci`, `shards`, `costs`,
+        `proofs`, `reach`, `holds`, `local` and `extensions`. `preset` is not
+        in the key itself: it is expanded into the settings above.
       - Every setting is declared as affecting results or not, and a test fails
         when a setting is neither. A new setting cannot be left out by accident.
    4. **The runner's identity** (ADR-0004):
@@ -80,8 +82,11 @@ has to bring its result with it.
    6. **Every file in the repository outside the test directories**, by the git
       blob id of its content as it is on disk. That means tracked files and
       untracked files git does not ignore. It includes source, `composer.json`,
-      `composer.lock`, the PHPUnit and runner configs, the gate's config,
-      templates, translations and documentation. Three exceptions:
+      `composer.lock`, the PHPUnit and runner configs, templates, translations
+      and documentation. Four exceptions:
+      - **The gate's config file** is left out, because item 3 already holds
+        what of it affects results. Each `composer.json` is hashed with its
+        `extra.mutation-gate` entry removed, for the same reason.
       - **CI definition files** are left out, except the one that runs the
         gate. That one is included as its text with comments and action pins
         (`uses: owner/repo@<sha>`) removed. A pin move or a comment is not a
@@ -118,7 +123,7 @@ has to bring its result with it.
            "9c1e…64 hex…": {
                "unit": "src/Money.php",
                "at": "2026-09-29T20:48:17Z",
-               "run": "github:18230411872/1",
+               "run": "github:<run id>/<attempt>",
                "mutants": [
                    { "id": "3f9a1c2b7d04", "line": 42, "status": "survived", "mutator": "LessThan", "diff": "…" },
                    { "id": "81d0c9e2aa17", "line": 44, "status": "killed" }
@@ -126,9 +131,9 @@ has to bring its result with it.
            }
        },
        "timings": {
-           "src/Money.php": { "seconds": 12.4, "runner": "pest", "at": "2026-09-29T20:48:17Z" }
+           "src/Money.php": { "seconds": 12.4, "runner": "infection", "at": "2026-09-29T20:48:17Z" }
        },
-       "passed": "5eeca8f…"
+       "passed": "<commit sha>"
    }
    ```
 
@@ -215,4 +220,4 @@ signed, and the README says where the boundary lies for each store.
 - [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): runner identity and judging tests
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): `last-passed` and the scheduled full run
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): timings, and the verdict that writes the ledger
-- [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): why unjudged and flaky results are never recorded
+- [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): why budget-cut and flaky units are never recorded

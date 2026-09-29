@@ -60,13 +60,14 @@ sees the same verdict.
      it is public API (ADR-0011).
    - **JUnit XML** (`junit`). One `<testsuite>` per tree, and one for new code.
      In each suite, one `<testcase>` stands for its floor. It fails exactly
-     when the gate fails that tree, and the failure body lists every survived,
-     uncovered, unjudged and flaky mutant with line, mutator, diff, hint and
-     reproduce command. A tree at 80% that passes its floor of 80 does not show
+     when the gate fails that tree, and the failure body lists every mutant it
+     counts as not killed, with line, mutator, diff, hint and reproduce
+     command. A tree at 80% that passes its floor of 80 does not show
      as a failed test. JUnit failures match gate failures one to one.
    - **SARIF 2.1.0** (`sarif`).
      - One run, with the tool named `mutation-gate`.
-     - Four rules: `survived`, `uncovered`, `unjudged` and `flaky`.
+     - Four rules: `survived`, `uncovered`, `unjudged` (which includes too
+       slow to judge) and `flaky`.
      - Each result is at the mutant's file and lines. Its level is `error` when
        the mutant is in a set that failed (new code, or a tree below its floor)
        and `warning` otherwise.
@@ -74,7 +75,7 @@ sees the same verdict.
        `partialFingerprints.primaryLocationLineHash`, the one fingerprint
        GitHub code scanning reads. Code scanning can then match a result across
        commits when code above the mutant moves.
-     - The README's example uploads it with `github/codeql-action/upload-sarif`.
+     - The README says to upload it with `github/codeql-action/upload-sarif`.
 
 3. **What GitHub shows on the pull request.**
    - **Line annotations.** Written as workflow commands, which need no
@@ -109,9 +110,9 @@ sees the same verdict.
        - a link to the run and its HTML report.
      - **Fork pull requests.** The token GitHub gives a `pull_request` run from
        a fork is read-only, so no comment is written. The step summary carries
-       the same content, and the reporter says why without failing. The README
-       does not recommend `pull_request_target`, which would run the fork's code
-       with a token that can write.
+       the same content, and the reporter says why without failing. The README's
+       examples use `pull_request`, not `pull_request_target`, which would run
+       the fork's code with a token that can write.
      - **Other CIs** have no comment. The console, JUnit and the HTML report
        carry the same content there.
 

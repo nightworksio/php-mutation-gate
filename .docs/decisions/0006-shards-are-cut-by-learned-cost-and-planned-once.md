@@ -15,7 +15,7 @@ over a GitHub matrix:
 
 Shards are cut in path order into runs of about 600 seconds each. A file's
 weight is its lines of code times a seconds-per-line figure for its path, and
-those figures were fitted by hand to every shard of one CI run, with 0.2 for
+those figures are fitted by hand to every shard of one CI run, with 0.2 for
 paths that have no figure of their own. The seed replaces the hand fit with
 measurement: it shares a shard's time among its files by their mutants'
 durations.
@@ -50,7 +50,9 @@ Two parts of that do not carry over to a public package.
      - The shard is `--shard=<id>` or, without it, the one the CI's
        environment names (decision 5).
      - It exits 0 once its result file is written, whatever its mutants did,
-       because the verdict judges them. It exits 2 when it cannot write one.
+       because the verdict judges them. A runner's *cannot judge* is written
+       into the result file with the runner's output, so the verdict reports
+       it. The shard exits 2 only when it cannot write the file at all.
    - **`mutation-gate verdict --plan=<file> --results=<dir>`**:
      - requires a result file for every shard in the plan;
      - merges them with proved and carried results;
@@ -83,7 +85,7 @@ Two parts of that do not carry over to a public package.
      Past that limit, shards grow instead.
    - **Floors do not separate shards.** The verdict adds up per-mutant
      results itself (ADR-0003), so units at different floors can share a shard.
-   - **Packages still do.** A shard runs in one package's directory (ADR-0005).
+   - **Packages do.** A shard runs in one package's directory (ADR-0005).
    - **Held units run on their own.** A held unit is one runner invocation of
      its own, against its group. A shard with held units runs each of them, then
      one invocation for all its other units.
@@ -140,9 +142,9 @@ Two parts of that do not carry over to a public package.
 6. **GitHub is wired by the package itself** (ADR-0011). The composite action
    runs the whole gate in one job, or one shard when given `shard`. The
    reusable workflow `.github/workflows/mutation-gate.yml` runs a plan job,
-   one matrix job per shard and a verdict job. It carries the plan, coverage
-   and results between jobs as artifacts, and keeps the ledger in the Actions
-   cache.
+   one matrix job per shard, a verdict job and, on the default branch, a
+   publish job. It carries the plan, coverage and results between jobs as
+   artifacts, and keeps the ledger in the Actions cache.
 
 ## Alternatives considered
 
