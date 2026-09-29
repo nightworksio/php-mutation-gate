@@ -157,11 +157,11 @@ Two parts of that do not carry over to a public package.
 
    On a pull request the scope is `refs/pull/<n>`, where n is the number the CI
    names, and otherwise `refs/heads/<branch>`. A run with no ref, on a detached
-   `HEAD` outside CI, has no scope of its own: it reads the default branch's
-   ledger and writes none (ADR-0007). `ci.defaultBranch` is a branch name. By
-   default it is the branch git's `refs/remotes/origin/HEAD` points at, and
-   `main` when there is none. Set in the config, it replaces the CI's own answer
-   too.
+   `HEAD` under the JSON plan, in CI or locally, has no scope of its own: it
+   reads the default branch's ledger and writes none (ADR-0007).
+   `ci.defaultBranch` is a branch name. By default it is the branch git's
+   `refs/remotes/origin/HEAD` points at, and `main` when there is none. Set in
+   the config, it replaces the CI's own answer too.
 
 6. **GitHub is wired by the package itself** (ADR-0011). The composite action
    runs the whole gate in one job, or one shard when given `shard`. The

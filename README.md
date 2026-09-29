@@ -578,7 +578,9 @@ cache plugin keyed by branch.
 CircleCI's parallelism is fixed in the config, so the plan cuts exactly that
 many shards, and each `mutation` node reads its shard from `CIRCLE_NODE_INDEX`.
 The ledger's cache keys use a checksum of the branch name, so no branch's key
-is a prefix of another's.
+is a prefix of another's. Each branch's cache holds only its own ledger: the
+verdict job drops the default branch's copy before saving, and the plan job
+restores both caches in turn.
 
 ```yaml
 jobs:
@@ -591,9 +593,9 @@ jobs:
           echo "$CIRCLE_BRANCH" > .mutation-gate/branch
           echo main > .mutation-gate/default-branch
       - restore_cache:
-          keys:
-            - mutation-gate-ledger-{{ checksum ".mutation-gate/branch" }}-
-            - mutation-gate-ledger-{{ checksum ".mutation-gate/default-branch" }}-
+          keys: [mutation-gate-ledger-{{ checksum ".mutation-gate/branch" }}-]
+      - restore_cache:
+          keys: [mutation-gate-ledger-{{ checksum ".mutation-gate/default-branch" }}-]
       - run: composer install
       - run: |
           if [ "<< pipeline.trigger_source >>" = "scheduled_pipeline" ]; then base=""
@@ -617,6 +619,7 @@ jobs:
       - attach_workspace: { at: . }
       - run: composer install
       - run: vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
+      - run: '[ "$CIRCLE_BRANCH" = main ] || rm -rf .mutation-gate/ledger/refs/heads/main'
       - save_cache:
           key: mutation-gate-ledger-{{ checksum ".mutation-gate/branch" }}-{{ .Revision }}
           paths: [.mutation-gate/ledger]
@@ -641,8 +644,14 @@ vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id>   # on
 vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
 ```
 
-Pass `--changed-since` with a pull request's base, or `last-passed` on the
-default branch, and leave it out of a weekly scheduled full run. Carry
+Check out the branch by name (`git checkout -B <branch>`) before each step,
+because the JSON plan takes the run's ref from git's current branch. On a
+detached `HEAD` a run writes no ledger and publishes nothing
+([ADR-0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md)).
+The JSON plan never treats a run as a pull request, so there the new-code
+floor applies only in pre-push and watch. Pass `--changed-since` with a
+change's base, or `last-passed` on the default branch, and leave it out of a
+weekly scheduled full run. Carry
 `.mutation-gate/` from job to job, and keep `.mutation-gate/ledger` between
 runs with whatever cache your CI has, keyed by branch. Proofs can also live in
 S3 or R2

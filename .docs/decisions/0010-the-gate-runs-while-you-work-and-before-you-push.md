@@ -43,8 +43,8 @@ The pieces already exist in the design:
      changes, the changed tests are run again under coverage and their entries
      in the map are replaced, so what a changed test reaches stays true. A
      change that reaches everything (ADR-0005, rule 1) rebuilds the map.
-   - **Proofs.** Results go into the local ledger (`.mutation-gate/ledger`), so
-     reverting an edit costs nothing: its key is proved already.
+   - **Proofs.** Results go into the local ledger, the directory store of
+     decision 4, so reverting an edit costs nothing: its key is proved already.
    - **Verdict.** Watch mode judges the new-code floor over everything changed
      since `HEAD`. It shows tree scores with carried results, but does not
      enforce them. It never writes the baseline.

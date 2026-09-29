@@ -259,7 +259,7 @@ its parser attributes. Both change when the checkout moves.
      line past the filter limit is *cannot judge* with a message pointing at
      the patch.
    - **Timeouts** are Pest's own and cannot be changed, so timeout triage for
-     Pest does not rerun anything. It compares the covering tests' own time
+     Pest does not rerun anything. It compares the judging tests' own time
      with the limit (ADR-0008).
 
 4. **The Infection adapter** (`infection/infection` ~0.35.0, with PHPUnit 12
@@ -337,9 +337,9 @@ its parser attributes. Both change when the checkout moves.
    - **Infection** runs the covering test cases' classes, and the adapter
      answers with their files.
    - **A unit whose tokens hold a class or interface constant, a property
-     default, an enum case, a plain parameter default or an attribute
-     argument** can have mutants that decision 8 judges by reference, so for
-     it the answer is every test file.
+     default, an enum case, a plain function's or closure's parameter default or
+     an attribute argument** can have mutants that decision 8 judges by
+     reference, so for it the answer is every test file.
 
    A mutant's *judging tests* are the tests that decide its result: its
    covering tests, or for decision 8 the test files it selected and, where
@@ -419,7 +419,8 @@ its parser attributes. Both change when the checkout moves.
 
      An attribute's argument and a closure's parameter default have no
      reference a token scan can follow, so they are always ambiguous. In a
-     held unit (ADR-0005), every set below is limited to the holding group.
+     held unit (ADR-0005), every set this decision names, the fallback
+     included, is limited to the holding group.
    - **The fallback** is the set of test files that cover the owner's file.
      It is used when it has at most 10 test files:
      - when the scan is ambiguous (a variable class such as `$class::NAME`, a
@@ -443,11 +444,12 @@ its parser attributes. Both change when the checkout moves.
      the same mechanism Pest uses for its own mutants:
      1. The plugin copies each such mutant's mutated file from its
         `Uncovered` event to `.mutation-gate/mutants/<native id>.php`.
-     2. The selected tests run once as they are. If they fail, every mutant
-        they would judge is unjudged: *the selected tests fail on their own*.
+     2. The selected tests run once as they are, narrowed as in step 3. If
+        they fail, every mutant they would judge is unjudged: *the selected
+        tests fail on their own*.
      3. For each mutant, the gate runs `vendor/bin/pest --no-tia --bail
-        --colors=never --log-junit=<file>` over the selected test files, from
-        the project root, with the two variables and `MUTATION_GATE_GUARD`
+        --colors=never --log-junit=<file>` over the selected test files, with
+        `--group=holds:<path>` for a held unit, from the project root, with the two variables and `MUTATION_GATE_GUARD`
         set. Several mutants run at once, each serially, with Pest's own
         parallel tokens.
      4. A failing test kills the mutant, and a passing run leaves it alive for
@@ -525,5 +527,5 @@ interfaces, so each is added only once the contract suite passes on it.
 - [ADR-0001](0001-a-framework-free-core-behind-eight-ports.md): the port and its outcomes
 - [ADR-0003](0003-a-floor-only-rises.md): how statuses become a score
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): holding groups and `#[Holds]`
-- [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): runner identity and judging tests in the key
+- [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): runner identity, and the tests that can judge a unit, in the key
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): timeouts, flaky results and ignores

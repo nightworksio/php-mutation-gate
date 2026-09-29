@@ -85,7 +85,7 @@ has to bring its result with it.
       blob id of its content as it is on disk. That means tracked files and
       untracked files git does not ignore. It includes source, `composer.json`,
       `composer.lock`, the PHPUnit and runner configs, templates, translations
-      and documentation. Four exceptions:
+      and documentation. Five exceptions:
       - **The gate's config file** is left out, because item 3 already holds
         what of it affects results. Each `composer.json` is hashed with its
         `extra.mutation-gate` entry removed, for the same reason.
@@ -94,16 +94,20 @@ has to bring its result with it.
         (`uses: owner/repo@<sha>`) removed. A pin move or a comment is not a
         change to how a mutant runs. The seed does the same.
       - **The baseline file** only holds floors.
+      - **The gate's own files** are left out whatever `.gitignore` says:
+        `.mutation-gate/`, the directory store's `path`, the `--publish-dir`
+        and every `reports` path. The ledger changes after every run, and a
+        key that held it would never match again.
       - **`proofs.ignore`**, a list of globs, empty by default, is the
         project's own statement that no test reads those paths (`docs/**`,
         say).
    7. **Of the test directories, only what can judge this unit**:
       - the test files the runner says can judge it (ADR-0004). For a held unit,
-        that is every test file, because any file can join a group. So it is
-        for a unit whose tokens hold a class or interface constant, a property
-        default, an enum case, a plain parameter default or an attribute
-        argument, because any file can come to reference it (ADR-0004,
-        decisions 5 and 8);
+        that is every test file, because any file can join a group. So it is for
+        a unit whose tokens hold a class or interface constant, a property
+        default, an enum case, a plain function's or closure's parameter default
+        or an attribute argument, because any file can come to reference it
+        (ADR-0004, decisions 5 and 8);
       - the support those files name, and the support that names in turn,
         matched by the class and function names each file declares. Matching
         over-reads on purpose: a word that happens to match brings the file in;
@@ -206,7 +210,7 @@ has to bring its result with it.
 
 | Option | Why it lost |
 |--------|-------------|
-| **Key over the files the judging tests executed** (the in-house gate's key) | Misses what no coverage map records: constants, defaults, attributes read by reflection, classes found by scanning. The key can then match while the result it names has changed. |
+| **Key over the files the covering tests executed** (the in-house gate's key) | Misses what no coverage map records: constants, defaults, attributes read by reflection, classes found by scanning. The key can then match while the result it names has changed. |
 | **One proof per shard** (the in-house gate's) | A shard's contents move with every timing (ADR-0006), and one changed file in it invalidates the whole shard. |
 | **Only *passed* in a proof** | Enough at a floor of 100. Below it, a tree's score needs every unit's counts. |
 | **Floors or ignores in the key** | Raising a floor or adding an ignore would re-run every unit, though no mutant's result depends on either. |
@@ -239,7 +243,7 @@ signed, and the README says where the boundary lies for each store.
 ## Related
 
 - [ADR-0003](0003-a-floor-only-rises.md): why a proof carries counts
-- [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): runner identity and judging tests
+- [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): runner identity, and the tests that can judge a unit
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): `last-passed` and the scheduled full run
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): timings, and the verdict that writes the ledger
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): why budget-cut and flaky units are never recorded

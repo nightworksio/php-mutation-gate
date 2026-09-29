@@ -68,7 +68,7 @@ sees the same verdict.
      - One run, with the tool named `mutation-gate`.
      - Four rules: `survived`, `uncovered`, `unjudged` and `flaky`. The
        `unjudged` rule reports both unjudged mutants and those too slow to
-       judge, two statuses the ledger treats differently (ADR-0007).
+       judge.
      - Each result is at the mutant's file and lines. Its level is `error` when
        the mutant is in a set that failed (new code, or a tree below its floor)
        and `warning` otherwise.
@@ -195,8 +195,8 @@ sees the same verdict.
 7. **Every survivor says what the tests miss.** Each runner adapter maps its
    native mutator names to a family. Each family has one sentence, filled in
    from the diff and from the enclosing function, found by the file's tokens.
-   The sentence always names the judging tests (ADR-0004): up to three, then
-   *and n more*.
+   The sentence names the judging tests (ADR-0004), where there are any: up to
+   three, then *and n more*.
 
    | Family | Example | What the hint says |
    |--------|---------|--------------------|
