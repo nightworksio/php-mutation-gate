@@ -96,7 +96,9 @@ has to bring its result with it.
         say).
    7. **Of the test directories, only what can judge this unit**:
       - the test files the runner says can judge it (ADR-0004). For a held unit,
-        that is every test file, because any file can join a group;
+        that is every test file, because any file can join a group. So it is
+        for a unit with a mutant on a line that is not executable, because any
+        file can come to reference its symbol (ADR-0004, decision 8);
       - the support those files name, and the support that names in turn,
         matched by the class and function names each file declares. Matching
         over-reads on purpose: a word that happens to match brings the file in;

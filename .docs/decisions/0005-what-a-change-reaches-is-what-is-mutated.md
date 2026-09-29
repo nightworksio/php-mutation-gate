@@ -207,7 +207,9 @@ The same repository has two more needs.
        matching `#[Group]`.** Pest loads a PHPUnit class file with a plain
        `include`, and only its own closure tests pass through the filter.
        PHPUnit reads groups only from its own attributes, and its `Group` is
-       final (the Alternatives below).
+       final (the Alternatives below). The gate reads both attributes from
+       tokens, and the message prints the exact line to add:
+       `#[Group('holds:<path>')]`.
      - **Under Infection, a path that is not one string literal**, such as a
        constant. The gate reads `#[Holds]` from tokens there, and tokens cannot
        evaluate an expression. Under Pest such a path works, because the
