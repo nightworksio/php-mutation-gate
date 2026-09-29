@@ -94,9 +94,11 @@ final readonly class TestReach
             ->of($path, $this->declaredBy($change), $this->named($package));
 
         if ($users instanceof Reason || $this->coverage instanceof NoMap) {
-            return $reach->wholly(Paths::of($package->path()), $users instanceof Reason ? $users : Reason::that(
-                sprintf(self::NO_MAP, $path->value(), $this->named($package)),
-            ));
+            $why = $users instanceof Reason
+                ? $users
+                : Reason::that(sprintf(self::NO_MAP, $path->value(), $this->named($package)));
+
+            return $reach->wholly(Paths::of($package->path()), $why);
         }
 
         $files = Paths::none();

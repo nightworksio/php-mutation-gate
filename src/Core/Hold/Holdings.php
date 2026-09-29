@@ -176,12 +176,14 @@ final readonly class Holdings
      */
     private function filterFor(array $holders): string
     {
-        return sprintf('/^(?:%s)/', implode('|', array_map(
+        $patterns = array_map(
             static fn(string $holder): string => str_contains($holder, '::')
                 ? sprintf('%s\b', preg_quote($holder, '/'))
                 : sprintf('%s::', preg_quote($holder, '/')),
             $holders,
-        )));
+        );
+
+        return sprintf('/^(?:%s)/', implode('|', $patterns));
     }
 
     /** @param array<string, Unit> $units by path */

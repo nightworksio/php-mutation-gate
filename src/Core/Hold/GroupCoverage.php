@@ -43,12 +43,9 @@ final readonly class GroupCoverage
             ? self::missed($held->path(), $suite, $group)
             : [sprintf(self::WHOLE, $held->path()->value())];
 
-        return $missed === [] ? Covered::by($held) : NotCovered::because($held, sprintf(
-            self::MISSES,
-            self::nameOf($held),
-            $held->path()->value(),
-            implode(', ', $missed),
-        ));
+        $message = sprintf(self::MISSES, self::nameOf($held), $held->path()->value(), implode(', ', $missed));
+
+        return $missed === [] ? Covered::by($held) : NotCovered::because($held, $message);
     }
 
     private static function runsAny(CoverageMap $map, Path $path): bool
