@@ -58,6 +58,10 @@ parameters:
             - Symfony\Component\Process\Exception\LogicException
             - Symfony\Component\Process\Exception\ProcessSignaledException
             - Symfony\Component\Process\Exception\ProcessTimedOutException
+            - Symfony\Component\Process\Exception\RuntimeException
+            # A floor or a score out of range is a mistake in the code that
+            # built it, never something a caller can answer.
+            - NightWorksIO\MutationGate\Core\Score\NotAPercentage
 
     ergebnis:
         # C4 is ergebnis's NoErrorSuppressionRule and the `switch` half of C5 is
@@ -438,9 +442,13 @@ services:
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoMagicMethodRule
         tags:
             - phpstan.rules.rule
-    # P2
+    # P2, with the one file that constructs a class by a name it read: the
+    # extension classes the Composer manifests name (ADR-0001).
     -
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoDynamicAccessRule
+        arguments:
+            classNamedAtRuntimeIn:
+                - src/Cli/Discovery/Discovery.php
         tags:
             - phpstan.rules.rule
     # Q3
