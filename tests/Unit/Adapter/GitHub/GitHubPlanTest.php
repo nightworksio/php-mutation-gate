@@ -125,7 +125,9 @@ it('reads a pull request ref as a pull request only on a pull request event', fu
             'GITHUB_REF is "refs/pull/12/merge", which is neither a branch nor a pull request.',
         ))
         ->and($pullRequest->runOn())
-        ->toEqual(RunOn::branch('x', CannotTell::because('The event payload does not name the default branch.')));
+        ->toEqual(RunOn::branch('x', CannotTell::because(
+            'No event payload could be read, so the default branch is not known.',
+        )));
 });
 
 it('cannot tell the run of a tag', function (): void {
@@ -139,6 +141,7 @@ it('cannot tell the default branch from a payload that does not name it or canno
     file_put_contents(sprintf('%s/locked.json', $root), '{"repository": {"default_branch": "main"}}');
     chmod(sprintf('%s/locked.json', $root), 0o000);
     $unnamed = CannotTell::because('The event payload does not name the default branch.');
+    $unread = CannotTell::because('No event payload could be read, so the default branch is not known.');
     $runOn = static fn(string $event): RunOn|CannotTell => GitHubPlan::in(Variables::of([
         'GITHUB_REF' => 'refs/heads/main',
         'GITHUB_EVENT_PATH' => $event,
@@ -149,8 +152,8 @@ it('cannot tell the default branch from a payload that does not name it or canno
     restore_error_handler();
 
     expect($runOn(sprintf('%s/other.json', $root)))->toEqual(RunOn::branch('main', $unnamed))
-        ->and($runOn(sprintf('%s/absent.json', $root)))->toEqual(RunOn::branch('main', $unnamed))
-        ->and($locked)->toEqual(RunOn::branch('main', $unnamed));
+        ->and($runOn(sprintf('%s/absent.json', $root)))->toEqual(RunOn::branch('main', $unread))
+        ->and($locked)->toEqual(RunOn::branch('main', $unread));
 });
 
 it('reads the output file from the environment', function (): void {

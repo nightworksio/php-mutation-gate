@@ -39,10 +39,10 @@ it('reads back the keys it wrote', function () use ($keys): void {
 });
 
 it('refuses keys that are not a map of text', function (): void {
-    expect(fn() => KeysRecord::read(Node::decode('{"keys": {"src/A.php": 7}}')->field('keys')))
+    expect(fn(): Keys => KeysRecord::read(Node::decode('{"keys": {"src/A.php": 7}}')->field('keys')))
         ->toThrow(NotInShape::at('the file.keys.src/A.php', 'text'))
-        ->and(fn() => KeysRecord::read(Node::decode('{"keys": {"src/A.php": {"unkeyed": 7}}}')->field('keys')))
+        ->and(fn(): Keys => KeysRecord::read(Node::decode('{"keys": {"src/A.php": {"unkeyed": 7}}}')->field('keys')))
         ->toThrow(NotInShape::at('the file.keys.src/A.php.unkeyed', 'text'))
-        ->and(fn() => KeysRecord::read(Node::decode('{}')->field('keys')))
+        ->and(fn(): Keys => KeysRecord::read(Node::decode('{}')->field('keys')))
         ->toThrow(NotInShape::missing('the file.keys'));
 });

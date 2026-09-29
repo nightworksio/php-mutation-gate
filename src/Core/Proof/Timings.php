@@ -67,7 +67,13 @@ final readonly class Timings implements Countable, IteratorAggregate
     /** These timings and another's, each unit keeping its newest. */
     public function and(self $other): self
     {
-        return self::of(...array_values($this->timings), ...array_values($other->timings));
+        $merged = $this;
+
+        foreach ($other->timings as $timing) {
+            $merged = $merged->with($timing);
+        }
+
+        return $merged;
     }
 
     /** Only the timings of these units, which are the ones that still exist. */

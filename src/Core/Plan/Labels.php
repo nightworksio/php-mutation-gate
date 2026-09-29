@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_filter;
-use function array_key_last;
 use function array_keys;
+use function array_last;
 use function array_map;
 use function count;
 use function implode;
 use function in_array;
-use function iterator_to_array;
 use function mb_strlen;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -73,7 +72,7 @@ final readonly class Labels
     private static function treeOf(Path $unit, Trees $trees): string
     {
         $holding = array_filter(
-            iterator_to_array($trees, preserve_keys: false),
+            [...$trees],
             static fn(Tree $tree): bool => self::holds($tree, $unit),
         );
 
@@ -86,7 +85,7 @@ final readonly class Labels
             static fn(Tree $one, Tree $other): int => self::depthOf($one) <=> self::depthOf($other),
         );
 
-        return $holding[array_key_last($holding)]->path()->value();
+        return array_last($holding)->path()->value();
     }
 
     private static function depthOf(Tree $tree): int
@@ -104,14 +103,27 @@ final readonly class Labels
     /** @param list<list<string>> $named each run's trees */
     private static function labelOf(int $at, array $named): string
     {
-        return implode('; ', array_map(static function (string $tree) use ($at, $named): string {
-            $spans = array_keys(array_filter(
-                $named,
-                static fn(array $trees): bool => in_array($tree, $trees, strict: true),
-            ));
-            $part = count(array_filter($spans, static fn(int $span): bool => $span <= $at));
+        $parts = [];
 
-            return count($spans) === 1 ? $tree : sprintf('%s, part %d of %d', $tree, $part, count($spans));
-        }, $named[$at]));
+        foreach ($named[$at] as $tree) {
+            $parts[] = self::partOf($tree, $at, $named);
+        }
+
+        return implode('; ', $parts);
+    }
+
+    /**
+     * A tree as the label of one run names it, with the part of it that run
+     * takes where the tree spans several.
+     *
+     * @param list<list<string>> $named each run's trees
+     */
+    private static function partOf(string $tree, int $at, array $named): string
+    {
+        $taking = array_filter($named, static fn(array $trees): bool => in_array($tree, $trees, strict: true));
+        $spans = array_keys($taking);
+        $part = count(array_filter($spans, static fn(int $span): bool => $span <= $at));
+
+        return count($spans) === 1 ? $tree : sprintf('%s, part %d of %d', $tree, $part, count($spans));
     }
 }

@@ -12,7 +12,7 @@ use Countable;
 /** Mutants by the gate's id, each once. */
 final readonly class MutantIds implements Countable
 {
-    /** @param array<string, true> $ids */
+    /** @param array<string, MutantId> $ids by value */
     private function __construct(private array $ids)
     {
     }
@@ -27,7 +27,7 @@ final readonly class MutantIds implements Countable
         $collected = [];
 
         foreach ($ids as $id) {
-            $collected[$id->value()] = true;
+            $collected[$id->value()] = $id;
         }
 
         return new self($collected);

@@ -97,7 +97,7 @@ it('tells a full record from a brief one', function () use ($killed, $read): voi
 });
 
 it('refuses a record that does not hold a mutant, saying where', function (array $change, NotInShape $refusal) use ($timedOut, $read): void {
-    expect(fn() => MutantRecord::readFull($read([...MutantRecord::full($timedOut), ...$change])))->toThrow($refusal);
+    expect(fn(): Mutant => MutantRecord::readFull($read([...MutantRecord::full($timedOut), ...$change])))->toThrow($refusal);
 })->with([
     'an id that is not one' => [['id' => 'xyz'], NotInShape::at('the file.id', 'a mutant id')],
     'a line before the first' => [['line' => 0], NotInShape::at('the file.line', 'a line')],
@@ -110,8 +110,8 @@ it('refuses a record that does not hold a mutant, saying where', function (array
 ]);
 
 it('refuses a brief record that does not hold a mutant', function () use ($killed, $read): void {
-    expect(fn() => MutantRecord::readBrief($read([...MutantRecord::brief($killed), 'line' => 0]), Path::of('src/Money.php')))
+    expect(fn(): Mutant => MutantRecord::readBrief($read([...MutantRecord::brief($killed), 'line' => 0]), Path::of('src/Money.php')))
         ->toThrow(NotInShape::at('the file.line', 'a line'))
-        ->and(fn() => MutantRecord::readBrief($read([...MutantRecord::brief($killed), 'status' => 'x']), Path::of('src/Money.php')))
+        ->and(fn(): Mutant => MutantRecord::readBrief($read([...MutantRecord::brief($killed), 'status' => 'x']), Path::of('src/Money.php')))
         ->toThrow(NotInShape::at('the file.status', 'a status'));
 });

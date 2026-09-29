@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
-use function array_fill;
 use function array_map;
+use function array_pad;
 use function array_sum;
 use function ceil;
 use function count;
@@ -64,7 +64,7 @@ final readonly class Cut
             $runs = [...$runs, ...Runs::into($packages[$package], $count)];
         }
 
-        return Labels::of($this->exact ? [...$runs, ...array_fill(0, $this->most - count($runs), [])] : $runs, $trees);
+        return Labels::of($this->exact ? array_pad($runs, $this->most, []) : $runs, $trees);
     }
 
     /**
@@ -77,12 +77,12 @@ final readonly class Cut
      */
     private function countsFor(array $packages): array
     {
-        $size = $this->exact ? Runs::costOf(self::every($packages)) / $this->most : $this->seconds;
-        $counts = self::countsAt($packages, $size);
+        $size = $this->exact ? array_sum(array_map(Runs::costOf(...), $packages)) / $this->most : $this->seconds;
+        $counts = $this->countsAt($packages, $size);
 
         while (array_sum($counts) > $this->most && array_sum($counts) > count($packages)) {
             $size = $size * array_sum($counts) / $this->most;
-            $counts = self::countsAt($packages, $size);
+            $counts = $this->countsAt($packages, $size);
         }
 
         return $counts;
@@ -92,27 +92,12 @@ final readonly class Cut
      * @param  array<string, list<Weighed>> $packages
      * @return array<string, int>
      */
-    private static function countsAt(array $packages, float $size): array
+    private function countsAt(array $packages, float $size): array
     {
         return array_map(static function (array $units) use ($size): int {
             $cost = Runs::costOf($units);
 
             return $cost > 0.0 && $size > 0.0 ? (int) ceil($cost / $size) : 1;
         }, $packages);
-    }
-
-    /**
-     * @param  array<string, list<Weighed>> $packages
-     * @return list<Weighed>
-     */
-    private static function every(array $packages): array
-    {
-        $every = [];
-
-        foreach ($packages as $units) {
-            $every = [...$every, ...$units];
-        }
-
-        return $every;
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Unit;
 
 use function array_map;
-use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -30,7 +29,7 @@ final readonly class UnitRecord
     /** @return list<array<string, string>> */
     public static function all(Units $units): array
     {
-        return array_map(self::one(...), iterator_to_array($units, preserve_keys: false));
+        return array_map(self::one(...), [...$units]);
     }
 
     /** @return array<string, string> */

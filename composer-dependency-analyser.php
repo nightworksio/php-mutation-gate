@@ -45,9 +45,10 @@ return (new Configuration())
     // The libraries ADR-0001 builds the adapters on: the clock, the process
     // runner and the HTTP client. They are required so a project installs the
     // versions the package supports, and no file under src names them; the
-    // tests run processes with the process runner.
-    ->ignoreErrorsOnPackages(['psr/clock', 'symfony/http-client'], [ErrorType::UNUSED_DEPENDENCY])
-    ->ignoreErrorsOnPackage('symfony/process', [ErrorType::PROD_DEPENDENCY_ONLY_IN_DEV])
+    // tests run processes with the process runner, and serve the S3 proof
+    // store from a stand-in HTTP client.
+    ->ignoreErrorsOnPackage('psr/clock', [ErrorType::UNUSED_DEPENDENCY])
+    ->ignoreErrorsOnPackages(['symfony/process', 'symfony/http-client'], [ErrorType::PROD_DEPENDENCY_ONLY_IN_DEV])
     // The S3 proof store's client, which is suggested rather than required: a
     // project that keeps its ledger in a bucket installs it, and the adapter
     // is built only when the config chooses it.

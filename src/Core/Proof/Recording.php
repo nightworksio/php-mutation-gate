@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_filter;
 use function count;
-use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -53,7 +52,7 @@ final readonly class Recording
     private static function unfinishedIn(Mutants $mutants, MutantIds $flaky): int
     {
         return count(array_filter(
-            iterator_to_array($mutants, preserve_keys: false),
+            [...$mutants],
             static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Unjudged
                 || $flaky->has($mutant->id()),
         ));

@@ -44,16 +44,22 @@ final readonly class BucketOptions
     public static function read(Options $options): self|Invalid
     {
         $with = Node::decode($options->json());
-        $read = [];
+        $read = self::DEFAULTS;
         $problems = [];
 
         foreach (self::DEFAULTS as $option => $otherwise) {
             $value = self::textOr($with, $option, $otherwise);
-            $read[$option] = $value instanceof Problem ? $otherwise : $value;
-            $problems = $value instanceof Problem ? [...$problems, $value] : $problems;
+
+            if ($value instanceof Problem) {
+                $problems[] = $value;
+
+                continue;
+            }
+
+            $read[$option] = $value;
         }
 
-        $problems = $read[self::BUCKET] === '' && $problems === []
+        $problems = $problems === [] && $read[self::BUCKET] === ''
             ? [Problem::at(self::BUCKET, 'The bucket the ledgers are kept in is required.')]
             : $problems;
 

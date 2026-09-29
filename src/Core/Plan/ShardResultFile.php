@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_map;
-use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -54,7 +53,7 @@ final readonly class ShardResultFile
             ...$outcome instanceof CannotJudge ? [self::CANNOT_JUDGE => $outcome->why()] : [
                 'mutants' => array_map(
                     MutantRecord::full(...),
-                    iterator_to_array($outcome->mutants(), preserve_keys: false),
+                    [...$outcome->mutants()],
                 ),
                 'skipped' => $outcome->skipped(),
             ],

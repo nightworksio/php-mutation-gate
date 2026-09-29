@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_key_last;
+use function array_last;
 use function array_map;
 use function array_slice;
 use function array_sum;
@@ -36,7 +37,7 @@ final readonly class Runs
             }
         }
 
-        return $runs[array_key_last($runs)] === [] ? array_slice($runs, 0, -1) : $runs;
+        return array_last($runs) === [] ? array_slice($runs, 0, -1) : $runs;
     }
 
     /** @param list<Weighed> $units */

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_map;
-use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -65,7 +64,7 @@ final readonly class PlanFile
             'format' => self::FORMAT,
             'commit' => $plan->commit()->name(),
             'keys' => KeysRecord::of($plan->keys()),
-            'shards' => array_map(self::shard(...), iterator_to_array($plan, preserve_keys: false)),
+            'shards' => array_map(self::shard(...), [...$plan]),
         ];
     }
 

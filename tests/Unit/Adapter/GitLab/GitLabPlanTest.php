@@ -58,6 +58,14 @@ it('writes a child pipeline with a matrix of the shards and a verdict that alway
         ]);
 });
 
+it('makes every directory the pipeline needs', function () use ($planJob): void {
+    $pipeline = sprintf('%s/build/.mutation-gate/pipeline.yml', Scratch::directory());
+
+    expect(GitLabPlan::writing($pipeline, 'ci/gate.yml', $planJob('plan'))->publish(ShardedPlan::of(0)))
+        ->toEqual(Written::to($pipeline))
+        ->and(is_file($pipeline))->toBeTrue();
+});
+
 it('writes the pipeline as JSON, which GitLab reads as YAML', function () use ($planJob): void {
     $pipeline = sprintf('%s/pipeline.yml', Scratch::directory());
     GitLabPlan::writing($pipeline, '.gitlab/mutation-gate.yml', $planJob('plan'))->publish(ShardedPlan::of(0));

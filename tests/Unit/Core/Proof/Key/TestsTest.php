@@ -46,8 +46,8 @@ it('reads the judging files, the support they name transitively, and what is in 
         'tests/Unit/UnknownTest.php',
         'tests/Pest.php',
         'tests/fixtures/money.json',
-        'tests/Support/Base.php',
         'tests/Support/Bird.php',
+        'tests/Support/Base.php',
         'tests/Unit/MoneyTest.php',
         'tests/Support/Helper.php',
         'tests/Support/Wing.php',
@@ -79,7 +79,7 @@ it('follows what each file names before the files it named later', function () u
     );
 
     expect($values($tests->readBy($paths('tests/ATest.php'))))
-        ->toBe(['tests/ATest.php', 'tests/B.php', 'tests/C.php', 'tests/E.php', 'tests/D.php']);
+        ->toBe(['tests/ATest.php', 'tests/B.php', 'tests/C.php', 'tests/D.php', 'tests/E.php']);
 });
 
 it('reads a judge it holds no file of by its path alone', function () use ($files, $known, $paths, $values): void {

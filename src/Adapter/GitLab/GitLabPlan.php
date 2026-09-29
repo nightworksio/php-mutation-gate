@@ -10,7 +10,6 @@ use function dirname;
 use function file_put_contents;
 use function getenv;
 use function is_dir;
-use function iterator_to_array;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -125,7 +124,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
         $fromThePlan = ['pipeline' => '$PARENT_PIPELINE_ID', 'job' => $planJob];
         $shards = array_map(
             static fn(Shard $shard): string => sprintf('%d', $shard->id()->number()),
-            iterator_to_array($plan, preserve_keys: false),
+            [...$plan],
         );
         $shardJob = [
             self::EXTENDS => self::HIDDEN_JOB,

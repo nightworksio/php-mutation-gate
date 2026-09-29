@@ -57,7 +57,7 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
 
     public function read(Scope $scope): Ledger
     {
-        $file = self::fileOf($scope);
+        $file = $this->fileOf($scope);
         $contents = $file instanceof Path ? $this->directory->read($file) : $file;
 
         return $contents instanceof Contents ? LedgerFile::decode($contents->text()) : Ledger::empty();
@@ -65,7 +65,7 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
 
     public function write(Scope $scope, Ledger $ledger): Written|NotWritten
     {
-        $file = self::fileOf($scope);
+        $file = $this->fileOf($scope);
         $written = $file instanceof Path
             ? $this->directory->write($file, Contents::of(LedgerFile::encode($ledger)))
             : $file;
@@ -74,7 +74,7 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     }
 
     /** Where a scope's ledger is, for a scope that is a branch's or a pull request's ref and nothing else. */
-    private static function fileOf(Scope $scope): Path|CannotJudge
+    private function fileOf(Scope $scope): Path|CannotJudge
     {
         $parsed = Scope::parse($scope->ref());
 

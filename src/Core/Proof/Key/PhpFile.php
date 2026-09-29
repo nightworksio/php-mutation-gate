@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
-use function array_key_last;
-use function array_keys;
-use function array_map;
+use function array_last;
+use function array_values;
 use function explode;
 use function mb_strtolower;
 
@@ -47,7 +46,7 @@ final readonly class PhpFile
     /**
      * @param list<string>        $declares every class, interface, trait, enum, function and constant it
      *                                      declares, lower-cased
-     * @param array<string, true> $names    every name and word it mentions, lower-cased
+     * @param array<string, string> $names    every name and word it mentions, lower-cased
      */
     private function __construct(private bool $onlyDeclares, private array $declares, private array $names)
     {
@@ -84,7 +83,7 @@ final readonly class PhpFile
     /** @return list<string> every name and word it mentions, lower-cased */
     public function names(): array
     {
-        return array_map(strval(...), array_keys($this->names));
+        return array_values($this->names);
     }
 
     private static function isSilent(PhpToken $token): bool
@@ -94,7 +93,7 @@ final readonly class PhpFile
 
     /**
      * @param  array<PhpToken>     $tokens
-     * @return array<string, true>
+     * @return array<string, string>
      */
     private static function mentionedIn(array $tokens): array
     {
@@ -102,7 +101,7 @@ final readonly class PhpFile
 
         foreach ($tokens as $token) {
             $lower = mb_strtolower($token->text);
-            $names += $token->is(self::NAME_TOKENS) ? [self::lastSegmentOf($lower) => true] : [];
+            $names += $token->is(self::NAME_TOKENS) ? self::named(self::lastSegmentOf($lower)) : [];
             $names += $token->is(self::TEXT_TOKENS) ? self::wordsIn($lower) : [];
         }
 
@@ -113,13 +112,13 @@ final readonly class PhpFile
     {
         $segments = explode('\\', $name);
 
-        return $segments[array_key_last($segments)];
+        return array_last($segments);
     }
 
     /**
      * Every word in some text, and every hyphenated run of words joined up.
      *
-     * @return array<string, true>
+     * @return array<string, string>
      */
     private static function wordsIn(string $text): array
     {
@@ -127,13 +126,23 @@ final readonly class PhpFile
         $words = [];
 
         foreach ($found[0] as $run) {
-            $words[str_replace('-', '', $run)] = true;
+            $words += self::named(str_replace('-', '', $run));
 
             foreach (explode('-', $run) as $word) {
-                $words[$word] = true;
+                $words += self::named($word);
             }
         }
 
         return $words;
+    }
+
+    /**
+     * A name, keyed by itself, so that a name read twice is held once.
+     *
+     * @return array<string, string>
+     */
+    private static function named(string $name): array
+    {
+        return [$name => $name];
     }
 }

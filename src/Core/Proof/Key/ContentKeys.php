@@ -13,7 +13,6 @@ use function hash_update;
 
 use HashContext;
 
-use function iterator_to_array;
 use function mb_strlen;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -101,7 +100,7 @@ final readonly class ContentKeys
 
         $judging = $unit->isHeld() ? $this->tests->testCases() : $judges;
 
-        foreach ([...$this->testsReadBy($judging), ...self::unitRead($unit, $coverage)] as $field) {
+        foreach ([...$this->testsReadBy($judging), ...$this->unitRead($unit, $coverage)] as $field) {
             hash_update($context, self::framed($field));
         }
 
@@ -122,7 +121,7 @@ final readonly class ContentKeys
             'config', $config->json(),
             'runner', $runner->runner(), ...self::versionsIn($runner), $runner->platform()->value(),
             'installed', $installed->value(),
-            'files', ...self::fingerprintsIn(iterator_to_array($source->files(), preserve_keys: false)),
+            'files', ...self::fingerprintsIn([...$source->files()]),
             'ci', $source->ci()->path()->value(), $source->ci()->asItRuns(),
         ];
     }
@@ -130,7 +129,7 @@ final readonly class ContentKeys
     /** @return list<string> */
     private static function versionsIn(Identity $runner): array
     {
-        $versions = iterator_to_array($runner->versions(), preserve_keys: false);
+        $versions = [...$runner->versions()];
         usort($versions, static fn(Version $one, Version $other): int => $one->package() <=> $other->package());
         $fields = [sprintf('%d', count($versions))];
 
@@ -163,7 +162,7 @@ final readonly class ContentKeys
     /** @return list<string> */
     private function testsReadBy(Paths $judges): array
     {
-        $read = iterator_to_array($this->tests->readBy($judges), preserve_keys: false);
+        $read = [...$this->tests->readBy($judges)];
         usort($read, static fn(Path $one, Path $other): int => $one->value() <=> $other->value());
         $fields = ['tests', sprintf('%d', count($read))];
 
@@ -176,15 +175,15 @@ final readonly class ContentKeys
     }
 
     /** @return list<string> */
-    private static function unitRead(Unit $unit, CoverageMap $coverage): array
+    private function unitRead(Unit $unit, CoverageMap $coverage): array
     {
         $lines = $coverage->linesCovered($unit->path());
-        $fields = ['unit', $unit->path()->value(), self::judgedBy($unit), sprintf('%d', count($lines))];
+        $fields = ['unit', $unit->path()->value(), $this->judgedBy($unit), sprintf('%d', count($lines))];
 
         foreach ($lines as $line) {
             $ids = array_map(
                 static fn(TestId $test): string => $test->value(),
-                iterator_to_array($coverage->testsCovering($unit->path(), $line), preserve_keys: false),
+                [...$coverage->testsCovering($unit->path(), $line)],
             );
             sort($ids);
             $fields = [...$fields, sprintf('%d', $line->number()), sprintf('%d', count($ids)), ...$ids];
@@ -193,7 +192,7 @@ final readonly class ContentKeys
         return $fields;
     }
 
-    private static function judgedBy(Unit $unit): string
+    private function judgedBy(Unit $unit): string
     {
         $by = $unit->judgedBy();
 

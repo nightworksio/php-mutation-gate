@@ -32,12 +32,12 @@ final readonly class Node
         return new self(json_decode($json, associative: true), self::ROOT, present: true);
     }
 
-    /** The place under a key of this one, which is absent where this holds no such key. */
+    /** The place under a key of this one, which is absent, and holds nothing readable, where this holds no such key. */
     public function field(string $key): self
     {
         $present = is_array($this->value) && array_key_exists($key, $this->value);
 
-        return new self($present ? $this->value[$key] : false, sprintf('%s.%s', $this->at, $key), $present);
+        return new self($present ? $this->value[$key] : $this, sprintf('%s.%s', $this->at, $key), $present);
     }
 
     public function isPresent(): bool

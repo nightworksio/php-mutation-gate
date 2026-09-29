@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_key_exists;
-use function array_keys;
-use function array_map;
 use function count;
 
 use Countable;
@@ -22,7 +20,7 @@ use function sprintf;
  */
 final readonly class Keys implements Countable
 {
-    /** @param array<string, Digest|Unkeyed> $keys by unit path */
+    /** @param array<string, array{Path, Digest|Unkeyed}> $keys each unit and its key, by the unit's path */
     private function __construct(private array $keys)
     {
     }
@@ -35,7 +33,7 @@ final readonly class Keys implements Countable
     public function with(Path $unit, Digest|Unkeyed $key): self
     {
         $keys = $this->keys;
-        $keys[$unit->value()] = $key;
+        $keys[$unit->value()] = [$unit, $key];
 
         return new self($keys);
     }
@@ -43,17 +41,20 @@ final readonly class Keys implements Countable
     public function keyOf(Path $unit): Digest|Unkeyed
     {
         return array_key_exists($unit->value(), $this->keys)
-            ? $this->keys[$unit->value()]
+            ? $this->keys[$unit->value()][1]
             : Unkeyed::because(sprintf('%s was not considered, so it has no key.', $unit->value()));
     }
 
     /** The units these keys are of, in the order they were added. */
     public function units(): Paths
     {
-        return Paths::of(...array_map(
-            static fn(int|string $unit): Path => Path::of(sprintf('%s', $unit)),
-            array_keys($this->keys),
-        ));
+        $units = Paths::none();
+
+        foreach ($this->keys as [$unit]) {
+            $units = $units->with($unit);
+        }
+
+        return $units;
     }
 
     public function count(): int

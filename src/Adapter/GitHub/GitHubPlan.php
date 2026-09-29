@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
-use function array_map;
 use function count;
 use function file_get_contents;
 use function file_put_contents;
 use function getenv;
 use function is_file;
-use function iterator_to_array;
 use function json_encode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -21,7 +19,6 @@ use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
-use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Written;
@@ -44,6 +41,10 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     public const int MOST_JOBS = 256;
 
     private const string OUTPUT = 'GITHUB_OUTPUT';
+
+    /** One line of JSON, as `$GITHUB_OUTPUT` takes a value. */
+    private const int JSON = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        | JSON_INVALID_UTF8_SUBSTITUTE;
 
     private const string PULL_REQUEST = '#^refs/pull/(\d+)/#';
 
@@ -77,7 +78,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
             $output === '' => CannotJudge::because(
                 'GITHUB_OUTPUT is not set, so the plan cannot reach the matrix. Run plan in a GitHub Actions step.',
             ),
-            default => self::appended($output, sprintf("shards=%s\n", self::matrixOf($plan))),
+            default => $this->appended($output, sprintf("shards=%s\n", $this->matrixOf($plan))),
         };
     }
 
@@ -105,26 +106,31 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     private function defaultBranch(): Scope|CannotTell
     {
         $event = $this->variables->valueOf('GITHUB_EVENT_PATH');
-        $payload = is_file($event) ? file_get_contents($event) : '';
+        $payload = is_file($event) ? file_get_contents($event) : false;
+
+        if ($payload === false) {
+            return CannotTell::because('No event payload could be read, so the default branch is not known.');
+        }
 
         try {
-            $read = Node::decode($payload === false ? '' : $payload);
-
-            return RunOn::branchNamed($read->field('repository')->field('default_branch')->text());
+            return RunOn::branchNamed(Node::decode($payload)->field('repository')->field('default_branch')->text());
         } catch (NotInShape) {
             return CannotTell::because('The event payload does not name the default branch.');
         }
     }
 
-    private static function matrixOf(Plan $plan): string
+    private function matrixOf(Plan $plan): string
     {
-        return json_encode(array_map(
-            static fn(Shard $shard): array => ['id' => $shard->id()->number(), 'label' => $shard->label()],
-            iterator_to_array($plan, preserve_keys: false),
-        ), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        $matrix = [];
+
+        foreach ($plan as $shard) {
+            $matrix[] = ['id' => $shard->id()->number(), 'label' => $shard->label()];
+        }
+
+        return json_encode($matrix, self::JSON);
     }
 
-    private static function appended(string $file, string $line): Written|CannotJudge
+    private function appended(string $file, string $line): Written|CannotJudge
     {
         return file_put_contents($file, $line, FILE_APPEND) === false
             ? CannotJudge::because(sprintf('%s could not be written.', $file))

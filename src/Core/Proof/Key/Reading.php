@@ -87,7 +87,7 @@ final readonly class Reading
             opener: $kind,
             naming: $this->naming,
             declares: $this->declares,
-            refused: false,
+            refused: $this->refused,
         );
     }
 

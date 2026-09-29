@@ -40,6 +40,12 @@ it('keeps a unit that stops short of its share in the run before it, and leaves 
     expect(pathsOfRuns(Runs::into([$weighed('A', 299.0), $weighed('B', 301.0)], 2)))->toBe([['A', 'B']]);
 });
 
+it('cuts each run on the first unit that passes its share of the whole', function () use ($weighed): void {
+    $units = [$weighed('A', 100.0), $weighed('B', 100.0), $weighed('C', 100.0), $weighed('D', 100.0), $weighed('E', 100.0)];
+
+    expect(pathsOfRuns(Runs::into($units, 3)))->toBe([['A', 'B'], ['C', 'D'], ['E']]);
+});
+
 it('cuts no more runs than asked, whatever the later units weigh', function () use ($weighed): void {
     $units = [$weighed('A', 100.0), $weighed('B', 400.0), $weighed('C', 100.0), $weighed('D', 0.0)];
 

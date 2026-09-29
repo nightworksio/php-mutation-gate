@@ -29,7 +29,7 @@ final readonly class LinesOfCode
 
         foreach (token_get_all($source->text()) as $token) {
             if (is_array($token) && ! in_array($token[0], self::SILENT, strict: true)) {
-                $lines[$token[2]] = true;
+                $lines[$token[2]] = $token[2];
             }
         }
 

@@ -36,10 +36,10 @@ final readonly class Exceptions
         return $path->equals($this->config)
             || $path->equals($this->baseline)
             || $this->ignored->matches($path)
-            || self::isCiDefinition($path);
+            || $this->isCiDefinition($path);
     }
 
-    private static function isCiDefinition(Path $path): bool
+    private function isCiDefinition(Path $path): bool
     {
         return array_any(
             self::CI_DEFINITIONS,

@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_map;
 use function array_slice;
-use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -113,7 +112,7 @@ final readonly class LedgerFile
      */
     private static function newestOf(Proofs $proofs): array
     {
-        $newest = iterator_to_array($proofs, preserve_keys: false);
+        $newest = [...$proofs];
         usort(
             $newest,
             static fn(Proof $one, Proof $other): int => $other->run()->at()->value() <=> $one->run()->at()->value(),
@@ -133,7 +132,7 @@ final readonly class LedgerFile
                 static fn(Mutant $mutant): array => $mutant->status() === MutantStatus::Killed
                     ? MutantRecord::brief($mutant)
                     : MutantRecord::full($mutant),
-                iterator_to_array($proof->mutants(), preserve_keys: false),
+                [...$proof->mutants()],
             ),
         ];
     }

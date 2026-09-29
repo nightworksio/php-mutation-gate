@@ -4,13 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
-use function array_flip;
 use function array_key_exists;
-use function array_keys;
-use function array_map;
-use function array_pop;
 use function count;
-use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -28,11 +23,11 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 final readonly class Tests
 {
     /**
-     * @param array<string, TestFile>     $files  by path
-     * @param array<string, list<string>> $byName each support file's path, by each name it declares
-     * @param list<string>                $always the paths in every key
+     * @param array<string, TestFile>   $files  by path
+     * @param array<string, list<Path>> $byName each support file, by each name it declares
+     * @param Paths                     $always the files in every key
      */
-    private function __construct(private array $files, private array $byName, private array $always)
+    private function __construct(private array $files, private array $byName, private Paths $always)
     {
     }
 
@@ -44,16 +39,16 @@ final readonly class Tests
     {
         $byPath = [];
         $byName = [];
-        $seeds = self::valuesOf($canaries);
+        $seeds = $canaries;
 
         foreach ($files as $file) {
-            $path = $file->fingerprint()->path()->value();
-            $byPath[$path] = $file;
+            $path = $file->fingerprint()->path();
+            $byPath[$path->value()] = $file;
             $byName = self::withDeclarationsOf($file, $byName);
-            $seeds = self::isInEveryKey($file, $known) ? [...$seeds, $path] : $seeds;
+            $seeds = self::isInEveryKey($file, $known) ? $seeds->with($path) : $seeds;
         }
 
-        $unseeded = new self($byPath, $byName, []);
+        $unseeded = new self($byPath, $byName, Paths::none());
 
         return new self($byPath, $byName, $unseeded->reachedFrom($seeds));
     }
@@ -73,9 +68,7 @@ final readonly class Tests
     /** What of the test directories goes into the key of a unit these test files judge. */
     public function readBy(Paths $judges): Paths
     {
-        $read = [...$this->always, ...$this->reachedFrom(self::valuesOf($judges))];
-
-        return Paths::of(...array_map(Path::of(...), $read));
+        return Paths::of(...$this->always, ...$this->reachedFrom($judges));
     }
 
     public function digestOf(Path $path): Digest|Missing
@@ -86,13 +79,13 @@ final readonly class Tests
     }
 
     /**
-     * @param  array<string, list<string>> $byName
-     * @return array<string, list<string>>
+     * @param  array<string, list<Path>> $byName
+     * @return array<string, list<Path>>
      */
     private static function withDeclarationsOf(TestFile $file, array $byName): array
     {
         foreach ($file->role() === Role::Support ? $file->php()->declares() : [] as $name) {
-            $byName[$name][] = $file->fingerprint()->path()->value();
+            $byName[$name][] = $file->fingerprint()->path();
         }
 
         return $byName;
@@ -104,42 +97,33 @@ final readonly class Tests
             || ($file->role() === Role::TestCase && ! $known->has($file->fingerprint()->path()));
     }
 
-    /** @return list<string> */
-    private static function valuesOf(Paths $paths): array
+    /** These files, and every support file they name, transitively, in the order they were reached. */
+    private function reachedFrom(Paths $from): Paths
     {
-        return array_map(
-            static fn(Path $path): string => $path->value(),
-            iterator_to_array($paths, preserve_keys: false),
-        );
-    }
+        $queue = [...$from];
+        $reached = $from;
 
-    /**
-     * These paths, and every support file they name, transitively.
-     *
-     * @param  list<string> $from
-     * @return list<string>
-     */
-    private function reachedFrom(array $from): array
-    {
-        $seen = array_flip($from);
-        $pending = $from;
+        $at = 0;
 
-        while ($pending !== []) {
-            foreach ($this->supportNamedBy(array_pop($pending)) as $found) {
-                $pending = array_key_exists($found, $seen) ? $pending : [...$pending, $found];
-                $seen[$found] = count($seen);
+        while ($at < count($queue)) {
+            foreach ($this->supportNamedBy($queue[$at]) as $found) {
+                $queue = $reached->has($found) ? $queue : [...$queue, $found];
+                $reached = $reached->with($found);
             }
+
+            $at++;
         }
 
-        return array_map(strval(...), array_keys($seen));
+        return $reached;
     }
 
-    /** @return list<string> */
-    private function supportNamedBy(string $path): array
+    /** @return list<Path> */
+    private function supportNamedBy(Path $file): array
     {
         $found = [];
+        $names = array_key_exists($file->value(), $this->files) ? $this->files[$file->value()]->php()->names() : [];
 
-        foreach (array_key_exists($path, $this->files) ? $this->files[$path]->php()->names() : [] as $name) {
+        foreach ($names as $name) {
             $found = [...$found, ...(array_key_exists($name, $this->byName) ? $this->byName[$name] : [])];
         }
 

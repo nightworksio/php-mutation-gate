@@ -43,23 +43,23 @@ it('knows a place it holds from one it does not', function () use ($file): void 
 });
 
 it('refuses a place that holds something else, saying where and what it should hold', function () use ($file): void {
-    expect(fn() => $file()->field('count')->text())->toThrow(NotInShape::at('the file.count', 'text'))
-        ->and(fn() => $file()->field('share')->integer())->toThrow(NotInShape::at('the file.share', 'a whole number'))
-        ->and(fn() => $file()->field('name')->number())->toThrow(NotInShape::at('the file.name', 'a number'))
-        ->and(fn() => $file()->field('map')->items())->toThrow(NotInShape::at('the file.map', 'a list'))
-        ->and(fn() => $file()->field('name')->items())->toThrow(NotInShape::at('the file.name', 'a list'))
-        ->and(fn() => $file()->field('name')->entries())->toThrow(NotInShape::at('the file.name', 'a map'))
-        ->and(fn() => $file()->field('list')->items()[0]->integer())->toThrow(NotInShape::at('the file.list[0]', 'a whole number'))
-        ->and(fn() => $file()->field('map')->entries()['k']->integer())->toThrow(NotInShape::at('the file.map.k', 'a whole number'));
+    expect(fn(): string => $file()->field('count')->text())->toThrow(NotInShape::at('the file.count', 'text'))
+        ->and(fn(): int => $file()->field('share')->integer())->toThrow(NotInShape::at('the file.share', 'a whole number'))
+        ->and(fn(): float => $file()->field('name')->number())->toThrow(NotInShape::at('the file.name', 'a number'))
+        ->and(fn(): array => $file()->field('map')->items())->toThrow(NotInShape::at('the file.map', 'a list'))
+        ->and(fn(): array => $file()->field('name')->items())->toThrow(NotInShape::at('the file.name', 'a list'))
+        ->and(fn(): array => $file()->field('name')->entries())->toThrow(NotInShape::at('the file.name', 'a map'))
+        ->and(fn(): int => $file()->field('list')->items()[0]->integer())->toThrow(NotInShape::at('the file.list[0]', 'a whole number'))
+        ->and(fn(): int => $file()->field('map')->entries()['k']->integer())->toThrow(NotInShape::at('the file.map.k', 'a whole number'));
 });
 
 it('refuses a place that holds nothing as missing', function () use ($file): void {
-    expect(fn() => $file()->field('absent')->text())->toThrow(NotInShape::missing('the file.absent'))
-        ->and(fn() => $file()->field('absent')->entries())->toThrow(NotInShape::missing('the file.absent'));
+    expect(fn(): string => $file()->field('absent')->text())->toThrow(NotInShape::missing('the file.absent'))
+        ->and(fn(): array => $file()->field('absent')->entries())->toThrow(NotInShape::missing('the file.absent'));
 });
 
 it('reads text that is not JSON as a top that holds nothing readable', function (): void {
-    expect(fn() => Node::decode('{not json')->entries())->toThrow(NotInShape::at('the file', 'a map'))
+    expect(fn(): array => Node::decode('{not json')->entries())->toThrow(NotInShape::at('the file', 'a map'))
         ->and(Node::decode('{not json')->field('format')->isPresent())->toBeFalse();
 });
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Cost;
 
 use function array_filter;
-use function array_key_last;
+use function array_last;
 use function mb_strlen;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -52,6 +52,6 @@ final readonly class SecondsPerLine
             static fn(LineRate $one, LineRate $other): int => mb_strlen($one->prefix()) <=> mb_strlen($other->prefix()),
         );
 
-        return $covering[array_key_last($covering)]->perLine();
+        return array_last($covering)->perLine();
     }
 }

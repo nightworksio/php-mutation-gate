@@ -11,7 +11,6 @@ use function file_put_contents;
 use function getenv;
 use function is_array;
 use function is_string;
-use function iterator_to_array;
 use function json_decode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -81,7 +80,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
     public function publish(Plan $plan): Written|CannotJudge
     {
         $steps = [
-            ...array_map($this->shardStep(...), iterator_to_array($plan, preserve_keys: false)),
+            ...array_map($this->shardStep(...), [...$plan]),
             ['type' => 'wait', 'continue_on_failure' => true],
             $this->commandStep(
                 'mutation: verdict',
