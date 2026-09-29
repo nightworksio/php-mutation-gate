@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         failOnRisky="true"
+         failOnWarning="true"
+         failOnDeprecation="true"
+         failOnNotice="true"
+         failOnEmptyTestSuite="false"
+         failOnPhpunitDeprecation="true"
+         failOnPhpunitNotice="true"
+         failOnPhpunitWarning="true"
+         beStrictAboutOutputDuringTests="true"
+         beStrictAboutCoverageMetadata="false"
+>
+    <!-- G9 — a diagnostic fails the run. The `failOn*` attributes above and the
+         `ignoreSuppressionOf*` attributes on `<source>` below are the two
+         halves; TheSuiteCannotGoQuietTest keeps both. -->
+    <testsuites>
+        <!-- The rules first, so a broken boundary fails before anything slower. -->
+        <testsuite name="Arch">
+            <directory>tests/Arch</directory>
+        </testsuite>
+
+        <!-- One file per source file, mirroring src (H4). -->
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+
+        <!-- One suite per port, run against its fake and every adapter (G2). -->
+        <testsuite name="Contract">
+            <directory>tests/Contract</directory>
+        </testsuite>
+
+        <!-- R2, on its own: plants a violation of every rule in a throwaway copy
+             of the tree and runs the analyser and the suite over it. -->
+        <testsuite name="Guards">
+            <directory>tests/Guards</directory>
+        </testsuite>
+    </testsuites>
+
+    <source
+        ignoreSuppressionOfDeprecations="true"
+        ignoreSuppressionOfPhpDeprecations="true"
+        ignoreSuppressionOfErrors="true"
+        ignoreSuppressionOfNotices="true"
+        ignoreSuppressionOfPhpNotices="true"
+        ignoreSuppressionOfWarnings="true"
+        ignoreSuppressionOfPhpWarnings="true"
+    >
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+</phpunit>
