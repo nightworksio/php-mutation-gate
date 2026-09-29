@@ -1,5 +1,4 @@
-// markdownlint, as the lemonfiber estate configures it, so a document reads
-// the same way in every repository its maintainer works in.
+// markdownlint, for the `markdown` job in .github/workflows/hygiene.yml.
 //
 // Each entry only relaxes a default.
 {

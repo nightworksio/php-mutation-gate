@@ -1,0 +1,85 @@
+#!/bin/sh
+# Say now what CI will say later about this commit message.
+#
+# `commitlint` wants a conventional subject, `dco` a sign-off and `attribution`
+# no credit to a tool. None of that needs a network or a build to know, and
+# finding out here costs a second instead of a round trip. The patterns are the
+# ones .github/scripts/commit_lint.py, dco_check.py and attribution_check.py
+# apply; where the two disagree, the scripts are right and this is wrong.
+#
+# A `Spec:` trailer is optional. Where a commit has one, every number it names
+# must be a decision record in .docs/decisions.
+
+set -eu
+
+message=$1
+
+# A merge or a revert is written by git and is exempt, as it is in CI.
+subject=$(sed -n '1p' "$message")
+case "$subject" in
+Merge\ * | Revert\ * | fixup!* | squash!*) exit 0 ;;
+esac
+
+# Comment lines are not part of the message.
+body=$(grep -v '^#' "$message" || true)
+
+faults=""
+
+types="feat|fix|docs|refactor|test|chore|ci|perf|build|style|revert"
+if ! printf '%s\n' "$subject" | grep -qE "^($types)(\([a-z0-9.-]+\))?!?: .+"; then
+	faults="${faults}  the subject is not conventional: ${subject}
+      types: $(printf '%s' "$types" | tr '|' ' ')
+      e.g.  feat(cli): refuse a config with no tree
+"
+fi
+
+if ! printf '%s\n' "$body" | grep -qE '^[ \t]*Signed-off-by:[ \t]*.+<.+>'; then
+	faults="${faults}  no sign-off. Commit with -s, or add:
+      Signed-off-by: Your Name <you@example.com>
+"
+fi
+
+# The names attribution_check.py holds. Anchored to the start of the line with
+# no leading whitespace, so a message can quote a forbidden line, indented,
+# without being refused.
+assistants="claude|copilot|chatgpt|openai|anthropic|cursor|devin|codex|gemini|aider"
+
+if printf '%s\n' "$body" | grep -qiE "^Co-authored-by:.*($assistants)"; then
+	faults="${faults}  the record credits a tool in a Co-authored-by trailer. Remove it:
+      the work is the author's own.
+"
+fi
+
+if printf '%s\n' "$body" | grep -qiE "^([^[:alnum:][:space:]_]+[ 	]*)?(generated[[:space:]]+with([^[:alnum:]_]|$)|(generated|written|authored|created)[[:space:]]+(with|by)[[:space:]].*($assistants))"; then
+	faults="${faults}  the record carries a \"Generated with\" line. Remove it:
+      the work is the author's own.
+"
+fi
+
+# Every number a `Spec:` trailer names, each of which must be a decision record.
+cited=$(printf '%s\n' "$body" | sed -n 's/^[ \t]*Spec:[ \t]*//p')
+for number in $(printf '%s\n' "$cited" | tr ',' ' '); do
+	if ! printf '%s' "$number" | grep -qE '^[0-9]{4}$'; then
+		faults="${faults}  Spec: ${number} is not a four-digit decision number, e.g. Spec: 0006
+"
+		continue
+	fi
+	found=no
+	for record in .docs/decisions/"$number"-*.md; do
+		[ -f "$record" ] && found=yes
+	done
+	if [ "$found" = no ]; then
+		faults="${faults}  Spec: ${number} names no decision record in .docs/decisions
+"
+	fi
+done
+
+if [ -n "$faults" ]; then
+	echo "commit-msg: this is what CI would have said." >&2
+	echo "" >&2
+	printf '%s' "$faults" >&2
+	echo "  Nothing is lost: the message is in .git/COMMIT_EDITMSG." >&2
+	exit 1
+fi
+
+exit 0
