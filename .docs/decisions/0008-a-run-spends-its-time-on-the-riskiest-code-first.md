@@ -77,9 +77,9 @@ presets for Laravel, Symfony and plain libraries.
      is reported under that name. Under Infection's own formula this holds for
      every timeout the configured cap did not decide.
    - **Half the limit or more.** The limit says nothing about this mutant, so it
-     is **too slow to judge**, and counts as not killed. Infection's skipped
-     mutants are always here. The hint points at holding the path with a group (ADR-0005) or
-     raising `timeouts.seconds`.
+     is **too slow to judge**, and counts as not killed. A skipped mutant that
+     its retry does not resolve is always here. The hint points at holding the
+     path with a group (ADR-0005) or raising `timeouts.seconds`.
    - **Retry (Infection only).** Before the rule is applied, each timed-out or
      skipped mutant that the configured cap decided is run once more with
      `timeouts.seconds` doubled, narrowed to its file and mutator (ADR-0004).
@@ -101,9 +101,10 @@ presets for Laravel, Symfony and plain libraries.
      before it counts. Killed the second time means **flaky**. Survived again
      means a confirmed survivor. Survivors are few, so this is cheap.
      `flaky.confirmSurvivors` is a boolean, `true` by default.
-   - **A proof that disagrees.** When a unit runs again under a key the ledger
-     already holds (a retried job, say) and a mutant's status differs from the
-     stored one, that mutant is flaky and the stored proof is dropped.
+   - **Proofs that disagree.** When two results for one key differ (the
+     default branch's ledger and a pull request's, say, or two verdicts that
+     wrote one scope), the mutants that differ are flaky, and neither result
+     is used (ADR-0007).
    - **What a flaky mutant does.** It counts as not killed, keeps its unit out
      of the ledger, and is reported with its covering tests, which are the
      suspects.
@@ -161,7 +162,7 @@ presets for Laravel, Symfony and plain libraries.
 5. **Framework presets are config fragments with a name.** `preset` takes one
    name or a list, applied in order (ADR-0002). A preset is registered by an
    extension (ADR-0001) and applied before the config file, so the project's
-   own settings win. Without a config, the preset is chosen from
+   own settings win. When no `preset` is set, it is chosen from
    `composer.json`: `laravel` when `laravel/framework` is required, `symfony`
    when `symfony/framework-bundle` is, `library` otherwise.
 

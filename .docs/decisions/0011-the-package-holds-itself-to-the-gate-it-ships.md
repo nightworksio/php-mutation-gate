@@ -252,12 +252,14 @@ about Laravel, NativePHP or the project's modules, and does not.
        - `publish` pushes the badge and trend to the `mutation-gate` branch
          (ADR-0009). It runs only on the default branch, and it is the only job
          that asks for `contents: write`.
-     - **Permissions.** Every job has `contents: read`. `plan` and `verdict`
-       also have `actions: read`, because the GitHub `ChangeSource` reads
-       workflow runs to prove that a merged pull request's run passed
-       (ADR-0005). `verdict` has `pull-requests: write` for the comment, and
-       `publish` has `contents: write`. The one-step action needs the first
-       three in its one job.
+     - **Permissions.** Every job has `contents: read`. `plan` also has
+       `actions: read` and `pull-requests: read`, because the GitHub
+       `ChangeSource` reads workflow runs and pull requests to prove that a
+       merged pull request's run passed (ADR-0005). `verdict` has
+       `actions: read` and `pull-requests: write`, for the same reason and for
+       the comment. `publish` has `contents: write`. The one-step action needs
+       `contents: read`, `actions: read` and `pull-requests: write` in its one
+       job.
    - **Pinning.** Every action either one uses is pinned by a full commit SHA
      with its tag in a comment, and Dependabot moves the pins. The README's
      examples pin this repository the same way.

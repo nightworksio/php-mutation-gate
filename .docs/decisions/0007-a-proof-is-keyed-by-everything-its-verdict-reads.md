@@ -43,8 +43,7 @@ has to bring its result with it.
    every mutant's raw record (ADR-0004), with its status before triage, ignores
    and floors are applied. A proof is written only for a unit that ran to the
    end:
-   - no unjudged mutant: none the budget or a stopped runner left without a
-     result (ADR-0004);
+   - no unjudged mutant, whatever the cause (ADR-0004);
    - no flaky mutant;
    - no *cannot judge*.
 
@@ -126,7 +125,7 @@ has to bring its result with it.
                "run": "github:<run id>/<attempt>",
                "mutants": [
                    { "id": "3f9a1c2b7d04", "line": 42, "status": "survived", "mutator": "LessThan", "diff": "…" },
-                   { "id": "81d0c9e2aa17", "line": 44, "status": "killed" }
+                   { "id": "81d0c9e2aa17", "line": 44, "status": "killed", "mutator": "Plus" }
                ]
            }
        },
@@ -137,13 +136,18 @@ has to bring its result with it.
    }
    ```
 
+   - `run` names the run that established the proof, as `<ci>:<its run id>`;
+     on GitHub that is `github:<GITHUB_RUN_ID>/<GITHUB_RUN_ATTEMPT>`.
    - A mutant that was not killed keeps its full record, so reports can show a
-     proved survivor. A killed one keeps its id, line and status.
+     proved survivor. A killed one keeps its id, line, mutator and status,
+     which ignores and the stale-ignore check need (ADR-0008). A timed-out or
+     skipped mutant also keeps its limit (ADR-0004).
    - The ledger keeps the newest 20,000 proofs, and timings only for units that
      still exist.
    - Reading keeps each well-formed entry and drops anything else. An
      unreadable ledger costs a run and never a verdict.
-   - When two results prove the same key, the first is kept.
+   - When two results for one key agree, the first is kept. When they differ,
+     the mutants that differ are flaky and neither result is used (ADR-0008).
    - `passed` is the newest commit of this scope whose verdict passed. That is
      the `last-passed` base (ADR-0005).
 
@@ -175,11 +179,15 @@ has to bring its result with it.
      its own.
    - **On S3**, only the credentials of trusted runs may write the default
      branch's prefix.
-   - **On other CIs**, the directory is kept by the CI's own cache, so that
-     cache must be keyed by ref, as the README's examples are: a pull request
-     that could save the cache the default branch restores could plant a
-     proof in it. GitLab's separate caches for protected branches give the same
-     boundary.
+   - **On GitLab**, separate caches for protected branches keep a merge
+     request's pipeline from writing the default branch's cache. They also
+     keep it from reading that cache, so a merge request carries nothing from
+     the default branch unless the ledger is in S3.
+   - **On Buildkite and CircleCI**, the pipeline config a branch carries picks
+     the cache key, so anyone who can push a branch can write any key. A cache
+     there is no trust boundary. Keying it by branch, as the README's examples
+     do, keeps branches apart by accident only. The boundary there is S3, with
+     credentials that only default-branch runs hold.
 
 ## Alternatives considered
 

@@ -13,11 +13,11 @@ The gate needs four things from whatever mutates the code:
 - every mutant's result: where it is, what changed, and whether a test caught
   it.
 
-v1 supports two runners: Pest's own mutation testing (`pestphp/pest-plugin-mutate`)
-and Infection. What follows comes from their source and from scratch
-projects: pest-plugin-mutate 5.0.2 with Pest 5.2.1, and Infection 0.35.5, with
-every option named here checked against 0.35.0 as well. They differ in ways
-that shape the adapters.
+v1 supports two runners: Pest's own mutation testing
+(`pestphp/pest-plugin-mutate`) and Infection. What follows comes from their
+source and from scratch projects: pest-plugin-mutate 5.0.2 with Pest 5.2.1, and
+Infection 0.35.5, with every option named here checked against 0.35.0 as well.
+They differ in ways that shape the adapters.
 
 **Pest.**
 
@@ -140,15 +140,21 @@ its parser attributes. Both change when the checkout moves.
      the mutator's full name, its family (ADR-0009), and the diff.
    - **status**, as the runner reported it:
      - killed, survived, uncovered or errored;
-     - timed out, or skipped (Infection's: too slow to run at all). Timeout
-       triage judges both at verdict time (ADR-0008);
-     - unjudged: no result, because the budget ran out or the runner stopped
-       first.
+     - timed out, or skipped (Infection's: too slow to run at all). Retries
+       run in the shard, and the timeout rule is applied at verdict time
+       (ADR-0008);
+     - unjudged: no result, because the budget ran out, the runner stopped
+       first, or a covering test could not be put in Pest's filter
+       (decision 3).
 
-     An Infection mutant that Infection's own config ignored is recorded as
-     *ignored by a native marker* (decision 4, ADR-0008). Flaky and ignored
-     are otherwise applied later by the gate (ADR-0008).
+     An Infection mutant that Infection reports as ignored (its
+     `ignoreSourceCodeByRegex`) is recorded as *ignored by a native marker*
+     (decision 4, ADR-0008). Flaky and ignored are otherwise applied later by
+     the gate (ADR-0008).
    - **duration**, where the runner reports one.
+   - **limit**, for a timed-out or skipped mutant: the seconds the runner
+     allowed it, and whether it was retried. Timeout triage needs both
+     (ADR-0008).
 
 3. **The Pest adapter** (`pestphp/pest` ^5.1, `pestphp/pest-plugin-mutate`
    ^5.0, and the PHPUnit 13 release Pest pins).
@@ -186,7 +192,9 @@ its parser attributes. Both change when the checkout moves.
        adapter sets. Inside a mutant's child process it does nothing.
      - At `FinishMutationSuite` it walks the suite's mutants and writes one JSON
        line per mutant: native id, file, lines, mutator class, diff, status and
-       duration. That walk is the only place that sees a mutant with no result.
+       duration, and one line with the opening run's duration, from which the
+       adapter computes each mutant's limit. That walk is the only place that
+       sees a mutant with no result.
      - The adapter fails closed. The records must add up to the counts on Pest's
        own summary line (`Mutations: … untested, … uncovered, … pending, …
        timeout, … tested`), and a missing file or a mismatch is *cannot judge*.
