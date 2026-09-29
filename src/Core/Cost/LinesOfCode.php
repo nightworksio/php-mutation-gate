@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Cost;
 
+use function array_unique;
 use function count;
 use function in_array;
 use function is_array;
@@ -29,10 +30,10 @@ final readonly class LinesOfCode
 
         foreach (token_get_all($source->text()) as $token) {
             if (is_array($token) && ! in_array($token[0], self::SILENT, strict: true)) {
-                $lines[$token[2]] = $token[2];
+                $lines[] = $token[2];
             }
         }
 
-        return count($lines);
+        return count(array_unique($lines));
     }
 }
