@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_keys;
 use function array_map;
+use function array_values;
 use function explode;
 use function file_get_contents;
 use function is_array;
@@ -33,13 +34,15 @@ final readonly class Mutations
     {
         $suite = new MutationSuite();
 
-        foreach (array_keys($results) as $at) {
+        $ordered = array_values($results);
+
+        foreach (array_keys($ordered) as $at) {
             $suite->repository->add(self::mutation($file, sprintf('id-%d', $at + 1), 11 + $at));
         }
 
         foreach ($suite->repository->all() as $collection) {
             foreach ($collection->tests() as $at => $test) {
-                $test->updateResult($results[$at]);
+                $test->updateResult($ordered[$at]);
             }
         }
 

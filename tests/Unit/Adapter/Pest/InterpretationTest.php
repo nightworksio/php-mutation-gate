@@ -49,7 +49,8 @@ const INTERPRETED_TESTS = ['P\Tests\MoneySpec::__pest_evaluable_it_adds', 'Legac
  *
  * @return array{Project, string, string}
  */
-$run = static function (array $money, array $legacy): array {
+function interpretedRun(array $money, array $legacy): array
+{
     $root = (string) realpath(Scratch::directory());
     $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
     $results = $project->freshResults();
@@ -63,7 +64,7 @@ $run = static function (array $money, array $legacy): array {
     );
 
     return [$project, $results, $root];
-};
+}
 
 /** The changes the runs below make, each removed line and the line that replaces it. */
 const INTERPRETED_CHANGES = [
@@ -135,8 +136,8 @@ $six = static fn(string $root): array => [
 $read = static fn(Project $project, Ran $ran, string $results): MutationResult|CannotJudge
     => new Interpretation($project, Patching::off())->of($ran, $results);
 
-it('reads a finished run as the gate\'s records, by file and line', function () use ($run, $mutant, $six, $read): void {
-    [$project, $results, $root] = $run([11 => [0], 21 => [], 40 => [0]], [11 => [1]]);
+it('reads a finished run as the gate\'s records, by file and line', function () use ($mutant, $six, $read): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 21 => [], 40 => [0]], [11 => [1]]);
     PestRun::write($results, $six($root));
     $unselected = Reason::that(
         "Pest's --filter cannot select LegacySpec::decrements, so Pest cannot run it against this mutant.",
@@ -153,8 +154,8 @@ it('reads a finished run as the gate\'s records, by file and line', function () 
         ), 0));
 });
 
-it('keeps what a stopped run judged, and leaves the rest', function () use ($run, $mutant, $plan, $read): void {
-    [$project, $results, $root] = $run([11 => [0]], []);
+it('keeps what a stopped run judged, and leaves the rest', function () use ($mutant, $plan, $read): void {
+    [$project, $results, $root] = interpretedRun([11 => [0]], []);
     PestRun::write($results, [
         $plan($root, 'n1', 'src/Money.php:11', 'ab'),
         $plan($root, 'n2', 'src/Money.php:12', 'cd'),
@@ -167,31 +168,31 @@ it('keeps what a stopped run judged, and leaves the rest', function () use ($run
     ), 0));
 });
 
-it('cannot judge a run stopped at its deadline before Pest made its mutants', function () use ($run, $read): void {
-    [$project, $results] = $run([], []);
+it('cannot judge a run stopped at its deadline before Pest made its mutants', function () use ($read): void {
+    [$project, $results] = interpretedRun([], []);
     PestRun::write($results, ['']);
 
     expect($read($project, Ran::stopped('opening'), $results))
         ->toEqual(CannotJudge::because('Pest was stopped at its deadline before it had made its mutants.'));
 });
 
-it('cannot judge a run that failed, with what Pest said', function () use ($run, $read): void {
-    [$project, $results] = $run([], []);
+it('cannot judge a run that failed, with what Pest said', function () use ($read): void {
+    [$project, $results] = interpretedRun([], []);
     PestRun::write($results, [PestRun::end()]);
 
     expect($read($project, Ran::finished(succeeded: false, output: 'Tests: 1 failed'), $results))
         ->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nTests: 1 failed"));
 });
 
-it('cannot judge a run whose plugin wrote nothing', function () use ($run, $read): void {
-    [$project, $results] = $run([], []);
+it('cannot judge a run whose plugin wrote nothing', function () use ($read): void {
+    [$project, $results] = interpretedRun([], []);
 
     expect($read($project, Ran::finished(succeeded: true, output: INTERPRETED_SUMMARY), $results))
         ->toBeInstanceOf(CannotJudge::class);
 });
 
-it('cannot judge a finished run that printed no summary', function () use ($run, $six, $read): void {
-    [$project, $results, $root] = $run([], []);
+it('cannot judge a finished run that printed no summary', function () use ($six, $read): void {
+    [$project, $results, $root] = interpretedRun([], []);
     PestRun::write($results, $six($root));
 
     $ran = Ran::finished(succeeded: true, output: 'no summary');
@@ -201,8 +202,8 @@ it('cannot judge a finished run that printed no summary', function () use ($run,
     ));
 });
 
-it('cannot judge records that do not add up to Pest\'s own summary', function () use ($run, $six, $read): void {
-    [$project, $results, $root] = $run([], []);
+it('cannot judge records that do not add up to Pest\'s own summary', function () use ($six, $read): void {
+    [$project, $results, $root] = interpretedRun([], []);
     PestRun::write($results, $six($root));
     $summary = "  Mutations: 2 untested, 2 uncovered, 1 pending, 1 timeout, 0 tested\n";
 
@@ -211,8 +212,8 @@ it('cannot judge records that do not add up to Pest\'s own summary', function ()
     ));
 });
 
-it('cannot judge a run without the opening run\'s map', function () use ($run, $six, $read): void {
-    [$project, $results, $root] = $run([], []);
+it('cannot judge a run without the opening run\'s map', function () use ($six, $read): void {
+    [$project, $results, $root] = interpretedRun([], []);
     PestRun::write($results, $six($root));
     unlink(sprintf('%s.coverage.php', $results));
 
@@ -223,8 +224,8 @@ it('cannot judge a run without the opening run\'s map', function () use ($run, $
     ));
 });
 
-it('cannot judge a filter too long for Pest unpatched', function () use ($run, $mutant, $plan): void {
-    [$project, $results, $root] = $run([11 => [2, 1]], []);
+it('cannot judge a filter too long for Pest unpatched', function () use ($mutant, $plan): void {
+    [$project, $results, $root] = interpretedRun([11 => [2, 1]], []);
     PestRun::write($results, [
         $plan($root, 'n1', 'src/Money.php:11', 'ab'),
         PestRun::finished('n1', 'tested', 0.25),

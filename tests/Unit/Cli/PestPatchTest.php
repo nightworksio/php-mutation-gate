@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\PestPatch;
+use NightWorksIO\MutationGate\Tests\Support\Printed;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -29,7 +30,8 @@ it('patches pest-plugin-mutate in the vendor directory and says so', function ()
     $tester = new CommandTester(PestPatch::command($vendor));
 
     expect($tester->execute([]))->toBe(0)
-        ->and($tester->getDisplay())->toBe("pest:patch patched 3 of the 3 files it changes in pest-plugin-mutate.\n");
+        ->and(Printed::by($tester->getOutput()))
+        ->toBe("pest:patch patched 3 of the 3 files it changes in pest-plugin-mutate.\n");
 });
 
 it('fails the install, with the reason, when it cannot patch', function (): void {
@@ -37,7 +39,7 @@ it('fails the install, with the reason, when it cannot patch', function (): void
     $tester = new CommandTester(PestPatch::command($vendor));
 
     expect($tester->execute([]))->toBe(2)
-        ->and($tester->getDisplay())->toBe(sprintf(
+        ->and(Printed::by($tester->getOutput()))->toBe(sprintf(
             "pest:patch cannot read %s/pestphp/pest-plugin-mutate/src/MutationTest.php. "
             . "Is pest-plugin-mutate installed?\n",
             $vendor,

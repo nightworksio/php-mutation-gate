@@ -30,8 +30,20 @@ afterEach(function (): void {
 it('records nowhere unless the adapter names a results file', function (): void {
     $events = new Facade();
 
-    expect(Recorder::listening(false, false, $events, '/c', 'telemetry'))->toBe(Off::Recording)
-        ->and(Recorder::listening('', false, $events, '/c', 'telemetry'))->toBe(Off::Recording)
+    expect(Recorder::listening(
+        results: false,
+        mutant: false,
+        events: $events,
+        coverage: '/c',
+        telemetry: 'telemetry',
+    ))->toBe(Off::Recording)
+        ->and(Recorder::listening(
+            results: '',
+            mutant: false,
+            events: $events,
+            coverage: '/c',
+            telemetry: 'telemetry',
+        ))->toBe(Off::Recording)
         ->and($events->subscribers())->toBe([]);
 });
 
@@ -45,7 +57,13 @@ it('records nothing in a mutant\'s own process', function (): void {
 
 it('subscribes to every event it records, one subscriber for each', function (): void {
     $events = new Facade();
-    $recorder = Recorder::listening('/r/results.jsonl', false, $events, '/c', 'telemetry');
+    $recorder = Recorder::listening(
+        results: '/r/results.jsonl',
+        mutant: false,
+        events: $events,
+        coverage: '/c',
+        telemetry: 'telemetry',
+    );
     $subscribers = $events->subscribers();
 
     expect($recorder)->toEqual(new Recorder('/r/results.jsonl', '/c', 'telemetry'))

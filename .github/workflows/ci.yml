@@ -269,13 +269,13 @@ jobs:
         run: |
           composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
           composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit) '
-      - run: vendor/bin/pest tests/Contract/Runner
+      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php
       - name: install the highest supported Pest into the fixture library
         working-directory: tests/Contract/Runner/fixture
         run: |
           composer update --no-interaction --no-progress
           composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit) '
-      - run: vendor/bin/pest tests/Contract/Runner
+      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php
 
   # G8 — every mutant of src is killed. The package holds its own code to a
   # floor of 100 through its own gate: the reusable workflow and the action in

@@ -29,9 +29,12 @@
             <directory>tests/Unit</directory>
         </testsuite>
 
-        <!-- One suite per port, run against its fake and every adapter (G2). -->
+        <!-- One suite per port, run against its fake and every adapter (G2).
+             The runner suite's fixture is a project of its own, with a vendor
+             directory whose files end in Test.php. -->
         <testsuite name="Contract">
             <directory>tests/Contract</directory>
+            <exclude>tests/Contract/Runner/fixture</exclude>
         </testsuite>
 
         <!-- R2, on its own: plants a violation of every rule in a throwaway copy

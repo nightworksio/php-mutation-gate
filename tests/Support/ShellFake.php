@@ -31,7 +31,7 @@ final class ShellFake implements Shell
     /** A shell that answers every command with the same end. */
     public static function answering(Ran $ran): self
     {
-        return new self(static fn(Command $command, int $before): Ran => $ran);
+        return new self(static fn(): Ran => $ran);
     }
 
     public function run(Command $command): Ran

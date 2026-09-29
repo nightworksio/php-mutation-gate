@@ -32,10 +32,10 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 // the Pest adapter (Pest) once the runner contracts job has installed the
 // library. Pest's runs are real, so each request runs once per library.
 
-$libraries = ['the fake' => static fn(): Library => Library::fake()];
+$libraries = ['the fake' => fn(): Library => Library::fake()];
 
 if (Library::isInstalled()) {
-    $libraries['pest'] = static fn(): Library => Library::pest(Patching::off());
+    $libraries['pest'] = fn(): Library => Library::pest(Patching::off());
 }
 
 /** Money's four mutants, as a library's runner reports them. */
