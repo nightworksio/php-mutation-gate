@@ -1,0 +1,62 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Adapter\Composer\Disk;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Tests\Support\Project;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
+
+it('reads what a file holds, and names a file that is not there', function (): void {
+    $disk = Disk::at(Project::with(['composer.json' => '{}', 'src/Money.php' => '<?php']));
+
+    expect($disk->read(Path::of('composer.json')))->toBe('{}')
+        ->and($disk->read(Path::of('src/Money.php')))->toBe('<?php')
+        ->and($disk->read(Path::of('src')))->toEqual(Missing::at(Path::of('src')))
+        ->and($disk->read(Path::of('missing.json')))->toEqual(Missing::at(Path::of('missing.json')));
+});
+
+it('cannot judge a file it cannot read', function (): void {
+    $root = Project::with(['composer.json' => '{}']);
+    chmod(sprintf('%s/composer.json', $root), 0o000);
+    $read = Disk::at($root)->read(Path::of('composer.json'));
+    chmod(sprintf('%s/composer.json', $root), 0o644);
+
+    expect($read)->toEqual(CannotJudge::because('composer.json could not be read.'));
+});
+
+it('knows which paths are files', function (): void {
+    $disk = Disk::at(Project::with(['src/Money.php' => '<?php']));
+
+    expect($disk->isFile(Path::of('src/Money.php')))->toBeTrue()
+        ->and($disk->isFile(Path::of('src')))->toBeFalse()
+        ->and($disk->isFile(Path::of('src/Clock.php')))->toBeFalse();
+});
+
+it('finds the directories a shell glob matches, spelt from the root', function (): void {
+    $disk = Disk::at(Project::with([
+        'packages/money/composer.json' => '{}',
+        'packages/clock/composer.json' => '{}',
+        'packages/README.md' => '# Packages',
+    ]));
+
+    expect($disk->directories('packages/*'))->toEqual([Path::of('packages/clock'), Path::of('packages/money')])
+        ->and($disk->directories('libs/*'))->toBe([]);
+});
+
+it('finds the files a shell glob matches, spelt from the root', function (): void {
+    $disk = Disk::at(Project::with([
+        'modules/billing/composer.json' => '{}',
+        'modules/shop/composer.json' => '{}',
+        'modules/shop/src/composer.json/.gitkeep' => '',
+    ]));
+
+    expect($disk->files('modules/*/composer.json'))->toEqual([Path::of('modules/billing/composer.json'), Path::of('modules/shop/composer.json')])
+        ->and($disk->files('modules/*/src/composer.json'))->toBe([]);
+});
