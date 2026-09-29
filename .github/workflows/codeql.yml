@@ -1,0 +1,38 @@
+# CodeQL over the workflows and, once they exist, the reusable workflow and
+# action.yml. CodeQL has no PHP analysis, so `actions` is the language it has
+# to read here, and the workflows are where injection and supply-chain flaws
+# live.
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 2"
+
+permissions:
+  contents: read
+
+# A pull request pushed again cancels the run on its old head. Every other event
+# is grouped by its own run, so it is never cancelled and never cancels.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v3
+        with:
+          languages: actions
+      - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v3
+        with:
+          category: "/language:actions"

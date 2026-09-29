@@ -1,0 +1,69 @@
+#!/bin/sh
+# Refuse a push straight to main, and a push that would leave a branch carrying
+# nothing of its own.
+#
+# The second is what pushing main over a feature branch looks like, after a
+# checkout that failed silently: the branch's commits go, and its pull request
+# closes. A rebased branch is still ahead of main, so every ordinary
+# force-push passes.
+
+set -eu
+
+trunk=refs/remotes/origin/main
+empty=0000000000000000000000000000000000000000
+
+# A clone that has never fetched main cannot compare against it. Refusing a
+# push to main needs only the name it is pushed to, so that check stays.
+if git rev-parse --verify --quiet "$trunk" >/dev/null; then
+	comparable=yes
+else
+	comparable=no
+fi
+
+while read -r _ pushing onto existing; do
+	# A deletion pushes the empty object; there is nothing to check.
+	if [ "$pushing" = "$empty" ]; then
+		continue
+	fi
+
+	# Only a branch can be emptied this way. A tag names a commit already
+	# somewhere.
+	case "$onto" in
+	refs/heads/*) ;;
+	*) continue ;;
+	esac
+
+	branch=${onto#refs/heads/}
+
+	case "$onto" in
+	refs/heads/main)
+		# The push that creates main cannot go through a pull request: there is
+		# nothing on the remote yet to open one against.
+		if [ "$existing" = "$empty" ]; then
+			echo "pre-push: ${branch} does not exist on the remote; creating it." >&2
+			continue
+		fi
+		echo "pre-push: refusing to push straight to ${branch}." >&2
+		echo "          Branch, push that, and open a pull request." >&2
+		exit 1
+		;;
+	esac
+
+	if [ "$comparable" = "no" ]; then
+		continue
+	fi
+
+	if git merge-base --is-ancestor "$pushing" "$trunk"; then
+		echo "pre-push: ${branch} would carry no commit that origin/main does not." >&2
+		echo "" >&2
+		echo "          Check where you are before pushing again:" >&2
+		echo "              git branch --show-current" >&2
+		echo "              git rev-list --count origin/main..HEAD" >&2
+		echo "" >&2
+		echo "          If the branch is finished with, delete it rather than" >&2
+		echo "          emptying it: git push origin --delete ${branch}" >&2
+		exit 1
+	fi
+done
+
+exit 0

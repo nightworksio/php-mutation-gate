@@ -1,0 +1,65 @@
+# Grouped, so a week's updates to tools that move together arrive as one pull
+# request rather than one each, and each runs the full gate set once.
+
+version: 2
+
+updates:
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # The analysis toolchain moves together and breaks together: a new PHPStan
+      # minor and a new rule package are one change to review.
+      analysis:
+        patterns:
+          - 'phpstan/*'
+          - '*/phpstan-*'
+          - 'ergebnis/*'
+          - 'rector/*'
+          - 'laravel/pint'
+          - 'nikic/php-parser'
+          - 'shipmonk/*'
+          - 'spaze/*'
+          - 'tomasvotruba/*'
+        update-types:
+          - minor
+          - patch
+      testing:
+        patterns:
+          - 'pestphp/*'
+          - 'phpunit/*'
+          - 'symfony/*'
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: build
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+      time: "05:00"
+      timezone: Europe/Amsterdam
+    # A release waits three days before it is offered, so a revision pulled
+    # shortly after publication is one somebody else has already run. Security
+    # updates are never held by a cooldown.
+    cooldown:
+      default-days: 3
+    groups:
+      # `init`, `analyze` and `upload-sarif` are one action, and CodeQL refuses
+      # a run whose parts are different revisions of it.
+      codeql:
+        patterns: ['github/codeql-action*']
+        update-types: ['major', 'minor', 'patch']
+      actions:
+        patterns: ['*']
+        # Majors left out, so each arrives on its own.
+        update-types: ['minor', 'patch']
+    commit-message:
+      prefix: build
+      include: scope

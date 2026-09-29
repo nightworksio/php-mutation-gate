@@ -1,0 +1,28 @@
+* text=auto eol=lf
+
+*.md diff=markdown
+*.php diff=php
+
+# The archive Composer installs is what a user needs to run the gate, and
+# nothing that develops it.
+/.docs export-ignore
+/.editorconfig export-ignore
+/.gitattributes export-ignore
+/.githooks export-ignore
+/.github export-ignore
+/.gitignore export-ignore
+/.markdownlint.jsonc export-ignore
+/ARCHITECTURE.md export-ignore
+/composer-dependency-analyser.php export-ignore
+/composer.lock export-ignore
+/lychee.toml export-ignore
+/phpstan export-ignore
+/phpstan.neon export-ignore
+/phpunit.xml export-ignore
+/pint.json export-ignore
+/rector.php export-ignore
+/scripts export-ignore
+/sonar-project.properties export-ignore
+/src/.gitkeep export-ignore
+/tests export-ignore
+/typos.toml export-ignore

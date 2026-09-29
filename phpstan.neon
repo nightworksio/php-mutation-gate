@@ -1,0 +1,455 @@
+includes:
+    - vendor/phpstan/phpstan-strict-rules/rules.neon
+    - vendor/phpstan/phpstan-deprecation-rules/rules.neon
+    - vendor/ergebnis/phpstan-rules/rules.neon
+    - vendor/tomasvotruba/type-coverage/config/extension.neon
+    - vendor/tomasvotruba/cognitive-complexity/config/extension.neon
+    - vendor/spaze/phpstan-disallowed-calls/extension.neon
+    # S1 — the four bundles the package ships. A conflict with this codebase is
+    # scoped with `allowIn` below, never ignored.
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-dangerous-calls.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-execution-calls.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-insecure-calls.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-non-timing-safe-calls.neon
+    - vendor/shipmonk/phpstan-rules/rules.neon
+
+parameters:
+    level: max
+    tmpDir: .phpstan-cache
+    # R3 — the same trees rector.php and the Arch suite read.
+    paths:
+        - src
+        - tests
+        - phpstan
+
+    # Pest's own annotation, corrected. See the stub.
+    stubFiles:
+        - phpstan/TestCall.stub
+
+    # There is no `ignoreErrors` and no baseline. A rule that is wrong somewhere
+    # is scoped with `allowIn`, which names where it does not apply.
+    reportUnmatchedIgnoredErrors: true
+    checkUninitializedProperties: true
+    checkImplicitMixed: true
+    checkBenevolentUnionTypes: true
+    checkTooWideReturnTypesInProtectedAndPublicMethods: true
+    reportAnyTypeWideningInVarTag: true
+
+    # D3 — nothing untyped anywhere.
+    type_coverage:
+        declare: 100
+        return_type: 100
+        param_type: 100
+        property_type: 100
+        constant_type: 100
+
+    # H3 — the complexity half; NoManyMethodsRule is the other.
+    cognitive_complexity:
+        class: 30
+        function: 8
+
+    # Every Pest test body is a closure, so a checked exception thrown in one is
+    # reported as thrown inside a callable. These are thrown only when a test's
+    # own harness is misused: a class name that does not exist handed to
+    # reflection, or a process asked for output it was not started for.
+    exceptions:
+        uncheckedExceptionClasses:
+            - ReflectionException
+            - Symfony\Component\Process\Exception\LogicException
+            - Symfony\Component\Process\Exception\ProcessSignaledException
+            - Symfony\Component\Process\Exception\ProcessTimedOutException
+
+    ergebnis:
+        # C4 is ergebnis's NoErrorSuppressionRule and the `switch` half of C5 is
+        # its NoSwitchRule, both under `allRules`.
+        allRules: true
+        noExtends:
+            classesAllowedToBeExtended:
+                - InvalidArgumentException
+                - RuntimeException
+                - LogicException
+        # A named argument is how a call site says which of two strings is which.
+        noNamedArgument:
+            enabled: false
+        noConstructorParameterWithDefaultValue:
+            enabled: false
+
+    # -----------------------------------------------------------------------
+    # The layers, enforced at the call site (ARCHITECTURE.md A, B, C, P, Q, L).
+    #
+    # Core, Port, Config and Extension perform no I/O. Adapter and Cli do, and
+    # every entry below that allows a call names them and nothing wider.
+    # `allowIn` paths are fnmatch patterns resolved against `filesRootDir`.
+    # -----------------------------------------------------------------------
+    filesRootDir: %rootDir%/../../..
+
+    disallowedFunctionCalls:
+        # --- B1: time arrives through Psr\Clock\ClockInterface ------------------
+        -
+            function:
+                - 'time()'
+                - 'microtime()'
+                - 'hrtime()'
+                - 'date()'
+                - 'gmdate()'
+                - 'mktime()'
+                - 'gmmktime()'
+                - 'strtotime()'
+                - 'getdate()'
+                - 'localtime()'
+                - 'gettimeofday()'
+                - 'idate()'
+                - 'date_create()'
+                - 'date_create_immutable()'
+            message: "B1 — time is an input, and the core reads it through Psr\\Clock\\ClockInterface so a test can pin it. Only an adapter or the CLI reads the system clock (B1)."
+            allowIn:
+                - src/Adapter/*
+                - src/Cli/*
+                - tests/*
+
+        # --- B2: randomness is an input too ------------------------------------
+        -
+            function:
+                - 'random_int()'
+                - 'random_bytes()'
+                - 'rand()'
+                - 'mt_rand()'
+                - 'srand()'
+                - 'mt_srand()'
+                - 'shuffle()'
+                - 'str_shuffle()'
+                - 'array_rand()'
+                - 'uniqid()'
+                - 'lcg_value()'
+                - 'mt_getrandmax()'
+            message: "B2 — randomness is a hidden input, and a plan cut from it differs between two runners that must cut the same shards. Nothing in src draws a random number (B2)."
+            allowIn:
+                - tests/*
+
+        # --- B3: the filesystem belongs to an adapter ---------------------------
+        -
+            function:
+                - 'file_get_contents()'
+                - 'file_put_contents()'
+                - 'fopen()'
+                - 'fwrite()'
+                - 'fread()'
+                - 'fclose()'
+                - 'fputs()'
+                - 'fgets()'
+                - 'fgetc()'
+                - 'fgetcsv()'
+                - 'fputcsv()'
+                - 'unlink()'
+                - 'mkdir()'
+                - 'rmdir()'
+                - 'rename()'
+                - 'copy()'
+                - 'touch()'
+                - 'chmod()'
+                - 'symlink()'
+                - 'link()'
+                - 'tempnam()'
+                - 'tmpfile()'
+                - 'file_exists()'
+                - 'is_file()'
+                - 'is_dir()'
+                - 'is_readable()'
+                - 'is_writable()'
+                - 'filesize()'
+                - 'filemtime()'
+                - 'realpath()'
+                - 'scandir()'
+                - 'glob()'
+                - 'opendir()'
+                - 'readdir()'
+                - 'closedir()'
+                - 'file()'
+                - 'readfile()'
+                - 'sys_get_temp_dir()'
+                - 'getcwd()'
+                - 'chdir()'
+                - 'simplexml_load_file()'
+                - 'parse_ini_file()'
+            message: "B3 — the filesystem belongs to an adapter. A decision that reads a file cannot be tested without one, so the core is handed what the file says through a port (B3)."
+            allowIn:
+                - src/Adapter/*
+                - src/Cli/*
+                - tests/*
+                - phpstan/*
+
+        # --- B4: running a program belongs to an adapter ------------------------
+        -
+            function:
+                - 'exec()'
+                - 'shell_exec()'
+                - 'passthru()'
+                - 'system()'
+                - 'proc_open()'
+                - 'popen()'
+                - 'pcntl_exec()'
+            message: "B4 — running a program is an adapter's job: the runner adapters run Pest and Infection, and the git adapter runs git. The core asks them through a port (B4, S1)."
+            allowIn:
+                - src/Adapter/*
+                - tests/*
+
+        # --- B5: the network belongs to an adapter ------------------------------
+        -
+            function:
+                - 'curl_init()'
+                - 'curl_exec()'
+                - 'curl_setopt()'
+                - 'curl_setopt_array()'
+                - 'curl_multi_init()'
+                - 'fsockopen()'
+                - 'pfsockopen()'
+                - 'stream_socket_client()'
+                - 'stream_context_create()'
+                - 'socket_create()'
+                - 'get_headers()'
+            message: "B5 — the network belongs to an adapter: a proof store in a bucket, a comment on a pull request. The core is handed the answer (B5)."
+            allowIn:
+                - src/Adapter/*
+
+        # --- B6: the environment is read once, at the edge -----------------------
+        -
+            function:
+                - 'getenv()'
+                - 'putenv()'
+                - 'apache_getenv()'
+            message: "B6 — the environment is an input. The CLI and the adapters read it and hand the core a value; a core that read it would decide differently on two machines with the same config (B6)."
+            allowIn:
+                - src/Adapter/*
+                - src/Cli/*
+                - tests/*
+
+        # --- B7: waiting is an adapter's -----------------------------------------
+        -
+            function:
+                - 'sleep()'
+                - 'usleep()'
+                - 'time_nanosleep()'
+                - 'time_sleep_until()'
+            message: "B7 — waiting blocks the one process that plans and judges, and a test that sleeps is slow and still flaky. Only an adapter polling something outside waits (B7)."
+            allowIn:
+                - src/Adapter/*
+
+        # --- P3: a method's parameters are its signature --------------------------
+        -
+            function: 'func_get_args()'
+            message: "P3 — func_get_args() takes arguments the signature does not declare, so no call site can be checked. Declare the parameters (P3)."
+
+        # --- Q1: nothing reconfigures the runtime -------------------------------
+        -
+            function:
+                - 'ini_set()'
+                - 'ini_alter()'
+                - 'ini_restore()'
+                - 'error_reporting()'
+                - 'set_error_handler()'
+                - 'set_exception_handler()'
+                - 'restore_error_handler()'
+                - 'date_default_timezone_set()'
+                - 'setlocale()'
+                - 'set_time_limit()'
+                - 'assert_options()'
+                - 'mb_internal_encoding()'
+                - 'mb_regex_encoding()'
+                - 'iconv_set_encoding()'
+            message: "Q1 — the gate runs inside somebody else's process when a test boots it, and a setting changed here stays changed for them. Pass the value where it is needed (Q1)."
+            allowIn:
+                - tests/*
+
+        # --- L3: bytes are not characters -----------------------------------------
+        -
+            function:
+                - 'strlen()'
+                - 'substr()'
+                - 'strtoupper()'
+                - 'strtolower()'
+                - 'ucfirst()'
+                - 'lcfirst()'
+                - 'str_pad()'
+                - 'str_split()'
+                - 'strpos()'
+                - 'strrpos()'
+                - 'stripos()'
+                - 'strripos()'
+                - 'strstr()'
+                - 'stristr()'
+                - 'strrchr()'
+                - 'strrev()'
+                - 'ucwords()'
+                - 'wordwrap()'
+                - 'substr_count()'
+                - 'substr_replace()'
+                - 'str_word_count()'
+            message: "L3 — a path, a test name or a message is text, and a byte function splits a multibyte character in half. Use the mb_* equivalent (L3)."
+            allowIn:
+                - tests/*
+                - phpstan/*
+
+    disallowedNamespaces:
+        # --- B1: the clock, as a type --------------------------------------------
+        -
+            class:
+                - 'DateTime'
+                - 'DateTimeImmutable'
+            allowInParamTypes: true
+            allowInReturnType: true
+            allowInUse: true
+            message: "B1 — a DateTimeImmutable built with no argument reads the system clock. Take the instant from Psr\\Clock\\ClockInterface (B1)."
+            allowIn:
+                - src/Adapter/*
+                - src/Cli/*
+                - tests/*
+
+        # --- B4: Symfony Process runs a program ----------------------------------
+        -
+            class: 'Symfony\Component\Process\*'
+            message: "B4 — running a program is an adapter's job; the core asks through a port (B4)."
+            allowIn:
+                - src/Adapter/*
+                - tests/*
+
+        # --- P4: reflection is the analyser's blind spot -------------------------
+        -
+            class:
+                - 'Reflection*'
+            message: "P4 — a member reached by name is one no rule can find. The tests reflect on purpose, to ask PHP what the analyser cannot (P4)."
+            allowIn:
+                - tests/*
+                - phpstan/*
+
+    disallowedSuperglobals:
+        # --- B6: the environment, read the other way -----------------------------
+        -
+            superglobal:
+                - '$_GET'
+                - '$_POST'
+                - '$_REQUEST'
+                - '$_SERVER'
+                - '$_ENV'
+                - '$_COOKIE'
+                - '$_SESSION'
+                - '$_FILES'
+                - '$GLOBALS'
+            message: "B6 — the environment is an input, read once by the CLI and handed on as a value (B6)."
+            allowIn:
+                - src/Cli/*
+                - tests/*
+
+    disallowedConstants:
+        # --- B3: the standard streams are files ----------------------------------
+        -
+            constant:
+                - 'STDIN'
+                - 'STDOUT'
+                - 'STDERR'
+            message: "B3 — the standard streams belong to the CLI and the reporters that write to them (B3, Q4)."
+            allowIn:
+                - src/Adapter/*
+                - src/Cli/*
+                - tests/*
+
+    disallowedAttributes:
+        -
+            attribute: 'AllowDynamicProperties'
+            message: "P3 — a class's properties are declared. A dynamic property cannot be typed and turns a typo into a new field (P3)."
+
+    disallowedControlStructures:
+        # --- C5: no `else` ---------------------------------------------------------
+        -
+            controlStructure:
+                - 'else'
+                - 'elseif'
+            message: "C5 — no `else`. Return from the condition that refuses and let the rest carry on at one indent; where both branches are answers, write a match (C5)."
+
+    disallowedMethodCalls:
+        # --- C3: an exception says which refusal it is ------------------------------
+        -
+            method:
+                - 'Exception::__construct()'
+                - 'RuntimeException::__construct()'
+                - 'LogicException::__construct()'
+                - 'InvalidArgumentException::__construct()'
+                - 'DomainException::__construct()'
+                - 'UnexpectedValueException::__construct()'
+                - 'ErrorException::__construct()'
+            allowIn:
+                - tests/*
+                - phpstan/*
+            allowInInstanceOf:
+                - 'Throwable'
+            message: "C3 — a bare exception tells a catch block nothing it can act on. Name the refusal with a class of this package's own, and across a port answer with an outcome instead (C3, C1)."
+
+services:
+    # C6
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoBroadCatchRule
+        tags:
+            - phpstan.rules.rule
+    # C7
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoEmptyRule
+        tags:
+            - phpstan.rules.rule
+    # C8
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoNullsafeInCoreRule
+        tags:
+            - phpstan.rules.rule
+    # C9
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoNestedTernaryRule
+        tags:
+            - phpstan.rules.rule
+    # D5
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoPositionalBooleanArgumentRule
+        tags:
+            - phpstan.rules.rule
+    # D6
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoMagicNumberRule
+        tags:
+            - phpstan.rules.rule
+    # H3
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoManyMethodsRule
+        tags:
+            - phpstan.rules.rule
+    # H5, one class per node type
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\PreferSprintfOverConcatRule
+        tags:
+            - phpstan.rules.rule
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\PreferSprintfOverInterpolationRule
+        tags:
+            - phpstan.rules.rule
+    # H8
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoManyReturnsRule
+        tags:
+            - phpstan.rules.rule
+    # P1
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoMagicMethodRule
+        tags:
+            - phpstan.rules.rule
+    # P2
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoDynamicAccessRule
+        tags:
+            - phpstan.rules.rule
+    # Q3
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoLateStaticBindingRule
+        tags:
+            - phpstan.rules.rule
+    # Q4
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoOutputRule
+        tags:
+            - phpstan.rules.rule

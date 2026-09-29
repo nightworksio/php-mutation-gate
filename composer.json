@@ -1,0 +1,113 @@
+{
+    "name": "nightworksio/mutation-gate",
+    "description": "Mutation testing as a CI gate: floors per tree that only rise, sharded runs, proofs that skip what is already proved, for Pest and Infection.",
+    "license": "MIT",
+    "type": "library",
+    "keywords": [
+        "mutation testing",
+        "pest",
+        "infection",
+        "ci",
+        "quality gate"
+    ],
+    "authors": [
+        {
+            "name": "NightWorksIO",
+            "homepage": "https://nightworks.io"
+        },
+        {
+            "name": "Wessel Verheij",
+            "email": "info@nightworks.io"
+        }
+    ],
+    "homepage": "https://github.com/nightworksio/php-mutation-gate",
+    "support": {
+        "issues": "https://github.com/nightworksio/php-mutation-gate/issues",
+        "source": "https://github.com/nightworksio/php-mutation-gate"
+    },
+    "require": {
+        "php": "^8.5"
+    },
+    "require-dev": {
+        "ext-mbstring": "*",
+        "ext-simplexml": "*",
+        "ext-sodium": "*",
+        "ext-tokenizer": "*",
+        "ergebnis/composer-normalize": "^2.54",
+        "ergebnis/phpstan-rules": "^2.13",
+        "laravel/pint": "^1.32",
+        "nikic/php-parser": "^5.9",
+        "pestphp/pest": "^5.2",
+        "phpstan/phpstan": "^2.2",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "rector/rector": "^2.6",
+        "roave/security-advisories": "dev-latest",
+        "shipmonk/composer-dependency-analyser": "^1.8",
+        "shipmonk/phpstan-rules": "^4.4",
+        "spaze/phpstan-disallowed-calls": "^4.14",
+        "symfony/process": "^8.1",
+        "tomasvotruba/cognitive-complexity": "^1.2",
+        "tomasvotruba/type-coverage": "^2.3"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "NightWorksIO\\MutationGate\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "NightWorksIO\\MutationGate\\PHPStan\\": "phpstan/",
+            "NightWorksIO\\MutationGate\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "ergebnis/composer-normalize": true,
+            "pestphp/pest-plugin": true
+        },
+        "platform": {
+            "php": "8.5.0"
+        },
+        "process-timeout": 0,
+        "sort-packages": true
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "git config core.hooksPath .githooks"
+        ],
+        "post-update-cmd": [
+            "git config core.hooksPath .githooks"
+        ],
+        "analyse": "phpstan analyse --memory-limit=1G",
+        "ci": [
+            "@composer validate --strict",
+            "@composer normalize --dry-run",
+            "@composer audit",
+            "@lint",
+            "@analyse",
+            "@refactor",
+            "@deps",
+            "@test:guards",
+            "@test:report"
+        ],
+        "deps": "composer-dependency-analyser",
+        "lint": "pint --test",
+        "lint:fix": "pint",
+        "refactor": "rector process --dry-run",
+        "refactor:fix": "rector process",
+        "test": "pest --parallel --exclude-testsuite=Guards",
+        "test:coverage": "sh scripts/coverage.sh",
+        "test:guards": "pest --testsuite=Guards",
+        "test:report": "sh scripts/coverage.sh --coverage-clover=coverage/clover.xml --log-junit=coverage/junit.xml"
+    },
+    "scripts-descriptions": {
+        "ci": "The PHP gates CI runs, in the order CI runs them, but for the lowest dependencies, which would rewrite vendor, and mutation, which runs in CI only. The hygiene, security and commit checks run in CI as well.",
+        "test": "Every suite but Guards, in parallel.",
+        "test:coverage": "The same run as test, held to 100% line coverage of src (G7).",
+        "test:guards": "Plants a violation of every rule in a throwaway copy of the tree and requires each rule to report it (R2).",
+        "test:report": "The same run as test:coverage, writing the clover and JUnit reports SonarCloud reads to coverage/."
+    }
+}

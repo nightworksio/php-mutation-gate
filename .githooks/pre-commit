@@ -1,0 +1,20 @@
+#!/bin/sh
+# Pint over the staged PHP files, before the commit rather than after the push.
+#
+# Staged files only: a tree-wide check reports files the author did not touch,
+# and the Guards suite plants fixtures that exist in order to be wrong. Skipped
+# where Pint is not installed, so a contributor without it gets CI's answer.
+
+set -eu
+
+staged=$(git diff --cached --name-only --diff-filter=ACM -- '*.php')
+[ -n "$staged" ] || exit 0
+[ -x vendor/bin/pint ] || exit 0
+
+# shellcheck disable=SC2086
+vendor/bin/pint --test $staged || {
+	echo "pre-commit: pint would change a staged file. Run \`composer lint:fix\`." >&2
+	exit 1
+}
+
+exit 0

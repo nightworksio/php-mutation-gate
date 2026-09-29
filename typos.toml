@@ -1,0 +1,11 @@
+# Spelling, for the `typos` job in .github/workflows/hygiene.yml.
+
+[files]
+# Hidden files are read, so `.docs`, `.github` and `.githooks` are checked.
+# `.git` holds compressed objects rather than text, so it comes back out.
+ignore-hidden = false
+extend-exclude = [".git/", "vendor/", "composer.lock"]
+
+[default.extend-identifiers]
+# Pest's own expectation is spelled this way, and the stub mirrors its API.
+toBeInvokable = "toBeInvokable"
