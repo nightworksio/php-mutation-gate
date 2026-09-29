@@ -47,4 +47,8 @@ return (new Configuration())
     // versions the package supports, and no file under src names them; the
     // tests run processes with the process runner.
     ->ignoreErrorsOnPackages(['psr/clock', 'symfony/http-client'], [ErrorType::UNUSED_DEPENDENCY])
-    ->ignoreErrorsOnPackage('symfony/process', [ErrorType::PROD_DEPENDENCY_ONLY_IN_DEV]);
+    ->ignoreErrorsOnPackage('symfony/process', [ErrorType::PROD_DEPENDENCY_ONLY_IN_DEV])
+    // The S3 proof store's client, which is suggested rather than required: a
+    // project that keeps its ledger in a bucket installs it, and the adapter
+    // is built only when the config chooses it.
+    ->ignoreErrorsOnPackages(['async-aws/core', 'async-aws/s3'], [ErrorType::DEV_DEPENDENCY_IN_PROD]);

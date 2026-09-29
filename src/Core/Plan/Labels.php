@@ -1,0 +1,115 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Core\Plan;
+
+use function array_filter;
+use function array_key_last;
+use function array_keys;
+use function array_map;
+use function array_search;
+use function array_unique;
+use function array_values;
+use function count;
+use function implode;
+use function in_array;
+use function iterator_to_array;
+use function mb_strlen;
+
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Tree\Tree;
+use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Unit\Units;
+
+use function sprintf;
+use function str_starts_with;
+use function usort;
+
+/**
+ * Cut runs made into shards, numbered from 1 and labelled with the trees
+ * each takes: a unit is of the deepest tree its path is under, and a unit
+ * under no tree is named by its own path. A tree that spans several shards is
+ * named with the part each takes, such as "src, part 2 of 4". An empty run is
+ * an empty shard.
+ */
+final readonly class Labels
+{
+    /** @param list<list<Weighed>> $runs */
+    public static function of(array $runs, Trees $trees): Shards
+    {
+        $named = array_map(static fn(array $run): array => self::treesOf($run, $trees), $runs);
+        $shards = Shards::none();
+
+        foreach ($runs as $at => $run) {
+            $id = ShardId::of($at + 1);
+            $shards = $shards->with($run === [] ? Shard::empty($id) : Shard::of(
+                $id,
+                $run[0]->package(),
+                Units::of(...array_map(static fn(Weighed $unit) => $unit->unit(), $run)),
+                Seconds::of(Runs::costOf($run)),
+                self::labelOf($at, $named),
+            ));
+        }
+
+        return $shards;
+    }
+
+    /**
+     * @param  list<Weighed> $run
+     * @return list<string>  the trees a run takes, in the order it takes them
+     */
+    private static function treesOf(array $run, Trees $trees): array
+    {
+        return array_values(array_unique(array_map(
+            static fn(Weighed $unit): string => self::treeOf($unit->unit()->path(), $trees),
+            $run,
+        )));
+    }
+
+    private static function treeOf(Path $unit, Trees $trees): string
+    {
+        $holding = array_values(array_filter(
+            iterator_to_array($trees, preserve_keys: false),
+            static fn(Tree $tree): bool => self::holds($tree, $unit),
+        ));
+
+        if ($holding === []) {
+            return $unit->value();
+        }
+
+        usort(
+            $holding,
+            static fn(Tree $one, Tree $other): int => self::depthOf($one) <=> self::depthOf($other),
+        );
+
+        return $holding[array_key_last($holding)]->path()->value();
+    }
+
+    private static function depthOf(Tree $tree): int
+    {
+        return mb_strlen($tree->path()->value());
+    }
+
+    private static function holds(Tree $tree, Path $unit): bool
+    {
+        $root = $tree->path()->value();
+
+        return $root === '.' || $unit->value() === $root || str_starts_with($unit->value(), sprintf('%s/', $root));
+    }
+
+    /** @param list<list<string>> $named each run's trees */
+    private static function labelOf(int $at, array $named): string
+    {
+        return implode('; ', array_map(static function (string $tree) use ($at, $named): string {
+            $spans = array_keys(array_filter(
+                $named,
+                static fn(array $trees): bool => in_array($tree, $trees, strict: true),
+            ));
+            $part = (int) array_search($at, $spans, strict: true) + 1;
+
+            return count($spans) === 1 ? $tree : sprintf('%s, part %d of %d', $tree, $part, count($spans));
+        }, $named[$at]));
+    }
+}

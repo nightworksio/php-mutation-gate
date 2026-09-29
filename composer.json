@@ -29,6 +29,7 @@
         "php": "^8.5",
         "ext-json": "*",
         "ext-mbstring": "*",
+        "ext-tokenizer": "*",
         "psr/clock": "^1.0",
         "symfony/console": "^7.4 || ^8.0",
         "symfony/http-client": "^7.4 || ^8.0",
@@ -37,7 +38,8 @@
     "require-dev": {
         "ext-simplexml": "*",
         "ext-sodium": "*",
-        "ext-tokenizer": "*",
+        "async-aws/core": "^1.30",
+        "async-aws/s3": "^3",
         "ergebnis/composer-normalize": "^2.54",
         "ergebnis/phpstan-rules": "^2.13",
         "laravel/pint": "^1.32",

@@ -5,18 +5,20 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Fakes;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
-/** A CI whose job was started as one shard, and which keeps the plans handed to it. */
+/** A CI whose job was started as one shard of a run it describes, and which keeps the plans handed to it. */
 final class CiPlanFake implements CiPlan
 {
     /** @var list<Plan> */
     public private(set) array $published = [];
 
-    public function __construct(private readonly ShardId $thisJob)
+    public function __construct(private readonly ShardId $thisJob, private readonly RunOn|CannotTell $run)
     {
     }
 
@@ -32,5 +34,10 @@ final class CiPlanFake implements CiPlan
         $shard = $plan->shard($this->thisJob);
 
         return $shard instanceof CannotJudge ? $shard : $shard->id();
+    }
+
+    public function runOn(): RunOn|CannotTell
+    {
+        return $this->run;
     }
 }

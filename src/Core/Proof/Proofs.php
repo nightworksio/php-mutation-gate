@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_key_exists;
+use function array_slice;
 use function array_values;
 
 use ArrayIterator;
@@ -15,6 +16,8 @@ use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use Traversable;
+
+use function usort;
 
 /**
  * Proofs, one per key. When two results prove the same key, the first is kept.
@@ -56,9 +59,38 @@ final readonly class Proofs implements Countable, IteratorAggregate
         return new self($proofs);
     }
 
+    /** These proofs without the one under a key, such as one a fresh result disagrees with. */
+    public function without(Digest $key): self
+    {
+        $proofs = $this->proofs;
+        unset($proofs[$key->value()]);
+
+        return new self($proofs);
+    }
+
     public function has(Digest $key): bool
     {
         return array_key_exists($key->value(), $this->proofs);
+    }
+
+    public function proofFor(Digest $key): Proof|Unproved
+    {
+        return $this->has($key) ? $this->proofs[$key->value()] : Unproved::key($key);
+    }
+
+    /**
+     * The newest of these proofs, by when their runs established them, newest
+     * first; of two as new, the one held first.
+     */
+    public function newest(int $kept): self
+    {
+        $proofs = array_values($this->proofs);
+        usort(
+            $proofs,
+            static fn(Proof $one, Proof $other): int => $other->run()->at()->value() <=> $one->run()->at()->value(),
+        );
+
+        return self::of(...array_slice($proofs, 0, $kept));
     }
 
     public function count(): int
