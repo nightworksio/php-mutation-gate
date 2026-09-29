@@ -192,19 +192,31 @@ The same repository has two more needs.
        the groups the runner will actually select by.
      - `#[Holds]` is read from test files by their tokens, without loading them,
        so reading it runs no test code.
-     - Every path `#[Holds]` names in a Pest suite must appear in Pest's group
-       listing as `holds:<path>`. Otherwise the run stops with exit code 2 and
-       says the package's Pest plugin is not loaded.
-   - **What the gate refuses** (exit code 2, with the file and line):
-     - `#[Holds]` anywhere else: on a `beforeEach`, a dataset, a closure kept
-       in a variable, or in `tests/Pest.php`, which Pest loads before the
-       plugin starts. The message names the group to use instead.
-     - An argument that is not exactly one string literal, which tokens cannot
-       read.
-     - A held test chained with `->depends()`. PHPUnit skips a test whose
-       dependency is outside the group, so the held test would never run.
-     - Under Pest, `#[Holds]` on a PHPUnit class or method without the
-       matching `#[Group]`.
+     - Under Pest the group listing is the answer, because the plugin has
+       turned every `#[Holds]` into a group. Every path that tokens find must
+       appear there as `holds:<path>`. Otherwise the run stops with exit code
+       2 and says the package's Pest plugin is not loaded.
+   - **What the gate refuses** (exit code 2, with the file and line), each for
+     a reason at source:
+     - **`#[Holds]` on any other closure** (a `beforeEach`, a dataset, a
+       closure kept in a variable). Pest never passes those closures to the
+       filter, so no group could follow from them.
+     - **`#[Holds]` in `tests/Pest.php`.** Pest loads that file before it
+       starts any plugin, so its tests register before the filter exists.
+     - **Under Pest, `#[Holds]` on a PHPUnit class or method without the
+       matching `#[Group]`.** Pest loads a PHPUnit class file with a plain
+       `include`, and only its own closure tests pass through the filter.
+       PHPUnit reads groups only from its own attributes, and its `Group` is
+       final (the Alternatives below).
+     - **Under Infection, a path that is not one string literal**, such as a
+       constant. The gate reads `#[Holds]` from tokens there, and tokens cannot
+       evaluate an expression. Under Pest such a path works, because the
+       plugin evaluates it and the group listing reports it.
+
+     Each message names the group that replaces the attribute. A held test
+     chained with `->depends()` on a test outside its group is not refused:
+     PHPUnit skips it, it covers nothing, and the coverage check of decision
+     10 names the lines the group then misses.
    - **What the path must be.** It has to be a tree, or a file or directory that
      exists inside one, spelt as the repository spells it. Anything else stops
      the run with exit code 2. A misspelt path would otherwise be mutated
