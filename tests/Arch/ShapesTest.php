@@ -6,9 +6,9 @@ use NightWorksIO\MutationGate\Tests\Support\Api;
 use NightWorksIO\MutationGate\Tests\Support\Layer;
 
 // C1, C2, D1, D2 and D3, over the API surface: every class in Port, Config and
-// Extension, and every core type their public signatures reach. Read by
-// reflection, because a nullable return or a primitive parameter is not a name
-// an import shows.
+// Extension, and every core type their public signatures reach; and C2 again
+// over every class in the core. Read by reflection, because a nullable return
+// or a primitive parameter is not a name an import shows.
 
 /** The primitives D2 keeps to named constructors. */
 const PRIMITIVES = ['string', 'int', 'float'];
@@ -51,6 +51,36 @@ it('passes no null across the public API', function (): void {
     // C2
     expect($offenders)->toBe([], sprintf(
         "These pass null across the public API:\n  %s\n\nA null means absence without saying which absence. Answer with a type that names it (C2).",
+        implode("\n  ", $offenders),
+    ));
+});
+
+it('lets nothing in the core be null', function (): void {
+    $offenders = [];
+
+    foreach (Api::classesUnder(Layer::Core->directory()) as $class) {
+        foreach (Api::methodsOf($class) as $method) {
+            if (in_array('null', Api::returnNames($method), strict: true)) {
+                $offenders[] = sprintf('%s answers with null', Api::describe($method));
+            }
+
+            foreach ($method->getParameters() as $parameter) {
+                if (in_array('null', Api::parameterNames($parameter), strict: true)) {
+                    $offenders[] = sprintf('%s takes null as $%s', Api::describe($method), $parameter->getName());
+                }
+            }
+        }
+
+        foreach ($class->getProperties() as $property) {
+            if ($property->getDeclaringClass()->getName() === $class->getName() && in_array('null', Api::propertyNames($property), strict: true)) {
+                $offenders[] = sprintf('%s::$%s can hold null', $class->getName(), $property->getName());
+            }
+        }
+    }
+
+    // C2
+    expect($offenders)->toBe([], sprintf(
+        "These in the core can be null:\n  %s\n\nThe core decides, and a null it decides with means absence without saying which. Absence is a type or an outcome (C2).",
         implode("\n  ", $offenders),
     ));
 });

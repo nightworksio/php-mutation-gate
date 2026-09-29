@@ -137,6 +137,23 @@ final readonly class Fixtures
                     public function found(): ?string;
                 }
                 PHP, 'passes no null across the public API'),
+            Fixture::suite('C2', 'src/Core/PlantedMaybe.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                namespace NightWorksIO\MutationGate\Core;
+
+                final readonly class PlantedMaybe
+                {
+                    public function __construct(private ?string $name) {}
+
+                    public function name(): string
+                    {
+                        return $this->name ?? '';
+                    }
+                }
+                PHP, 'lets nothing in the core be null'),
             self::inTheCore('C3', 'PlantedBareThrow', "throw new \\RuntimeException('bare');", 'never', 'C3 — a bare exception'),
             self::inTheCore('C4', 'PlantedSilencedCall', 'return @intdiv(1, 0);', 'int', 'ergebnis.noErrorSuppression'),
             self::inTheCore('C5', 'PlantedElse', "if (PHP_VERSION_ID > 0) {\n        return 1;\n    } else {\n        return 0;\n    }", 'int', 'C5 — no `else`'),

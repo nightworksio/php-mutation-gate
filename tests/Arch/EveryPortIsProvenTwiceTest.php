@@ -7,7 +7,7 @@ use NightWorksIO\MutationGate\Tests\Support\Layer;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 // G2: every port has a hand-written fake in tests/Fakes and a contract suite
-// in tests/Contract that runs the same expectations against the fake and
+// in tests/Contract/<Port> that runs the same expectations against the fake and
 // against every adapter of it, so a fake cannot say something the real thing
 // does not.
 
@@ -16,7 +16,7 @@ it('proves every port against its fake and against every adapter', function (): 
 
     foreach (Api::classesUnder(Layer::Port->directory()) as $port) {
         $name = $port->getShortName();
-        $contract = sprintf('tests/Contract/%sTest.php', $name);
+        $contract = sprintf('tests/Contract/%1$s/%1$sTest.php', $name);
         $fakes = array_values(array_filter(
             Api::classesUnder('tests/Fakes'),
             static fn(ReflectionClass $fake): bool => $fake->implementsInterface($port->getName()),

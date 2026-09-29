@@ -20,6 +20,7 @@ use ReflectionIntersectionType;
 use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionParameter;
+use ReflectionProperty;
 use ReflectionType;
 use ReflectionUnionType;
 
@@ -90,7 +91,8 @@ final readonly class Api
     }
 
     /**
-     * The public methods a class declares itself.
+     * The public methods a class declares itself. The methods PHP gives every
+     * enum, `cases()`, `from()` and `tryFrom()`, are PHP's and not the class's.
      *
      * @param  ReflectionClass<object> $class
      * @return list<ReflectionMethod>
@@ -99,8 +101,36 @@ final readonly class Api
     {
         return array_values(array_filter(
             $class->getMethods(ReflectionMethod::IS_PUBLIC),
-            static fn(ReflectionMethod $method): bool => $method->getDeclaringClass()->getName() === $class->getName(),
+            static fn(ReflectionMethod $method): bool => $method->getDeclaringClass()->getName() === $class->getName() && ! $method->isInternal(),
         ));
+    }
+
+    /**
+     * Every method a class declares itself, whatever its visibility, less the
+     * ones PHP gives every enum.
+     *
+     * @param  ReflectionClass<object> $class
+     * @return list<ReflectionMethod>
+     */
+    public static function methodsOf(ReflectionClass $class): array
+    {
+        return array_values(array_filter(
+            $class->getMethods(),
+            static fn(ReflectionMethod $method): bool => $method->getDeclaringClass()->getName() === $class->getName() && ! $method->isInternal(),
+        ));
+    }
+
+    /**
+     * Every type name a property's type spells, `null` included where it
+     * allows it.
+     *
+     * @return list<string>
+     */
+    public static function propertyNames(ReflectionProperty $property): array
+    {
+        $type = $property->getType();
+
+        return $type instanceof ReflectionType ? self::namesIn($type) : [];
     }
 
     public static function describe(ReflectionMethod $method): string
