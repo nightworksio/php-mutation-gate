@@ -5,6 +5,10 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Families;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
+use Pest\Mutate\Mutators\Assignment\BitwiseAndToBitwiseOr;
+use Pest\Mutate\Mutators\Equality\GreaterToGreaterOrEqual;
+use Pest\Mutate\Mutators\String\ConcatSwitchSides;
 
 /**
  * Every mutator class of the pest-plugin-mutate installed here, by its name.
@@ -35,11 +39,11 @@ it('gives every mutator of the supported pest-plugin-mutate a family, or marks i
 });
 
 it('names a mutator\'s family by its class, whose short name another mutator may share', function (): void {
-    expect(Families::of('Pest\Mutate\Mutators\Arithmetic\PlusToMinus'))->toBe(MutatorFamily::Arithmetic)
-        ->and(Families::of('Pest\Mutate\Mutators\Equality\GreaterToGreaterOrEqual'))->toBe(MutatorFamily::Boundary)
-        ->and(Families::of('Pest\Mutate\Mutators\Assignment\BitwiseAndToBitwiseOr'))->toBe(MutatorFamily::Arithmetic)
-        ->and(Families::of('Pest\Mutate\Mutators\String\ConcatSwitchSides'))->toBe(MutatorFamily::None)
-        ->and(Families::knows('Pest\Mutate\Mutators\String\ConcatSwitchSides'))->toBeTrue();
+    expect(Families::of(PlusToMinus::class))->toBe(MutatorFamily::Arithmetic)
+        ->and(Families::of(GreaterToGreaterOrEqual::class))->toBe(MutatorFamily::Boundary)
+        ->and(Families::of(BitwiseAndToBitwiseOr::class))->toBe(MutatorFamily::Arithmetic)
+        ->and(Families::of(ConcatSwitchSides::class))->toBe(MutatorFamily::None)
+        ->and(Families::knows(ConcatSwitchSides::class))->toBeTrue();
 });
 
 it('gives a mutator it does not know no family', function (): void {

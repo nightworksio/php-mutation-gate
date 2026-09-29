@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -40,7 +41,7 @@ $planned = static fn(string $id, string $file, int $start): array => [
     'file' => $file,
     'start' => $start,
     'end' => $start + 1,
-    'mutator' => 'Pest\Mutate\Mutators\Arithmetic\PlusToMinus',
+    'mutator' => PlusToMinus::class,
     'diff' => sprintf('diff of %s', $id),
 ];
 
@@ -54,7 +55,7 @@ it('orders the planned mutants by file and by the line each starts on', function
         'not JSON',
         ['event' => 'planned', 'id' => 'd', 'file' => 7, 'start' => '9'],
     ]));
-    $plus = 'Pest\Mutate\Mutators\Arithmetic\PlusToMinus';
+    $plus = PlusToMinus::class;
 
     expect($records instanceof Records ? $records->planned() : [])->toBe([
         'd' => ['file' => '', 'start' => 0, 'end' => 0, 'mutator' => '', 'diff' => ''],

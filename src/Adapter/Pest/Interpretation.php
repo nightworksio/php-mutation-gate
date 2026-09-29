@@ -125,7 +125,7 @@ final readonly class Interpretation
 
             $path = $this->project->relative($planned['file']);
             $key = MutantId::hash($path, $planned['mutator'], Diff::fromPest($planned['diff']), 0)->value();
-            $occurrence = self::occurrences($seen, $key);
+            $occurrence = $this->occurrences($seen, $key);
             $mutants = $mutants->with($this->mutant($id, $planned, $records, $selection, $occurrence));
             $seen[] = $key;
         }
@@ -149,7 +149,7 @@ final readonly class Interpretation
             $id,
             Location::of($path, Line::of($planned['start']), Line::of($planned['end'])),
             Mutation::of($planned['mutator'], Families::of($planned['mutator']), $diff),
-            $unselected === [] ? self::statusOf($records->statusOf($id)) : MutantStatus::Unjudged,
+            $unselected === [] ? $this->statusOf($records->statusOf($id)) : MutantStatus::Unjudged,
             $records->durationOf($id),
         );
 
@@ -159,14 +159,14 @@ final readonly class Interpretation
     }
 
     /** @param list<string> $seen the key of every mutant before this one */
-    private static function occurrences(array $seen, string $key): int
+    private function occurrences(array $seen, string $key): int
     {
         $counts = array_count_values($seen);
 
         return array_key_exists($key, $counts) ? $counts[$key] : 0;
     }
 
-    private static function statusOf(string $pest): MutantStatus
+    private function statusOf(string $pest): MutantStatus
     {
         return match ($pest) {
             'tested' => MutantStatus::Killed,

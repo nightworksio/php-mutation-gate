@@ -15,7 +15,6 @@
     "prefer-stable": true,
     "autoload": {
         "psr-4": {
-            "Legacy\\": "legacy/",
             "Library\\": "src/",
             "NightWorksIO\\MutationGate\\": "../../../../src/"
         }

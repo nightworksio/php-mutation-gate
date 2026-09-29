@@ -21,6 +21,9 @@ return (new Configuration())
     ->addPathToScan(__DIR__ . '/src', isDev: false)
     ->addPathToScan(__DIR__ . '/tests', isDev: true)
     ->addPathToScan(__DIR__ . '/phpstan', isDev: true)
+    // The runner contract suite's fixture is a project of its own, with its own
+    // dependencies.
+    ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/fixture')
     ->ignoreErrorsOnPackages(
         [
             // Included by phpstan.neon, which is configuration rather than code.

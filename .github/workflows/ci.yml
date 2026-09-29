@@ -246,7 +246,9 @@ jobs:
   # the range the package supports. The fixture library is a project of its
   # own, so each end is one `composer update` of it, and the suite runs once
   # after each. It runs serially: a Pest started under paratest would take
-  # itself for one of its workers.
+  # itself for one of its workers. The library gets the php-code-coverage this
+  # package is locked at: the adapter reads the maps the library's Pest writes,
+  # which in a user's project is one vendor directory and here is two.
   runner-contracts:
     name: runner contracts
     needs: scope
@@ -267,14 +269,16 @@ jobs:
       - name: install the lowest supported Pest into the fixture library
         working-directory: tests/Contract/Runner/fixture
         run: |
-          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
-          composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit) '
+          coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
+          composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
       - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php
       - name: install the highest supported Pest into the fixture library
         working-directory: tests/Contract/Runner/fixture
         run: |
-          composer update --no-interaction --no-progress
-          composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit) '
+          coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
+          composer update --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
+          composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
       - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php
 
   # G8 — every mutant of src is killed. The package holds its own code to a

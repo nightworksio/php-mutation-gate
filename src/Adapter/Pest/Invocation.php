@@ -49,6 +49,11 @@ final readonly class Invocation
     /**
      * Mutation with `--path`, so the gate and not `covers()` decides what is
      * mutated, and `--no-cache`, so no stale mutant decides a result.
+     *
+     * It passes no `--processes`: pest-plugin-mutate hands that option on to
+     * each mutant's own run, which is not parallel and fails on it, so every
+     * covered mutant would read as killed. Pest runs as many mutants at once
+     * as the machine has cores.
      */
     public static function mutation(MutationRequest $request, WholeSuite|Group $judgedBy, string $results): Command
     {
@@ -56,7 +61,6 @@ final readonly class Invocation
             '--mutate',
             '--no-cache',
             '--parallel',
-            sprintf('--processes=%d', $request->processes()->count()),
             '--no-tia',
             '--colors=never',
             sprintf('--path=%s', self::joined($request->files())),

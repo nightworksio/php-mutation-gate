@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Plugin;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 it('records nothing until Pest boots it', function (): void {
     expect(new Plugin()->recorder())->toBe(Off::Recording);
@@ -31,4 +32,10 @@ it('records where the adapter asks when Pest boots it', function (): void {
     }
 
     expect($plugin->recorder())->toBeInstanceOf(Recorder::class);
+});
+
+it('is the Pest plugin this package\'s composer.json lists', function (): void {
+    $manifest = json_decode((string) file_get_contents(Tree::at('composer.json')), associative: true);
+
+    expect($manifest)->toHaveKey('extra.pest.plugins', [Plugin::class]);
 });

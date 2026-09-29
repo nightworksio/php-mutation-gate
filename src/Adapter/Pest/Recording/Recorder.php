@@ -38,7 +38,8 @@ final readonly class Recorder
     /** The variable Pest sets in each mutant's own process. */
     private const string MUTANT = 'PEST_MUTATION_TESTING';
 
-    private const int FLAGS = JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE;
+    /** A duration of whole seconds stays a float, so the adapter reads it as one. */
+    private const int FLAGS = JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION;
 
     /**
      * @param string        $results   the file the lines are written to

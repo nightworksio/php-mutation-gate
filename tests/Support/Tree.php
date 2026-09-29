@@ -15,6 +15,7 @@ use function sort;
 use SplFileInfo;
 
 use function sprintf;
+use function str_contains;
 use function str_ends_with;
 use function str_replace;
 
@@ -40,7 +41,8 @@ final readonly class Tree
     /**
      * Every file under a directory of the repository ending in a suffix, as
      * paths relative to the root, in byte order. A directory that is not there
-     * holds nothing.
+     * holds nothing, and a vendor directory, such as the one the runner
+     * contract suite's fixture installs, is another project's.
      *
      * @return list<string>
      */
@@ -58,8 +60,27 @@ final readonly class Tree
             }
         }
 
-        sort($found);
+        return self::ownOnly($found);
+    }
 
-        return $found;
+    /**
+     * The paths under no vendor directory, in byte order.
+     *
+     * @param  list<string> $paths
+     * @return list<string>
+     */
+    private static function ownOnly(array $paths): array
+    {
+        $own = [];
+
+        foreach ($paths as $path) {
+            if (! str_contains($path, '/vendor/')) {
+                $own[] = $path;
+            }
+        }
+
+        sort($own);
+
+        return $own;
     }
 }

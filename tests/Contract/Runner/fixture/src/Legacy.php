@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Legacy;
+namespace Library;
 
 final readonly class Legacy
 {

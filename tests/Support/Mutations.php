@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use Pest\Mutate\Mutation;
 use Pest\Mutate\MutationSuite;
 use Pest\Mutate\MutationTest;
+use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use Pest\Mutate\Repositories\TelemetryRepository;
 use Pest\Mutate\Support\MutationTestResult;
 
@@ -27,7 +28,7 @@ use Symfony\Component\Finder\SplFileInfo;
 /** pest-plugin-mutate's own objects, as a Pest run holds them, for the plugin's tests. */
 final readonly class Mutations
 {
-    public const string PLUS = 'Pest\Mutate\Mutators\Arithmetic\PlusToMinus';
+    public const string PLUS = PlusToMinus::class;
 
     /** A suite of one mutant per result given, on lines 11, 12 and so on of a file, each with that result. */
     public static function suite(string $file, MutationTestResult ...$results): MutationSuite

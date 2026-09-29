@@ -27,14 +27,16 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\PestRun;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Pest\Mutate\Mutators\Arithmetic\MinusToPlus;
+use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 
 afterEach(function (): void {
     Scratch::sweep();
 });
 
-const INTERPRETED_PLUS = 'Pest\Mutate\Mutators\Arithmetic\PlusToMinus';
+const INTERPRETED_PLUS = PlusToMinus::class;
 
-const INTERPRETED_MINUS = 'Pest\Mutate\Mutators\Arithmetic\MinusToPlus';
+const INTERPRETED_MINUS = MinusToPlus::class;
 
 const INTERPRETED_SUMMARY = "\n  Mutations: 1 untested, 2 uncovered, 1 pending, 1 timeout, 1 tested\n";
 

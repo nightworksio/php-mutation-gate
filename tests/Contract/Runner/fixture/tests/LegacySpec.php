@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Legacy\Legacy;
+use Library\Legacy;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

@@ -9,11 +9,12 @@ use function array_map;
 use function file_put_contents;
 
 use SebastianBergmann\CodeCoverage\Data\ProcessedCodeCoverageData;
+use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 use function serialize;
 use function sprintf;
 
-/** Coverage maps written as `--coverage-php` writes them, in php-code-coverage's serialization format 4. */
+/** Coverage maps written as `--coverage-php` writes them, in the installed php-code-coverage's serialization format. */
 final readonly class CoverageMaps
 {
     /**
@@ -39,7 +40,7 @@ final readonly class CoverageMaps
                 'runtime' => ['name' => 'PHP', 'version' => PHP_VERSION, 'vendorUrl' => 'https://www.php.net/'],
                 'phpCodeCoverage' => [
                     'version' => '14.3.5',
-                    'serializationFormat' => 4,
+                    'serializationFormat' => Serializer::SERIALIZATION_FORMAT,
                     'driverInformation' => ['name' => 'PCOV', 'version' => '1.0.12'],
                 ],
             ],
@@ -52,8 +53,9 @@ final readonly class CoverageMaps
         ];
 
         file_put_contents($file, sprintf(
-            "<?php // phpunit/php-code-coverage serialization format 4\n"
+            "<?php // phpunit/php-code-coverage serialization format %d\n"
             . "return \\unserialize(<<<'END_OF_COVERAGE_SERIALIZATION'\n%s\nEND_OF_COVERAGE_SERIALIZATION\n);",
+            Serializer::SERIALIZATION_FORMAT,
             serialize($coverage),
         ));
     }

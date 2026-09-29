@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 // What every runner reports over the fixture library in fixture/: in
 // src/Money.php a killed, a survived, an uncovered and a timed-out mutant, and
@@ -134,7 +135,7 @@ it('names the test files that judge a covered file, and none for an uncovered on
 
 it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select a covering test', function (): void {
     $library = Library::pest(Patching::off());
-    $request = MutationRequest::of(Paths::of(Path::of('legacy/Legacy.php')), WholeSuite::tests())
+    $request = MutationRequest::of(Paths::of(Path::of('src/Legacy.php')), WholeSuite::tests())
         ->onlyMutators($library->mutators('unused'));
     $result = $library->mutate('legacy', $request);
     $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
@@ -167,8 +168,7 @@ it('opens a patched shard on the canary group and reads the map the planning job
 
 // composer.json allows pest-plugin-mutate 5.0.2 alone. 5.0.1 reads each line's
 // covering tests from php-code-coverage 14.3's map as hit counts rather than test
-// ids, and passes an int to preg_match, a TypeError under every Pest ^5.1; a
-// release after 5.0.2 is allowed once this suite passes on it.
+// ids, and passes an int to preg_match, a TypeError under every Pest ^5.1.
 it('holds the library to the pest-plugin-mutate the package allows', function (): void {
     $conflict = static function (string $manifest): mixed {
         $decoded = json_decode((string) file_get_contents(Tree::at($manifest)), associative: true);
@@ -179,6 +179,17 @@ it('holds the library to the pest-plugin-mutate the package allows', function ()
     expect($conflict(sprintf('%s/composer.json', Library::DIRECTORY)))->toBe($conflict('composer.json'))
         ->and($conflict('composer.json'))->toBe(['pestphp/pest-plugin-mutate' => '<5.0.2 || >5.0.2']);
 });
+
+// The adapter reads the maps the library's Pest writes with the
+// php-code-coverage it is installed beside. In a user's project that is one
+// vendor directory; here it is two, and the job installs the library at this
+// package's php-code-coverage so both read one serialization format.
+it('reads coverage in the serialization format the library writes it in', function (): void {
+    $serializer = sprintf('%s/phpunit/php-code-coverage/src/Serialization/Serializer.php', Library::vendor());
+
+    expect((string) file_get_contents($serializer))
+        ->toContain(sprintf('SERIALIZATION_FORMAT = %d;', Serializer::SERIALIZATION_FORMAT));
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('has the library installed wherever the runner contracts run', function (): void {
     expect(Library::isInstalled())->toBeTrue();

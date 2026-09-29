@@ -69,7 +69,7 @@ final readonly class CoverageFile
         $map = CoverageMap::empty();
 
         foreach ($this->lines as $file => $lines) {
-            $map = self::covered($map, $project->relative($file), $lines);
+            $map = $this->covered($map, $project->relative($file), $lines);
         }
 
         foreach ($this->durations as $test => $seconds) {
@@ -102,7 +102,7 @@ final readonly class CoverageFile
     /**
      * @param array<int, array<int, string>> $lines
      */
-    private static function covered(CoverageMap $map, Path $file, array $lines): CoverageMap
+    private function covered(CoverageMap $map, Path $file, array $lines): CoverageMap
     {
         foreach ($lines as $line => $tests) {
             foreach ($tests as $test) {

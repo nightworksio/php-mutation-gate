@@ -12,9 +12,11 @@ afterEach(function (): void {
 });
 
 /** A project in a new directory, spelt with a trailing slash. */
-$project = static function (): Project {
-    return Project::at(sprintf('%s/', Scratch::directory()), Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
-};
+$project = static fn(): Project => Project::at(
+    sprintf('%s/', Scratch::directory()),
+    Paths::of(Path::of('tests')),
+    Path::of('.mutation-gate'),
+);
 
 it('holds its root as its real path, as Pest reports files', function (): void {
     $root = Scratch::directory();

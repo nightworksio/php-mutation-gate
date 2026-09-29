@@ -123,7 +123,7 @@ final readonly class Records
         $decoded = json_decode($line, associative: true);
         $record = is_array($decoded) ? $decoded : [];
 
-        return match (self::text($record, 'event')) {
+        return match ($this->text($record, 'event')) {
             'planned' => $this->withPlanned($record),
             'outcome' => $this->withOutcome($record),
             'finished' => $this->withFinished($record),
@@ -136,15 +136,15 @@ final readonly class Records
     private function withPlanned(array $record): self
     {
         $planned = [
-            'file' => self::text($record, 'file'),
-            'start' => self::number($record, 'start'),
-            'end' => self::number($record, 'end'),
-            'mutator' => self::text($record, 'mutator'),
-            'diff' => self::text($record, 'diff'),
+            'file' => $this->text($record, 'file'),
+            'start' => $this->number($record, 'start'),
+            'end' => $this->number($record, 'end'),
+            'mutator' => $this->text($record, 'mutator'),
+            'diff' => $this->text($record, 'diff'),
         ];
 
         return new self(
-            [...$this->planned, self::text($record, 'id') => $planned],
+            [...$this->planned, $this->text($record, 'id') => $planned],
             $this->statuses,
             $this->durations,
             $this->finished,
@@ -157,7 +157,7 @@ final readonly class Records
     {
         return new self(
             $this->planned,
-            [...$this->statuses, self::text($record, 'id') => self::text($record, 'status')],
+            [...$this->statuses, $this->text($record, 'id') => $this->text($record, 'status')],
             $this->durations,
             $this->finished,
             $this->ended,
@@ -167,8 +167,8 @@ final readonly class Records
     /** @param array<mixed> $record */
     private function withFinished(array $record): self
     {
-        $id = self::text($record, 'id');
-        $status = self::text($record, 'status');
+        $id = $this->text($record, 'id');
+        $status = $this->text($record, 'status');
         $duration = array_key_exists('duration', $record) && is_float($record['duration']) ? $record['duration'] : 0.0;
 
         return new self(
@@ -181,13 +181,13 @@ final readonly class Records
     }
 
     /** @param array<mixed> $record */
-    private static function text(array $record, string $key): string
+    private function text(array $record, string $key): string
     {
         return array_key_exists($key, $record) && is_string($record[$key]) ? $record[$key] : '';
     }
 
     /** @param array<mixed> $record */
-    private static function number(array $record, string $key): int
+    private function number(array $record, string $key): int
     {
         return array_key_exists($key, $record) && is_int($record[$key]) ? $record[$key] : 0;
     }

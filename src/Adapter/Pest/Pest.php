@@ -137,7 +137,7 @@ final readonly class Pest implements Runner
                 return $result;
             }
 
-            $retried = $retried->with(self::matching($mutant, $result->mutants()));
+            $retried = $retried->with($this->matching($mutant, $result->mutants()));
         }
 
         return $retried;
@@ -177,7 +177,7 @@ final readonly class Pest implements Runner
             : CannotJudge::because(sprintf(self::EMPTY_CANARY, $this->patching->canary()->name()));
     }
 
-    private static function matching(Mutant $mutant, Mutants $found): Mutant
+    private function matching(Mutant $mutant, Mutants $found): Mutant
     {
         foreach ($found as $again) {
             if ($again->id()->value() === $mutant->id()->value()) {

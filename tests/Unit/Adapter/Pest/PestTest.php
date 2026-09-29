@@ -45,12 +45,13 @@ use NightWorksIO\MutationGate\Tests\Support\PestRun;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 
 afterEach(function (): void {
     Scratch::sweep();
 });
 
-const RUN_PLUS = 'Pest\Mutate\Mutators\Arithmetic\PlusToMinus';
+const RUN_PLUS = PlusToMinus::class;
 
 const RUN_ADDS = 'P\Tests\MoneySpec::__pest_evaluable_it_adds';
 

@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
+use Pest\Mutate\Mutators\Logical\TrueToFalse;
 
 it('lists the groups without colour', function (): void {
     expect(Invocation::listingGroups())->toEqual(Command::pest('--list-groups', '--colors=never'));
@@ -54,19 +56,18 @@ it('mutates some files against the whole suite, recording to a results file, wit
         '--mutate',
         '--no-cache',
         '--parallel',
-        '--processes=1',
         '--no-tia',
         '--colors=never',
         '--path=src/Money.php,src/Held.php',
     )->with(['MUTATION_GATE_RESULTS' => '/p/results.jsonl']));
 });
 
-it('mutates a tree less its held paths, against a group, with some mutators, by a deadline', function (): void {
+it('mutates a tree less its held paths, against a group, with some mutators, by a deadline, at Pest\'s own concurrency', function (): void {
     $request = MutationRequest::of(Paths::of(Path::of('src')), Group::named('holds:src'))
         ->leavingOut(Paths::of(Path::of('src/Kernel.php'), Path::of('src/Boot')))
         ->onlyMutators(Mutators::named(
-            'Pest\Mutate\Mutators\Arithmetic\PlusToMinus',
-            'Pest\Mutate\Mutators\Logical\TrueToFalse',
+            PlusToMinus::class,
+            TrueToFalse::class,
         ))
         ->across(Processes::of(8))
         ->within(Seconds::of(600.0));
@@ -78,7 +79,6 @@ it('mutates a tree less its held paths, against a group, with some mutators, by 
         '--mutate',
         '--no-cache',
         '--parallel',
-        '--processes=8',
         '--no-tia',
         '--colors=never',
         '--path=src',

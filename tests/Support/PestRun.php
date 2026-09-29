@@ -18,7 +18,9 @@ final readonly class PestRun
     public static function write(string $results, array $records): void
     {
         $lines = array_map(
-            static fn(mixed $record): string => is_string($record) ? $record : (string) json_encode($record),
+            static fn(mixed $record): string => is_string($record)
+                ? $record
+                : (string) json_encode($record, JSON_PRESERVE_ZERO_FRACTION),
             $records,
         );
 

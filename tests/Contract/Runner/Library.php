@@ -29,6 +29,10 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use Pest\Mutate\Mutators\Arithmetic\MinusToPlus;
+use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
+use Pest\Mutate\Mutators\Arithmetic\PostDecrementToPostIncrement;
+use Pest\Mutate\Mutators\Equality\GreaterToGreaterOrEqual;
 
 use function sprintf;
 
@@ -97,11 +101,11 @@ final class Library
 
     /** @var array<string, array{string, MutatorFamily}> Pest's mutator for each change, and its family */
     private const array PEST = [
-        'adds' => ['Pest\Mutate\Mutators\Arithmetic\PlusToMinus', MutatorFamily::Arithmetic],
-        'large' => ['Pest\Mutate\Mutators\Equality\GreaterToGreaterOrEqual', MutatorFamily::Boundary],
-        'unused' => ['Pest\Mutate\Mutators\Arithmetic\MinusToPlus', MutatorFamily::Arithmetic],
-        'drains' => ['Pest\Mutate\Mutators\Arithmetic\PostDecrementToPostIncrement', MutatorFamily::Arithmetic],
-        'held' => ['Pest\Mutate\Mutators\Arithmetic\PlusToMinus', MutatorFamily::Arithmetic],
+        'adds' => [PlusToMinus::class, MutatorFamily::Arithmetic],
+        'large' => [GreaterToGreaterOrEqual::class, MutatorFamily::Boundary],
+        'unused' => [MinusToPlus::class, MutatorFamily::Arithmetic],
+        'drains' => [PostDecrementToPostIncrement::class, MutatorFamily::Arithmetic],
+        'held' => [PlusToMinus::class, MutatorFamily::Arithmetic],
     ];
 
     /** @var array<string, MutationResult|CannotJudge> each real run's answer, by library and request */
