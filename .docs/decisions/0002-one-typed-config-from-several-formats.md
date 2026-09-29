@@ -164,7 +164,7 @@ cannot.
    | Setting | Default |
    |---------|---------|
    | Preset | `laravel` when `composer.json` requires `laravel/framework`, `symfony` when it requires `symfony/framework-bundle`, otherwise `library` (ADR-0008) |
-   | Runner | Pest when `pestphp/pest-plugin-mutate` is installed, Infection when `infection/infection` is. Both installed stops the run and asks the config to choose. |
+   | Runner | Pest when `pestphp/pest-plugin-mutate` is installed, Infection when `infection/infection` is. Both installed stops the run (exit code 2) and asks the config to choose. |
    | Trees | The `phpunit` tree source: one tree per `<directory>` and `<file>` under `<source><include>` in the `phpunit.xml` PHPUnit itself would read (`phpunit.xml`, else `phpunit.xml.dist`), minus `<source><exclude>`. Without a `<source>`, the preset's trees (ADR-0008); for `library` that is one tree per `autoload` path in `composer.json`, not `autoload-dev`. No tree at all is exit code 2. |
    | Test directories | The `<directory>` entries under `<testsuites>` in the same file |
    | Floors | Each tree's declared floor from the nearest manifest, and its baseline floor (ADR-0003, ADR-0005); new code at 100 |
@@ -182,8 +182,8 @@ cannot.
      declaring trees never adds them to the ones `phpunit.xml` or a preset
      found.
    - The command-line options that set config are `--runner=<name>`,
-     `--report=<name>:<path>` (repeatable, adding to `reports`) and
-     `--budget=<duration>` (ADR-0008).
+     `--report=<name>:<path>` (repeatable, adding to `reports`),
+     `--budget=<duration>` (ADR-0008) and `--ci=<name>` (ADR-0006).
 
 6. **Validation reports everything at once, by path.** A config with three
    mistakes prints three errors, each with its path and what was expected:

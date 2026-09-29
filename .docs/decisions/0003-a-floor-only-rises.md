@@ -35,11 +35,11 @@ itself, and goes up with the tests.
    | killed, errored (the mutant crashed the tests) | killed |
    | timed out, and judged a kill by timeout triage (ADR-0008) | killed |
    | survived, uncovered, unjudged, flaky; timed out or skipped and too slow to judge (ADR-0008) | not killed |
-   | ignored, with a reason (ADR-0008) | left out |
+   | ignored, with a reason or by a native marker (ADR-0008) | left out |
 
    **Score = killed ÷ (all mutants − ignored − excluded uncovered) × 100,
-   truncated to two decimals**, where uncovered mutants are excluded only under
-   `uncovered: exclude`. A set with nothing left to count has no score: no mutants, or
+   truncated to two decimals**, where "ignored" covers both kinds of ignore,
+   and uncovered mutants are excluded only under `uncovered: exclude`. A set with nothing left to count has no score: no mutants, or
    every mutant ignored. It passes, and the report says *nothing to mutate*
    rather than showing 100%. "No mutants" and "every mutant killed" must never
    print the same way.
@@ -125,7 +125,8 @@ itself, and goes up with the tests.
        the raise lands with the change that earned it.
      - `report` passes, and the summary and PR comment (ADR-0009) show the
        command that raises it.
-     - `require` applies to pull-request runs. On the default branch an
+     - `require` applies to pull-request runs, as the CI plan reports them
+       (ADR-0006). On the default branch an
        improvement is always reported, never failed, because nothing can
        commit to it from the run.
    - After a rebase, two raises of the same tree resolve by running
@@ -140,10 +141,10 @@ itself, and goes up with the tests.
    `lowered` entry is dropped the next time the floor is raised. A tree may
    leave the file only when its path is gone.
 
-8. **New code has a floor of its own, 100 by default.** In a pull-request run,
-   and in pre-push and watch mode (ADR-0010), one more set is judged: the
-   mutants on the lines the change added or modified. What counts as a changed
-   line is set out in ADR-0005.
+8. **New code has a floor of its own, 100 by default.** In a pull-request run
+   (ADR-0006), and in pre-push and watch mode (ADR-0010), one more set is
+   judged: the mutants on the lines the change added or modified. What counts as
+   a changed line is set out in ADR-0005.
    - That set is held to `newCode.floor`, a number from 0 to 100, 100 by
      default.
    - In a monorepo, a module or package can declare a floor of its own for the

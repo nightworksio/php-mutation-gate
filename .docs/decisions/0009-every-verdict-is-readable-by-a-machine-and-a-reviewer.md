@@ -42,8 +42,8 @@ sees the same verdict.
      The built-in names are `json`, `junit`, `sarif` and `html`, each needing
      a `path`. `reports` is empty by default, and `--report=<name>:<path>` adds
      one for a single command.
-   - **GitHub annotations and the step summary** whenever `GITHUB_ACTIONS` is
-     set.
+   - **GitHub annotations and the step summary** (written to
+     `GITHUB_STEP_SUMMARY`) whenever `GITHUB_ACTIONS` is set.
    - **The sticky PR comment** under GitHub Actions on a `pull_request` event
      when `GITHUB_TOKEN` is set, as the package's action and reusable workflow
      set it.
@@ -66,8 +66,9 @@ sees the same verdict.
      as a failed test. JUnit failures match gate failures one to one.
    - **SARIF 2.1.0** (`sarif`).
      - One run, with the tool named `mutation-gate`.
-     - Four rules: `survived`, `uncovered`, `unjudged` (which includes too
-       slow to judge) and `flaky`.
+     - Four rules: `survived`, `uncovered`, `unjudged` and `flaky`. The
+       `unjudged` rule reports both unjudged mutants and those too slow to
+       judge, two statuses the ledger treats differently (ADR-0007).
      - Each result is at the mutant's file and lines. Its level is `error` when
        the mutant is in a set that failed (new code, or a tree below its floor)
        and `warning` otherwise.
@@ -212,9 +213,10 @@ sees the same verdict.
    | Visibility | `public` → `protected` | Nothing outside the class calls this. It can be narrower. |
    | Uncovered (a status, not a family) | | No test runs this line. |
 
-   A mutator with no family shows its diff and covering tests only. A table
-   test fails when a mutator of a supported runner version has no family and is
-   not explicitly marked as having none.
+   A mutator with no family gets the general sentence: *These tests run line
+   N, but none fails when it becomes `<mutated line>`.* A table test fails when
+   a mutator of a supported runner version has no family and is not explicitly
+   marked as having none.
 
 ## Alternatives considered
 
