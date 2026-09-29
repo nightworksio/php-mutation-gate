@@ -103,11 +103,11 @@ has to bring its result with it.
         say).
    7. **Of the test directories, only what can judge this unit**:
       - the test files the runner says can judge it (ADR-0004). For a held unit,
-        that is every test file, because any file can join a group. So it is for
-        a unit whose tokens hold a class or interface constant, a property
-        default, an enum case, a plain function's or closure's parameter default
-        or an attribute argument, because any file can come to reference it
-        (ADR-0004, decisions 5 and 8);
+        that is every test file, because any file can join a group. So it is,
+        under Pest, for a unit whose tokens hold a class or interface constant,
+        a property default, an enum case, a plain function's or closure's
+        parameter default or an attribute argument, because any file can come to
+        reference it (ADR-0004, decisions 5 and 8);
       - the support those files name, and the support that names in turn,
         matched by the class and function names each file declares. Matching
         over-reads on purpose: a word that happens to match brings the file in;
@@ -184,7 +184,7 @@ has to bring its result with it.
    | Backend | What it is |
    |---------|------------|
    | **Directory** (`directory`) | One file per scope, `<path>/<scope>/ledger.json`, where `path` is `.mutation-gate/ledger` by default (`proofs.store: {use: directory, with: {path: …}}`). The default locally, and the base of every CI cache: GitLab's `cache:`, Buildkite's cache plugins and CircleCI's `save_cache` keep the directory. |
-   | **GitHub Actions cache** | The directory store, kept by the action and the reusable workflow (ADR-0011) when their `cache` input is `true`, as it is by default. The cache service is reachable only from inside an action, so PHP never calls it. Before the run, `actions/cache/restore` restores two entries, each into its scope's directory: the newest under the prefix `mutation-gate-ledger-<ref>-`, and the newest under `mutation-gate-ledger-<default branch ref>-`. After the verdict, `actions/cache/save` saves the run's own scope as `mutation-gate-ledger-<ref>-<SHA-256 of its ledger>`, so an unchanged ledger is not saved twice. |
+   | **GitHub Actions cache** | The directory store, kept by the action and the reusable workflow (ADR-0011) when their `cache` input is `true`, as it is by default. The cache service is reachable only from inside an action, so PHP never calls it. Before the run, `actions/cache/restore` restores two entries, each into its scope's directory: the newest under the prefix `mutation-gate-ledger-<SHA-256 of the ref>-`, and the newest under `mutation-gate-ledger-<SHA-256 of the default branch's ref>-`. After the verdict, `actions/cache/save` saves the run's own scope as `mutation-gate-ledger-<SHA-256 of the ref>-<SHA-256 of its ledger>`, so an unchanged ledger is not saved twice. Digests of the refs keep one scope's prefix from being a prefix of another's. |
    | **S3-compatible** (`s3`: AWS S3, Cloudflare R2, MinIO) | One object per scope, `<prefix>/<scope>/ledger.json`, through `async-aws/s3`, which is in `suggest`. Its options are `bucket` (required), `prefix` (`mutation-gate` by default), `region` (`us-east-1` by default; R2 takes `auto`) and `endpoint` (AWS's own by default; R2's is `https://<account>.r2.cloudflarestorage.com`). Credentials come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and, when set, `AWS_SESSION_TOKEN`. |
 
    When two verdicts write one scope at the same time, the last write wins. The

@@ -190,8 +190,9 @@ its parser attributes. Both change when the checkout moves.
      executable, and it guards each judging run.
    - **It turns `#[Holds]` into groups** (ADR-0005).
      - In `boot()` it registers itself as a filter on Pest's test repository.
-       Pest boots plugins before it loads any test file, in the main process,
-       in every `--parallel` worker and in every mutant's child process.
+       Pest boots plugins after it loads `tests/Pest.php` and before it loads
+       any other test file, in the main process, in every `--parallel` worker
+       and in every mutant's child process.
      - Pest passes each test to the filter as it registers it, before it
        builds the test's class. That is the point where Pest turns its own
        `->group()` calls into PHPUnit `#[Group]` attributes.
@@ -336,10 +337,10 @@ its parser attributes. Both change when the checkout moves.
      where the filter would not fit. The seed computes the same set.
    - **Infection** runs the covering test cases' classes, and the adapter
      answers with their files.
-   - **A unit whose tokens hold a class or interface constant, a property
-     default, an enum case, a plain function's or closure's parameter default or
-     an attribute argument** can have mutants that decision 8 judges by
-     reference, so for it the answer is every test file.
+   - **Under Pest, a unit whose tokens hold a class or interface constant, a
+     property default, an enum case, a plain function's or closure's parameter
+     default or an attribute argument** can have mutants that decision 8 judges
+     by reference, so for it the answer is every test file.
 
    A mutant's *judging tests* are the tests that decide its result: its
    covering tests, or for decision 8 the test files it selected and, where

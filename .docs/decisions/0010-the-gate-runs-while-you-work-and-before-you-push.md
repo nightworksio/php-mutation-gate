@@ -59,14 +59,13 @@ The pieces already exist in the design:
      budget of `local.prePushBudget`, a duration, `5m` by default. It judges the
      new-code floor and the floors of the trees the change reaches, with
      carried results completing each tree (ADR-0003).
-   - **Exit code.** Non-zero blocks the push. That covers a survivor on changed
-     lines, a tree below its floor, and unjudged mutants, because a run that ran
+   - **Exit code.** Non-zero blocks the push. That covers new code below its
+     floor, a tree below its floor, and unjudged mutants, because a run that ran
      out of time or could not reach them did not judge them (ADR-0008). The
      message gives each unjudged mutant's reason and what would judge it: more
      time (`mutation-gate run --changed-since=<base>`), a test that reaches the
-     value (ADR-0004, decision 8), or an ignore with its reason. Git's own
-     `git push --no-verify` skips the hook, and the gate adds no bypass of its
-     own.
+     value (ADR-0004, decision 8), or an ignore with its reason. Git's own `git
+     push --no-verify` skips the hook, and the gate adds no bypass of its own.
    - **Proofs.** The local ledger makes a second push of the same code
      immediate.
 

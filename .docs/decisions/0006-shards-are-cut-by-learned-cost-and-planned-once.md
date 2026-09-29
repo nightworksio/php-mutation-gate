@@ -60,8 +60,10 @@ Two parts of that do not carry over to a public package.
      - judges every tree and the new code (ADR-0003);
      - writes the reports (ADR-0009) and the updated ledger (ADR-0007).
 
-   A shard never re-cuts. The plan records the commit it was made on, and a
-   shard running on a different checkout stops with exit code 2.
+   A shard never re-cuts. The plan records the commit it was made on, the
+   run's ref, whether it is a pull request and the default branch (decision
+   5). `run` and `verdict` with a plan take all four from it, and a shard
+   running on a different checkout stops with exit code 2.
    `mutation-gate`, or `mutation-gate run` without `--plan`, does all three in
    one process and takes the options of `plan`, and `verdict`'s
    `--publish-dir`.
@@ -145,7 +147,10 @@ Two parts of that do not carry over to a public package.
    run's ref, which is its proof scope (ADR-0007); whether it is a pull
    request, for the new-code set and `baseline.improvement` (ADR-0003); and
    the default branch, for the ledger it reads and for the badge and trend
-   (ADR-0009).
+   (ADR-0009). `plan` reads them from the CI, and a job given a plan reads
+   them from the plan, so every shard and the verdict judge as the plan did,
+   whatever variables their own jobs receive, as in a GitLab child
+   pipeline.
 
    | CI | Ref | Pull request | Default branch |
    |----|-----|--------------|----------------|
