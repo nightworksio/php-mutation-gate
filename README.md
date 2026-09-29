@@ -343,7 +343,14 @@ hold it. The path is then mutated against those tests alone, once they are shown
 to cover all of it.
 
 ```php
-// A Pest test file
+// A Pest test, or every test in a describe
+use NightWorksIO\MutationGate\Attribute\Holds;
+
+it('boots the kernel', #[Holds('src/Kernel.php')] function () {
+    // …
+});
+
+// or, for the whole file
 pest()->group('holds:src/Kernel.php');
 ```
 
@@ -354,6 +361,11 @@ use NightWorksIO\MutationGate\Attribute\Holds;
 #[Holds('src/Kernel.php')]
 final class KernelTest extends TestCase {}
 ```
+
+A PHPUnit class run by Pest also needs `#[Group('holds:src/Kernel.php')]`
+beside its `#[Holds]`, because Pest cannot add a group to a class it did not
+build
+([ADR-0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md)).
 
 ## In CI
 

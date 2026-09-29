@@ -181,15 +181,29 @@ its parser attributes. Both change when the checkout moves.
      unjudged, with the test named as the reason, never as killed or uncovered:
      Pest would have run no test for it and called the mutant killed, or
      dropped the test and called it uncovered.
-   - **`#[Holds]` is refused under Pest** (exit code 2), with a message naming
-     the group that replaces it: `->group('holds:<path>')` or
-     `#[Group('holds:<path>')]`. Pest selects held tests by group alone.
-   - **Results** come from a small Pest plugin shipped in this package and
-     listed in its `composer.json` under `extra.pest.plugins`, which is how Pest
-     finds plugins.
-     - It implements Pest's `Bootable` contract, and it is inert unless the
-       environment variable `MUTATION_GATE_RESULTS` names a file, which only the
-       adapter sets. Inside a mutant's child process it does nothing.
+   - **A small Pest plugin** ships in this package, listed in its
+     `composer.json` under `extra.pest.plugins`, which is how Pest finds
+     plugins. It implements Pest's `Bootable` and `TestCaseMethodFilter`
+     contracts, and it does two jobs.
+   - **It turns `#[Holds]` into groups** (ADR-0005).
+     - In `boot()` it registers itself as a filter on Pest's test repository.
+       Pest boots plugins before it loads any test file, in the main process,
+       in every `--parallel` worker and in every mutant's child process.
+     - Pest passes each test to the filter as it registers it, before it
+       builds the test's class. That is the point where Pest turns its own
+       `->group()` calls into PHPUnit `#[Group]` attributes.
+     - The filter reads `#[Holds]` by reflection from the test's closure, and
+       from the closure of every `describe` it is registered inside, which it
+       finds on the call stack. For each path it adds
+       `#[Group('holds:<path>')]` to the test, once. It never drops a test.
+     - It does this in every Pest run, the gate's or not. A mutant's child
+       process that lost the group would select no test, and Pest counts that
+       as a kill.
+     - Datasets inherit the group, because Pest puts it on the method that
+       carries the data provider.
+   - **It reports results.** This part is inert unless the environment variable
+     `MUTATION_GATE_RESULTS` names a file, which only the adapter sets. Inside
+     a mutant's child process it does nothing.
      - At `FinishMutationSuite` it walks the suite's mutants and writes one JSON
        line per mutant: native id, file, lines, mutator class, diff, status and
        duration, and one line with the opening run's duration, from which the
@@ -198,8 +212,10 @@ its parser attributes. Both change when the checkout moves.
      - The adapter fails closed. The records must add up to the counts on Pest's
        own summary line (`Mutations: … untested, … uncovered, … pending, …
        timeout, … tested`), and a missing file or a mismatch is *cannot judge*.
-     - Because the plugin contracts are `@internal` and the events are
-       undocumented, only the pest-plugin-mutate versions the contract suite
+     - The plugin relies on Pest APIs that are `@internal`: the plugin
+       contracts, the test repository, the test's closure and attributes, and
+       the `describe` call's closure. It also relies on the mutate plugin's
+       events, which are undocumented. So only the pest-plugin-mutate versions the contract suite
        covers are allowed, and `composer.json` declares a `conflict` for the
        rest.
    - **Statuses**:
@@ -331,6 +347,18 @@ its parser attributes. Both change when the checkout moves.
    held mutant. Every adapter must produce the same normalised records for it.
    The library also holds what each runner gets wrong on its own: for Pest, a
    test whose name its filter cannot express; for Infection, a mutant it skips.
+   For Pest's `#[Holds]`, the suite asserts the exact set of tests Pest runs
+   for `--group=holds:<path>`, serially and under `--parallel`, and in a
+   mutant's child process:
+   - a held `it()`, `test()` and `arch()` closure, with `function` and with
+     `fn`;
+   - a held `describe`, with a nested `describe`, a higher-order test and a
+     skipped test inside;
+   - a held test with a dataset, where every row is selected;
+   - a test that covers the path but does not hold it, which is never
+     selected;
+   - two `#[Holds]` on one closure;
+   - `--list-groups`, which shows every `holds:` group.
    CI runs the suite against the lowest and highest supported version of each
    runner (ADR-0011).
 

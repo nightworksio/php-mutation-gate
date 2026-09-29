@@ -43,8 +43,9 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
      does not read a file, start a process, open a socket, read the clock or
      draw a random number. It is handed everything it reads as a value, and
      everything it produces is a value.
-   - **`Attribute`** holds `#[Holds]` (ADR-0005). It names nothing, and nothing
-     in `src` names it, because the gate reads it from tokens. It is public API.
+   - **`Attribute`** holds `#[Holds]` (ADR-0005). It names nothing. The gate
+     reads it from tokens, and only the Pest adapter's plugin names it, to turn
+     it into a group (ADR-0004). It is public API.
    - **`Port`** holds the eight interfaces through which the gate asks the
      outside world, and nothing else. They are public API.
    - **`Config`** is the PHP builder of ADR-0002. It is public API.
