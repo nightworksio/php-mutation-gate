@@ -6,18 +6,19 @@
 ## Context
 
 A survivor found in CI costs a push, a wait and a context switch. Found on the
-developer's machine a minute after the edit, it costs a test. The companion runs
-the whole gate locally with `composer test:mutation`, which is all of it in one
-process. That is right for a deliberate check and far too slow for the edit
-loop.
+developer's machine a minute after the edit, it costs a test. The in-house gate
+runs locally as one Composer script, which is all of it in one process. That is
+right for a deliberate check and far too slow for the edit loop.
 
 Two local moments matter:
+
 - **while editing**: survivors in the code just changed, within seconds to a
   minute;
 - **before pushing**: the same judgement CI will make on the new code, in the
   time a push can reasonably wait.
 
 The pieces already exist in the design:
+
 - reach from uncommitted changes (ADR-0005);
 - a new-code floor (ADR-0003);
 - proofs keyed on content as it is on disk, which work in a dirty tree
@@ -33,9 +34,9 @@ The pieces already exist in the design:
      triggers nothing.
    - **On a change**, it works out the reach of the change since the last
      judged state (ADR-0005). It mutates the reached units riskiest-first under
-     a budget of 60 seconds (`local.watchBudget`), and prints survivors,
-     unjudged mutants, hints and reproduce commands (ADR-0009). Then it waits
-     for the next change.
+     a budget of `local.watchBudget`, a duration, `60s` by default. It prints
+     survivors, unjudged mutants, hints and reproduce commands (ADR-0009). Then
+     it waits for the next change.
    - **A change that arrives mid-run** stops the run. Its judged results are
      kept and the new reach is planned.
    - **The coverage map** is built once at start. When a test or test support
@@ -55,9 +56,9 @@ The pieces already exist in the design:
      remote sha. For a new branch, which has no remote sha, it is the merge base
      with the default branch's remote-tracking ref.
    - **What it judges.** It runs change-scoped from that base (ADR-0005) under a
-     budget of 5 minutes (`local.prePushBudget`). It judges the new-code floor
-     and the floors of the trees the change reaches, with carried results
-     completing each tree (ADR-0003).
+     budget of `local.prePushBudget`, a duration, `5m` by default. It judges the
+     new-code floor and the floors of the trees the change reaches, with
+     carried results completing each tree (ADR-0003).
    - **Exit code.** Non-zero blocks the push. That covers a survivor on changed
      lines, a tree below its floor, and unjudged mutants, because a run that ran
      out of time did not judge them (ADR-0008). The message says how to judge
