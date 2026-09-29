@@ -90,8 +90,8 @@
             "@analyse",
             "@refactor",
             "@deps",
-            "@test:coverage",
-            "@test:guards"
+            "@test:guards",
+            "@test:report"
         ],
         "deps": "composer-dependency-analyser",
         "lint": "pint --test",
@@ -99,13 +99,15 @@
         "refactor": "rector process --dry-run",
         "refactor:fix": "rector process",
         "test": "pest --parallel --exclude-testsuite=Guards",
-        "test:coverage": "php -d pcov.enabled=1 -d pcov.directory=src vendor/bin/pest --parallel --exclude-testsuite=Guards --coverage --coverage-clover=coverage/clover.xml --min=100",
-        "test:guards": "pest --testsuite=Guards"
+        "test:coverage": "sh scripts/coverage.sh",
+        "test:guards": "pest --testsuite=Guards",
+        "test:report": "sh scripts/coverage.sh --coverage-clover=coverage/clover.xml --log-junit=coverage/junit.xml"
     },
     "scripts-descriptions": {
-        "ci": "Every gate CI runs that needs nothing but PHP, in the order CI runs them. The mutation gate, the hygiene checks, the security scans and the commit checks run in CI only.",
+        "ci": "The PHP gates CI runs, in the order CI runs them, but for the lowest dependencies, which would rewrite vendor, and mutation, which runs in CI only. The hygiene, security and commit checks run in CI as well.",
         "test": "Every suite but Guards, in parallel.",
         "test:coverage": "The same run as test, held to 100% line coverage of src (G7).",
-        "test:guards": "Plants a violation of every rule in a throwaway copy of the tree and requires each rule to report it (R2)."
+        "test:guards": "Plants a violation of every rule in a throwaway copy of the tree and requires each rule to report it (R2).",
+        "test:report": "The same run as test:coverage, writing the clover and JUnit reports SonarCloud reads to coverage/."
     }
 }
