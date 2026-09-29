@@ -4,17 +4,24 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli;
 
+use function getenv;
+
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
+use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
+use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Port\ChangeSource;
+use Symfony\Component\HttpClient\HttpClient;
 
 /**
  * This package's own adapters and presets, registered through the same
@@ -26,6 +33,9 @@ final readonly class FirstParty implements Extension
     /** The Composer package this extension comes from. */
     public const string PACKAGE = 'nightworksio/mutation-gate';
 
+    /** Where the gate runs: the project's root, which holds its repository. */
+    private const string HERE = '.';
+
     public function extend(Extensions $extensions): Extensions
     {
         return $extensions
@@ -36,6 +46,15 @@ final readonly class FirstParty implements Extension
             ->withCiPlan(Name::of('gitlab'), GitLabPlan::fromOptions(...))
             ->withCiPlan(Name::of('buildkite'), BuildkitePlan::fromOptions(...))
             ->withCiPlan(Name::of('circleci'), CircleCiPlan::fromOptions(...))
-            ->withCiPlan(Name::of('json'), JsonPlan::fromOptions(...));
+            ->withCiPlan(Name::of('json'), JsonPlan::fromOptions(...))
+            ->withChangeSource(Name::of('git'), static fn(Options $options): ChangeSource => Git::at(self::HERE))
+            ->withChangeSource(
+                Name::of('github'),
+                static fn(Options $options): ChangeSource => PassedPullRequests::over(
+                    Git::at(self::HERE),
+                    HttpClient::create(),
+                    getenv(),
+                ),
+            );
     }
 }
