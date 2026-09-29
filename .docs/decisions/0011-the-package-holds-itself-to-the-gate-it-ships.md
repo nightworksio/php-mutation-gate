@@ -277,7 +277,7 @@ about Laravel, NativePHP or the project's modules, and does not.
     | Dependency | Supported | Tested in CI |
     |------------|-----------|--------------|
     | PHP | 8.5 and later 8.x | 8.5; each later minor added when it is released and green |
-    | Pest | `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0 (`conflict` outside the range the contract suite has passed) | lowest and highest in range |
+    | Pest | `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0 (`conflict` outside the range the contract suite has passed), on the PHPUnit 13 release each Pest version pins | lowest and highest in range |
     | Infection | `infection/infection` ~0.35.0, with PHPUnit 12 or 13 | 0.35.x lowest and highest, each with PHPUnit 12 and 13 |
     | Coverage driver | pcov or Xdebug | pcov |
     | `symfony/console`, `symfony/process`, `symfony/http-client`, `psr/clock` | ^7.4 \|\| ^8.0 for Symfony, ^1.0 for `psr/clock` | lowest and highest |

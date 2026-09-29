@@ -43,8 +43,8 @@ has to bring its result with it.
    every mutant's raw record (ADR-0004), with its status before triage, ignores
    and floors are applied. A proof is written only for a unit that ran to the
    end:
-   - no mutant left without a result by a budget or a stopped runner
-     (Infection's skipped count is a result, ADR-0004);
+   - no unjudged mutant: none the budget or a stopped runner left without a
+     result (ADR-0004);
    - no flaky mutant;
    - no *cannot judge*.
 
@@ -134,8 +134,6 @@ has to bring its result with it.
 
    - A mutant that was not killed keeps its full record, so reports can show a
      proved survivor. A killed one keeps its id, line and status.
-   - A proof of a unit Infection skipped mutants in also holds their count,
-     as `"skipped": <n>`.
    - The ledger keeps the newest 20,000 proofs, and timings only for units that
      still exist.
    - Reading keeps each well-formed entry and drops anything else. An

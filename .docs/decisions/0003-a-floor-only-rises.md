@@ -34,7 +34,7 @@ itself, and goes up with the tests.
    |--------|--------------|
    | killed, errored (the mutant crashed the tests) | killed |
    | timed out, and judged a kill by timeout triage (ADR-0008) | killed |
-   | survived, uncovered, unjudged, flaky | not killed |
+   | survived, uncovered, unjudged, flaky; timed out or skipped and too slow to judge (ADR-0008) | not killed |
    | ignored, with a reason (ADR-0008) | left out |
 
    **Score = killed ÷ (all mutants − ignored) × 100, truncated to two
@@ -147,8 +147,8 @@ itself, and goes up with the tests.
    - In a monorepo, a module or package can declare a floor of its own for the
      new lines in its trees (ADR-0005). The new-code set is then judged per
      module or package, each against its own floor.
-   - The tree floor and the new-code floor must both hold. A tree at 62% can
-     then no longer take in new code at 62%.
+   - The tree floor and the new-code floor must both hold. A tree at 62% then
+     cannot take in new code at 62%.
    - A change with no mutable lines has an empty set, which passes and says so.
 
 9. **A tree with no floor anywhere is not quietly held to none.** With no

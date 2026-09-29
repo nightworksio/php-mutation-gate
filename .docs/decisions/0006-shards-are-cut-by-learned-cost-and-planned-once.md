@@ -81,7 +81,7 @@ Two parts of that do not carry over to a public package.
      empty.
    - There are never more than `shards.max` shards (an integer, 20 by default).
      Past that limit, shards grow instead.
-   - **Floors no longer separate shards.** The verdict adds up per-mutant
+   - **Floors do not separate shards.** The verdict adds up per-mutant
      results itself (ADR-0003), so units at different floors can share a shard.
    - **Packages still do.** A shard runs in one package's directory (ADR-0005).
    - **Held units run on their own.** A held unit is one runner invocation of
@@ -109,7 +109,7 @@ Two parts of that do not carry over to a public package.
      path prefixes to seconds per line, the longest matching prefix winning.
      The empty prefix matches every path, and the default is `{"": 0.2}`, so a
      project adds prefixes of its own beside it. After one full CI run every
-     unit has been measured, and the estimate is no longer used.
+     unit has been measured, and only new units are estimated.
    - **Costs decide placement only.** A cost decides which shard a unit goes to,
      never whether its mutants run. A wrong cost makes one runner slower, never
      a verdict wrong.
@@ -170,7 +170,7 @@ all proved plans zero shards and costs one planning job.
 
 ## Related
 
-- [ADR-0003](0003-a-floor-only-rises.md): why floors no longer split shards
+- [ADR-0003](0003-a-floor-only-rises.md): why floors do not split shards
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): what the plan considers
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): the ledger that holds proofs and timings
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the composite action and the reusable workflow
