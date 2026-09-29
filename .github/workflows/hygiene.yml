@@ -36,10 +36,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # A run that finds no link fails, because that is how a configuration
+      # that reads nothing looks, unless the tree holds no Markdown link at all.
+      - id: tree
+        run: |
+          if git grep -qE '\]\(|https?://' -- '*.md'; then
+            echo "links=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "links=false" >> "$GITHUB_OUTPUT"
+            echo "No Markdown file holds a link."
+          fi
       - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           args: --no-progress --config lychee.toml .
           fail: true
+          failIfEmpty: ${{ steps.tree.outputs.links }}
 
   # markdownlint-cli2 matches dot-directories, so `**` reaches `.docs`.
   markdown:
