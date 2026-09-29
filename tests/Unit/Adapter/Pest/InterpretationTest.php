@@ -239,3 +239,11 @@ it('cannot judge a filter too long for Pest unpatched', function () use ($run, $
         $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Killed, 0.25),
     ), 0));
 });
+
+it('leaves a mutant it made before unjudged, keeping all but its status', function () use ($mutant): void {
+    $killed = $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Killed, 0.25);
+
+    expect(Interpretation::unjudged($killed, Reason::that('Gone.')))->toEqual(
+        $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Unjudged, 0.25)->because(Reason::that('Gone.')),
+    );
+});

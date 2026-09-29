@@ -61,6 +61,19 @@ final readonly class Interpretation
         return $coverage instanceof CannotJudge ? $coverage : $this->mutants($records, $coverage);
     }
 
+    /** A mutant the gate made before, now unjudged, saying why. */
+    public static function unjudged(Mutant $mutant, Reason $reason): Mutant
+    {
+        return Mutant::of(
+            $mutant->id(),
+            $mutant->nativeId(),
+            $mutant->location(),
+            $mutant->mutation(),
+            MutantStatus::Unjudged,
+            $mutant->duration(),
+        )->because($reason);
+    }
+
     private function recordsOf(Ran $ran, string $results): Records|CannotJudge
     {
         if (! $ran->succeeded() && ! $ran->wasStopped()) {
