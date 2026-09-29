@@ -56,9 +56,23 @@ final readonly class Proofs implements Countable, IteratorAggregate
         return new self($proofs);
     }
 
+    /** These proofs without the one under a key, such as one a fresh result disagrees with. */
+    public function without(Digest $key): self
+    {
+        $proofs = $this->proofs;
+        unset($proofs[$key->value()]);
+
+        return new self($proofs);
+    }
+
     public function has(Digest $key): bool
     {
         return array_key_exists($key->value(), $this->proofs);
+    }
+
+    public function proofFor(Digest $key): Proof|Unproved
+    {
+        return $this->has($key) ? $this->proofs[$key->value()] : Unproved::key($key);
     }
 
     public function count(): int

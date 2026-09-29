@@ -4,18 +4,41 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
+use function count;
+
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
-/** The units one CI job mutates. */
+/**
+ * The units one CI job mutates, all of one package, what they are expected
+ * to cost, and the label the job is shown with. A shard of a fixed count may
+ * be empty, and says so.
+ */
 final readonly class Shard
 {
-    private function __construct(private ShardId $id, private Units $units)
-    {
+    /** What an empty shard is labelled. */
+    public const string NOTHING = 'nothing to mutate';
+
+    private function __construct(
+        private ShardId $id,
+        private Package $package,
+        private Units $units,
+        private Seconds $cost,
+        private string $label,
+    ) {
     }
 
-    public static function of(ShardId $id, Units $units): self
+    public static function of(ShardId $id, Package $package, Units $units, Seconds $cost, string $label): self
     {
-        return new self($id, $units);
+        return new self($id, $package, $units, $cost, $label);
+    }
+
+    /** A shard with nothing to mutate, which passes having run nothing. */
+    public static function empty(ShardId $id): self
+    {
+        return new self($id, Package::at(Path::root()), Units::none(), Seconds::of(0.0), self::NOTHING);
     }
 
     public function id(): ShardId
@@ -23,8 +46,36 @@ final readonly class Shard
         return $this->id;
     }
 
+    /** The package the shard runs in, whose directory the runner starts from. */
+    public function package(): Package
+    {
+        return $this->package;
+    }
+
     public function units(): Units
     {
         return $this->units;
+    }
+
+    /** What the cost model expects mutating its units to take. */
+    public function cost(): Seconds
+    {
+        return $this->cost;
+    }
+
+    /** The trees it takes, each with the part it is where a tree spans several shards. */
+    public function label(): string
+    {
+        return $this->label;
+    }
+
+    public function isEmpty(): bool
+    {
+        return count($this->units) === 0;
+    }
+
+    public function invocations(): Invocations
+    {
+        return Invocations::of($this->units);
     }
 }

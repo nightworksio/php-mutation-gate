@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Tests\Fakes;
 use function array_sum;
 use function max;
 
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -32,7 +34,7 @@ final readonly class CostModelFake implements CostModel
         return $measured instanceof Seconds ? $measured : $this->guess;
     }
 
-    public function learn(Units $units, Mutants $mutants, Seconds $spent): Timings
+    public function learn(Units $units, Mutants $mutants, CoverageMap $coverage, Measurement $measured): Timings
     {
         $counts = [];
 
@@ -48,7 +50,12 @@ final readonly class CostModelFake implements CostModel
         $timings = Timings::none();
 
         foreach ($units as $unit) {
-            $timings = $timings->with(Timing::of($unit->path(), Seconds::of($spent->seconds() * $counts[$unit->path()->value()] / $total)));
+            $timings = $timings->with(Timing::of(
+                $unit->path(),
+                Seconds::of($measured->spent()->seconds() * $counts[$unit->path()->value()] / $total),
+                $measured->runner(),
+                $measured->at(),
+            ));
         }
 
         return $timings;

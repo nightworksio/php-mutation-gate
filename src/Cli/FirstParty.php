@@ -4,6 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli;
 
+use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
+use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
+use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
+use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
+use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
+use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
+use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
+use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
@@ -19,6 +28,14 @@ final readonly class FirstParty implements Extension
 
     public function extend(Extensions $extensions): Extensions
     {
-        return $extensions;
+        return $extensions
+            ->withProofStore(Name::of('directory'), LedgerDirectory::fromOptions(...))
+            ->withProofStore(Name::of('s3'), BucketLedger::fromOptions(...))
+            ->withCostModel(Name::of('learned'), MeasuredCosts::fromOptions(...))
+            ->withCiPlan(Name::of('github'), GitHubPlan::fromOptions(...))
+            ->withCiPlan(Name::of('gitlab'), GitLabPlan::fromOptions(...))
+            ->withCiPlan(Name::of('buildkite'), BuildkitePlan::fromOptions(...))
+            ->withCiPlan(Name::of('circleci'), CircleCiPlan::fromOptions(...))
+            ->withCiPlan(Name::of('json'), JsonPlan::fromOptions(...));
     }
 }

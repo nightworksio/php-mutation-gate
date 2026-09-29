@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use Closure;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -56,7 +57,7 @@ enum RegisteredKind: string
             self::TreeSource => TreeSourceFake::ofTheFixture(),
             self::CostModel => new CostModelFake(Seconds::of(1.0)),
             self::ProofStore => new ProofStoreFake(),
-            self::CiPlan => new CiPlanFake(ShardId::of(1)),
+            self::CiPlan => new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')),
             self::Reporter => new ReporterFake(),
             self::ChangeSource => ChangeSourceFake::ofTheFixture(),
             self::ConfigLoader => ConfigLoaderFake::ofTheFixture(),
