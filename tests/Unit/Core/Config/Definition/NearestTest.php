@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Definition\Nearest;
+use NightWorksIO\MutationGate\Core\Config\Definition\NothingNear;
 
 it('suggests the known key a misspelt one most likely meant', function (
     string $key,
@@ -20,7 +21,7 @@ it('suggests the known key a misspelt one most likely meant', function (
 ]);
 
 it('suggests nothing when no known key is close', function (string $key, string ...$known): void {
-    expect(Nearest::to($key, array_values($known)))->toBe('');
+    expect(Nearest::to($key, array_values($known)))->toEqual(NothingNear::of());
 })->with([
     'three edits from a short key' => ['abc', 'ci'],
     'two edits from a five-letter key' => ['abcde', 'abxye'],

@@ -296,7 +296,9 @@ final readonly class Section implements Shape
                 $nearest = Nearest::to($key, $declared);
                 $problems[] = Problem::at(
                     $at->field($key)->at(),
-                    $nearest === '' ? 'unknown key' : sprintf('unknown key, did you mean %s?', $nearest),
+                    $nearest instanceof NothingNear
+                        ? 'unknown key'
+                        : sprintf('unknown key, did you mean %s?', $nearest),
                 );
             }
         }

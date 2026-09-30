@@ -25,11 +25,11 @@ final readonly class Nearest
     private const int LETTERS_PER_EDIT = 3;
 
     /**
-     * The nearest known key, the first of those equally near, or '' when none is close.
+     * The nearest known key, the first of those equally near, or nothing near when none is close.
      *
      * @param list<string> $known
      */
-    public static function to(string $key, array $known): string
+    public static function to(string $key, array $known): string|NothingNear
     {
         $ranked = $known;
         usort(
@@ -39,7 +39,7 @@ final readonly class Nearest
         $nearest = array_first($ranked);
         $allowed = max(self::FEWEST_EDITS, intdiv(mb_strlen($key), self::LETTERS_PER_EDIT));
 
-        return is_string($nearest) && self::edits($key, $nearest) <= $allowed ? $nearest : '';
+        return is_string($nearest) && self::edits($key, $nearest) <= $allowed ? $nearest : NothingNear::of();
     }
 
     private static function edits(string $key, string $known): int
