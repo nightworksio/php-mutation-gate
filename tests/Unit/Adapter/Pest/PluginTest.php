@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Plugin;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
@@ -89,8 +90,24 @@ it('guards a run the adapter starts on one mutant, writing what it saw when the 
 });
 
 it('records nothing and names no killer when Pest boots it outside the adapter\'s runs', function (): void {
+    // Outside the adapter's runs none of its variables is set, even where this
+    // suite itself runs inside one, as the gate's own run on this package does.
+    $names = [...array_map(static fn(GateVariable $variable): string => $variable->value, GateVariable::cases()), Recorder::MUTATED];
+    $before = [];
     $plugin = new Plugin();
-    $plugin->boot();
+
+    try {
+        foreach ($names as $name) {
+            $before[$name] = getenv($name);
+            putenv($name);
+        }
+
+        $plugin->boot();
+    } finally {
+        foreach ($before as $name => $value) {
+            putenv(is_string($value) ? sprintf('%s=%s', $name, $value) : $name);
+        }
+    }
 
     expect($plugin->recorder())->toBe(Off::Recording)
         ->and($plugin->killers())->toBe(Off::NamingKillers);
