@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use Closure;
+
+use function max;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -24,7 +27,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 /**
  * Mutants run again, each file with only one mutator and the project's
  * settings for it, allowed a limit as the cap: a retry's, as the invocation
- * that made them asked and reading the coverage it read, and one mutant
+ * that made them asked, reading the coverage it read, its runs together
+ * ending by the request's deadline, and one mutant
  * reproduced by the tests given, with what Infection printed. The run under
  * coverage Infection reads first is not part of what it printed.
  */
@@ -39,6 +43,7 @@ final readonly class Rerunning
         private Shell $shell,
         private bool $nativeMarkersAllowed,
         private Closure $covered,
+        private Clock $clock = new WallClock(),
     ) {
     }
 
@@ -60,9 +65,10 @@ final readonly class Rerunning
         }
 
         $again = Mutants::none();
+        $started = $this->clock->nanoseconds();
 
         foreach ($runs as [$file, $mutator]) {
-            $result = $this->ran($prepared, $request, $file, $mutator, $limit, $this->shell);
+            $result = $this->ran($prepared, $this->timed($request, $started), $file, $mutator, $limit, $this->shell);
 
             if ($result instanceof CannotJudge) {
                 return $result;
@@ -90,6 +96,21 @@ final readonly class Rerunning
         return $result instanceof CannotJudge
             ? $result
             : Reproduction::among($mutant->id(), $result, Reason::that(Retrial::NOT_FOUND_AGAIN), $shell->printed());
+    }
+
+    /**
+     * The request, timed by what is left of its deadline since the first of
+     * its runs started, so the runs one after another end by it together; as
+     * it was without one.
+     */
+    private function timed(MutationRequest $request, int $started): MutationRequest
+    {
+        $deadline = $request->deadline();
+        $spent = $this->clock->nanoseconds() - $started;
+
+        return $deadline instanceof Seconds
+            ? $request->within(Seconds::of(max(0, $deadline->nanoseconds() - $spent) / Seconds::NANOSECONDS))
+            : $request;
     }
 
     /** The project's config, and the directory holding the coverage the request reads. */

@@ -114,16 +114,18 @@ final readonly class Project
 
     /**
      * The file the plugin writes a run's results to, with no earlier run's
-     * results, map or mutated copies left beside it, or why an earlier run's
-     * are still there.
+     * results, map, list of mutants to make or mutated copies left beside it,
+     * or why an earlier run's are still there.
      */
     public function freshResults(): string|CannotJudge
     {
         $results = $this->absolute($this->workspace->child(Path::of(self::RESULTS)));
         $this->directory(Path::of(dirname($results)));
         $copies = glob(Recorder::mutantBeside($results, '*'));
+        $beside = [Recorder::coverageBeside($results), OnlyList::beside($results)];
+        $beside = [...$beside, ...(is_array($copies) ? $copies : [])];
 
-        return $this->without($results, Recorder::coverageBeside($results), ...(is_array($copies) ? $copies : []))
+        return $this->without($results, ...$beside)
             ? $results
             : CannotJudge::because(sprintf(self::STALE, $results));
     }

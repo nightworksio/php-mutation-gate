@@ -490,7 +490,7 @@ it('opens a patched shard on the canary group and reads the map the planning job
         ->toEqualCanonicalizing($library->expected('adds', 'large'));
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
-it('runs again, patched, only the mutants it names, on the map the invocation read', function (): void {
+it('runs again, patched, only the mutants the file it hands over names, on the map the invocation read', function (): void {
     Patch::applyIn(Library::vendor());
     $library = Library::pest(Patching::on(Library::canary()));
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned')));
@@ -513,8 +513,10 @@ it('runs again, patched, only the mutants it names, on the map the invocation re
     $again = $library->runner()->retry($request, $survivors, Seconds::of(60.0));
     // The run again recorded what it made: the survivor, and not the mutant the first run killed.
     $recorded = (string) file_get_contents(Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl', Library::DIRECTORY)));
+    $listed = (string) file_get_contents(Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl.only', Library::DIRECTORY)));
 
     expect([count($survivors), count($killed)])->toBe([1, 1])
+        ->and($listed)->toBe(implode("\n", array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$survivors])))
         ->and($again instanceof Mutants ? Library::records($again) : $again)->toBe(Library::records($survivors))
         ->and(array_map(static fn(Mutant $mutant): bool => str_contains($recorded, $mutant->nativeId()), [...$survivors, ...$killed]))
         ->toBe([true, false]);

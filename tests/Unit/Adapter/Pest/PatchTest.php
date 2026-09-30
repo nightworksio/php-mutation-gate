@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\OnlyList;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -34,7 +35,14 @@ it('patches the three files, leaving each one PHP', function () use ($vendor, $s
         ->and($source($at, 'Tester/MutationTestRunner.php'))
         ->toContain("\$seconds = (float) getenv('MUTATION_GATE_SUITE_SECONDS');\n")
         ->and($source($at, 'Tester/MutationTestRunner.php'))
-        ->toContain("\$shared = (string) getenv('MUTATION_GATE_SHARED_COVERAGE');\n");
+        ->toContain("\$shared = (string) getenv('MUTATION_GATE_SHARED_COVERAGE');\n")
+        ->and($source($at, 'Tester/MutationTestRunner.php'))
+        ->toContain(sprintf(
+            '$only = class_exists(\\%1$s::class) ? \\%1$s::in((string) getenv(\'MUTATION_GATE_ONLY\')) : [];',
+            OnlyList::class,
+        ))
+        ->and($source($at, 'Tester/MutationTestRunner.php'))
+        ->toContain("if (\$only !== [] && ! isset(\$only[\$mutation->id])) {\n");
 
     foreach (MutatePlugin::FILES as $file) {
         $lint = new Process([PHP_BINARY, '-l', sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $at, $file)]);

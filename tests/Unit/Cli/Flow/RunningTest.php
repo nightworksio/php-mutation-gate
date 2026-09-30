@@ -57,6 +57,7 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -339,6 +340,27 @@ it('runs no survivor again where flaky.confirmSurvivors is false', function () u
 
     expect($runner->retries())->toBe([])
         ->and($flaky($resultIn($project, 1)))->toBe([]);
+});
+
+it('runs survivors again within what the budget has left, not what the invocation started with', function () use ($tickingBy): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+    $unbudgeted = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('1000s')), $tickingBy(10))
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $other = Flows::project();
+    new Running(Flows::adapters($other, [], $unbudgeted), Flows::settings(), $tickingBy(10))
+        ->run(Planned::handedIn($other, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $seconds = static fn(Seconds|Unlimited $deadline): float => $deadline instanceof Seconds ? $deadline->seconds() : -1.0;
+    $first = $seconds($runner->requests()[0]->deadline());
+    $again = array_map(static fn(array $retry): float => $seconds($retry[4]->deadline()), $runner->retries());
+
+    expect($again)->toHaveCount(2)
+        ->and($again[0])->toBeLessThan($first)->toBeGreaterThan(0.0)
+        ->and($again[1])->toBeLessThan($again[0])
+        ->and(array_map(static fn(array $retry): Seconds|Unlimited => $retry[4]->deadline(), $unbudgeted->retries()))
+        ->toEqual([Unlimited::time(), Unlimited::time()]);
 });
 
 it('runs survivors again with the timeout the config sets', function (): void {

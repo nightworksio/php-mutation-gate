@@ -484,7 +484,8 @@ it('runs the mutants again in one run of their files with their mutators, naming
     );
     $invocation = MutationRequest::of(Paths::of(Path::of('src'), Path::of('lib')), WholeSuite::tests())
         ->leavingOut(Paths::of(Path::of('src/Held')))
-        ->onlyMutators(Mutators::all());
+        ->onlyMutators(Mutators::all())
+        ->within(Seconds::of(42.0));
     $request = $invocation->narrowedTo(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')), Mutators::named(RUN_PLUS));
     $retried = new Pest($at, $shell, Patching::off())
         ->retry($invocation, Mutants::of($survivor, $gone, $elsewhere), Seconds::of(20.0));
@@ -495,8 +496,9 @@ it('runs the mutants again in one run of their files with their mutators, naming
         Mutant::of($id, 'n9', $place, $change, MutantStatus::Unjudged, Unmeasured::duration())->because($notFound),
         Interpretation::unjudged($elsewhere, $notFound),
     ))->and($shell->commands())->toEqual([
-        adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))->with(['MUTATION_GATE_ONLY' => 'n1,n9,n8']),
+        adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', adapterResults($at))]),
     ])
+        ->and(file_get_contents(sprintf('%s.only', adapterResults($at))))->toBe("n1\nn9\nn8")
         ->and(new Pest($at, $shell, Patching::off())->retry($invocation, Mutants::none(), Seconds::of(20.0)))
         ->toEqual(Mutants::none());
 });
@@ -520,7 +522,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
             'MUTATION_GATE_SHARED_COVERAGE' => $written,
             'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
             'MUTATION_GATE_CANARY' => 'mutation-canary',
-            'MUTATION_GATE_ONLY' => 'n1',
+            'MUTATION_GATE_ONLY' => sprintf('%s.only', adapterResults($at)),
         ]));
 });
 
@@ -534,7 +536,7 @@ it('runs a held unit\'s mutant again by the group that holds it, withholding wha
     new Pest($at, $shell, Patching::off())->retry($invocation, Mutants::of(adapterMutant()), Seconds::of(20.0));
 
     expect($shell->commands())->toEqual([
-        adapterInvocation()->mutation($request, $holding, adapterResults($at))->with(['MUTATION_GATE_ONLY' => 'n1']),
+        adapterInvocation()->mutation($request, $holding, adapterResults($at))->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', adapterResults($at))]),
     ]);
 });
 

@@ -19,16 +19,18 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use function sprintf;
 
 /**
- * `pest:patch`: the two opt-in changes to pest-plugin-mutate the gate's
- * `pest.patch` setting relies on.
+ * `pest:patch`: the changes to pest-plugin-mutate the gate's `pest.patch`
+ * setting relies on.
  * - A mutant's `--filter` too long to start a process with is dropped, so the
  *   mutant runs against the whole suite, which can only kill more mutants.
  * - Given a coverage map another job wrote, the opening run is the canary
  *   group alone, the map is copied in place of the one that run wrote, and
  *   Pest times its mutants by the seconds the whole suite took.
+ * - Given a list of native ids (see OnlyList), a run makes only those mutants.
  *
- * Every anchor is checked before anything is written, so a moved one changes
- * nothing, and patching again finds the patch in place.
+ * Every anchor is checked, against the source as the hunks before it left
+ * it, before anything is written, so a moved one changes nothing, and
+ * patching again finds the patch in place.
  */
 final readonly class Patch
 {
@@ -107,14 +109,29 @@ final readonly class Patch
 
     private const string ONLY_BECOMES = <<<'PHP'
                         // mutation-gate pest:patch: a run again makes only the mutants it names.
-                        $only = (string) getenv('%s');
-
-                        if ($only !== '' && ! in_array($mutation->id, explode(',', $only), true)) {
+                        if ($only !== [] && ! isset($only[$mutation->id])) {
                             continue;
                         }
 
                         $mutationSuite->repository->add($mutation);
         PHP;
+
+    private const string LISTED_SHIPS = <<<'PHP'
+                foreach ($files as $file) {
+                    $linesToMutate = [];
+        PHP;
+
+    private const string LISTED_BECOMES = <<<'PHP'
+                // mutation-gate pest:patch: the mutants a run again makes, read once; none for every mutant.
+                $only = class_exists(\%1$s::class) ? \%1$s::in((string) getenv('%2$s')) : [];
+
+                foreach ($files as $file) {
+                    $linesToMutate = [];
+        PHP;
+
+    /** Why pest:patch cannot change a file whose lines have moved. */
+    private const string MOVED
+        = 'pest:patch patched nothing: the lines it rewrites have moved in %s. Install a supported version.';
 
     /** Why pest:patch cannot change a file it has to. */
     private const string UNWRITABLE = 'pest:patch cannot write %s/%s. Make the vendor directory writable.';
@@ -134,7 +151,12 @@ final readonly class Patch
             $sources[$hunk->file()] = $source;
         }
 
-        $patching = self::patching($sources);
+        $patching = self::patching($vendor, $sources);
+
+        if ($patching instanceof CannotJudge) {
+            return $patching;
+        }
+
         $unwritten = 0;
 
         foreach ($patching as $file => $source) {
@@ -159,17 +181,24 @@ final readonly class Patch
     }
 
     /**
-     * Each file's source with every hunk it lacks applied, of the files a hunk changes.
+     * Each file's source with every hunk it lacks applied, of the files a
+     * hunk changes, each hunk checked against the source as the hunks before
+     * it left it; or nothing, where a line a hunk rewrites has moved.
      *
      * @param  array<string, string> $sources each file's source, by its path under the source directory
-     * @return array<string, string>
+     * @return array<string, string>|CannotJudge
      */
-    private static function patching(array $sources): array
+    private static function patching(string $vendor, array $sources): array|CannotJudge
     {
         $patched = $sources;
 
         foreach (self::hunks() as $hunk) {
             $source = $patched[$hunk->file()];
+
+            if (! $hunk->isAppliedTo($source) && ! $hunk->fits($source)) {
+                return CannotJudge::because(sprintf(self::MOVED, sprintf(self::SOURCE, $vendor, $hunk->file())));
+            }
+
             $patched[$hunk->file()] = $hunk->isAppliedTo($source) ? $source : $hunk->applyTo($source);
         }
 
@@ -197,9 +226,10 @@ final readonly class Patch
             ),
             Hunk::in(
                 'Tester/MutationTestRunner.php',
-                self::ONLY_SHIPS,
-                sprintf(self::ONLY_BECOMES, GateVariable::Only->value),
+                self::LISTED_SHIPS,
+                sprintf(self::LISTED_BECOMES, OnlyList::class, GateVariable::Only->value),
             ),
+            Hunk::in('Tester/MutationTestRunner.php', self::ONLY_SHIPS, self::ONLY_BECOMES),
         ];
     }
 
@@ -216,11 +246,6 @@ final readonly class Patch
             return CannotJudge::because(sprintf(self::UNWRITABLE, dirname($file), basename($file)));
         }
 
-        $source = sprintf('%s', file_get_contents($file));
-
-        return $hunk->isAppliedTo($source) || $hunk->fits($source) ? $source : CannotJudge::because(sprintf(
-            'pest:patch patched nothing: the lines it rewrites have moved in %s. Install a supported version.',
-            $file,
-        ));
+        return sprintf('%s', file_get_contents($file));
     }
 }

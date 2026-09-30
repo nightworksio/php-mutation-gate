@@ -169,8 +169,7 @@ final readonly class Pest implements Runner
     /** Every mutant of the requested files, where there are any to mutate: Pest's `--path` never names none. */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
-        return new MutationRun($this->project, $this->shell, $this->patching, $this->remembered, $this->groups(...))
-            ->of($request);
+        return $this->run($this->shell)->of($request);
     }
 
     /**
@@ -198,7 +197,7 @@ final readonly class Pest implements Runner
             return Mutants::none();
         }
 
-        $result = new MutationRun($this->project, $this->shell, $this->patching, $this->remembered, $this->groups(...))
+        $result = $this->run($this->shell)
             ->only(...$natives)
             ->of($request->narrowedTo(Paths::of(...array_values($files)), Mutators::named(...array_values($mutators))));
 
@@ -220,8 +219,7 @@ final readonly class Pest implements Runner
         $request = MutationRequest::of(Paths::of($mutant->file()), $judgedBy)
             ->onlyMutators(Mutators::named($mutant->mutator()))
             ->withholding($withheld);
-        $result = new MutationRun($this->project, $shell, $this->patching, $this->remembered, $this->groups(...))
-            ->of($request);
+        $result = $this->run($shell)->of($request);
 
         $unmade = Reason::that(self::NOT_FOUND_AGAIN);
 
@@ -306,5 +304,11 @@ final readonly class Pest implements Runner
         }
 
         return Mutants::of(...$matched);
+    }
+
+    /** A mutation run of this project, through this shell. */
+    private function run(Shell $shell): MutationRun
+    {
+        return new MutationRun($this->project, $shell, $this->patching, $this->remembered, $this->groups(...));
     }
 }

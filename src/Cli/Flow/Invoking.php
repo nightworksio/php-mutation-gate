@@ -84,12 +84,23 @@ final readonly class Invoking
         $fitting = $this->fitting(count($taken), $limit);
         $left = $this->unjudged(array_slice($taken, $fitting), OutOfTime::BeforeRetrying);
         $again = $fitting === 0 ? Mutants::none() : $this->adapters->runner->retry(
-            $request,
+            $this->retimed($request),
             Mutants::of(...array_slice($taken, 0, $fitting)),
             $limit,
         );
 
         return $again instanceof CannotJudge ? $again : $this->replaced($mutants, Mutants::of(...$again, ...$left));
+    }
+
+    /**
+     * The request, timed by what the budget has left now, so a run again
+     * ends by the deadline the invocation had to; as it was without a budget.
+     */
+    private function retimed(MutationRequest $request): MutationRequest
+    {
+        return $this->deadline instanceof Deadline
+            ? $request->within($this->deadline->left($this->clock->now()))
+            : $request;
     }
 
     /** How many runs, each of which may take this long, fit in the time left: every one without a budget. */
@@ -164,7 +175,7 @@ final readonly class Invoking
         $fitting = $this->fitting(count($survivors), $this->settings->triage()->limit());
         $left = $this->unjudged(array_slice($survivors, $fitting), OutOfTime::BeforeConfirming);
         $again = $fitting === 0 ? Mutants::none() : $this->adapters->runner->retry(
-            $request,
+            $this->retimed($request),
             Mutants::of(...array_slice($survivors, 0, $fitting)),
             $this->settings->triage()->limit(),
         );

@@ -10,7 +10,6 @@ use Closure;
 
 use function count;
 use function dirname;
-use function implode;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -104,10 +103,9 @@ final readonly class MutationRun
             return $command;
         }
 
-        $only = [GateVariable::Only->value => implode(',', $this->only)];
-        $command = $this->only === [] ? $command : $command->with($only);
-
-        $ran = $this->shell->run($command);
+        $ran = $this->shell->run($this->only === [] ? $command : $command->with([
+            GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only),
+        ]));
         $coverage = $shared instanceof CoverageMap
             ? new HandedOver($shared, $this->project)
             : CoverageFile::at(Recorder::coverageBeside($results));

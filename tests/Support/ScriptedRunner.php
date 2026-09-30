@@ -247,7 +247,7 @@ final class ScriptedRunner implements Runner
         return $this->requests;
     }
 
-    /** @return list<array{Mutants, Seconds, WholeSuite|Group|Filter, Withheld}> every retry it was asked for */
+    /** @return list<array{Mutants, Seconds, WholeSuite|Group|Filter, Withheld, MutationRequest}> every retry it was asked for */
     public function retries(): array
     {
         return $this->retries;

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Infection\Clock;
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\CoverageXml;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
@@ -441,6 +442,54 @@ it('runs mutants again on the map the planning job handed the invocation, and ru
     expect(infectionStatuses($retried))->toBe([MutantStatus::Killed])
         ->and(count($again->commands()))->toBe(1)
         ->and(infectionRan($again)[0])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()));
+});
+
+it('runs a retry, and each later run judged by the same tests, on the coverage the first left, and runs it again for others', function (): void {
+    $at = infectionProject();
+    $money = sprintf('%s/src/Money.php', $at->root());
+    $shell = infectionShell($at, ['timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')]]);
+    $infection = new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false);
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'));
+    $coverageRuns = static fn(): int => count(array_filter(
+        infectionRan($shell),
+        static fn(array $arguments): bool => array_any($arguments, static fn(string $argument): bool => str_starts_with($argument, '--coverage-xml=')),
+    ));
+
+    $first = $infection->mutate($request);
+    $infection->retry($request, $first instanceof MutationResult ? $first->mutants() : Mutants::none(), Seconds::of(12.0));
+    $infection->mutate($request->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('Plus')));
+    $once = $coverageRuns();
+    $infection->mutate($request->withholding(Withheld::of('DEPLOY_*')));
+    $withholding = $coverageRuns();
+    $infection->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
+
+    expect([$once, $withholding, $coverageRuns()])->toBe([1, 2, 3]);
+});
+
+it('ends the runs of a retry, one after another, by the deadline its request set', function (): void {
+    $at = infectionProject();
+    $money = sprintf('%s/src/Money.php', $at->root());
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->within(Seconds::of(100.0));
+    $result = new Infection($at, infectionShell($at, [
+        'timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')],
+        'escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')],
+    ]), Seconds::of(6.0), nativeMarkersAllowed: false)->mutate($request);
+    $again = infectionShell($at, infectionKilled($at));
+    $clock = new class implements Clock {
+        private int $read = 0;
+
+        public function nanoseconds(): int
+        {
+            return 10 * Seconds::NANOSECONDS * $this->read++;
+        }
+    };
+
+    new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false, clock: $clock)
+        ->retry($request, $result instanceof MutationResult ? $result->mutants() : Mutants::none(), Seconds::of(12.0));
+    $runs = array_values(array_filter($again->commands(), static fn(Command $command): bool => $command->deadline() instanceof Seconds));
+
+    expect(array_map(static fn(Command $command): Seconds|Unlimited => $command->deadline(), $runs))
+        ->toEqual([Seconds::of(90.0), Seconds::of(80.0)]);
 });
 
 it('runs nothing again where the formula decided every timeout, and cannot judge a retry whose runs fail', function (): void {

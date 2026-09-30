@@ -63,6 +63,8 @@ final readonly class Infection implements Runner
         private Shell $shell,
         private Seconds $cap,
         private bool $nativeMarkersAllowed,
+        private Clock $clock = new WallClock(),
+        private HeldCoverage $held = new HeldCoverage(),
     ) {
     }
 
@@ -144,9 +146,11 @@ final readonly class Infection implements Runner
 
         $config = OwnConfig::in($this->project);
         $directory = $this->project->directory($request->directory());
-        $covered = $config instanceof CannotJudge
-            ? $config
-            : $this->covered($config, $request->tests(), $request->withheld(), $directory);
+        $covered = $config instanceof CannotJudge ? $config : $this->covered(
+            Invocation::coverage($this->project, $config, $request->tests(), $directory)
+                ->withholding($request->withheld()),
+            $directory,
+        );
 
         return $covered instanceof CannotJudge ? $covered : CoverageXml::read($this->project, $directory);
     }
@@ -236,23 +240,36 @@ final readonly class Infection implements Runner
         $project = $this->project->in($package);
 
         return Invocation::runnableIn($project)
-            ? new self($project, $this->shell->in($project->root()), $this->cap, $this->nativeMarkersAllowed)
+            ? new self(
+                $project,
+                $this->shell->in($project->root()),
+                $this->cap,
+                $this->nativeMarkersAllowed,
+                $this->clock,
+            )
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value()));
     }
 
     /**
-     * The coverage directory a run reads, which the adapter always writes: for
-     * a run judged by the whole suite that reuses the map another job handed
-     * on, that map in Infection's layout; otherwise PHPUnit's run of the tests
-     * that judge it. A held path never reads a map of the whole suite.
+     * The coverage directory a run reads, which the adapter writes unless an
+     * earlier run in this process left the same there: for a run judged by
+     * the whole suite that reuses the map another job handed on, that map in
+     * Infection's layout; otherwise PHPUnit's run of the tests that judge it.
+     * A held path never reads a map of the whole suite.
      */
     private function coverageFor(OwnConfig $config, MutationRequest $request): DiskPath|CannotJudge
     {
         $reused = $request->coverage();
+        $own = $this->ownCoverage();
 
-        return $reused instanceof Path && $request->judgedBy() instanceof WholeSuite
-            ? $this->handedOn($reused)
-            : $this->covered($config, $request->judgedBy(), $request->withheld(), $this->ownCoverage());
+        if ($reused instanceof Path && $request->judgedBy() instanceof WholeSuite) {
+            return $this->held->handedOn($reused, fn(): DiskPath|CannotJudge => $this->handedOn($reused));
+        }
+
+        $run = Invocation::coverage($this->project, $config, $request->judgedBy(), $own)
+            ->withholding($request->withheld());
+
+        return $this->held->ranBy($run, fn(): DiskPath|CannotJudge => $this->covered($run, $own));
     }
 
     /** The map another job handed on in a directory, written into Infection's layout. */
@@ -264,15 +281,11 @@ final readonly class Infection implements Runner
     }
 
     /**
-     * The directory, once PHPUnit has run these tests under coverage into it,
-     * never seeing a variable withheld, with no earlier run's reports left.
+     * The directory, once PHPUnit has run under coverage into it, with no
+     * earlier run's reports left.
      */
-    private function covered(
-        OwnConfig $config,
-        WholeSuite|Group|Filter $tests,
-        Withheld $withheld,
-        DiskPath $directory,
-    ): DiskPath|CannotJudge {
+    private function covered(Command $run, DiskPath $directory): DiskPath|CannotJudge
+    {
         foreach ([CoverageXml::indexIn($directory), $directory->child(Invocation::JUNIT)] as $report) {
             $fresh = $this->project->fresh($report->value());
 
@@ -281,9 +294,7 @@ final readonly class Infection implements Runner
             }
         }
 
-        $ran = $this->shell->run(
-            Invocation::coverage($this->project, $config, $tests, $directory)->withholding($withheld),
-        );
+        $ran = $this->shell->run($run);
 
         return $ran->succeeded() ? $directory : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
     }
@@ -294,7 +305,7 @@ final readonly class Infection implements Runner
         $covered = fn(OwnConfig $config, MutationRequest $request): DiskPath|CannotJudge
             => $this->coverageFor($config, $request);
 
-        return new Rerunning($this->project, $this->shell, $this->nativeMarkersAllowed, $covered);
+        return new Rerunning($this->project, $this->shell, $this->nativeMarkersAllowed, $covered, $this->clock);
     }
 
     /** The directory the adapter runs PHPUnit under coverage into, for a run of its own. */
