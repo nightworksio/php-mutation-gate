@@ -112,6 +112,11 @@ it('puts the problems a class has with its options under with, as the gate\'s ow
     ));
 });
 
+it('puts the problem the options find with a class\'s option under with', function () use ($classes): void {
+    expect($classes()->reporter(Choice::of(ConfigurableReporter::class, Configs::options('{"channel": 7}')), 1))
+        ->toEqual(Invalid::because(Problem::at('reports[1].with.channel', 'expected text, got 7')));
+});
+
 it('refuses a class that is not configurable, or adapts another port', function (string $class, string $port) use (
     $classes,
 ): void {

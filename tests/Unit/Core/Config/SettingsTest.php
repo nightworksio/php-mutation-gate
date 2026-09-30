@@ -5,11 +5,14 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
+use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
 use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Config\Price;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\ProofWriting;
 use NightWorksIO\MutationGate\Core\Config\Report;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -18,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
@@ -547,19 +551,56 @@ it('takes the ends of every range', function (): void {
         ->and($settings->ignores()->maxDays())->toBe(1);
 });
 
-it('refuses a path or a glob that goes up out of the project, and keeps an absolute one', function (): void {
+it('refuses a path or a glob that goes up out of the project, or is absolute', function (): void {
     expect(Configs::problems(Configs::validated([
         'runner' => 'pest',
-        'trees' => [['path' => '../../etc'], ['path' => 'src', 'exclude' => ['../gen/**']]],
+        'trees' => [['path' => '../../etc'], ['path' => 'src', 'exclude' => ['../gen/**', '/abs/src/Gen/**']], ['path' => '/abs/src']],
+        'packages' => ['/abs/*'],
+        'costs' => ['secondsPerLine' => ['' => 1, '../x' => 1, '/abs' => 1]],
+        'ci' => ['gitlab' => ['template' => '/abs.yml']],
         'baseline' => ['path' => '../x.json'],
-        'proofs' => ['store' => ['use' => 'directory', 'with' => ['path' => '../ledger']]],
+        'proofs' => ['store' => ['use' => 'directory', 'with' => ['path' => '/var/ledger']], 'ignore' => ['/etc/**']],
+        'reports' => [['use' => 'json', 'path' => '/tmp/x.json']],
     ])))->toBe([
         'trees[0].path: expected a path inside the project, got "../../etc"',
         'trees[1].exclude[0]: expected a path inside the project, got "../gen/**"',
+        'trees[1].exclude[1]: expected a path inside the project, got "/abs/src/Gen/**"',
+        'trees[2].path: expected a path inside the project, got "/abs/src"',
         'baseline.path: expected a path inside the project, got "../x.json"',
-        'proofs.store.with.path: expected a path inside the project, got "../ledger"',
-    ])->and(Configs::validated(['runner' => 'pest', 'trees' => [['path' => '/abs/src']]]))
-        ->toBeInstanceOf(Settings::class);
+        'packages[0]: expected a path inside the project, got "/abs/*"',
+        'costs.secondsPerLine["../x"]: expected a path inside the project, got "../x"',
+        'costs.secondsPerLine["/abs"]: expected a path inside the project, got "/abs"',
+        'ci.gitlab.template: expected a path inside the project, got "/abs.yml"',
+        'proofs.store.with.path: expected a path inside the project, got "/var/ledger"',
+        'proofs.ignore[0]: expected a path inside the project, got "/etc/**"',
+        'reports[0].path: expected a path inside the project, got "/tmp/x.json"',
+    ]);
+});
+
+it('keeps an absolute path the command line names, and no path that goes up', function (): void {
+    $line = Definition::layer(
+        Node::config('{"reports": [{"use": "json", "path": "/tmp/x.json"}]}'),
+        ProjectRoot::commandLine(),
+    );
+    $up = Definition::layer(
+        Node::config('{"reports": [{"use": "json", "path": "../x.json"}]}'),
+        ProjectRoot::commandLine(),
+    );
+
+    expect($line instanceof Layer ? Configs::decoded($line) : Configs::problems($line))
+        ->toBe(['reports' => [['use' => 'json', 'path' => '/tmp/x.json']]])
+        ->and(Configs::problems($up))->toBe(['reports[0].path: expected a path inside the project, got "../x.json"']);
+});
+
+it('keeps each path of the tree source\'s fallback once, as the effective config writes it', function (): void {
+    $settings = Configs::settings([
+        'runner' => 'pest',
+        'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['./app/', 'app', 'lib']]],
+    ]);
+
+    expect($settings->treeSource()->options()->written()->line())->toBe('{"fallback":["app","lib"]}')
+        ->and(Configs::settings(Configs::effective($settings))->treeSource())
+        ->toEqual($settings->treeSource());
 });
 
 it('refuses a floor of 0 without the reason it needs', function (): void {
@@ -873,3 +914,18 @@ it('refuses a webhook URL in the config, and a path a reporter cannot take or ne
         'reports[0].path: expected a path, got nothing',
     ],
 ]);
+
+it('refuses a canary group name with whitespace, and a store endpoint that is not a URL', function (): void {
+    expect(Configs::problems(Configs::validated([
+        'runner' => 'pest',
+        'pest' => ['canary' => 'mutation canary'],
+        'proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'endpoint' => 'minio.test:9000']]],
+    ])))->toBe([
+        'proofs.store.with.endpoint: expected an http:// or https:// URL, got "minio.test:9000"',
+        'pest.canary: expected a group name, with no whitespace, got "mutation canary"',
+    ])->and(Configs::validated([
+        'runner' => 'pest',
+        'pest' => ['canary' => 'mutation-canary'],
+        'proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'endpoint' => 'http://minio.test:9000']]],
+    ]))->toBeInstanceOf(Settings::class);
+});

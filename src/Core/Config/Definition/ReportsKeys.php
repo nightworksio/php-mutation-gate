@@ -19,7 +19,7 @@ final readonly class ReportsKeys
         return [Field::optional(
             'reports',
             Into::of(
-                Items::of(ReportEntry::choosing(Builtins::reporters(), $origin)),
+                Items::of(ReportEntry::choosing(Builtins::reporters($origin), $origin)),
                 static fn(Listed $reports): Layer => Layer::of(Reports::of($reports)),
             ),
             Effect::JudgesOrReportsOnly,

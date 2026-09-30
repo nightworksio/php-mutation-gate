@@ -51,7 +51,7 @@ final readonly class SetupKeys
             Field::optional(
                 'runner',
                 Into::of(
-                    RunnerChoice::choosing(Builtins::runners()),
+                    RunnerChoice::choosing(Builtins::runners($origin)),
                     static fn(Setup $runner): Layer => Layer::of($runner),
                 ),
                 $results,

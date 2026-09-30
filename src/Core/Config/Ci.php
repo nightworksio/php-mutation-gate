@@ -97,9 +97,7 @@ final readonly class Ci implements Part
         return $this->plan instanceof Choice && $this->plan->use() instanceof Name
             ? Choice::of(
                 $this->plan->use()->value(),
-                Options::of(
-                    $this->planOptions($this->plan->use())->written()->merged($this->plan->options()->written()),
-                ),
+                $this->plan->options()->over($this->planOptions($this->plan->use())->written()),
             )
             : $this->plan;
     }

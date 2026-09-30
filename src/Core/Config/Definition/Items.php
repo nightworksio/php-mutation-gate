@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use Closure;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Listed;
@@ -15,7 +16,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use function sprintf;
 
 /**
- * A list, each of whose entries has the same shape.
+ * A list, each of whose entries has the same shape, and where the list is
+ * distinct, each kept once.
  *
  * @template-covariant T of object|scalar
  *
@@ -23,8 +25,11 @@ use function sprintf;
  */
 final readonly class Items implements Shape
 {
-    /** @param Shape<T> $item */
-    private function __construct(private Shape $item)
+    /**
+     * @param Shape<T>                      $item
+     * @param (Closure(T): string)|Absent $identity
+     */
+    private function __construct(private Shape $item, private Closure|Absent $identity)
     {
     }
 
@@ -36,7 +41,21 @@ final readonly class Items implements Shape
      */
     public static function of(Shape $item): self
     {
-        return new self($item);
+        return new self($item, Absent::setting());
+    }
+
+    /**
+     * A list whose entries are each kept once, as their identity says: one equal to an entry before it is dropped.
+     *
+     * @template U of object|scalar
+     *
+     * @param  Shape<U>              $item
+     * @param  Closure(U): string    $identity
+     * @return self<U>
+     */
+    public static function distinct(Shape $item, Closure $identity): self
+    {
+        return new self($item, $identity);
     }
 
     public function read(Node $at): Reading
@@ -60,7 +79,13 @@ final readonly class Items implements Shape
 
         $problems = Reading::problemsIn(...$readings);
 
-        return $problems instanceof Invalid ? Reading::invalid($problems) : Reading::of(Listed::of(...$values));
+        $listed = Listed::of(...$values);
+
+        return match (true) {
+            $problems instanceof Invalid => Reading::invalid($problems),
+            $this->identity instanceof Closure => Reading::of(Listed::of()->and($listed, $this->identity)),
+            default => Reading::of($listed),
+        };
     }
 
     public function expected(): string

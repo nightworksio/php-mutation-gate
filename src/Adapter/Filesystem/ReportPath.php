@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
-use function basename;
-use function dirname;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -14,7 +12,6 @@ use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
@@ -23,8 +20,8 @@ use function sprintf;
 
 /**
  * Where a file report is written: the `path` of its `reports` entry, which
- * the command line hands it among its options, relative to where the gate
- * runs or absolute.
+ * the command line hands it among its options, from the project and inside
+ * it, or absolute where the command line names it.
  */
 final readonly class ReportPath
 {
@@ -32,13 +29,13 @@ final readonly class ReportPath
 
     private const string NO_FILE = '%s is written to a file, whose `path` the entry names.';
 
-    private function __construct(private string $path)
+    private function __construct(private ProjectPath $path)
     {
     }
 
     public static function at(string $path): self
     {
-        return new self($path);
+        return new self(ProjectPath::of($path));
     }
 
     /** The file an entry for this report must name; where it names none, why the entry is invalid. */
@@ -57,26 +54,24 @@ final readonly class ReportPath
             default => '',
         };
 
-        return $named === '' ? Invalid::because(Problem::at(self::KEY, $what)) : new self($named);
+        return $named === '' ? Invalid::because(Problem::at(self::KEY, $what)) : self::at($named);
     }
 
     public function value(): string
     {
-        return $this->path;
+        return $this->path->value();
     }
 
     /** This path, as a directory, with a file under it. */
     public function file(string $name): self
     {
-        return new self(sprintf('%s/%s', $this->path, $name));
+        return new self($this->path->child($name));
     }
 
     /** Write the file at this path, creating the directories it needs, saying where or why not. */
     public function write(string $text): Written|NotWritten
     {
-        $written = Directory::at(dirname($this->path))->write(Path::of(basename($this->path)), Contents::of($text));
-
-        return $written instanceof CannotJudge ? NotWritten::because($written->why()) : $written;
+        return $this->said($this->path->directory()->write($this->path->inside(), Contents::of($text)));
     }
 
     /**
@@ -86,16 +81,20 @@ final readonly class ReportPath
      */
     public function stream(iterable $pieces): Written|NotWritten
     {
-        $written = Directory::at(dirname($this->path))->stream(Path::of(basename($this->path)), $pieces);
-
-        return $written instanceof CannotJudge ? NotWritten::because($written->why()) : $written;
+        return $this->said($this->path->directory()->stream($this->path->inside(), $pieces));
     }
 
     /** What the file at this path holds; nothing where there is none, or it cannot be read. */
     public function read(): string
     {
-        $read = Directory::at(dirname($this->path))->read(Path::of(basename($this->path)));
+        $read = $this->path->directory()->read($this->path->inside());
 
         return $read instanceof Contents ? $read->text() : '';
+    }
+
+    /** Where the file was written, as this path names it, or why it was not. */
+    private function said(Written|CannotJudge $written): Written|NotWritten
+    {
+        return $written instanceof CannotJudge ? NotWritten::because($written->why()) : Written::to($this->value());
     }
 }

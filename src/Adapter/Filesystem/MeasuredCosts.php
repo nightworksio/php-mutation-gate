@@ -66,6 +66,10 @@ final readonly class MeasuredCosts implements Configurable, CostModel
             return Invalid::because(Problem::at(self::PER_LINE, 'expected the seconds a line costs, got nothing'));
         }
 
+        if ($perLine instanceof Problem) {
+            return Invalid::because($perLine);
+        }
+
         $rates = [];
 
         foreach ($perLine as $prefix) {
@@ -73,7 +77,7 @@ final readonly class MeasuredCosts implements Configurable, CostModel
             $rates[] = is_float($seconds) ? LineRate::of($prefix->value(), Seconds::of($seconds)) : $seconds;
         }
 
-        $problems = [...$perLine->problems(), ...array_filter(
+        $problems = [...array_filter(
             $rates,
             static fn(LineRate|Problem|NotGiven $rate): bool => $rate instanceof Problem,
         )];

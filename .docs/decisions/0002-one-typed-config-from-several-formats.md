@@ -249,8 +249,11 @@ cannot.
    own directory. So are globs, the `phpunit` tree source's `fallback`, the
    `directory` store's `path` and each `costs.secondsPerLine` prefix but
    `""`, which is every path wherever it is written. A path or a glob that
-   goes up out of the project is refused (`expected a path inside the
-   project`); an absolute one is kept, for a config file outside the project. The
+   lands outside the project, up through `..` or absolute, is refused
+   (`expected a path inside the project`). A config file outside the
+   project names its paths the same way, so it names only those that land
+   inside the project: `../project/src`. Only the command line names a file
+   outside the project, by its absolute path, as `--report` does. The
    configuration reference lists every key with its type, its default and the
    ADR that decides it. It is generated from the same definitions as the
    schema, into `.docs/reference/configuration.md`, and the README holds it

@@ -16,7 +16,10 @@ it('names a path from the project as a file in a directory of it writes it', fun
     'from a directory beside it' => ['src', 'ci', '../src'],
     'from a directory that shares a parent' => ['ci/b/x.yml', 'ci/a', '../b/x.yml'],
     'the directory itself' => ['.', 'ci', '..'],
-    'an absolute path' => ['/etc/gate', 'ci', '/etc/gate'],
+    'an absolute path from a directory of the project' => ['/etc/gate', 'ci', '/etc/gate'],
+    'an absolute path from an absolute directory' => ['/project/src', '/project', 'src'],
+    'an absolute path beside an absolute directory' => ['/shared/x', '/project', '../shared/x'],
+    'a path from the project, from an absolute directory' => ['src', '/project', 'src'],
 ]);
 
 it('reads a path a file in a directory of the project writes, from the project', function (

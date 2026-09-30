@@ -20,7 +20,7 @@ final readonly class PestKeys
     {
         $results = Effect::AffectsResults;
         $patch = Field::optional('patch', Flag::boolean(), $results);
-        $canary = Field::optional('canary', Text::of('a group name'), $results);
+        $canary = Field::optional('canary', Text::word('a group name'), $results);
 
         return [Field::section(
             'pest',

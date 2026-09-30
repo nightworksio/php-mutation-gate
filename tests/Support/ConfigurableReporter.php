@@ -26,12 +26,14 @@ final readonly class ConfigurableReporter implements Configurable, Reporter
     {
         $channel = $options->text(Key::of('channel'));
 
-        return ! is_string($channel) || $channel === ''
-            ? Invalid::because(
+        return match (true) {
+            $channel instanceof Problem => Invalid::because($channel),
+            ! is_string($channel) || $channel === '' => Invalid::because(
                 Problem::at('channel', 'expected a channel name, got nothing'),
                 Problem::at('', 'needs a channel'),
-            )
-            : new self($channel);
+            ),
+            default => new self($channel),
+        };
     }
 
     public function report(Verdict $verdict): Written

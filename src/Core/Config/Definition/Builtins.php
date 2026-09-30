@@ -20,7 +20,8 @@ use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
-use NightWorksIO\MutationGate\Core\Config\StaticCheck;
+    /** Built-in adapters that take no options, each by its name or by the case that holds it. */
+    private static function none(PathOrigin $origin, BackedEnum|string ...$names): self
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
@@ -41,26 +42,29 @@ final readonly class Builtins
     private const string CREDENTIAL
         = 'expected no url: a webhook URL is a credential; set %s, or name another variable in urlEnv';
 
-    /** @param array<string, Section<Options>> $options the options of each built-in adapter, by its name */
-    private function __construct(private array $options)
+    /**
+     * @param array<string, Section<Options>> $options the options of each built-in adapter, by its name
+     * @param PathOrigin                      $origin  where the layer is, which another adapter's paths are named from
+     */
+    private function __construct(private array $options, private PathOrigin $origin)
     {
     }
 
     /** @param array<string, Section<Options>> $options */
-    public static function of(array $options): self
+    public static function of(array $options, PathOrigin $origin): self
     {
-        return new self($options);
+        return new self($options, $origin);
     }
 
-    public static function runners(): self
+    public static function runners(PathOrigin $origin): self
     {
-        return self::none(...BuiltinRunner::cases());
+        return self::none($origin, ...BuiltinRunner::cases());
     }
 
     /** The analysers this package brings, and `auto` and `none`, none of which takes options. */
-    public static function staticCheckers(): self
+    public static function staticCheckers(PathOrigin $origin): self
     {
-        return self::none(StaticCheck::AUTO, StaticCheck::NONE, ...BuiltInAnalyser::cases());
+        return self::none($origin, StaticCheck::AUTO, StaticCheck::NONE, ...BuiltInAnalyser::cases());
     }
 
     /** The tree sources, whose paths are named from the layer's origin. */
@@ -69,10 +73,14 @@ final readonly class Builtins
         return self::of([
             BuiltinTreeSource::PhpUnit->value => Section::options(
                 Json::object(Member::of('fallback', Json::items())),
-                Field::optional('fallback', Items::of(Location::path($origin)), Effect::AffectsResults),
+                Field::optional(
+                    'fallback',
+                    Items::distinct(Location::path($origin), static fn(Path $path): string => $path->value()),
+                    Effect::AffectsResults,
+                ),
             ),
             BuiltinTreeSource::Composer->value => Section::options(Json::object()),
-        ]);
+        ], $origin);
     }
 
     /** The proof stores, whose paths are named from the layer's origin. */
@@ -90,18 +98,18 @@ final readonly class Builtins
                 Field::required('bucket', Text::of('a bucket name'), $judges),
                 Field::optional('prefix', Text::of('a key prefix'), $judges),
                 Field::optional('region', Text::of('a region'), $judges),
-                Field::optional('endpoint', Text::of('a URL'), $judges),
+                Field::optional('endpoint', Url::web(), $judges),
                 Field::optional('publicUrl', Url::https(), $judges),
             ),
-        ]);
+        ], $origin);
     }
 
-    public static function ciPlans(): self
+    public static function ciPlans(PathOrigin $origin): self
     {
-        return self::none(...BuiltinCiPlan::cases());
+        return self::none($origin, ...BuiltinCiPlan::cases());
     }
 
-    public static function reporters(): self
+    public static function reporters(PathOrigin $origin): self
     {
         $judges = Effect::JudgesOrReportsOnly;
         $variable = Text::of('an environment variable name');
@@ -133,7 +141,7 @@ final readonly class Builtins
                 Json::object(),
                 Field::optional('endpoint', Url::https(), $judges),
             ),
-        ]);
+        ], $origin);
     }
 
     /**
@@ -154,8 +162,8 @@ final readonly class Builtins
         }
 
         return match ($with->kind()) {
-            Kind::Nothing, Kind::Empty => Reading::of(Choice::of($use, Options::none())),
-            Kind::Map => Reading::of(Choice::of($use, Options::of($with->value()))),
+            Kind::Nothing, Kind::Empty => Reading::of(Choice::of($use, Options::at(Json::object(), $this->origin))),
+            Kind::Map => Reading::of(Choice::of($use, Options::at($with->value(), $this->origin))),
             Kind::List, Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null => Reading::refused(
                 $with->mismatch('an object'),
             ),
@@ -234,9 +242,9 @@ final readonly class Builtins
     }
 
     /** Built-in adapters that take no options, each by its name or by the case that holds it. */
-    private static function none(BackedEnum|string ...$names): self
+    private static function none(PathOrigin $origin, BackedEnum|string ...$names): self
     {
-        return self::of(self::bare(...$names));
+        return self::of(self::bare(...$names), $origin);
     }
 
     /** @return array<string, Section<Options>> the options of adapters that take none, by name */

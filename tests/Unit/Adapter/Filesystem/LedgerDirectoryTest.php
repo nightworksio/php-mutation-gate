@@ -117,3 +117,19 @@ it('lists every ledger kept under the directory, in the order of its path, with 
         KeptLedger::of(Path::of(sprintf('%s/refs/pull/12/ledger.json.gz', $root)), $size('refs/pull/12')),
     ))->and(LedgerDirectory::at(sprintf('%s/nowhere', $root))->kept())->toEqual(KeptLedgers::of());
 });
+
+it('keeps a directory from the project inside it, and writes no ledger that leads out of it', function () use ($proved): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'project/composer.json', '{}');
+    $directory = (string) getcwd();
+    chdir(sprintf('%s/project', $root));
+    $inside = LedgerDirectory::at('build/ledger')->write(Scope::branch('main'), $proved());
+    $up = LedgerDirectory::at('../ledger')->write(Scope::branch('main'), $proved());
+    chdir($directory);
+
+    expect($inside)->toEqual(Written::to('./build/ledger/refs/heads/main/ledger.json.gz'))
+        ->and($up)->toEqual(NotWritten::because(
+            '../ledger/refs/heads/main/ledger.json.gz leads out of ., so the gate does not read or write it.',
+        ))
+        ->and(glob(sprintf('%s/ledger', $root)))->toBe([]);
+});

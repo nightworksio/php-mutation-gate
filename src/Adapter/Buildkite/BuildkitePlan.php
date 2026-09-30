@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Buildkite;
 
 use function array_map;
-use function count;
 use function file_put_contents;
 use function getenv;
 use function is_string;
@@ -103,7 +102,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
         $definition = $options->text(Key::of('definition'));
 
         return match (true) {
-            $step instanceof Options && count($step->problems()) > 0 => Invalid::because(
+            $step instanceof Problem => Invalid::because(
                 Problem::at('step', 'The step template is a map of step keys.'),
             ),
             $step instanceof Options && ! self::commandsIn($step) => Invalid::because(
