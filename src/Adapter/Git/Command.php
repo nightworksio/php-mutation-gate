@@ -9,6 +9,7 @@ use function array_key_exists;
 use function file_get_contents;
 use function file_put_contents;
 use function getenv;
+use function getmypid;
 use function implode;
 use function is_dir;
 use function is_string;
@@ -66,8 +67,11 @@ final readonly class Command
     /** Why git did not run. */
     private const string NOT_STARTED = 'it could not be started.';
 
-    /** How the files git reads its input from and writes its errors to are named. */
-    private const string SCRATCH = 'mutation-gate-git-';
+    /**
+     * How the files git reads its input from and writes its errors to are
+     * named, after the process that made them: `mutation-gate-git-<pid>-`.
+     */
+    private const string SCRATCH = 'mutation-gate-git-%d-';
 
     /** @param array<string, string> $environment what git inherits, the credentials left out */
     private function __construct(private string $directory, private array $environment)
@@ -115,8 +119,9 @@ final readonly class Command
      */
     public function feed(array $arguments, string $input): string|CannotTell
     {
-        $in = tempnam(sys_get_temp_dir(), self::SCRATCH);
-        $errors = tempnam(sys_get_temp_dir(), self::SCRATCH);
+        $scratch = sprintf(self::SCRATCH, getmypid());
+        $in = tempnam(sys_get_temp_dir(), $scratch);
+        $errors = tempnam(sys_get_temp_dir(), $scratch);
         $handed = is_string($in) && is_string($errors) && file_put_contents($in, $input) !== false;
 
         try {
