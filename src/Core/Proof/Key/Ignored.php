@@ -37,7 +37,13 @@ final readonly class Ignored
 
     public static function globs(string ...$globs): self
     {
-        return new self(array_map(Glob::of(...), array_values($globs)));
+        return self::of(...array_map(Glob::of(...), array_values($globs)));
+    }
+
+    /** The globs `proofs.ignore` lists, as the config reads them. */
+    public static function of(Glob ...$globs): self
+    {
+        return new self(array_values($globs));
     }
 
     /**

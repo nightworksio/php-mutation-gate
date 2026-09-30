@@ -86,7 +86,7 @@ final readonly class Reached
         }
 
         foreach ($settings->reach()->everything() as $glob) {
-            $layout = $layout->decidedAlsoBy(Glob::of($glob));
+            $layout = $layout->decidedAlsoBy($glob);
         }
 
         return $layout;

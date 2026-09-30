@@ -99,7 +99,7 @@ final readonly class Keying
         $exceptions = Exceptions::of(
             $setup->configFile,
             $settings->floors()->baseline(),
-            Ignored::globs(...[...$settings->proofs()->ignore()]),
+            Ignored::of(...$settings->proofs()->ignore()),
             $adapters->runner->definitions(),
         );
         $store = self::storePath($settings);
