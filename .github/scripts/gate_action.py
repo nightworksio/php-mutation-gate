@@ -5,8 +5,9 @@ Usage:
   gate_action.py guard     refuses an event the gate never runs under
   gate_action.py resolve   the run's scope, ledger cache, gate binary and options:
                            `plan_options` adds the mode's to `options`
-  gate_action.py store     whether the effective config keeps its ledger in the
-                           default directory (the effective config on stdin)
+  gate_action.py config    from the effective config on stdin: whether it keeps
+                           its ledger in the default directory, and whether it
+                           runs Pest with the optional patches
   gate_action.py outputs   the verdict, scores, report paths and files, and plan
 
 Every subcommand reads GitHub's environment and writes `key=value` lines to
@@ -152,6 +153,11 @@ def keeps_default_store(config: dict) -> bool:
     return store.get("use", "directory") == "directory" and path.rstrip("/") == LEDGERS
 
 
+def patches_pest(config: dict) -> bool:
+    """Whether the effective config runs Pest with the optional patches on (ADR-0004)."""
+    return config.get("runner") == "pest" and (config.get("pest") or {}).get("patch") is True
+
+
 def scores(report: dict) -> dict:
     """Each tree's score and each package's new code's, by path, as the JSON report says them."""
     return {
@@ -199,7 +205,7 @@ def output_lines(values: dict[str, str]) -> str:
 
 
 def main(argv: list[str]) -> int:
-    commands = {"guard": _guard, "resolve": _resolve, "store": _store, "outputs": _outputs}
+    commands = {"guard": _guard, "resolve": _resolve, "config": _config, "outputs": _outputs}
     if len(argv) != 2 or argv[1] not in commands:
         print(__doc__, file=sys.stderr)
         return 2
@@ -237,11 +243,15 @@ def _resolve() -> dict[str, str]:
     return {"gate": gate, "options": json.dumps(options), "plan_options": json.dumps(options + arguments), **kept}
 
 
-def _store() -> dict[str, str]:
-    kept = keeps_default_store(json.load(sys.stdin))
-    if not kept:
+def _config() -> dict[str, str]:
+    config = json.load(sys.stdin)
+    kept = keeps_default_store(config)
+    if not kept and os.environ.get("CACHE") == "true":
         print(f"::notice::The config keeps its ledger outside {LEDGERS}, so the Actions cache is not used.")
-    return {"default_store": "true" if kept else "false"}
+    return {
+        "default_store": "true" if kept else "false",
+        "pest_patch": "true" if patches_pest(config) else "false",
+    }
 
 
 def _outputs() -> dict[str, str]:

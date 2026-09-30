@@ -628,7 +628,9 @@ Two things the setup relies on:
 - **The optional Pest patches.** For sharded Pest runs, enabling them
   (`pest.patch: true`, plus `@php vendor/bin/mutation-gate pest:patch` in
   `post-install-cmd` and `post-update-cmd`) lets every shard reuse the planning
-  job's coverage instead of running the whole suite again.
+  job's coverage instead of running the whole suite again. The action and the
+  reusable workflow apply the patches in their own jobs, so on GitHub the
+  Composer hook is needed only for local runs.
 
 The proof ledger's trust boundary is the store's access control. On GitHub,
 cache scoping keeps a pull request from writing what the default branch reads.
