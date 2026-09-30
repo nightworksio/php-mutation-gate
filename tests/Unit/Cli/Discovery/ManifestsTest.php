@@ -22,7 +22,7 @@ it('reads no extension where a manifest names none', function (string $json): vo
 })->with(['{}', '[]', '{"extra": []}', '{"extra": "none"}', '{"extra": {"mutation-gate": {}}}']);
 
 it('cannot judge a root that is not a JSON object', function (string $json): void {
-    expect(Manifests::root($json, 'composer.json'))->toEqual(CannotJudge::because('composer.json is not a JSON object, so the extensions it names cannot be read.'));
+    expect(Manifests::root($json, 'composer.json'))->toEqual(CannotJudge::because('composer.json is not a JSON object.'));
 })->with(['', '"acme/app"', '{"name": ']);
 
 it('cannot judge extensions that are not a list of class names', function (string $extensions): void {
@@ -42,7 +42,7 @@ it('reads the extensions every installed package names, in order', function (): 
 
 it('cannot judge an installed.json that is not Composer 2\'s list of packages', function (string $json): void {
     expect(Manifests::installed($json, 'vendor/composer/installed.json'))
-        ->toEqual(CannotJudge::because('vendor/composer/installed.json is not the list of installed packages Composer 2 writes, so their extensions cannot be read.'));
+        ->toEqual(CannotJudge::because('vendor/composer/installed.json is not the list of installed packages Composer 2 writes, so what it installed cannot be read.'));
 })->with(['', '[{"name": "acme/one"}]', '{"dev": true}', '{"packages": {"acme/one": {}}}', '{"packages": "none"}']);
 
 it('cannot judge an installed package whose extensions are not a list of class names', function (): void {

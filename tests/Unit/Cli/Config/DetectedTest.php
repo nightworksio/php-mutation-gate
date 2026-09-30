@@ -93,12 +93,22 @@ it('cannot judge a composer.json it cannot read', function (): void {
         ->toBeInstanceOf(CannotJudge::class);
 });
 
-it('cannot judge a manifest that is not JSON', function (): void {
+it('cannot judge a manifest that is not JSON, or not the list of what is installed', function (): void {
     $project = Scratch::directory();
     Scratch::write($project, 'composer.json', '{"require": ');
     Scratch::write($project, 'vendor/composer/installed.json', 'packages');
     $detected = new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)));
 
-    expect($detected->preset())->toEqual(CannotJudge::because('composer.json is not JSON.'))
-        ->and($detected->runner())->toEqual(CannotJudge::because('composer/installed.json is not JSON.'));
+    expect($detected->preset())->toEqual(CannotJudge::because('composer.json is not a JSON object.'))
+        ->and($detected->runner())->toEqual(CannotJudge::because(
+            'composer/installed.json is not the list of installed packages Composer 2 writes, so what it installed cannot be read.',
+        ));
+});
+
+it('cannot judge an installed.json it cannot read', function (): void {
+    $project = Scratch::directory();
+    mkdir(sprintf('%s/vendor/composer/installed.json', $project), recursive: true);
+
+    expect(new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)))->runner())
+        ->toEqual(CannotJudge::because(sprintf('%s/vendor/composer/installed.json could not be read.', $project)));
 });
