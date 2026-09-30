@@ -107,6 +107,30 @@ final readonly class Invocation
         )->with([Recorder::RESULTS => $results])->within($request->deadline());
     }
 
+    /**
+     * The tests in some files, one after another, stopping at the first that
+     * fails, narrowed to a holding group where one judges: the run that judges
+     * a mutant of a line that is not executable through Pest's override.
+     */
+    public function judging(Paths $tests, WholeSuite|Group $judgedBy, Withheld $withheld): Command
+    {
+        $files = [];
+
+        foreach ($tests as $test) {
+            $files[] = $test->value();
+        }
+
+        return Command::pest(
+            $this->script,
+            $withheld,
+            '--no-tia',
+            '--bail',
+            '--colors=never',
+            ...$this->narrowedTo($judgedBy),
+            ...$files,
+        );
+    }
+
     /** @return list<string> */
     private function narrowedTo(WholeSuite|Group $tests): array
     {

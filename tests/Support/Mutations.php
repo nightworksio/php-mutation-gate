@@ -50,7 +50,8 @@ final readonly class Mutations
         return $suite;
     }
 
-    public static function mutation(string $file, string $id, int $line): Mutation
+    /** A mutation of a line of a file, whose mutated copy Pest keeps at a path. */
+    public static function mutation(string $file, string $id, int $line, string $mutated = '/nowhere/mutated'): Mutation
     {
         return new Mutation(
             new SplFileInfo($file, '', ''),
@@ -59,13 +60,17 @@ final readonly class Mutations
             $line,
             $line + 1,
             "  <fg=red>-        return \$a + \$b;</>\n  <fg=green>+        return \$a - \$b;</>\n",
-            '/nowhere/mutated',
+            $mutated,
         );
     }
 
-    public static function test(string $file, string $id, MutationTestResult $result): MutationTest
-    {
-        $test = new MutationTest(self::mutation($file, $id, 11));
+    public static function test(
+        string $file,
+        string $id,
+        MutationTestResult $result,
+        string $mutated = '/nowhere/mutated',
+    ): MutationTest {
+        $test = new MutationTest(self::mutation($file, $id, 11, $mutated));
         $test->updateResult($result);
 
         return $test;

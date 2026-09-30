@@ -491,10 +491,14 @@ its parser attributes. Both change when the checkout moves.
      coverage map altogether: class and interface constants, enum cases,
      property declarations, parameters of plain functions and closures, and
      attribute arguments. Pest marks every mutant there *uncovered* and runs no
-     test. The gate takes these mutants from the `Uncovered` events, by the
-     kind of the node at the mutant's line, and judges them itself.
+     test. The gate takes these mutants from the `Uncovered` events, reads
+     what the first token the mutated copy writes differently stands in, and
+     judges them itself.
      - A global `const` or `define()` sits on an executable line, so an
        uncovered mutant there stays uncovered.
+     - pest-plugin-mutate makes no mutant of a string-backed enum case's
+       value, only of an int-backed one, so under Pest a string case's value
+       is never mutated, and the gate has no mutant of it to judge.
      - Infection never generates mutants on constants, enum cases, property
        declarations or attribute arguments: it mutates only inside functions
        and their signatures. A parameter default is in a signature, so
@@ -522,8 +526,9 @@ its parser attributes. Both change when the checkout moves.
      - a plain function's parameter default through the covering tests of the
        lines that call it.
 
-     An attribute's argument and a closure's parameter default have no
-     reference a token scan can follow, so they are always ambiguous. In a
+     An attribute's argument, a closure's parameter default and a method's
+     parameter default have no reference a token scan can follow, so they are
+     always ambiguous. In a
      held unit (ADR-0005), every set this decision names, the fallback
      included, is limited to the holding group.
    - **The fallback** is the set of test files that cover the owner's file.
@@ -536,8 +541,8 @@ its parser attributes. Both change when the checkout moves.
        fallback too before it counts as a survivor.
 
      An ambiguous mutant whose fallback is over the bound is unjudged, and its
-     reason says why, for example *ambiguous reference; `Theme` is covered by
-     152 test files*. An unambiguous survivor whose fallback is over the bound
+     reason says why, for example *ambiguous reference; src/Theme.php is
+     covered by 152 test files*. An unambiguous survivor whose fallback is over the bound
      stays a survivor.
    - **No reference** makes the mutant unjudged, with the reason *no test
      reaches this value*. It is never passed.
@@ -547,19 +552,22 @@ its parser attributes. Both change when the checkout moves.
      names the mutated copy. That happens with or without `--mutate`, and in
      every `--parallel` worker, which inherits the environment. The gate uses
      the same mechanism Pest uses for its own mutants:
-     1. The plugin copies each such mutant's mutated file from its
-        `Uncovered` event to `.mutation-gate/mutants/<native id>.php`.
-     2. The selected tests run once as they are, narrowed as in step 3. If
-        they fail, every mutant they would judge is unjudged: *the selected
-        tests fail on their own*.
-     3. For each mutant, the gate runs `vendor/bin/pest --no-tia --bail
-        --colors=never --log-junit=<file>` over the selected test files, with
-        `--group=holds:<path>` for a held unit, from the project root, with the two variables and `MUTATION_GATE_GUARD`
-        set. Several mutants run at once, each serially, with Pest's own
-        parallel tokens.
-     4. A failing test kills the mutant, and a passing run leaves it alive for
-        the fallback above. A timeout uses Pest's own limit. A missing mutated
-        file makes it unjudged, *mutated file missing*, never killed.
+     1. The plugin copies each uncovered mutant's mutated file from its
+        `Uncovered` event to `.mutation-gate/pest/mutants/<native id>.php`.
+        Every run of the adapter starts with none left from an earlier one.
+     2. The selected tests run once as they are, narrowed as in step 3, once
+        for each set of test files. If they fail, the mutant is unjudged:
+        *the selected tests fail on their own*.
+     3. For each mutant, one at a time, the gate runs
+        `<vendor>/pestphp/pest/bin/pest --no-tia --bail --colors=never` over
+        the selected test files, with `--group=holds:<path>` for a held unit,
+        from the project root, within Pest's own limit, withholding what the
+        request withholds, with the two variables and `MUTATION_GATE_GUARD`
+        set.
+     4. A failing run kills the mutant, and a passing run leaves it alive for
+        the fallback above. A run stopped at the limit times the mutant out.
+        A missing mutated file makes it unjudged, *mutated file missing*,
+        never killed.
    - **Guards.** When `MUTATION_GATE_GUARD` names a file, the plugin writes to
      it whether the original file was loaded before the override started,
      whether it was loaded at all, and the opcache settings. Composer's
@@ -569,7 +577,9 @@ its parser attributes. Both change when the checkout moves.
      - *loaded before the override*;
      - *never loaded*;
      - `opcache.enable_cli` or `opcache.file_cache` on, because a cached
-       original could be served instead of the mutant.
+       original could be served instead of the mutant;
+     - no guard written at all: *the run wrote no guard, so the gate cannot
+       tell the mutated file ran*.
    - **Costs.** Each run's time goes into the cost model like any other
      mutant's (ADR-0006).
    - **Contract tests**, one per kind of symbol:

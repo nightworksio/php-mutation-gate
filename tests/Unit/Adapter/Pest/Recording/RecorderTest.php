@@ -119,6 +119,19 @@ it('keeps the opening run\'s coverage map beside the results before Pest deletes
         ->and(Recorder::coverageBeside('/r/results.jsonl'))->toBe('/r/results.jsonl.coverage.php');
 });
 
+it('keeps a mutant\'s mutated copy by its id beside the results, making the directory it needs', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'tmp/abc', '<?php return 1;');
+    $test = Mutations::test('/p/src/Money.php', 'id-7', MutationTestResult::Uncovered, sprintf('%s/tmp/abc', $root));
+    $recorder = Mutations::recorder(sprintf('%s/pest/results.jsonl', $root), '/c');
+
+    $recorder->keepMutant($test);
+    $recorder->keepMutant($test);
+
+    expect(file_get_contents(sprintf('%s/pest/mutants/id-7.php', $root)))->toBe('<?php return 1;')
+        ->and(Recorder::mutantBeside('/r/pest/results.jsonl', 'id-7'))->toBe('/r/pest/mutants/id-7.php');
+});
+
 it('records every planned mutant with its file, lines, mutator class and diff, then how many', function (): void {
     $root = (string) realpath(Scratch::directory());
     Scratch::write($root, 'src/Money.php', '<?php');

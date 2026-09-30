@@ -8,7 +8,7 @@ use Pest\Mutate\Event\Events\Test\Outcome\Uncovered;
 use Pest\Mutate\Event\Events\Test\Outcome\UncoveredSubscriber;
 
 /**
- * Records a mutant no test ran.
+ * Records a mutant no test ran, and keeps its mutated copy.
  * Pest's facade files a subscriber under the first interface it implements,
  * so this implements that one alone.
  */
@@ -21,5 +21,6 @@ final readonly class OnUncovered implements UncoveredSubscriber
     public function notify(Uncovered $event): void
     {
         $this->recorder->outcome($event->test);
+        $this->recorder->keepMutant($event->test);
     }
 }

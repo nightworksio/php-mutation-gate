@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function file_exists;
+use function glob;
+use function is_array;
 use function is_dir;
 use function is_file;
 use function is_string;
@@ -96,14 +98,16 @@ final readonly class Project
 
     /**
      * The file the plugin writes a run's results to, with no earlier run's
-     * results or map left beside it, or why an earlier run's are still there.
+     * results, map or mutated copies left beside it, or why an earlier run's
+     * are still there.
      */
     public function freshResults(): string|CannotJudge
     {
         $results = sprintf('%s/%s', $this->absolute($this->workspace), self::RESULTS);
         $this->directory(Path::of(sprintf('%s/pest', $this->workspace->value())));
+        $copies = glob(Recorder::mutantBeside($results, '*'));
 
-        return $this->without($results, Recorder::coverageBeside($results))
+        return $this->without($results, Recorder::coverageBeside($results), ...(is_array($copies) ? $copies : []))
             ? $results
             : CannotJudge::because(sprintf(self::STALE, $results));
     }
