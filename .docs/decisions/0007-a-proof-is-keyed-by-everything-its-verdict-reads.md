@@ -168,7 +168,8 @@ has to bring its result with it.
    from a key that needed it would cost a verdict.
 
 3. **A ledger holds one scope's proofs, timings, killer history, opening-run
-   times and last passing commit.**
+   times, what it learned of its static analysers and last passing
+   commit.**
 
    The file is compact JSON, gzipped, shown here unpacked and spread out:
 
@@ -209,6 +210,9 @@ has to bring its result with it.
        },
        "openings": {
            ".": { "infection": { "seconds": 38.2, "at": "2026-09-29T20:48:17Z" } }
+       },
+       "analysers": {
+           "phpstan": { "checks": 63, "seconds": 31.5, "mutators": { "Plus": [60, 12] } }
        },
        "passed": { "commit": "<commit sha>", "check": "<check-run name>", "ownScopeProofs": 0 }
    }
@@ -298,8 +302,11 @@ has to bring its result with it.
      a ranking left with none.
    - When two results for one key agree, the first is kept. When they differ,
      the mutants that differ are flaky and neither result is used (ADR-0008).
-     Results are compared by status. `killedBy` is never compared, because
-     the first killer depends on the order the tests ran in (ADR-0013).
+     Results are compared by status, a kill by static analysis reading as
+     killed, since whether the analyser checked a mutant before its tests or
+     after them is the run's placement, not the code (ADR-0020). `killedBy`
+     is never compared, because the first killer depends on the order the
+     tests ran in (ADR-0013).
    - `passed` records the newest commit of this scope whose verdict passed.
      That commit is the `last-passed` base (ADR-0005). `check` is the name of
      the check-run the verdict reported under, the one `ci.check` names
