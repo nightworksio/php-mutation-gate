@@ -28,4 +28,9 @@ enum Slug: string
     case CoverageRunFailed = 'coverage-run-failed';
     case CoverageEmpty = 'coverage-empty';
     case HotPathUnheld = 'hot-path-unheld';
+    case VerdictNotRequired = 'verdict-not-required';
+    case ForkApprovalWeak = 'fork-approval-weak';
+    case ScheduleNotRunning = 'schedule-not-running';
+    case OnlineUnread = 'online-unread';
+    case NoGitHubRepository = 'no-github-repository';
 }

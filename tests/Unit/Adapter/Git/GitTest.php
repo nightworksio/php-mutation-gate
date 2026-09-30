@@ -398,3 +398,12 @@ it('reads the changes alike whatever copy detection the user\'s own config asks 
         'src/Copy.php' => ['added', [1, 2, 3, 4, 5, 6], 'src/Copy.php'],
     ]);
 });
+
+it('names the URL its origin remote fetches from, and cannot tell without one', function (): void {
+    $repository = Repository::empty()->write('a.txt', "a\n")->commit('One.');
+    $none = Git::at($repository->root)->originUrl();
+    $repository->git('remote', 'add', 'origin', 'git@github.com:octo/gate.git');
+
+    expect(Git::at($repository->root)->originUrl())->toBe('git@github.com:octo/gate.git')
+        ->and($none)->toBeInstanceOf(CannotTell::class);
+});

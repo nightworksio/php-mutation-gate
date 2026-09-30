@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Doctor\Asked;
 use NightWorksIO\MutationGate\Core\Doctor\Check\CoverageRun;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
@@ -39,7 +40,7 @@ $suite = static function (): CoverageMap {
 $measured = static fn(CoverageMap|CannotJudge $coverage, Units $held, Timings $timings): Observations
     => Observations::none()
         ->withSettings(Configs::settings(['runner' => 'pest']))
-        ->withMeasurement(Measurement::of($coverage, $held, $timings));
+        ->withAsked(Asked::nothing()->withMeasurement(Measurement::of($coverage, $held, $timings)));
 
 it('finds that measuring the suite failed, with why', function () use ($measured): void {
     expect(CoverageRun::in($measured(CannotJudge::because('Pest\'s coverage run failed. Pest said: 1 failed.'), Units::none(), Timings::none())))

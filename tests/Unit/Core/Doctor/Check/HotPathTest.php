@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Doctor\Asked;
 use NightWorksIO\MutationGate\Core\Doctor\Check\HotPath;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
@@ -43,7 +44,7 @@ $suite = static function (): CoverageMap {
 $measured = static fn(CoverageMap|CannotJudge $coverage, Units $held, Timings $timings): Observations
     => Observations::none()
         ->withSettings(Configs::settings(['runner' => 'pest']))
-        ->withMeasurement(Measurement::of($coverage, $held, $timings));
+        ->withAsked(Asked::nothing()->withMeasurement(Measurement::of($coverage, $held, $timings)));
 
 it('names each hot path nothing holds, with what one of its mutants costs', function () use ($measured, $suite): void {
     $boot = Finding::of(
@@ -80,6 +81,6 @@ it('finds no hot path in a run that gave no map, or where nothing was measured',
 });
 
 it('finds no hot path without settings to say what share is hot', function () use ($suite): void {
-    expect(HotPath::in(Observations::none()->withMeasurement(Measurement::of($suite(), Units::none(), Timings::none()))))
+    expect(HotPath::in(Observations::none()->withAsked(Asked::nothing()->withMeasurement(Measurement::of($suite(), Units::none(), Timings::none())))))
         ->toEqual(Findings::none());
 });

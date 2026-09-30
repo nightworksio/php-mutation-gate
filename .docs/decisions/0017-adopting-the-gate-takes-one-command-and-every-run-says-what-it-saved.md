@@ -198,6 +198,18 @@ would have cost without them.
    - `--online`, with a token, reads GitHub's settings: whether branch
      protection requires the verdict, the fork approval policy, and whether
      a schedule exists.
+     - The repository is the one `GITHUB_REPOSITORY` names, else the one
+       git's `origin` remote is on GitHub's host. It is asked with
+       `GITHUB_TOKEN`, else `GH_TOKEN`.
+     - Its findings are advice: `verdict-not-required` where neither a
+       ruleset nor branch protection requires `ci.check` on the default
+       branch; `fork-approval-weak` short of approval for all outside
+       contributors (ADR-0019 decision 3); and `schedule-not-running` where
+       a GitHub workflow that runs the gate is disabled for inactivity, or
+       ran on no schedule in the last 8 days.
+     - A setting GitHub does not show is `online-unread`, naming the
+       permission that shows it. With no repository on GitHub, it is
+       `no-github-repository`, and every other check still runs.
    - Each finding has:
      - a severity: *will fail* (a run would exit 2 or be *cannot judge*),
        *slow* (with the time at stake, where the timings know it) or
@@ -215,7 +227,6 @@ would have cost without them.
    - Beside the checks of decision 10, it finds a config every command
      refuses (`config-refused`) and a runner's PHP that cannot describe itself
      (`php-not-read`), both *will fail*.
-   - `--online` is not accepted until it is built.
    - It never edits a file, as `hook install` never overwrites a hook
      (ADR-0010 decision 3).
    - `plan` and a one-process run begin with the same checks, one line for

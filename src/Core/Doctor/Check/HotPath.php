@@ -38,7 +38,7 @@ final readonly class HotPath
 
     public static function in(Observations $observed): Findings
     {
-        $measured = $observed->measurement();
+        $measured = $observed->asked()->measurement();
         $settings = $observed->settings();
 
         return $measured instanceof Measurement && $settings instanceof Settings
