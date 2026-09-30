@@ -121,3 +121,23 @@ it('writes nothing where a line it rewrites is there twice', function () use ($v
     expect(Patch::applyIn($at))->toBeInstanceOf(CannotJudge::class)
         ->and($source($at, 'MutationTest.php'))->toBe($source($vendor(), 'MutationTest.php'));
 });
+
+it('writes nothing where another version of the gate patched a file, and says to reinstall first', function () use ($vendor, $source): void {
+    $at = $vendor();
+    $runner = sprintf('%s/pestphp/pest-plugin-mutate/src/Tester/MutationTestRunner.php', $at);
+    // An earlier gate read the mutants to run again from one environment string.
+    file_put_contents($runner, str_replace(
+        '$mutationSuite->repository->add($mutation);',
+        "// mutation-gate pest:patch: a run again makes only the mutants it names.\n"
+        . "                \$only = (string) getenv('MUTATION_GATE_ONLY');\n\n"
+        . '                $mutationSuite->repository->add($mutation);',
+        $source($at, 'Tester/MutationTestRunner.php'),
+    ));
+    $before = $source($at, 'MutationTest.php');
+
+    expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
+        'Another gate version patched %s: run composer reinstall pestphp/pest-plugin-mutate, then pest:patch.',
+        $runner,
+    )))->and(Patch::isAppliedIn($at))->toBeFalse()
+        ->and($source($at, 'MutationTest.php'))->toBe($before);
+});

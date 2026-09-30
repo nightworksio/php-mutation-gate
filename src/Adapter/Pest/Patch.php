@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_all;
 use function array_filter;
+use function array_keys;
 use function basename;
 use function count;
 use function dirname;
@@ -17,6 +18,7 @@ use function is_writable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 
 use function sprintf;
+use function str_contains;
 
 /**
  * `pest:patch`: the changes to pest-plugin-mutate the gate's `pest.patch`
@@ -129,6 +131,13 @@ final readonly class Patch
                     $linesToMutate = [];
         PHP;
 
+    /** What begins the comment every hunk writes, and so every hunk another version of the gate wrote. */
+    private const string MARK = '// mutation-gate pest:patch:';
+
+    /** Why pest:patch cannot change a file another version of the gate patched. */
+    private const string OTHER_VERSION
+        = 'Another gate version patched %s: run composer reinstall pestphp/pest-plugin-mutate, then pest:patch.';
+
     /** Why pest:patch cannot change a file whose lines have moved. */
     private const string MOVED
         = 'pest:patch patched nothing: the lines it rewrites have moved in %s. Install a supported version.';
@@ -139,19 +148,16 @@ final readonly class Patch
     /** Patch pest-plugin-mutate in a vendor directory, and say what was done. */
     public static function applyIn(string $vendor): string|CannotJudge
     {
-        $sources = [];
+        $sources = self::sources($vendor);
 
-        foreach (self::hunks() as $hunk) {
-            $source = self::read($vendor, $hunk);
-
-            if ($source instanceof CannotJudge) {
-                return $source;
-            }
-
-            $sources[$hunk->file()] = $source;
+        if ($sources instanceof CannotJudge) {
+            return $sources;
         }
 
-        $patching = self::patching($vendor, $sources);
+        $other = self::otherVersions($sources);
+        $patching = $other === []
+            ? self::patching($vendor, $sources)
+            : CannotJudge::because(sprintf(self::OTHER_VERSION, sprintf(self::SOURCE, $vendor, $other[0])));
 
         if ($patching instanceof CannotJudge) {
             return $patching;
@@ -170,14 +176,62 @@ final readonly class Patch
         ) : CannotJudge::because(sprintf(self::UNWRITABLE, $vendor, 'pestphp/pest-plugin-mutate/src'));
     }
 
-    /** Whether pest-plugin-mutate in a vendor directory carries every hunk. */
+    /** Whether pest-plugin-mutate in a vendor directory carries every hunk, and no hunk another version wrote. */
     public static function isAppliedIn(string $vendor): bool
     {
-        return array_all(self::hunks(), static function (Hunk $hunk) use ($vendor): bool {
-            $file = sprintf(self::SOURCE, $vendor, $hunk->file());
+        $sources = [];
 
-            return is_file($file) && $hunk->isAppliedTo(sprintf('%s', file_get_contents($file)));
-        });
+        foreach (self::hunks() as $hunk) {
+            $file = sprintf(self::SOURCE, $vendor, $hunk->file());
+            $sources[$hunk->file()] = is_file($file) ? sprintf('%s', file_get_contents($file)) : '';
+        }
+
+        return self::otherVersions($sources) === [] && array_all(
+            self::hunks(),
+            static fn(Hunk $hunk): bool => $hunk->isAppliedTo($sources[$hunk->file()]),
+        );
+    }
+
+    /**
+     * Each file a hunk changes, by its path under the source directory, where
+     * it can be patched or already is; or why one cannot.
+     *
+     * @return array<string, string>|CannotJudge
+     */
+    private static function sources(string $vendor): array|CannotJudge
+    {
+        $sources = [];
+
+        foreach (self::hunks() as $hunk) {
+            $source = self::read($vendor, $hunk);
+
+            if ($source instanceof CannotJudge) {
+                return $source;
+            }
+
+            $sources[$hunk->file()] = $source;
+        }
+
+        return $sources;
+    }
+
+    /**
+     * The files that carry a line another version of the gate's pest:patch
+     * wrote which no hunk of this one writes: a hunk written differently,
+     * which patching again cannot take out.
+     *
+     * @param  array<string, string> $sources each file's source, by its path under the source directory
+     * @return list<string>
+     */
+    private static function otherVersions(array $sources): array
+    {
+        $left = $sources;
+
+        foreach (self::hunks() as $hunk) {
+            $left[$hunk->file()] = $hunk->takenFrom($left[$hunk->file()]);
+        }
+
+        return array_keys(array_filter($left, static fn(string $source): bool => str_contains($source, self::MARK)));
     }
 
     /**
