@@ -15,6 +15,7 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\CapIni;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 
 use function rename;
@@ -30,9 +31,9 @@ use function unlink;
  */
 final readonly class CapDirectory implements CapFiles
 {
-    public function written(DiskPath $workspace, DiskPath $directory, MemoryCap $cap): bool
+    public function written(DiskPath $workspace, DiskPath $directory, CapIni $ini): bool
     {
-        return $this->fresh($workspace->value(), $directory->value()) && $this->staged($directory->value(), $cap);
+        return $this->fresh($workspace->value(), $directory->value()) && $this->staged($directory->value(), $ini);
     }
 
     public function removed(DiskPath $directory): void
@@ -109,13 +110,13 @@ final readonly class CapDirectory implements CapFiles
      * beside it, then moved into place, so a PHP that starts meanwhile reads
      * no half of one. Opening the staged file refuses one that is there.
      */
-    private function staged(string $directory, MemoryCap $cap): bool
+    private function staged(string $directory, CapIni $ini): bool
     {
         $staged = sprintf('%s/%s', $directory, MemoryCap::STAGED);
         $handle = fopen($staged, 'x');
 
         return $handle !== false
-            && fwrite($handle, $cap->ini()) !== false
+            && fwrite($handle, $ini->text()) !== false
             && fclose($handle)
             && rename($staged, sprintf('%s/%s', $directory, MemoryCap::FILE));
     }

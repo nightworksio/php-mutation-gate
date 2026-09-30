@@ -305,11 +305,26 @@ parameters:
                 # The command, and no library code, gives its own process the memory its ledgers may need.
                 - bin/mutation-gate
                 # In a mutant's own process, which Pest starts for the gate, errors are logged to the mutant's own
-                # file, so a fatal error Pest's handling loses is still read; both settings are inert (ADR-0004).
+                # file, so a fatal error Pest's handling loses is still read; the entry below keeps it to the two
+                # inert settings that do so (ADR-0004).
                 - src/Adapter/Pest/Recording/Killers.php
                 # zlib raises a broken stream as a warning as well as answering false; the handler that keeps the
                 # warning from the run's output is restored before inflate_add's answer is returned.
                 - src/Core/Format/Gzip.php
+
+        # --- Q1, narrowed: the mutant's own error log sets only the two inert settings that make it ---------
+        # The extension keys each entry by its call, so a second 'ini_set()' would replace Q1's; the pattern
+        # 'ini_set*()' matches ini_set() alone and keeps both.
+        -
+            function: 'ini_set*()'
+            message: "Q1 — in a mutant's own process the plugin sets only log_errors and error_log, which decide where an error is written and nothing a test computes (Q1)."
+            allowExceptIn:
+                - src/Adapter/Pest/Recording/Killers.php
+            allowParamsInAllowed:
+                -
+                    position: 1
+                    name: 'option'
+                    typeString: "'log_errors'|'error_log'"
 
         # --- L3: bytes are not characters -----------------------------------------
         -
@@ -524,6 +539,8 @@ services:
             coincidences:
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
                     - STANDARD # runs of no test the plan times
+                'NightWorksIO\MutationGate\Core\Runner\CapIni':
+                    - STDOUT # PHP's display_errors value, not init's --stdout option
                 'NightWorksIO\MutationGate\Core\Runner\MemoryUnit':
                     - KILO # bytes in a kilobyte, as PHP counts one
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':

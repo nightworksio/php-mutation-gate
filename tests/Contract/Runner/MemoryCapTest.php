@@ -89,24 +89,29 @@ it('runs every mutant\'s process of an Infection run, and of a reproduction, und
 /**
  * The status and limit of each mutant of Money::add a run under a 64M cap
  * gives, while each mutant's own process holds memory until PHP stops it, as
- * LIBRARY_HOG says.
+ * LIBRARY_HOG says, with one more variable set where it names one.
  *
  * @return list<string>
  */
-$hogged = static function (Library $library, string $hog): array {
+$hogged = static function (Library $library, string $hog, string $also = '', string $alsoValue = ''): array {
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), $library->mutators('adds'))
         ->cappedAt(MemoryCap::of(64, MemoryUnit::Megabytes));
+    $set = ['LIBRARY_HOG' => $hog, ...($also === '' ? [] : [$also => $alsoValue])];
 
     // Symfony's Process passes on only the variables PHP also has in $_SERVER.
-    putenv(sprintf('LIBRARY_HOG=%s', $hog));
-    $_SERVER['LIBRARY_HOG'] = $hog;
+    foreach ($set as $name => $value) {
+        putenv(sprintf('%s=%s', $name, $value));
+        $_SERVER[$name] = $value;
+    }
 
     try {
         $result = $library->runner()->mutate($request);
     } finally {
-        putenv('LIBRARY_HOG');
-        unset($_SERVER['LIBRARY_HOG']);
+        foreach (array_keys($set) as $name) {
+            putenv($name);
+            unset($_SERVER[$name]);
+        }
     }
 
     return $result instanceof MutationResult ? array_map(
@@ -135,4 +140,26 @@ it('reads an Infection mutant whose own process ran out of the cap as out of mem
 
     expect(array_unique($hogged($library, 'cap')))->toBe(['out-of-memory 64M'])
         ->and(array_unique($hogged($library, '48M')))->not->toContain('out-of-memory 64M');
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');
+
+it('reads an Infection mutant out of the cap as out of memory where PHP\'s own ini shows errors nowhere', function () use (
+    $hogged,
+): void {
+    $production = sprintf('%s/production', Scratch::directory());
+    mkdir($production);
+    file_put_contents(sprintf('%s/errors.ini', $production), "display_errors=0\n");
+
+    expect(array_unique($hogged(
+        Library::infection(Seconds::of(10.0)),
+        'cap',
+        MemoryCap::SCAN_DIR,
+        sprintf('%s%s', PATH_SEPARATOR, $production),
+    )))->toBe(['out-of-memory 64M']);
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');
+
+it('reads an Infection mutant as out of memory with no limit, and so too heavy to judge, where its project hides errors again', function () use (
+    $hogged,
+): void {
+    expect(array_unique($hogged(Library::infection(Seconds::of(10.0)), 'cap', 'LIBRARY_HIDES_ERRORS', '1')))
+        ->toBe(['out-of-memory unlimited']);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');

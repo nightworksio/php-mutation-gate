@@ -697,11 +697,19 @@ its parser attributes. Both change when the checkout moves.
      and reads it in the process that started the mutant; a test or config
      that sets `error_log` itself logs elsewhere. The Infection adapter reads
      the error from the output Infection logs for a mutant it counts killed
-     or errored. A limit the project set itself, any other fatal error, the
-     system's own out-of-memory killer and a crash keep the status the
-     runner gave them. A mutant whose output holds no such error, as under
-     Infection where PHP's errors go where Infection logs nothing of them,
-     keeps its status too.
+     or errored, which is the mutant's standard output alone, and the
+     PHPUnit it runs sends `error_log` to a file of its own around each
+     test, lost with the process. So the cap's ini file for an Infection run also sets
+     `display_errors=stdout`. That decides where an error is shown and
+     nothing a test computes: PHPUnit's own handler still takes every error a
+     test raises, and only one raised outside it, such as in a bootstrap
+     file, now also prints on standard output. A project that shows errors
+     nowhere again, in its PHPUnit config's `<ini>` or a bootstrap file,
+     leaves only PHPUnit's word that its process ended early; under a cap,
+     such a mutant is out of memory with no limit known, so too heavy to
+     judge. A limit the project set itself, any other fatal error PHP
+     shows, the system's own out-of-memory killer and a crash keep the
+     status the runner gave them.
    - Memory triage judges a mutant out of memory the way timeout triage
      judges a timeout (ADR-0008). Where the plan's peak is at most half the
      cap, the cap holds at least twice what the suite needs, so the mutant

@@ -33,8 +33,8 @@ final class Probe
     /**
      * Where LIBRARY_HOG is set, has a mutant's own process hold memory until
      * PHP stops it: under the memory_limit LIBRARY_HOG names, or, where it is
-     * `cap`, under the one the process runs under. PHP's error shows on the
-     * output, as it does for a suite that displays errors.
+     * `cap`, under the one the process runs under. PHP's error shows where
+     * the process's display_errors says.
      */
     public static function hog(): void
     {
@@ -43,8 +43,6 @@ final class Probe
         if ($hog === false || ! class_exists('Infection\\StreamWrapper\\IncludeInterceptor', autoload: false)) {
             return;
         }
-
-        ini_set('display_errors', 'stdout');
 
         if ($hog !== 'cap') {
             ini_set('memory_limit', $hog);

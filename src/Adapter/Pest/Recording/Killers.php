@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
+use function dirname;
 use function file_put_contents;
 use function getenv;
 use function ini_set;
 use function is_string;
+use function is_writable;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Core\Runner\InertSetting;
@@ -67,11 +69,18 @@ final readonly class Killers
         file_put_contents($this->results, RecordLine::killed($this->mutated, $test), FILE_APPEND | LOCK_EX);
     }
 
-    /** Logs PHP's errors in this process to the mutant's own log, emptied of any an earlier run left. */
+    /**
+     * Logs PHP's errors in this process to the mutant's own log, emptied of
+     * any an earlier run left; where it cannot be emptied, logs nothing there.
+     */
     private function loggingErrors(): void
     {
         $log = Recorder::errorsBeside($this->results, $this->mutated);
-        file_put_contents($log, '');
+
+        if (! is_writable(dirname($log)) || file_put_contents($log, '') === false) {
+            return;
+        }
+
         ini_set(InertSetting::LogErrors->value, '1');
         ini_set(InertSetting::ErrorLog->value, $log);
     }

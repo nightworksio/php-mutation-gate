@@ -14,12 +14,12 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 interface CapFiles
 {
     /**
-     * Whether the cap is written, whole, into the directory, fresh: made
+     * Whether the cap's ini is written, whole, into the directory, fresh: made
      * where it is not, emptied of the files an earlier run left. A link at
      * any level from the gate's directory down to it, or anything but a
      * file in it, refuses it.
      */
-    public function written(DiskPath $workspace, DiskPath $directory, MemoryCap $cap): bool;
+    public function written(DiskPath $workspace, DiskPath $directory, CapIni $ini): bool;
 
     /**
      * Removes the directory once the run that scans it is done. Where

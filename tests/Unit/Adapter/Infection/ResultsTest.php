@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\InfectionRun;
@@ -191,6 +192,30 @@ it('reads a kill or an error whose output ran out of exactly the gate\'s cap as 
         [40, MutantStatus::Survived, 'none', 0],
     ]);
 });
+
+it('reads a mutant whose fatal error PHPUnit hid as out of memory with no limit under a cap, and as it was with none', function (
+    MemoryCap $cap,
+    MutantStatus $status,
+    int $killers,
+): void {
+    $at = resultsProject();
+    $hidden = "There was 1 failure:\n\n1) Tests\\MoneySpec::addsTwoAmounts\nFailed.\n"
+        . "Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message.";
+    InfectionRun::log($at->own(Invocation::JSON), ['killed' => [
+        [...resultsMutant($at, 'Plus', 'src/Money.php', 11, 'return $a + $b;', 'return $a - $b;'), 'processOutput' => $hidden],
+    ]]);
+    InfectionRun::text($at->own(Invocation::TEXT), []);
+    $ran = Ran::finished(succeeded: false, output: 'exit 1');
+    $result = Results::read($at, $ran, TextLog::at($at->own(Invocation::TEXT)), resultsLimits($at), $cap, nativeMarkersAllowed: false);
+    $mutant = $result instanceof MutationResult ? [...$result->mutants()][0] : null;
+
+    expect($mutant?->status())->toBe($status)
+        ->and($mutant?->limit())->toEqual(Unmeasured::duration())
+        ->and(count($mutant?->killers() ?? TestIds::none()))->toBe($killers);
+})->with([
+    'under a cap' => [MemoryCap::of(64, MemoryUnit::Megabytes), MutantStatus::OutOfMemory, 0],
+    'with none' => [MemoryCap::none(), MutantStatus::Killed, 1],
+]);
 
 it('counts mutants that share a file, a mutator and a change, so each has an id of its own', function (): void {
     $at = resultsProject();

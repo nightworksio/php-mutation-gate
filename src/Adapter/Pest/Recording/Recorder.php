@@ -9,7 +9,6 @@ use function dirname;
 use function file_get_contents;
 use function file_put_contents;
 use function getenv;
-use function hash;
 use function is_dir;
 use function is_file;
 use function is_string;
@@ -18,6 +17,7 @@ use function mkdir;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
@@ -56,8 +56,8 @@ final readonly class Recorder
     /** The variable Pest sets beside it, naming the mutated copy it serves in the original's place. */
     public const string MUTATED = 'PEST_MUTATION_FILE';
 
-    /** The hash a mutated copy's path names its process's error log by. */
-    private const string HASH = 'xxh128';
+    /** A mutant's error log beside a results file: the results file's name, then the digest of the mutated copy. */
+    private const string ERRORS = '%s.%s.log';
 
     /**
      * @param string        $results   the file the lines are written to
@@ -137,7 +137,17 @@ final readonly class Recorder
      */
     public static function errorsBeside(string $results, string $mutated): string
     {
-        return sprintf('%s.%s.log', $results, hash(self::HASH, $mutated));
+        return sprintf(self::ERRORS, $results, Digest::sha256Of($mutated)->value());
+    }
+
+    /**
+     * Every mutant's error log beside a results file, as a pattern `glob()` matches.
+     *
+     * @return non-empty-string
+     */
+    public static function everyErrorLogBeside(string $results): string
+    {
+        return sprintf(self::ERRORS, $results, '*');
     }
 
     /**

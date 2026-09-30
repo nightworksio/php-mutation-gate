@@ -58,9 +58,9 @@ it('logs its process\'s errors to the mutant\'s own file, emptied of what an ear
         ->and((string) file_get_contents($log))->not->toContain("an earlier run's error");
 });
 
-it('keeps in the mutant\'s log the memory limit its process ran out of, with PHP\'s errors shown nowhere', function (): void {
+it('keeps in the mutant\'s log the memory limit its process ran out of, where PHP shows and logs its errors nowhere', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
-    $php = new Process([PHP_BINARY, '-d', 'memory_limit=32M', '-d', 'display_errors=0', '-r', sprintf(<<<'PHP_WRAP'
+    $php = new Process([PHP_BINARY, '-d', 'memory_limit=32M', '-d', 'display_errors=0', '-d', 'log_errors=0', '-r', sprintf(<<<'PHP_WRAP'
     require %s;
     NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers::listening(%s, '/tmp/mutations/abc', new PHPUnit\Event\Facade());
     register_shutdown_function(static function (): void {
@@ -79,4 +79,20 @@ it('keeps in the mutant\'s log the memory limit its process ran out of, with PHP
     expect($php->getOutput())->toBe('')
         ->and((string) file_get_contents(Recorder::errorsBeside($results, '/tmp/mutations/abc')))
         ->toContain('Allowed memory size of 33554432 bytes exhausted');
+});
+
+it('logs nothing to a mutant\'s log it cannot empty', function (): void {
+    $directory = Scratch::directory();
+    $results = sprintf('%s/results.jsonl', $directory);
+    chmod($directory, 0o555);
+
+    try {
+        Killers::listening($results, '/tmp/mutations/abc', new Facade());
+        $logged = ini_get('error_log');
+    } finally {
+        chmod($directory, 0o755);
+    }
+
+    expect($logged)->not->toBe(Recorder::errorsBeside($results, '/tmp/mutations/abc'))
+        ->and(is_file(Recorder::errorsBeside($results, '/tmp/mutations/abc')))->toBeFalse();
 });
