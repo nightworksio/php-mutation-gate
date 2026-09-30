@@ -42,6 +42,21 @@ final readonly class Withheld implements IteratorAggregate
         return new self(self::STANDARD);
     }
 
+    /**
+     * What no process the gate starts may see: what every run withholds, the credentials of every CI the job may
+     * run on, which withholding one that is not set costs nothing, and what the config's runner withholds.
+     */
+    public static function composed(self $runner, self ...$ciPlans): self
+    {
+        $withheld = self::standard();
+
+        foreach ($ciPlans as $plan) {
+            $withheld = $withheld->and($plan);
+        }
+
+        return $withheld->and($runner);
+    }
+
     public static function nothing(): self
     {
         return new self([]);

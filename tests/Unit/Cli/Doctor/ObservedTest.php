@@ -159,3 +159,29 @@ it('hands the runner\'s PHP none of the CI plan\'s credentials, nor those the ru
     expect(array_map(static fn(string $name): bool => str_contains($seen, sprintf('%s=', $name)), array_keys($environment)))
         ->toBe([false, false, false, true]);
 });
+
+it('hands the runner\'s PHP none of a detected CI\'s credentials, whether the config names a plan or not', function (
+    string $config,
+): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($project, 'mutation-gate.json', $config);
+    $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
+    $environment = [
+        'GITLAB_CI' => 'true',
+        'CI' => 'true',
+        'CI_JOB_TOKEN' => 'job',
+        'BUILDKITE_AGENT_ACCESS_TOKEN' => 'agent',
+        'KEPT' => 'yes',
+    ];
+    Doctored::observed($project, sprintf('%s/php', $php), $environment)->of(CommandLine::nothing());
+    $seen = (string) file_get_contents(sprintf('%s/environment.txt', $php));
+
+    expect(str_contains($seen, 'CI_JOB_TOKEN='))->toBeFalse()
+        ->and(str_contains($seen, 'BUILDKITE_AGENT_ACCESS_TOKEN='))->toBeFalse()
+        ->and(str_contains($seen, 'KEPT=yes'))->toBeTrue();
+})->with([
+    'no plan named' => ['{"runner": {"use": "infection"}}'],
+    'another plan named' => ['{"runner": {"use": "infection"}, "ci": {"plan": "github"}}'],
+    'a plan named that does not build' => ['{"runner": {"use": "infection"}, "ci": {"plan": "\\\\Acme\\\\NoPlan"}}'],
+    'a config that cannot be used' => ['{"runner": {"use": "infection"}, "trees": 3}'],
+]);

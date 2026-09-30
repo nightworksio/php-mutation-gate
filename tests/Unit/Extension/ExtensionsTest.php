@@ -127,3 +127,11 @@ it('takes in the sets of mutators another package registered, and refuses one re
             'Two packages register a mutator set named "acme": acme/a and acme/b. Remove one of the packages, or run with --no-extensions.',
         ));
 });
+
+it('names what is registered at an extension point, and nothing at any other', function (ExtensionPoint $point): void {
+    $registry = Registering::register($point, new Extensions(Origin::of('acme/a')), static fn(): object => Registering::adapter($point));
+    $other = $point === ExtensionPoint::Runner ? ExtensionPoint::Reporter : ExtensionPoint::Runner;
+
+    expect($registry->names($point))->toEqual(Listed::of(Name::of('it')))
+        ->and($registry->names($other))->toEqual(Listed::of());
+})->with(Registering::adapterPoints());

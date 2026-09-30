@@ -16,7 +16,7 @@ use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
-use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\InstalledRunners;
@@ -30,7 +30,6 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\Runner;
 
 /**
@@ -100,26 +99,21 @@ final readonly class Observed
         return $runner instanceof Runner ? $runner->markers($paths) : $runner;
     }
 
-    /** The PHP the chosen runner starts, with the runner's own options, withholding what every run withholds. */
+    /**
+     * The PHP the chosen runner starts, with the runner's own options, withholding what every run withholds and
+     * every CI's credentials, even where the config cannot be used.
+     */
     private function phpOf(Settings|Invalid|CannotJudge $settings): RunnerPhp|CannotJudge
     {
-        $withheld = $settings instanceof Settings ? $this->withheld($settings) : Withheld::standard();
+        $chosen = new Chosen($this->extensions);
+        $withheld = $settings instanceof Settings
+            ? $chosen->withheld($settings->ci(), $settings->runner()->withhold())
+            : $chosen->withheld(Ci::none(), Withheld::nothing());
         $infection = $settings instanceof Settings
             && $settings->runner()->choice()->use()->value() === BuiltinRunner::Infection->value;
         $own = $infection ? OwnConfig::in($this->infectionProject()) : [];
 
         return $this->php->describe($withheld, ...($own instanceof OwnConfig ? $own->phpOptions() : []));
-    }
-
-    /** What every run withholds: the standard credentials, the CI plan's own, and what the runner's config names. */
-    private function withheld(Settings $settings): Withheld
-    {
-        $choice = $settings->ci()->plan();
-        $plan = $choice instanceof Choice ? new Chosen($this->extensions)->ciPlan($choice) : Withheld::nothing();
-
-        return Withheld::standard()
-            ->and($plan instanceof CiPlan ? $plan->withheld() : Withheld::nothing())
-            ->and($settings->runner()->withhold());
     }
 
     private function trees(Settings $settings): Trees|Invalid|CannotJudge
