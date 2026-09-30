@@ -166,7 +166,8 @@ sees the same verdict.
    (ADR-0014). The schema requires a column for each location. The gate
    takes it from the file's tokens, and a mutant it cannot place there spans
    its lines from the first column to the end. The viewer's licence
-   (Apache-2.0) is shipped with it.
+   (Apache-2.0) is shipped with it, and every generated page names the
+   viewer, its version and its licence in a comment (ADR-0018).
 
 5. **The badge and the trend on the default branch.**
    - **The badge.** The verdict writes `badge.json` for shields.io's endpoint
@@ -285,3 +286,4 @@ but data.
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the problems output, and SARIF's local root
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): the `gitlab`, chat and `otlp` reporters, the JSON report's `cost` and `run`, and `trend.json`'s `verdict`
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the savings line, the JSON report's `savings`, `trend.json`'s times and `savings.json`
+- [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the viewer's notice in every HTML report

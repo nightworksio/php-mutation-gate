@@ -152,6 +152,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | hygiene | actionlint, typos, lychee (links) and markdownlint | yes |
    | security | gitleaks and osv-scanner | yes |
    | rules | `pest --testsuite=Arch` | yes |
+   | docs | the Docs suite: every example, the generated reference and the message slugs (ADR-0018) | yes |
    | the rules refuse violations | `composer test:guards` | yes |
    | checks | validate, normalize, lint, analyse, refactor, deps, audit | yes |
    | tests and coverage | `test:report` and `test:floors`, with the highest dependencies | yes |
@@ -175,6 +176,8 @@ about Laravel, NativePHP or the project's modules, and does not.
      as `plan --ci=json` prints it;
    - the problems output's line format (ADR-0015);
    - `doctor`'s JSON output (ADR-0017);
+   - the message slugs and the troubleshooting links built from them
+     (ADR-0018);
    - the action's and the reusable workflow's inputs, outputs, secrets and job
      names;
    - the eight ports, `Extension`, `Extensions`, `Configurable`, the `Core`
@@ -286,9 +289,11 @@ about Laravel, NativePHP or the project's modules, and does not.
 
 9. **Commits and releases.**
    - **Every commit:**
-     - is signed;
      - uses a conventional-commit subject;
      - carries no AI co-author trailer (the attribution check).
+   - **Every commit on `main` is signed.** `main` takes only squash commits,
+     which GitHub signs, so a contributor's own commits need not be
+     (ADR-0018).
    - **A commit that implements a decision** names it in a `Spec:` trailer:
      `Spec: 0006`, or several numbers. The commit-msg hook checks that each
      number is an ADR in `.docs/decisions`.
@@ -297,8 +302,9 @@ about Laravel, NativePHP or the project's modules, and does not.
      is tagged before that: no 0.x and no release candidates. Until then a
      project can require `dev-main`.
    - **Each release** is a signed tag on `main` and a GitHub release with notes
-     drawn from the conventional commits. Packagist follows through GitHub's
-     webhook.
+     drawn from the conventional commits: the version's `CHANGELOG.md`
+     section, generated and then edited before the tag (ADR-0018). Packagist
+     follows through GitHub's webhook.
 
 10. **Supported versions at 1.0.0.**
 
@@ -355,3 +361,4 @@ points at the ADR that decides it.
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the problems output as public API, and the CI templates pinned to the package's own workflows
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): the reusable workflow's secrets for chat alerts and OpenTelemetry
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the runner canary, the benchmark, `doctor`'s JSON and the measured-baseline artifact
+- [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the `docs` job, message slugs, signed commits on `main`, and the changelog and release notes

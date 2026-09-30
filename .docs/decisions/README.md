@@ -3,7 +3,8 @@
 An ADR records a decision where a reasonable engineer could have chosen
 otherwise. It gives the alternatives and why they lost, so that revisiting the
 decision starts from evidence rather than from scratch. Together with the
-[README](../../README.md), the ADRs are the whole of this package's design.
+[README](../../README.md), whose reference tables ADR-0018 moves to
+`.docs/reference/`, the ADRs are the whole of this package's design.
 There is no separate requirements document, and there are no requirement IDs.
 
 ## Rules
@@ -34,3 +35,4 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) | A survivor reaches the editor, the test file and the commit, and `init` writes the CI that runs the gate | Accepted |
 | [0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) | The gate takes over from an Infection config, says what a run costs, alerts on the default branch, and exports its runs | Accepted |
 | [0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) | Adopting the gate takes one command, `doctor` finds what would fail first, and every run says what it saved | Accepted |
+| [0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md) | The documentation lives in `.docs`, is versioned and tested with the code, and the repository carries its contributor, security and release policy | Accepted |

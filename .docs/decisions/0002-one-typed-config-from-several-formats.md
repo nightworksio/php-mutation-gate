@@ -200,8 +200,10 @@ cannot.
    silently ignored is a setting that silently does nothing. Durations are
    written `90s`, `15m` or `1h30m`. Dates are `YYYY-MM-DD`. Paths are relative
    to the config file, or to the working directory when there is none. The
-   README's configuration reference lists every key
-   with its type, its default and the ADR that decides it.
+   configuration reference lists every key with its type, its default and the
+   ADR that decides it. It is generated from the same definitions as the
+   schema, into `.docs/reference/configuration.md`, and the README holds it
+   until that page is built (ADR-0018).
 
 7. **The schema is generated, not written.** `mutation-gate config:schema`
    prints JSON Schema (draft 2020-12) from the same definitions the validator
@@ -244,3 +246,4 @@ gate's own.
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): `init --ci` and `init --editor`
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): `init --from`, and webhook URLs kept out of the config
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): what `init` writes and asks, and the PHPUnit configs zero-config reads
+- [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the generated configuration reference in `.docs/reference/`

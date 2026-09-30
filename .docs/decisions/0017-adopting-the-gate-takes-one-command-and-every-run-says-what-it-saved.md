@@ -199,7 +199,7 @@ would have cost without them.
        *advice*;
      - what it found, and why it matters;
      - the exact fix, as a command or the lines to add;
-     - a link to the section of the documentation that explains it.
+     - the troubleshooting slug and link of ADR-0018.
    - It exits 1 when any finding will fail, and 0 otherwise.
      `--format=text|json` chooses the output. The JSON is public API
      (ADR-0011 decision 7).
@@ -426,3 +426,4 @@ and nobody edits them by hand.
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): opening runs and `shards.setup`
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): what `init --ci` writes
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): `init --from`, and the run's cost
+- [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the troubleshooting slugs `doctor` links
