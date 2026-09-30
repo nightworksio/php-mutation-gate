@@ -32,16 +32,13 @@ final readonly class Badge implements Part
         return self::of(self::none()->colors());
     }
 
-    /** A later layer's colours are laid over an earlier one's, by colour. */
+    /**
+     * A later layer's colours replace an earlier one's: they are bands of one scale, so a colour laid among
+     * another layer's would cut the scale into bands neither wrote.
+     */
     public function over(Part $later): self
     {
-        return $later instanceof self
-            ? new self(match (true) {
-                $later->colors instanceof Absent => $this->colors,
-                $this->colors instanceof Absent => $later->colors,
-                default => $this->colors->merged($later->colors),
-            })
-            : $this;
+        return $later instanceof self ? new self(Absent::laid($this->colors, $later->colors)) : $this;
     }
 
     /** `badge.colors`: the lowest score of each shields.io colour, red below them all. */

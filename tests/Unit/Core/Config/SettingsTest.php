@@ -183,10 +183,25 @@ it('fills every setting a config leaves out with its default', function (): void
     expect(Configs::effective(Configs::settings(['runner' => 'pest'])))->toBe(DEFAULTS);
 });
 
-it('reads the effective config back into the same settings', function (): void {
-    $settings = Configs::settings(EVERYTHING);
+it('reads the effective config back into the same settings', function (array|string $config): void {
+    $settings = Configs::settings($config);
 
-    expect(Configs::effective(Configs::settings(Configs::effective($settings))))->toBe(Configs::effective($settings));
+    expect(Configs::settings(Configs::effective($settings)))->toEqual($settings);
+})->with([
+    'every setting' => [EVERYTHING],
+    'badge colours of its own' => [['runner' => 'pest', 'badge' => ['colors' => ['green' => 95]]]],
+    'no badge colours' => [['runner' => 'pest', 'badge' => ['colors' => []]]],
+    'a cost per line under one prefix' => [['runner' => 'pest', 'costs' => ['secondsPerLine' => ['src/' => 1]]]],
+]);
+
+it('answers each map as the effective config shows it', function (): void {
+    $colors = Configs::settings(['runner' => 'pest', 'badge' => ['colors' => ['green' => 95]]]);
+    $costs = Configs::settings(['runner' => 'pest', 'costs' => ['secondsPerLine' => ['src/' => 1]]]);
+
+    expect(iterator_to_array($colors->badge(), preserve_keys: true))->toBe(['green' => 95])
+        ->and(Configs::shown($colors, 'badge', 'colors'))->toBe(['green' => 95])
+        ->and(iterator_to_array($costs->shards()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2, 'src' => 1.0])
+        ->and(Configs::shown($costs, 'costs', 'secondsPerLine'))->toBe(['' => 0.2, 'src/' => 1]);
 });
 
 it('reads the defaults into their types', function (): void {

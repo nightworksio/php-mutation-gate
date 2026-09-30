@@ -19,6 +19,7 @@ use function sprintf;
  */
 final readonly class Settings
 {
+    /** @param Layer $layer every layer laid over the standard one, so each setting has its value */
     private function __construct(private Layer $layer, private ChosenRunner $runner)
     {
     }
@@ -36,7 +37,7 @@ final readonly class Settings
         ];
 
         return $runner instanceof Choice && $problems === []
-            ? new self($layer, ChosenRunner::of($runner, $layer->setup()->withhold()))
+            ? new self(Layer::standard()->over($layer), ChosenRunner::of($runner, $layer->setup()->withhold()))
             : Invalid::because(...$problems);
     }
 
@@ -131,7 +132,7 @@ final readonly class Settings
     /** The effective config: every setting with its value, which reads back into these settings. */
     public function effective(): Layer
     {
-        return Layer::standard()->over($this->layer);
+        return $this->layer;
     }
 
     /**
@@ -141,6 +142,6 @@ final readonly class Settings
      */
     public function canonical(): string
     {
-        return Canonical::of($this->effective()->written(ProjectRoot::origin()), Definition::effects());
+        return Canonical::of($this->layer->written(ProjectRoot::origin()), Definition::effects());
     }
 }
