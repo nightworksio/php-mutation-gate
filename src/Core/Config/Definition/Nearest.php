@@ -15,12 +15,12 @@ use function usort;
 
 /**
  * The known key a misspelt one most likely meant: `newcode` is `newCode`. A
- * key is close enough when it is two edits away, or a third of its length
+ * key is close enough when it is one edit away, or a third of its length
  * for a longer one; a key that close to nothing has no suggestion.
  */
 final readonly class Nearest
 {
-    private const int FEWEST_EDITS = 2;
+    private const int FEWEST_EDITS = 1;
 
     private const int LETTERS_PER_EDIT = 3;
 

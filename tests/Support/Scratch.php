@@ -10,9 +10,10 @@ use function exec;
 use function file_put_contents;
 use function is_dir;
 use function mkdir;
+use function random_bytes;
+use function sodium_bin2hex;
 use function sprintf;
 use function sys_get_temp_dir;
-use function uniqid;
 
 /** Directories a test writes into, each new and empty, removed by `sweep()`. */
 final class Scratch
@@ -23,7 +24,7 @@ final class Scratch
     /** A new, empty directory, by its absolute path. */
     public static function directory(): string
     {
-        $root = sprintf('%s/mutation-gate-scratch-%s', sys_get_temp_dir(), uniqid());
+        $root = sprintf('%s/mutation-gate-scratch-%s', sys_get_temp_dir(), sodium_bin2hex(random_bytes(8)));
         mkdir($root);
         self::$made[] = $root;
 

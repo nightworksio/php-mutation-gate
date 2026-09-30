@@ -110,7 +110,7 @@ to write one.
 | `watch` | Re-judge what each save reaches |
 | `pre-push` | Judge the commits being pushed, as CI will |
 | `hook install` / `hook uninstall` | Add or remove the pre-push hook |
-| `init [--format=php\|json\|yaml\|neon]` | Write a config holding what zero-config found (PHP by default), and add `.mutation-gate/` to `.gitignore` |
+| `init [--format=php\|json\|yaml\|neon]` | Write a config holding what zero-config found (PHP by default, or the file `--config` names, in the format of its extension), and add `.mutation-gate/` to `.gitignore` |
 | `config:show [--format=…]` / `config:schema` | Print the effective config (JSON by default), or the JSON Schema |
 | `pest:patch` | Apply the optional Pest patches ([ADR-0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md)) |
 

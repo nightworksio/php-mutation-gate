@@ -16,6 +16,9 @@ enum Presence
     /** It is a mistake. */
     case Required;
 
+    /** It is a mistake once every layer is laid, though a config file may leave it for zero-config to find. */
+    case Found;
+
     /** It is an object whose every setting takes its default. */
     case Section;
 }

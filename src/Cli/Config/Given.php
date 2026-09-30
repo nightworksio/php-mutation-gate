@@ -45,6 +45,12 @@ final readonly class Given
         );
     }
 
+    /** What the command line says, but for a config file to read. */
+    public function withoutConfig(): self
+    {
+        return new self('', $this->runner, $this->reports, $this->budget, $this->ci, $this->firstPartyOnly);
+    }
+
     /**
      * The settings the command line sets, as the last layer of the config.
      *

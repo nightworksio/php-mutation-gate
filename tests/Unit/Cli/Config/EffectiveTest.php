@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Origin;
@@ -165,12 +166,46 @@ it('lets the command line choose the runner where two are installed', function (
     expect($settings instanceof Settings ? $settings->runner() : $settings)->toEqual(Choice::of('infection', '{}'));
 });
 
-it('cannot judge with a preset nothing registered', function () use ($effective, $nothing): void {
+it('reports a preset nothing registered at its path, with every other problem', function (
+    string $preset,
+    array $problems,
+) use ($effective, $nothing): void {
     $project = Scratch::directory();
-    Scratch::write($project, 'mutation-gate.json', '{"preset": "larvel", "runner": "pest"}');
+    $config = sprintf('{"preset": %s, "runner": "pest", "budget": "soon"}', $preset);
+    Scratch::write($project, 'mutation-gate.json', $config);
+
+    expect(Configs::problems($effective($project)->settings($nothing())))->toBe($problems);
+})->with([
+    'one preset, misspelt' => ['"larvel"', [
+        'preset: No preset is registered as "larvel". Did you mean "laravel"?',
+        'budget: expected a duration such as 90s, 15m or 1h30m, got "soon"',
+    ]],
+    'the second of a list, far from any' => ['["symfony", "acme"]', [
+        'preset[1]: No preset is registered as "acme".',
+        'budget: expected a duration such as 90s, 15m or 1h30m, got "soon"',
+    ]],
+]);
+
+it('reports a preset nothing registered where the rest of the config is valid', function () use (
+    $effective,
+    $nothing,
+): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', '{"preset": ["library", "acme"], "runner": "pest"}');
 
     expect($effective($project)->settings($nothing()))
-        ->toEqual(CannotJudge::because('No preset is registered as "larvel".'));
+        ->toEqual(Invalid::because(Problem::at('preset[1]', 'No preset is registered as "acme".')));
+});
+
+it('reports a preset nothing registered where it cannot judge the rest', function () use ($effective, $nothing): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/TwoRunners');
+    Scratch::write($project, 'mutation-gate.json', '{"preset": "acme"}');
+
+    expect(Configs::problems($effective($project)->settings($nothing())))->toBe([
+        'preset: No preset is registered as "acme".',
+        ': Both pestphp/pest-plugin-mutate and infection/infection are installed. '
+        . 'Choose one: set runner in the config, or pass --runner.',
+    ]);
 });
 
 it('cannot judge a config file it cannot read', function () use ($effective, $nothing): void {

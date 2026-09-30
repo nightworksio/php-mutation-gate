@@ -54,7 +54,7 @@ final readonly class Settings
 
         return new self(
             Listed::of($read->strings('extensions')),
-            Listed::of($read->strings('preset')),
+            Listed::of($read->has('preset') ? $read->strings('preset') : []),
             $read->object('runner', Choice::class),
             $read->object('treeSource', Choice::class),
             Floors::read($read),

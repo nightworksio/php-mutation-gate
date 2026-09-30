@@ -15,12 +15,19 @@ it('ships the JSON Schema config:schema prints', function (): void {
 it('writes JSON Schema draft 2020-12, published where the README says', function (): void {
     $schema = json_decode(Definition::schema(), associative: true);
 
-    expect(is_array($schema) ? [$schema['$schema'], $schema['$id'], $schema['type'], $schema['required']] : [])->toBe([
+    expect(is_array($schema) ? [$schema['$schema'], $schema['$id'], $schema['type']] : [])->toBe([
         'https://json-schema.org/draft/2020-12/schema',
         'https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v1/resources/mutation-gate.schema.json',
         'object',
-        ['runner'],
     ]);
+});
+
+it('lets a config file leave the runner for zero-config to find', function (): void {
+    $schema = json_decode(Definition::schema(), associative: true);
+
+    expect(is_array($schema) && array_key_exists('required', $schema))->toBeFalse()
+        ->and(is_array($schema) && is_array($schema['properties']) ? array_keys($schema['properties']) : [])
+        ->toContain('runner');
 });
 
 it('declares every setting as affecting results or as judging or reporting only', function (): void {

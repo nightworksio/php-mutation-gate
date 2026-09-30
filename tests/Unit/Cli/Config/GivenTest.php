@@ -55,3 +55,17 @@ it('keeps a report path that holds a colon whole', function () use ($definition)
     expect(Given::from(new ArrayInput(['--report' => ['html:C:/build/html']], $definition()))->layer())
         ->toBe(['reports' => [['use' => 'html', 'path' => 'C:/build/html']]]);
 });
+
+it('says everything but the config file to read, where init writes one', function () use ($definition): void {
+    $given = Given::from(new ArrayInput([
+        '--config' => 'ci/gate.json',
+        '--runner' => 'infection',
+        '--report' => ['sarif:build/mutation.sarif'],
+        '--budget' => '15m',
+        '--ci' => 'gitlab',
+        '--no-extensions' => true,
+    ], $definition()))->withoutConfig();
+
+    expect([$given->config, $given->runner, $given->reports, $given->budget, $given->ci, $given->firstPartyOnly])
+        ->toBe(['', 'infection', ['sarif:build/mutation.sarif'], '15m', 'gitlab', true]);
+});

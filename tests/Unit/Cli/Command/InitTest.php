@@ -133,6 +133,9 @@ it('adds .mutation-gate/ to a .gitignore on a line of its own', function (string
     'after a last line with its newline' => ["/vendor\n", "/vendor\n.mutation-gate/\n"],
     'not where it is ignored from the root already' => ["/.mutation-gate/\n", "/.mutation-gate/\n"],
     'not where it is ignored already, written with spaces' => ["  .mutation-gate/  \n", "  .mutation-gate/  \n"],
+    'not where it is ignored without its slash' => [".mutation-gate\n", ".mutation-gate\n"],
+    'not where it is ignored from the root without its trailing slash' => ["/.mutation-gate\n", "/.mutation-gate\n"],
+    'after a line that only starts like it' => [".mutation-gates\n", ".mutation-gates\n.mutation-gate/\n"],
 ]);
 
 it('writes nothing where a config is already there', function () use ($init, $file): void {
@@ -209,4 +212,56 @@ it('says so where it cannot read .gitignore', function () use ($init): void {
 
     expect([$ran->code, $ran->output])->toBe([2, ''])
         ->and($ran->errors)->toEndWith("/.gitignore could not be read.\n");
+});
+
+it('writes the file --config names, in the format its extension names', function () use (
+    $init,
+    $file,
+): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
+    $ran = $init($project, ['--config' => 'ci/gate.json', '--format' => 'php']);
+
+    expect([$ran->code, $ran->output, $ran->errors])->toBe([
+        0,
+        "Wrote ci/gate.json with what zero-config found, and added .mutation-gate/ to .gitignore.\n",
+        '',
+    ])->and($file($project, 'ci/gate.json'))->toBe(<<<'JSON'
+        {
+            "$schema": "vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json",
+            "preset": "laravel",
+            "runner": "pest",
+            "trees": [
+                {
+                    "path": "app"
+                }
+            ]
+        }
+
+        JSON)
+        ->and($file($project, 'mutation-gate.php'))->toBe('')
+        ->and($file($project, '.gitignore'))->toBe(".mutation-gate/\n");
+});
+
+it('reads the config it wrote at --config back into what zero-config found', function () use ($init): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
+    $init($project, ['--config' => 'ci/gate.yml']);
+    $shown = Commands::run($project, 'config:show', ['--config' => 'ci/gate.yml']);
+
+    expect(json_decode($shown->output, associative: true))
+        ->toMatchArray(['preset' => 'laravel', 'runner' => 'pest', 'trees' => [['path' => 'app']]]);
+});
+
+it('writes nothing where the file --config names is already there', function () use ($init, $file): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
+    Scratch::write($project, 'ci/gate.neon', "runner: pest\n");
+    $ran = $init($project, ['--config' => 'ci/gate.neon']);
+
+    expect([$ran->code, $ran->output, $ran->errors])->toBe([
+        2,
+        '',
+        sprintf(
+            "%s is already here, and init writes a config only where there is none.\n",
+            Path::of(sprintf('%s/ci/gate.neon', $project))->value(),
+        ),
+    ])->and($file($project, 'ci/gate.neon'))->toBe("runner: pest\n");
 });

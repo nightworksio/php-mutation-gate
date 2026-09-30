@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Registry;
 
 use function array_key_exists;
+use function array_keys;
+use function array_map;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Definition\Nearest;
 
 use function sprintf;
 
@@ -46,7 +49,9 @@ final readonly class Entries
     {
         return array_key_exists($name, $this->entries)
             ? $this->entries[$name]['entry']
-            : CannotJudge::because(sprintf('No %s is registered as "%s".', $this->kind, $name));
+            : CannotJudge::because(
+                sprintf('No %s is registered as "%s".%s', $this->kind, $name, $this->nearest($name)),
+            );
     }
 
     /**
@@ -87,5 +92,13 @@ final readonly class Entries
     public function merge(self $other): self
     {
         return new self($this->kind, [...$this->entries, ...$other->entries]);
+    }
+
+    /** A registered name a missing one was most likely meant to be, said as a question, or nothing. */
+    private function nearest(string $name): string
+    {
+        $nearest = Nearest::to($name, array_map(strval(...), array_keys($this->entries)));
+
+        return $nearest === '' ? '' : sprintf(' Did you mean "%s"?', $nearest);
     }
 }

@@ -33,11 +33,17 @@ final readonly class ConfigFile
         'mutation-gate.neon',
     ];
 
+    /** The file `--config` names: a path from the project, or an absolute one. */
+    public static function named(string $project, string $given): Path
+    {
+        return Path::of(str_starts_with($given, '/') ? $given : sprintf('%s/%s', $project, $given));
+    }
+
     /** @param string $given the file `--config` names, relative to the project; '' when it names none */
     public static function in(string $project, string $given): Path|Absent|CannotJudge
     {
         if ($given !== '') {
-            return Path::of(str_starts_with($given, '/') ? $given : sprintf('%s/%s', $project, $given));
+            return self::named($project, $given);
         }
 
         $present = array_values(array_filter(
