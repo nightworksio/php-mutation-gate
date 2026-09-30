@@ -76,7 +76,7 @@ $ledger = Ledger::empty()
     ->withProof(Proof::of(Digest::of($keyB), Path::of('src/B.php'), Mutants::none(), $run('github:2/1', '2026-09-29T21:00:00Z')))
     ->withTiming(Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'infection', $at('2026-09-29T20:48:17Z')))
     ->atBase(Digest::of($base))
-    ->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0))
+    ->withPassed(Passed::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', 0))
     ->withKillers(KillHistory::none()
         ->withMutant($killedId, Ranking::of(
             Kills::of(TestId::of('MoneyTest::adds'), 3),
@@ -133,7 +133,7 @@ it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tup
             'mutants' => [$killedId->value() => [[0, 3], [2, 1]]],
             'functions' => ['src/Money.php' => ['add' => [[2, 2]]]],
         ],
-        'passed' => ['commit' => '206b4e0', 'check' => 'mutation-gate', 'ownScopeProofs' => 0],
+        'passed' => ['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 0],
     ]));
 });
 
@@ -260,7 +260,7 @@ it('drops a timing that is not well formed and keeps a timing of no time at all'
 it('reads proofs and timings that are not maps as none, and keeps what else it holds', function () use ($data, $written, $base, $ledger): void {
     $file = [...$data(), 'proofs' => 7, 'timings' => 'none'];
 
-    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0))->withKillers($ledger->killers()));
+    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withPassed(Passed::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', 0))->withKillers($ledger->killers()));
 });
 
 it('drops each kill pair that is not well formed, a ranking left with none, and an entry under no name', function () use ($data, $written, $killedId): void {
@@ -308,17 +308,19 @@ it('reads a passing record that is not well formed as none', function (array|int
     expect($read->lastPassed())->toEqual(Ledger::empty()->lastPassed())
         ->and($read->proofs())->toEqual($ledger->proofs());
 })->with([
-    'a bare commit' => ['206b4e0'],
+    'a bare commit' => ['206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'],
     'a number' => [7],
     'a commit that is not text' => [['commit' => 7, 'check' => 'mutation-gate', 'ownScopeProofs' => 0]],
-    'a check that is not text' => [['commit' => '206b4e0', 'check' => null, 'ownScopeProofs' => 0]],
-    'no count of own proofs' => [['commit' => '206b4e0', 'check' => 'mutation-gate']],
-    'a count below none' => [['commit' => '206b4e0', 'check' => 'mutation-gate', 'ownScopeProofs' => -1]],
-    'a count that is not whole' => [['commit' => '206b4e0', 'check' => 'mutation-gate', 'ownScopeProofs' => 1.5]],
+    'a commit git would read as an option' => [['commit' => '--output=/tmp/x', 'check' => 'mutation-gate', 'ownScopeProofs' => 0]],
+    'a commit that is not its full id' => [['commit' => '206b4e0', 'check' => 'mutation-gate', 'ownScopeProofs' => 0]],
+    'a check that is not text' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => null, 'ownScopeProofs' => 0]],
+    'no count of own proofs' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate']],
+    'a count below none' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => -1]],
+    'a count that is not whole' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 1.5]],
 ]);
 
 it('reads back a passing verdict that used proofs of its own scope', function () use ($ledger): void {
-    $passed = Passed::of(Revision::ref('5eeca8f'), 'mutation / verdict', 3);
+    $passed = Passed::of(Revision::ref('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation / verdict', 3);
 
     expect(LedgerFile::decode(LedgerFile::encode($ledger->withPassed($passed)))->lastPassed())->toEqual($passed);
 });

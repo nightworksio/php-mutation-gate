@@ -8,6 +8,7 @@ use function file_get_contents;
 use function is_array;
 use function is_dir;
 use function is_file;
+use function is_link;
 use function mb_strpos;
 use function mb_substr;
 use function mb_substr_count;
@@ -74,10 +75,20 @@ final readonly class NativeMarkers
         $found = [];
 
         foreach (is_array($entries) ? $entries : [] as $entry) {
-            $inside = $entry === '.' || $entry === '..' ? [] : self::under(sprintf('%s/%s', $path, $entry));
-            $found = [...$found, ...$inside];
+            $child = sprintf('%s/%s', $path, $entry);
+            $found = [...$found, ...(self::isFollowed($entry, $child) ? self::under($child) : [])];
         }
 
         return $found;
+    }
+
+    /**
+     * Whether a directory's entry is walked into: not the directory itself or
+     * its parent, and not a link to a directory, which may lead back up into
+     * a loop.
+     */
+    private static function isFollowed(string $entry, string $child): bool
+    {
+        return $entry !== '.' && $entry !== '..' && (!is_link($child) || !is_dir($child));
     }
 }

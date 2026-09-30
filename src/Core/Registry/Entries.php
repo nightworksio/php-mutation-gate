@@ -54,7 +54,10 @@ final readonly class Entries
     }
 
     /**
-     * The names both register, each said as the sentence the user reads.
+     * The names both register, each said as the sentence the user reads. A
+     * name registered twice conflicts whatever package each says it comes
+     * from, since a package names itself, and a second registration would
+     * quietly replace the first.
      *
      * @param  self<object> $other
      * @return list<string>
@@ -64,14 +67,12 @@ final readonly class Entries
         $conflicts = [];
 
         foreach ($other->entries as $name => $theirs) {
-            $ours = array_key_exists($name, $this->entries) ? $this->entries[$name]['origin'] : $theirs['origin'];
-
-            if ($ours !== $theirs['origin']) {
+            if (array_key_exists($name, $this->entries)) {
                 $conflicts[] = sprintf(
                     'Two packages register a %s named "%s": %s and %s.',
                     $this->point->value,
                     $name,
-                    $ours,
+                    $this->entries[$name]['origin'],
                     $theirs['origin'],
                 );
             }

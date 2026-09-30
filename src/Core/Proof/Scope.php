@@ -12,11 +12,20 @@ use function sprintf;
 /** Whose ledger it is: a ref, `refs/heads/<branch>` or `refs/pull/<n>`. */
 final readonly class Scope
 {
+    /** A branch's ref, and the branch's name. */
+    private const string BRANCH = '#^refs/heads/(.+)$#sD';
+
+    /** A pull request's ref, with nothing but its number. */
+    private const string PULL_REQUEST = '#^refs/pull/[1-9]\d*$#D';
+
     /**
-     * A branch's ref, with no whitespace, no empty segment and no `.` or `..`
-     * segment, or a pull request's, with nothing but its number.
+     * What git's `check-ref-format` refuses in a branch's name: `..`, `@{`, an
+     * empty segment, a control character, a space, any of `~^:?*[\`, a segment
+     * that begins with `.` or ends in `.lock`, a name that begins with `/` or
+     * ends with `/` or `.`, and `@` alone. A backslash and `..` would lead a
+     * store's path out of its directory, and git never names a branch so.
      */
-    private const string REF = '#^refs/(?:heads/(?!(?:.*/)?\.{1,2}(?:/|$))(?!.*//)[^/\s]\S*(?<!/)|pull/[1-9]\d*)$#D';
+    private const string REFUSED = '#\.\.|@\{|//|[\x00-\x20\x7F~^:?*\[\\\\]|(?:^|/)\.|\.lock(?:/|$)|^/|[/.]$|^@$#D';
 
     private function __construct(private string $ref)
     {
@@ -43,7 +52,9 @@ final readonly class Scope
      */
     public static function parse(string $ref): self|CannotJudge
     {
-        if (preg_match(self::REF, $ref) !== 1) {
+        $isBranch = preg_match(self::BRANCH, $ref, $branch) === 1 && preg_match(self::REFUSED, $branch[1]) !== 1;
+
+        if (! $isBranch && preg_match(self::PULL_REQUEST, $ref) !== 1) {
             return CannotJudge::because(sprintf(
                 '"%s" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.',
                 $ref,

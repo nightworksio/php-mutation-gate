@@ -14,6 +14,9 @@ jobs:
     timeout-minutes: 10
     env:
       GITLEAKS_VERSION: "8.30.1"
+      # The SHA-256 of that release's linux_x64 tarball, from its
+      # gitleaks_<version>_checksums.txt. Raise it with the version.
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -28,6 +31,7 @@ jobs:
           curl -sSfL --proto '=https' --tlsv1.2 \
             --retry 3 --retry-delay 2 --retry-all-errors \
             -o gitleaks.tar.gz "$url"
+          sha256sum --check --strict <<<"${GITLEAKS_SHA256}  gitleaks.tar.gz"
           tar xzf gitleaks.tar.gz gitleaks
           rm -f gitleaks.tar.gz
           ./gitleaks git --no-banner --redact --exit-code 1 .
@@ -70,10 +74,10 @@ jobs:
 
           age=$(( ( $(date -u +%s) - $(date -u -d "$dated" +%s) ) / 86400 ))
           if [ "$age" -gt "$STALE_DAYS" ]; then
-            echo "::error::This scanned with gitleaks ${GITLEAKS_VERSION}; ${tag} has been out ${age} days. Raise GITLEAKS_VERSION in .github/workflows/security.yml."
+            echo "::error::This scanned with gitleaks ${GITLEAKS_VERSION}; ${tag} has been out ${age} days. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/security.yml."
             exit 1
           fi
-          echo "::notice::gitleaks ${tag} is ${age} days old; this scanned with ${GITLEAKS_VERSION}. Raise GITLEAKS_VERSION in .github/workflows/security.yml when convenient."
+          echo "::notice::gitleaks ${tag} is ${age} days old; this scanned with ${GITLEAKS_VERSION}. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/security.yml when convenient."
 
   osv-scanner:
     runs-on: ubuntu-latest

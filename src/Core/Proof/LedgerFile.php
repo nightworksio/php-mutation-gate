@@ -12,7 +12,7 @@ use function array_values;
 
 use Closure;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Change\Commit;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
@@ -197,9 +197,11 @@ final readonly class LedgerFile
         try {
             $passed = $file->field(self::PASSED);
             $own = $passed->field('ownScopeProofs')->integer();
+            $commit = Commit::parse($passed->field('commit')->text());
+            $at = $passed->field('commit')->at();
 
             return Ledger::empty()->withPassed(Passed::of(
-                Revision::ref($passed->field('commit')->text()),
+                $commit instanceof Commit ? $commit->revision() : throw NotInShape::at($at, 'a commit'),
                 $passed->field('check')->text(),
                 $own >= 0 ? $own : throw NotInShape::at($passed->field('ownScopeProofs')->at(), 'a count'),
             ));

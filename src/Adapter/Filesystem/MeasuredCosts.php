@@ -8,6 +8,7 @@ use function array_map;
 use function array_sum;
 use function is_array;
 use function is_dir;
+use function is_link;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -104,6 +105,12 @@ final readonly class MeasuredCosts implements Configurable, CostModel
         return is_dir($this->root->at($path)->value());
     }
 
+    /** Whether a path is a link to a directory, which is not followed, since it may lead back up into a loop. */
+    private function isLinkedDirectory(Path $path): bool
+    {
+        return is_link($this->root->at($path)->value()) && $this->isDirectory($path);
+    }
+
     /** @return list<Path> */
     private function phpUnder(Path $directory): array
     {
@@ -113,7 +120,7 @@ final readonly class MeasuredCosts implements Configurable, CostModel
         foreach (is_array($entries) ? $entries : [] as $entry) {
             $path = $directory->child(Path::of($entry));
             $found = [...$found, ...match (true) {
-                $entry === '.' || $entry === '..' => [],
+                $entry === '.' || $entry === '..' || $this->isLinkedDirectory($path) => [],
                 $this->isDirectory($path) => $this->phpUnder($path),
                 $path->isPhp() => [$path],
                 default => [],

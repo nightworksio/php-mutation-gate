@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -12,8 +13,16 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Plan\Shards;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -235,4 +244,19 @@ it('keeps its steps and variables when it is run by another pipeline', function 
 
     expect($plan->definitions())->toEqual(Paths::of(Path::of('ci/mutation.yml')))
         ->and($plan->shard(ShardedPlan::of(3)))->toEqual(ShardId::of(2));
+});
+
+it('writes a label as the agent shows it, so a path a pull request names expands no variable', function () use ($stepsIn): void {
+    $file = sprintf('%s/steps.json', Scratch::directory());
+    $plan = Plan::of(Revision::ref(ShardedPlan::COMMIT), Keys::none(), Shards::of(Shard::of(
+        ShardId::of(1),
+        Package::at(Path::root()),
+        Units::of(Unit::file(Path::of('src/$BUILDKITE_AGENT_ACCESS_TOKEN.php'))),
+        Seconds::of(1.0),
+        'src/$BUILDKITE_AGENT_ACCESS_TOKEN.php',
+    )));
+
+    BuildkitePlan::printing($file, [], Variables::of([]))->publish($plan);
+
+    expect($stepsIn((string) file_get_contents($file))[0])->toMatchArray(['label' => 'mutation: src/$$BUILDKITE_AGENT_ACCESS_TOKEN.php']);
 });

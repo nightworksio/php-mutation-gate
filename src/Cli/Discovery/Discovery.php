@@ -45,7 +45,7 @@ final readonly class Discovery
 
         return $this->register(array_filter(
             $declared,
-            static fn(Declared $one): bool => ! $firstPartyOnly || $one->origin === FirstParty::PACKAGE,
+            static fn(Declared $one): bool => ! $firstPartyOnly || $one->class === FirstParty::class,
         ));
     }
 

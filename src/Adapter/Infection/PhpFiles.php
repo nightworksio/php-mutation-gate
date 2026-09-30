@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use function is_array;
 use function is_dir;
 use function is_file;
+use function is_link;
 
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -42,10 +43,25 @@ final readonly class PhpFiles
         $found = [];
 
         foreach (is_array($entries) ? $entries : [] as $entry) {
-            $inside = $entry === '.' || $entry === '..' ? [] : self::under($path->child($entry));
-            $found = [...$found, ...$inside];
+            $found = [...$found, ...(self::isFollowed($path, $entry) ? self::under($path->child($entry)) : [])];
         }
 
         return $found;
+    }
+
+    /**
+     * Whether a directory's entry is walked into: not the directory itself or
+     * its parent, and not a link to a directory, which may lead back up into
+     * a loop.
+     */
+    private static function isFollowed(DiskPath $directory, string $entry): bool
+    {
+        if ($entry === '.' || $entry === '..') {
+            return false;
+        }
+
+        $child = $directory->child($entry)->value();
+
+        return ! is_link($child) || ! is_dir($child);
     }
 }

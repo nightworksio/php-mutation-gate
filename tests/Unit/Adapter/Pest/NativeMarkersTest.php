@@ -42,3 +42,12 @@ it('finds @pest-mutate-ignore in a comment of the PHP files the paths name, on i
         ['src/Money.php:7', '@pest-mutate-ignore', $replaces],
     ]);
 });
+
+it('does not walk into a linked directory, which may lead back up into a loop', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'src/Held.php', "<?php\n// @pest-mutate-ignore\n");
+    symlink('..', sprintf('%s/src/loop', $root));
+    $project = Project::at($root, Paths::none(), Path::of('.gate'), Path::of('vendor'));
+
+    expect(iterator_to_array(NativeMarkers::in($project, Paths::of(Path::of('src'))), preserve_keys: false))->toHaveCount(1);
+});

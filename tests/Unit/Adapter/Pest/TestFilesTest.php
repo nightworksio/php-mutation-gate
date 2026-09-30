@@ -47,3 +47,12 @@ it('selects every file whose class name ends in a class the filter names', funct
         Path::of('tests/Held%41Spec.php'),
     ))->and(TestFiles::naming($files, []))->toEqual(Paths::none());
 });
+
+it('does not walk into a linked directory, which may lead back up into a loop', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'tests/MoneyTest.php', '<?php');
+    symlink('..', sprintf('%s/tests/loop', $root));
+    $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
+
+    expect(TestFiles::in($project))->toEqual(Paths::of(Path::of('tests/MoneyTest.php')));
+});
