@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use function preg_split;
 use function sprintf;
 use function str_contains;
+use function str_starts_with;
 
 use Symfony\Component\Console\Input\StringInput;
 
@@ -136,10 +137,17 @@ final readonly class OwnConfig
         return $this->pathIn($project, self::PHPUNIT_SECTION, self::CONFIG_DIR, self::HERE);
     }
 
-    /** Where PHPUnit's config may be in the directory `configDirectory` names, spelt from the project's root. */
+    /**
+     * Where PHPUnit's config may be in the directory `configDirectory` names,
+     * spelt from the project's root; none where that directory is outside
+     * the project.
+     */
     public function phpUnitConfigs(Project $project): Paths
     {
-        return PhpUnitConfig::candidatesIn($project->relative($this->configDirectory($project)));
+        $directory = $project->relative($this->configDirectory($project))->value();
+        $outside = str_starts_with($directory, '/') || str_starts_with(sprintf('%s/', $directory), '../');
+
+        return $outside ? Paths::none() : PhpUnitConfig::candidatesIn(Path::of($directory));
     }
 
     /** @return list<string> the PHP options the project's opening run takes, `initialTestsPhpOptions` */
