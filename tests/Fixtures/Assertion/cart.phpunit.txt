@@ -18,4 +18,24 @@ abstract class CartTest extends TestCase
     private function assertMoney($x): void { $this->assertSame(1, $x); }
 
     public function testCallsIt(): void { $this->helper()->toArray(); assertCount(1, $x); }
+
+    public function testMixed(): void { expect($total)->not->toBeNull(); $this->assertIsInt($total); }
+
+    public function testMixedBack(): void { $this->assertIsInt($total); expect($total)->not->toBeNull(); }
+
+    public function testQualified(): void { $this->assertNotNull($c); \PHPUnit\Framework\assertSame(1, $c); }
+
+    public function testCased(): void { $this->assertNotNull($c); $this->AssertSame(1, $c); }
+
+    public function testDelegates(): void { $this->assertNotNull($c); $this->checkTotal($c); }
+
+    public function testDelegatesStatically(): void { $this->assertNotNull($c); self::checkTotal($c); }
+
+    private static function checkTotal($c): void { self::assertSame(1, $c->total); }
+
+    public function testCallsTheSubject(): void { $this->assertNotNull($cart->checkTotal()); }
+
+    public function testMessage(): void { $this->assertTrue(true, 'reached'); }
+
+    public function testNotSameAsNull(): void { $this->assertNotSame(null, $c); }
 }

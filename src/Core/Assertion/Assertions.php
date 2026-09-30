@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Assertion;
 
 use function array_all;
+use function array_slice;
 use function array_values;
 
 use ArrayIterator;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestName;
 use Traversable;
 
 /**
@@ -54,6 +57,18 @@ final readonly class Assertions implements IteratorAggregate
             $this->assertions,
             static fn(Assertion $assertion): bool => $assertion->kind() !== AssertionKind::Value,
         );
+    }
+
+    /** The test of this id and name as a weak test, where these assertions make it one; none where they do not. */
+    public function weakAs(TestId $test, TestName $name): WeakTests
+    {
+        foreach ($this->assertions as $first) {
+            return $this->isWeak()
+                ? WeakTests::of(WeakTest::of($test, $name, $first, ...array_slice($this->assertions, 1)))
+                : WeakTests::of();
+        }
+
+        return WeakTests::of();
     }
 
     /** @return Traversable<int, Assertion> */

@@ -181,7 +181,7 @@ final readonly class Judging
         $clustered = $judged->clustered($sources);
         $tests = Sources::of(Weakness::testFiles($clustered, $matrix), $this->adapters->project);
 
-        return $clustered->found(Weakness::findings($clustered, $matrix, $sources->and($tests)));
+        return $clustered->found(Weakness::findings($clustered, $matrix, $sources, $tests));
     }
 
     /**

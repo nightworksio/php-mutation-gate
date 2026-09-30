@@ -14,13 +14,18 @@ use NightWorksIO\MutationGate\Core\Test\TestName;
  */
 final readonly class WeakTest
 {
-    private function __construct(private TestId $test, private TestName $name, private Assertions $assertions)
-    {
+    private function __construct(
+        private TestId $test,
+        private TestName $name,
+        private Assertion $first,
+        private Assertions $assertions,
+    ) {
     }
 
-    public static function of(TestId $test, TestName $name, Assertions $assertions): self
+    /** A test, by its id and name, and its assertions, one at least. */
+    public static function of(TestId $test, TestName $name, Assertion $first, Assertion ...$more): self
     {
-        return new self($test, $name, $assertions);
+        return new self($test, $name, $first, Assertions::of($first, ...$more));
     }
 
     public function test(): TestId
@@ -28,7 +33,7 @@ final readonly class WeakTest
         return $this->test;
     }
 
-    /** The whole test, by its file and description, with any dataset row folded in. */
+    /** The whole test, by its file and description, with any data set row folded in. */
     public function name(): TestName
     {
         return $this->name;
@@ -37,5 +42,14 @@ final readonly class WeakTest
     public function assertions(): Assertions
     {
         return $this->assertions;
+    }
+
+    /**
+     * The style the test asserts in: that of its first assertion, so a
+     * PHPUnit class Pest runs that uses `expect()` first asserts as Pest does.
+     */
+    public function style(): AssertionStyle
+    {
+        return $this->first->style();
     }
 }

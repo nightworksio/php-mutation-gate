@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Assertion\Assertion;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionKind;
-use NightWorksIO\MutationGate\Core\Assertion\Assertions;
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\Assertion\Weakness;
 use NightWorksIO\MutationGate\Core\Assertion\WeakTest;
@@ -29,7 +29,7 @@ function weaklyFound(): Verdict
         Weakly::boundary(),
     );
 
-    return Verdict::of($trees->found(Weakness::findings($trees, Weakly::matrix(), Weakly::files())))->withMatrix(Weakly::matrix());
+    return Verdict::of($trees->found(Weakness::findings($trees, Weakly::matrix(), Weakly::sources(), Weakly::tests())))->withMatrix(Weakly::matrix());
 }
 
 /** A survivor outside any function, let through by both data set rows of a PHPUnit test. */
@@ -44,7 +44,7 @@ function weaklyOutsideFinding(): WeaklyAsserted
     $weak = static fn(string $row): WeakTest => WeakTest::of(
         TestId::of(sprintf('Tests\\OrderTest::testTotals%s', $row)),
         TestName::in(Path::of('tests/OrderTest.php'), 'testTotals'),
-        Assertions::of(Assertion::of('assertNotNull', AssertionKind::Existence)),
+        Assertion::of('assertNotNull', AssertionKind::Existence, AssertionStyle::PhpUnit),
     );
 
     return WeaklyAsserted::by(Nameless::code(), $weak('#0'), $weak('#1'));

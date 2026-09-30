@@ -7,11 +7,11 @@ use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\Assertion\Weakness;
 use NightWorksIO\MutationGate\Core\Assertion\WeakTest;
 use NightWorksIO\MutationGate\Core\File\ByPath;
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
@@ -25,7 +25,7 @@ it('names the test files of the tests judging a survivor a value would kill, whe
 });
 
 it('finds the weak tests that let a survivor through, what they assert, and the function around it', function (): void {
-    $finding = Weakness::findings(Weakly::trees(Weakly::literal()), Weakly::matrix(), Weakly::files())->of(Weakly::literal()->mutant()->id());
+    $finding = Weakness::findings(Weakly::trees(Weakly::literal()), Weakly::matrix(), Weakly::sources(), Weakly::tests())->of(Weakly::literal()->mutant()->id());
     $weak = $finding instanceof WeaklyAsserted ? [...$finding->tests()] : [];
 
     expect($finding)->toBeInstanceOf(WeaklyAsserted::class)
@@ -36,7 +36,7 @@ it('finds the weak tests that let a survivor through, what they assert, and the 
 });
 
 it('finds nothing of a survivor no weak test judges, one a value may not see, or one not survived', function (JudgedMutant $survivor, TestId ...$tests): void {
-    expect(Weakness::findings(Weakly::trees($survivor), Weakly::matrix(...$tests), Weakly::files())->of($survivor->mutant()->id()))
+    expect(Weakness::findings(Weakly::trees($survivor), Weakly::matrix(...$tests), Weakly::sources(), Weakly::tests())->of($survivor->mutant()->id()))
         ->toEqual(NoFinding::survivor());
 })->with([
     'judged by a strong test alone' => [Weakly::literal(), Weakly::strongTest()],
@@ -46,11 +46,19 @@ it('finds nothing of a survivor no weak test judges, one a value may not see, or
     'an uncovered Literal' => [Weakly::survivor(11, 'FalseValue', MutatorFamily::Literal, Verdicts::diff('return false;', 'return true;'), MutantJudgement::Uncovered)],
 ]);
 
-it('reads the test from its file, and names no function where the survivor\'s own file is not read', function (): void {
-    $tests = ByPath::none()->with(Path::of(Weakly::TESTS), Contents::of(Weakly::TEST_FILE));
-    $finding = Weakness::findings(Weakly::trees(Weakly::literal()), Weakly::matrix(), $tests)->of(Weakly::literal()->mutant()->id());
+it('names no function where the survivor\'s own file is not read, and finds nothing where the test file is not', function (): void {
+    $finding = Weakness::findings(Weakly::trees(Weakly::literal()), Weakly::matrix(), ByPath::none(), Weakly::tests())
+        ->of(Weakly::literal()->mutant()->id());
 
     expect($finding instanceof WeaklyAsserted ? $finding->function() : '')->toEqual(Nameless::code())
-        ->and(Weakness::findings(Weakly::trees(Weakly::literal()), Weakly::matrix(), ByPath::none())->of(Weakly::literal()->mutant()->id()))
+        ->and(Weakness::findings(Weakly::trees(Weakly::literal()), Weakly::matrix(), Weakly::sources(), ByPath::none())->of(Weakly::literal()->mutant()->id()))
         ->toEqual(NoFinding::survivor());
+});
+
+it('names no weak test that covers a survivor but is outside the tests that judge it', function (): void {
+    $held = Weakly::literal()->judgedBy(TestIds::of(Weakly::strongTest()));
+
+    expect(Weakness::findings(Weakly::trees($held), Weakly::matrix(), Weakly::sources(), Weakly::tests())->of($held->mutant()->id()))
+        ->toEqual(NoFinding::survivor())
+        ->and([...Weakness::testFiles(Weakly::trees($held), Weakly::matrix())])->toEqual([Path::of(Weakly::TESTS)]);
 });
