@@ -119,3 +119,16 @@ it('reads no #[Holds] from a file that never spells the name, and reads one writ
     expect(PhpFile::read(Contents::of("<?php\n\n#[Group('fast')]\nfinal class KernelTest {}\n"))->holds())->toEqual(HoldsAttributes::none())
         ->and(PhpFile::read(Contents::of($upper))->holds())->not->toEqual(HoldsAttributes::none());
 });
+
+it('names every fully qualified name a quoted string spells, as a class-string does', function (): void {
+    $file = PhpFile::read(Contents::of(<<<'PHP'
+        <?php
+        $fake = 'Tests\\Fakes\\Clock';
+        $made = "\\App\\Money";
+        $word = 'plain';
+        $single = 'Tests\Fakes\Ledger';
+        PHP));
+
+    expect($file->quoted()->all())->toBe(['tests\fakes\clock', 'app\money', 'tests\fakes\ledger'])
+        ->and($file->mentioned()->all())->not->toContain('tests\fakes\clock');
+});

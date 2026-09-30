@@ -592,6 +592,69 @@ it('opens a patched shard on the canary group and reads the map the planning job
         ->toEqualCanonicalizing($library->expected('adds', 'large'));
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
+// A test that needs a test file beside its own, for a helper function, a base
+// test case or a trait of tests, none of them autoloaded, works only where that
+// file is loaded first. The gate covers the suite, and opens every run, with
+// Pest's --parallel, which loads each test file on its own, so it cannot cover
+// such a suite at all, and no mutant's own run narrowed to its covering test
+// files ever meets one.
+it('cannot cover a suite whose test needs another test file, as no narrowed run meets one', function (string $missing, string ...$files): void {
+    $into = Tree::at(sprintf('%s/tests/Reach', Library::DIRECTORY));
+    mkdir($into);
+
+    foreach ($files as $file) {
+        copy(Tree::at(sprintf('tests/Contract/Runner/reach/tests/Reach/%s', $file)), sprintf('%s/%s', $into, $file));
+    }
+
+    try {
+        $map = Library::pest(Patching::off())->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/reach')));
+    } finally {
+        array_map(static fn(string $file): bool => unlink(sprintf('%s/%s', $into, $file)), $files);
+        rmdir($into);
+    }
+
+    expect($map instanceof CannotJudge ? $map->why() : $map)->toContain($missing);
+})->with([
+    'a helper function' => ['reachAmount()', 'ReachHelpersSpec.php', 'ReachHelpedSpec.php'],
+    'a base test case' => ['ReachBaseSpec" not found', 'ReachBaseSpec.php', 'ReachInheritedSpec.php'],
+    'a trait of tests' => ['ReachAsserts" not found', 'ReachAssertsSpec.php', 'ReachTraitedSpec.php'],
+])->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+it('hands each mutant\'s own run the test files its covering tests need as paths, and no other', function (): void {
+    Patch::applyIn(Library::vendor());
+    $library = Library::pest(Patching::on(Library::canary()));
+    $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned')));
+    file_put_contents(
+        Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in(Path::of('.mutation-gate/planned'))->value())),
+        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty()),
+    );
+    $argv = sprintf('%s/argv', Scratch::directory());
+    $_ENV['CONTRACT_ARGV'] = $argv;
+
+    try {
+        $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+            ->onlyMutators($library->mutators('large'))
+            ->reusingCoverage(Path::of('.mutation-gate/planned')));
+    } finally {
+        unset($_ENV['CONTRACT_ARGV']);
+    }
+
+    $paths = array_map(
+        static fn(string $line): array => array_values(array_filter(
+            explode(' ', $line),
+            static fn(string $argument): bool => str_ends_with($argument, '.php') && str_contains($argument, '/tests/'),
+        )),
+        array_values(array_filter(
+            explode("\n", (string) file_get_contents($argv)),
+            static fn(string $line): bool => $line !== '',
+        )),
+    );
+
+    expect($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
+        ->toBe($library->expected('large'))
+        ->and($paths)->toBe([[(string) realpath(Tree::at(sprintf('%s/tests/MoneySpec.php', Library::DIRECTORY)))]]);
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
 it('runs again, patched, only the mutants the file it hands over names, on the map the invocation read', function (): void {
     Patch::applyIn(Library::vendor());
     $library = Library::pest(Patching::on(Library::canary()));

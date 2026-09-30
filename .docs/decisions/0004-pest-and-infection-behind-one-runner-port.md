@@ -316,16 +316,29 @@ its parser attributes. Both change when the checkout moves.
      - Groups come from `<vendor>/pestphp/pest/bin/pest --list-groups --colors=never`. A
        listing without `Available test group` is *cannot judge*, never *no
        groups*.
-   - **The in-house gate's two patches are an opt-in.** Enabling it is
+   - **The in-house gate's patches are an opt-in.** Enabling them is
      `pest.patch: true` (a boolean, `false` by default), plus
      `@php vendor/bin/mutation-gate pest:patch` in `post-install-cmd` and
-     `post-update-cmd`. The command applies both patches to
+     `post-update-cmd`. The command applies every patch to
      pest-plugin-mutate:
      - Shards open on a canary group (`pest.canary`, a group name,
        `mutation-canary` by default) and read the map the planning job wrote,
        instead of each running the whole suite again.
-     - A `--filter` that will not fit is dropped, so that mutant runs against
-       the whole suite. That can only kill more mutants, never fewer.
+     - A `--filter` that will not fit is dropped, so that mutant runs every
+       test its run loads. That can only kill more mutants, never fewer.
+     - A run again makes only the mutants whose native ids a file beside the
+       results lists.
+     - A mutant's own run loads only the test files its covering tests need:
+       the file that declares each covering test's class, and every test file
+       Pest's parent process loaded that declares a name those use, in turn.
+       Where a covering test's class is not loaded, or the paths would not fit
+       where a filter would not, it loads every test file. A test that needs
+       another test file only works where that file is loaded first, and the
+       gate runs Pest `--parallel` for coverage and for every opening run, so
+       such a suite already cannot be covered: no narrowed run meets one. A
+       mutant a narrowed run kills with no test named as its killer, as a run
+       that could not load leaves one, runs again with every test file within
+       the time left, or is unjudged.
 
      Every anchor is checked before anything is written, and one that has moved
      fails the install: a patch that quietly matched nothing is worse than none.

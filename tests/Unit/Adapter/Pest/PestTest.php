@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Clock;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Diff;
@@ -135,7 +136,7 @@ function adapterProject(string $vendor = 'vendor'): Project
     return Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of($vendor));
 }
 
-/** What Pest and the plugin leave when a run mutates src/Money.php's line 11 once, and a test kills it. */
+/** What Pest and the plugin leave when a run mutates src/Money.php's line 11 once, and a test it names kills it. */
 function adapterKilled(Command $command, Project $project): Ran
 {
     $results = sprintf('%s', $command->environment()['MUTATION_GATE_RESULTS'] ?? '');
@@ -150,6 +151,7 @@ function adapterKilled(Command $command, Project $project): Ran
     PestRun::write($results, [
         PestRun::planned('n1', $money, 11, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
         PestRun::made(1),
+        PestRun::killed('n1', RUN_ADDS),
         PestRun::finished('n1', PestStatus::Tested, 0.25),
         PestRun::end(),
     ]);
@@ -170,7 +172,7 @@ function adapterMutant(): Mutant
         Mutation::of(RUN_PLUS, MutatorFamily::Arithmetic, $diff),
         MutantStatus::Killed,
         Seconds::of(0.25),
-    );
+    )->killedBy(TestIds::of(TestId::of(RUN_ADDS)));
 }
 
 /** A project with a patched copy of the installed pest-plugin-mutate, and the planning job's map. */
@@ -447,7 +449,9 @@ it('mutates against a group without reading a shared map', function (): void {
 
     new Pest($at, $shell, adapterCanary(), new CapDirectory())->mutate($request);
 
-    expect($shell->commands())->toEqual([adapterInvocation()->mutation($request, $held, adapterResults($at))]);
+    expect($shell->commands())->toEqual([
+        adapterInvocation()->mutation($request, $held, adapterResults($at))->with(['MUTATION_GATE_NARROW' => '1']),
+    ]);
 });
 
 it('opens a patched shard on the canary group, with the planning job\'s map written again for its Pest', function (): void {
@@ -473,6 +477,7 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
                 'MUTATION_GATE_SHARED_COVERAGE' => $written,
                 'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
                 'MUTATION_GATE_CANARY' => 'mutation-canary',
+                'MUTATION_GATE_NARROW' => '1',
             ]),
         ]);
 });
@@ -487,7 +492,8 @@ it('opens a shard on its own suite unpatched, or when it collects its own map', 
 
     expect($shell->commands())->toEqual([
         adapterInvocation()->mutation($reusing, WholeSuite::tests(), adapterResults($at)),
-        adapterInvocation()->mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at)),
+        adapterInvocation()->mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at))
+            ->with(['MUTATION_GATE_NARROW' => '1']),
     ]);
 });
 
@@ -601,6 +607,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
             'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
             'MUTATION_GATE_CANARY' => 'mutation-canary',
             'MUTATION_GATE_ONLY' => sprintf('%s.only', adapterResults($at)),
+            'MUTATION_GATE_NARROW' => '1',
         ]));
 });
 
@@ -706,6 +713,91 @@ it('hands each of the mutants that share Pest\'s id the one found again on its o
     'on two lines' => [35, 40],
     'on one line' => [50, 50],
 ]);
+
+/**
+ * A shell whose first mutation run kills src/Money.php's line 11 with no test named as its killer, as a run that
+ * could not load its tests does, and whose next one, loading every test file, finds it survives.
+ */
+function adapterLoadedNothing(Project $at): ShellFake
+{
+    return new ShellFake(static function (Command $command, int $before) use ($at): Ran {
+        $results = sprintf('%s', $command->environment()[GateVariable::Results->value] ?? '');
+        $money = sprintf('%s/src/Money.php', $at->root());
+        CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [11 => [0]]], [RUN_ADDS], []);
+        $status = $before === 0 ? PestStatus::Tested : PestStatus::Untested;
+        PestRun::write($results, [
+            PestRun::planned('n1', $money, 11, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+            PestRun::made(1),
+            PestRun::finished('n1', $status, 0.25),
+            PestRun::end(),
+        ]);
+
+        return Ran::finished(succeeded: true, output: sprintf('  Mutations: 1 %s', $status->value));
+    });
+}
+
+it('runs a mutant a narrowed run killed with no killer again with every test file, before it counts', function (MutationRequest $request): void {
+    $at = adapterProject();
+    $shell = adapterLoadedNothing($at);
+
+    $result = new Pest($at, $shell, adapterCanary())->mutate($request);
+    $narrow = array_map(
+        static fn(Command $command): string|false|null => $command->environment()[GateVariable::Narrow->value] ?? null,
+        $shell->commands(),
+    );
+
+    expect($result instanceof MutationResult ? array_map(
+        static fn(Mutant $mutant): MutantStatus => $mutant->status(),
+        [...$result->mutants()],
+    ) : $result)->toBe([MutantStatus::Survived])
+        ->and($narrow)->toBe(['1', false])
+        ->and(file_get_contents(sprintf('%s.only', adapterResults($at))))->toBe('n1');
+})->with([
+    'within a deadline' => [adapterMoney()->within(Seconds::of(60.0))],
+    'with no deadline' => [adapterMoney()],
+]);
+
+it('cannot judge a narrowed run whose run again with every test file failed', function (): void {
+    $at = adapterProject();
+    $loaded = adapterLoadedNothing($at);
+    $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
+        ? $loaded->run($command)
+        : Ran::finished(succeeded: false, output: 'broken'));
+
+    expect(new Pest($at, $shell, adapterCanary())->mutate(adapterMoney()))
+        ->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
+});
+
+it('leaves a mutant a narrowed run killed with no killer unjudged where no time is left to run it again', function (): void {
+    $at = adapterProject();
+    $shell = adapterLoadedNothing($at);
+    $clock = new class implements Clock {
+        private float $read = 0.0;
+
+        public function seconds(): float
+        {
+            return $this->read += 10.0;
+        }
+    };
+
+    $result = new Pest($at, $shell, adapterCanary(), $clock)->mutate(adapterMoney()->within(Seconds::of(5.0)));
+    $mutants = $result instanceof MutationResult ? [...$result->mutants()] : [];
+
+    expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::Unjudged])
+        ->and(array_map(static fn(Mutant $mutant): object => $mutant->reason(), $mutants))->toEqual([Reason::that(
+            "Killed with no killer named in a run of its covering tests' files, and no time left to run every test file.",
+        )])
+        ->and($shell->commands())->toHaveCount(1);
+});
+
+it('runs no mutant again that an unnarrowed run killed with no killer', function (): void {
+    $at = adapterProject();
+    $shell = adapterLoadedNothing($at);
+
+    new Pest($at, $shell, Patching::off())->mutate(adapterMoney());
+
+    expect($shell->commands())->toHaveCount(1);
+});
 
 it('cannot judge a retry whose run failed', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));

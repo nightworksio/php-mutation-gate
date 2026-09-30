@@ -12,21 +12,21 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 
-/** The mutants a run of Pest made again, matched to those it was asked to run again. */
+/**
+ * Mutants a run made again, each matched to the mutant asked for by Pest's
+ * id and handed back under the gate's id its first run gave it. A run that
+ * makes only some of a file's mutants numbers those that share a change among
+ * themselves, so its own gate ids can name another mutant. Mutants that share
+ * Pest's id leave the same source, so each is paired with the one found on
+ * its own line; one found on no line of its own is unjudged, rather than take
+ * another's result.
+ */
 final readonly class FoundAgain
 {
-    /** Why a mutant run again is unjudged: Pest made no mutant with its id. */
+    /** Why a mutant run again alone is unjudged: Pest made no mutant with its id. */
     public const string NOT_FOUND_AGAIN = 'Run again alone, Pest made no mutant with this id.';
 
-    /**
-     * Each mutant as the run found it again, by Pest's id, under the gate's
-     * id the first run gave it; or unjudged where the run made no such
-     * mutant. A run that makes only some of a file's mutants numbers those
-     * that share a change among themselves, so its own gate ids can name
-     * another mutant. Mutants that share Pest's id leave the same source, so
-     * each is paired with the one found on its own line, or else the next.
-     */
-    public static function matched(Mutants $mutants, Mutants $found): Mutants
+    public static function among(Mutants $asked, Mutants $found, Reason $unmade): Mutants
     {
         $again = [];
         $matched = [];
@@ -35,13 +35,13 @@ final readonly class FoundAgain
             $again[$mutant->nativeId()][] = $mutant;
         }
 
-        foreach ($mutants as $mutant) {
+        foreach ($asked as $mutant) {
             $native = $mutant->nativeId();
             $left = array_key_exists($native, $again) ? $again[$native] : [];
-            $at = self::pairedIn($left, $mutant);
+            $at = self::onItsLine($left, $mutant);
             $matched[] = array_key_exists($at, $left)
                 ? $left[$at]->identifiedAs($mutant->id())
-                : Interpretation::unjudged($mutant, Reason::that(self::NOT_FOUND_AGAIN));
+                : Interpretation::unjudged($mutant, $unmade);
             unset($again[$native][$at]);
         }
 
@@ -50,15 +50,15 @@ final readonly class FoundAgain
 
     /**
      * Where among the mutants found again with its Pest id a mutant is: the
-     * one on its own line, or else the first; none where none is left.
+     * first left on its own line; none where none is.
      *
      * @param array<int, Mutant> $left
      */
-    private static function pairedIn(array $left, Mutant $mutant): int
+    private static function onItsLine(array $left, Mutant $mutant): int
     {
         $line = $mutant->location()->start()->number();
         $same = array_filter($left, static fn(Mutant $found): bool => $found->location()->start()->number() === $line);
 
-        return array_key_first($same) ?? array_key_first($left) ?? -1;
+        return array_key_first($same) ?? -1;
     }
 }

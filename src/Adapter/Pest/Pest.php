@@ -83,6 +83,7 @@ final readonly class Pest implements Runner
         private Shell $shell,
         private Patching $patching,
         private CapFiles $files,
+        private Clock $clock = new WallClock(),
     ) {
         $this->tests = new TestFiles($project);
         $this->remembered = new Remembered();
@@ -240,7 +241,9 @@ final readonly class Pest implements Runner
             ->only(...$natives)
             ->of($request->narrowedTo(Paths::of(...array_values($files)), Mutators::named(...array_values($mutators))));
 
-        return $result instanceof CannotJudge ? $result : FoundAgain::matched($mutants, $result->mutants());
+        return $result instanceof CannotJudge
+            ? $result
+            : FoundAgain::among($mutants, $result->mutants(), Reason::that(FoundAgain::NOT_FOUND_AGAIN));
     }
 
     /**
@@ -303,7 +306,7 @@ final readonly class Pest implements Runner
         $project = $this->project->in($package);
 
         return Invocation::installedIn($project->vendor())->isIn($project)
-            ? new self($project, $this->shell->in($project->root()), $this->patching, $this->files)
+            ? new self($project, $this->shell->in($project->root()), $this->patching, $this->files, $this->clock)
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
     }
 
@@ -337,51 +340,6 @@ final readonly class Pest implements Runner
         return $ran->succeeded() ? $ran : CoverageFailure::said('Pest', $ran->output());
     }
 
-    /**
-     * Each mutant as the run found it again, by Pest's id, under the gate's
-     * id the first run gave it; or unjudged where the run made no such
-     * mutant. A run that makes only some of a file's mutants numbers those
-     * that share a change among themselves, so its own gate ids can name
-     * another mutant. Mutants that share Pest's id leave the same source, so
-     * each is paired with the one found on its own line.
-     */
-    private function matching(Mutants $mutants, Mutants $found): Mutants
-    {
-        $again = [];
-        $matched = [];
-
-        foreach ($found as $mutant) {
-            $again[$mutant->nativeId()][] = $mutant;
-        }
-
-        foreach ($mutants as $mutant) {
-            $native = $mutant->nativeId();
-            $left = array_key_exists($native, $again) ? $again[$native] : [];
-            $at = $this->pairedIn($left, $mutant);
-            $matched[] = array_key_exists($at, $left)
-                ? $left[$at]->identifiedAs($mutant->id())
-                : Interpretation::unjudged($mutant, Reason::that(self::NOT_FOUND_AGAIN));
-            unset($again[$native][$at]);
-        }
-
-        return Mutants::of(...$matched);
-    }
-
-    /**
-     * Where among the mutants found again with its Pest id a mutant is: the
-     * first left on its own line; none where none is, so a mutant found on
-     * no line of its own stays unjudged rather than take another's result.
-     *
-     * @param array<int, Mutant> $left
-     */
-    private function pairedIn(array $left, Mutant $mutant): int
-    {
-        $line = $mutant->location()->start()->number();
-        $same = array_filter($left, static fn(Mutant $found): bool => $found->location()->start()->number() === $line);
-
-        return array_key_first($same) ?? -1;
-    }
-
     /** A mutation run of this project, through this shell. */
     private function run(Shell $shell): MutationRun
     {
@@ -392,6 +350,7 @@ final readonly class Pest implements Runner
             $this->patching,
             $this->remembered,
             $this->groups(...),
+            clock: $this->clock,
         );
     }
 }

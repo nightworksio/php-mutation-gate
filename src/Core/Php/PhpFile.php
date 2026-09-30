@@ -6,12 +6,16 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_keys;
 use function array_map;
+use function array_push;
+use function ltrim;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Hold\HoldsAttributes;
 use PhpToken;
 
+use function preg_match_all;
+use function str_replace;
 use function strval;
 
 /**
@@ -21,9 +25,13 @@ use function strval;
  */
 final readonly class PhpFile
 {
+    /** A fully qualified name as a string spells it, once its doubled backslashes are single. */
+    private const string QUALIFIED = '/\\\\?[A-Za-z_][A-Za-z0-9_]*(?:\\\\[A-Za-z_][A-Za-z0-9_]*)+/';
+
     private function __construct(
         private Names $declares,
         private Names $mentions,
+        private Names $quoted,
         private bool $onlyDeclares,
         private HoldsAttributes $holds,
     ) {
@@ -45,6 +53,7 @@ final readonly class PhpFile
         return new self(
             Names::of(...array_map($scope->declared(...), $top->declared())),
             self::mentionedIn($tokens, $scope),
+            self::quotedIn($tokens),
             $top->onlyDeclares(),
             HoldsReader::mayHold($contents) ? HoldsReader::in(Tokens::of($tokens), $scope) : HoldsAttributes::none(),
         );
@@ -68,6 +77,15 @@ final readonly class PhpFile
         return $this->mentions;
     }
 
+    /**
+     * Every fully qualified name the file spells inside a quoted string, as
+     * a class-string does: `'App\\Fake'` names App\Fake.
+     */
+    public function quoted(): Names
+    {
+        return $this->quoted;
+    }
+
     /** Whether loading the file only declares, so that it acts on nothing that does not name it. */
     public function onlyDeclares(): bool
     {
@@ -84,6 +102,26 @@ final readonly class PhpFile
     public function holds(): HoldsAttributes
     {
         return $this->holds;
+    }
+
+    /**
+     * Every fully qualified name the quoted strings spell: two or more
+     * segments joined by backslashes, single or doubled, without a leading one.
+     *
+     * @param list<PhpToken> $tokens
+     */
+    private static function quotedIn(array $tokens): Names
+    {
+        $names = [];
+
+        foreach ($tokens as $token) {
+            if ($token->is(T_CONSTANT_ENCAPSED_STRING)) {
+                preg_match_all(self::QUALIFIED, str_replace('\\\\', '\\', $token->text), $found);
+                array_push($names, ...array_map(static fn(string $name): string => ltrim($name, '\\'), $found[0]));
+            }
+        }
+
+        return Names::of(...$names);
     }
 
     /**

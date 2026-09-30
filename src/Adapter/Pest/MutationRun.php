@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_filter;
+use function array_key_exists;
+use function array_map;
 use function array_values;
 
 use Closure;
@@ -17,7 +20,12 @@ use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Judging;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -26,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
@@ -48,6 +57,13 @@ final readonly class MutationRun
 
     private const string EMPTY_CANARY = 'pest.patch is on, but the canary group %s holds no test. Add one.';
 
+    /** Why a mutant killed with no killer in a narrowed run is unjudged where no time is left to run it again. */
+    private const string NO_TIME_TO_CONFIRM
+        = "Killed with no killer named in a run of its covering tests' files, and no time left to run every test file.";
+
+    /** Why such a mutant is unjudged where the run again made no mutant with its id. */
+    private const string NOT_MADE_TO_CONFIRM = 'Run again with every test file, Pest made no mutant with this id.';
+
     /** Where the map another job handed over is written again for this job's Pest, beside the results. */
     private const string SHARED_MAP = '%s/shared.coverage.php';
 
@@ -64,6 +80,8 @@ final readonly class MutationRun
         private Remembered $remembered,
         private Closure $groups,
         private array $only = [],
+        private Clock $clock = new WallClock(),
+        private bool $whole = false,
     ) {
     }
 
@@ -77,21 +95,41 @@ final readonly class MutationRun
         return clone($this, ['only' => array_values($nativeIds)]);
     }
 
-    /** Every mutant of the requested files, where there are any to mutate: Pest's `--path` never names none. */
+    /**
+     * This run, in which each mutant's own run loads every test file, as
+     * Pest ships it, where a patched run narrows it.
+     */
+    public function whole(): self
+    {
+        return clone($this, ['whole' => true]);
+    }
+
+    /**
+     * Every mutant of the requested files, where there are any to mutate:
+     * Pest's `--path` never names none. Where a patched run narrowed each
+     * mutant's own run to the test files its covering tests need, a mutant
+     * killed with no test named as its killer, as a run that failed to load
+     * leaves one, runs again with every test file before it counts, within
+     * the time left, or is unjudged where none is.
+     */
     public function of(MutationRequest $request): MutationResult|CannotJudge
     {
         if (count($request->files()) === 0) {
             return MutationResult::of(Mutants::none(), 0);
         }
 
+        $started = $this->clock->seconds();
         $results = $this->project->freshResults();
         $shared = $results instanceof CannotJudge ? $results : $this->shared($request);
-
-        return match (true) {
+        $result = match (true) {
             $results instanceof CannotJudge => $results,
             $shared instanceof CannotJudge => $shared,
             default => $this->ran($request, $results, $shared),
         };
+
+        return $result instanceof CannotJudge || ! $this->narrows()
+            ? $result
+            : $this->confirmed($result, $request, $started);
     }
 
     private function ran(
@@ -107,9 +145,11 @@ final readonly class MutationRun
         }
 
         $command = $scan->onto($command);
-        $ran = $this->shell->run($this->only === [] ? $command : $command->with([
+        $only = $this->only === [] ? [] : [
             GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only),
-        ]));
+        ];
+        $narrow = $this->narrows() ? [GateVariable::Narrow->value => '1'] : [];
+        $ran = $this->shell->run($command->with([...$only, ...$narrow]));
         $scan->remove();
         $coverage = $shared instanceof CoverageMap
             ? new HandedOver($shared, $this->project)
@@ -120,6 +160,85 @@ final readonly class MutationRun
         return $result instanceof CannotJudge || $coverage instanceof CannotJudge
             ? $result
             : new Judging($this->project, $this->shell, $this->files)->of($result, $request, $results, $coverage);
+    }
+
+    /** Whether each mutant's own run loads only the test files its covering tests need. */
+    private function narrows(): bool
+    {
+        return $this->patching->isOn() && ! $this->whole;
+    }
+
+    /**
+     * The result, each mutant killed with no test named as its killer run
+     * again with every test file, within the time left since the run began,
+     * or unjudged where none is left.
+     */
+    private function confirmed(
+        MutationResult $result,
+        MutationRequest $request,
+        float $started,
+    ): MutationResult|CannotJudge {
+        $killerless = Mutants::of(...array_filter(
+            [...$result->mutants()],
+            static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed
+                && count($mutant->killers()) === 0,
+        ));
+
+        if (count($killerless) === 0) {
+            return $result;
+        }
+
+        $deadline = $request->deadline();
+        $left = $deadline instanceof Seconds
+            ? Seconds::of($deadline->seconds() - ($this->clock->seconds() - $started))
+            : $deadline;
+        $again = $left instanceof Seconds && $left->seconds() <= 0.0
+            ? FoundAgain::among($killerless, Mutants::none(), Reason::that(self::NO_TIME_TO_CONFIRM))
+            : $this->whole()->again($killerless, $left instanceof Seconds ? $request->within($left) : $request);
+
+        return $again instanceof CannotJudge ? $again : MutationResult::of(
+            self::replaced($result->mutants(), $again),
+            $result->skipped(),
+        );
+    }
+
+    /** These mutants made again over their files with their mutators, each matched to the one asked for. */
+    private function again(Mutants $mutants, MutationRequest $request): Mutants|CannotJudge
+    {
+        $files = [];
+        $mutators = [];
+        $natives = [];
+
+        foreach ($mutants as $mutant) {
+            $files[$mutant->location()->file()->value()] = $mutant->location()->file();
+            $mutators[$mutant->mutation()->mutator()] = $mutant->mutation()->mutator();
+            $natives[] = $mutant->nativeId();
+        }
+
+        $result = $this->only(...$natives)->of(
+            $request->narrowedTo(Paths::of(...array_values($files)), Mutators::named(...array_values($mutators))),
+        );
+
+        return $result instanceof CannotJudge
+            ? $result
+            : FoundAgain::among($mutants, $result->mutants(), Reason::that(self::NOT_MADE_TO_CONFIRM));
+    }
+
+    /** The mutants, each one made again replaced by what that run reported of it. */
+    private static function replaced(Mutants $mutants, Mutants $again): Mutants
+    {
+        $by = [];
+
+        foreach ($again as $mutant) {
+            $by[$mutant->id()->value()] = $mutant;
+        }
+
+        return Mutants::of(...array_map(
+            static fn(Mutant $mutant): Mutant => array_key_exists($mutant->id()->value(), $by)
+                ? $by[$mutant->id()->value()]
+                : $mutant,
+            [...$mutants],
+        ));
     }
 
     private function commandFor(
