@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Registry\Entries;
+use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
@@ -66,16 +67,16 @@ final readonly class Extensions
     /** An empty registry, whose additions come from this package. */
     public function __construct(private Origin $origin)
     {
-        $this->runners = new Entries(Kind::Runner->value);
-        $this->treeSources = new Entries(Kind::TreeSource->value);
-        $this->costModels = new Entries(Kind::CostModel->value);
-        $this->proofStores = new Entries(Kind::ProofStore->value);
-        $this->ciPlans = new Entries(Kind::CiPlan->value);
-        $this->reporters = new Entries(Kind::Reporter->value);
-        $this->changeSources = new Entries(Kind::ChangeSource->value);
-        $this->repositories = new Entries(Kind::Repository->value);
-        $this->configLoaders = new Entries(Kind::ConfigLoader->value);
-        $this->presets = new Entries(Kind::Preset->value);
+        $this->runners = new Entries(ExtensionPoint::Runner);
+        $this->treeSources = new Entries(ExtensionPoint::TreeSource);
+        $this->costModels = new Entries(ExtensionPoint::CostModel);
+        $this->proofStores = new Entries(ExtensionPoint::ProofStore);
+        $this->ciPlans = new Entries(ExtensionPoint::CiPlan);
+        $this->reporters = new Entries(ExtensionPoint::Reporter);
+        $this->changeSources = new Entries(ExtensionPoint::ChangeSource);
+        $this->repositories = new Entries(ExtensionPoint::Repository);
+        $this->configLoaders = new Entries(ExtensionPoint::ConfigLoader);
+        $this->presets = new Entries(ExtensionPoint::Preset);
     }
 
     /** @param Closure(Options): (Runner|Invalid) $build */
@@ -160,7 +161,7 @@ final readonly class Extensions
 
     /**
      * This registry and another's. Two packages that register the same name
-     * for the same kind of thing cannot both be meant, so that is refused,
+     * at the same extension point cannot both be meant, so that is refused,
      * naming both.
      */
     public function merge(self $other): self|CannotJudge
@@ -200,24 +201,24 @@ final readonly class Extensions
     }
 
     /**
-     * What is registered as this kind under this name: the function that
+     * What is registered at this extension point under this name: the function that
      * builds an adapter from its options, or a preset's fragment.
      *
      * @internal extensions register; only the command line looks up
      */
-    public function registered(Kind $kind, Name $name): Closure|Document|CannotJudge
+    public function registered(ExtensionPoint $point, Name $name): Closure|Document|CannotJudge
     {
-        $entries = match ($kind) {
-            Kind::Runner => $this->runners,
-            Kind::TreeSource => $this->treeSources,
-            Kind::CostModel => $this->costModels,
-            Kind::ProofStore => $this->proofStores,
-            Kind::CiPlan => $this->ciPlans,
-            Kind::Reporter => $this->reporters,
-            Kind::ChangeSource => $this->changeSources,
-            Kind::Repository => $this->repositories,
-            Kind::ConfigLoader => $this->configLoaders,
-            Kind::Preset => $this->presets,
+        $entries = match ($point) {
+            ExtensionPoint::Runner => $this->runners,
+            ExtensionPoint::TreeSource => $this->treeSources,
+            ExtensionPoint::CostModel => $this->costModels,
+            ExtensionPoint::ProofStore => $this->proofStores,
+            ExtensionPoint::CiPlan => $this->ciPlans,
+            ExtensionPoint::Reporter => $this->reporters,
+            ExtensionPoint::ChangeSource => $this->changeSources,
+            ExtensionPoint::Repository => $this->repositories,
+            ExtensionPoint::ConfigLoader => $this->configLoaders,
+            ExtensionPoint::Preset => $this->presets,
         };
 
         return $entries->find($name->value());

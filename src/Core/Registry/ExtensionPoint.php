@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Extension;
+namespace NightWorksIO\MutationGate\Core\Registry;
 
-/** Each kind of thing an extension registers, as a message names it. */
-enum Kind: string
+/**
+ * What an extension registers under a name (ADR-0001): an adapter for each
+ * port a config chooses by name, and a preset. Each is written as a message
+ * names it.
+ */
+enum ExtensionPoint: string
 {
     case Runner = 'runner';
     case TreeSource = 'tree source';

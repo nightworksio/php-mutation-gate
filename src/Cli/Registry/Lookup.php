@@ -9,8 +9,8 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Kind;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
@@ -27,8 +27,8 @@ use function sprintf;
 /**
  * What the extensions registered, looked up by name and built from its
  * options. Extensions only register; the composition root looks up, and
- * refuses what a registration built that is not the kind it was registered
- * as.
+ * refuses what a registration built that is not what its extension point
+ * takes.
  */
 final readonly class Lookup
 {
@@ -45,54 +45,54 @@ final readonly class Lookup
 
     public function runner(Name $name, Options $options): Runner|Invalid|CannotJudge
     {
-        return $this->built(Kind::Runner, $name, $options, Runner::class);
+        return $this->built(ExtensionPoint::Runner, $name, $options, Runner::class);
     }
 
     public function treeSource(Name $name, Options $options): TreeSource|Invalid|CannotJudge
     {
-        return $this->built(Kind::TreeSource, $name, $options, TreeSource::class);
+        return $this->built(ExtensionPoint::TreeSource, $name, $options, TreeSource::class);
     }
 
     public function costModel(Name $name, Options $options): CostModel|Invalid|CannotJudge
     {
-        return $this->built(Kind::CostModel, $name, $options, CostModel::class);
+        return $this->built(ExtensionPoint::CostModel, $name, $options, CostModel::class);
     }
 
     public function proofStore(Name $name, Options $options): ProofStore|Invalid|CannotJudge
     {
-        return $this->built(Kind::ProofStore, $name, $options, ProofStore::class);
+        return $this->built(ExtensionPoint::ProofStore, $name, $options, ProofStore::class);
     }
 
     public function ciPlan(Name $name, Options $options): CiPlan|Invalid|CannotJudge
     {
-        return $this->built(Kind::CiPlan, $name, $options, CiPlan::class);
+        return $this->built(ExtensionPoint::CiPlan, $name, $options, CiPlan::class);
     }
 
     public function reporter(Name $name, Options $options): Reporter|Invalid|CannotJudge
     {
-        return $this->built(Kind::Reporter, $name, $options, Reporter::class);
+        return $this->built(ExtensionPoint::Reporter, $name, $options, Reporter::class);
     }
 
     public function changeSource(Name $name, Options $options): ChangeSource|Invalid|CannotJudge
     {
-        return $this->built(Kind::ChangeSource, $name, $options, ChangeSource::class);
+        return $this->built(ExtensionPoint::ChangeSource, $name, $options, ChangeSource::class);
     }
 
     public function repository(Name $name, Options $options): Repository|Invalid|CannotJudge
     {
-        return $this->built(Kind::Repository, $name, $options, Repository::class);
+        return $this->built(ExtensionPoint::Repository, $name, $options, Repository::class);
     }
 
     public function configLoader(Name $name, Options $options): ConfigLoader|Invalid|CannotJudge
     {
-        return $this->built(Kind::ConfigLoader, $name, $options, ConfigLoader::class);
+        return $this->built(ExtensionPoint::ConfigLoader, $name, $options, ConfigLoader::class);
     }
 
     public function preset(Name $name): Document|CannotJudge
     {
-        $preset = $this->extensions->registered(Kind::Preset, $name);
+        $preset = $this->extensions->registered(ExtensionPoint::Preset, $name);
 
-        return $preset instanceof Closure ? $this->misbuilt(Kind::Preset, $name) : $preset;
+        return $preset instanceof Closure ? $this->misbuilt(ExtensionPoint::Preset, $name) : $preset;
     }
 
     /**
@@ -101,18 +101,18 @@ final readonly class Lookup
      * @param  class-string<T>       $port
      * @return T|Invalid|CannotJudge
      */
-    private function built(Kind $kind, Name $name, Options $options, string $port): object
+    private function built(ExtensionPoint $point, Name $name, Options $options, string $port): object
     {
-        $build = $this->extensions->registered($kind, $name);
+        $build = $this->extensions->registered($point, $name);
         $built = $build instanceof Closure ? $build($options) : $build;
 
         return $built instanceof $port || $built instanceof Invalid || $built instanceof CannotJudge
             ? $built
-            : $this->misbuilt($kind, $name);
+            : $this->misbuilt($point, $name);
     }
 
-    private function misbuilt(Kind $kind, Name $name): CannotJudge
+    private function misbuilt(ExtensionPoint $point, Name $name): CannotJudge
     {
-        return CannotJudge::because(sprintf(self::MISBUILT, $kind->value, $name->value(), $kind->value));
+        return CannotJudge::because(sprintf(self::MISBUILT, $point->value, $name->value(), $point->value));
     }
 }
