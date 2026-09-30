@@ -57,8 +57,11 @@ has to bring its result with it.
    adding an ignore re-runs nothing.
 
 2. **The content key is a SHA-256 over all of the following, in this order.**
-   1. **The key's format**, `mutation-gate proof 1`. It changes whenever what
+   1. **The key's format**, `mutation-gate proof 2`. It changes whenever what
       the key means changes, so an older proof is never read as a newer one.
+      Format 2 moved the test files every key reads into the base (items 7
+      and 8), in the same change as ledger format 2 (decision 3), so the one
+      bump covers both.
    2. **The gate**: its installed version and source reference.
    3. **The configuration** as it affects results: the effective config after
       presets, serialised canonically, with the settings that only judge or
@@ -105,7 +108,16 @@ has to bring its result with it.
       - **`proofs.ignore`**, a list of globs, empty by default, is the
         project's own statement that no test reads those paths (`docs/**`,
         say).
-   7. **Of the test directories, only what can judge this unit**:
+   7. **Of the test directories, what every key reads**, each file by its
+      digest:
+      - every file under a test directory that runs code when loaded, such as
+        `tests/Pest.php` and a bootstrap;
+      - every test file the coverage map does not know;
+      - with the Pest patch on, every test in the canary group;
+      - the support those files name, and the support that names in turn,
+        matched by the class and function names each file declares.
+   8. **Of the test directories, what else can judge this unit**, each file by
+      its digest:
       - the test files the runner says can judge it (ADR-0004). For a held unit,
         that is every test file, because any file can join a group. So it is,
         under Pest, for a unit whose tokens hold a class or interface constant,
@@ -113,18 +125,18 @@ has to bring its result with it.
         parameter default or an attribute argument, because any file can come to
         reference it (ADR-0004, decisions 5 and 8);
       - the support those files name, and the support that names in turn,
-        matched by the class and function names each file declares. Matching
-        over-reads on purpose: a word that happens to match brings the file in;
-      - every file under a test directory that runs code when loaded, such as
-        `tests/Pest.php` and a bootstrap;
-      - every test file the coverage map does not know;
-      - with the Pest patch on, every test in the canary group.
-   8. **The unit**: its path and, for each of its covered lines, the ids of the
+        matched as in item 7. Matching over-reads on purpose: a word that
+        happens to match brings the file in.
+   9. **The unit**: its path and, for each of its covered lines, the ids of the
       tests that cover it. For a unit decision 8 of ADR-0004 applies to, also
       the ids of the tests covering each reference line it follows, and of
       those covering its owners' files, for the fallback. If the tests
       covering a line change, the unit is judged again even when no file
       changed.
+
+   Items 1 to 7 are the same for every unit of a run. They are the run's
+   **base**: hashed once, and its digest recorded with every proof the run
+   establishes (decision 3). A key can only match a proof of its own base.
 
    Where a key cannot be computed, the unit always runs and is never recorded.
    That happens with no git, or with no coverage map. Every doubt resolves the
@@ -134,17 +146,22 @@ has to bring its result with it.
 3. **A ledger holds one scope's proofs, timings, killer history, opening-run
    times and last passing commit.**
 
+   The file is compact JSON, gzipped, shown here unpacked and spread out:
+
    ```json
    {
-       "format": 1,
+       "format": 2,
+       "bases": ["5be0…64 hex…", "a7c2…64 hex…"],
+       "mutators": ["Plus", "LessThan"],
        "proofs": {
            "9c1e…64 hex…": {
                "unit": "src/Money.php",
+               "base": "5be0…64 hex…",
                "at": "2026-09-29T20:48:17Z",
                "run": "github:<run id>/<attempt>",
                "mutants": [
                    { "id": "3f9a1c2b7d04", "line": 42, "status": "survived", "mutator": "LessThan", "diff": "…" },
-                   { "id": "81d0c9e2aa17", "line": 44, "status": "killed", "mutator": "Plus" }
+                   ["81d0c9e2aa17", 44, 0]
                ]
            }
        },
@@ -162,7 +179,7 @@ has to bring its result with it.
        "openings": {
            ".": { "infection": { "seconds": 38.2, "at": "2026-09-29T20:48:17Z" } }
        },
-       "passed": "<commit sha>"
+       "passed": { "commit": "<commit sha>", "check": "<check-run name>", "ownScopeProofs": 0 }
    }
    ```
 
@@ -175,13 +192,23 @@ has to bring its result with it.
      that `doctor` can name the file whose change invalidated most proofs
      (ADR-0017). The digests are read for that alone, never to match a key.
    - A mutant that was not killed keeps its full record, so reports can show a
-     proved survivor. A killed one keeps its id, line, mutator and status,
-     which ignores and the stale-ignore check need (ADR-0008), and `killedBy`,
+     proved survivor. A timed-out or skipped mutant also keeps its limit
+     (ADR-0004).
+   - A killed mutant is the tuple `[id, line, mutator]`, where `mutator` is its
+     index in the ledger's `mutators`, each name listed once. That is what
+     ignores and the stale-ignore check need (ADR-0008), in as few bytes as a
+     ledger of hundreds of thousands of killed mutants can take. `killedBy`,
      the test that killed it first, or every test that failed under a full
-     kill matrix (ADR-0014). A timed-out or
-     skipped mutant also keeps its limit (ADR-0004).
-   - The ledger keeps the newest 20,000 proofs, and timings only for units that
-     still exist.
+     kill matrix (ADR-0014), is kept with it.
+   - Each proof records the `base` of the run that established it (decision
+     2), and `bases` lists the bases of the runs that wrote the ledger, the
+     most recent first. A run adds its own base when it writes.
+   - Retention is one fixed policy with no setting. The ledger keeps the proofs
+     whose base is one of the five in `bases` seen most recently, and of those
+     the newest 20,000 as a backstop, since a proof of any other base can
+     never be hit again. It keeps timings only for units that still exist.
+   - Where no proof in the ledger shares the run's base, planning looks up no
+     proof at all, since none can match.
    - `killers` counts, for each mutant id and for each enclosing function, the
      tests that killed first, keeping the five most frequent. Entries for
      mutant ids no kept proof holds, and for functions whose unit is gone, are
@@ -189,13 +216,22 @@ has to bring its result with it.
      runner. Both only order and cut work (ADR-0013, decisions 2 and 7), so
      losing them costs speed, never a verdict.
    - Reading keeps each well-formed entry and drops anything else. An
-     unreadable ledger costs a run and never a verdict.
+     unreadable ledger costs a run and never a verdict. A ledger of format 1,
+     or one that is not a whole gzip stream, reads as empty: a miss, never an
+     error. Where any mutator name is not a name, every proof with a killed
+     mutant is dropped, since an index past it would point at the wrong one.
    - When two results for one key agree, the first is kept. When they differ,
      the mutants that differ are flaky and neither result is used (ADR-0008).
      Results are compared by status. `killedBy` is never compared, because
      the first killer depends on the order the tests ran in (ADR-0013).
-   - `passed` is the newest commit of this scope whose verdict passed. That is
-     the `last-passed` base (ADR-0005).
+   - `passed` records the newest commit of this scope whose verdict passed.
+     That commit is the `last-passed` base (ADR-0005). `check` is the name of
+     the check-run the verdict reported under, and `ownScopeProofs` is how
+     many proofs of this scope's own ledger that verdict used. A pull
+     request's passing run is trusted on the default branch only where it
+     used none, because its own code could have written them, and only as the
+     named check-run shows it. A `passed` that is not such a record reads as
+     none.
 
 4. **The ProofStore port reads and writes one ledger per scope.** A scope is a
    ref: `refs/heads/<branch>` or `refs/pull/<n>`.
@@ -212,9 +248,9 @@ has to bring its result with it.
 
    | Backend | What it is |
    |---------|------------|
-   | **Directory** (`directory`) | One file per scope, `<path>/<scope>/ledger.json`, where `path` is `.mutation-gate/ledger` by default (`proofs.store: {use: directory, with: {path: …}}`). The default locally, and the base of every CI cache: GitLab's `cache:`, Buildkite's cache plugins and CircleCI's `save_cache` keep the directory. |
+   | **Directory** (`directory`) | One file per scope, `<path>/<scope>/ledger.json.gz`, where `path` is `.mutation-gate/ledger` by default (`proofs.store: {use: directory, with: {path: …}}`). The default locally, and the base of every CI cache: GitLab's `cache:`, Buildkite's cache plugins and CircleCI's `save_cache` keep the directory. |
    | **GitHub Actions cache** | The directory store, kept by the action and the reusable workflow (ADR-0011) when their `cache` input is `true`, as it is by default. The cache service is reachable only from inside an action, so PHP never calls it. Before the run, `actions/cache/restore` restores two entries, each into its scope's directory: the newest under the prefix `mutation-gate-ledger-<SHA-256 of the ref>-`, and the newest under `mutation-gate-ledger-<SHA-256 of the default branch's ref>-`. After the verdict, `actions/cache/save` saves the run's own scope as `mutation-gate-ledger-<SHA-256 of the ref>-<SHA-256 of its ledger>`, so an unchanged ledger is not saved twice. Digests of the refs keep one scope's prefix from being a prefix of another's. |
-   | **S3-compatible** (`s3`: AWS S3, Cloudflare R2, MinIO) | One object per scope, `<prefix>/<scope>/ledger.json`, through `async-aws/s3`, which is in `suggest`. Its options are `bucket` (required), `prefix` (`mutation-gate` by default), `region` (`us-east-1` by default; R2 takes `auto`), `endpoint` (AWS's own by default; R2's is `https://<account>.r2.cloudflarestorage.com`) and `publicUrl` (none by default: an `https://` base a run without credentials reads from, ADR-0013). Credentials come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and, when set, `AWS_SESSION_TOKEN`. |
+   | **S3-compatible** (`s3`: AWS S3, Cloudflare R2, MinIO) | One object per scope, `<prefix>/<scope>/ledger.json.gz`, through `async-aws/s3`, which is in `suggest`. Its options are `bucket` (required), `prefix` (`mutation-gate` by default), `region` (`us-east-1` by default; R2 takes `auto`), `endpoint` (AWS's own by default; R2's is `https://<account>.r2.cloudflarestorage.com`) and `publicUrl` (none by default: an `https://` base a run without credentials reads from, ADR-0013). Credentials come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and, when set, `AWS_SESSION_TOKEN`. |
 
    When two verdicts write one scope at the same time, the last write wins. The
    proofs it drops cost a run later, never a verdict.

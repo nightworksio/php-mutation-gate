@@ -29,7 +29,7 @@ $mutant = static fn(int $line, MutantStatus $status): Mutant => Mutant::of(
     $status,
     Unmeasured::duration(),
 );
-$run = Run::of('github:5813/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')));
+$run = Run::of('github:5813/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')), Digest::of(str_repeat('b', 64)));
 
 it('records a unit that ran to the end, survivors, timeouts and all', function () use ($mutant, $run): void {
     $mutants = Mutants::of($mutant(1, MutantStatus::Killed), $mutant(2, MutantStatus::Survived), $mutant(3, MutantStatus::TimedOut));

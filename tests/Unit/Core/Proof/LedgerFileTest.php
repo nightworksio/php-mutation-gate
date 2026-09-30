@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -16,8 +17,10 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Proof\Bases;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -30,18 +33,21 @@ use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 $keyA = str_repeat('a', 64);
 $keyB = str_repeat('b', 64);
+$base = str_repeat('e', 64);
 $killedId = MutantId::hash(Path::of('src/Money.php'), 'Plus', "-+\n+-", 0);
+$minusId = MutantId::hash(Path::of('src/Money.php'), 'Minus', "-+\n+-", 0);
 $survivedId = MutantId::hash(Path::of('src/Money.php'), 'LessThan', "-<\n+<=", 0);
 
-// A killed mutant as a ledger reads it back: only its id, line, mutator and status.
-$killed = Mutant::of(
-    $killedId,
+// A killed mutant as a ledger reads it back: only its id, line and mutator.
+$killedBy = static fn(MutantId $id, string $mutator, int $line): Mutant => Mutant::of(
+    $id,
     '',
-    Location::of(Path::of('src/Money.php'), Line::of(44), Unreported::line()),
-    Mutation::of('Plus', MutatorFamily::None, ''),
+    Location::of(Path::of('src/Money.php'), Line::of($line), Unreported::line()),
+    Mutation::of($mutator, MutatorFamily::None, ''),
     MutantStatus::Killed,
     Unmeasured::duration(),
 );
+$killed = $killedBy($killedId, 'Plus', 44);
 $survived = Mutant::of(
     $survivedId,
     '9a0b7e',
@@ -51,32 +57,38 @@ $survived = Mutant::of(
     Seconds::of(0.4),
 );
 $at = static fn(string $instant): Instant => Moment::at($instant);
+$run = static fn(string $id, string $instant, string $at = ''): Run => Run::of($id, Moment::at($instant), Digest::of($at === '' ? $base : $at));
 
 $ledger = Ledger::empty()
-    ->withProof(Proof::of(Digest::of($keyA), Path::of('src/Money.php'), Mutants::of($killed, $survived), Run::of('github:1/1', $at('2026-09-29T20:48:17Z'))))
-    ->withProof(Proof::of(Digest::of($keyB), Path::of('src/B.php'), Mutants::none(), Run::of('github:2/1', $at('2026-09-29T21:00:00Z'))))
+    ->withProof(Proof::of(Digest::of($keyA), Path::of('src/Money.php'), Mutants::of($killed, $survived, $killedBy($minusId, 'Minus', 45), $killed), $run('github:1/1', '2026-09-29T20:48:17Z')))
+    ->withProof(Proof::of(Digest::of($keyB), Path::of('src/B.php'), Mutants::none(), $run('github:2/1', '2026-09-29T21:00:00Z')))
     ->withTiming(Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'infection', $at('2026-09-29T20:48:17Z')))
-    ->withPassed(Revision::ref('206b4e0'));
+    ->atBase(Digest::of($base))
+    ->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0));
 
 // The ledger's file as data, to change one entry of and write back.
 $data = static function () use ($ledger): array {
-    $data = json_decode(LedgerFile::encode($ledger), associative: true);
+    $json = Gzip::unpack(LedgerFile::encode($ledger), 'the ledger');
+    $data = is_string($json) ? json_decode($json, associative: true) : [];
 
     return is_array($data) ? $data : [];
 };
-$written = static fn(array $file): string => Json::encode($file);
+$written = static fn(array $file): string => Gzip::pack(Json::compact($file));
 
-it('writes the newest proofs first, a killed mutant briefly and a survivor in full', function () use ($ledger, $keyA, $keyB, $killedId, $survivedId): void {
-    expect(LedgerFile::encode($ledger))->toBe(Json::encode([
-        'format' => 1,
+it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tuples and survivors in full', function () use ($ledger, $keyA, $keyB, $base, $killedId, $minusId, $survivedId): void {
+    expect(Gzip::unpack(LedgerFile::encode($ledger), 'the ledger'))->toBe(Json::compact([
+        'format' => 2,
+        'bases' => [$base],
+        'mutators' => ['Plus', 'Minus'],
         'proofs' => [
-            $keyB => ['unit' => 'src/B.php', 'at' => '2026-09-29T21:00:00Z', 'run' => 'github:2/1', 'mutants' => []],
+            $keyB => ['unit' => 'src/B.php', 'base' => $base, 'at' => '2026-09-29T21:00:00Z', 'run' => 'github:2/1', 'mutants' => []],
             $keyA => [
                 'unit' => 'src/Money.php',
+                'base' => $base,
                 'at' => '2026-09-29T20:48:17Z',
                 'run' => 'github:1/1',
                 'mutants' => [
-                    ['id' => $killedId->value(), 'line' => 44, 'mutator' => 'Plus', 'status' => 'killed'],
+                    [$killedId->value(), 44, 0],
                     [
                         'id' => $survivedId->value(),
                         'native' => '9a0b7e',
@@ -89,52 +101,77 @@ it('writes the newest proofs first, a killed mutant briefly and a survivor in fu
                         'status' => 'survived',
                         'seconds' => 0.4,
                     ],
+                    [$minusId->value(), 45, 1],
+                    [$killedId->value(), 44, 0],
                 ],
             ],
         ],
         'timings' => ['src/Money.php' => ['seconds' => 12.4, 'runner' => 'infection', 'at' => '2026-09-29T20:48:17Z']],
-        'passed' => '206b4e0',
+        'passed' => ['commit' => '206b4e0', 'check' => 'mutation-gate', 'ownScopeProofs' => 0],
     ]));
 });
 
-it('writes an empty ledger as empty maps and no passing commit', function (): void {
-    expect(LedgerFile::encode(Ledger::empty()))->toBe("{\n    \"format\": 1,\n    \"proofs\": {},\n    \"timings\": {}\n}");
+it('writes an empty ledger as empty lists and maps and no passing commit', function (): void {
+    expect(Gzip::unpack(LedgerFile::encode(Ledger::empty()), 'the ledger'))
+        ->toBe('{"format":2,"bases":[],"mutators":[],"proofs":{},"timings":{}}');
 });
 
 it('reads back the ledger it wrote', function () use ($ledger): void {
     expect(LedgerFile::decode(LedgerFile::encode($ledger)))->toEqual($ledger);
 });
 
-it('keeps two proofs as new as each other in the order it held them', function () use ($at): void {
-    $proof = static fn(string $key): Proof => Proof::of(Digest::of($key), Path::of('src/A.php'), Mutants::none(), Run::of('local', $at('2026-09-29T20:00:00Z')));
-    $ledger = Ledger::empty()->withProof($proof(str_repeat('c', 64)))->withProof($proof(str_repeat('1', 64)));
+it('keeps two proofs as new as each other in the order it held them', function () use ($run, $base): void {
+    $proof = static fn(string $key): Proof => Proof::of(Digest::of($key), Path::of('src/A.php'), Mutants::none(), $run('local', '2026-09-29T20:00:00Z'));
+    $ledger = Ledger::empty()->withProof($proof(str_repeat('c', 64)))->withProof($proof(str_repeat('1', 64)))->atBase(Digest::of($base));
 
-    expect(array_keys(Node::decode(LedgerFile::encode($ledger))->field('proofs')->entries()))
+    $json = Gzip::unpack(LedgerFile::encode($ledger), 'the ledger');
+
+    expect(array_keys(Node::decode(is_string($json) ? $json : '')->field('proofs')->entries()))
         ->toBe([str_repeat('c', 64), str_repeat('1', 64)]);
 });
 
-it('keeps the newest twenty thousand proofs', function () use ($at): void {
-    $proofs = [Proof::of(Digest::of(str_repeat('0', 64)), Path::of('src/Old.php'), Mutants::none(), Run::of('old', $at('2026-01-01T00:00:00Z')))];
+it('keeps only the proofs of the five bases its runs saw most recently', function () use ($run): void {
+    $bases = array_map(static fn(int $at): string => hash('sha256', sprintf('base %d', $at)), range(1, 6));
+    $ledger = Ledger::empty();
 
-    for ($made = 1; $made <= 20_000; $made++) {
-        $proofs[] = Proof::of(Digest::of(hash('sha256', sprintf('%d', $made))), Path::of('src/New.php'), Mutants::none(), Run::of('new', $at('2026-09-29T20:00:00Z')));
+    foreach ($bases as $base) {
+        $ledger = $ledger
+            ->withProof(Proof::of(Digest::of(hash('sha256', $base)), Path::of('src/A.php'), Mutants::none(), $run('local', '2026-09-29T20:00:00Z', $base)))
+            ->atBase(Digest::of($base));
     }
 
-    $kept = LedgerFile::decode(LedgerFile::encode(array_reduce($proofs, static fn(Ledger $ledger, Proof $proof): Ledger => $ledger->withProof($proof), Ledger::empty())))->proofs();
+    $read = LedgerFile::decode(LedgerFile::encode($ledger->atBase(Digest::of($bases[2]))));
 
-    expect(LedgerFile::KEPT)->toBe(20_000)
-        ->and($kept)->toHaveCount(20_000)
+    expect($read->bases())->toEqual(Bases::of(...array_map(Digest::of(...), [$bases[2], $bases[5], $bases[4], $bases[3], $bases[1]])))
+        ->and($read->proofs())->toHaveCount(5)
+        ->and($read->proofs()->has(Digest::of(hash('sha256', $bases[0]))))->toBeFalse()
+        ->and($read->provesAt(Digest::of($bases[1])))->toBeTrue()
+        ->and($read->provesAt(Digest::of($bases[0])))->toBeFalse();
+});
+
+it('keeps at most the newest twenty thousand proofs of its bases', function () use ($run, $base): void {
+    $proofs = [Proof::of(Digest::of(str_repeat('0', 64)), Path::of('src/Old.php'), Mutants::none(), $run('old', '2026-01-01T00:00:00Z'))];
+
+    for ($made = 1; $made <= 20_000; $made++) {
+        $proofs[] = Proof::of(Digest::of(hash('sha256', sprintf('%d', $made))), Path::of('src/New.php'), Mutants::none(), $run('new', '2026-09-29T20:00:00Z'));
+    }
+
+    $kept = LedgerFile::decode(LedgerFile::encode(Ledger::empty()->withProofs(Proofs::of(...$proofs))->atBase(Digest::of($base))))->proofs();
+
+    expect($kept)->toHaveCount(20_000)
         ->and($kept->has(Digest::of(str_repeat('0', 64))))->toBeFalse()
         ->and($kept->has(Digest::of(hash('sha256', '20000'))))->toBeTrue();
 });
 
-it('reads a file of another format, or no ledger at all, as an empty ledger', function (string $json): void {
-    expect(LedgerFile::decode($json))->toEqual(Ledger::empty());
+it('reads a file of another format, or no ledger at all, as an empty ledger', function (string $file): void {
+    expect(LedgerFile::decode($file))->toEqual(Ledger::empty());
 })->with([
-    'a newer format' => ['{"format": 2, "proofs": {}, "timings": {}, "passed": "206b4e0"}'],
-    'a format written as text' => ['{"format": "1", "passed": "206b4e0"}'],
-    'no format' => ['{"passed": "206b4e0"}'],
-    'text that is not JSON' => ['{"format": 1, "passed": '],
+    'the first format' => [Gzip::pack('{"format": 1, "proofs": {}, "timings": {}, "passed": "206b4e0"}')],
+    'the second format, not gzipped' => ['{"format": 2, "bases": [], "mutators": [], "proofs": {}, "timings": {}, "passed": "206b4e0"}'],
+    'a format written as text' => [Gzip::pack('{"format": "2", "passed": "206b4e0"}')],
+    'no format' => [Gzip::pack('{"passed": "206b4e0"}')],
+    'text that is not JSON' => [Gzip::pack('{"format": 2, "passed": ')],
+    'a gzip stream cut short' => [substr(Gzip::pack('{"format": 2, "passed": "206b4e0"}'), 0, 20)],
     'nothing' => [''],
 ]);
 
@@ -147,13 +184,33 @@ it('drops a proof that is not well formed and keeps the rest', function (Closure
 })->with([
     'a key that is not a SHA-256' => [static fn(array $proofs, string $key): array => [...$proofs, strtoupper($key) => $proofs[$key], $key => null]],
     'a unit that is not text' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['unit' => null]])],
+    'a base that is not a SHA-256' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['base' => 'EEEE']])],
+    'a base that is not text' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['base' => null]])],
     'an instant that is not one' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['at' => 'yesterday']])],
     'no run' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['run' => 5]])],
     'mutants that are not a list' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => 'none']])],
-    'a survivor kept briefly' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => ['status' => 'survived']]]])],
-    'a brief record with a status there is not' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => ['status' => 'nope']]]])],
+    'a killed mutant of two fields' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [0 => 'x', 1 => 44]]]])],
+    'a killed mutant of four fields' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [3 => 'more']]]])],
+    'a killed mutant whose id is not one' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [0 => 'xyz']]]])],
+    'a killed mutant on no line' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [1 => 0]]]])],
+    'a killed mutant of a mutator there is not' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [2 => 2]]]])],
+    'a killed mutant kept in full' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [1 => ['status' => 'killed']]]])],
     'a full record with a family there is not' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [1 => ['family' => 'nope']]]])],
 ]);
+
+it('drops every proof with a killed mutant where the mutator names are not all names', /** @param array<int|string, int|string> $mutators */ function (array $mutators) use ($data, $written, $ledger, $keyA): void {
+    $file = [...$data(), 'mutators' => $mutators];
+
+    expect(LedgerFile::decode($written($file)))->toEqual($ledger->withoutProof(Digest::of($keyA)));
+})->with([
+    'a name that is not text' => [['Plus', 7]],
+    'not a list' => [['plus' => 'Plus']],
+]);
+
+it('drops a base that is not a SHA-256, and reads bases that are not a list as none', function () use ($data, $written, $base): void {
+    expect(LedgerFile::decode($written([...$data(), 'bases' => ['nope', $base, 7]]))->bases())->toEqual(Bases::of(Digest::of($base)))
+        ->and(LedgerFile::decode($written([...$data(), 'bases' => 'none']))->bases())->toEqual(Bases::none());
+});
 
 it('drops a timing that is not well formed and keeps a timing of no time at all', function () use ($data, $written, $at): void {
     $file = $data();
@@ -169,28 +226,42 @@ it('drops a timing that is not well formed and keeps a timing of no time at all'
         ->toEqual([Timing::of(Path::of('src/Nothing.php'), Seconds::of(0.0), 'pest', $at('2026-09-29T20:00:00Z'))]);
 });
 
-it('reads proofs and timings that are not maps as none, and keeps what else it holds', function () use ($data, $written): void {
+it('reads proofs and timings that are not maps as none, and keeps what else it holds', function () use ($data, $written, $base): void {
     $file = [...$data(), 'proofs' => 7, 'timings' => 'none'];
 
-    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->withPassed(Revision::ref('206b4e0')));
+    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0)));
 });
 
-it('reads a passing commit that is not text as none', function () use ($data, $written, $ledger): void {
-    $file = [...$data(), 'passed' => 7];
+it('reads a passing record that is not well formed as none', function (array|int|string $passed) use ($data, $written, $ledger): void {
+    $file = [...$data(), 'passed' => $passed];
     $read = LedgerFile::decode($written($file));
 
     expect($read->lastPassed())->toEqual(Ledger::empty()->lastPassed())
         ->and($read->proofs())->toEqual($ledger->proofs());
+})->with([
+    'a bare commit' => ['206b4e0'],
+    'a number' => [7],
+    'a commit that is not text' => [['commit' => 7, 'check' => 'mutation-gate', 'ownScopeProofs' => 0]],
+    'a check that is not text' => [['commit' => '206b4e0', 'check' => null, 'ownScopeProofs' => 0]],
+    'no count of own proofs' => [['commit' => '206b4e0', 'check' => 'mutation-gate']],
+    'a count below none' => [['commit' => '206b4e0', 'check' => 'mutation-gate', 'ownScopeProofs' => -1]],
+    'a count that is not whole' => [['commit' => '206b4e0', 'check' => 'mutation-gate', 'ownScopeProofs' => 1.5]],
+]);
+
+it('reads back a passing verdict that used proofs of its own scope', function () use ($ledger): void {
+    $passed = Passed::of(Revision::ref('5eeca8f'), 'mutation / verdict', 3);
+
+    expect(LedgerFile::decode(LedgerFile::encode($ledger->withPassed($passed)))->lastPassed())->toEqual($passed);
 });
 
-it('reads a full ledger and joins it to another in linear time', function () use ($at, $killed): void {
+it('reads a full ledger and joins it to another in linear time', function () use ($run, $killed, $base): void {
     $proofs = [];
 
     for ($made = 1; $made <= 20_000; $made++) {
-        $proofs[] = Proof::of(Digest::of(hash('sha256', sprintf('%d', $made))), Path::of(sprintf('src/F%d.php', $made)), Mutants::of($killed), Run::of('new', $at('2026-09-29T20:00:00Z')));
+        $proofs[] = Proof::of(Digest::of(hash('sha256', sprintf('%d', $made))), Path::of(sprintf('src/F%d.php', $made)), Mutants::of($killed), $run('new', '2026-09-29T20:00:00Z'));
     }
 
-    $written = LedgerFile::encode(Ledger::empty()->withProofs(Proofs::of(...$proofs)));
+    $written = LedgerFile::encode(Ledger::empty()->withProofs(Proofs::of(...$proofs))->atBase(Digest::of($base)));
     $read = Ledger::empty();
 
     $seconds = Stopwatch::seconds(static function () use ($written, &$read): void {

@@ -87,10 +87,24 @@ final readonly class Tests
         return $this->cases;
     }
 
-    /** What of the test directories goes into the key of a unit these test files judge. */
+    /** What of the test directories goes into every key. */
+    public function inEveryKey(): Paths
+    {
+        return $this->always;
+    }
+
+    /** What else of the test directories goes into the key of a unit these test files judge. */
     public function readBy(Paths $judges): Paths
     {
-        return Paths::of(...$this->always, ...$this->reachedFrom($judges));
+        $read = [];
+
+        foreach ($this->reachedFrom($judges) as $path) {
+            if (! $this->always->has($path)) {
+                $read[] = $path;
+            }
+        }
+
+        return Paths::of(...$read);
     }
 
     public function digestOf(Path $path): Digest|Missing

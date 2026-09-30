@@ -22,7 +22,7 @@ use function sprintf;
 use function trim;
 
 /**
- * The proof store `s3`: one object per scope, `<prefix>/<scope>/ledger.json`,
+ * The proof store `s3`: one object per scope, `<prefix>/<scope>/ledger.json.gz`,
  * in a bucket of AWS S3, Cloudflare R2, MinIO or anything else that speaks
  * S3. Credentials come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and,
  * when set, `AWS_SESSION_TOKEN`. A ledger that cannot be fetched is read as
@@ -30,7 +30,7 @@ use function trim;
  */
 final readonly class BucketLedger implements Configurable, ProofStore
 {
-    private const string FILE = 'ledger.json';
+    private const string FILE = 'ledger.json.gz';
 
     private function __construct(private S3Client $client, private string $bucket, private string $prefix)
     {
@@ -76,7 +76,7 @@ final readonly class BucketLedger implements Configurable, ProofStore
                 'Bucket' => $this->bucket,
                 'Key' => $key,
                 'Body' => LedgerFile::encode($ledger),
-                'ContentType' => 'application/json',
+                'ContentType' => 'application/gzip',
             ])->resolve();
         } catch (AwsFailure $failure) {
             return NotWritten::because(sprintf(

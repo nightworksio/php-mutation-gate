@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
+use function array_key_exists;
+use function count;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -14,9 +17,10 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
  * A mutant as the gate's files write it. The full record holds everything a
- * runner reported of it, with the reason it left one unjudged; the brief one, which a ledger keeps of a killed
- * mutant, holds its id, its line, its mutator and its status, which is what
- * ignores need of it.
+ * runner reported of it, with the reason it left one unjudged. The killed
+ * record, which a ledger keeps of a killed mutant, is `[id, line, mutator]`,
+ * the mutator an index into the ledger's list of mutator names: what ignores
+ * need of it, in as few bytes as a ledger of many thousands of them can take.
  *
  * @internal the shape of the plan, shard result and ledger files
  */
@@ -39,6 +43,9 @@ final readonly class MutantRecord
     private const string LIMIT = 'limit';
 
     private const string REASON = 'reason';
+
+    /** How many fields a killed record holds: its id, its line and its mutator. */
+    private const int KILLED = 3;
 
     /** @return array<string, int|float|string> */
     public static function full(Mutant $mutant): array
@@ -64,15 +71,15 @@ final readonly class MutantRecord
         ];
     }
 
-    /** @return array<string, int|string> */
-    public static function brief(Mutant $mutant): array
+    /**
+     * A killed mutant as a ledger keeps it, with its mutator's index among
+     * the ledger's mutator names.
+     *
+     * @return array{string, int, int}
+     */
+    public static function killed(Mutant $mutant, int $mutator): array
     {
-        return [
-            self::ID => $mutant->id()->value(),
-            self::LINE => $mutant->location()->start()->number(),
-            self::MUTATOR => $mutant->mutation()->mutator(),
-            self::STATUS => $mutant->status()->value,
-        ];
+        return [$mutant->id()->value(), $mutant->location()->start()->number(), $mutator];
     }
 
     /** @throws NotInShape */
@@ -102,24 +109,34 @@ final readonly class MutantRecord
     }
 
     /**
-     * A brief record, read as a mutant of the unit it was proved in, with no
+     * A killed record, read as a mutant of the unit it was proved in, with no
      * family, diff or duration.
+     *
+     * @param list<string> $mutators the ledger's mutator names, each at its index
      *
      * @throws NotInShape
      */
-    public static function readBrief(Node $record, Path $unit): Mutant
+    public static function readKilled(Node $record, Path $unit, array $mutators): Mutant
     {
+        $fields = $record->items();
+
+        if (count($fields) !== self::KILLED) {
+            throw NotInShape::at($record->at(), 'a killed mutant, as [id, line, mutator]');
+        }
+
+        [$id, $line, $mutator] = $fields;
+
         return Mutant::of(
-            self::idIn($record),
+            self::idOf($id),
             '',
-            Location::of($unit, self::lineIn($record->field(self::LINE)), Unreported::line()),
-            Mutation::of($record->field(self::MUTATOR)->text(), MutatorFamily::None, ''),
-            self::statusIn($record),
+            Location::of($unit, self::lineIn($line), Unreported::line()),
+            Mutation::of(self::mutatorOf($mutator, $mutators), MutatorFamily::None, ''),
+            MutantStatus::Killed,
             Unmeasured::duration(),
         );
     }
 
-    /** Whether a record is a full one, rather than the brief one a ledger keeps of a killed mutant. */
+    /** Whether a record is a full one, rather than the killed one a ledger keeps of a killed mutant. */
     public static function isFull(Node $record): bool
     {
         return $record->field(self::DIFF)->isPresent();
@@ -128,9 +145,29 @@ final readonly class MutantRecord
     /** @throws NotInShape */
     private static function idIn(Node $record): MutantId
     {
-        $id = MutantId::parse($record->field(self::ID)->text());
+        return self::idOf($record->field(self::ID));
+    }
 
-        return $id instanceof CannotJudge ? throw NotInShape::at($record->field(self::ID)->at(), 'a mutant id') : $id;
+    /**
+     * @param list<string> $mutators
+     *
+     * @throws NotInShape
+     */
+    private static function mutatorOf(Node $mutator, array $mutators): string
+    {
+        $index = $mutator->integer();
+
+        return array_key_exists($index, $mutators)
+            ? $mutators[$index]
+            : throw NotInShape::at($mutator->at(), 'a mutator');
+    }
+
+    /** @throws NotInShape */
+    private static function idOf(Node $id): MutantId
+    {
+        $parsed = MutantId::parse($id->text());
+
+        return $parsed instanceof CannotJudge ? throw NotInShape::at($id->at(), 'a mutant id') : $parsed;
     }
 
     /** @throws NotInShape */

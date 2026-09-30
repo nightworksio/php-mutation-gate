@@ -49,18 +49,22 @@ use function sprintf;
  * 5. The digest of `vendor/composer/installed.json`.
  * 6. Every file outside the test directories, by its digest, less the
  *    exceptions.
- * 7. The one CI definition that runs the gate, as it runs.
- * 8. Of the test directories, what can judge the unit, each file by its digest.
- * 9. The unit: its path, what judges it, and each of its covered lines with
+ * 7. Every CI definition that runs the gate, as it runs.
+ * 8. Of the test directories, what every key reads: what runs when it is
+ *    loaded, every test file the coverage map does not know, the canary
+ *    group, and what those name, each file by its digest.
+ * 9. Of the test directories, what else can judge the unit, each file by its
+ *    digest.
+ * 10. The unit: its path, what judges it, and each of its covered lines with
  *    the ids of the tests that cover it.
  *
  * Every field is written with its length before it, and every list with its
- * count, so no two sets of inputs hash alike. The first seven are the same
- * for every unit of a run, and are hashed once.
+ * count, so no two sets of inputs hash alike. The first eight are the same
+ * for every unit of a run: they are the run's base, and are hashed once.
  */
 final readonly class ContentKeys
 {
-    public const string FORMAT = 'mutation-gate proof 1';
+    public const string FORMAT = 'mutation-gate proof 2';
 
     private const string ALGORITHM = 'sha256';
 
@@ -80,8 +84,19 @@ final readonly class ContentKeys
     ): self {
         $context = hash_init(self::ALGORITHM);
         self::hashEveryKeyReads($context, $gate, $config, $runner, $installed, $source);
+        hash_update($context, self::testFiles('always', $tests->inEveryKey(), $tests));
 
         return new self($context, $tests);
+    }
+
+    /**
+     * The base every key of the run is built on: the digest of the first
+     * eight inputs, which are the same for every unit. A proof can only be
+     * hit by a key of the base it was established at.
+     */
+    public function base(): Digest
+    {
+        return Digest::of(hash_final(hash_copy($this->everyKey)));
     }
 
     /**
@@ -116,7 +131,7 @@ final readonly class ContentKeys
             $set = $this->setOf($judges);
 
             if (! array_key_exists($set, $read)) {
-                $read[$set] = $this->testsReadBy($judges);
+                $read[$set] = self::testFiles('tests', $this->tests->readBy($judges), $this->tests);
             }
 
             $keys[] = Keys::none()->with(
@@ -210,22 +225,22 @@ final readonly class ContentKeys
         return hash(self::ALGORITHM, self::framed(...$values));
     }
 
-    /** What of the test directories a set of judging test files reads, framed as a key reads it. */
-    private function testsReadBy(Paths $judges): string
+    /** Files of the test directories, each by its digest, in byte order, framed as a key reads them. */
+    private static function testFiles(string $section, Paths $files, Tests $tests): string
     {
         $paths = [];
         $values = [];
 
-        foreach ($this->tests->readBy($judges) as $path) {
+        foreach ($files as $path) {
             $paths[$path->value()] = $path;
             $values[] = $path->value();
         }
 
         sort($values);
-        $read = self::framed('tests', sprintf('%d', count($values)));
+        $read = self::framed($section, sprintf('%d', count($values)));
 
         foreach ($values as $value) {
-            $digest = $this->tests->digestOf($paths[$value]);
+            $digest = $tests->digestOf($paths[$value]);
             $read .= self::framed($value, $digest instanceof Digest ? $digest->value() : self::MISSING);
         }
 

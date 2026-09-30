@@ -19,30 +19,30 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\Bucket;
 
-const IN_THE_BUCKET = 'https://ledgers.s3.eu-west-1.amazonaws.com/mutation-gate/refs/heads/main/ledger.json';
+const IN_THE_BUCKET = 'https://ledgers.s3.eu-west-1.amazonaws.com/mutation-gate/refs/heads/main/ledger.json.gz';
 
 $proved = static fn(): Ledger => Ledger::empty()->withProof(Proof::of(
     Digest::sha256Of('src/Money.php'),
     Path::of('src/Money.php'),
     Mutants::none(),
-    Run::of('github:1/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z'))),
-));
+    Run::of('github:1/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')), Digest::of(str_repeat('b', 64))),
+))->atBase(Digest::of(str_repeat('b', 64)));
 
 $store = static fn(Bucket $bucket): BucketLedger => BucketLedger::of($bucket->client(), 'ledgers', 'mutation-gate');
 
-it('writes a scope\'s ledger as one JSON object under the prefix, and says where', function () use (
+it('writes a scope\'s ledger as one gzipped object under the prefix, and says where', function () use (
     $proved,
     $store,
 ): void {
     $bucket = new Bucket();
 
     expect($store($bucket)->write(Scope::branch('main'), $proved()))
-        ->toEqual(Written::to('s3://ledgers/mutation-gate/refs/heads/main/ledger.json'))
+        ->toEqual(Written::to('s3://ledgers/mutation-gate/refs/heads/main/ledger.json.gz'))
         ->and($bucket->requests)->toBe([[
             'method' => 'PUT',
             'url' => IN_THE_BUCKET,
             'body' => LedgerFile::encode($proved()),
-            'type' => 'Content-Type: application/json',
+            'type' => 'Content-Type: application/gzip',
         ]]);
 });
 
@@ -50,12 +50,12 @@ it('keeps the prefix without its slashes, and no prefix at all where it is empty
     $bucket = new Bucket();
 
     expect(BucketLedger::of($bucket->client(), 'ledgers', '/ci/proofs/')->write(Scope::pullRequest(12), $proved()))
-        ->toEqual(Written::to('s3://ledgers/ci/proofs/refs/pull/12/ledger.json'))
+        ->toEqual(Written::to('s3://ledgers/ci/proofs/refs/pull/12/ledger.json.gz'))
         ->and(BucketLedger::of($bucket->client(), 'ledgers', '')->write(Scope::pullRequest(12), $proved()))
-        ->toEqual(Written::to('s3://ledgers/refs/pull/12/ledger.json'))
+        ->toEqual(Written::to('s3://ledgers/refs/pull/12/ledger.json.gz'))
         ->and(array_column($bucket->requests, 'url'))->toBe([
-            'https://ledgers.s3.eu-west-1.amazonaws.com/ci/proofs/refs/pull/12/ledger.json',
-            'https://ledgers.s3.eu-west-1.amazonaws.com/refs/pull/12/ledger.json',
+            'https://ledgers.s3.eu-west-1.amazonaws.com/ci/proofs/refs/pull/12/ledger.json.gz',
+            'https://ledgers.s3.eu-west-1.amazonaws.com/refs/pull/12/ledger.json.gz',
         ]);
 });
 
@@ -65,7 +65,7 @@ it('addresses a bucket at another endpoint by path', function () use ($proved): 
     BucketLedger::of($client, 'ledgers', 'mutation-gate')->write(Scope::branch('main'), $proved());
 
     expect(array_column($bucket->requests, 'url'))
-        ->toBe(['http://minio.test:9000/ledgers/mutation-gate/refs/heads/main/ledger.json']);
+        ->toBe(['http://minio.test:9000/ledgers/mutation-gate/refs/heads/main/ledger.json.gz']);
 });
 
 it('reads back a scope\'s ledger from its object', function () use ($proved, $store): void {
@@ -91,7 +91,7 @@ it('reads an empty ledger where the bucket fails, costing a run and never a verd
 it('says why a ledger the bucket refused was not written', function () use ($proved, $store): void {
     expect($store(new Bucket(500))->write(Scope::branch('main'), $proved()))
         ->toEqual(NotWritten::because(sprintf(
-            's3://ledgers/mutation-gate/refs/heads/main/ledger.json could not be written: HTTP 500 returned for "%s".',
+            's3://ledgers/mutation-gate/refs/heads/main/ledger.json.gz could not be written: HTTP 500 returned for "%s".',
             IN_THE_BUCKET,
         )));
 });

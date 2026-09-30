@@ -12,3 +12,8 @@ it('writes one key per line, with slashes, text and whole-number floats as they 
 it('replaces bytes that are not UTF-8 rather than refusing them', function (): void {
     expect(Json::encode(['diff' => "a\xB1b"]))->toBe("{\n    \"diff\": \"a\u{FFFD}b\"\n}");
 });
+
+it('writes compactly on one line, with slashes, text and whole-number floats as they are', function (): void {
+    expect(Json::compact(['path' => 'src/Ärger.php', 'seconds' => 2.0, 'lines' => [1], 'diff' => "a\xB1b"]))
+        ->toBe("{\"path\":\"src/Ärger.php\",\"seconds\":2.0,\"lines\":[1],\"diff\":\"a\u{FFFD}b\"}");
+});

@@ -204,7 +204,7 @@ decides are accepted for that release too.
 13. **A run without credentials reads the default branch's proofs from a
     public URL.**
     - **The setting.** `proofs.store.with.publicUrl` (`s3`) is an
-      `https://` base from which `<scope>/ledger.json` is fetched with an
+      `https://` base from which `<scope>/ledger.json.gz` is fetched with an
       anonymous GET, whenever the store has no credentials.
     - **The bucket policy.** The README gives it: public `GetObject` on
       `<prefix>/refs/heads/<default branch>/*` and nothing else. A read of
