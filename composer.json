@@ -143,7 +143,7 @@
         "ci": [
             "@composer validate --strict",
             "@composer normalize --dry-run",
-            "@composer audit",
+            "@composer audit --locked",
             "@lint",
             "@analyse",
             "@refactor",
@@ -160,6 +160,7 @@
         "test": "pest --parallel --exclude-testsuite=Guards",
         "test:coverage": "sh scripts/coverage.sh",
         "test:guards": "pest --testsuite=Guards",
+        "test:guards:ci": "pest --testsuite=Guards --group=ci-only",
         "test:report": "sh scripts/coverage.sh --coverage-clover=coverage/clover.xml --log-junit=coverage/junit.xml"
     },
     "scripts-descriptions": {
@@ -168,6 +169,7 @@
         "test": "Every suite but Guards, in parallel.",
         "test:coverage": "The same run as test, held to 100% line coverage of src (G7).",
         "test:guards": "Plants a violation of every rule in a throwaway copy of the tree and requires each rule to report it (R2).",
+        "test:guards:ci": "The guards CI runs besides: an advisory planted in the lock, and an uncovered line in a copy of its own, run under coverage. They need the network and a coverage driver.",
         "test:report": "The same run as test:coverage, writing the clover and JUnit reports SonarCloud reads to coverage/."
     }
 }
