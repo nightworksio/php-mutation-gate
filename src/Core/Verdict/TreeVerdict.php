@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use NightWorksIO\MutationGate\Core\Baseline\Lowered;
+use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -28,6 +30,7 @@ final readonly class TreeVerdict
         private JudgedMutants $mutants,
         private Uncovered $uncovered,
         private Score|NothingToMutate|Unrecorded $base,
+        private Lowered|Unlowered $lowering,
     ) {
     }
 
@@ -38,13 +41,19 @@ final readonly class TreeVerdict
         JudgedMutants $mutants,
         Uncovered $uncovered,
     ): self {
-        return new self($tree, $baseline, $units, $mutants, $uncovered, Unrecorded::floor());
+        return new self($tree, $baseline, $units, $mutants, $uncovered, Unrecorded::floor(), Unlowered::floor());
     }
 
     /** This verdict, with the score the tree had on the base, for the change against it. */
     public function comparedWith(Score|NothingToMutate $base): self
     {
         return clone($this, ['base' => $base]);
+    }
+
+    /** This verdict, with why the baseline lowered the tree's floor, as its `lowered` says. */
+    public function withLowering(Lowered $lowering): self
+    {
+        return clone($this, ['lowering' => $lowering]);
     }
 
     /** The tree, with the floor it declares. */
@@ -57,6 +66,12 @@ final readonly class TreeVerdict
     public function baseline(): Floor|Unrecorded
     {
         return $this->baseline;
+    }
+
+    /** Why the baseline lowered the tree's floor, where its entry says it did. */
+    public function lowering(): Lowered|Unlowered
+    {
+        return $this->lowering;
     }
 
     /** The higher of the declared floor and the baseline's; undeclared when neither holds one. */

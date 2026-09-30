@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
+use NightWorksIO\MutationGate\Core\Baseline\Lowered;
+use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -103,6 +105,15 @@ it('judges each mutant as reported, marks those on changed lines, and scores the
         ->and([...$http->mutants()][0]->isOnChangedLine())->toBeTrue()
         ->and([...$http->mutants()][1]->isOnChangedLine())->toBeFalse()
         ->and($billing->score())->toEqual(NothingToMutate::found());
+});
+
+it('carries the reason a baseline gives for lowering a tree\'s floor', function () use ($trees, $reach, $results): void {
+    $lowered = Lowered::from(Floor::of(60), 'The HTTP layer moved to integration tests');
+    $baseline = Baseline::of(Entry::of(Path::of('app/Http'), Floor::of(40))->lowered($lowered), Entry::of(Path::of('app'), Floor::of(10)));
+    [$app, $http] = [...Judge::of($trees, $baseline, $reach, Uncovered::Count)->trees($results)];
+
+    expect($http->lowering())->toBe($lowered)
+        ->and($app->lowering())->toEqual(Unlowered::floor());
 });
 
 it('holds the mutants on changed lines to the floor for new code, per package and floor', function () use ($trees, $reach, $results, $mutant): void {

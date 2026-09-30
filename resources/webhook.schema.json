@@ -1,0 +1,104 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://github.com/nightworksio/php-mutation-gate/blob/main/resources/webhook.schema.json",
+    "title": "mutation-gate webhook",
+    "description": "What the webhook reporter posts when the default branch changes state (ADR-0016).",
+    "type": "object",
+    "properties": {
+        "format": {
+            "const": 1
+        },
+        "event": {
+            "enum": [
+                "failed",
+                "cannot-judge",
+                "recovered",
+                "floor-lowered"
+            ]
+        },
+        "repository": {
+            "type": "string"
+        },
+        "ref": {
+            "type": "string"
+        },
+        "commit": {
+            "type": "string"
+        },
+        "run": {
+            "type": "string"
+        },
+        "verdict": {
+            "enum": [
+                "passed",
+                "failed",
+                "cannot-judge"
+            ]
+        },
+        "trees": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string"
+                    },
+                    "floor": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "score": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "previous": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "lowered": {
+                        "type": "object",
+                        "properties": {
+                            "from": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                            },
+                            "reason": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "from"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                "required": [
+                    "path"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "cannotJudge": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "format",
+        "event",
+        "repository",
+        "ref",
+        "commit",
+        "run",
+        "verdict",
+        "trees",
+        "cannotJudge"
+    ],
+    "additionalProperties": false
+}

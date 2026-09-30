@@ -66,7 +66,9 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
+use function range;
 use function sprintf;
+use function str_repeat;
 
 /**
  * The verdicts every reporter's tests render: one that fails with a mutant
@@ -291,6 +293,26 @@ final class Verdicts
             Phase::of(Moment::at('2026-09-30T11:51:10Z'), Seconds::of(10.0)),
             Phase::of(Moment::at('2026-09-30T11:51:20Z'), Seconds::of(10.0)),
         );
+    }
+
+    /** Thirty trees whose paths run to 400 characters, each failing on its one survivor, for a limit to hold against. */
+    public static function crowded(): Verdict
+    {
+        $long = str_repeat('a', 400);
+        $trees = [];
+
+        foreach (range(1, 30) as $each) {
+            $survivor = JudgedMutant::of(self::mutant(sprintf('%s%d/A.php:1', $long, $each), 'Plus', Family::Arithmetic, self::diff('$a + 1;', '$a - 1;')), Judged::Survived);
+            $trees[] = TreeVerdict::judged(
+                Tree::at(Path::of(sprintf('%s%d', $long, $each)), Floor::of(90), Package::at(Path::root())),
+                Unrecorded::floor(),
+                JudgedUnits::none(),
+                JudgedMutants::of($survivor),
+                Uncovered::Count,
+            );
+        }
+
+        return Verdict::of(TreeVerdicts::of(...$trees));
     }
 
     /** One of the verdicts above, by its name, for a dataset to list. */

@@ -11,12 +11,9 @@ use function max;
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
-use NightWorksIO\MutationGate\Core\Cost\RunTimings;
-use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
-use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -24,20 +21,14 @@ use Traversable;
 
 /**
  * `trend.json`: one entry per verdict on the default branch, with its commit,
- * its time, the project's score and each tree's, and the run's runner time
- * and the time a full one-job run would take where the run knew them
- * (ADR-0017, decision 13), keeping the newest 500. A set with nothing to
- * mutate has no score in its entry. Reading drops an entry that is not in
- * shape rather than repair it.
+ * its time, what it judged, the project's score and each tree's, each tree's
+ * floor (ADR-0016, decision 10), and the run's runner time and the time a
+ * full one-job run would take where the run knew them (ADR-0017, decision
+ * 13), keeping the newest 500. A set with nothing to mutate has no score in
+ * its entry, and a tree held to no floor no floor. Reading drops an entry
+ * that is not in shape rather than repair it.
  *
- * @phpstan-type Entry array{
- *     commit: string,
- *     time: string,
- *     score?: float,
- *     trees: array<string, float>,
- *     runnerSeconds?: float,
- *     fullRunSeconds?: float,
- * }
+ * @phpstan-import-type Entry from TrendRecord
  */
 final readonly class Trend
 {
@@ -71,7 +62,7 @@ final readonly class Trend
 
         foreach ($items as $item) {
             try {
-                $runs[] = self::read($item);
+                $runs[] = TrendRecord::read($item);
             } catch (NotInShape) {
                 continue;
             }
@@ -83,28 +74,7 @@ final readonly class Trend
     /** This trend, and a verdict's entry, keeping the newest. */
     public function with(Verdict $verdict, Revision $commit, Instant $time): self
     {
-        $score = Overview::of($verdict)->score();
-        $trees = [];
-
-        foreach ($verdict->trees() as $tree) {
-            $treeScore = $tree->score();
-
-            if ($treeScore instanceof Score) {
-                $trees[$tree->tree()->path()->value()] = $treeScore->percent();
-            }
-        }
-
-        $timings = $verdict->account()->timings();
-        $savings = $verdict->account()->savings();
-        $run = [
-            'commit' => $commit->name(),
-            'time' => $time->value(),
-            ...$score instanceof Score ? ['score' => $score->percent()] : [],
-            'trees' => $trees,
-            ...$timings instanceof RunTimings ? ['runnerSeconds' => $timings->spent()->runner()->seconds()] : [],
-            ...$savings instanceof Savings ? ['fullRunSeconds' => $savings->fullRun()->seconds()] : [],
-        ];
-        $runs = [...$this->runs, $run];
+        $runs = [...$this->runs, TrendRecord::of($verdict, $commit, $time)];
 
         return new self(array_slice($runs, count($runs) > self::KEPT ? count($runs) - self::KEPT : 0));
     }
@@ -112,6 +82,12 @@ final readonly class Trend
     public function json(): string
     {
         return JsonText::encode(['format' => self::FORMAT, 'runs' => $this->runs]);
+    }
+
+    /** The newest entry: what the verdict before this run judged, and each tree's floor and score. */
+    public function newest(): TrendEntry
+    {
+        return $this->runs === [] ? TrendEntry::none() : TrendRecord::entry($this->runs[count($this->runs) - 1]);
     }
 
     /**
@@ -147,32 +123,5 @@ final readonly class Trend
         }
 
         return $known ? Seconds::of($saved) : NoHistory::yet();
-    }
-
-    /**
-     * @return Entry
-     *
-     * @throws NotInShape
-     */
-    private static function read(Node $item): array
-    {
-        $trees = [];
-
-        foreach ($item->field('trees')->entries() as $path => $score) {
-            $trees[$path] = $score->number();
-        }
-
-        $score = $item->field('score');
-        $runner = $item->field('runnerSeconds');
-        $fullRun = $item->field('fullRunSeconds');
-
-        return [
-            'commit' => $item->field('commit')->text(),
-            'time' => $item->field('time')->text(),
-            ...$score->isPresent() ? ['score' => $score->number()] : [],
-            'trees' => $trees,
-            ...$runner->isPresent() ? ['runnerSeconds' => $runner->number()] : [],
-            ...$fullRun->isPresent() ? ['fullRunSeconds' => $fullRun->number()] : [],
-        ];
     }
 }

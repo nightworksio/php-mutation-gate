@@ -201,6 +201,21 @@ Operating the gate raises four needs its reports do not yet meet.
       which gains a `verdict` field (ADR-0009 decision 5). It is restored
       into `--publish-dir` as the badge is.
     - With no previous state, only a failure alerts.
+    - **How a change is read.** Each `trend.json` entry also records each
+      tree's floor, under `floors`. Against the newest entry:
+      - *failed* fires when the verdict failed and the entry did not, or
+        recorded no judgement;
+      - *cannot judge* fires when the entry judged something else;
+      - *recovered* fires when the verdict passed and the entry failed or
+        could not judge;
+      - *floor lowered* fires when a tree's floor is below the floor the
+        entry recorded, so once, and names the reason the baseline's
+        `lowered` gives.
+
+      One verdict may alert twice, a lowered floor beside the recovery it
+      brought. `Alerts::of(Verdict)` gives them. It reads the trend the flows
+      hand the verdict on the default branch (ADR-0017 decision 13), and a
+      verdict with none alerts nothing.
     - A run cut short by its budget never alerts, as it never updates the
       badge (ADR-0009 decision 5).
     - Pull requests never alert. Their authors have the sticky comment.
@@ -232,6 +247,27 @@ Operating the gate raises four needs its reports do not yet meet.
       `X-Mutation-Gate-Signature: sha256=<HMAC-SHA256 of the body>`.
     - Every chat limit, Discord's 2,000 characters among them, holds by
       construction.
+    - **The layout.** The title is *mutation-gate: failed on octo/gate
+      main*. The groups under it are:
+      - for a failure: *Below the floor*, one line a tree, as `` `src`:
+        72.50%, below its floor of 80.00%; it was 81.00%. ``; then
+        *Failures*; then *Survivors*, each as `` `src/Money.php:7`
+        LessThan, survived ``;
+      - for *cannot judge*: *Why*, the reasons;
+      - for a recovery: *Trees*, each passing tree against its floor;
+      - for a lowered floor: *Floors lowered*, as `` `src`: its floor went
+        from 90.00% to 80.00%. `` and the reason, or *The baseline gives no
+        reason.*
+
+      A path or reason is cut at 120 characters. A block that would pass its
+      limit keeps the whole lines that fit and says *And 3 more.*
+    - **The webhook's trees** are every tree the verdict judged. A tree
+      whose floor went down also carries `"lowered": {"from", "reason"?}`,
+      and the payload carries `"cannotJudge"`, the reasons, which is empty
+      for a verdict that judged. A tree leaves out a floor, score or previous
+      score it has none of.
+    - **What an alert says of its run** is a `Core\Ci\CiRun`: the
+      repository, the full ref, the full commit and the run's link.
 
 13. **An alert is sent within 10 seconds or reported unsent.**
     - The request times out at 10 seconds.

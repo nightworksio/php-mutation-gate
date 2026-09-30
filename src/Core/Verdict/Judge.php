@@ -9,6 +9,9 @@ use function array_merge;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
+use NightWorksIO\MutationGate\Core\Baseline\Entry;
+use NightWorksIO\MutationGate\Core\Baseline\Lowered;
+use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -90,13 +93,17 @@ final readonly class Judge
             $mutants[] = [...$this->judged($result->mutants())];
         }
 
-        return TreeVerdict::judged(
+        $verdict = TreeVerdict::judged(
             $tree,
             $this->baseline->floorOf($tree->path()),
             JudgedUnits::of(...$units),
             JudgedMutants::of(...array_merge(...$mutants)),
             $this->uncovered,
         );
+        $entry = $this->baseline->entryOf($tree->path());
+        $lowering = $entry instanceof Entry ? $entry->lowering() : Unlowered::floor();
+
+        return $lowering instanceof Lowered ? $verdict->withLowering($lowering) : $verdict;
     }
 
     private function judged(Mutants $mutants): JudgedMutants

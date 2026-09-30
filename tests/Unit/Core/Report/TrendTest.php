@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Report\Trend;
+use NightWorksIO\MutationGate\Core\Report\TrendEntry;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Score;
+use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
-it('appends a verdict\'s entry: its commit, time, the project\'s score and each tree\'s', function (): void {
+it('appends a verdict\'s entry: its commit, time, judgement, the project\'s score, each tree\'s and each floor', function (): void {
     $trend = Trend::none()->with(Verdicts::failing(), Revision::ref('abc123'), Moment::at('2026-09-30T10:00:00Z'));
 
     expect(Decoded::at($trend->json()))->toBe([
@@ -18,8 +24,10 @@ it('appends a verdict\'s entry: its commit, time, the project\'s score and each 
         'runs' => [[
             'commit' => 'abc123',
             'time' => '2026-09-30T10:00:00Z',
+            'verdict' => 'failed',
             'score' => 37.5,
             'trees' => ['src' => 37.5],
+            'floors' => ['src' => 80.0, 'src/Empty' => 90.0],
         ]],
     ])
         ->and(iterator_to_array($trend->scores(), preserve_keys: false))->toBe([37.5]);
@@ -31,7 +39,9 @@ it('leaves out the score of a set with nothing to mutate', function (): void {
     expect(Decoded::at($trend->json(), 'runs', 0))->toBe([
         'commit' => 'abc123',
         'time' => '2026-09-30T10:00:00Z',
+        'verdict' => 'passed',
         'trees' => [],
+        'floors' => ['src' => 80.0],
     ])
         ->and(iterator_to_array($trend->scores(), preserve_keys: false))->toBe([]);
 });
@@ -64,6 +74,9 @@ it('drops an entry that is not in shape, and reads text that is not a trend as n
         ['commit' => 'kept', 'time' => '2026-09-30T10:00:00Z', 'score' => 80, 'trees' => ['src' => 80]],
         ['commit' => 'no time', 'trees' => []],
         ['commit' => 'a tree as text', 'time' => '2026-09-30T10:00:00Z', 'trees' => ['src' => 'high']],
+        ['commit' => 'a score past 100', 'time' => '2026-09-30T10:00:00Z', 'trees' => ['src' => 101]],
+        ['commit' => 'a floor below 0', 'time' => '2026-09-30T10:00:00Z', 'trees' => [], 'floors' => ['src' => -1]],
+        ['commit' => 'an unknown verdict', 'time' => '2026-09-30T10:00:00Z', 'trees' => [], 'verdict' => 'fine'],
     ]]));
 
     expect(Decoded::column($trend->json(), 'commit', 'runs'))->toBe(['kept'])
@@ -95,4 +108,26 @@ it('sums what the runs since an instant saved, never less than nothing each', fu
         ->and($trend->savedSince(Moment::at('2026-09-01T00:00:00Z')))->toEqual(Seconds::of(0.0))
         ->and($trend->savedSince(Moment::at('2026-10-01T00:00:00Z')))->toEqual(NoHistory::yet())
         ->and(Trend::none()->savedSince(Moment::at('2026-08-31T12:00:00Z')))->toEqual(NoHistory::yet());
+});
+
+it('hands on its newest entry: what that verdict judged, and each tree\'s floor and score', function (): void {
+    $trend = Trend::none()
+        ->with(Verdicts::passing(), Revision::ref('one'), Moment::at('2026-09-30T10:00:00Z'))
+        ->with(Verdicts::failing(), Revision::ref('two'), Moment::at('2026-09-30T11:00:00Z'));
+    $newest = Trend::decode($trend->json())->newest();
+
+    expect($newest->verdict())->toBe(Judgement::Failed)
+        ->and($newest->floorOf(Path::of('src')))->toEqual(Floor::of(80))
+        ->and($newest->scoreOf(Path::of('src')))->toEqual(Score::ofHundredths(3_750))
+        ->and($newest->floorOf(Path::of('app/Legacy')))->toEqual(Unrecorded::floor())
+        ->and($newest->scoreOf(Path::of('src/Empty')))->toEqual(Unrecorded::floor());
+});
+
+it('hands on an entry that recorded nothing where it has none, or its newest came before judgements were kept', function (): void {
+    $old = Trend::decode('{"format": 1, "runs": [{"commit": "a", "time": "2026-09-30T10:00:00Z", "trees": {"src": 80}}]}');
+
+    expect(Trend::none()->newest())->toEqual(TrendEntry::none())
+        ->and($old->newest()->verdict())->toEqual(Unrecorded::floor())
+        ->and($old->newest()->floorOf(Path::of('src')))->toEqual(Unrecorded::floor())
+        ->and($old->newest()->scoreOf(Path::of('src')))->toEqual(Score::ofHundredths(8_000));
 });

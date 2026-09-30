@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Baseline\Lowered;
+use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
@@ -125,3 +127,18 @@ it('raises its baseline to a score above the floor it was held to, and to nothin
     'with nothing to mutate' => [Undeclared::floor(), Unrecorded::floor(), JudgedMutants::none(), Unraised::floor()],
     'exempt' => [Exempt::because('Generated code'), Unrecorded::floor(), $threeOfFour, Unraised::floor()],
 ]);
+
+it('carries why the baseline lowered its floor, and has no reason until it is given one', function (): void {
+    $verdict = TreeVerdict::judged(
+        Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())),
+        Floor::of(60),
+        JudgedUnits::none(),
+        JudgedMutants::none(),
+        Uncovered::Count,
+    );
+    $lowered = Lowered::from(Floor::of(70), 'Legacy code joined the tree');
+
+    expect($verdict->lowering())->toEqual(Unlowered::floor())
+        ->and($verdict->withLowering($lowered)->lowering())->toBe($lowered)
+        ->and($verdict->withLowering($lowered)->floor())->toEqual(Floor::of(60));
+});

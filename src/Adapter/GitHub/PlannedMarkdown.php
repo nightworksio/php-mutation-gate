@@ -9,6 +9,7 @@ use function array_slice;
 use function count;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
 use NightWorksIO\MutationGate\Core\Report\Escape;
 
@@ -30,8 +31,6 @@ final readonly class PlannedMarkdown
     private const string UNITS = '<details><summary>Units (%d)</summary>';
 
     private const string UNCOVERED = '### Changed lines no test covers (%d)';
-
-    private const string MORE = 'And %d more.';
 
     private const string RUN = '[The run](%s) replaces this with its verdict.';
 
@@ -107,7 +106,7 @@ final readonly class PlannedMarkdown
 
         return [
             implode("\n", array_slice($entries, 0, Markdown::COMMENTED)),
-            ...$left > 0 ? [sprintf(self::MORE, $left)] : [],
+            ...$left > 0 ? [Fit::more($left)] : [],
         ];
     }
 
