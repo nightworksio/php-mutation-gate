@@ -493,3 +493,58 @@ it('uses none of its own scope where the default branch proved what it took', fu
     expect($store->read(Scope::pullRequest(7))->lastPassed())
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0));
 });
+
+it('cannot judge where a unit the plan proved or carried has lost its proof', function () use (
+    $tree,
+    $reporting,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::of()
+        ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
+        ->proving(Units::of(Planned::money()))
+        ->carrying(Units::of(Planned::held()));
+
+    $judgement = new Judging(
+        Flows::adapters($project, [], $store, $tree(Floor::of(100))),
+        judgingSettings(),
+        Flows::setup(),
+        $reporting(new ReporterFake()),
+    )->verdict($plan, judgingNoResults($project));
+
+    expect($judgement)->toEqual(CannotJudge::because(<<<'SAID'
+        The ledger no longer holds a proof the plan took, so these units cannot be judged:
+        src/Money.php, src/Held.php
+        A proof pruned, or a cache replaced, between the plan and the verdict does this. Plan the run again.
+        SAID))
+        ->and($store->read(Scope::pullRequest(7)))->toEqual(Ledger::empty());
+});
+
+it('takes a planned proof from the run\'s own scope where it has moved there from the default branch', function () use (
+    $tree,
+    $reporting,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::of()
+        ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
+        ->proving(Units::of(Planned::money()));
+    $run = Run::of('github:1/1', Moment::at('2026-09-29T12:00:00Z'), $plan->base());
+    $mutants = RunnerFake::ofTheFixture()
+        ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()))
+        ->mutants();
+    $store->write(Scope::pullRequest(7), Ledger::empty()->withProof(
+        Proof::of(Digest::sha256Of('money'), Path::of('src/Money.php'), $mutants, $run),
+    ));
+
+    $judgement = new Judging(
+        Flows::adapters($project, [], $store, $tree(Floor::of(50))),
+        judgingSettings(),
+        Flows::setup(),
+        $reporting(new ReporterFake()),
+    )->verdict($plan, judgingNoResults($project));
+
+    expect($judgement instanceof Judged ? count($judgement->verdict->units()) : $judgement)->toBe(1)
+        ->and($store->read(Scope::pullRequest(7))->lastPassed())
+        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1));
+});

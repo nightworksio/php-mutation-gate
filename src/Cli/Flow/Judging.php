@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function count;
+use function implode;
 use function is_array;
 
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
@@ -17,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -49,6 +51,12 @@ use function sprintf;
 final readonly class Judging
 {
     private const string UNFLOORED = '%s has no floor yet. Run mutation-gate baseline --write and commit %s.';
+
+    private const string VANISHED = <<<'SAID'
+        The ledger no longer holds a proof the plan took, so these units cannot be judged:
+        %s
+        A proof pruned, or a cache replaced, between the plan and the verdict does this. Plan the run again.
+        SAID;
 
     public function __construct(
         private Adapters $adapters,
@@ -93,7 +101,7 @@ final readonly class Judging
         $judge = Judge::of($trees, $baseline, $this->reachOf($plan, $trees), $uncovered);
         $verdicts = $judge->trees($results->units()->and($proving->proved())->and($carrying->carried()));
         $unfloored = Ratchet::unfloored($verdicts);
-        $committed = $this->committedBefore($plan);
+        $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));
 
         if (count($unfloored) > 0 && $this->adapters->environment->inCi()) {
             return CannotJudge::because(
@@ -145,6 +153,27 @@ final readonly class Judging
             : Failures::none();
 
         return $required->and($lowered);
+    }
+
+    /**
+     * The committed baseline, where every unit the plan took from a proof
+     * still has it: a unit whose proof has gone would leave its tree judged
+     * without it.
+     */
+    private function resolved(
+        Proving $proving,
+        Considering $carrying,
+        Baseline|CannotJudge $committed,
+    ): Baseline|CannotJudge {
+        $vanished = [];
+
+        foreach ([...$proving->toRun(), ...$carrying->considered()] as $unit) {
+            $vanished[] = $unit->path()->value();
+        }
+
+        return $vanished === []
+            ? $committed
+            : CannotJudge::because(sprintf(self::VANISHED, implode(', ', $vanished)));
     }
 
     /** The baseline a floor lowered in a pull request is checked against; none outside one. */
