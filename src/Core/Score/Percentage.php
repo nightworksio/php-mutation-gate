@@ -33,6 +33,12 @@ final readonly class Percentage
         return new self(self::WHOLE);
     }
 
+    /** None of it: 0 percent. */
+    public static function none(): self
+    {
+        return new self(0);
+    }
+
     /** A percentage as written, or why it is none. */
     public static function parse(int|float $percent): self|NotAPercentage
     {

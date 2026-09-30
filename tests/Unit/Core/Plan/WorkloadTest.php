@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Cost\CostBasis;
+use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\PackageWork;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
@@ -13,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 $weighed = static fn(string $path, string $package): Weighed => Weighed::of(
     Unit::file(Path::of($path)),
     Package::at(Path::of($package)),
-    Seconds::of(1.0),
+    Estimated::of(Seconds::of(1.0), CostBasis::Guessed),
 );
 
 it('counts its units', function () use ($weighed): void {

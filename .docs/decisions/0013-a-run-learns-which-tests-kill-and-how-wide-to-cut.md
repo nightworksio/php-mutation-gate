@@ -174,6 +174,10 @@ decides are accepted for that release too.
      layer of config that sets both stops with exit code 2, naming both keys.
      One a later layer sets replaces the other an earlier layer set
      (ADR-0002, decision 5).
+   - **A target `shards.max` stops short is said.** Where the longest shard,
+     with its opening run and setup, is still expected past the target at
+     `shards.max` shards, `plan` warns, naming the target, the most shards and
+     the longest shard's time.
    - `shards.target` judges or reports only, like the other `shards` keys
      (ADR-0007 decision 2.3).
 

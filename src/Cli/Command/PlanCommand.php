@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Written;
 
@@ -79,10 +80,31 @@ final readonly class PlanCommand
             return Failed::because($output, $published);
         }
 
-        Aside::of($output)->writeln(sprintf('Wrote %s, with %d shards.', Workspace::plan()->value(), count($plan)));
-        self::saidIfUnpatched($composed, count($plan), Aside::of($output));
+        $aside = Aside::of($output);
+        $aside->writeln(sprintf('Wrote %s, with %d shards.', Workspace::plan()->value(), count($plan)));
+        self::estimated($composed, $plan, $aside);
+        self::saidIfUnpatched($composed, count($plan), $aside);
 
         return ExitCode::Passed->value;
+    }
+
+    /**
+     * What each shard and the run are expected to take, and what that rests
+     * on; and where `shards.target` cannot be met under `shards.max`, a line
+     * that says so.
+     */
+    private static function estimated(Composed $composed, Plan $plan, OutputInterface $aside): void
+    {
+        $shards = $composed->settings->shards();
+        $estimates = PlanEstimates::of($plan, $shards->setup());
+
+        foreach ($estimates->lines() as $line) {
+            $aside->writeln($line, OutputInterface::OUTPUT_RAW);
+        }
+
+        foreach ($estimates->unmet($shards->target(), $shards->max()) as $warning) {
+            $aside->writeln($warning->text(), OutputInterface::OUTPUT_RAW);
+        }
     }
 
     /** One line where a sharded plan's runner has each shard pay a full opening run, as Pest without the patch does. */

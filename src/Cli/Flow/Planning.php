@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -101,13 +102,15 @@ final readonly class Planning
         );
         $keys = $keying->keysOf($considering->considered());
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base());
+        $opening = $map->suiteDuration();
         $shards = $this->shardsOf(
             $proving->toRun(),
             $inventory->trees,
             $ledgers,
-            $cut->opening($map->suiteDuration()),
+            $cut->opening($opening),
             $this->riskOrder($reached, $inventory->trees, $ledgers, $proving->toRun()),
         );
+        $shards = $shards instanceof Shards ? $this->opening($shards, $opening) : $shards;
         $changed = $this->newCode($inventory->standing, $reached);
 
         return match (true) {
@@ -164,6 +167,18 @@ final readonly class Planning
         $changed = $this->adapters->changes->lastChanged($order->least($units));
 
         return $changed instanceof ByPath ? $order->knowing($changed) : $order;
+    }
+
+    /** The shards, each expecting its runner to pay this opening run first. */
+    private function opening(Shards $shards, Seconds $opening): Shards
+    {
+        $opened = [];
+
+        foreach ($shards as $shard) {
+            $opened[] = $shard->estimated($shard->estimate()->opening($opening));
+        }
+
+        return Shards::of(...$opened);
     }
 
     /**
@@ -246,11 +261,7 @@ final readonly class Planning
             $tree = $trees->holding($unit->path());
 
             if ($tree instanceof Tree) {
-                $weighed[] = Weighed::of(
-                    $unit,
-                    $tree->package(),
-                    $this->adapters->costs->cost($unit, $ledgers->timings()),
-                );
+                $weighed[] = Weighed::of($unit, $tree->package(), $ledgers->estimated($this->adapters->costs, $unit));
             }
         }
 

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\CostBasis;
+use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -19,7 +21,7 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 $weighed = static fn(string $path, float $cost, string $package = '.'): Weighed => Weighed::of(
     Unit::file(Path::of($path)),
     Package::at(Path::of($package)),
-    Seconds::of($cost),
+    Estimated::of(Seconds::of($cost), CostBasis::Guessed),
 );
 
 $src = Trees::of(Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root())));

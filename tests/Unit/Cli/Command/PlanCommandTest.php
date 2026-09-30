@@ -50,7 +50,13 @@ it('writes the plan, hands it to the CI, and hands each shard its map', function
 
     expect($planned->code)->toBe(0)
         ->and($planned->output)->toBe('')
-        ->and($planned->errors)->toBe("Wrote .mutation-gate/plan.json, with 2 shards.\n")
+        ->and($planned->errors)->toBe(<<<'SAID'
+            Wrote .mutation-gate/plan.json, with 2 shards.
+            Shard 1 (src, part 1 of 2): about 1m, guessed.
+            Shard 2 (src, part 2 of 2): about 1m, guessed.
+            The plan expects about 1m of wall time and 2m of runner time: 0% learned, 0% measured, 100% guessed.
+
+            SAID)
         ->and($written)->toBeInstanceOf(Plan::class)
         ->and($ci->published)->toEqual([$written])
         ->and($written instanceof Plan ? count($written) : $written)->toBe(2)
@@ -78,7 +84,18 @@ it('cuts shards by the config\'s size where no count is asked for', function () 
     $planned = $plan(FlowCommands::project(), '', ScriptedRunner::fixture(), Flows::ci());
 
     expect($planned->code)->toBe(0)
-        ->and($planned->errors)->toBe("Wrote .mutation-gate/plan.json, with 1 shards.\n");
+        ->and($planned->errors)->toStartWith("Wrote .mutation-gate/plan.json, with 1 shards.\nShard 1 (src): about");
+});
+
+it('warns where shards.max stops the plan meeting shards.target', function () use ($plan): void {
+    $planned = $plan(FlowCommands::project('"shards": {"target": "30s", "max": 1}'), '', ScriptedRunner::fixture(), Flows::ci());
+
+    expect($planned->code)->toBe(0)
+        ->and($planned->errors)->toEndWith(<<<'SAID'
+            shards.target is 30s, and at shards.max of 1 shards the longest is expected to take 1m.
+            Raise shards.max, or shards.target, to meet it.
+
+            SAID);
 });
 
 it('cannot plan with a config it cannot read', function () use ($plan): void {
@@ -140,7 +157,8 @@ it('says each shard pays a full opening run where Pest runs sharded without the 
     $planned = $plan(FlowCommands::project(), '--shards=2', ScriptedRunner::fixture()->likePest(), Flows::ci());
 
     expect($planned->code)->toBe(0)
-        ->and($planned->errors)->toBe(sprintf("Wrote .mutation-gate/plan.json, with 2 shards.\n%s", $unpatched(2)));
+        ->and($planned->errors)->toStartWith("Wrote .mutation-gate/plan.json, with 2 shards.\n")
+        ->and($planned->errors)->toEndWith($unpatched(2));
 });
 
 it('says nothing of the patch where the plan has one shard, or no shard pays its own opening run', function (
@@ -149,7 +167,8 @@ it('says nothing of the patch where the plan has one shard, or no shard pays its
 ) use ($plan): void {
     $planned = $plan(FlowCommands::project(), sprintf('--shards=%s', $shards), $runner, Flows::ci());
 
-    expect($planned->errors)->toBe(sprintf("Wrote .mutation-gate/plan.json, with %s shards.\n", $shards));
+    expect($planned->errors)->toStartWith(sprintf("Wrote .mutation-gate/plan.json, with %s shards.\n", $shards))
+        ->and($planned->errors)->not->toContain('opening run under coverage');
 })->with([
     'Pest with the patch' => ['2', ScriptedRunner::fixture()->likePatchedPest(Group::named('mutation-canary'))],
     'one shard' => ['1', ScriptedRunner::fixture()->likePest()],

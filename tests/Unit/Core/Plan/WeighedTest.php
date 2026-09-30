@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Cost\CostBasis;
+use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -12,7 +14,7 @@ it('holds a unit, its package and its cost', function (): void {
     $unit = Unit::file(Path::of('src/Money.php'));
     $package = Package::at(Path::root());
     $cost = Seconds::of(12.4);
-    $weighed = Weighed::of($unit, $package, $cost);
+    $weighed = Weighed::of($unit, $package, Estimated::of($cost, CostBasis::Guessed));
 
     expect($weighed->unit())->toBe($unit)
         ->and($weighed->package())->toBe($package)

@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
+use NightWorksIO\MutationGate\Core\Cost\CostBasis;
+use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
@@ -18,7 +20,10 @@ use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Port\CostModel;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
 /**
@@ -95,6 +100,17 @@ final readonly class Ledgers
     public function timings(): Timings
     {
         return $this->defaultBranch->timings()->and($this->own->timings());
+    }
+
+    /** What the cost model expects of this unit, learned where a ledger timed it, guessed where none did. */
+    public function estimated(CostModel $costs, Unit $unit): Estimated
+    {
+        $timings = $this->timings();
+
+        return Estimated::of(
+            $costs->cost($unit, $timings),
+            $timings->secondsFor($unit->path()) instanceof Seconds ? CostBasis::Learned : CostBasis::Guessed,
+        );
     }
 
     /**
