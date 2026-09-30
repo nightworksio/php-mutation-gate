@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Git;
 
 use function array_filter;
+use function array_key_exists;
 use function array_map;
 use function array_pop;
 use function explode;
@@ -35,8 +36,11 @@ use function trim;
  * base of a revision and HEAD to what is on disk, every file that is not
  * ignored with its blob id, and a file as it was at a revision. Uncommitted
  * changes and untracked files count.
+ *
+ * A revision is resolved to its commit once, the first time a file is read
+ * at it, so every file read at it is read at the same commit.
  */
-final readonly class Git implements ChangeSource
+final class Git implements ChangeSource
 {
     /** Why a revision cannot be read from. */
     private const string UNKNOWN = '%s is not a revision this repository has.';
@@ -44,7 +48,10 @@ final readonly class Git implements ChangeSource
     /** Why a file's name cannot be handed to git one per line. */
     private const string LINE_BREAK = 'git cannot hash "%s" with the others, because its name holds a line break.';
 
-    private function __construct(private Command $git, private string $directory)
+    /** @var array<string, string|CannotTell> each revision read at, by its name: its commit, or why it has none */
+    private array $commits = [];
+
+    private function __construct(private readonly Command $git, private readonly string $directory)
     {
     }
 
@@ -73,15 +80,28 @@ final readonly class Git implements ChangeSource
             return $this->read($path);
         }
 
-        $commit = $this->git->run(['rev-parse', sprintf('%s^{commit}', $revision->name())]);
+        $commit = $this->commitOf($revision);
 
         if ($commit instanceof CannotTell) {
-            return CannotTell::because(sprintf(self::UNKNOWN, $revision->name()));
+            return $commit;
         }
 
-        $blob = $this->git->run(['cat-file', 'blob', sprintf('%s:./%s', trim($commit), $path->value())]);
+        $blob = $this->git->run(['cat-file', 'blob', sprintf('%s:./%s', $commit, $path->value())]);
 
         return is_string($blob) ? Contents::of($blob) : Missing::at($path);
+    }
+
+    /** The commit a revision names, resolved the first time it is asked for. */
+    private function commitOf(Revision $revision): string|CannotTell
+    {
+        if (! array_key_exists($revision->name(), $this->commits)) {
+            $commit = $this->git->run(['rev-parse', sprintf('%s^{commit}', $revision->name())]);
+            $this->commits[$revision->name()] = $commit instanceof CannotTell
+                ? CannotTell::because(sprintf(self::UNKNOWN, $revision->name()))
+                : trim($commit);
+        }
+
+        return $this->commits[$revision->name()];
     }
 
     private function changesFrom(string $commit): Changes|CannotTell

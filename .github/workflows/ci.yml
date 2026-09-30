@@ -266,6 +266,18 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      # The fixture resolves its dependencies twice, lowest and highest, with
+      # no lock, so each resolution sees the Pest releases of the day. What it
+      # downloads for both is cached by the fixture's manifest and the root
+      # lock, whose php-code-coverage it pins.
+      - name: find Composer's download cache
+        id: composer-files
+        run: echo "dir=$(composer config --global cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-files.outputs.dir }}
+          key: runner-fixture-${{ runner.os }}-${{ hashFiles('tests/Contract/Runner/fixture/composer.json', 'composer.lock') }}
+          restore-keys: runner-fixture-${{ runner.os }}-
       - name: install the lowest supported Pest into the fixture library
         working-directory: tests/Contract/Runner/fixture
         run: |
