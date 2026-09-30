@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\File\GitIgnore;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -25,10 +24,9 @@ final readonly class Observations
         private InstalledRunners|NotGiven $runners,
         private Settings|Invalid|CannotJudge|NotGiven $settings,
         private Trees|Invalid|CannotJudge|NotGiven $trees,
-        private GitIgnore|NotGiven $gitIgnore,
-        private InfectionConfig|NotGiven $infection,
         private Markers|NotGiven $markers,
-        private ComposerSetup|NotGiven $composer,
+        private ProjectFiles $files,
+        private KeptLedgers|NotGiven $ledgers,
         private DateTimeImmutable|NotGiven $now,
     ) {
     }
@@ -37,7 +35,7 @@ final readonly class Observations
     {
         $none = NotGiven::value();
 
-        return new self($none, $none, $none, $none, $none, $none, $none, $none, $none);
+        return new self($none, $none, $none, $none, $none, ProjectFiles::none(), $none, $none);
     }
 
     /** These, with the PHP the runner runs its tests on, or why it could not be read. */
@@ -63,28 +61,22 @@ final readonly class Observations
         return clone($this, ['trees' => $trees]);
     }
 
-    /** These, with the project's `.gitignore`, empty where it has none. */
-    public function withGitIgnore(GitIgnore $gitIgnore): self
-    {
-        return clone($this, ['gitIgnore' => $gitIgnore]);
-    }
-
-    /** These, with the project's Infection config, where it has one. */
-    public function withInfection(InfectionConfig $infection): self
-    {
-        return clone($this, ['infection' => $infection]);
-    }
-
     /** These, with the runner's own ignore markers in the trees. */
     public function withMarkers(Markers $markers): self
     {
         return clone($this, ['markers' => $markers]);
     }
 
-    /** These, with how `composer.json` installs the project's packages. */
-    public function withComposer(ComposerSetup $composer): self
+    /** These, with what the project's own files say. */
+    public function withFiles(ProjectFiles $files): self
     {
-        return clone($this, ['composer' => $composer]);
+        return clone($this, ['files' => $files]);
+    }
+
+    /** These, with every ledger the proof store keeps. */
+    public function withLedgers(KeptLedgers $ledgers): self
+    {
+        return clone($this, ['ledgers' => $ledgers]);
     }
 
     /** These, as of the instant they were read. */
@@ -113,24 +105,19 @@ final readonly class Observations
         return $this->trees;
     }
 
-    public function gitIgnore(): GitIgnore|NotGiven
-    {
-        return $this->gitIgnore;
-    }
-
-    public function infection(): InfectionConfig|NotGiven
-    {
-        return $this->infection;
-    }
-
     public function markers(): Markers|NotGiven
     {
         return $this->markers;
     }
 
-    public function composer(): ComposerSetup|NotGiven
+    public function files(): ProjectFiles
     {
-        return $this->composer;
+        return $this->files;
+    }
+
+    public function ledgers(): KeptLedgers|NotGiven
+    {
+        return $this->ledgers;
     }
 
     public function now(): DateTimeImmutable|NotGiven

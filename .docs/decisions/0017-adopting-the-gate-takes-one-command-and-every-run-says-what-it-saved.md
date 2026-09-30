@@ -233,13 +233,13 @@ would have cost without them.
     | `opcache.enable_cli` or `opcache.file_cache` on, which leaves mutants judged by reference unjudged (ADR-0004 decision 8) | will fail |
     | Both runners installed, and no `runner` | will fail |
     | No tree found | will fail |
-    | A tree with no floor and no baseline, in a CI definition the gate runs in | will fail (decision 6) |
+    | A tree with no floor and no baseline, where a CI definition runs the gate; advice where none does | will fail (decision 6) |
     | Native markers under `refuse` | will fail (decision 7) |
     | A mirrored path repository (`symlink: false`) holding a tree | will fail |
     | `pest.patch: true` without `pest:patch` in `post-install-cmd` and `post-update-cmd` | will fail |
     | Pest with more than one shard in the recorded timings, and no `pest.patch` | slow: the opening run × (shards − 1) |
     | A hot path nothing holds (ADR-0005 decision 11) | slow: its units' timings |
-    | A ledger over 25 MB compressed, or at its proof cap with a low hit rate | slow |
+    | A ledger over 25 MB compressed, or at its proof cap with under 50% hits over its last 10 runs | slow |
     | One file outside the tests that invalidated most proofs in recent runs, found by comparing the digests of each item of the key, which every proof keeps (ADR-0007 decision 3) | slow |
     | A GitHub workflow that checks out without `fetch-depth: 0` | slow: everything is reached |
     | A GitHub workflow with no `schedule`, `cache: false` on the directory store, the action pinned by tag, or `persist-credentials` left on | advice |
@@ -247,7 +247,8 @@ would have cost without them.
     | `.mutation-gate/` not in `.gitignore` | advice |
     | An `infection.json5` with `minMsi` or native ignores | advice: `init --from` (ADR-0016) |
 
-    The ledger threshold is calibrated from the benchmark.
+    The ledger thresholds, 25 MB compressed and 50% hits over 10 runs, are
+    recalibrated from the benchmark.
 
 ### What a run saved
 

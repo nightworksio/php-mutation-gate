@@ -5,6 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
+use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
@@ -94,4 +96,18 @@ it('keeps its ledgers under .mutation-gate/ledger unless the options name anothe
 it('refuses a directory that is not written as text', function (): void {
     expect(LedgerDirectory::fromOptions(Options::ofJson('{"path": 7}')))
         ->toEqual(Invalid::because(Problem::at('path', 'The directory the ledgers are kept in is a path, as text.')));
+});
+
+it('lists every ledger kept under the directory, in the order of its path, with its size compressed', function () use ($proved): void {
+    $root = Scratch::directory();
+    $store = LedgerDirectory::at($root);
+    $store->write(Scope::pullRequest(12), $proved());
+    $store->write(Scope::branch('feature/money'), Ledger::empty());
+    Scratch::write($root, 'refs/heads/notes.txt', 'not a ledger');
+    $size = static fn(string $scope): int => (int) filesize(sprintf('%s/%s/ledger.json.gz', $root, $scope));
+
+    expect($store->kept())->toEqual(KeptLedgers::of(
+        KeptLedger::of(Path::of(sprintf('%s/refs/heads/feature/money/ledger.json.gz', $root)), $size('refs/heads/feature/money')),
+        KeptLedger::of(Path::of(sprintf('%s/refs/pull/12/ledger.json.gz', $root)), $size('refs/pull/12')),
+    ))->and(LedgerDirectory::at(sprintf('%s/nowhere', $root))->kept())->toEqual(KeptLedgers::of());
 });

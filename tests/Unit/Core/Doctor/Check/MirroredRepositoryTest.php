@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
+use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -24,7 +25,7 @@ $trees = static fn(string ...$paths): Trees => Trees::of(...array_map(
 it('finds each tree a path repository copies into the vendor directory', function () use ($trees): void {
     $observed = Observations::none()
         ->withTrees($trees('src', 'packages/money/src', 'packages/clock', 'packages/moneyish/src'))
-        ->withComposer(ComposerSetup::of(Paths::of(Path::of('packages/money'), Path::of('packages/clock'), Path::of('libs/tax'))));
+        ->withFiles(ProjectFiles::none()->withComposer(ComposerSetup::of(Paths::of(Path::of('packages/money'), Path::of('packages/clock'), Path::of('libs/tax')))));
 
     expect(MirroredRepository::in($observed))->toEqual(Findings::of(Finding::of(
         Slug::MirroredPathRepository,
@@ -39,7 +40,7 @@ it('finds each tree a path repository copies into the vendor directory', functio
 it('finds nothing where no copied repository holds a tree, or either was not observed', function () use ($trees): void {
     $copied = ComposerSetup::of(Paths::of(Path::of('libs/tax')));
 
-    expect(MirroredRepository::in(Observations::none()->withTrees($trees('src'))->withComposer($copied)))->toEqual(Findings::none())
-        ->and(MirroredRepository::in(Observations::none()->withComposer($copied)))->toEqual(Findings::none())
+    expect(MirroredRepository::in(Observations::none()->withTrees($trees('src'))->withFiles(ProjectFiles::none()->withComposer($copied))))->toEqual(Findings::none())
+        ->and(MirroredRepository::in(Observations::none()->withFiles(ProjectFiles::none()->withComposer($copied))))->toEqual(Findings::none())
         ->and(MirroredRepository::in(Observations::none()->withTrees($trees('libs/tax'))))->toEqual(Findings::none());
 });
