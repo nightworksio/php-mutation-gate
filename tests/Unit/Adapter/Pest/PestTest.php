@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-use Fidry\CpuCoreCounter\CpuCoreCounter;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
-use NightWorksIO\MutationGate\Adapter\Pest\Cores;
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Diff;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
@@ -766,15 +764,8 @@ it('reads holds as it loads them and raises no limit, and patched, has every key
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $patched = new Pest(adapterProject(), $shell, Patching::on($canary));
     $unpatched = new Pest(adapterProject(), $shell, Patching::off());
-    $pest = RunnerBehaviour::standard()->holdingAsLoaded()->raisingNoLimit()->runningAtOnce(Cores::counted());
+    $pest = RunnerBehaviour::standard()->holdingAsLoaded()->raisingNoLimit()->runningPerCore();
 
     expect($patched->behaviour())->toEqual($pest->readingInEveryKey($canary))
         ->and($unpatched->behaviour())->toEqual($pest->openingEachShard());
-});
-
-it('runs as many mutants at once as pest-plugin-mutate counts cores', function (): void {
-    $pest = new Pest(adapterProject(), ShellFake::answering(Ran::stopped('')), Patching::off());
-
-    expect($pest->behaviour()->parallelism()->count())->toBe(new CpuCoreCounter()->getCountWithFallback(1))
-        ->and($pest->behaviour()->parallelism())->toBe($pest->behaviour()->parallelism());
 });

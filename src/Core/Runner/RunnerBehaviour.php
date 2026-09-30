@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
  * for a retry (ADR-0008), which groups' test files every proof key reads
  * (ADR-0007), whether each shard pays a full opening run under coverage
  * (ADR-0006), whether it can record every test that kills a mutant, for
- * a full kill matrix (ADR-0014), and how many mutants it runs at once. The
+ * a full kill matrix (ADR-0014), and whether it runs a mutant per core. The
  * flows ask the runner, never its name.
  */
 final readonly class RunnerBehaviour
@@ -25,7 +25,7 @@ final readonly class RunnerBehaviour
         private Groups $readByEveryKey,
         private bool $opensEachShard,
         private NotFull $whyNotFull,
-        private Processes $parallelism,
+        private Parallelism $parallelism,
     ) {
     }
 
@@ -42,7 +42,7 @@ final readonly class RunnerBehaviour
             readByEveryKey: Groups::none(),
             opensEachShard: false,
             whyNotFull: NotFull::FirstKillers,
-            parallelism: Processes::single(),
+            parallelism: Parallelism::Serial,
         );
     }
 
@@ -79,10 +79,10 @@ final readonly class RunnerBehaviour
         return clone($this, ['whyNotFull' => $why]);
     }
 
-    /** This behaviour, where the runner runs this many mutants at once. */
-    public function runningAtOnce(Processes $processes): self
+    /** This behaviour, where the runner runs one mutant per core, as many at once as a request asks. */
+    public function runningPerCore(): self
     {
-        return clone($this, ['parallelism' => $processes]);
+        return clone($this, ['parallelism' => Parallelism::PerCore]);
     }
 
     public function holdsAsLoaded(): bool
@@ -115,8 +115,8 @@ final readonly class RunnerBehaviour
         return $this->whyNotFull;
     }
 
-    /** How many mutants the runner runs at once, each in its own process. */
-    public function parallelism(): Processes
+    /** How the runner runs mutants side by side. */
+    public function parallelism(): Parallelism
     {
         return $this->parallelism;
     }

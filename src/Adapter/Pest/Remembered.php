@@ -11,7 +11,6 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 
@@ -19,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
  * What one Pest runner learns once for every run it starts in a process: the
  * groups its suite lists, the PHP it starts, whether the vendor is patched,
  * each map another job handed over, and the maps it has written again for
- * Pest, and how many mutants it runs at once. Each is slow to learn, from a process started for it or a map that
+ * Pest. Each is slow to learn, from a process started for it or a map that
  * can reach hundreds of megabytes, and none changes while the gate runs.
  */
 final class Remembered
@@ -38,9 +37,6 @@ final class Remembered
 
     /** @var array<string, true> the files a map has been written to */
     private array $written = [];
-
-    /** @var list<Processes> how many mutants Pest runs at once, once counted */
-    private array $processes = [];
 
     /** @param Closure(): (Groups|CannotJudge) $listing */
     public function groups(Withheld $withheld, Closure $listing): Groups|CannotJudge
@@ -74,16 +70,6 @@ final class Remembered
         }
 
         return $this->patched[0];
-    }
-
-    /** @param Closure(): Processes $counting */
-    public function processes(Closure $counting): Processes
-    {
-        if ($this->processes === []) {
-            $this->processes = [$counting()];
-        }
-
-        return $this->processes[0];
     }
 
     /** @param Closure(): (CoverageMap|CannotJudge) $reading */

@@ -195,8 +195,12 @@ its parser attributes. Both change when the checkout moves.
        covered mutant would read as killed. Pest runs one mutant per core,
        and a request's process count does not apply to it. The gate counts
        the cores as pest-plugin-mutate does, with `fidry/cpu-core-counter`,
-       once per run, and the runner's behaviour reports that count as how
-       many mutants it runs at once.
+       once per run, on the same machine, so the two counts agree.
+     - A runner's behaviour says whether it runs a mutant per core or one
+       at a time; one an extension adds runs one at a time unless it says
+       otherwise. Pest and Infection run one per core, and every request the
+       gate makes of them asks for every core: `<n>` in Infection's
+       `--threads=<n>` is that count.
      - `<vendor>` is where Composer installed the project's packages:
        `COMPOSER_VENDOR_DIR`, then `config.vendor-dir`, then `vendor`. The
        gate reads Pest's versions from `<vendor>/composer/installed.json` and
