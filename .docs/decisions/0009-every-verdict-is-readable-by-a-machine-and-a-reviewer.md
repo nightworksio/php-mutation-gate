@@ -117,6 +117,10 @@ sees the same verdict.
        marker `<!-- mutation-gate -->` among comments by the token's identity. It
        is updated in place on every run, passing runs included, so an old
        failure never lingers. The token needs `pull-requests: write`.
+     - **Planned, then judged.** The `plan` job posts it first, in a
+       *planned* state: the units to be mutated, the estimate (ADR-0017), and
+       the changed lines no test covers, read from the coverage map the plan
+       holds. The verdict replaces that state with what follows (ADR-0019).
      - **What it holds:**
        - the verdict, with the line saying what the run saved directly under
          it (ADR-0017);
@@ -287,3 +291,4 @@ but data.
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): the `gitlab`, chat and `otlp` reporters, the JSON report's `cost` and `run`, and `trend.json`'s `verdict`
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the savings line, the JSON report's `savings`, `trend.json`'s times and `savings.json`
 - [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the viewer's notice in every HTML report
+- [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): the comment's planned state

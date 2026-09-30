@@ -36,3 +36,4 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) | The gate takes over from an Infection config, says what a run costs, alerts on the default branch, and exports its runs | Accepted |
 | [0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) | Adopting the gate takes one command, `doctor` finds what would fail first, and every run says what it saved | Accepted |
 | [0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md) | The documentation lives in `.docs`, is versioned and tested with the code, and the repository carries its contributor, security and release policy | Accepted |
+| [0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md) | Contributor automation knows rather than guesses, and runs no pull request content where it can write | Accepted |

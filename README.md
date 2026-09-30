@@ -59,7 +59,7 @@ that reproduces it and a sentence saying what the tests miss.
 | | Survivors the compiler proves equivalent, left out of the score | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | | Presets for Laravel, Symfony and plain libraries | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | **Visibility** | An HTML report | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
-| | A sticky comment on the pull request | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| | A sticky comment on the pull request, posted when the plan is made with the changed lines no test covers, then updated with the verdict | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md), [0019](.docs/decisions/0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md) |
 | | A cost estimate in the PR comment: time planned, measured and spared, and money at the team's rate | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | | Chat alerts to Slack, Discord or a webhook when the default branch fails, cannot be judged, or recovers | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | | Run metrics as OpenTelemetry traces and metrics, and in the JSON report | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
@@ -467,6 +467,11 @@ boundary there. Wherever a pull request must read the default branch's proofs
 safely, keep the ledger in S3, with credentials that can write the default
 branch's prefix held only by default-branch runs
 ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
+With an AWS OIDC role, make its trust policy match a GitHub environment that
+only the default branch may deploy to, or the verdict workflow's
+`job_workflow_ref`, never `ref: refs/heads/main` alone: every job a workflow
+runs on the default branch carries that `ref`, whatever started it
+([ADR-0019](.docs/decisions/0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md)).
 
 A fork's pull request runs without credentials. On GitHub's cache it restores
 the default branch's ledger read-only, as any pull request does. With S3, set

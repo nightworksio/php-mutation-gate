@@ -191,8 +191,8 @@ adopt the gate from. What exists, read at source and through GitHub's API:
     - **1.0.0's notes are written by hand:** the feature table, grouped as
       the README groups it, rather than a list of every commit before the
       first release. Generation starts after 1.0.0.
-    - How that pull request is opened is the contributor automation's to
-      decide.
+    - The contributor bot drafts that pull request, and the maintainer signs
+      the tag (ADR-0019, decision 15).
 
 ### The repository's files
 
@@ -328,3 +328,4 @@ vulnerability is one private button.
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the `docs` job, slugs as public API, signed commits on `main`, and release notes
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the offline schemas the YAML examples are checked against
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the benchmark's table, `doctor`'s slugs, and the PHPUnit config names
+- [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): the release pull request, and the bot that links the slugs
