@@ -4,28 +4,16 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
-use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Symfony\Component\Process\Process;
 
 afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** The three files the patch changes, relative to pest-plugin-mutate's source. */
-const PATCHED = ['MutationTest.php', 'Plugins/Mutate.php', 'Tester/MutationTestRunner.php'];
-
-/** A vendor directory holding a copy of the installed pest-plugin-mutate's three files. */
-$vendor = static function (): string {
-    $vendor = Scratch::directory();
-
-    foreach (PATCHED as $file) {
-        $installed = (string) file_get_contents(Tree::at(sprintf('vendor/pestphp/pest-plugin-mutate/src/%s', $file)));
-        Scratch::write($vendor, sprintf('pestphp/pest-plugin-mutate/src/%s', $file), $installed);
-    }
-
-    return $vendor;
-};
+/** A vendor directory holding a copy of pest-plugin-mutate's three files, as its allowed version ships them. */
+$vendor = static fn(): string => MutatePlugin::pristine()->vendor();
 
 /** A file of the copy, as it is now. */
 $source = static fn(string $vendor, string $file): string => (string) file_get_contents(
@@ -48,7 +36,7 @@ it('patches the three files, leaving each one PHP', function () use ($vendor, $s
         ->and($source($at, 'Tester/MutationTestRunner.php'))
         ->toContain("\$shared = (string) getenv('MUTATION_GATE_SHARED_COVERAGE');\n");
 
-    foreach (PATCHED as $file) {
+    foreach (MutatePlugin::FILES as $file) {
         $lint = new Process([PHP_BINARY, '-l', sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $at, $file)]);
         $lint->run();
 
@@ -59,10 +47,10 @@ it('patches the three files, leaving each one PHP', function () use ($vendor, $s
 it('finds the patch in place and changes nothing when patching again', function () use ($vendor, $source): void {
     $at = $vendor();
     Patch::applyIn($at);
-    $patched = array_map(static fn(string $file): string => $source($at, $file), PATCHED);
+    $patched = array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES);
 
     expect(Patch::applyIn($at))->toBe('pest:patch patched 0 of the 3 files it changes in pest-plugin-mutate.')
-        ->and(array_map(static fn(string $file): string => $source($at, $file), PATCHED))->toBe($patched);
+        ->and(array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES))->toBe($patched);
 });
 
 it('patches only the files that are not patched yet', function () use ($vendor, $source): void {

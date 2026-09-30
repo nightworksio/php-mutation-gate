@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Tests\Support\Commands;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Printed;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -91,10 +92,7 @@ it('patches Pest in the vendor directory Composer installed the project into', f
     $project = Scratch::directory();
     Scratch::write($project, 'composer.json', '{"config": {"vendor-dir": "lib/vendor"}}');
 
-    foreach (['MutationTest.php', 'Plugins/Mutate.php', 'Tester/MutationTestRunner.php'] as $file) {
-        $installed = (string) file_get_contents(Tree::at(sprintf('vendor/pestphp/pest-plugin-mutate/src/%s', $file)));
-        Scratch::write($project, sprintf('lib/vendor/pestphp/pest-plugin-mutate/src/%s', $file), $installed);
-    }
+    MutatePlugin::pristine()->into(sprintf('%s/lib/vendor', $project));
 
     expect(Commands::run($project, 'pest:patch')->output)
         ->toBe("pest:patch patched 3 of the 3 files it changes in pest-plugin-mutate.\n");

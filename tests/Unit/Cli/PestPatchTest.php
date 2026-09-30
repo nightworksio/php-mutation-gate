@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\PestPatch;
+use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Printed;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
-use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -21,13 +21,7 @@ it('is pest:patch, which applies the optional Pest patches', function (): void {
 });
 
 it('patches pest-plugin-mutate in the vendor directory and says so', function (): void {
-    $vendor = Scratch::directory();
-
-    foreach (['MutationTest.php', 'Plugins/Mutate.php', 'Tester/MutationTestRunner.php'] as $file) {
-        $installed = (string) file_get_contents(Tree::at(sprintf('vendor/pestphp/pest-plugin-mutate/src/%s', $file)));
-        Scratch::write($vendor, sprintf('pestphp/pest-plugin-mutate/src/%s', $file), $installed);
-    }
-
+    $vendor = MutatePlugin::pristine()->vendor();
     $tester = new CommandTester(PestPatch::command($vendor));
 
     expect($tester->execute([]))->toBe(0)
