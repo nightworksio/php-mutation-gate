@@ -227,11 +227,11 @@ needs remain, and the runners' own behaviour shapes each answer.
       `…` where it was cut. A shard's results and the proof hold it, and so
       does the JSON report's `rejection`. A kill Infection reports carries
       none, since its log names no finding. A record that gives a rejection
-      to a mutant of any other status is not well formed.
+      to a mutant of any other status, or a reason or an `outOfTime` beside
+      its rejection, is not well formed.
     - A kill by static analysis a time budget carries is unjudged (ADR-0008,
       decision 1), since the record does not say which file the finding sits
-      in. Once the check records that file, such a kill carries at the same
-      base where that file's digest is unchanged.
+      in.
     - `explain` prints the analyser, the finding's code and its message.
 
 11. **Each mutant is checked where it pays: before its tests, after them, or
