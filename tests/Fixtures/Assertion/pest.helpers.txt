@@ -1,3 +1,5 @@
 <?php
 
 function checkMoney($c): void { expect($c)->toBe(1); }
+
+function &checkShared(): array { static $seen = []; expect($seen)->toBe([]); return $seen; }

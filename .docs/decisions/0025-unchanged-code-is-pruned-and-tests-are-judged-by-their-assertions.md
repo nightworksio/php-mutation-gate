@@ -115,19 +115,30 @@ decision 3). The kill matrix knows which tests cover and which kill
      - a test that calls, as a function, a helper its own file declares, or
        one a file that defines the runner declares, such as `tests/Pest.php`,
        since the helper may assert what the test does not;
-     - a test that calls a method on `$this`, `self` or `static` that is
-       neither an assertion nor one of PHPUnit's own methods of `TestCase`
-       and `Assert`, such as a parent class's or a trait's helper, or a
-       framework's.
-   - A table test fails when a supported PHPUnit or Pest release adds an
-     assertion the table does not classify.
+     - a test that calls a method on `$this`, `self`, `static` or `parent`
+       that is neither an assertion nor one of the methods of PHPUnit's
+       `TestCase` and `Assert` that every supported release declares, such
+       as a parent class's or a trait's helper, or a framework's.
+   - **What the scan does not see.** A helper reached any other way is not
+     seen: a function a file other than the test's own and the runner's
+     definitions declares, a helper class's static method such as
+     `CartChecks::total()`, or a helper object such as
+     `$this->checks->total()`. A test that checks a value only through one
+     may be named weak.
+   - A table test fails when a supported PHPUnit release declares an
+     assertion the table does not classify, or when the installed Pest
+     does.
    - **As built.**
      - `Core\Assertion\AssertionTable` holds the table, by name in any
        case, as PHP calls methods and functions:
        - every assertion of PHPUnit's `Assert` and `TestCase`, its
          `expect…` methods among them, and every Pest expectation;
-       - `AssertionTableTest` reads the installed releases' methods and
-         fails on one the table does not hold.
+       - `AssertionTableTest` reads PHPUnit's methods from a file pinned
+         per supported release, 12.5.8, 12.5.37, 13.0.0 and 13.3.4, and
+         the installed PHPUnit and Pest by reflection. It fails on an
+         assertion the table does not hold, on a method held as PHPUnit's
+         own that some pinned release lacks, and on one every pinned
+         release declares that the table does not hold.
      - The table reads a `Call`: its name, and its arguments as written.
        - `assertTrue(true, 'reached')` is existence by its first argument,
          and `assertNotSame($cart, null)` by a `null` on either side.

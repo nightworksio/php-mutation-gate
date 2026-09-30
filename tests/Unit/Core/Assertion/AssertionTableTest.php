@@ -6,9 +6,11 @@ use NightWorksIO\MutationGate\Core\Assertion\AssertionKind;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionTable;
 use NightWorksIO\MutationGate\Core\Assertion\Call;
 use NightWorksIO\MutationGate\Core\Assertion\Unclassified;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mixins\Expectation;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Runner\Version;
 
 /**
  * The public methods of a class whose names start so.
@@ -38,23 +40,122 @@ it('classifies every assertion and expectation the installed PHPUnit declares', 
     expect($unclassified)->toBe([]);
 });
 
-it('holds every method of the installed PHPUnit\'s TestCase and Assert that is no assertion as one of its own', function (): void {
-    $unheld = [];
+/**
+ * Each method of PHPUnit's `TestCase` and `Assert` a release declares, as
+ * `Class::name`, from the file pinned for it.
+ *
+ * @return list<string>
+ */
+function phpUnitNames(string $release): array
+{
+    $lines = explode("\n", (string) file_get_contents(Tree::at(sprintf('tests/Fixtures/PhpUnit/%s.txt', $release))));
 
-    foreach ([TestCase::class, Assert::class] as $class) {
+    return array_values(array_filter($lines, static fn(string $line): bool => $line !== ''));
+}
+
+/**
+ * The same, of the installed release, read by reflection.
+ *
+ * @return list<string>
+ */
+function installedPhpUnitNames(): array
+{
+    $names = [];
+
+    foreach (['TestCase' => TestCase::class, 'Assert' => Assert::class] as $short => $class) {
         foreach (new ReflectionClass($class)->getMethods(ReflectionMethod::IS_PUBLIC | ReflectionMethod::IS_PROTECTED) as $method) {
-            $name = $method->getName();
-            $own = str_starts_with($name, 'assert') || str_starts_with($name, 'expect') || str_starts_with($name, '__');
-
-            if (! $own && ! AssertionTable::isCaseMethod(Call::of($name))) {
-                $unheld[] = $name;
-            }
+            $names[] = $short === 'Assert' || $method->getDeclaringClass()->getName() === $class
+                ? sprintf('%s::%s', $short, $method->getName())
+                : '';
         }
     }
 
-    expect($unheld)->toBe([])
+    $names = array_values(array_unique(array_filter($names, static fn(string $name): bool => $name !== '')));
+    sort($names);
+
+    return $names;
+}
+
+/**
+ * The names the table holds as PHPUnit's own.
+ *
+ * @return list<string>
+ */
+function heldAsOwn(): array
+{
+    $held = [];
+    $value = new ReflectionClassConstant(AssertionTable::class, 'PHPUNIT_CASE')->getValue();
+
+    foreach (is_array($value) ? $value : [] as $name) {
+        $held[] = is_string($name) ? $name : '';
+    }
+
+    sort($held);
+
+    return $held;
+}
+
+/**
+ * The names among these that are no assertion: `Assert`'s `assert…` and `TestCase`'s `expect…` aside.
+ *
+ * @param  list<string> $names
+ * @return list<string>
+ */
+function ownNames(array $names): array
+{
+    $own = [];
+
+    foreach ($names as $qualified) {
+        [$class, $name] = explode('::', $qualified);
+        $assertion = ($class === 'Assert' && str_starts_with($name, 'assert')) || ($class === 'TestCase' && str_starts_with($name, 'expect'));
+
+        if (! $assertion && ! str_starts_with($name, '__')) {
+            $own[] = $name;
+        }
+    }
+
+    return $own;
+}
+
+/** The releases whose names are pinned: the lowest and highest of each supported minor line. */
+const PINNED_PHPUNIT = ['12.5.8', '12.5.37', '13.0.0', '13.3.4'];
+
+it('holds as PHPUnit\'s own exactly the methods no assertion that every supported release declares', function (): void {
+    $common = ownNames(phpUnitNames(PINNED_PHPUNIT[0]));
+
+    foreach (PINNED_PHPUNIT as $release) {
+        $common = array_values(array_intersect($common, ownNames(phpUnitNames($release))));
+    }
+
+    sort($common);
+
+    expect(heldAsOwn())->toBe($common)
         ->and(AssertionTable::isCaseMethod(Call::of('CreateMock')))->toBeTrue()
+        ->and(AssertionTable::isCaseMethod(Call::of('attempt')))->toBeFalse()
         ->and(AssertionTable::isCaseMethod(Call::of('checkTotal')))->toBeFalse();
+});
+
+it('classifies every assertion and expectation of every supported PHPUnit release', function (string $release): void {
+    $unclassified = [];
+
+    foreach (phpUnitNames($release) as $qualified) {
+        [$class, $name] = explode('::', $qualified);
+        $assertion = ($class === 'Assert' && str_starts_with($name, 'assert')) || ($class === 'TestCase' && str_starts_with($name, 'expect'));
+
+        if ($assertion && AssertionTable::phpUnit(Call::of($name)) instanceof Unclassified) {
+            $unclassified[] = $name;
+        }
+    }
+
+    expect($unclassified)->toBe([]);
+})->with(PINNED_PHPUNIT);
+
+it('reads the installed PHPUnit as its pinned release declares, and as declaring every method held as its own', function (): void {
+    $installed = installedPhpUnitNames();
+    $pinned = in_array(Version::id(), PINNED_PHPUNIT, strict: true) ? phpUnitNames(Version::id()) : $installed;
+
+    expect($installed)->toBe($pinned)
+        ->and(array_values(array_diff(heldAsOwn(), ownNames($installed))))->toBe([]);
 });
 
 it('classifies every expectation the installed Pest declares', function (): void {

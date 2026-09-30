@@ -3,11 +3,14 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Assertion\Assertion;
+use NightWorksIO\MutationGate\Core\Assertion\Assertions;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\Assertion\Helpers;
 use NightWorksIO\MutationGate\Core\Assertion\TestAssertions;
+use NightWorksIO\MutationGate\Core\Assertion\TestFiles;
 use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\Assertion\WeakTest;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
@@ -108,6 +111,9 @@ it('assesses no test that makes an assertion the table does not hold, makes none
     'a helper the file declares, on $this' => [PHPUNIT_CART_TEST, 'testDelegates'],
     'a helper the file declares, on self' => [PHPUNIT_CART_TEST, 'testDelegatesStatically'],
     'a method of its own the file does not declare, such as a parent\'s' => [PHPUNIT_CART_TEST, 'testDelegatesToAParent'],
+    'a parent\'s method, on parent' => [PHPUNIT_CART_TEST, 'testDelegatesUpward'],
+    'a method of its own, on static' => [PHPUNIT_CART_TEST, 'testDelegatesLate'],
+    'a helper the file declares, on self in another case' => [PHPUNIT_CART_TEST, 'testDelegatesLoudly'],
     'a double\'s expectation of how it is called' => [PHPUNIT_CART_TEST, 'testMocks'],
     'a file that is not PHP' => ['not php', 'it adds'],
 ]);
@@ -161,5 +167,11 @@ it('reads a helper the files that define the runner declare as one, and a test t
     $pest = Helpers::in(Contents::of((string) file_get_contents(Tree::at('tests/Fixtures/Assertion/pest.helpers.txt'))));
 
     expect(TestAssertions::in($file, $pest)->of('it delegates to Pest.php')->isWeak())->toBeFalse()
+        ->and(TestAssertions::in($file, $pest)->of('it delegates by reference to Pest.php')->isWeak())->toBeFalse()
         ->and(TestAssertions::in($file, Helpers::none())->of('it delegates to Pest.php')->isWeak())->toBeTrue();
+});
+
+it('assesses no test of a file the verdict did not read', function (): void {
+    expect(TestFiles::read(ByPath::none(), ByPath::none())->assertionsOf(TestName::in(Path::of('tests/CartTest.php'), 'it adds')))
+        ->toEqual(Assertions::notAssessed());
 });

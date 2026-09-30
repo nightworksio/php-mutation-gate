@@ -52,5 +52,6 @@ it('is qualified', function () { expect($v)->toBe(3); });
 \it('qualifies its own name', function () { expect($v)->toBeInt(); });
 
 it('delegates to Pest.php', function () { expect($c)->not->toBeNull(); checkMoney($c); });
+it('delegates by reference to Pest.php', function () { expect($c)->not->toBeNull(); checkShared(); });
 
 it('checks a key with a trailing comma', function () { expect($cart)->toHaveKey('total',); });

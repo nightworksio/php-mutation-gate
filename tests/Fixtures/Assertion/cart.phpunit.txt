@@ -45,6 +45,12 @@ abstract class CartTest extends TestCase
 
     public function testDelegatesToAParent(): void { $this->assertNotNull($c); $this->checkParent($c); }
 
+    public function testDelegatesUpward(): void { $this->assertNotNull($c); parent::checkParent($c); }
+
+    public function testDelegatesLate(): void { $this->assertNotNull($c); static::checkParent($c); }
+
+    public function testDelegatesLoudly(): void { $this->assertNotNull($c); SELF::checkTotal($c); }
+
     public function testMocks(): void { $cart = $this->createMock(Cart::class); $cart->expects($this->once())->method('add'); $this->assertNotNull($cart); }
 
     public function testStubs(): void { $cart = $this->createStub(Cart::class); $cart->method('total')->willReturn(3); self::assertNotNull($cart); }

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-use function mb_strtolower;
-
 /**
  * Where one file creates an instance of a class, which gives each instance
  * property its default: `new` of the owner or of a class that reaches it,
@@ -34,12 +32,12 @@ final readonly class Creations
     {
         $tokens = $this->source->tokens();
         $class = $new + 1;
-        $said = mb_strtolower($tokens->text($class));
         $around = $this->source->classAround($new);
 
         return match (true) {
-            $tokens->is($class, T_STATIC) || $said === 'self' => $this->reachedBy($around->names(), $new),
-            $said === 'parent' => $this->reachedBy($around->parents(), $new),
+            $tokens->is($class, T_STATIC),
+            OwnMember::isSelf($tokens, $class) => $this->reachedBy($around->names(), $new),
+            OwnMember::isParent($tokens, $class) => $this->reachedBy($around->parents(), $new),
             $tokens->is($class, ...Names::TOKENS) => $this->reachedBy(
                 $this->source->scope()->resolve($tokens->text($class)),
                 $new,

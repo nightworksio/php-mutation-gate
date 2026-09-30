@@ -62,9 +62,9 @@ final readonly class Helpers
         return new self($this->names + $others->names);
     }
 
-    /** Whether a function or method of this name, in any case, is among them. */
+    /** Whether a function or method is among them, by its name in lower case. */
     public function has(string $name): bool
     {
-        return array_key_exists(mb_strtolower($name), $this->names);
+        return array_key_exists($name, $this->names);
     }
 }
