@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Core\Doctor;
 
 use NightWorksIO\MutationGate\Core\Doctor\Check\Config;
 use NightWorksIO\MutationGate\Core\Doctor\Check\CoverageDriver;
+use NightWorksIO\MutationGate\Core\Doctor\Check\CoverageRun;
+use NightWorksIO\MutationGate\Core\Doctor\Check\HotPath;
 use NightWorksIO\MutationGate\Core\Doctor\Check\IgnoresExpiring;
 use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionImport;
 use NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize;
@@ -42,6 +44,8 @@ final readonly class Diagnosis
             Workspace::in($observed),
             IgnoresExpiring::in($observed),
             InfectionImport::in($observed),
+            CoverageRun::in($observed),
+            HotPath::in($observed),
         );
     }
 }

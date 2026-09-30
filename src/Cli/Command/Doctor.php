@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 use function is_string;
 
 use NightWorksIO\MutationGate\Cli\CommandLine;
+use NightWorksIO\MutationGate\Cli\Doctor\Measure;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -25,24 +26,34 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * `doctor`: what would fail, or run slowly, before a run does (ADR-0017,
- * decision 9). It reads and never writes, runs none of the project's code,
- * and exits 1 when anything would fail a run.
+ * decision 9). It reads and never writes, runs none of the project's code
+ * unless `--measure` asks it to run the suite once, and exits 1 when
+ * anything would fail a run.
  */
 final readonly class Doctor
 {
     private const string UNKNOWN_FORMAT = '--format is %s; doctor writes text or json.';
 
-    public static function command(Observed $observed, Guide $guide): Command
+    public static function command(Observed $observed, Measure $measure, Guide $guide): Command
     {
         return new Command('doctor')
             ->setDescription('Say what would fail, or run slowly, before a run does')
+            ->addOption(
+                'measure',
+                mode: InputOption::VALUE_NONE,
+                description: 'Also run the suite once under coverage: a green suite, a working driver, the hot paths',
+            )
             ->addOption(
                 'format',
                 mode: InputOption::VALUE_REQUIRED,
                 description: 'text or json',
                 default: Output::Text->value,
             )
-            ->setCode(static function (InputInterface $input, OutputInterface $output) use ($observed, $guide): int {
+            ->setCode(static function (InputInterface $input, OutputInterface $output) use (
+                $observed,
+                $measure,
+                $guide,
+            ): int {
                 $asked = $input->getOption('format');
                 $format = Output::tryFrom(is_string($asked) ? $asked : '');
 
@@ -52,7 +63,10 @@ final readonly class Doctor
                     return Failed::because($output, $refused);
                 }
 
-                $findings = Diagnosis::of($observed->of(CommandLine::from($input)));
+                $observations = $observed->of(CommandLine::from($input));
+                $findings = Diagnosis::of(
+                    $input->getOption('measure') === true ? $measure->into($observations, $input) : $observations,
+                );
                 $output->writeln(
                     $format === Output::Json ? DoctorJson::of($findings, $guide) : DoctorText::of($findings, $guide),
                     OutputInterface::OUTPUT_RAW,
