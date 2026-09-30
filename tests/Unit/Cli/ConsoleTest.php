@@ -29,6 +29,7 @@ it('offers every command the README lists', function (string $command) use ($con
     'pre-push',
     'hook',
     'init',
+    'import',
     'config:show',
     'config:schema',
     'pest:patch',

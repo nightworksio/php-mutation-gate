@@ -153,7 +153,7 @@ run does.
 | `pre-commit` | Print each reached tree's score change from the local ledger; runs nothing and always exits 0 |
 | `hook install [--pre-commit]` / `hook uninstall` | Add or remove the pre-push hook, and with `--pre-commit` the pre-commit hook too |
 | `init [--format=php\|json\|yaml\|neon] [--ci[=github\|gitlab\|buildkite\|circleci]] [--editor=vscode]` | Detect the runner, preset, trees, CI, an Infection config and native markers, and ask only what detection cannot settle; write a config holding the runner, the preset and the answers (PHP by default, or the file `--config` names, in the format of its extension), with the trees it found as a comment, and add `.mutation-gate/` to `.gitignore`; with `--ci`, a pinned CI definition (`--ci` alone takes the detected CI), and with `--editor`, VS Code's watch task, each only where none exists; then print the first run's estimate |
-| `init --from=<file>` or `import <file>` | Write a config from an Infection config, and report how each of its keys maps |
+| `init --from[=<file>]` or `import [<file>]` | Write a config from an Infection config, the file named or the one Infection itself would read, over what zero-config found; say of each of its keys whether it was imported, stays in that file or was dropped, and which keys to delete |
 | `doctor [--measure] [--online] [--format=text\|json]` | Report what would fail, run slowly or deserves attention, each with its fix, reading only files and earlier runs; exits 1 when something would fail |
 | `stub <id>` | Print a failing Pest or PHPUnit test for a survivor or an uncovered mutant, in the style of its nearest covering test |
 | `config:show [--format=…]` / `config:schema` | Print the effective config (JSON by default), or the JSON Schema |

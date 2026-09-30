@@ -280,3 +280,56 @@ it('writes nothing where the file --config names is already there', function () 
         ),
     ])->and($file($project, 'ci/gate.neon'))->toBe("runner: pest\n");
 });
+
+it('starts the config from an Infection config with --from, and says what became of each of its keys', function () use ($init, $file): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/TwoRunners');
+    Scratch::write($project, '.gitignore', ".mutation-gate/\n");
+    Scratch::write($project, 'phpunit.xml', '<?xml version="1.0"?><phpunit><source><include><directory>app</directory></include></source></phpunit>');
+    Scratch::write($project, 'infection.json5', '{source: {directories: ["src"]}, minMsi: 80, threads: 4}');
+    $ran = $init($project, ['--from' => null, '--format' => 'json']);
+
+    expect([$ran->code, $ran->errors])->toBe([0, ''])
+        ->and($ran->output)->toBe(implode("\n", [
+            'Wrote mutation-gate.json with infection.json5 and what zero-config found.',
+            'What became of each key of infection.json5:',
+            '  source.directories: imported as trees: src, which replace the list the tree source finds',
+            '  minMsi: imported as the floor of every tree, 80.00',
+            '  threads: stays in infection.json5, because the gate overrides it for each run',
+            'phpunit.xml\'s <source> names app, which infection.json5\'s source.directories does not.',
+            'infection.json5\'s source.directories names src, which phpunit.xml\'s <source> does not.',
+            'Delete these keys from infection.json5, since the gate no longer reads them there: source.directories, minMsi.',
+            'Run mutation-gate locally once.',
+            "It writes the baseline at what the gate measures, and says if a tree is below the imported floor.\n",
+        ]))
+        ->and(json_decode($file($project, 'mutation-gate.json'), associative: true))->toMatchArray([
+            'runner' => 'infection',
+            'trees' => [['path' => 'src', 'floor' => 80]],
+        ]);
+});
+
+it('imports the file import names, as init --from does', function () use ($file): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($project, 'ci/infection.json', '{"timeout": 9}');
+    chdir($project);
+    $ran = Commands::run($project, 'import', ['file' => 'ci/infection.json', '--format' => 'json']);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toStartWith("Wrote mutation-gate.json with ci/infection.json and what zero-config found, and added .mutation-gate/ to .gitignore.\n")
+        ->and($ran->output)->toContain("  timeout: imported as timeouts.seconds: 9\n")
+        ->and(json_decode($file($project, 'mutation-gate.json'), associative: true))->toMatchArray(['timeouts' => ['seconds' => 9]]);
+});
+
+it('writes nothing from an Infection config it cannot take over from, or one that is not there', function () use ($init, $file): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($project, 'infection.json5', '{testFramework: "phpspec"}');
+    $refused = $init($project, ['--from' => null]);
+    $missing = $init($project, ['--from' => 'nowhere.json5']);
+    $none = $init(Scratch::copy('tests/Fixtures/Projects/Library'), ['--from' => null]);
+
+    expect([$refused->code, $refused->errors])->toBe([
+        2,
+        "infection.json5 sets testFramework to phpspec. The gate runs Infection with PHPUnit alone, so it cannot judge that suite.\n",
+    ])->and([$missing->code, $missing->errors])->toBe([2, "nowhere.json5 is not here to import from.\n"])
+        ->and([$none->code, $none->errors])->toBe([2, "There is no infection.json5, infection.json or .dist of either here to import from.\n"])
+        ->and($file($project, 'mutation-gate.php'))->toBe('');
+});

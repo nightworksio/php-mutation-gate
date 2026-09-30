@@ -120,3 +120,11 @@ it('writes an option given empty, for the config to refuse, rather than read it 
     expect(Configs::problems($layer))->not->toBe([])
         ->and(CommandLine::from(new ArrayInput(['--runner' => ''], $definition()))->runner)->toBe('');
 });
+
+it('chooses a runner only where the command line chooses none', function (): void {
+    $none = CommandLine::nothing()->withConfig('gate.json');
+    $pest = CommandLine::nothing()->withRunner('pest');
+
+    expect($none->choosing('infection'))->toEqual(CommandLine::nothing()->withConfig('gate.json')->withRunner('infection'))
+        ->and($pest->choosing('infection'))->toBe($pest);
+});
