@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use NightWorksIO\MutationGate\Core\Cluster\Membership;
+use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -14,14 +16,15 @@ use function sprintf;
 
 /**
  * One mutant, what the gate made of it, the tests that judged it, what they
- * miss, and whether it sits on a line the change added or modified.
+ * miss, whether it sits on a line the change added or modified, and the
+ * cluster of survivors it shares a cause with.
  */
 final readonly class JudgedMutant
 {
     /** The command that runs one mutant again, which every report prints beside it (ADR-0009, decision 6). */
     public const string REPRODUCE = 'vendor/bin/mutation-gate reproduce %s';
 
-    /** The command that explains one mutant without running anything (ADR-0014, decision 12). */
+    /** The command that explains one mutant or cluster without running anything (ADR-0014, decision 12). */
     public const string EXPLAIN = 'vendor/bin/mutation-gate explain %s';
 
     private function __construct(
@@ -30,6 +33,7 @@ final readonly class JudgedMutant
         private bool $onChangedLine,
         private TestIds $tests,
         private Hint|Missing $hint,
+        private Membership|Unclustered $cluster,
     ) {
     }
 
@@ -41,6 +45,7 @@ final readonly class JudgedMutant
             onChangedLine: false,
             tests: TestIds::none(),
             hint: Missing::at($mutant->location()->file()),
+            cluster: Unclustered::mutant(),
         );
     }
 
@@ -62,6 +67,12 @@ final readonly class JudgedMutant
     public function hinted(Hint $hint): self
     {
         return clone($this, ['hint' => $hint]);
+    }
+
+    /** This mutant, in a cluster of survivors with one cause (ADR-0022, decision 15). */
+    public function inCluster(Membership $cluster): self
+    {
+        return clone($this, ['cluster' => $cluster]);
     }
 
     /**
@@ -103,6 +114,12 @@ final readonly class JudgedMutant
         return $this->hint instanceof Hint
             ? $this->hint
             : Hint::for($this->mutant, $this->judgement, $this->tests, $this->hint);
+    }
+
+    /** The cluster it is in; none for a mutant that shares its cause with no other survivor. */
+    public function cluster(): Membership|Unclustered
+    {
+        return $this->cluster;
     }
 
     /** The one command that runs it again, on any machine with the same code. */

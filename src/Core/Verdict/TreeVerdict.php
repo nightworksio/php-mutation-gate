@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
+use NightWorksIO\MutationGate\Core\File\ByPath;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -54,6 +56,17 @@ final readonly class TreeVerdict
     public function withLowering(Lowered $lowering): self
     {
         return clone($this, ['lowering' => $lowering]);
+    }
+
+    /**
+     * This verdict, with its survivors of one cause marked with their
+     * cluster, read from each file's source (ADR-0022, decision 15).
+     *
+     * @param ByPath<Contents> $sources each file of its survivors that can be read, by its path
+     */
+    public function clustered(ByPath $sources): self
+    {
+        return clone($this, ['mutants' => $this->mutants->clustered($this->uncovered, $sources)]);
     }
 
     /** The tree, with the floor it declares. */

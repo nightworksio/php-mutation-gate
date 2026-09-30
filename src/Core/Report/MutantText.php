@@ -27,7 +27,9 @@ final readonly class MutantText
 {
     /** The line naming the tests that judge a mutant. */
     public const string JUDGED_BY = 'Judged by: %s';
-    private const string INDENT = '    ';
+
+    /** How far the lines under a heading are indented. */
+    public const string INDENT = '    ';
 
     private const string CHANGED = ', on a changed line';
 

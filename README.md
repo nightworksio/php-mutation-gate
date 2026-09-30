@@ -369,8 +369,8 @@ Each reporter is registered by a name:
 | `discord` | In CI, on the default branch, when its state changes | The same as one Discord embed to the URL `MUTATION_GATE_DISCORD_URL` holds, red, green or grey, mentioning no one |
 | `webhook` | In CI, on the default branch, when its state changes | JSON described by [`resources/webhook.schema.json`](resources/webhook.schema.json) to the URL `MUTATION_GATE_WEBHOOK_URL` holds, signed in `X-Mutation-Gate-Signature` ([verifying it](#verifying-a-webhook)) where `MUTATION_GATE_WEBHOOK_SECRET`, or the variable `with: {secretEnv: …}` names, holds a secret |
 | `otlp` | Listed in `reports` | The run's trace (`plan`, each `shard <n>` with its `opening run` and `mutate`, and `verdict`) and the verdict's metrics as OTLP/HTTP JSON, to `/v1/traces` and `/v1/metrics` under `with: {endpoint: …}` or `OTEL_EXPORTER_OTLP_ENDPOINT`, with `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` |
-| `github-annotations` | Under GitHub Actions | Up to 10 error, 10 warning and 10 notice annotations, changed lines first |
-| `github-summary` | Under GitHub Actions | The step summary: what a timed run took and saved, what the default branch saved over 30 days, and every mutant counted as not killed in one table |
+| `github-annotations` | Under GitHub Actions | Up to 10 error, 10 warning and 10 notice annotations, changed lines first, and one for each cluster of survivors |
+| `github-summary` | Under GitHub Actions | The step summary: what a timed run took and saved, what the default branch saved over 30 days, and every mutant counted as not killed in one table, a cluster of survivors as one row |
 | `github-comment` | On a pull request, with `GITHUB_TOKEN` | One sticky comment, updated in place, with what a timed run took and saved under the verdict and what it cost folded at the end; `with: {identity: …}` names the account it is found by when the token is not `GITHUB_TOKEN` |
 | `badge` | In CI, on the default branch | `badge.json`, `trend.json`, `trend.svg` and `savings.json` in `--publish-dir` |
 
@@ -380,6 +380,16 @@ tests miss. The console, JSON and HTML reports also give
 `vendor/bin/mutation-gate explain <id>`. A survivor proven equivalent
 ([ADR-0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md))
 is left out of the score and listed as *equivalent, proven*.
+
+Survivors that share one cause form a cluster: changes that overlap within
+one statement, or changes of one kind in one function that the same tests
+judge
+([ADR-0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md)).
+The console, the comment, the step summary and the annotations show a
+cluster once, with its members' diffs, one hint and
+`vendor/bin/mutation-gate stub <cluster id>`. Every member still counts in
+the score, and the JSON and SARIF reports keep each as an entry of its own
+that names its cluster.
 
 ### Configuration reference
 

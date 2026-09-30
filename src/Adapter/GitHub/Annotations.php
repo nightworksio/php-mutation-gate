@@ -8,8 +8,11 @@ use function count;
 use function file_put_contents;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Report\ClusterText;
+use NightWorksIO\MutationGate\Core\Report\Folded;
 use NightWorksIO\MutationGate\Core\Report\Label;
 use NightWorksIO\MutationGate\Core\Report\Mutator;
 use NightWorksIO\MutationGate\Core\Report\Overview;
@@ -30,7 +33,8 @@ use function usort;
  * verdict is a notice. GitHub keeps 10 of each level per step and 50 per job
  * and drops the rest silently, so the gate writes at most 10 of each from its
  * one step, ranked: changed lines first, then sets that failed (ADR-0009,
- * decision 3). The step summary lists them all.
+ * decision 3). A cluster of survivors is one annotation, at its first member
+ * (ADR-0022, decision 17). The step summary lists them all.
  */
 final readonly class Annotations implements Configurable, Reporter
 {
@@ -38,6 +42,8 @@ final readonly class Annotations implements Configurable, Reporter
     private const int PER_LEVEL = 10;
 
     private const string MESSAGE = '%s Reproduce: %s';
+
+    private const string CLUSTER_MESSAGE = '%s Stub: %s';
 
     private function __construct(private string $to)
     {
@@ -57,22 +63,20 @@ final readonly class Annotations implements Configurable, Reporter
     public function report(Verdict $verdict): Written|NotWritten
     {
         $overview = Overview::of($verdict);
-        $ranked = [];
-
-        foreach ($overview->survivors() as $mutant) {
-            $ranked[] = $mutant;
-        }
-
-        $order = static fn(JudgedMutant $one, JudgedMutant $other): int => self::rank($other, $overview)
-            <=> self::rank($one, $overview);
+        $ranked = Folded::of($overview->survivors(), $verdict->trees()->clusters());
+        $order = static fn(JudgedMutant|Cluster $one, JudgedMutant|Cluster $other): int
+            => self::rank($other, $overview) <=> self::rank($one, $overview);
         usort($ranked, $order);
         $errors = [];
         $warnings = [];
 
-        foreach ($ranked as $mutant) {
-            [$errors, $warnings] = $overview->isFailing($mutant)
-                ? [$this->kept($errors, $this->command('error', $mutant)), $warnings]
-                : [$errors, $this->kept($warnings, $this->command('warning', $mutant))];
+        foreach ($ranked as $item) {
+            $failing = self::isFailing($item, $overview);
+            $level = $failing ? 'error' : 'warning';
+            $line = $item instanceof Cluster ? $this->clusterCommand($level, $item) : $this->command($level, $item);
+            [$errors, $warnings] = $failing
+                ? [$this->kept($errors, $line), $warnings]
+                : [$errors, $this->kept($warnings, $line)];
         }
 
         $notices = [];
@@ -91,10 +95,24 @@ final readonly class Annotations implements Configurable, Reporter
             : NotWritten::because(sprintf('The annotations could not be written to %s.', $this->to));
     }
 
-    /** How far forward a mutant goes: on a changed line counts most, then in a set that failed. */
-    private static function rank(JudgedMutant $mutant, Overview $overview): int
+    /**
+     * How far forward a mutant or cluster goes: on a changed line counts
+     * most, then in a set that failed; a cluster is either where any member is.
+     */
+    private static function rank(JudgedMutant|Cluster $item, Overview $overview): int
     {
-        return ($mutant->isOnChangedLine() ? 2 : 0) + ($overview->isFailing($mutant) ? 1 : 0);
+        return ($item->isOnChangedLine() ? 2 : 0) + (self::isFailing($item, $overview) ? 1 : 0);
+    }
+
+    private static function isFailing(JudgedMutant|Cluster $item, Overview $overview): bool
+    {
+        foreach ($item instanceof Cluster ? $item->members() : [$item] as $mutant) {
+            if ($overview->isFailing($mutant)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -106,6 +124,20 @@ final readonly class Annotations implements Configurable, Reporter
     private function kept(array $lines, string $line): array
     {
         return count($lines) < self::PER_LEVEL ? [...$lines, $line] : $lines;
+    }
+
+    /** One annotation for a whole cluster, at its first member. */
+    private function clusterCommand(string $level, Cluster $cluster): string
+    {
+        $mutant = $cluster->representative()->mutant();
+        $end = $mutant->location()->end();
+
+        return WorkflowCommand::of($level, [
+            'file' => $mutant->location()->file()->value(),
+            'line' => $mutant->location()->start()->number(),
+            ...$end instanceof Line ? ['endLine' => $end->number()] : [],
+            'title' => sprintf('Mutant cluster: %s', ClusterText::size($cluster)),
+        ], sprintf(self::CLUSTER_MESSAGE, ClusterText::hint($cluster), $cluster->stub()));
     }
 
     private function command(string $level, JudgedMutant $judged): string

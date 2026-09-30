@@ -1,0 +1,150 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Adapter\GitHub;
+
+use function count;
+use function implode;
+
+use NightWorksIO\MutationGate\Core\Cluster\Cluster;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Report\ClusterText;
+use NightWorksIO\MutationGate\Core\Report\Escape;
+use NightWorksIO\MutationGate\Core\Report\Label;
+use NightWorksIO\MutationGate\Core\Report\Mutator;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+
+use function rtrim;
+use function sprintf;
+
+/**
+ * The mutants and clusters of a comment or step summary as GitHub Markdown:
+ * as folded blocks, or as rows of a table, then how many more there are.
+ */
+final readonly class MarkdownItems
+{
+    private const string MORE = 'And %d more; the JSON report lists every one.';
+
+    /**
+     * Each mutant as a folded block with its diff, hint and reproduce
+     * command, and each cluster as one with its members' diffs, one hint and
+     * its stub command.
+     *
+     * @param  list<JudgedMutant|Cluster> $items
+     * @return list<string>
+     */
+    public static function details(array $items, int $of): array
+    {
+        $blocks = [];
+
+        foreach ($items as $item) {
+            $blocks[] = $item instanceof Cluster ? self::clusterDetails($item) : implode("\n\n", [
+                sprintf(
+                    '<details><summary>%s %s, %s</summary>',
+                    self::place($item),
+                    Escape::text(Mutator::short($item->mutant()->mutator())),
+                    Label::of($item->judgement()),
+                ),
+                self::diff($item),
+                Escape::text($item->hint()->text()),
+                Escape::code($item->reproduce()),
+                '</details>',
+            ]);
+        }
+
+        return [...$blocks, ...self::more($of - count($items))];
+    }
+
+    /**
+     * Mutants as a table: where, mutator, judgement, why and how to
+     * reproduce; a cluster as one row, with its size where the mutator goes
+     * and its stub command.
+     *
+     * @param  list<JudgedMutant|Cluster> $items
+     * @return list<string>
+     */
+    public static function table(array $items, int $of): array
+    {
+        if ($items === []) {
+            return [];
+        }
+
+        $rows = ['| Mutant | Mutator | Judgement | What the tests miss | Command |', '|---|---|---|---|---|'];
+
+        foreach ($items as $item) {
+            $rows[] = $item instanceof Cluster ? self::clusterRow($item) : self::row($item);
+        }
+
+        return [implode("\n", $rows), ...self::more($of - count($items))];
+    }
+
+    private static function clusterDetails(Cluster $cluster): string
+    {
+        $diffs = [];
+
+        foreach ($cluster->members() as $member) {
+            $diffs[] = self::diff($member);
+        }
+
+        return implode("\n\n", [
+            sprintf(
+                '<details><summary>%s %s</summary>',
+                self::place($cluster->representative()),
+                Escape::text(ClusterText::size($cluster)),
+            ),
+            ...$diffs,
+            Escape::text(ClusterText::hint($cluster)),
+            Escape::code($cluster->stub()),
+            '</details>',
+        ]);
+    }
+
+    private static function diff(JudgedMutant $judged): string
+    {
+        return Escape::block(rtrim($judged->mutant()->mutation()->diff(), "\n"), 'diff');
+    }
+
+    private static function row(JudgedMutant $judged): string
+    {
+        $mutant = $judged->mutant();
+        $reason = $mutant->reason();
+
+        return sprintf(
+            '| %s | %s | %s | %s | %s |',
+            self::place($judged),
+            Escape::text(Mutator::short($mutant->mutator())),
+            Label::of($judged->judgement()),
+            Escape::text($reason instanceof Reason
+                ? sprintf('%s %s', $reason->text(), $judged->hint()->text())
+                : $judged->hint()->text()),
+            Escape::code($judged->reproduce()),
+        );
+    }
+
+    private static function clusterRow(Cluster $cluster): string
+    {
+        return sprintf(
+            '| %s | %s | %s | %s | %s |',
+            self::place($cluster->representative()),
+            Escape::text(ClusterText::size($cluster)),
+            Label::of($cluster->representative()->judgement()),
+            Escape::text(ClusterText::hint($cluster)),
+            Escape::code($cluster->stub()),
+        );
+    }
+
+    /** @return list<string> */
+    private static function more(int $left): array
+    {
+        return $left > 0 ? [sprintf(self::MORE, $left)] : [];
+    }
+
+    /** Where a mutant is, as code: its file and line. */
+    private static function place(JudgedMutant $judged): string
+    {
+        $location = $judged->mutant()->location();
+
+        return Escape::code(sprintf('%s:%d', $location->file()->value(), $location->start()->number()));
+    }
+}

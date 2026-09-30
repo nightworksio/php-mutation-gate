@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
+use NightWorksIO\MutationGate\Core\Cluster\Membership;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
@@ -15,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
@@ -22,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
+use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 
 $tree = static fn(Floor|Exempt|Undeclared $declared): Tree => Tree::at(Path::of('app/Http'), $declared, Package::at(Path::root()));
@@ -142,3 +145,23 @@ it('carries why the baseline lowered its floor, and has no reason until it is gi
         ->and($verdict->withLowering($lowered)->lowering())->toBe($lowered)
         ->and($verdict->withLowering($lowered)->floor())->toEqual(Floor::of(60));
 });
+
+it('clusters its survivors as it counts uncovered ones, and keeps the rest', function (Uncovered $uncovered, bool $clustered) use ($tree): void {
+    $mutants = [];
+
+    foreach (Clustered::listed(Clustered::removedCalls()) as $call) {
+        $mutants[] = JudgedMutant::of($call->mutant(), MutantJudgement::Uncovered)->judgedBy($call->tests());
+    }
+
+    $verdict = TreeVerdict::judged($tree(Floor::of(80)), Floor::of(70), JudgedUnits::none(), JudgedMutants::of(...$mutants), $uncovered)
+        ->clustered(Clustered::sources());
+    $first = Clustered::listed($verdict->mutants())[0];
+
+    expect($first->cluster() instanceof Membership)->toBe($clustered)
+        ->and($verdict->uncovered())->toBe($uncovered)
+        ->and($verdict->baseline())->toEqual(Floor::of(70))
+        ->and($verdict->tree()->path()->value())->toBe('app/Http');
+})->with([
+    'counted' => [Uncovered::Count, true],
+    'left out of the score' => [Uncovered::Exclude, false],
+]);

@@ -9,16 +9,18 @@ use function explode;
 use function implode;
 use function in_array;
 
+use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
+use NightWorksIO\MutationGate\Core\Report\ClusterText;
+use NightWorksIO\MutationGate\Core\Report\Folded;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Percent;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Score\Floor;
-use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
@@ -38,7 +40,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * The reporter `console`, which every run has: the verdict, every tree and
  * new-code set, the units and where their results came from, what the change
  * reached and why, every mutant the score counts as not killed with its diff,
- * hint, judging tests, reproduce and explain commands, the ignored mutants
+ * hint, judging tests, reproduce and explain commands, and each cluster of
+ * them once with its members' diffs and stub command, the ignored mutants
  * with their reasons, the mutants proven equivalent, the floors that can
  * rise, the failures and warnings, and last what the run took and saved.
  */
@@ -76,7 +79,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
             ...$this->section('Reach', $this->texts($verdict->reach())),
             ...$this->section(
                 sprintf('Not killed (%d)', count($overview->survivors())),
-                $this->survivors($overview, $verdict->matrix()->names()),
+                $this->survivors($verdict, $overview),
             ),
             ...$this->section(
                 'Ignored',
@@ -167,12 +170,14 @@ final readonly class ConsoleReport implements Configurable, Reporter
     }
 
     /** @return list<string> */
-    private function survivors(Overview $overview, TestNames $names): array
+    private function survivors(Verdict $verdict, Overview $overview): array
     {
         $blocks = [];
 
-        foreach ($overview->survivors() as $mutant) {
-            $blocks[] = MutantText::block($mutant, $names);
+        foreach (Folded::of($overview->survivors(), $verdict->trees()->clusters()) as $item) {
+            $blocks[] = $item instanceof Cluster
+                ? ClusterText::block($item)
+                : MutantText::block($item, $verdict->matrix()->names());
         }
 
         return $blocks === [] ? [] : [implode("\n\n", $blocks)];

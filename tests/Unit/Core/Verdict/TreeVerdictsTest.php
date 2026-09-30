@@ -2,13 +2,18 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Cluster\Cluster;
+use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
+use NightWorksIO\MutationGate\Core\Cluster\Membership;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
@@ -16,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
+use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 
 $verdict = static fn(string $path): TreeVerdict => TreeVerdict::judged(
@@ -64,4 +70,23 @@ it('lists every unit and every mutant, tree by tree', function (): void {
         ->and($verdicts->mutants()->counts()->number(MutantJudgement::Killed))->toBe(1)
         ->and($verdicts->mutants()->counts()->number(MutantJudgement::Flaky))->toBe(1)
         ->and($verdicts->mutants())->toHaveCount(3);
+});
+
+it('clusters the survivors of every tree once, and answers with their clusters', function (): void {
+    $cart = TreeVerdict::judged(
+        Tree::at(Path::of('src'), Floor::of(80), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        Clustered::survivors(),
+        Uncovered::Count,
+    );
+    $trees = TreeVerdicts::of($cart);
+    $clustered = $trees->clustered(Clustered::sources());
+
+    expect($trees->clusters())->toHaveCount(0)
+        ->and(array_map(static fn(Cluster $cluster): ClusterKind => $cluster->kind(), iterator_to_array($clustered->clusters(), preserve_keys: false)))
+        ->toBe([ClusterKind::Expression, ClusterKind::Gap])
+        ->and(array_map(static fn(JudgedMutant $judged): bool => $judged->cluster() instanceof Membership, Clustered::listed($clustered->mutants())))
+        ->toBe([true, true, true, false, true, true, true])
+        ->and($clustered)->toHaveCount(1);
 });

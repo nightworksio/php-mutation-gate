@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
+use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
+use NightWorksIO\MutationGate\Core\Cluster\Membership;
+use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -85,4 +90,15 @@ it('gives the one command that reproduces it', function (): void {
     $judged = Judged::mutant('a', MutantJudgement::Survived);
 
     expect($judged->reproduce())->toBe(sprintf('vendor/bin/mutation-gate reproduce %s', $judged->mutant()->id()->value()));
+});
+
+it('is in no cluster until it is put in one, and keeps the rest when it is', function (): void {
+    $mutant = Judged::mutant('1', MutantJudgement::Survived);
+    $membership = Membership::of(ClusterId::of(MutantIds::of($mutant->mutant()->id())), ClusterKind::Gap);
+    $clustered = $mutant->inCluster($membership);
+
+    expect($mutant->cluster())->toEqual(Unclustered::mutant())
+        ->and($clustered->cluster())->toBe($membership)
+        ->and($clustered->mutant())->toBe($mutant->mutant())
+        ->and($clustered->judgement())->toBe(MutantJudgement::Survived);
 });

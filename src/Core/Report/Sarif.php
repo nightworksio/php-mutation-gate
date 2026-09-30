@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use NightWorksIO\MutationGate\Core\Cluster\Membership;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -15,7 +16,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * as not killed. A result is an error when its mutant is in a set that
  * failed, and a warning otherwise. The gate's id is its partial fingerprint,
  * so a result is matched across commits when code above it moves
- * (ADR-0009, decision 2).
+ * (ADR-0009, decision 2). A mutant in a cluster stays a result of its own,
+ * so no fingerprint moves, and names its cluster (ADR-0022, decision 17).
  *
  * @phpstan-type Result array{
  *     ruleId: value-of<ResultRule>,
@@ -27,7 +29,14 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  *         region: array{startLine: int, endLine?: int},
  *     }}>,
  *     partialFingerprints: array{primaryLocationLineHash: string},
- *     properties: array{id: string, mutator: string, judgement: string, diff: string, reproduce: string},
+ *     properties: array{
+ *         id: string,
+ *         mutator: string,
+ *         judgement: string,
+ *         diff: string,
+ *         reproduce: string,
+ *         cluster?: string,
+ *     },
  * }
  */
 final readonly class Sarif
@@ -84,6 +93,7 @@ final readonly class Sarif
         $mutant = $judged->mutant();
         $rule = ResultRule::of($judged->judgement());
         $end = $mutant->location()->end();
+        $cluster = $judged->cluster();
 
         return [
             'ruleId' => $rule->value,
@@ -106,6 +116,7 @@ final readonly class Sarif
                 'judgement' => $judged->judgement()->value,
                 'diff' => $mutant->mutation()->diff(),
                 'reproduce' => $judged->reproduce(),
+                ...$cluster instanceof Membership ? ['cluster' => $cluster->id()->value()] : [],
             ],
         ];
     }

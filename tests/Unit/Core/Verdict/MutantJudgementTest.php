@@ -52,3 +52,9 @@ it('counts each judgement in the score as the floors decide', function (MutantJu
     [MutantJudgement::IgnoredByMarker, Scoring::LeftOut, Scoring::LeftOut],
     [MutantJudgement::Equivalent, Scoring::LeftOut, Scoring::LeftOut],
 ]);
+
+it('asks for a test only where a mutant survived or no test ran it', function (): void {
+    $asking = array_values(array_filter(MutantJudgement::cases(), static fn(MutantJudgement $judgement): bool => $judgement->asksForATest()));
+
+    expect($asking)->toBe([MutantJudgement::Survived, MutantJudgement::Uncovered]);
+});

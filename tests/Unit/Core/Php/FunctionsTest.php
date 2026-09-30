@@ -63,3 +63,15 @@ it('reads a file that is not PHP, or closes more than it opens, as declaring not
     expect(Functions::in(Contents::of('just text'))->around(Line::of(1)))->toEqual(Nameless::code())
         ->and(Functions::in(Contents::of("<?php\n}\n}\n"))->around(Line::of(2)))->toEqual(Nameless::code());
 });
+
+it('gives the line the innermost named function a line is in begins on, which tells two of one name apart', function (int $line, Line|Nameless $start) use ($file): void {
+    expect(Functions::in(Contents::of($file))->startAround(Line::of($line)))->toEqual($start);
+})->with([
+    'a line of a method' => [16, Line::of(10)],
+    'inside a closure, the method around it' => [13, Line::of(10)],
+    'a function declared inside a method' => [23, Line::of(21)],
+    'the method again after it' => [26, Line::of(19)],
+    'a function outside any class' => [30, Line::of(30)],
+    'the class around a method' => [8, Nameless::code()],
+    'past the end' => [40, Nameless::code()],
+]);
