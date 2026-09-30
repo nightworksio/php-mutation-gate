@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -69,13 +70,20 @@ final readonly class Results
         return new self($read);
     }
 
-    /** Each unit a shard ran, with the mutants of it and those of them that were flaky. */
+    /**
+     * Each unit a shard ran, with the mutants of it and those of them that
+     * were flaky; a held unit its holding tests miss lines of did not run.
+     */
     public function units(): UnitResults
     {
         $results = UnitResults::none();
 
         foreach ($this->read as [$shard, $result, $mutated]) {
             foreach ($shard->units() as $unit) {
+                if ($result->misses()->misses($unit->path())) {
+                    continue;
+                }
+
                 $results = $results->with(
                     UnitResult::of($unit, Origin::Run, $this->mutantsOf($unit, $mutated->mutants()))
                         ->withFlaky($result->flaky()),
@@ -84,6 +92,18 @@ final readonly class Results
         }
 
         return $results;
+    }
+
+    /** Every shard's held units whose holding tests miss lines of them. */
+    public function misses(): HeldMisses
+    {
+        $misses = HeldMisses::none();
+
+        foreach ($this->read as [, $result]) {
+            $misses = $misses->and($result->misses());
+        }
+
+        return $misses;
     }
 
     /** @return list<array{Shard, ShardResult, MutationResult}> each shard, with its result and its mutants */

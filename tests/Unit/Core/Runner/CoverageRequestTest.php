@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -16,6 +17,11 @@ it('asks a group to run under coverage and leave its map in a directory, in one 
         ->and($request->tests())->toEqual(Group::named('holds:src/Kernel.php'))
         ->and($request->directory()->value())->toBe('.mutation-gate/coverage')
         ->and($request->processes())->toEqual(Processes::of(1));
+});
+
+it('asks the tests a filter names to run under coverage', function (): void {
+    expect(CoverageRequest::running(Filter::matching('KernelTest'), Path::of('held'))->tests())
+        ->toEqual(Filter::matching('KernelTest'));
 });
 
 it('asks for the whole suite\'s map another job left in a directory', function (): void {

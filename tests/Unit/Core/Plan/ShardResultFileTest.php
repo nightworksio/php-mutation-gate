@@ -6,6 +6,8 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -21,8 +23,11 @@ use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Test\Filter;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 
 $measured = Measurement::of(Seconds::of(42.5), 'pest', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')));
 
@@ -127,6 +132,23 @@ it('lists the mutants that gave two answers after the rest, and reads them back'
     ))
         ->and(ShardResultFile::decode($written))->toEqual($result)
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"flaky"');
+});
+
+it('lists each held unit its holding tests miss lines of, with why, and reads them back', function () use (
+    $finished,
+    $survivor,
+    $measured,
+): void {
+    $misses = HeldMisses::of(
+        NotCovered::because(Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')), 'Missed 48.'),
+        NotCovered::because(Unit::held(Path::of('src/Http'), Filter::matching('HttpTest')), 'Missed all.'),
+    );
+    $result = $finished($survivor, $measured)->withMisses($misses);
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toContain('"missed": [')
+        ->and(ShardResultFile::decode($written))->toEqual($result)
+        ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"missed"');
 });
 
 it('reads back a shard that could not judge', function () use ($measured): void {

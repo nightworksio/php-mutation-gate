@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -109,16 +110,17 @@ final readonly class Running
         $started = $this->setup->clock->now();
         $outcome = $this->mutated($shard, new Handoff($this->adapters->project)->read($id));
         $ended = $this->setup->clock->now();
-        $mutated = $outcome instanceof CannotJudge ? $outcome : $outcome[0];
         $spent = Seconds::of((float) $ended->format('U.u') - (float) $started->format('U.u'));
         $identity = $this->adapters->runner->identity();
         $result = ShardResult::of(
             $plan->digest(),
             $id,
             $this->keysOf($shard->units(), $plan->keys()),
-            $mutated,
+            $outcome instanceof CannotJudge ? $outcome : $outcome->result,
             Measurement::of($spent, $identity instanceof CannotJudge ? '' : $identity->runner(), Instant::at($ended)),
-        )->withFlaky($outcome instanceof CannotJudge ? MutantIds::none() : $outcome[1]);
+        )
+            ->withFlaky($outcome instanceof CannotJudge ? MutantIds::none() : $outcome->flaky)
+            ->withMisses($outcome instanceof CannotJudge ? HeldMisses::none() : $outcome->misses);
 
         return $this->adapters->project->write(
             Workspace::result($results, $id),
@@ -128,18 +130,23 @@ final readonly class Running
 
     /**
      * Every invocation's mutants, timeouts retried and timed, with the
-     * survivors a second run killed; or the first cannot judge.
-     *
-     * @return array{MutationResult, MutantIds}|CannotJudge
+     * survivors a second run killed, of each unit but the held ones whose
+     * holding tests miss lines of them; or the first cannot judge.
      */
-    private function mutated(Shard $shard, CoverageMap|CannotJudge $map): array|CannotJudge
+    private function mutated(Shard $shard, CoverageMap|CannotJudge $map): Mutated|CannotJudge
     {
+        $misses = new HeldCoverage($this->adapters)->misses($shard, $map);
+
+        if ($misses instanceof CannotJudge) {
+            return $misses;
+        }
+
         $mutants = Mutants::none();
         $flaky = MutantIds::none();
         $skipped = 0;
         $retries = $this->settings->triage()->retries();
 
-        foreach ($shard->invocations() as $units) {
+        foreach (HeldCoverage::kept($shard, $misses)->invocations() as $units) {
             $invoked = $this->invoked($this->requestFor($units, $shard->id()), $retries);
 
             if ($invoked instanceof CannotJudge) {
@@ -154,7 +161,7 @@ final readonly class Running
 
         $timed = $map instanceof CoverageMap ? TimeoutTriage::timed($mutants, $map) : $mutants;
 
-        return [MutationResult::of($timed, $skipped), $flaky];
+        return new Mutated(MutationResult::of($timed, $skipped), $flaky, $misses);
     }
 
     /** One invocation, its timeouts retried and its survivors run once more; or the first cannot judge. */

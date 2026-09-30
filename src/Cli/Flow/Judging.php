@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -27,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
@@ -119,7 +121,13 @@ final readonly class Judging
             return $committed;
         }
 
-        $verdict = $this->verdictOf($plan, Lowering::against($committed, $baseline, $trees), $judge, $verdicts);
+        $verdict = $this->verdictOf(
+            $plan,
+            Lowering::against($committed, $baseline, $trees),
+            $this->missed($results->misses()),
+            $judge,
+            $verdicts,
+        );
         $ownScopeProofs = $proving->ownScopeProofs() + $carrying->ownScopeProofs();
 
         $recorded = $this->recorded($plan, $results, $ledgers, $verdict, $ownScopeProofs);
@@ -129,10 +137,14 @@ final readonly class Judging
             : new Judged($verdict, [$recorded, ...$this->reported($verdict, $reporters)], $baseline);
     }
 
-    /** @param Failures $lowered each floor the run lowers from the default branch's without its reason */
+    /**
+     * @param Failures $lowered each floor the run lowers from the default branch's without its reason
+     * @param Failures $missed  each held unit its holding tests miss lines of
+     */
     private function verdictOf(
         Plan $plan,
         Failures $lowered,
+        Failures $missed,
         Judge $judge,
         TreeVerdicts $verdicts,
     ): Verdict {
@@ -141,14 +153,26 @@ final readonly class Judging
             ? $judge->newCode($verdicts, $this->settings->floors()->newCode())
             : NewCodeVerdicts::none();
         $failures = $pullRequest
-            ? $this->pullRequestFailures($lowered, $verdicts)
-            : Failures::none();
+            ? $this->pullRequestFailures($lowered, $verdicts)->and($missed)
+            : $missed;
 
         return Verdict::of($verdicts)
             ->withNewCode($newCode)
             ->withReach($plan->reach())
             ->withWarnings($this->warnings($plan, $verdicts))
             ->withFailures($failures);
+    }
+
+    /** Why each held unit its holding tests miss lines of fails. */
+    private function missed(HeldMisses $misses): Failures
+    {
+        $failures = Failures::none();
+
+        foreach ($misses as $miss) {
+            $failures = $failures->with(Failure::that($miss->why()));
+        }
+
+        return $failures;
     }
 
     /** In a pull request, a raise that must be committed with it, and a floor lowered without its reason. */

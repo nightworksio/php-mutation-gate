@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\Timeouts;
+use NightWorksIO\MutationGate\Config\Uncovered;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
@@ -78,6 +79,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
@@ -624,4 +626,39 @@ it('says how many of the runner\'s own ignore markers ignores.native allows in w
         Markers::of(Marker::inSource('src/Money.php:9', 'a')),
         [],
     ],
+]);
+
+it('fails a verdict on a held unit its holding tests miss lines of, and proves nothing of it', function (
+    Setting $uncovered,
+) use ($tree, $reporting): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::oneShard();
+    $adapters = Flows::adapters(
+        $project,
+        [],
+        $tree(Floor::of(0)),
+        $store,
+        new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::empty()),
+    );
+    new Handoff($adapters->project)->write($plan, Flows::map());
+    new Running($adapters, judgingSettings($uncovered), Flows::setup())->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), $adapters->project);
+    $judging = new Judging($adapters, judgingSettings($uncovered), Flows::setup(), $reporting(new ReporterFake()));
+
+    $verdict = judgingVerdictOf($results instanceof Results ? $judging->verdict($plan, $results) : $results);
+
+    expect(judgingTexts($verdict->failures()))->toBe([<<<'SAID'
+        holds:src/Held.php does not cover src/Held.php, so its mutants cannot be judged by it.
+        Not reached: src/Held.php, all of it
+        Add the test that runs them to the group.
+        SAID])
+        ->and($verdict->judgement())->toBe(Judgement::Failed)
+        ->and(array_map(
+            static fn(Proof $proof): string => $proof->unit()->value(),
+            [...$store->read(Scope::branch('main'))->proofs()],
+        ))->toBe(['src/Money.php']);
+})->with([
+    'uncovered mutants counted' => [Uncovered::counted()],
+    'uncovered mutants left out' => [Uncovered::excluded()],
 ]);

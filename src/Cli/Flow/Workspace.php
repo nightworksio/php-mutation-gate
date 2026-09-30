@@ -32,6 +32,12 @@ final readonly class Workspace
         return Path::of(sprintf('%s/coverage/shard-%d', GateDirectory::root()->value(), $shard->number()));
     }
 
+    /** Where the tests that hold a shard's units leave the map of their run on their own. */
+    public static function heldCoverage(ShardId $shard): Path
+    {
+        return Path::of(sprintf('%s/held/shard-%d', GateDirectory::root()->value(), $shard->number()));
+    }
+
     public static function results(): Path
     {
         return Path::of(sprintf('%s/results', GateDirectory::root()->value()));

@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JUnitLog;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -147,9 +148,13 @@ final readonly class Invocation
     }
 
     /** @return list<string> */
-    private function narrowedTo(WholeSuite|Group $tests): array
+    private function narrowedTo(WholeSuite|Group|Filter $tests): array
     {
-        return $tests instanceof Group ? [sprintf('--group=%s', $tests->name()), self::EMPTY_PASSES] : [];
+        return match (true) {
+            $tests instanceof Group => [sprintf('--group=%s', $tests->name()), self::EMPTY_PASSES],
+            $tests instanceof Filter => [sprintf('--filter=%s', $tests->pattern()), self::EMPTY_PASSES],
+            default => [],
+        };
     }
 
     /**

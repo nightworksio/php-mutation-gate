@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
@@ -21,13 +23,15 @@ use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Unit\UnitRecord;
 
 use function sprintf;
 
 /**
  * A shard's result as `.mutation-gate/results/<id>.json` holds it,
  * `"format": 1`, with `flaky` listing the ids of the mutants that gave two
- * answers where there are any. A result that cannot be read is refused, and the verdict
+ * answers where there are any, and `missed` each held unit whose holding
+ * tests miss lines of it, with why, where there are any. A result that cannot be read is refused, and the verdict
  * reads that shard as having left no result.
  *
  * @internal the shape of the shard result file
@@ -41,6 +45,12 @@ final readonly class ShardResultFile
     private const string MEASURED = 'measured';
 
     private const string FLAKY = 'flaky';
+
+    private const string MISSED = 'missed';
+
+    private const string MISSED_UNIT = 'unit';
+
+    private const string MISSED_WHY = 'why';
 
     public static function encode(ShardResult $result): string
     {
@@ -66,6 +76,13 @@ final readonly class ShardResultFile
             ...count($result->flaky()) > 0 ? [self::FLAKY => array_map(
                 static fn(MutantId $id): string => $id->value(),
                 [...$result->flaky()],
+            )] : [],
+            ...count($result->misses()) > 0 ? [self::MISSED => array_map(
+                static fn(NotCovered $miss): array => [
+                    self::MISSED_UNIT => UnitRecord::one($miss->unit()),
+                    self::MISSED_WHY => $miss->why(),
+                ],
+                [...$result->misses()],
             )] : [],
         ]);
     }
@@ -94,7 +111,24 @@ final readonly class ShardResultFile
             KeysRecord::read($file->field('units')),
             self::outcomeIn($file),
             self::measuredIn($file->field(self::MEASURED)),
-        )->withFlaky(self::flakyIn($file->field(self::FLAKY)));
+        )
+            ->withFlaky(self::flakyIn($file->field(self::FLAKY)))
+            ->withMisses(self::missesIn($file->field(self::MISSED)));
+    }
+
+    /** @throws NotInShape */
+    private static function missesIn(Node $missed): HeldMisses
+    {
+        $misses = [];
+
+        foreach ($missed->isPresent() ? $missed->items() : [] as $miss) {
+            $misses[] = NotCovered::because(
+                UnitRecord::read($miss->field(self::MISSED_UNIT)),
+                $miss->field(self::MISSED_WHY)->text(),
+            );
+        }
+
+        return HeldMisses::of(...$misses);
     }
 
     /** @throws NotInShape */

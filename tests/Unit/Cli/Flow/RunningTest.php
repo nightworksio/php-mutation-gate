@@ -14,9 +14,11 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -34,6 +36,8 @@ use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -45,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
+use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
@@ -418,3 +423,61 @@ it('runs no timeout again whose limit its runner\'s own formula decided', functi
 
     expect($scripted->retries())->toBe([]);
 });
+
+it('mutates no held unit whose holding tests miss lines of it, and leaves why', function () use ($resultIn): void {
+    $project = Flows::project();
+    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map());
+    $scripted = ScriptedRunner::fixture();
+    $runner = new CoverageAsked($scripted, CoverageMap::empty());
+    $adapters = Flows::adapters($project, [], $runner);
+
+    new Running($adapters, Flows::settings(), Flows::setup())
+        ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+
+    expect($runner->asked())->toEqual([
+        CoverageRequest::running(Group::named('holds:src/Held.php'), Path::of('.mutation-gate/held/shard-1'))
+            ->withholding($adapters->withheld),
+    ])
+        ->and($result instanceof ShardResult ? [...$result->misses()] : $result)->toEqual([NotCovered::because(
+            Planned::held(),
+            <<<'SAID'
+                holds:src/Held.php does not cover src/Held.php, so its mutants cannot be judged by it.
+                Not reached: src/Held.php, all of it
+                Add the test that runs them to the group.
+                SAID,
+        )])
+        ->and(array_map(
+            static fn(MutationRequest $request): string => $request->judgedBy()::class,
+            $scripted->requests(),
+        ))->toBe([WholeSuite::class]);
+});
+
+it('mutates each held unit its holding tests cover, and cannot judge a shard whose held tests fail alone', function (
+    CoverageMap|CannotJudge $answer,
+    string $outcome,
+) use ($resultIn): void {
+    $project = Flows::project();
+    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map());
+
+    new Running(
+        Flows::adapters($project, [], new CoverageAsked(ScriptedRunner::fixture(), $answer)),
+        Flows::settings(),
+        Flows::setup(),
+    )->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $said = $result instanceof ShardResult ? $result->outcome() : $result;
+
+    expect($said instanceof CannotJudge ? $said->why() : $said::class)->toBe($outcome)
+        ->and($result instanceof ShardResult ? count($result->misses()) : $result)->toBe(0);
+})->with([
+    'tests that cover what they hold' => [Flows::map(), MutationResult::class],
+    'tests that fail on their own' => [
+        CannotJudge::because('The group failed.'),
+        sprintf(
+            '%s %s',
+            'The tests that hold src/Held.php cannot run on their own under coverage, so they cannot judge it.',
+            'The group failed.',
+        ),
+    ],
+]);

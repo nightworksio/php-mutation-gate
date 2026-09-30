@@ -5,18 +5,19 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 /**
- * What a runner is asked for a coverage map: to run the whole suite or one
- * group under coverage and leave the map in a directory, or to read the map
+ * What a runner is asked for a coverage map: to run the whole suite, one
+ * group or the tests a filter names under coverage and leave the map in a directory, or to read the map
  * another job left there.
  */
 final readonly class CoverageRequest
 {
     private function __construct(
-        private WholeSuite|Group $tests,
+        private WholeSuite|Group|Filter $tests,
         private Path $directory,
         private bool $runs,
         private Processes $processes,
@@ -24,7 +25,7 @@ final readonly class CoverageRequest
     ) {
     }
 
-    public static function running(WholeSuite|Group $tests, Path $into): self
+    public static function running(WholeSuite|Group|Filter $tests, Path $into): self
     {
         return new self($tests, $into, runs: true, processes: Processes::of(1), withheld: Withheld::standard());
     }
@@ -57,7 +58,7 @@ final readonly class CoverageRequest
         return $this->withheld;
     }
 
-    public function tests(): WholeSuite|Group
+    public function tests(): WholeSuite|Group|Filter
     {
         return $this->tests;
     }

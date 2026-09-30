@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -61,6 +62,15 @@ it('runs one group under coverage', function (): void {
         '--coverage-php=/p/held/coverage.php',
         '--log-junit=/p/held/junit.xml',
         '--group=holds:src/Held.php',
+        '--do-not-fail-on-empty-test-suite',
+    ]);
+});
+
+it('runs the tests a filter names under coverage', function (): void {
+    $request = CoverageRequest::running(Filter::matching('HeldTest'), Path::of('held'));
+
+    expect(array_slice(invocation()->coverage($request, '/p/held')->arguments(), -2))->toBe([
+        '--filter=HeldTest',
         '--do-not-fail-on-empty-test-suite',
     ]);
 });

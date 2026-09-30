@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
+use NightWorksIO\MutationGate\Core\Hold\PestHolds;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
@@ -111,6 +112,26 @@ final readonly class Suite
         }
 
         return $naming;
+    }
+
+    /**
+     * The `#[Holds]` in the test files as Pest's plugin reads them, where Pest
+     * loads these files before it starts any plugin; or the first from which
+     * no group can follow.
+     */
+    public function pestHolds(Paths $first): PestHolds|CannotJudge
+    {
+        $holds = PestHolds::after($first);
+
+        foreach ($this->contents as $path => $contents) {
+            $holds = $holds->read(Path::of($path), PhpFile::read($contents)->holds());
+
+            if ($holds instanceof CannotJudge) {
+                return $holds;
+            }
+        }
+
+        return $holds;
     }
 
     /** What the `#[Holds]` in the test files declare. */
