@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Measured;
+use NightWorksIO\MutationGate\Config\Uncovered;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -28,7 +29,6 @@ use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
-use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -61,7 +61,7 @@ it('judges every tree over the newest result of each of its units', function () 
         ->withProof($proofOf('src/Money.php', '2026-09-29T10:00:00Z'))
         ->withProof($proofOf('src/Held.php', '2026-09-29T10:00:00Z')));
 
-    $measured = Measured::of(Flows::adapters(Flows::project(), [], $store), Configs::flows(), Baseline::none());
+    $measured = Measured::of(Flows::adapters(Flows::project(), [], $store), Flows::settings(), Baseline::none());
 
     expect($measured instanceof Measured ? $scores($measured) : $measured)->toBe(['src 4000'])
         ->and($measured instanceof Measured ? [...$measured->unmeasured()] : $measured)->toBe([]);
@@ -82,7 +82,7 @@ it('takes the run\'s own scope\'s newer results, and judges them against the bas
     $ci = new CiPlanFake(ShardId::of(1), RunOn::at(Scope::branch('feature'), Scope::branch('main')));
     $baseline = Baseline::of(Entry::of(Path::of('src'), Floor::of(12.5)));
 
-    $measured = Measured::of(Flows::adapters(Flows::project(), [], $store, $ci), Configs::flows(), $baseline);
+    $measured = Measured::of(Flows::adapters(Flows::project(), [], $store, $ci), Flows::settings(), $baseline);
     $trees = $measured instanceof Measured ? [...$measured->trees()] : [];
 
     expect(count($trees))->toBe(1)
@@ -100,7 +100,7 @@ it('leaves a tree with a unit that has no result yet unmeasured', function () us
     ));
 
     $adapters = Flows::adapters(Flows::project(), [], $store, $trees);
-    $measured = Measured::of($adapters, Configs::flows(), Baseline::none());
+    $measured = Measured::of($adapters, Flows::settings(), Baseline::none());
 
     expect($measured instanceof Measured ? array_map(
         static fn(TreeVerdict $tree): string => $tree->tree()->path()->value(),
@@ -121,7 +121,7 @@ it('scores the results with uncovered mutants left out where the config says so'
 
     $measured = Measured::of(
         Flows::adapters(Flows::project(), [], $store),
-        Configs::flows(['uncovered' => 'exclude']),
+        Flows::settings(Uncovered::excluded()),
         Baseline::none(),
     );
 
@@ -129,6 +129,6 @@ it('scores the results with uncovered mutants left out where the config says so'
 });
 
 it('cannot judge where it cannot tell where the run stands', function (): void {
-    expect(Measured::of(Flows::adapters(Flows::project(), [], Flows::lost()), Configs::flows(), Baseline::none()))
+    expect(Measured::of(Flows::adapters(Flows::project(), [], Flows::lost()), Flows::settings(), Baseline::none()))
         ->toBeInstanceOf(CannotJudge::class);
 });

@@ -7,12 +7,18 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
+use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
+use NightWorksIO\MutationGate\Config\Gate;
+use NightWorksIO\MutationGate\Config\Report;
+use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
+use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -58,7 +64,6 @@ final readonly class Flows
     /** The commit the checkout is at. */
     public const string HEAD = 'head';
 
-
     /** The gate's setup, with no config file, at the instant every test runs at. */
     public static function setup(): Setup
     {
@@ -68,6 +73,29 @@ final readonly class Flows
             Digest::sha256Of('installed'),
             new StoppedClock(Configs::NOW),
         );
+    }
+
+
+    /**
+     * The settings of a config the flows run on: the fake runner, unless one
+     * of these parts names another, and these parts besides.
+     */
+    public static function settings(ConfiguredRunner|Report|NewCodeFloor|Setting ...$parts): Settings
+    {
+        $gate = Gate::configure()->runner(ConfiguredRunner::uses('fake'));
+        $reports = [];
+
+        foreach ($parts as $part) {
+            $reports = $part instanceof Report ? [...$reports, $part] : $reports;
+            $gate = match (true) {
+                $part instanceof ConfiguredRunner => $gate->runner($part),
+                $part instanceof Report => $gate->reporting(...$reports),
+                $part instanceof NewCodeFloor => $gate->newCode($part),
+                default => $gate->with($part),
+            };
+        }
+
+        return Configs::built($gate);
     }
 
     /** A directory holding the project's files. */

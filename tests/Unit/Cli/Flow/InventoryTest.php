@@ -24,7 +24,6 @@ use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
-use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -45,7 +44,7 @@ $listing = static fn(Groups|CannotJudge $groups): RunnerFake => new RunnerFake(
 /** The inventory of the project, or why there is none. */
 $inventory = static fn(object ...$ports): Inventory|CannotJudge => Inventory::of(
     Flows::adapters(Flows::project(), [], ...$ports),
-    Configs::flows(),
+    Flows::settings(),
 );
 
 it('finds where the run stands, the trees, every file, the suite, and every unit with its held paths', function () use (
@@ -127,7 +126,7 @@ it('cannot find the units where a test file cannot be read', function () use ($l
         Changes::none(),
         [Revision::workingTree()->name() => $files],
     );
-    $found = Inventory::of(Flows::adapters($project, [], $checkout, $listing(Groups::of())), Configs::flows());
+    $found = Inventory::of(Flows::adapters($project, [], $checkout, $listing(Groups::of())), Flows::settings());
 
     expect($found)->toEqual(CannotJudge::because(sprintf('%s/tests/Nested.php could not be read.', $project)));
 });

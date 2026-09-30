@@ -18,7 +18,6 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
-use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -31,7 +30,7 @@ afterEach(function (): void {
 /** Every shard of a plan run in a project by this runner, and the results read back. */
 $ran = static function (string $project, ScriptedRunner $runner): Results|CannotJudge {
     $plan = Planned::twoShards();
-    new Running(Flows::adapters($project, [], $runner), Configs::flows(), Flows::setup())
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->runAll($plan, Workspace::results());
 
     return Results::read($plan, Workspace::results(), Directory::at($project));
@@ -117,7 +116,7 @@ it('cannot judge a shard the runner could not judge, saying why', function () us
 it('reads the results from the directory it is handed', function (): void {
     $project = Flows::project();
     $plan = Planned::twoShards();
-    new Running(Flows::adapters($project), Configs::flows(), Flows::setup())->runAll($plan, Path::of('elsewhere'));
+    new Running(Flows::adapters($project), Flows::settings(), Flows::setup())->runAll($plan, Path::of('elsewhere'));
 
     expect(Results::read($plan, Path::of('elsewhere'), Directory::at($project)))->toBeInstanceOf(Results::class)
         ->and(Results::read($plan, Workspace::results(), Directory::at($project)))->toBeInstanceOf(CannotJudge::class);

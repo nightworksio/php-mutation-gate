@@ -6,6 +6,11 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Keying;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
+use NightWorksIO\MutationGate\Config\Baseline;
+use NightWorksIO\MutationGate\Config\Option;
+use NightWorksIO\MutationGate\Config\Pest;
+use NightWorksIO\MutationGate\Config\Proofs;
+use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -85,7 +90,7 @@ function keyedBase(string $definition): Digest
     $ci = Flows::ci()->runBy(Paths::of(Path::of('.github/workflows/gate.yml'), Path::of('.github/workflows/gone.yml')));
     $keying = Keying::of(
         Flows::adapters($project, [], keyingRunner('fake'), $ci),
-        Configs::flows(),
+        Flows::settings(),
         Flows::setup(),
         keyingSuite('1'),
         CoverageMap::empty(),
@@ -95,7 +100,7 @@ function keyedBase(string $definition): Digest
 }
 
 it('keys every unit on the one base of the run, and each by the tests that judge it', function (): void {
-    $keys = keyingOf(keyingRunner('fake'), Configs::flows(), keyingSuite('1'), Flows::setup())->keysOf(Units::of(
+    $keys = keyingOf(keyingRunner('fake'), Flows::settings(), keyingSuite('1'), Flows::setup())->keysOf(Units::of(
         Unit::file(Path::of('src/Money.php')),
         Unit::file(Path::of('src/Other.php')),
         Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php')),
@@ -111,8 +116,8 @@ it('keys every unit on the one base of the run, and each by the tests that judge
 
 it('reads the test file that judges a unit into its key alone', function (): void {
     $units = Units::of(Unit::file(Path::of('src/Money.php')), Unit::file(Path::of('src/Other.php')));
-    $before = keyingOf(keyingRunner('fake'), Configs::flows(), keyingSuite('1'), Flows::setup());
-    $after = keyingOf(keyingRunner('fake'), Configs::flows(), keyingSuite('2'), Flows::setup());
+    $before = keyingOf(keyingRunner('fake'), Flows::settings(), keyingSuite('1'), Flows::setup());
+    $after = keyingOf(keyingRunner('fake'), Flows::settings(), keyingSuite('2'), Flows::setup());
 
     expect($after->base())->toEqual($before->base())
         ->and($after->keysOf($units)->keyOf(Path::of('src/Money.php')))
@@ -122,7 +127,7 @@ it('reads the test file that judges a unit into its key alone', function (): voi
 });
 
 it('reads the canary group\'s test files into every key where Pest runs with the patch', function (): void {
-    $patched = Configs::flows(['pest' => ['patch' => true]]);
+    $patched = Flows::settings(Pest::patched());
 
     expect(keyingOf(keyingRunner('pest'), $patched, keyingSuite('2'), Flows::setup())->base())
         ->not->toEqual(keyingOf(keyingRunner('pest'), $patched, keyingSuite('1'), Flows::setup())->base());
@@ -130,15 +135,15 @@ it('reads the canary group\'s test files into every key where Pest runs with the
 
 it('reads no canary into every key where Pest runs without the patch, or another runner runs', function (
     string $name,
-    bool $patch,
+    Pest $patch,
 ): void {
-    $settings = Configs::flows(['pest' => ['patch' => $patch]]);
+    $settings = Flows::settings($patch);
 
     expect(keyingOf(keyingRunner($name), $settings, keyingSuite('2'), Flows::setup())->base())
         ->toEqual(keyingOf(keyingRunner($name), $settings, keyingSuite('1'), Flows::setup())->base());
 })->with([
-    'Pest without the patch' => ['pest', false],
-    'another runner with it' => ['fake', true],
+    'Pest without the patch' => ['pest', Pest::unpatched()],
+    'another runner with it' => ['fake', Pest::patched()],
 ]);
 
 it('reads each CI definition into every key, as it is on disk', function (): void {
@@ -160,7 +165,7 @@ it('cannot key a run whose runner cannot say what it is, or whose CI definition 
 
     $keyed = static fn(object $port): Keying|CannotJudge => Keying::of(
         Flows::adapters($project, [], $port),
-        Configs::flows(),
+        Flows::settings(),
         Flows::setup(),
         keyingSuite('1'),
         keyingMap(),
@@ -173,14 +178,13 @@ it('cannot key a run whose runner cannot say what it is, or whose CI definition 
 });
 
 it('leaves out of every key the config, the baseline, proofs.ignore and every file the gate writes', function (): void {
-    $settings = Configs::flows([
-        'baseline' => ['path' => 'floors.json'],
-        'proofs' => [
-            'ignore' => ['docs/**', 'phpunit.xml'],
-            'store' => ['use' => 'directory', 'with' => ['path' => 'cache/ledger']],
-        ],
-        'reports' => [['use' => 'json', 'path' => 'build/report.json'], ['use' => 'console']],
-    ]);
+    $settings = Flows::settings(
+        Baseline::at('floors.json'),
+        Proofs::ignore('docs/**', 'phpunit.xml'),
+        Proofs::directory('cache/ledger'),
+        Report::json('build/report.json'),
+        Report::uses('console'),
+    );
     $setup = new Setup(
         Path::of('mutation-gate.json'),
         Flows::setup()->gate,
@@ -200,9 +204,7 @@ it('leaves out of every key the config, the baseline, proofs.ignore and every fi
 });
 
 it('leaves out nothing for a store with no path of its own, and never what defines the runner', function (): void {
-    $settings = Configs::flows([
-        'proofs' => ['ignore' => ['tests/**'], 'store' => ['use' => CiPlanFake::class, 'with' => ['path' => 5]]],
-    ]);
+    $settings = Flows::settings(Proofs::ignore('tests/**'), Proofs::uses(CiPlanFake::class, Option::of('path', 5)));
     $exceptions = Keying::exceptions(Flows::adapters(Flows::project()), $settings, Flows::setup());
 
     expect($exceptions->leaveOut(Path::of('tests/Pest.php')))->toBeFalse()

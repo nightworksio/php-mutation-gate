@@ -47,7 +47,6 @@ use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
-use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -74,8 +73,11 @@ $shards = static function (Plan|CannotJudge $plan): array {
 };
 
 /** A plan over the project, with these ports in place of the fakes. */
-$plan = (static fn(string $project, Mode $mode, Cut $cut, object ...$ports): Plan|CannotJudge => new Planning(Flows::adapters($project, [], ...$ports), Configs::flows(), Flows::setup())
-    ->plan($mode, $coverage(), $cut));
+$plan = (static fn(string $project, Mode $mode, Cut $cut, object ...$ports): Plan|CannotJudge => new Planning(
+    Flows::adapters($project, [], ...$ports),
+    Flows::settings(),
+    Flows::setup(),
+)->plan($mode, $coverage(), $cut));
 
 it('plans every unit of a full run into shards, on the commit HEAD is at', function () use (
     $plan,

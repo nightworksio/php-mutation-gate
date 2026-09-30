@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Cli\Command\RunCommand;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -17,7 +18,6 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
-use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -88,7 +88,7 @@ it('runs the whole suite under coverage into the workspace, unless a map is name
 });
 
 it('cuts shards by the config\'s size and most, or into as many as asked', function () use ($given): void {
-    $settings = Configs::flows(['shards' => ['seconds' => 600, 'max' => 12]]);
+    $settings = Flows::settings(Shards::seconds(600), Shards::max(12));
 
     expect(FlowOptions::cut($given([]), $settings))->toEqual(Cut::bySize(600, 12))
         ->and(FlowOptions::cut($given(['--shards' => '3']), $settings))->toEqual(Cut::exactly(3))
@@ -96,7 +96,7 @@ it('cuts shards by the config\'s size and most, or into as many as asked', funct
 });
 
 it('refuses a count of shards that is not one or more', function (string $shards) use ($given): void {
-    expect(FlowOptions::cut($given(['--shards' => $shards]), Configs::flows()))
+    expect(FlowOptions::cut($given(['--shards' => $shards]), Flows::settings()))
         ->toEqual(CannotJudge::because(sprintf('--shards=%s is not a number of shards.', $shards)));
 })->with(['0', '03', 'two', '2x', '-1', ' 2']);
 

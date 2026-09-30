@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Reached;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
+use NightWorksIO\MutationGate\Config\Reach;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -26,7 +27,6 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
-use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -64,7 +64,7 @@ function reachedSince(Changes $changes, array $now, array $before, object ...$po
         Revision::ref('base'),
         Flows::trees(),
         $adapters,
-        Configs::flows(['reach' => ['everything' => ['config/**']]]),
+        Flows::settings(Reach::everything('config/**')),
         reachedSuite($checkout, $adapters),
         $map,
     );
@@ -171,7 +171,7 @@ it('reaches everything where git cannot tell what changed, and keeps no line', f
         Revision::ref('base'),
         Flows::trees(),
         $adapters,
-        Configs::flows(),
+        Flows::settings(),
         reachedSuite($checkout, $adapters),
         CoverageMap::empty(),
     );

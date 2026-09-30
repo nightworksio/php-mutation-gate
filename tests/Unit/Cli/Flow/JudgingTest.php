@@ -14,6 +14,12 @@ use NightWorksIO\MutationGate\Cli\Flow\Reporting;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Config\Baseline as BaselineSetting;
+use NightWorksIO\MutationGate\Config\Ci;
+use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
+use NightWorksIO\MutationGate\Config\Proofs;
+use NightWorksIO\MutationGate\Config\Report;
+use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
@@ -63,7 +69,6 @@ use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
-use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
@@ -87,15 +92,10 @@ $reporting = static fn(Reporter $recorded): Reporting => new Reporting(
     Variables::of([]),
 );
 
-/**
- * The settings of the least config, reporting to the recorded reporter, and
- * of these besides.
- *
- * @param array<string, array<string, int|string>> $config
- */
-function judgingSettings(array $config = []): Settings
+/** The settings of the least config, reporting to the recorded reporter, and of these besides. */
+function judgingSettings(NewCodeFloor|Setting ...$parts): Settings
 {
-    return Configs::flows(['reports' => [['use' => 'recorded']], ...$config]);
+    return Flows::settings(Report::uses('recorded'), ...$parts);
 }
 
 /** Every shard of a plan run, each handed its map, and then judged. */
@@ -175,7 +175,7 @@ it('records a pass under the check the config names', function () use ($tree, $r
     $verdict = judgingVerdictOf($judged(
         Planned::twoShards(),
         Flows::adapters($project, [], $store, $tree(Floor::of(40))),
-        judgingSettings(['ci' => ['check' => 'gate / verdict']]),
+        judgingSettings(Ci::check('gate / verdict')),
         $reporting(new ReporterFake()),
     ));
 
@@ -207,7 +207,7 @@ it('says why the ledger was not written', function () use ($tree, $reporting, $j
     $judgement = $judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), [], $tree(Floor::of(50))),
-        judgingSettings(['proofs' => ['write' => 'never']]),
+        judgingSettings(Proofs::readOnly()),
         $reporting(new ReporterFake()),
     );
 
@@ -253,7 +253,7 @@ it('warns of a tree held to no floor outside CI', function () use ($tree, $repor
     $verdict = judgingVerdictOf($judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), [], $tree(Undeclared::floor())),
-        judgingSettings(['baseline' => ['path' => 'floors.json']]),
+        judgingSettings(BaselineSetting::at('floors.json')),
         $reporting(new ReporterFake()),
     ));
 
@@ -315,7 +315,7 @@ it('cannot judge with a report it cannot build', function () use ($tree, $report
 
     $judgement = new Judging(
         Flows::adapters($project, [], $tree(Floor::of(40))),
-        Configs::flows(['reports' => [['use' => 'nowhere']]]),
+        Flows::settings(Report::uses('nowhere')),
         Flows::setup(),
         $reporting(new ReporterFake()),
     )->verdict(Planned::of(), judgingNoResults($project));
@@ -338,7 +338,7 @@ it('judges a pull request\'s new code against its own floor, and fails a raise n
     $verdict = judgingVerdictOf($judged(
         $plan,
         Flows::adapters(Flows::project(), [], $tree(Floor::of(30))),
-        judgingSettings(['newCode' => ['floor' => 80]]),
+        judgingSettings(NewCodeFloor::of(80)),
         $reporting(new ReporterFake()),
     ));
     $newCode = [...$verdict->newCode()];
@@ -364,7 +364,7 @@ it('only reports a raise in a pull request where baseline.improvement is report'
     $verdict = judgingVerdictOf($judged(
         $plan,
         Flows::adapters(Flows::project(), [], $tree(Floor::of(30))),
-        judgingSettings(['baseline' => ['improvement' => 'report'], 'newCode' => ['floor' => 0]]),
+        judgingSettings(BaselineSetting::reportingImprovement(), NewCodeFloor::of(0)),
         $reporting(new ReporterFake()),
     ));
 
@@ -391,7 +391,7 @@ it('fails a pull request that lowers a floor the default branch holds without a 
     $verdict = judgingVerdictOf($judged(
         $plan,
         Flows::adapters($project, [], $tree(Floor::of(30)), $changes),
-        judgingSettings(['newCode' => ['floor' => 0]]),
+        judgingSettings(NewCodeFloor::of(0)),
         $reporting(new ReporterFake()),
     ));
 

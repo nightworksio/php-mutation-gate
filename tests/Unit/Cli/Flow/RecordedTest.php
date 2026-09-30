@@ -42,7 +42,6 @@ use NightWorksIO\MutationGate\Port\CostModel;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
-use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
@@ -69,7 +68,7 @@ function recordedRan(string $project, ScriptedRunner $runner, CoverageMap $map):
 {
     $plan = Planned::twoShards();
     new Handoff(Directory::at($project))->write($plan, $map);
-    new Running(Flows::adapters($project, [], $runner), Configs::flows(), Flows::setup())
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), Directory::at($project));
 

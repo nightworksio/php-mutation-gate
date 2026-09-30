@@ -5,6 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Config\Flaky;
+use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -40,7 +42,6 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
-use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
@@ -88,7 +89,7 @@ it('runs the shard it is named, on the commit its plan was made on, and leaves i
 ): void {
     $project = Flows::project();
     $plan = Planned::twoShards();
-    $written = new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Configs::flows(), $ticking())
+    $written = new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(), $ticking())
         ->run($plan, ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
 
@@ -110,7 +111,7 @@ it('runs the shard the CI names where none is named', function () use ($resultIn
     $project = Flows::project();
     $ci = new CiPlanFake(ShardId::of(2), RunOn::at(Scope::branch('main'), Scope::branch('main')));
 
-    new Running(Flows::adapters($project, [], $ci), Configs::flows(), Flows::setup())
+    new Running(Flows::adapters($project, [], $ci), Flows::settings(), Flows::setup())
         ->run(Planned::twoShards(), Absent::setting(), Workspace::results());
 
     expect($resultIn($project, 2))->toBeInstanceOf(ShardResult::class)
@@ -121,7 +122,7 @@ it('refuses a shard the CI names that the plan does not hold', function (): void
     $project = Flows::project();
     $ci = new CiPlanFake(ShardId::of(3), RunOn::at(Scope::branch('main'), Scope::branch('main')));
 
-    $ran = new Running(Flows::adapters($project, [], $ci), Configs::flows(), Flows::setup())
+    $ran = new Running(Flows::adapters($project, [], $ci), Flows::settings(), Flows::setup())
         ->run(Planned::twoShards(), Absent::setting(), Workspace::results());
 
     expect($ran)->toEqual(Planned::twoShards()->shard(ShardId::of(3)));
@@ -130,7 +131,7 @@ it('refuses a shard the CI names that the plan does not hold', function (): void
 it('refuses a named shard the plan does not hold', function (): void {
     $project = Flows::project();
 
-    $ran = new Running(Flows::adapters($project), Configs::flows(), Flows::setup())
+    $ran = new Running(Flows::adapters($project), Flows::settings(), Flows::setup())
         ->run(Planned::twoShards(), ShardId::of(5), Workspace::results());
 
     expect($ran)->toEqual(CannotJudge::because(
@@ -142,7 +143,7 @@ it('refuses to run a plan made on another commit', function (): void {
     $project = Flows::project();
     $elsewhere = RepositoryFake::onMain(Revision::ref('other'));
 
-    $ran = new Running(Flows::adapters($project, [], $elsewhere), Configs::flows(), Flows::setup())
+    $ran = new Running(Flows::adapters($project, [], $elsewhere), Flows::settings(), Flows::setup())
         ->run(Planned::twoShards(), ShardId::of(1), Workspace::results());
 
     expect($ran)->toEqual(Planned::twoShards()->forCheckout(Revision::ref('other')))
@@ -152,7 +153,7 @@ it('refuses to run a plan made on another commit', function (): void {
 it('refuses to run where the commit HEAD is at cannot be read', function (): void {
     $project = Flows::project();
 
-    $ran = new Running(Flows::adapters($project, [], Flows::lost()), Configs::flows(), Flows::setup())
+    $ran = new Running(Flows::adapters($project, [], Flows::lost()), Flows::settings(), Flows::setup())
         ->run(Planned::twoShards(), ShardId::of(1), Workspace::results());
 
     expect($ran)->toEqual(CannotJudge::because(
@@ -163,7 +164,7 @@ it('refuses to run where the commit HEAD is at cannot be read', function (): voi
 it('runs every shard of a plan one after another, each leaving its result', function () use ($resultIn): void {
     $project = Flows::project();
 
-    $written = new Running(Flows::adapters($project), Configs::flows(), Flows::setup())
+    $written = new Running(Flows::adapters($project), Flows::settings(), Flows::setup())
         ->runAll(Planned::twoShards(), Workspace::results());
 
     expect($written)->toEqual(Written::to('.mutation-gate/results'))
@@ -175,7 +176,7 @@ it('stops at the first shard whose result cannot be written', function (): void 
     $project = Flows::project();
     mkdir(sprintf('%s/.mutation-gate/results/1.json', $project), recursive: true);
 
-    $written = new Running(Flows::adapters($project), Configs::flows(), Flows::setup())
+    $written = new Running(Flows::adapters($project), Flows::settings(), Flows::setup())
         ->runAll(Planned::twoShards(), Workspace::results());
 
     expect($written)->toBeInstanceOf(CannotJudge::class)
@@ -187,7 +188,7 @@ it('runs the held path by its group, the rest by the suite, on the shard\'s map,
     $runner = ScriptedRunner::fixture();
     $adapters = Flows::adapters($project, [], $runner);
 
-    new Running($adapters, Configs::flows(), Flows::setup())
+    new Running($adapters, Flows::settings(), Flows::setup())
         ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
     [$held, $rest] = $runner->requests();
 
@@ -216,7 +217,7 @@ it('leaves every invocation\'s mutants in one result, with what each skipped add
     );
     $runner = ScriptedRunner::fixture()->answering(Mutants::of($killed), 2);
 
-    new Running(Flows::adapters($project, [], $runner), Configs::flows(), Flows::setup())
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
     $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
@@ -231,7 +232,7 @@ it('runs each survivor once more and keeps those killed then as flaky', function
     $runner = ScriptedRunner::fixture()->killingAgain();
     $adapters = Flows::adapters($project, [], $runner);
 
-    new Running($adapters, Configs::flows(), Flows::setup())
+    new Running($adapters, Flows::settings(), Flows::setup())
         ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
     $retries = $runner->retries();
     $asked = array_map(
@@ -260,7 +261,7 @@ it('keeps no survivor as flaky that survives again', function () use ($resultIn,
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
-    new Running(Flows::adapters($project, [], $runner), Configs::flows(), Flows::setup())
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
 
     expect(count($runner->retries()))->toBe(2)
@@ -271,7 +272,7 @@ it('runs no survivor again where flaky.confirmSurvivors is false', function () u
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->killingAgain();
 
-    $settings = Configs::flows(['flaky' => ['confirmSurvivors' => false]]);
+    $settings = Flows::settings(Flaky::notConfirmingSurvivors());
 
     new Running(Flows::adapters($project, [], $runner), $settings, Flows::setup())
         ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
@@ -284,7 +285,7 @@ it('runs survivors again with the timeout the config sets', function (): void {
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
-    $settings = Configs::flows(['timeouts' => ['seconds' => 25]]);
+    $settings = Flows::settings(Timeouts::seconds(25));
 
     new Running(Flows::adapters($project, [], $runner), $settings, Flows::setup())
         ->run(Planned::twoShards(), ShardId::of(1), Workspace::results());
@@ -300,7 +301,7 @@ it('leaves the runner\'s cannot judge as the shard\'s result, with nothing flaky
         ? ScriptedRunner::fixture()->refusing('The suite failed without mutants.')
         : ScriptedRunner::fixture()->refusingAgain('The suite failed without mutants.');
 
-    $written = new Running(Flows::adapters($project, [], $runner), Configs::flows(), Flows::setup())
+    $written = new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
 
@@ -315,7 +316,7 @@ it('names no runner in what it measured where the runner cannot name itself', fu
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->unnamed('No runner is installed.');
 
-    new Running(Flows::adapters($project, [], $runner), Configs::flows(), Flows::setup())
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->run(Planned::twoShards(), ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
 
@@ -328,7 +329,7 @@ it('leaves a unit the plan did not key as one with no key', function () use ($re
     $money = Shard::of(ShardId::of(1), $root, Units::of(Planned::money()), Seconds::of(2.0), 'money');
     $plan = Plan::of(Revision::ref(Flows::HEAD), Digest::sha256Of('b'), Keys::none(), Shards::of($money));
 
-    new Running(Flows::adapters($project), Configs::flows(), Flows::setup())
+    new Running(Flows::adapters($project), Flows::settings(), Flows::setup())
         ->run($plan, ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
 
@@ -341,7 +342,7 @@ it('leaves a unit the plan did not key as one with no key', function () use ($re
 it('names no flaky mutant it did not run again', function () use ($resultIn): void {
     $project = Flows::project();
 
-    new Running(Flows::adapters($project), Configs::flows(), Flows::setup())
+    new Running(Flows::adapters($project), Flows::settings(), Flows::setup())
         ->run(Planned::twoShards(), ShardId::of(2), Workspace::results());
     $result = $resultIn($project, 2);
 

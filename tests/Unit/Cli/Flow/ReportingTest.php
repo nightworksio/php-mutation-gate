@@ -11,6 +11,9 @@ use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Reporting;
 use NightWorksIO\MutationGate\Cli\SystemClock;
+use NightWorksIO\MutationGate\Config\Badge;
+use NightWorksIO\MutationGate\Config\Option;
+use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -24,7 +27,7 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Port\Reporter;
-use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
@@ -64,12 +67,12 @@ function reporterClasses(array|Invalid|CannotJudge $reporters): array
 }
 
 it('runs no reporter but the console where nothing asks for one', function (): void {
-    expect(reportersOf(Configs::flows(), Variables::of([]), reportingOnMain()))->toBe([]);
+    expect(reportersOf(Flows::settings(), Variables::of([]), reportingOnMain()))->toBe([]);
 });
 
 it('runs a reporter for each entry of reports, writing where its path says', function (): void {
     $file = sprintf('%s/build/report.json', Scratch::directory());
-    $settings = Configs::flows(['reports' => [['use' => 'json', 'path' => $file]]]);
+    $settings = Flows::settings(Report::json($file));
     $chosen = reportersOf($settings, Variables::of([]), reportingOnMain());
     $reporter = is_array($chosen) ? $chosen[0] : $chosen;
 
@@ -81,8 +84,8 @@ it('runs a reporter for each entry of reports, writing where its path says', fun
 
 it('hands a reporter its path beside the options its entry gives', function (): void {
     $directory = sprintf('%s/publish', Scratch::directory());
-    $entry = ['use' => 'badge', 'path' => $directory, 'with' => ['colors' => ['blue' => 50, 'red' => 0]]];
-    $chosen = reportersOf(Configs::flows(['reports' => [$entry]]), Variables::of([]), reportingOnMain());
+    $entry = Report::uses('badge', $directory, Option::nested('colors', Option::of('blue', 50), Option::of('red', 0)));
+    $chosen = reportersOf(Flows::settings($entry), Variables::of([]), reportingOnMain());
     $reporter = is_array($chosen) ? $chosen[0] : $chosen;
     $badge = $reporter instanceof BadgeDirectory ? $reporter->report(Verdicts::passing()) : $reporter;
 
@@ -91,12 +94,10 @@ it('hands a reporter its path beside the options its entry gives', function (): 
 });
 
 it('says which entry of reports cannot be built', function (): void {
-    $entries = [
-        ['use' => 'console'],
-        ['use' => 'badge', 'path' => 'publish', 'with' => ['colors' => ['green' => 'high']]],
-    ];
-
-    $settings = Configs::flows(['reports' => $entries]);
+    $settings = Flows::settings(
+        Report::uses('console'),
+        Report::uses('badge', 'publish', Option::nested('colors', Option::of('green', 'high'))),
+    );
 
     expect(reportersOf($settings, Variables::of([]), reportingOnMain()))->toEqual(Invalid::because(Problem::at(
         'reports[1].with.colors',
@@ -110,7 +111,7 @@ it('annotates and summarises under GitHub Actions, and comments on a pull reques
 ): void {
     $pullRequest = RunOn::at(Scope::pullRequest(7), Scope::branch('main'));
 
-    expect(reporterClasses(reportersOf(Configs::flows(), $environment, $pullRequest)))->toBe($expected);
+    expect(reporterClasses(reportersOf(Flows::settings(), $environment, $pullRequest)))->toBe($expected);
 })->with([
     'a pull request with a token' => [
         Variables::of([
@@ -133,7 +134,7 @@ it('annotates and summarises under GitHub Actions, and comments on a pull reques
 ]);
 
 it('draws the badge in CI on the default branch, in the colours the config sets', function (): void {
-    $settings = Configs::flows(['badge' => ['colors' => ['green' => 90, 'red' => 0]]]);
+    $settings = Flows::settings(Badge::colour('green', 90), Badge::colour('red', 0));
     $chosen = reportersOf($settings, Variables::of(['CI' => 'true']), reportingOnMain());
 
     expect($chosen)->toEqual([BadgeDirectory::configured(
@@ -146,7 +147,7 @@ it('draws no badge outside CI, off the default branch, or where the run has no r
     Variables $environment,
     RunOn $runOn,
 ): void {
-    expect(reportersOf(Configs::flows(), $environment, $runOn))->toBe([]);
+    expect(reportersOf(Flows::settings(), $environment, $runOn))->toBe([]);
 })->with([
     'outside CI' => [Variables::of([]), RunOn::at(Scope::branch('main'), Scope::branch('main'))],
     'a pull request' => [Variables::of(['CI' => 'true']), RunOn::at(Scope::pullRequest(7), Scope::branch('main'))],

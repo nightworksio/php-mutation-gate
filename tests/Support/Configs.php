@@ -80,16 +80,6 @@ final readonly class Configs
         return $layer instanceof Layer ? Settings::settled($layer, new DateTimeImmutable(self::NOW)) : $layer;
     }
 
-    /**
-     * The settings of a config the flows run on, which names the fake runner, and of these settings besides.
-     *
-     * @param array<mixed> $config
-     */
-    public static function flows(array $config = []): Settings
-    {
-        return self::settings(['runner' => 'fake', ...$config]);
-    }
-
     /** @param array<mixed>|string $config */
     public static function settings(array|string $config): Settings
     {
@@ -98,6 +88,16 @@ final readonly class Configs
         return $settings instanceof Settings
             ? $settings
             : throw new RuntimeException(sprintf('The config is invalid: %s', json_encode(self::problems($settings))));
+    }
+
+    /** The settings of the config a PHP builder writes. */
+    public static function built(Gate $gate): Settings
+    {
+        $document = $gate->document();
+
+        return $document instanceof Document
+            ? self::settings($document->json())
+            : throw new RuntimeException($document->why());
     }
 
     /** The config a PHP builder writes, decoded. */
