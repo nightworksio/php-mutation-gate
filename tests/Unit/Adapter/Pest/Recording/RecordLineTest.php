@@ -42,3 +42,13 @@ it('writes each event as one line of JSON, slashes as they are and whole seconds
         "{\"event\":\"end\"}\n",
     ]);
 });
+
+it('fails rather than write a record JSON cannot hold, which would read as a line cut short', function (): void {
+    expect(static fn(): string => RecordLine::finished('a1', PestStatus::Tested, NAN))->toThrow(JsonException::class);
+});
+
+it('writes a status the plugin does not know as Pest names it, for the adapter to refuse', function (): void {
+    expect(RecordLine::outcome('a1', 'resurrected'))->toBe("{\"event\":\"outcome\",\"id\":\"a1\",\"status\":\"resurrected\"}\n")
+        ->and(RecordLine::finished('a1', 'resurrected', 1.0))
+        ->toBe("{\"event\":\"finished\",\"id\":\"a1\",\"status\":\"resurrected\",\"duration\":1.0}\n");
+});

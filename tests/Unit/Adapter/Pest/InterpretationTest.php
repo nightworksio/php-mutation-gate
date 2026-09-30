@@ -189,7 +189,7 @@ it('cannot judge a run stopped while the plugin wrote the mutants Pest made', fu
 
 it('cannot judge a run stopped at its deadline before Pest made its mutants', function () use ($read): void {
     [$project, $results] = interpretedRun([], []);
-    PestRun::write($results, ['']);
+    PestRun::write($results, []);
 
     expect($read($project, Ran::stopped('opening'), $results))
         ->toEqual(CannotJudge::because('Pest was stopped at its deadline before it had made its mutants.'));
@@ -197,7 +197,7 @@ it('cannot judge a run stopped at its deadline before Pest made its mutants', fu
 
 it('cannot judge a run that failed, with what Pest said', function () use ($read): void {
     [$project, $results] = interpretedRun([], []);
-    PestRun::write($results, ['']);
+    PestRun::write($results, []);
 
     expect($read($project, Ran::finished(succeeded: false, output: 'Tests: 1 failed'), $results))
         ->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nTests: 1 failed"));

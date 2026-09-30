@@ -21,17 +21,18 @@ afterEach(function (): void {
 });
 
 /**
- * A results file holding these lines, as the plugin writes them, or any text a test writes in their place.
+ * A results file holding these lines, as the plugin writes them, or any text a test writes in their place, and
+ * then the text a run stopped while it wrote leaves last, with no newline after it.
  *
  * @param list<string> $lines
  */
-$results = static function (array $lines): string {
+$results = static function (array $lines, string $cut = ''): string {
     $file = sprintf('%s/results.jsonl', Scratch::directory());
+    file_put_contents($file, $cut);
 
-    foreach ($lines as $line) {
-        file_put_contents($file, sprintf("%s\n", is_string($line) ? $line : ''), FILE_APPEND);
+    foreach (array_reverse($lines) as $line) {
+        file_put_contents($file, sprintf("%s\n%s", rtrim(is_string($line) ? $line : '', "\n"), (string) file_get_contents($file)));
     }
-
 
     return $file;
 };
@@ -48,14 +49,12 @@ $mutant = static fn(string $id, string $file, int $start): PlannedMutant => Plan
 
 $planned = static fn(string $id, string $file, int $start): string => RecordLine::planned($mutant($id, $file, $start));
 
-it('orders the planned mutants by file and by the line each starts on, past a line cut short', function () use ($results, $planned, $mutant): void {
+it('orders the planned mutants by file and by the line each starts on, past a last line cut short', function () use ($results, $planned, $mutant): void {
     $records = Records::in($results([
         $planned('c', '/p/src/Money.php', 20),
         $planned('a', '/p/src/Held.php', 30),
         $planned('b', '/p/src/Money.php', 10),
-        '',
-        '{"event": "planned", "id": "d", "fi',
-    ]));
+    ], cut: '{"event": "planned", "id": "d", "fi'));
 
     expect($records instanceof Records ? $records->planned() : [])->toEqual([
         $mutant('a', '/p/src/Held.php', 30),
@@ -64,16 +63,50 @@ it('orders the planned mutants by file and by the line each starts on, past a li
     ]);
 });
 
-it('refuses a whole record that names no event it knows, or lacks a field its event carries', function () use ($results): void {
-    $refused = static fn(string $line): CannotJudge|Records => Records::in($results(['', $line]));
-    $file = static fn(CannotJudge|Records $read): string => $read instanceof CannotJudge ? $read->why() : '';
+it('refuses a line cut short anywhere but last, which would lose a killer without a word', function () use ($results, $planned): void {
+    $read = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        '{"event": "killed", "mutated": "/tmp/a", "te',
+        RecordLine::killed('/tmp/a', 'T::second'),
+        RecordLine::end(),
+    ]));
 
-    expect($file($refused('{"not": "an event"}')))->toEndWith(': the file.event is missing.')
-        ->and($file($refused('{"event": "started"}')))->toContain('the file.event is not an event the plugin writes')
-        ->and($file($refused('{"event": "planned", "id": "d", "file": 7}')))->toContain('the file.file')
-        ->and($file($refused('{"event": "finished", "id": "a", "status": "odd", "duration": 0.1}')))
-        ->toContain('the file.status is not a status Pest records')
-        ->and($file($refused('{"event": "made"}')))->toStartWith('Line 2 of ');
+    expect($read instanceof CannotJudge ? $read->why() : '')->toMatch(
+        '/^Line 2 of .*results\.jsonl is not a record the gate reads: the line is not JSON: only the last line can be cut short\.$/',
+    );
+});
+
+it('refuses a whole record that names no event it knows, or lacks a field its event carries', function () use ($results): void {
+    $refused = static fn(string $line): CannotJudge|Records => Records::in($results([RecordLine::end(), $line]));
+    $why = static fn(CannotJudge|Records $read): string => $read instanceof CannotJudge ? $read->why() : '';
+
+    expect($why($refused('{"not": "an event"}')))->toEndWith(': the record.event is missing.')
+        ->and($why($refused('{"event": "started"}')))->toContain('the record.event is not an event the plugin writes')
+        ->and($why($refused('{"event": "planned", "id": "d", "start": 1, "end": 1, "file": 7}')))->toContain('the record.file is not text')
+        ->and($why($refused(RecordLine::outcome('a', 'resurrected'))))
+        ->toContain('the record.status is not a status Pest records')
+        ->and($why($refused('{"event": "made"}')))->toStartWith('Line 2 of ');
+});
+
+it('refuses a planned mutant on a line no file has, or ending before it starts', function () use ($results): void {
+    $plannedAt = static fn(int $start, int $end): string => RecordLine::planned(PlannedMutant::of(
+        'a',
+        DiskPath::of('/p/src/Money.php'),
+        Line::of($start),
+        Line::of($end),
+        PlusToMinus::class,
+        'diff',
+        DiskPath::of('/tmp/a'),
+    ));
+    $why = static function (string $line) use ($results): string {
+        $read = Records::in($results([$line]));
+
+        return $read instanceof CannotJudge ? $read->why() : '';
+    };
+
+    expect($why($plannedAt(0, 1)))->toEndWith(': the record.start is not a line of a file, which counts from 1.')
+        ->and($why($plannedAt(5, 4)))->toEndWith(': the record.end is not a line at or after the one the mutant starts on.')
+        ->and(Records::in($results([$plannedAt(1, 1)])))->toBeInstanceOf(Records::class);
 });
 
 it('keeps each mutant\'s latest status, and none for one Pest never ran', function () use ($results, $planned): void {

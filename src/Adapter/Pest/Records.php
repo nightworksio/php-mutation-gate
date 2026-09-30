@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_diff_key;
 use function array_filter;
 use function array_key_exists;
+use function array_key_last;
 use function array_map;
 use function array_values;
 use function count;
@@ -16,7 +17,7 @@ use function is_file;
 use function json_validate;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordField;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -34,8 +35,9 @@ use function sprintf;
  * it wrote all of them, the status each ended with, how long each ran, the
  * tests that failed in each mutant's own process, how long the opening run
  * took, and whether the run reached its end. A line cut short, as a run
- * stopped while it wrote leaves its last, is not a record; a whole record
- * that lacks a field its event carries refuses the file.
+ * stopped while it wrote leaves its last, is not a record; any other line
+ * that is not one, and a whole record that lacks a field its event carries
+ * or holds a line no file has, refuses the file.
  *
  * It is read once, a line at a time, and changes no more once read.
  */
@@ -45,6 +47,12 @@ final class Records
         = 'Pest wrote no results to %s. Is pestphp/pest-plugin allowed to run in composer.json?';
 
     private const string MALFORMED = 'Line %d of %s is not a record the gate reads: %s';
+
+    /** How a line that is not a record is named. */
+    private const string LINE = 'the line';
+
+    /** How a record is named. */
+    private const string RECORD = 'the record';
 
     /** @var array<string, PlannedMutant> by native id */
     private array $planned = [];
@@ -79,10 +87,12 @@ final class Records
         }
 
         $records = new self();
+        $lines = explode("\n", sprintf('%s', file_get_contents($file)));
+        $last = array_key_last($lines);
 
-        foreach (explode("\n", sprintf('%s', file_get_contents($file))) as $index => $line) {
+        foreach ($lines as $index => $line) {
             try {
-                $records->read($line);
+                $records->read($line, last: $index === $last);
             } catch (NotInShape $refused) {
                 return CannotJudge::because(sprintf(self::MALFORMED, $index + 1, $file, $refused->getMessage()));
             }
@@ -165,20 +175,29 @@ final class Records
         return $counted;
     }
 
-    /** @throws NotInShape */
-    private function read(string $line): void
+    /**
+     * Reads one line: the last may be cut short, or empty after the file's
+     * final newline, and is then no record; any other must be one.
+     *
+     * @throws NotInShape
+     */
+    private function read(string $line, bool $last): void
     {
         if (! json_validate($line)) {
+            if (! $last) {
+                throw NotInShape::at(self::LINE, 'JSON: only the last line can be cut short');
+            }
+
             return;
         }
 
-        $record = Node::decode($line);
-        $event = $record->field(RecordLine::EVENT);
+        $record = Node::decode($line, named: self::RECORD);
+        $event = $record->field(RecordField::Event->value);
 
         match (RecordEvent::tryFrom($event->text())) {
             RecordEvent::Planned => $this->withPlanned($record),
             RecordEvent::Made => $this->withMade($record),
-            RecordEvent::Outcome => $this->statuses[$record->field(RecordLine::ID)->text()] = $this->statusIn($record),
+            RecordEvent::Outcome => $this->withOutcome($record),
             RecordEvent::Finished => $this->withFinished($record),
             RecordEvent::Killed => $this->withKiller($record),
             RecordEvent::End => $this->ended = true,
@@ -189,46 +208,64 @@ final class Records
     /** @throws NotInShape */
     private function withPlanned(Node $record): void
     {
-        $id = $record->field(RecordLine::ID)->text();
+        $id = $record->field(RecordField::Id->value)->text();
+        $start = $record->field(RecordField::Start->value);
+        $end = $record->field(RecordField::End->value);
+
+        if ($start->integer() < 1) {
+            throw NotInShape::at($start->at(), 'a line of a file, which counts from 1');
+        }
+
+        if ($end->integer() < $start->integer()) {
+            throw NotInShape::at($end->at(), 'a line at or after the one the mutant starts on');
+        }
+
         $this->planned[$id] = PlannedMutant::of(
             $id,
-            DiskPath::of($record->field(RecordLine::FILE)->text()),
-            Line::of($record->field(RecordLine::START)->integer()),
-            Line::of($record->field(RecordLine::END)->integer()),
-            $record->field(RecordLine::MUTATOR)->text(),
-            $record->field(RecordLine::DIFF)->text(),
-            DiskPath::of($record->field(RecordLine::MUTATED)->text()),
+            DiskPath::of($record->field(RecordField::File->value)->text()),
+            Line::of($start->integer()),
+            Line::of($end->integer()),
+            $record->field(RecordField::Mutator->value)->text(),
+            $record->field(RecordField::Diff->value)->text(),
+            DiskPath::of($record->field(RecordField::Mutated->value)->text()),
         );
     }
 
     /** @throws NotInShape */
     private function withMade(Node $record): void
     {
-        $opening = $record->field(RecordLine::OPENING);
+        $opening = $record->field(RecordField::Opening->value);
         $this->opening = $opening->isPresent() ? Seconds::of($opening->number()) : Unmeasured::duration();
-        $this->made = $record->field(RecordLine::COUNT)->integer() === count($this->planned);
+        $this->made = $record->field(RecordField::Count->value)->integer() === count($this->planned);
+    }
+
+    /** @throws NotInShape */
+    private function withOutcome(Node $record): void
+    {
+        $this->statuses[$record->field(RecordField::Id->value)->text()] = $this->statusIn($record);
     }
 
     /** @throws NotInShape */
     private function withFinished(Node $record): void
     {
-        $id = $record->field(RecordLine::ID)->text();
+        $id = $record->field(RecordField::Id->value)->text();
         $status = $this->statusIn($record);
         $this->statuses[$id] = $status;
         $this->finished[$id] = $status;
-        $this->durations[$id] = $record->field(RecordLine::DURATION)->number();
+        $this->durations[$id] = $record->field(RecordField::Duration->value)->number();
     }
 
     /** @throws NotInShape */
     private function withKiller(Node $record): void
     {
-        $this->killers[$record->field(RecordLine::MUTATED)->text()][] = $record->field(RecordLine::TEST)->text();
+        $mutated = $record->field(RecordField::Mutated->value)->text();
+        $this->killers[$mutated][] = $record->field(RecordField::Test->value)->text();
     }
 
     /** @throws NotInShape */
     private function statusIn(Node $record): PestStatus
     {
-        $status = $record->field(RecordLine::STATUS);
+        $status = $record->field(RecordField::Status->value);
 
         return PestStatus::tryFrom($status->text()) ?? throw NotInShape::at($status->at(), 'a status Pest records');
     }
