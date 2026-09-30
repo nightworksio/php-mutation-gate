@@ -24,7 +24,9 @@ use function sprintf;
 /**
  * Every shard's result, read from the files the shards left. The verdict
  * requires one for every shard in the plan: a shard that crashed, was
- * cancelled or never started left none, and the verdict cannot judge.
+ * cancelled or never started left none, and the verdict cannot judge. Nor
+ * can it judge a shard whose runner skipped mutants it kept no record of:
+ * they are unjudged, and belong to no unit.
  */
 final readonly class Results
 {
@@ -39,6 +41,11 @@ final readonly class Results
         SAID;
 
     private const string RUNNER = 'Shard %d (%s) could not be judged: %s';
+
+    private const string SKIPPED = <<<'SAID'
+        Shard %d (%s) skipped %d mutants without a record of them, so they cannot be judged.
+        The runner leaves no mutant unjudged in a run the gate judges.
+        SAID;
 
     /** @param list<array{Shard, ShardResult, MutationResult}> $read each shard, with its result and its mutants */
     private function __construct(private array $read)
@@ -102,6 +109,9 @@ final readonly class Results
             ),
             $outcome instanceof CannotJudge => CannotJudge::because(
                 sprintf(self::RUNNER, $shard->id()->number(), $shard->label(), $outcome->why()),
+            ),
+            $outcome->skipped() > 0 => CannotJudge::because(
+                sprintf(self::SKIPPED, $shard->id()->number(), $shard->label(), $outcome->skipped()),
             ),
             default => [$result, $outcome],
         };

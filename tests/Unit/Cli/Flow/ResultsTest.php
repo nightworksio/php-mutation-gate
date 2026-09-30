@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -111,6 +112,14 @@ it('cannot judge a result that followed another plan', function () use ($ran): v
 it('cannot judge a shard the runner could not judge, saying why', function () use ($ran): void {
     expect($ran(Flows::project(), ScriptedRunner::fixture()->refusing('The suite failed without mutants.')))
         ->toEqual(CannotJudge::because('Shard 1 (money) could not be judged: The suite failed without mutants.'));
+});
+
+it('cannot judge a shard whose runner skipped mutants it kept no record of', function () use ($ran): void {
+    expect($ran(Flows::project(), ScriptedRunner::fixture()->answering(Mutants::none(), 3)))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            Shard 1 (money) skipped 3 mutants without a record of them, so they cannot be judged.
+            The runner leaves no mutant unjudged in a run the gate judges.
+            SAID));
 });
 
 it('reads the results from the directory it is handed', function (): void {
