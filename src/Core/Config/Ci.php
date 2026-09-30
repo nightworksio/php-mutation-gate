@@ -88,10 +88,20 @@ final readonly class Ci implements Part
             : $this;
     }
 
-    /** The CI plan, or none, when it is detected from the environment. */
+    /**
+     * The CI plan, with the options this section gives a built-in one laid under its own, or none, when it is
+     * detected from the environment.
+     */
     public function plan(): Choice|Absent
     {
-        return $this->plan;
+        return $this->plan instanceof Choice && $this->plan->use() instanceof Name
+            ? Choice::of(
+                $this->plan->use()->value(),
+                Options::of(
+                    $this->planOptions($this->plan->use())->written()->merged($this->plan->options()->written()),
+                ),
+            )
+            : $this->plan;
     }
 
     /** The default branch, or none, when the CI or git says which it is. */
