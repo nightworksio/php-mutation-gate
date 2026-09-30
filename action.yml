@@ -154,9 +154,10 @@ runs:
         GITHUB_TOKEN: ${{ github.token }}
       run: |
         set -uo pipefail
+        code=0
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
-        "${GATE}" run --plan=.mutation-gate/plan.json --shard="${SHARD}" --results=.mutation-gate/results "${arguments[@]}"
-        echo "code=$?" >> "${GITHUB_OUTPUT}"
+        "${GATE}" run --plan=.mutation-gate/plan.json --shard="${SHARD}" --results=.mutation-gate/results "${arguments[@]}" || code=$?
+        echo "code=${code}" >> "${GITHUB_OUTPUT}"
 
     # The whole gate in this job: the plan, each of its shards in turn, then the
     # verdict, the same path the reusable workflow takes across jobs.
@@ -170,9 +171,10 @@ runs:
         GITHUB_TOKEN: ${{ github.token }}
       run: |
         set -uo pipefail
+        code=0
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
-        "${GATE}" plan --ci=github "${arguments[@]}"
-        echo "code=$?" >> "${GITHUB_OUTPUT}"
+        "${GATE}" plan --ci=github "${arguments[@]}" || code=$?
+        echo "code=${code}" >> "${GITHUB_OUTPUT}"
 
     - name: Run every shard
       id: run
@@ -187,9 +189,12 @@ runs:
         set -uo pipefail
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
         mapfile -t shards < <(jq -r '.[].id' <<< "${SHARDS:-[]}")
+        # Every shard runs, whatever one before it ended with: the verdict
+        # judges the result each shard left, and one left none is cannot-judge.
         for shard in "${shards[@]}"; do
           echo "::group::Shard ${shard}"
-          "${GATE}" run --plan=.mutation-gate/plan.json --shard="${shard}" --results=.mutation-gate/results "${arguments[@]}"
+          "${GATE}" run --plan=.mutation-gate/plan.json --shard="${shard}" --results=.mutation-gate/results "${arguments[@]}" \
+            || echo "::warning::Shard ${shard} ended with exit code $?."
           echo "::endgroup::"
         done
 
@@ -203,10 +208,11 @@ runs:
         GITHUB_TOKEN: ${{ github.token }}
       run: |
         set -uo pipefail
+        code=0
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
         "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
-          --report=json:.mutation-gate/action/report.json "${arguments[@]}"
-        echo "code=$?" >> "${GITHUB_OUTPUT}"
+          --report=json:.mutation-gate/action/report.json "${arguments[@]}" || code=$?
+        echo "code=${code}" >> "${GITHUB_OUTPUT}"
 
     # Only the verdict writes a ledger, and only for the run's own scope where
     # it may write it (ADR-0007). An unchanged ledger has the key it had.
