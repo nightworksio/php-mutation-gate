@@ -259,6 +259,7 @@ READERS = {
     "attribution": own("attribution"),
     "sonar": own("sonar"),
     "scripts": own("scripts"),
+    "description": own("description"),
 }
 
 
