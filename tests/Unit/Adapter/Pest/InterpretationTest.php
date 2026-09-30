@@ -54,7 +54,7 @@ const INTERPRETED_TESTS = ['P\Tests\MoneySpec::__pest_evaluable_it_adds', 'Legac
 function interpretedRun(array $money, array $legacy): array
 {
     $root = (string) realpath(Scratch::directory());
-    $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
+    $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
     $fresh = $project->freshResults();
     $results = is_string($fresh) ? $fresh : '';
     $long = sprintf('P\Tests\LongSpec::__pest_evaluable_%s', str_repeat('x', Selection::CEILING));

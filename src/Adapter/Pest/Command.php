@@ -21,8 +21,6 @@ use function sprintf;
  */
 final readonly class Command
 {
-    private const string PEST = 'vendor/bin/pest';
-
     /**
      * What a Pest the gate starts never inherits: the variables that make a
      * process a paratest worker or a mutant's own run, and the ones the gate
@@ -62,14 +60,14 @@ final readonly class Command
     }
 
     /**
-     * Pest, run on the PHP that runs the gate, with that PHP first on the
-     * path, because Pest starts each mutant's own run through its
-     * `vendor/bin/pest` script, which finds `php` there. The project's tests
-     * never see the CI's credentials.
+     * Pest's script, run on the PHP that runs the gate, with that PHP first
+     * on the path, because Pest starts each mutant's own run through the same
+     * script, which finds `php` there. The project's tests never see the CI's
+     * credentials.
      */
-    public static function pest(string ...$arguments): self
+    public static function pest(string $script, string ...$arguments): self
     {
-        return self::of(PHP_BINARY, self::PEST, ...$arguments)->with([
+        return self::of(PHP_BINARY, $script, ...$arguments)->with([
             ...self::INHERITED,
             ...self::secretsIn(getenv()),
             'PATH' => sprintf('%s%s%s', dirname(PHP_BINARY), PATH_SEPARATOR, getenv('PATH')),

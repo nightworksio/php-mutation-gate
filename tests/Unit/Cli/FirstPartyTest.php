@@ -13,11 +13,13 @@ use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
+use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
 use NightWorksIO\MutationGate\Adapter\Project\AutoloadTrees;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
+use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\Config\Presets;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
@@ -89,4 +91,11 @@ it('registers a loader for every config format, the tree sources and the presets
 it('registers Infection as a runner, built from the options the flows write', function () use ($registry): void {
     expect(Lookup::in($registry())->runner(Name::of('infection'), Options::none()))->toBeInstanceOf(Infection::class)
         ->and(Lookup::in($registry())->runner(Name::of('infection'), Options::ofJson('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
+});
+
+it('registers Pest as a runner, in the vendor directory Composer installed the project into', function () use (
+    $registry,
+): void {
+    expect(Lookup::in($registry())->runner(Name::of('pest'), Options::none()))
+        ->toEqual(Pest::fromOptions(Options::none(), ComposerVendor::of('.')));
 });

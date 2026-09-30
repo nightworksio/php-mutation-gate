@@ -24,9 +24,10 @@ use function str_starts_with;
 use function unlink;
 
 /**
- * The project Pest runs in: its root, the directories its tests live in, and
- * the directory the gate works in. Pest reports files by their real path, so
- * the root is held as its real path too.
+ * The project Pest runs in: its root, the directories its tests live in, the
+ * directory the gate works in, and the one Composer installed its packages
+ * in. Pest reports files by their real path, so the root is held as its real
+ * path too.
  */
 final readonly class Project
 {
@@ -35,15 +36,19 @@ final readonly class Project
     /** Why a run cannot be told from an earlier one. */
     private const string STALE = 'An earlier run left %s or the map beside it, and the gate cannot remove them.';
 
-    private function __construct(private string $root, private Paths $tests, private Path $workspace)
-    {
+    private function __construct(
+        private string $root,
+        private Paths $tests,
+        private Path $workspace,
+        private Path $vendor,
+    ) {
     }
 
-    public static function at(string $root, Paths $tests, Path $workspace): self
+    public static function at(string $root, Paths $tests, Path $workspace, Path $vendor): self
     {
         $real = realpath($root);
 
-        return new self(is_string($real) ? $real : rtrim($root, '/'), $tests, $workspace);
+        return new self(is_string($real) ? $real : rtrim($root, '/'), $tests, $workspace, $vendor);
     }
 
     public function root(): string
@@ -55,6 +60,12 @@ final readonly class Project
     public function tests(): Paths
     {
         return $this->tests;
+    }
+
+    /** The directory Composer installed the project's packages in, Pest's among them. */
+    public function vendor(): Path
+    {
+        return $this->vendor;
     }
 
     /** Where a path of the project is on disk; an absolute path is where it says. */

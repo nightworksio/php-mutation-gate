@@ -30,6 +30,9 @@ use function sprintf;
  */
 final readonly class Manifest
 {
+    /** Where Composer installs a project's packages when nothing names another directory. */
+    public const string VENDOR = 'vendor';
+
     /** The file every project and module declares itself in. */
     private const string FILE = 'composer.json';
 
@@ -67,6 +70,14 @@ final readonly class Manifest
     public function directory(): Path
     {
         return $this->directory;
+    }
+
+    /** Where Composer installs the project's packages: its `config.vendor-dir`, or `vendor`. */
+    public function vendorDirectory(): Path
+    {
+        $declared = $this->at('config', 'vendor-dir');
+
+        return Path::of(is_string($declared) && $declared !== '' ? $declared : self::VENDOR);
     }
 
     /** The package's name, or nothing where it declares none. */

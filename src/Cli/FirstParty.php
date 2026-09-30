@@ -17,11 +17,14 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
+use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
 use Symfony\Component\HttpClient\HttpClient;
@@ -50,6 +53,13 @@ final readonly class FirstParty implements Extension
             ->withCiPlan(Name::of('buildkite'), BuildkitePlan::fromOptions(...))
             ->withCiPlan(Name::of('circleci'), CircleCiPlan::fromOptions(...))
             ->withCiPlan(Name::of('json'), JsonPlan::fromOptions(...))
+            ->withRunner(
+                Name::of('pest'),
+                static fn(Options $options): Pest|Invalid => Pest::fromOptions(
+                    $options,
+                    ComposerVendor::of(self::HERE),
+                ),
+            )
             ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Git::at(self::HERE))
             ->withRepository(Name::of('git'), static fn(): Repository => Git::at(self::HERE))
             ->withChangeSource(Name::of('github'), static fn(): ChangeSource => self::github())

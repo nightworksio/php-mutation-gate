@@ -58,7 +58,7 @@ return (new Configuration())
     // which installs these; composer.json suggests Pest, and its `conflict`
     // holds pest-plugin-mutate to the release the runner contract suite passes.
     ->ignoreErrorsOnPackages(
-        ['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/php-code-coverage'],
+        ['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/php-code-coverage', 'phpunit/phpunit'],
         [ErrorType::DEV_DEPENDENCY_IN_PROD],
     )
     // The Infection adapter runs only in a project that runs Infection, which

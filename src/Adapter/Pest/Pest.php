@@ -9,6 +9,7 @@ use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -27,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Runner;
 
 use function sprintf;
@@ -40,12 +42,17 @@ final readonly class Pest implements Runner
 {
     private const string RUNNER = 'pest';
 
-    private const string MANIFEST = 'vendor/composer/installed.json';
+    /** Where Composer lists what it installed, in the vendor directory. */
+    private const string MANIFEST = '%s/composer/installed.json';
 
-    private const string VENDOR = 'vendor';
+    /** Where the gate runs Pest: the project's root, which the gate runs in. */
+    private const string ROOT = '.';
+
+    /** Where the adapter keeps what it writes. */
+    private const string WORKSPACE = '.mutation-gate';
 
     private const string BY_GROUP_ALONE
-        = 'Pest selects holding tests by group alone, so it cannot judge by the filter %s. Use a holds: group.';
+        = 'Pest selects held tests by the holds: groups its plugin adds for #[Holds], not by the filter %s.';
 
     private const string COVERAGE_FAILED = "Pest's coverage run failed. Pest said:\n%s";
 
@@ -54,7 +61,7 @@ final readonly class Pest implements Runner
     private const string COMMA = "Pest's --path and --ignore split on commas, so Pest cannot mutate %s less %s.";
 
     private const string NOT_PATCHED
-        = 'pest.patch is on, but pest-plugin-mutate is not patched. Run vendor/bin/mutation-gate pest:patch.';
+        = 'pest.patch is on, but pest-plugin-mutate in %s is not patched. Run mutation-gate pest:patch.';
 
     private const string EMPTY_CANARY = 'pest.patch is on, but the canary group %s holds no test. Add one.';
 
@@ -64,9 +71,28 @@ final readonly class Pest implements Runner
     {
     }
 
+    /**
+     * Pest in the project the gate runs in, installed in this vendor
+     * directory, as the `pest` runner's options configure it.
+     */
+    public static function fromOptions(Options $options, Path $vendor): self|Invalid
+    {
+        $read = PestOptions::read($options);
+
+        if ($read instanceof Invalid) {
+            return $read;
+        }
+
+        $project = Project::at(self::ROOT, $read->tests(), Path::of(self::WORKSPACE), $vendor);
+
+        return new self($project, new ProcessShell($project->root()), $read->patching());
+    }
+
     public function identity(): Identity|CannotJudge
     {
-        $versions = Installed::versionsIn($this->project->absolute(Path::of(self::MANIFEST)));
+        $versions = Installed::versionsIn(
+            $this->project->absolute(Path::of(sprintf(self::MANIFEST, $this->project->vendor()->value()))),
+        );
 
         if ($versions instanceof CannotJudge) {
             return $versions;
@@ -77,7 +103,7 @@ final readonly class Pest implements Runner
 
     public function groups(): Groups|CannotJudge
     {
-        return Listing::groupsIn($this->shell->run(Invocation::listingGroups()));
+        return Listing::groupsIn($this->shell->run(Invocation::installedIn($this->project->vendor())->listingGroups()));
     }
 
     public function coverage(CoverageRequest $request): CoverageMap|CannotJudge
@@ -197,7 +223,10 @@ final readonly class Pest implements Runner
             $files->holdsAComma() || $leftOut->holdsAComma() => CannotJudge::because(
                 sprintf(self::COMMA, $files->joined(', '), $leftOut->joined(', ')),
             ),
-            default => $this->shared($request, Invocation::mutation($request, $judgedBy, $results)),
+            default => $this->shared(
+                $request,
+                Invocation::installedIn($this->project->vendor())->mutation($request, $judgedBy, $results),
+            ),
         };
     }
 
@@ -210,7 +239,7 @@ final readonly class Pest implements Runner
             return CannotJudge::because(sprintf(self::STALE_MAP, $map));
         }
 
-        $ran = $this->shell->run(Invocation::coverage($request, $directory));
+        $ran = $this->shell->run(Invocation::installedIn($this->project->vendor())->coverage($request, $directory));
 
         return $ran->succeeded() ? $ran : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
     }
@@ -238,8 +267,8 @@ final readonly class Pest implements Runner
     /** Why a shard cannot open on the canary group, if it cannot. */
     private function refusal(): Groups|CannotJudge
     {
-        if (! Patch::isAppliedIn($this->project->absolute(Path::of(self::VENDOR)))) {
-            return CannotJudge::because(self::NOT_PATCHED);
+        if (! Patch::isAppliedIn($this->project->absolute($this->project->vendor()))) {
+            return CannotJudge::because(sprintf(self::NOT_PATCHED, $this->project->vendor()->value()));
         }
 
         $groups = $this->groups();

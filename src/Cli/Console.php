@@ -77,7 +77,7 @@ final readonly class Console
             $application->addCommand(NotBuilt::command($name, $description));
         }
 
-        $application->addCommand(PestPatch::command($vendor));
+        $application->addCommand(PestPatch::command(ComposerVendor::on($project)));
 
         $detected = new Detected(Directory::at($project), Directory::at($vendor));
         $effective = new Effective($project, $extensions, $detected, $now);

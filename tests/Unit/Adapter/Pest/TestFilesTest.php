@@ -20,7 +20,7 @@ it('finds every PHP file under the test directories, each directory in name orde
     Scratch::write($root, 'tests/dir.php/InsideTest.php', '<?php');
     Scratch::write($root, 'more/OtherTest.php', '<?php');
     $tests = Paths::of(Path::of('tests'), Path::of('more'), Path::of('absent'));
-    $project = Project::at($root, $tests, Path::of('.mutation-gate'));
+    $project = Project::at($root, $tests, Path::of('.mutation-gate'), Path::of('vendor'));
 
     expect(TestFiles::in($project))->toEqual(Paths::of(
         Path::of('tests/MoneySpec.php'),

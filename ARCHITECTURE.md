@@ -50,7 +50,7 @@ gate reads `#[Holds]` from a test's tokens without loading it.
 | **A2** | A port is an interface | arch: every declaration under `src/Port` |
 | **A3** | An adapter names no other adapter | arch: every class name each adapter's files write |
 | **A4** | A layer names only itself and the layers before it | arch: every class name each file under `src` writes |
-| **A5** | Attribute names nothing but PHP, and nothing else under `src` names it | arch: every class name each file under `src` writes |
+| **A5** | Attribute names nothing but PHP, and nothing else under `src` names it but the Pest plugin's filter, which reads `#[Holds]` from test closures (ADR-0004) | arch: every class name each file under `src` writes |
 
 ## B — input and output
 
@@ -125,7 +125,7 @@ every core type their public signatures reach (ADR-0001).
 | **P1** | No `__get`, `__set`, `__isset`, `__unset`, `__call` or `__callStatic` | phpstan: own rule |
 | **P2** | No variable variable and no dynamic class, method or property name, but for the two files that construct the extension classes Composer names and the classes a config names | phpstan: own rule, with those files named in `phpstan.neon` |
 | **P3** | No `func_get_args()`, no `#[AllowDynamicProperties]` | phpstan `disallowed-calls` |
-| **P4** | No reflection in `src` | phpstan `disallowed-calls`, scoped by path |
+| **P4** | No reflection in `src`, but for the Pest plugin's filter, which reads `#[Holds]` from test closures (ADR-0004) | phpstan `disallowed-calls`, scoped by path |
 | **Q1** | Nothing reconfigures the runtime: `ini_set`, `setlocale`, error handlers | phpstan `disallowed-calls` |
 | **Q3** | No `static::` and no `new static` | phpstan: own rule |
 | **Q4** | No `echo` or `print` in `src` | phpstan: own rule |
