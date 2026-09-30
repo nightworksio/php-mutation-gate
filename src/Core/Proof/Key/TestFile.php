@@ -6,8 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
-
-use function str_ends_with;
+use NightWorksIO\MutationGate\Core\Test\Role;
 
 /** A file under the test directories, what it is to a content key, and what it declares and names. */
 final readonly class TestFile
@@ -35,7 +34,7 @@ final readonly class TestFile
     public static function other(Fingerprint $fingerprint, Contents $contents): self
     {
         $php = PhpFile::read($contents);
-        $support = str_ends_with($fingerprint->path()->value(), '.php') && $php->onlyDeclares();
+        $support = $fingerprint->path()->isPhp() && $php->onlyDeclares();
 
         return new self($fingerprint, $support ? Role::Support : Role::Loaded, $php);
     }

@@ -6,10 +6,11 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 // R3: the analyser, the refactorer and the Arch suite read the same trees. The
 // Arch suite reads src, tests and phpstan; a tree one of the other two leaves
-// out is a tree whose rules nothing enforces.
+// out is a tree whose rules nothing enforces. The analyser and the refactorer
+// read the executable as well, which the Arch suite, reading PHP files, skips.
 
-/** The trees every one of them reads. */
-const THE_TREES = ['phpstan', 'src', 'tests'];
+/** The trees every one of them reads, and the executable. */
+const THE_TREES = ['bin/mutation-gate', 'phpstan', 'src', 'tests'];
 
 /**
  * The trees a configuration file names, in the shape it names them.
@@ -26,8 +27,8 @@ function treesNamedIn(string $file, string $pattern): array
 }
 
 it('reads the same trees with the analyser, the refactorer and the Arch suite', function (): void {
-    $analysed = treesNamedIn('phpstan.neon', '/^        - ([a-z]+)$/mu');
-    $refactored = treesNamedIn('rector.php', "/__DIR__ \\. '\\/([a-z]+)',/u");
+    $analysed = treesNamedIn('phpstan.neon', '/^        - ([a-z][a-z\/-]*)$/mu');
+    $refactored = treesNamedIn('rector.php', "/__DIR__ \\. '\\/([a-z][a-z\\/-]*)',/u");
 
     // R3
     expect($analysed)->toBe(THE_TREES, 'phpstan.neon does not analyse the trees the Arch suite reads (R3)')

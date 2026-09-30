@@ -50,6 +50,17 @@ it('finds each directory a packages glob matches that has a composer.json', func
     expect($packages->directories())->toEqual([Path::root(), Path::of('packages/clock'), Path::of('packages/money')]);
 });
 
+it('reads a packages glob as every glob of the config is read, two stars crossing directories', function (): void {
+    $packages = packagesOf([
+        'composer.json' => '{}',
+        'packages/money/composer.json' => '{"name": "acme/money"}',
+        'packages/finance/rates/composer.json' => '{"name": "acme/rates"}',
+    ], ['packages/**']);
+
+    expect($packages->directories())
+        ->toEqual([Path::root(), Path::of('packages/finance/rates'), Path::of('packages/money')]);
+});
+
 it('finds each path repository of the root that has a composer.json and a PHPUnit config', function (string $config): void {
     $packages = packagesOf([
         'composer.json' => '{"repositories": [{"type": "path", "url": "libs/*"}, {"type": "vcs", "url": "mirrors/vcs"}]}',

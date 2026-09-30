@@ -7,8 +7,8 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Proof\Key\PhpFile;
-use NightWorksIO\MutationGate\Core\Proof\Key\Role;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFile;
+use NightWorksIO\MutationGate\Core\Test\Role;
 
 $fingerprint = static fn(string $path): Fingerprint => Fingerprint::of(Path::of($path), Digest::of('9c1e'));
 

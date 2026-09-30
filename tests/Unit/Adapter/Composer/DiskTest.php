@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Composer\Disk;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -59,6 +60,27 @@ it('finds the directories a shell glob matches, spelt from the root', function (
 
     expect($disk->directories('packages/*'))->toEqual([Path::of('packages/clock'), Path::of('packages/money')])
         ->and($disk->directories('libs/*'))->toBe([]);
+});
+
+it('finds the directories a glob of the config matches, from the directory before its first wildcard, never through a link', function (): void {
+    $root = Project::with([
+        'packages/money/composer.json' => '{}',
+        'packages/clock/src/composer.json' => '{}',
+        'packages/group/rates/composer.json' => '{}',
+        'packages/README.md' => '# Packages',
+        'libs/money/composer.json' => '{}',
+    ]);
+    symlink(sprintf('%s/packages', $root), sprintf('%s/packages/group/loop', $root));
+    $disk = Disk::at(Root::of($root));
+
+    expect($disk->directoriesMatching(Glob::of('packages/*')))
+        ->toEqual([Path::of('packages/clock'), Path::of('packages/group'), Path::of('packages/money')])
+        ->and($disk->directoriesMatching(Glob::of('packages/**/rates')))->toEqual([Path::of('packages/group/rates')])
+        ->and($disk->directoriesMatching(Glob::of('*/money')))->toEqual([Path::of('libs/money'), Path::of('packages/money')])
+        ->and($disk->directoriesMatching(Glob::of('libs/money')))->toEqual([Path::of('libs/money')])
+        ->and($disk->directoriesMatching(Glob::of('packages/group/*')))
+        ->toEqual([Path::of('packages/group/loop'), Path::of('packages/group/rates')])
+        ->and($disk->directoriesMatching(Glob::of('modules/*')))->toBe([]);
 });
 
 it('finds the files a shell glob matches, spelt from the root', function (): void {

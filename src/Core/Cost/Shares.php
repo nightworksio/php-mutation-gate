@@ -17,9 +17,6 @@ use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
-use function sprintf;
-use function str_starts_with;
-
 /**
  * What a finished shard teaches: the time it spent mutating, shared among its
  * units in proportion to their mutants' durations. Mutants run side by side,
@@ -69,9 +66,7 @@ final readonly class Shares
     /** Whether a mutant is in a unit: in its file, or in a file under the path a held unit names. */
     private static function isOf(Mutant $mutant, Path $unit): bool
     {
-        $file = $mutant->location()->file();
-
-        return $file->equals($unit) || str_starts_with($file->value(), sprintf('%s/', $unit->value()));
+        return $mutant->location()->file()->within($unit);
     }
 
     private static function durationOf(Mutant $mutant, CoverageMap $coverage): float

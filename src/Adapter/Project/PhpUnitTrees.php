@@ -29,7 +29,6 @@ use function simplexml_load_string;
 use SimpleXMLElement;
 
 use function sprintf;
-use function str_starts_with;
 use function trim;
 
 /**
@@ -192,8 +191,7 @@ final readonly class PhpUnitTrees implements TreeSource
     {
         return array_any(
             [...$directories],
-            static fn(Path $directory): bool => $directory->value() === '.'
-                || str_starts_with(sprintf('%s/', $path->value()), sprintf('%s/', $directory->value())),
+            $path->within(...),
         );
     }
 }

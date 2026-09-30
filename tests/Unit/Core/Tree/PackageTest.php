@@ -22,3 +22,14 @@ it('depends on each package it is said to, and leaves the package it came from a
         ->and($depending->path()->value())->toBe('packages/money')
         ->and($package->dependencies())->toEqual(Paths::none());
 });
+
+it('finds the innermost package that holds a path, and the root where none other does', function (): void {
+    $root = Package::at(Path::root())->dependingOn(Path::of('packages/money'));
+    $money = Package::at(Path::of('packages/money'));
+    $rates = Package::at(Path::of('packages/money/rates'));
+
+    expect(Package::holding(Path::of('packages/money/rates/src/Rate.php'), $root, $rates, $money))->toBe($rates)
+        ->and(Package::holding(Path::of('packages/money/src/Money.php'), $rates, $money, $root))->toBe($money)
+        ->and(Package::holding(Path::of('packages/moneybox/src/Box.php'), $money, $root))->toBe($root)
+        ->and(Package::holding(Path::of('src/Kernel.php'), $money))->toEqual(Package::at(Path::root()));
+});

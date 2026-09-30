@@ -29,7 +29,7 @@ final readonly class ComposerTrees implements TreeSource
 {
     /**
      * @param list<string> $manifests shell globs of the manifests whose autoload names trees, from the root
-     * @param list<string> $packages  shell globs of the packages' directories, from the root
+     * @param list<string> $packages  globs of the packages' directories, from the root
      */
     private function __construct(private Disk $disk, private array $manifests, private array $packages)
     {
@@ -37,7 +37,7 @@ final readonly class ComposerTrees implements TreeSource
 
     /**
      * @param list<string> $manifests shell globs of the manifests whose autoload names trees, from the root
-     * @param list<string> $packages  shell globs of the packages' directories, from the root
+     * @param list<string> $packages  globs of the packages' directories, from the root
      */
     public static function at(Root $root, array $manifests, array $packages): self
     {

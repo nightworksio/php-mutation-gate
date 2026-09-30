@@ -4,39 +4,37 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
-use function array_key_exists;
-use function is_array;
-use function is_int;
-use function is_string;
+use function array_filter;
+use function array_map;
+use function array_values;
+
+use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
 /** What GitHub's API answered, read one field at a time; a field it did not send reads as empty. */
 final readonly class Answer
 {
-    /** @param array<mixed> $data */
-    private function __construct(private array $data)
+    private function __construct(private Node $node)
     {
     }
 
     /** @param array<mixed> $data */
     public static function of(array $data): self
     {
-        return new self($data);
+        return new self(Node::decode(JsonText::compact($data)));
     }
 
     /** The text at a path of keys, or nothing where there is none. */
     public function text(string ...$keys): string
     {
-        $value = $this->at($keys);
-
-        return is_string($value) ? $value : '';
+        return Lenient::text($this->at($keys));
     }
 
     /** The number at a path of keys, or 0 where there is none. */
     public function number(string ...$keys): int
     {
-        $value = $this->at($keys);
-
-        return is_int($value) ? $value : 0;
+        return Lenient::integer($this->at($keys));
     }
 
     /**
@@ -46,25 +44,21 @@ final readonly class Answer
      */
     public function items(string ...$keys): array
     {
-        $value = $this->at($keys);
-        $items = [];
-
-        foreach (is_array($value) ? $value : [] as $item) {
-            $items = is_array($item) ? [...$items, new self($item)] : $items;
-        }
-
-        return $items;
+        return array_map(
+            static fn(Node $item): self => new self($item),
+            array_values(array_filter(Lenient::items($this->at($keys)), Lenient::holdsMembers(...))),
+        );
     }
 
     /** @param array<string> $keys */
-    private function at(array $keys): mixed
+    private function at(array $keys): Node
     {
-        $value = $this->data;
+        $node = $this->node;
 
         foreach ($keys as $key) {
-            $value = is_array($value) && array_key_exists($key, $value) ? $value[$key] : [];
+            $node = $node->field($key);
         }
 
-        return $value;
+        return $node;
     }
 }

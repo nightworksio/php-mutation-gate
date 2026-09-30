@@ -10,12 +10,14 @@ use function array_filter;
 use function array_key_exists;
 use function array_values;
 use function count;
+use function in_array;
 use function ksort;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
+use NightWorksIO\MutationGate\Core\Test\Role;
 
 use function sprintf;
 
@@ -31,6 +33,9 @@ use function sprintf;
  */
 final readonly class SupportUsers
 {
+    /** What test support is, whether it only declares or runs code when it is loaded. */
+    private const array SUPPORT = [Role::Support, Role::Loaded];
+
     /** Why support that runs code when loaded reaches every unit of its package. */
     private const string RUNS = '`%s` runs code when it is loaded, so every unit of %s is reached.';
 
@@ -55,7 +60,7 @@ final readonly class SupportUsers
 
         foreach ($sources->php() as $path => $file) {
             $place = count($files);
-            $files[] = [$path, $file, self::roleOf($layout, $packages, $path)];
+            $files[] = [$path, $file, self::roleOf($layout, $packages, $path, $file)];
             $places[$path->value()] = $place;
 
             foreach ($file->mentioned()->all() as $name) {
@@ -97,7 +102,7 @@ final readonly class SupportUsers
         while ($unread !== []) {
             $found = array_filter(
                 array_diff_key($this->placesMentioning($unread), $support),
-                fn(int $place): bool => $this->files[$place][2] === Role::Support,
+                fn(int $place): bool => in_array($this->files[$place][2], self::SUPPORT, strict: true),
             );
             $support += $found;
             $unread = $this->declaredAnew($found, $names);
@@ -137,9 +142,9 @@ final readonly class SupportUsers
         ksort($support);
 
         foreach ($support as $place) {
-            [$path, $file] = $this->files[$place];
+            [$path, , $role] = $this->files[$place];
 
-            if (! $file->onlyDeclares()) {
+            if ($role === Role::Loaded) {
                 return $path;
             }
         }
@@ -162,11 +167,11 @@ final readonly class SupportUsers
         foreach ($naming as $place) {
             [$path, , $role] = $this->files[$place];
 
-            if ($role === Role::Other) {
+            if ($role === Role::Elsewhere) {
                 return Reason::that(sprintf(self::ELSEWHERE, $path->value(), $package));
             }
 
-            if ($role === Role::TestFile) {
+            if ($role === Role::TestCase) {
                 $tests[] = $path;
             }
         }
@@ -193,14 +198,15 @@ final readonly class SupportUsers
         return $places;
     }
 
-    private static function roleOf(Layout $layout, Packages $packages, Path $path): Role
+    private static function roleOf(Layout $layout, Packages $packages, Path $path, PhpFile $file): Role
     {
         $inPackage = $path->relativeTo($packages->holding($path)->path());
 
         return match (true) {
-            $layout->isTest($inPackage) => Role::TestFile,
-            $layout->isSupport($inPackage) => Role::Support,
-            default => Role::Other,
+            $layout->isTest($inPackage) => Role::TestCase,
+            ! $layout->isSupport($inPackage) => Role::Elsewhere,
+            $file->onlyDeclares() => Role::Support,
+            default => Role::Loaded,
         };
     }
 }
