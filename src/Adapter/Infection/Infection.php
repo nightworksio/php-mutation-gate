@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
@@ -110,10 +111,14 @@ final readonly class Infection implements Runner
             : $platform;
     }
 
-    /** Infection lists `#[Holds]` as groups, raises its limit, and reuses the map the plan handed each shard. */
+    /**
+     * Infection lists `#[Holds]` as groups, raises its limit, and reuses the
+     * map the plan handed each shard; it stops each mutant at its first
+     * failing test, so it cannot record every killer.
+     */
     public function behaviour(): RunnerBehaviour
     {
-        return RunnerBehaviour::standard();
+        return RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection);
     }
 
     public function groups(Withheld $withheld): Groups|CannotJudge

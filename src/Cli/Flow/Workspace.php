@@ -32,6 +32,15 @@ final readonly class Workspace
         return Path::of(sprintf('%s/coverage/shard-%d', GateDirectory::root()->value(), $shard->number()));
     }
 
+    /**
+     * The directory of the coverage map the plan hands the verdict: the lines
+     * of every unit it considered, run, proved or carried, for the kill matrix.
+     */
+    public static function verdictCoverage(): Path
+    {
+        return Path::of(sprintf('%s/coverage/verdict', GateDirectory::root()->value()));
+    }
+
     /** Where the tests that hold a shard's units leave the map of their run on their own. */
     public static function heldCoverage(ShardId $shard): Path
     {

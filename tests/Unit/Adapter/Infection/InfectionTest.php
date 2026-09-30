@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -613,9 +614,9 @@ it('runs a shard of the flows on the map the plan handed it, in its own layout',
         ->and(infectionRan($shell)[0])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()));
 });
 
-it('behaves as the port expects of a runner unless told otherwise', function (): void {
+it('behaves as the port expects of a runner, but stops each mutant at its first killer', function (): void {
     $at = infectionProject();
 
     expect(new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->behaviour())
-        ->toEqual(RunnerBehaviour::standard());
+        ->toEqual(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection));
 });

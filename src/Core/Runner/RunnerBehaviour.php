@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 
@@ -11,8 +12,9 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
  * How a runner behaves where the flows must know it: whether it reads each
  * `#[Holds]` as its test files load, whether a timeout's limit can be raised
  * for a retry (ADR-0008), which groups' test files every proof key reads
- * (ADR-0007), and whether each shard pays a full opening run under coverage
- * (ADR-0006). The flows ask the runner, never its name.
+ * (ADR-0007), whether each shard pays a full opening run under coverage
+ * (ADR-0006), and whether it can record every test that kills a mutant, for
+ * a full kill matrix (ADR-0014). The flows ask the runner, never its name.
  */
 final readonly class RunnerBehaviour
 {
@@ -21,6 +23,7 @@ final readonly class RunnerBehaviour
         private bool $raisesLimits,
         private Groups $readByEveryKey,
         private bool $opensEachShard,
+        private NotFull $whyNotFull,
     ) {
     }
 
@@ -35,6 +38,7 @@ final readonly class RunnerBehaviour
             raisesLimits: true,
             readByEveryKey: Groups::none(),
             opensEachShard: false,
+            whyNotFull: NotFull::FirstKillers,
         );
     }
 
@@ -62,6 +66,15 @@ final readonly class RunnerBehaviour
         return clone($this, ['opensEachShard' => true]);
     }
 
+    /**
+     * This behaviour, where the runner stops each mutant at its first failing
+     * test, and so cannot record every killer.
+     */
+    public function stoppingAtFirstKiller(NotFull $why): self
+    {
+        return clone($this, ['whyNotFull' => $why]);
+    }
+
     public function holdsAsLoaded(): bool
     {
         return $this->holdsAsLoaded;
@@ -81,5 +94,14 @@ final readonly class RunnerBehaviour
     public function opensEachShard(): bool
     {
         return $this->opensEachShard;
+    }
+
+    /**
+     * Why a kill matrix of this runner's run holds first killers only: the
+     * run did not ask for every killer, or the runner cannot record them.
+     */
+    public function whyNotFull(): NotFull
+    {
+        return $this->whyNotFull;
     }
 }

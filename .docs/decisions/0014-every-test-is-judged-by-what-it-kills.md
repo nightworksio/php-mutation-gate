@@ -167,8 +167,9 @@ running it: why is this mutant here, and has it always been?
      one that was, so it is kept last among equals. Removability rests on
      kills alone, so this never loses one.
    - **A runner that cannot record every killer** is named by the matrix,
-     as a typed reason the flows set: under Infection the section says that
-     Infection cannot produce a full kill matrix.
+     as a typed reason the runner gives in `Runner::behaviour()`: under
+     Infection the section says that Infection cannot produce a full kill
+     matrix.
    - **Without a full matrix,** the section says *needs a full kill matrix:
      run `mutation-gate run --kill-matrix=full`*, and lists nothing. Under
      Infection it says that Infection cannot produce one.
@@ -213,9 +214,12 @@ running it: why is this mutant here, and has it always been?
     `not-run`. Every killer a record names is also a covering test.
 
 11. **Every mutant in the verdict is exported, run, proved or carried.**
-    `coveredBy` comes from the run's coverage map for run and proved units,
-    whose keys already hold each covered line's tests (ADR-0007), and from the
-    proof for carried ones. Nothing is capped.
+    `coveredBy` comes from the run's coverage map. The plan hands the verdict
+    the lines of every unit it considered, run, proved or carried, as the
+    gate's own map in `.mutation-gate/coverage/verdict`. A carried unit's
+    file is one the change does not reach, so its lines are those its proof
+    was made on. A verdict handed no map holds each mutant's killers alone,
+    and warns of it. Nothing is capped.
 
 12. **`mutation-gate explain <mutant>` explains one mutant, offline.** It reads
     the ledgers, the last run's results and the coverage map, and runs

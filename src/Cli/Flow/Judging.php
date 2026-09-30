@@ -16,8 +16,10 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -56,6 +58,8 @@ use function sprintf;
  */
 final readonly class Judging
 {
+    private const string NO_MATRIX = 'The kill matrix holds each mutant\'s killers alone. %s';
+
     private const string UNNAMED = 'The reports name each test by its coverage id. %s';
 
     private const string UNFLOORED = '%s has no floor yet. Run mutation-gate baseline --write and commit %s.';
@@ -188,12 +192,16 @@ final readonly class Judging
         $failures = $pullRequest
             ? $this->pullRequestFailures($lowered, $verdicts)->and($missed)
             : $missed;
+        $map = new Handoff($this->adapters->project)->forVerdict();
+        $raised = $map instanceof CannotJudge
+            ? $shards->with(Warning::that(sprintf(self::NO_MATRIX, $map->why())))
+            : $shards;
 
         return Verdict::of($verdicts)
             ->withNewCode($newCode)
             ->withReach($plan->considered()->reach())
-            ->withMatrix($this->matrixOf($plan))
-            ->withWarnings($this->warnings($plan, $verdicts, $shards))
+            ->withMatrix($this->matrixOf($plan, $map))
+            ->withWarnings($this->warnings($plan, $verdicts, $raised))
             ->withFailures($failures);
     }
 
@@ -278,12 +286,20 @@ final readonly class Judging
         return $warnings;
     }
 
-    /** The kill matrix, with the names the plan holds for the tests. */
-    private function matrixOf(Plan $plan): KillMatrix
+    /**
+     * The kill matrix of first killers (ADR-0014, decisions 9 to 11): over
+     * the map the plan handed the verdict, which holds the lines of every
+     * unit it considered, with the names the plan holds for the tests, and
+     * why the runner's run holds first killers only. Without a map it holds
+     * each mutant's killers alone.
+     */
+    private function matrixOf(Plan $plan, CoverageMap|CannotJudge $map): KillMatrix
     {
         $names = $plan->names();
+        $matrix = KillMatrix::of(MatrixKind::FirstKiller, $map instanceof CoverageMap ? $map : CoverageMap::empty())
+            ->cannotBeFull($this->adapters->runner->behaviour()->whyNotFull());
 
-        return $names instanceof TestNames ? KillMatrix::none()->named($names) : KillMatrix::none();
+        return $names instanceof TestNames ? $matrix->named($names) : $matrix;
     }
 
     /** The lines each change added or modified, which the new-code floor judges. */
