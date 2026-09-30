@@ -179,7 +179,7 @@ has to bring its result with it.
        "openings": {
            ".": { "infection": { "seconds": 38.2, "at": "2026-09-29T20:48:17Z" } }
        },
-       "passed": "<commit sha>"
+       "passed": { "commit": "<commit sha>", "check": "<check-run name>", "ownScopeProofs": 0 }
    }
    ```
 
@@ -224,8 +224,14 @@ has to bring its result with it.
      the mutants that differ are flaky and neither result is used (ADR-0008).
      Results are compared by status. `killedBy` is never compared, because
      the first killer depends on the order the tests ran in (ADR-0013).
-   - `passed` is the newest commit of this scope whose verdict passed. That is
-     the `last-passed` base (ADR-0005).
+   - `passed` records the newest commit of this scope whose verdict passed.
+     That commit is the `last-passed` base (ADR-0005). `check` is the name of
+     the check-run the verdict reported under, and `ownScopeProofs` is how
+     many proofs of this scope's own ledger that verdict used. A pull
+     request's passing run is trusted on the default branch only where it
+     used none, because its own code could have written them, and only as the
+     named check-run shows it. A `passed` that is not such a record reads as
+     none.
 
 4. **The ProofStore port reads and writes one ledger per scope.** A scope is a
    ref: `refs/heads/<branch>` or `refs/pull/<n>`.

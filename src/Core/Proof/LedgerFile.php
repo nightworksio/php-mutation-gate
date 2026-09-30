@@ -104,7 +104,11 @@ final readonly class LedgerFile
             self::MUTATORS => $mutators,
             'proofs' => $proofs === [] ? new stdClass() : $proofs,
             'timings' => $timings === [] ? new stdClass() : $timings,
-            ...$passed instanceof Revision ? [self::PASSED => $passed->name()] : [],
+            ...$passed instanceof Passed ? [self::PASSED => [
+                'commit' => $passed->commit()->name(),
+                'check' => $passed->check(),
+                'ownScopeProofs' => $passed->ownScopeProofs(),
+            ]] : [],
         ]));
     }
 
@@ -207,7 +211,14 @@ final readonly class LedgerFile
     private static function passedIn(Node $file): Ledger
     {
         try {
-            return Ledger::empty()->withPassed(Revision::ref($file->field(self::PASSED)->text()));
+            $passed = $file->field(self::PASSED);
+            $own = $passed->field('ownScopeProofs')->integer();
+
+            return Ledger::empty()->withPassed(Passed::of(
+                Revision::ref($passed->field('commit')->text()),
+                $passed->field('check')->text(),
+                $own >= 0 ? $own : throw NotInShape::at($passed->field('ownScopeProofs')->at(), 'a count'),
+            ));
         } catch (NotInShape) {
             return Ledger::empty();
         }

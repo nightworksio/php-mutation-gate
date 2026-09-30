@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -43,12 +44,12 @@ it('holds proofs, timings and the newest passing commit of its scope', function 
     $ledger = Ledger::empty()
         ->withProof($proof('9c1e', 'src/Money.php'))
         ->withTiming($timing('src/Money.php', 12.4))
-        ->withPassed(Revision::ref('5eeca8f'))
-        ->withPassed(Revision::ref('206b4e0'));
+        ->withPassed(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0))
+        ->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0));
 
     expect($ledger->proofs())->toEqual(Proofs::of($proof('9c1e', 'src/Money.php')))
         ->and($ledger->timings())->toEqual(Timings::of($timing('src/Money.php', 12.4)))
-        ->and($ledger->lastPassed())->toEqual(Revision::ref('206b4e0'));
+        ->and($ledger->lastPassed())->toEqual(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0));
 });
 
 it('drops the proof under a key and keeps the rest', function () use ($proof, $timing): void {
@@ -56,41 +57,41 @@ it('drops the proof under a key and keeps the rest', function () use ($proof, $t
         ->withProof($proof('a', 'src/A.php'))
         ->withProof($proof('b', 'src/B.php'))
         ->withTiming($timing('src/A.php', 1.0))
-        ->withPassed(Revision::ref('5eeca8f'))
+        ->withPassed(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0))
         ->withoutProof(Digest::of('a'));
 
     expect($ledger->proofs())->toEqual(Proofs::of($proof('b', 'src/B.php')))
         ->and($ledger->timings())->toEqual(Timings::of($timing('src/A.php', 1.0)))
-        ->and($ledger->lastPassed())->toEqual(Revision::ref('5eeca8f'));
+        ->and($ledger->lastPassed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
 });
 
 it('takes what a shard measured, each unit keeping its newest timing', function () use ($proof, $timing): void {
     $ledger = Ledger::empty()
         ->withProof($proof('a', 'src/A.php'))
         ->withTiming($timing('src/A.php', 1.0, '2026-09-29T21:00:00Z'))
-        ->withPassed(Revision::ref('5eeca8f'))
+        ->withPassed(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0))
         ->withTimings(Timings::of($timing('src/A.php', 9.0), $timing('src/B.php', 2.0)));
 
     expect($ledger->timings())->toEqual(Timings::of($timing('src/A.php', 1.0, '2026-09-29T21:00:00Z'), $timing('src/B.php', 2.0)))
         ->and($ledger->proofs())->toEqual(Proofs::of($proof('a', 'src/A.php')))
-        ->and($ledger->lastPassed())->toEqual(Revision::ref('5eeca8f'));
+        ->and($ledger->lastPassed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
 });
 
 it('reads another scope\'s ledger beside its own, its own proofs and passing commit first', function () use ($proof, $timing): void {
     $ours = Ledger::empty()
         ->withProof($proof('a', 'src/Ours.php'))
         ->withTiming($timing('src/A.php', 1.0))
-        ->withPassed(Revision::ref('5eeca8f'));
+        ->withPassed(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
     $theirs = Ledger::empty()
         ->withProof($proof('a', 'src/Theirs.php'))
         ->withProof($proof('b', 'src/B.php'))
         ->withTiming($timing('src/A.php', 3.0, '2026-09-29T21:00:00Z'))
-        ->withPassed(Revision::ref('206b4e0'));
+        ->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0));
     $read = $ours->and($theirs);
 
     expect($read->proofs())->toEqual(Proofs::of($proof('a', 'src/Ours.php'), $proof('b', 'src/B.php')))
         ->and($read->timings())->toEqual(Timings::of($timing('src/A.php', 3.0, '2026-09-29T21:00:00Z')))
-        ->and($read->lastPassed())->toEqual(Revision::ref('5eeca8f'))
+        ->and($read->lastPassed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0))
         ->and(Ledger::empty()->and($theirs)->lastPassed())->toEqual(CannotTell::because('No commit of this scope has passed yet.'));
 });
 
@@ -99,12 +100,12 @@ it('keeps only the timings of units that still exist, and every proof', function
         ->withProof($proof('a', 'src/Gone.php'))
         ->withTiming($timing('src/Gone.php', 1.0))
         ->withTiming($timing('src/Here.php', 2.0))
-        ->withPassed(Revision::ref('5eeca8f'))
+        ->withPassed(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0))
         ->keepingTimingsOf(Paths::of(Path::of('src/Here.php')));
 
     expect($ledger->timings())->toEqual(Timings::of($timing('src/Here.php', 2.0)))
         ->and($ledger->proofs())->toEqual(Proofs::of($proof('a', 'src/Gone.php')))
-        ->and($ledger->lastPassed())->toEqual(Revision::ref('5eeca8f'));
+        ->and($ledger->lastPassed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
 });
 
 it('leaves the ledger it came from as it was', function () use ($proof, $timing): void {
@@ -112,7 +113,7 @@ it('leaves the ledger it came from as it was', function () use ($proof, $timing)
     $ledger->withProof($proof('a', 'src/A.php'));
     $ledger->withTiming($timing('src/A.php', 1.0));
     $ledger->withTimings(Timings::of($timing('src/A.php', 1.0)));
-    $ledger->withPassed(Revision::ref('5eeca8f'));
+    $ledger->withPassed(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
 
     expect($ledger)->toEqual(Ledger::empty());
 });
@@ -143,7 +144,7 @@ it('holds the bases its runs keyed at, the most recently seen first, whatever el
         ->withoutProof(Digest::of(str_repeat('a', 64)))
         ->withTiming($timing('src/A.php', 1.0))
         ->withTimings(Timings::none())
-        ->withPassed(Revision::ref('206b4e0'))
+        ->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0))
         ->keepingTimingsOf(Paths::none());
 
     expect(Ledger::empty()->bases())->toEqual(Bases::none())

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
-use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
 
@@ -22,7 +21,7 @@ final readonly class Ledger
         private Proofs $proofs,
         private Timings $timings,
         private Bases $bases,
-        private Revision|CannotTell $passed,
+        private Passed|CannotTell $passed,
     ) {
     }
 
@@ -71,10 +70,10 @@ final readonly class Ledger
         return new self($this->proofs, $this->timings, $this->bases->and($bases), $this->passed);
     }
 
-    /** This ledger, with a commit whose verdict passed, replacing the one held. */
-    public function withPassed(Revision $commit): self
+    /** This ledger, with the newest commit whose verdict passed, replacing the one held. */
+    public function withPassed(Passed $passed): self
     {
-        return new self($this->proofs, $this->timings, $this->bases, $commit);
+        return new self($this->proofs, $this->timings, $this->bases, $passed);
     }
 
     /**
@@ -130,7 +129,7 @@ final readonly class Ledger
     }
 
     /** The newest commit of this scope whose verdict passed: the `last-passed` base. */
-    public function lastPassed(): Revision|CannotTell
+    public function lastPassed(): Passed|CannotTell
     {
         return $this->passed;
     }

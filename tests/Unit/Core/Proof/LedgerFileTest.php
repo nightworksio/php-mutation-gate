@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -63,7 +64,7 @@ $ledger = Ledger::empty()
     ->withProof(Proof::of(Digest::of($keyB), Path::of('src/B.php'), Mutants::none(), $run('github:2/1', '2026-09-29T21:00:00Z')))
     ->withTiming(Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'infection', $at('2026-09-29T20:48:17Z')))
     ->atBase(Digest::of($base))
-    ->withPassed(Revision::ref('206b4e0'));
+    ->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0));
 
 // The ledger's file as data, to change one entry of and write back.
 $data = static function () use ($ledger): array {
@@ -106,7 +107,7 @@ it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tup
             ],
         ],
         'timings' => ['src/Money.php' => ['seconds' => 12.4, 'runner' => 'infection', 'at' => '2026-09-29T20:48:17Z']],
-        'passed' => '206b4e0',
+        'passed' => ['commit' => '206b4e0', 'check' => 'mutation-gate', 'ownScopeProofs' => 0],
     ]));
 });
 
@@ -228,15 +229,29 @@ it('drops a timing that is not well formed and keeps a timing of no time at all'
 it('reads proofs and timings that are not maps as none, and keeps what else it holds', function () use ($data, $written, $base): void {
     $file = [...$data(), 'proofs' => 7, 'timings' => 'none'];
 
-    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withPassed(Revision::ref('206b4e0')));
+    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0)));
 });
 
-it('reads a passing commit that is not text as none', function () use ($data, $written, $ledger): void {
-    $file = [...$data(), 'passed' => 7];
+it('reads a passing record that is not well formed as none', function (array|int|string $passed) use ($data, $written, $ledger): void {
+    $file = [...$data(), 'passed' => $passed];
     $read = LedgerFile::decode($written($file));
 
     expect($read->lastPassed())->toEqual(Ledger::empty()->lastPassed())
         ->and($read->proofs())->toEqual($ledger->proofs());
+})->with([
+    'a bare commit' => ['206b4e0'],
+    'a number' => [7],
+    'a commit that is not text' => [['commit' => 7, 'check' => 'mutation-gate', 'ownScopeProofs' => 0]],
+    'a check that is not text' => [['commit' => '206b4e0', 'check' => null, 'ownScopeProofs' => 0]],
+    'no count of own proofs' => [['commit' => '206b4e0', 'check' => 'mutation-gate']],
+    'a count below none' => [['commit' => '206b4e0', 'check' => 'mutation-gate', 'ownScopeProofs' => -1]],
+    'a count that is not whole' => [['commit' => '206b4e0', 'check' => 'mutation-gate', 'ownScopeProofs' => 1.5]],
+]);
+
+it('reads back a passing verdict that used proofs of its own scope', function () use ($ledger): void {
+    $passed = Passed::of(Revision::ref('5eeca8f'), 'mutation / verdict', 3);
+
+    expect(LedgerFile::decode(LedgerFile::encode($ledger->withPassed($passed)))->lastPassed())->toEqual($passed);
 });
 
 it('reads a full ledger and joins it to another in linear time', function () use ($run, $killed, $base): void {
