@@ -34,3 +34,12 @@ it('ids each mutant by its file, mutator and change, counting those before it by
         'other' => $id('src/B.php', 0),
     ]);
 });
+
+it('counts a mutant whose change differs from another only in whitespace as the same change', function (): void {
+    $narrow = PestRun::mutant('narrow', '/p/src/A.php', 10, PlusToMinus::class, 'return $a + $b;', 'return $a - $b;');
+    $wide = PestRun::mutant('wide', '/p/src/A.php', 20, PlusToMinus::class, 'return $a  +  $b;', 'return $a  -  $b;');
+    $diff = Diff::fromPest(PestRun::diff('return $a  +  $b;', 'return $a  -  $b;'));
+
+    expect(Identities::of(Root::of('/p'), [$narrow, $wide])['wide'])
+        ->toEqual(MutantId::hash(Path::of('src/A.php'), PlusToMinus::class, $diff, 1));
+});

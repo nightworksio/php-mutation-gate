@@ -8,7 +8,9 @@ use function explode;
 use function implode;
 use function mb_strlen;
 use function mb_substr;
-use function sprintf;
+
+use NightWorksIO\MutationGate\Core\Mutant\Hunks;
+
 use function str_starts_with;
 
 use Symfony\Component\Console\Formatter\OutputFormatter;
@@ -23,8 +25,6 @@ final readonly class Diff
 {
     private const string INDENT = '  ';
 
-    private const string HUNK = '@@ @@';
-
     public static function fromPest(string $diff): string
     {
         $lines = [];
@@ -33,6 +33,6 @@ final readonly class Diff
             $lines[] = str_starts_with($line, self::INDENT) ? mb_substr($line, mb_strlen(self::INDENT)) : $line;
         }
 
-        return sprintf("%s\n%s", self::HUNK, trim(implode("\n", $lines), "\n"));
+        return Hunks::of(trim(implode("\n", $lines), "\n"));
     }
 }
