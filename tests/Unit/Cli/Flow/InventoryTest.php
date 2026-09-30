@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Port\ChangeSource;
@@ -38,6 +39,8 @@ $listing = static fn(Groups|CannotJudge $groups): RunnerFake => new RunnerFake(
     CoverageMap::empty(),
     Mutants::none(),
     Paths::none(),
+    Paths::none(),
+    TestNames::none(),
     Paths::none(),
 );
 
@@ -147,6 +150,8 @@ $underPest = static function (
         Mutants::none(),
         Paths::none(),
         Paths::of(Path::of('tests/Pest.php')),
+        TestNames::none(),
+        Paths::none(),
     );
     $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [
         Revision::workingTree()->name() => $files,

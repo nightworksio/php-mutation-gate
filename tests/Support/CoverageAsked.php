@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\Runner;
@@ -85,5 +87,15 @@ final class CoverageAsked implements Runner
     public function definitions(): Paths
     {
         return $this->runner->definitions();
+    }
+
+    public function names(TestIds $tests, Withheld $withheld): TestNames|CannotJudge
+    {
+        return $this->runner->names($tests, $withheld);
+    }
+
+    public function rootedAt(Path $package): Runner|CannotJudge
+    {
+        return $this->runner->rootedAt($package);
     }
 }

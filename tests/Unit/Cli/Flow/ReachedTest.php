@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
@@ -118,6 +119,8 @@ it('reaches the files a changed test runs, as the runner says which tests judge 
         Mutants::none(),
         Paths::of(Path::of('tests/MoneyTest.php')),
         Paths::of(Path::of('phpunit.xml')),
+        TestNames::none(),
+        Paths::none(),
     );
     $reached = reachedSince(
         Changes::of(Change::modified(Path::of($test), Lines::of(Line::of(4)))),

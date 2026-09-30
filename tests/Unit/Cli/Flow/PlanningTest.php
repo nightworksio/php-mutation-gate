@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -214,6 +215,8 @@ it('cannot plan where the units cannot be found, the coverage taken or the run k
             CoverageMap::empty(),
             Mutants::none(),
             Paths::none(),
+            Paths::none(),
+            TestNames::none(),
             Paths::none(),
         ),
         'The runner is not installed.',

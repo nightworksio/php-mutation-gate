@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
@@ -56,6 +57,8 @@ function keyingRunner(string $name): RunnerFake
         Mutants::none(),
         Paths::of(Path::of('tests/CanaryTest.php')),
         Paths::of(Path::of('phpunit.xml')),
+        TestNames::none(),
+        Paths::none(),
     );
 }
 
@@ -159,6 +162,8 @@ it('cannot key a run whose runner cannot say what it is, or whose CI definition 
         CoverageMap::empty(),
         Mutants::none(),
         Paths::none(),
+        Paths::none(),
+        TestNames::none(),
         Paths::none(),
     );
     $ci = Flows::ci()->runBy(Paths::of(Path::of('.github/workflows/gate.yml')));
