@@ -8,8 +8,6 @@ use function count;
 use function implode;
 use function is_file;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Workspace;
@@ -66,7 +64,7 @@ final readonly class Invocation
     public function listingTests(Withheld $withheld, string $names): Command
     {
         return Command::pest($this->script, $withheld, '--list-tests', '--colors=never')
-            ->with([Naming::FILE => $names]);
+            ->with([GateVariable::Names->value => $names]);
     }
 
     /** Whether Pest's script is in the project, where the gate runs it from. */
@@ -121,7 +119,7 @@ final readonly class Invocation
             sprintf('--ignore=%s', $this->ignored($request->leftOut())),
             ...$this->narrowedTo($judgedBy),
             ...$this->applying($request->mutators()),
-        )->with([Recorder::RESULTS => $results])->within($request->deadline());
+        )->with([GateVariable::Results->value => $results])->within($request->deadline());
     }
 
     /**

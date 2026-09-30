@@ -117,6 +117,6 @@ final class Plugin implements Bootable, HandlesArguments
      */
     public function handleArguments(array $arguments): array
     {
-        return Reordering::of(array_values($arguments), getenv(Seeder::ORDER), getenv(Recorder::MUTATED));
+        return Reordering::of(array_values($arguments), getenv(GateVariable::Order->value), getenv(Recorder::MUTATED));
     }
 }

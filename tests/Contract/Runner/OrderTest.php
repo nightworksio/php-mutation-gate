@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
-use NightWorksIO\MutationGate\Adapter\Pest\Order\Seeder;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -129,8 +129,8 @@ function orderChild(string $from, string $to, string ...$arguments): array
         [
             Recorder::MUTANT => sprintf('%s/src/Money.php', $root),
             Recorder::MUTATED => $mutated,
-            Recorder::RESULTS => $results,
-            Seeder::ORDER => $order,
+            GateVariable::Results->value => $results,
+            GateVariable::Order->value => $order,
             'PARATEST' => false,
             'TEST_TOKEN' => false,
             'UNIQUE_TEST_TOKEN' => false,

@@ -20,6 +20,8 @@ final readonly class Seconds
 
     private const int PER_HOUR = 3600;
 
+    private const int MICROSECONDS = 1_000_000;
+
     /** Hours, minutes and seconds, each optional and in that order: `90s`, `15m`, `1h30m`. */
     private const string DURATION = '/^(?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?:(?<s>\d+)s)?$/D';
 
@@ -48,6 +50,12 @@ final readonly class Seconds
         $minutes = intval($parts['m']) * self::PER_MINUTE;
 
         return new self($hours + $minutes + intval($parts['s']));
+    }
+
+    /** The duration in whole microseconds, as `usleep` takes it. */
+    public function microseconds(): int
+    {
+        return intval(round($this->seconds * self::MICROSECONDS));
     }
 
     public function seconds(): float

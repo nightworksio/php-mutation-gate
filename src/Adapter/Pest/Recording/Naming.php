@@ -9,6 +9,7 @@ use function getenv;
 use function is_string;
 use function is_subclass_of;
 
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use Pest\Contracts\HasPrintableTestCaseName;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,9 +32,6 @@ use function strval;
  */
 final readonly class Naming
 {
-    /** The variable the adapter names the file in. */
-    public const string FILE = 'MUTATION_GATE_NAMES';
-
     /** The prefix PHPUnit runs a public method as a test by, as a `#[Test]` does. */
     private const string PREFIX = 'test';
 
@@ -47,7 +45,7 @@ final readonly class Naming
     /** Naming where the adapter named a file. */
     public static function fromEnvironment(): self|Off
     {
-        return self::to(getenv(self::FILE));
+        return self::to(getenv(GateVariable::Names->value));
     }
 
     public static function to(string|false $file): self|Off

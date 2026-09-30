@@ -12,9 +12,9 @@ use function is_string;
 use function microtime;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Shell;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -80,7 +80,7 @@ final class Trial
         $ran = $this->shell->run($this->judging($tests)->with([
             Recorder::MUTANT => $this->project->absolute($original),
             Recorder::MUTATED => $copy,
-            Guard::FILE => $this->guard,
+            GateVariable::Guard->value => $this->guard,
         ]));
         $took = Seconds::of(microtime(as_float: true) - $started);
 

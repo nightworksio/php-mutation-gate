@@ -12,6 +12,7 @@ use function is_dir;
 use function is_string;
 use function mkdir;
 
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
@@ -41,9 +42,6 @@ use function sprintf;
  */
 final readonly class Recorder
 {
-    /** The variable the adapter names the results file in. */
-    public const string RESULTS = 'MUTATION_GATE_RESULTS';
-
     /** The variable Pest sets in each mutant's own process, naming the file its mutant replaces. */
     public const string MUTANT = 'PEST_MUTATION_TESTING';
 
@@ -65,7 +63,7 @@ final readonly class Recorder
      */
     public static function fromEnvironment(): self|Off
     {
-        $results = getenv(self::RESULTS);
+        $results = getenv(GateVariable::Results->value);
         $mutant = getenv(self::MUTANT);
 
         return self::asked($results, $mutant) ? self::listening(
