@@ -182,9 +182,11 @@ it('sees the coverage floor refuse every uncovered line planted for it, alone in
         plantFile(sprintf('%s/%s', $copy, $fixture->path), $fixture->code);
     }
 
-    $covered = new Process(['sh', 'scripts/coverage.sh'], $copy, timeout: null);
+    $report = sprintf('%s.junit.xml', $copy);
+    $covered = new Process(['sh', 'scripts/coverage.sh', sprintf('--log-junit=%s', $report)], $copy, timeout: null);
     $covered->run();
     $said = sprintf('%s%s', $covered->getOutput(), $covered->getErrorOutput());
+    $failed = array_map(trim(...), array_values(suiteFailures($covered, $report)));
     $silent = [];
 
     foreach (fixturesProvenBy(Proof::Coverage) as $fixture) {
@@ -193,7 +195,8 @@ it('sees the coverage floor refuse every uncovered line planted for it, alone in
         }
     }
 
-    expect($covered->isSuccessful())->toBeFalse()
+    expect($failed)->toBe([], sprintf("Pest measures coverage only after every test passed, and the covered run failed these:\n  %s", implode("\n  ", $failed)))
+        ->and($covered->isSuccessful())->toBeFalse()
         ->and($said)->toContain('Code coverage below expected')
         ->and($silent)->toBe([], sprintf("The covered run did not count these:\n  %s\n\nIt said:\n%s", implode("\n  ", $silent), $said));
 })->group('ci-only');

@@ -11,11 +11,15 @@ use function file_put_contents;
 use function is_dir;
 use function mkdir;
 use function random_bytes;
+use function register_shutdown_function;
 use function sodium_bin2hex;
 use function sprintf;
 use function sys_get_temp_dir;
 
-/** Directories a test writes into, each new and empty, removed by `sweep()`. */
+/**
+ * Directories a test writes into, each new and empty, removed by `sweep()`, or,
+ * for what a shutdown function writes, once the process has ended.
+ */
 final class Scratch
 {
     /** @var list<string> */
@@ -24,9 +28,26 @@ final class Scratch
     /** A new, empty directory, by its absolute path. */
     public static function directory(): string
     {
-        $root = sprintf('%s/mutation-gate-scratch-%s', sys_get_temp_dir(), sodium_bin2hex(random_bytes(8)));
-        mkdir($root);
+        $root = self::fresh();
         self::$made[] = $root;
+
+        return $root;
+    }
+
+    /**
+     * A new, empty directory that no sweep removes, for a file a shutdown
+     * function writes. It is removed once every shutdown function registered
+     * before the process began to end has run.
+     */
+    public static function untilExit(): string
+    {
+        $root = self::fresh();
+
+        register_shutdown_function(static function () use ($root): void {
+            register_shutdown_function(static function () use ($root): void {
+                self::remove($root);
+            });
+        });
 
         return $root;
     }
@@ -56,9 +77,22 @@ final class Scratch
     public static function sweep(): void
     {
         foreach (self::$made as $root) {
-            exec(sprintf('rm -rf %s', escapeshellarg($root)));
+            self::remove($root);
         }
 
         self::$made = [];
+    }
+
+    private static function remove(string $root): void
+    {
+        exec(sprintf('rm -rf %s', escapeshellarg($root)));
+    }
+
+    private static function fresh(): string
+    {
+        $root = sprintf('%s/mutation-gate-scratch-%s', sys_get_temp_dir(), sodium_bin2hex(random_bytes(8)));
+        mkdir($root);
+
+        return $root;
     }
 }
