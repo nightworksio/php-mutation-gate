@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
 
 use function sprintf;
 
@@ -25,12 +26,12 @@ final readonly class Report
 
     private const string NO_REPORT = 'Mago wrote no report (%s).';
 
-    public static function of(Started $started): Findings|CannotJudge
+    public static function of(ChildProcess $mago): Findings|CannotJudge
     {
-        $issues = Node::decode($started->output())->field('issues');
+        $issues = Node::decode($mago->output())->field('issues');
 
-        if (! AnalysisExit::finished($started->exit()) || ! $issues->isPresent()) {
-            return CannotJudge::because(sprintf(self::NO_REPORT, $started->said()));
+        if (! AnalysisExit::finished($mago->exit()) || ! $issues->isPresent()) {
+            return CannotJudge::because(sprintf(self::NO_REPORT, $mago->said()));
         }
 
         $findings = [];

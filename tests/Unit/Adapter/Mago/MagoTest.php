@@ -23,9 +23,9 @@ afterEach(function (): void {
 });
 
 /** Mago in a project, reading the config the gate hands it, if any. */
-function magoIn(string $project, string $options = '{}'): Mago
+function magoIn(string $project, string $options = '{}', string $vendor = ''): Mago
 {
-    $mago = Mago::fromOptions(Configs::options($options), $project, sprintf('%s/vendor', $project));
+    $mago = Mago::fromOptions(Configs::options($options), $project, $vendor === '' ? sprintf('%s/vendor', $project) : $vendor);
 
     return $mago instanceof Mago ? $mago : throw new LogicException('No Mago.');
 }
@@ -112,4 +112,14 @@ it('never downloads its binary: it cannot judge until Composer\'s package has', 
         ->toEqual(CannotJudge::because('Mago 1.50.0 has not downloaded its binary yet: run vendor/bin/mago --version once, which downloads it.'))
         ->and(magoIn($project)->check(MutantCheck::of(Path::of('src/Money.php'), Path::of('/tmp/mutant.php'))))
         ->toBeInstanceOf(CannotJudge::class);
+});
+
+it('cannot judge where its process never starts', function (): void {
+    $project = FakeAnalyser::mago('1.50.0', '');
+    $gone = magoIn(sprintf('%s/gone', $project), '{}', sprintf('%s/vendor', $project));
+
+    expect($gone->identity(Withheld::standard()))->toEqual(CannotJudge::because(sprintf(
+        'Mago did not say its version (it did not run: The provided cwd "%s/gone" does not exist.).',
+        $project,
+    )));
 });

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
 
 use function sprintf;
 
@@ -28,13 +29,13 @@ final readonly class Report
 
     private const string UNFINISHED = 'PHPStan did not finish its analysis: %s';
 
-    public static function of(Started $started): Findings|CannotJudge
+    public static function of(ChildProcess $phpstan): Findings|CannotJudge
     {
-        $report = Node::decode($started->output());
+        $report = Node::decode($phpstan->output());
 
-        return AnalysisExit::finished($started->exit()) && $report->field('files')->isPresent()
+        return AnalysisExit::finished($phpstan->exit()) && $report->field('files')->isPresent()
             ? self::read($report)
-            : CannotJudge::because(sprintf(self::NO_REPORT, $started->said()));
+            : CannotJudge::because(sprintf(self::NO_REPORT, $phpstan->said()));
     }
 
     private static function read(Node $report): Findings|CannotJudge

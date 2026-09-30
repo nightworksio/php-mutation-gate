@@ -8,6 +8,7 @@ use function dirname;
 use function file_exists;
 use function file_get_contents;
 use function file_put_contents;
+use function getenv;
 use function is_dir;
 use function is_file;
 use function is_string;
@@ -29,13 +30,18 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Port\StaticChecker;
 
 use const PHP_BINARY;
 
 use function preg_match;
 use function sprintf;
+
+use Symfony\Component\Process\Exception\RuntimeException;
+use Symfony\Component\Process\Process;
 
 /**
  * PHPStan, asked about a mutant in the mode its authors built for editors
@@ -91,7 +97,7 @@ final readonly class PhpStan implements StaticChecker
     public function identity(Withheld $withheld): AnalyserIdentity|CannotJudge
     {
         $config = $this->config();
-        $version = Started::run($this->root, $withheld, [PHP_BINARY, self::SCRIPT, '--version']);
+        $version = $this->ran($withheld, [PHP_BINARY, self::SCRIPT, '--version']);
         $contents = $config instanceof Path && is_file($this->absolute($config))
             ? file_get_contents($this->absolute($config))
             : false;
@@ -125,7 +131,7 @@ final readonly class PhpStan implements StaticChecker
     {
         $check = $this->checkConfig();
 
-        return $check instanceof CannotJudge ? $check : Report::of(Started::run($this->root, $withheld, [
+        return $check instanceof CannotJudge ? $check : Report::of($this->ran($withheld, [
             PHP_BINARY,
             self::SCRIPT,
             'analyse',
@@ -167,6 +173,22 @@ final readonly class PhpStan implements StaticChecker
         }
 
         return CannotJudge::because(self::NO_CONFIG);
+    }
+
+    /**
+     * A command, run to its end in the project's root without what is withheld.
+     *
+     * @param list<string> $arguments
+     */
+    private function ran(Withheld $withheld, array $arguments): ChildProcess
+    {
+        $process = new Process($arguments, $this->root->value(), Withholding::of($withheld, getenv()), timeout: null);
+
+        try {
+            return ChildProcess::exited($process->run(), $process->getOutput(), $process->getErrorOutput());
+        } catch (RuntimeException $failure) {
+            return ChildProcess::neverStarted($failure->getMessage());
+        }
     }
 
     private function absolute(Path $path): string

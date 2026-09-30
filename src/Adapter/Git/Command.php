@@ -15,6 +15,7 @@ use function is_dir;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
 
@@ -138,14 +139,12 @@ final readonly class Command
     private function finish(Process $process, array $arguments): string|CannotTell
     {
         try {
-            $process->run();
+            $git = ChildProcess::exited($process->run(), $process->getOutput(), $process->getErrorOutput());
         } catch (RuntimeException $refused) {
-            return $this->refused($arguments, $refused->getMessage());
+            $git = ChildProcess::neverStarted($refused->getMessage());
         }
 
-        return $process->isSuccessful()
-            ? $process->getOutput()
-            : $this->refused($arguments, trim($process->getErrorOutput()));
+        return $git->succeeded() ? $git->output() : $this->refused($arguments, trim($git->errors()));
     }
 
     /**
