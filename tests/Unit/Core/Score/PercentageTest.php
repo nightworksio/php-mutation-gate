@@ -88,3 +88,8 @@ it('says how much of a whole a percent is', function (): void {
         ->and(Percentage::fractionOf(25.0))->toBe(0.25)
         ->and(Percentage::fractionOf(0.0))->toBe(0.0);
 });
+
+it('is none of it, and all of it', function (): void {
+    expect(Percentage::none()->hundredths())->toBe(0)
+        ->and(Percentage::whole()->hundredths())->toBe(10000);
+});

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Cost\CostBasis;
+use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Run;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -15,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 $weighed = static fn(string $path, float $cost): Weighed => Weighed::of(
     Unit::file(Path::of($path)),
     Package::at(Path::of('a')),
-    Seconds::of($cost),
+    Estimated::of(Seconds::of($cost), CostBasis::Guessed),
 );
 
 it('holds its units in the order given, and adds up what they cost', function () use ($weighed): void {

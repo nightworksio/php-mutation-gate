@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Cost\CostBasis;
+use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Batching;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
@@ -14,13 +16,13 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 /** A file unit that costs this many seconds. */
 function batchFile(string $path, float $cost): Weighed
 {
-    return Weighed::of(Unit::file(Path::of($path)), Package::at(Path::root()), Seconds::of($cost));
+    return Weighed::of(Unit::file(Path::of($path)), Package::at(Path::root()), Estimated::of(Seconds::of($cost), CostBasis::Guessed));
 }
 
 /** A held unit that costs this many seconds. */
 function batchHeld(string $path, float $cost): Weighed
 {
-    return Weighed::of(Unit::held(Path::of($path), Group::named(sprintf('holds:%s', $path))), Package::at(Path::root()), Seconds::of($cost));
+    return Weighed::of(Unit::held(Path::of($path), Group::named(sprintf('holds:%s', $path))), Package::at(Path::root()), Estimated::of(Seconds::of($cost), CostBasis::Guessed));
 }
 
 $paths = static fn(Units $units): array => array_map(static fn(Unit $unit): string => $unit->path()->value(), [...$units]);

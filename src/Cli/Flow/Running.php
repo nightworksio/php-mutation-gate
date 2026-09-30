@@ -255,11 +255,11 @@ final readonly class Running
      */
     private function weighed(Shard $shard, Plan $plan): array
     {
-        $timings = Ledgers::read($this->adapters->proofs, Standing::planned($plan), Writing::Never)->timings();
+        $ledgers = Ledgers::read($this->adapters->proofs, Standing::planned($plan), Writing::Never);
         $weighed = [];
 
         foreach ($shard->units() as $unit) {
-            $weighed[] = Weighed::of($unit, $shard->package(), $this->adapters->costs->cost($unit, $timings));
+            $weighed[] = Weighed::of($unit, $shard->package(), $ledgers->estimated($this->adapters->costs, $unit));
         }
 
         return $weighed;

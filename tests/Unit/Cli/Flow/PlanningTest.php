@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -30,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -172,6 +174,29 @@ it('names the coverage map\'s tests once, withholding what every process withhol
         ->toEqual($withoutNames instanceof Plan ? $withoutNames->digest() : $withoutNames)
         ->and($withNames instanceof Plan ? $withNames->keys() : $withNames)
         ->toEqual($withoutNames instanceof Plan ? $withoutNames->keys() : $withoutNames);
+});
+
+it('says of each shard what its estimate rests on, and that its runner opens on the coverage run\'s tests', function () use (
+    $plan,
+): void {
+    $store = new ProofStoreFake();
+    $store->write(
+        Scope::branch('main'),
+        Ledger::empty()->withTiming(
+            Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', Moment::at('2026-09-30T10:00:00Z')),
+        ),
+    );
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $store, new CostModelFake(Seconds::of(8.0)));
+    $estimates = array_map(
+        static fn(Shard $shard): array => [
+            $shard->estimate()->part(CostBasis::Learned),
+            $shard->estimate()->part(CostBasis::Guessed),
+            $shard->estimate()->openingRun(),
+        ],
+        $planned instanceof Plan ? [...$planned] : [],
+    );
+
+    expect($estimates)->toEqual([[Seconds::of(50.0), Seconds::of(8.0), Seconds::of(0.2)]]);
 });
 
 it('leaves the whole map outside CI, where a later local command reads it, and not in CI', function () use ($plan): void {

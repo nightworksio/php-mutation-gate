@@ -11,6 +11,7 @@ use function count;
 use Countable;
 use Generator;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Cost\ShardEstimate;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -47,13 +48,19 @@ final readonly class Run implements Countable, IteratorAggregate
     /** The shard that mutates this run, under this label. */
     public function shard(ShardId $id, string $label): Shard
     {
+        $estimate = ShardEstimate::none();
+
+        foreach ($this->units as $unit) {
+            $estimate = $estimate->with($unit->estimated());
+        }
+
         return $this->units === [] ? Shard::empty($id) : Shard::of(
             $id,
             $this->units[0]->package(),
             Units::of(...array_map(static fn(Weighed $unit): Unit => $unit->unit(), $this->units)),
             $this->cost(),
             $label,
-        );
+        )->estimated($estimate);
     }
 
     public function count(): int

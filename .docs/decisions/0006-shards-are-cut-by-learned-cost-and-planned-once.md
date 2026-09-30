@@ -146,6 +146,13 @@ Two parts of that do not carry over to a public package.
      the estimate is instead coverage-weighted: mutants per line times the
      time of each line's covering tests (ADR-0017). After one full CI run
      every unit has been measured, and only new units are estimated.
+   - **The plan says what it expects.** Each unit's cost says what it rests
+     on: learned from an earlier shard, measured from the plan's coverage
+     run, or guessed from `costs.secondsPerLine`. `plan` prints, on standard
+     error, each shard's time with its opening run and `shards.setup` and what
+     it rests on, and the run's wall and runner time with the share of each
+     basis. `plan.json` keeps each shard's parts beside its `seconds` where
+     any of it rests on more than a guess, and its `opening` run.
    - **Costs decide placement only.** A cost decides which shard a unit goes to,
      never whether its mutants run. A wrong cost makes one runner slower, never
      a verdict wrong.

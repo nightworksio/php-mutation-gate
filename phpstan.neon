@@ -600,6 +600,8 @@ services:
                     - FLOOR # a field of the baseline
                 'NightWorksIO\MutationGate\Core\Test\TestNamesRecord':
                     - FILE # a field of the plan's test names
+                'NightWorksIO\MutationGate\Core\Plan\EstimateRecord':
+                    - OPENING # a field of a planned shard
                 'NightWorksIO\MutationGate\Cli\Console':
                     - DEFAULT # the default command
                 'NightWorksIO\MutationGate\Core\Report\Stryker':
@@ -619,6 +621,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Plan\ShardResultFile':
                     - FLAKY # a field of a shard result
                     - UNJUDGED # a field of a shard result
+                    - MEASURED # a field of a shard result
                 'NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage':
                     - HALVES # the halves of a limit
                 'NightWorksIO\MutationGate\Cli\Flow\Invoking':

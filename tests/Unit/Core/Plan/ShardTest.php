@@ -31,7 +31,7 @@ it('is the units of one package one job mutates, what they cost, and its label',
     expect($shard->id()->number())->toBe(2)
         ->and($shard->package())->toBe($package)
         ->and($shard->units())->toBe($units)
-        ->and($shard->cost())->toBe($cost)
+        ->and($shard->cost())->toEqual($cost)
         ->and($shard->label())->toBe('packages/a/src, part 2 of 4')
         ->and($shard->isEmpty())->toBeFalse();
 });

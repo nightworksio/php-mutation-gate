@@ -52,7 +52,7 @@ use stdClass;
  * @phpstan-import-type Written from UnitRecord as UnitWritten
  *
  * @phpstan-type RunOnWritten array{ref?: string, defaultBranch?: string}
- * @phpstan-type ShardWritten array{id: int, label: string, seconds: float, package: string, units: list<UnitWritten>}
+ * @phpstan-type ShardWritten array<string, int|string|float|list<UnitWritten>>
  * @phpstan-type ConsideredWritten array{proved?: list<UnitWritten>, carried?: list<UnitWritten>}
  * @phpstan-type ChangeWritten array{changed?: array<string, list<int>>, reach?: list<string>}
  * @phpstan-type Body array{
@@ -185,6 +185,7 @@ final readonly class PlanFile
             'id' => $shard->id()->number(),
             'label' => $shard->label(),
             'seconds' => $shard->cost()->seconds(),
+            ...EstimateRecord::of($shard->estimate()),
             'package' => $shard->package()->path()->value(),
             'units' => UnitRecord::all($shard->units()),
         ];
@@ -317,12 +318,14 @@ final readonly class PlanFile
     {
         $id = $shard->field('id')->integer();
 
-        return Shard::of(
+        $read = Shard::of(
             $id > 0 ? ShardId::of($id) : throw NotInShape::at($shard->field('id')->at(), 'a shard number'),
             Package::at(Path::of($shard->field('package')->text())),
             UnitRecord::readAll($shard->field('units')),
             Seconds::of($shard->field('seconds')->number()),
             $shard->field('label')->text(),
         );
+
+        return $read->estimated(EstimateRecord::read($shard, $read->cost()));
     }
 }
