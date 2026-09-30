@@ -33,10 +33,13 @@ final readonly class Pattern implements Shape
     public function read(Node $at): Reading
     {
         $written = $at->kind() === Kind::Text ? $at->text() : '';
+        $glob = $this->origin->path(Path::of($written));
 
-        return $written !== ''
-            ? Reading::of(Glob::of($this->origin->path(Path::of($written))->value()))
-            : Reading::refused($at->mismatch($this->expected()));
+        return match (true) {
+            $written === '' => Reading::refused($at->mismatch($this->expected())),
+            $glob->escapes() && ! $glob->isAbsolute() => Reading::refused($at->mismatch(Location::INSIDE)),
+            default => Reading::of(Glob::of($glob->value())),
+        };
     }
 
     public function expected(): string
