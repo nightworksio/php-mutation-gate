@@ -8,6 +8,7 @@ use function get_included_files;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Grouping\HoldsGroups;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Opcache;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -20,7 +21,8 @@ use function register_shutdown_function;
  * The Pest plugin this package lists under `extra.pest.plugins`. In every Pest
  * run it turns `#[Holds]` into `holds:` groups, it records every mutant's
  * result for the adapter where the adapter asked for it, and it guards a run
- * the adapter starts on one mutant through Pest's override.
+ * the adapter starts on one mutant through Pest's override. In a mutant's own
+ * process it names the test that killed the mutant.
  *
  * Pest loads this class before pest-plugin-mutate puts a mutated file in the
  * place of the original, so a mutant of this file would never run. It holds
@@ -32,11 +34,14 @@ final class Plugin implements Bootable
 
     private Guard|Off $guard = Off::Guarding;
 
+    private Killers|Off $killers = Off::NamingKillers;
+
     public function boot(): void
     {
         HoldsGroups::register(TestSuite::getInstance()->tests);
         $this->recorder = Recorder::fromEnvironment();
         $this->guard = Guard::fromEnvironment();
+        $this->killers = Killers::fromEnvironment();
 
         if ($this->guard instanceof Guard) {
             register_shutdown_function($this->finish(...));
@@ -59,5 +64,10 @@ final class Plugin implements Bootable
     public function guard(): Guard|Off
     {
         return $this->guard;
+    }
+
+    public function killers(): Killers|Off
+    {
+        return $this->killers;
     }
 }

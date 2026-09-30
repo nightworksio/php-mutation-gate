@@ -8,9 +8,10 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
-it('records and guards nothing until Pest boots it', function (): void {
+it('records, guards and names no killer until Pest boots it', function (): void {
     expect(new Plugin()->recorder())->toBe(Off::Recording)
-        ->and(new Plugin()->guard())->toBe(Off::Guarding);
+        ->and(new Plugin()->guard())->toBe(Off::Guarding)
+        ->and(new Plugin()->killers())->toBe(Off::NamingKillers);
 });
 
 it('guards a run the adapter starts on one mutant, writing what it saw when the run ends', function (): void {
@@ -42,11 +43,12 @@ it('guards a run the adapter starts on one mutant, writing what it saw when the 
         ->and(json_decode((string) file_get_contents($guard), associative: true))->toMatchArray(['before' => true, 'loaded' => true]);
 });
 
-it('records nothing when Pest boots it outside the adapter\'s runs', function (): void {
+it('records nothing and names no killer when Pest boots it outside the adapter\'s runs', function (): void {
     $plugin = new Plugin();
     $plugin->boot();
 
-    expect($plugin->recorder())->toBe(Off::Recording);
+    expect($plugin->recorder())->toBe(Off::Recording)
+        ->and($plugin->killers())->toBe(Off::NamingKillers);
 });
 
 it('records where the adapter asks when Pest boots it', function (): void {

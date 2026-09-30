@@ -132,7 +132,7 @@ it('keeps a mutant\'s mutated copy by its id beside the results, making the dire
         ->and(Recorder::mutantBeside('/r/pest/results.jsonl', 'id-7'))->toBe('/r/pest/mutants/id-7.php');
 });
 
-it('records every planned mutant with its file, lines, mutator class and diff, then how many', function (): void {
+it('records every planned mutant with its file, lines, mutator class, diff and mutated copy, then how many', function (): void {
     $root = (string) realpath(Scratch::directory());
     Scratch::write($root, 'src/Money.php', '<?php');
     $results = sprintf('%s/results.jsonl', $root);
@@ -149,6 +149,7 @@ it('records every planned mutant with its file, lines, mutator class and diff, t
             'end' => 12,
             'mutator' => Mutations::PLUS,
             'diff' => "  <fg=red>-        return \$a + \$b;</>\n  <fg=green>+        return \$a - \$b;</>\n",
+            'mutated' => '/nowhere/mutated',
         ],
         [
             'event' => 'planned',
@@ -158,6 +159,7 @@ it('records every planned mutant with its file, lines, mutator class and diff, t
             'end' => 13,
             'mutator' => Mutations::PLUS,
             'diff' => "  <fg=red>-        return \$a + \$b;</>\n  <fg=green>+        return \$a - \$b;</>\n",
+            'mutated' => '/nowhere/mutated',
         ],
         ['event' => 'made', 'count' => 2, 'opening' => 1.5],
     ])->and(Mutations::recorded(sprintf('%s/unknown.jsonl', $root)))->toBe([

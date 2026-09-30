@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Records;
 use NightWorksIO\MutationGate\Adapter\Pest\Summary;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -43,6 +44,7 @@ $planned = static fn(string $id, string $file, int $start): array => [
     'end' => $start + 1,
     'mutator' => PlusToMinus::class,
     'diff' => sprintf('diff of %s', $id),
+    'mutated' => sprintf('/tmp/%s', $id),
 ];
 
 it('orders the planned mutants by file and by the line each starts on', function () use ($results, $planned): void {
@@ -58,10 +60,19 @@ it('orders the planned mutants by file and by the line each starts on', function
     $plus = PlusToMinus::class;
 
     expect($records instanceof Records ? $records->planned() : [])->toBe([
-        'd' => ['file' => '', 'start' => 0, 'end' => 0, 'mutator' => '', 'diff' => ''],
-        'a' => ['file' => '/p/src/Held.php', 'start' => 30, 'end' => 31, 'mutator' => $plus, 'diff' => 'diff of a'],
-        'b' => ['file' => '/p/src/Money.php', 'start' => 10, 'end' => 11, 'mutator' => $plus, 'diff' => 'diff of b'],
-        'c' => ['file' => '/p/src/Money.php', 'start' => 20, 'end' => 21, 'mutator' => $plus, 'diff' => 'diff of c'],
+        'd' => ['file' => '', 'start' => 0, 'end' => 0, 'mutator' => '', 'diff' => '', 'mutated' => ''],
+        'a' => [
+            'file' => '/p/src/Held.php', 'start' => 30, 'end' => 31, 'mutator' => $plus, 'diff' => 'diff of a',
+            'mutated' => '/tmp/a',
+        ],
+        'b' => [
+            'file' => '/p/src/Money.php', 'start' => 10, 'end' => 11, 'mutator' => $plus, 'diff' => 'diff of b',
+            'mutated' => '/tmp/b',
+        ],
+        'c' => [
+            'file' => '/p/src/Money.php', 'start' => 20, 'end' => 21, 'mutator' => $plus, 'diff' => 'diff of c',
+            'mutated' => '/tmp/c',
+        ],
     ]);
 });
 
@@ -187,4 +198,22 @@ it('knows whether the run reached its end', function () use ($results): void {
 
     expect($ended instanceof Records && $ended->ended())->toBeTrue()
         ->and($running instanceof Records && $running->ended())->toBeFalse();
+});
+
+it('names the tests that failed in each mutant\'s own process, in order, by the mutated copy they ran on', function () use ($results, $planned): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        $planned('b', '/p/src/Money.php', 20),
+        ['event' => 'killed', 'mutated' => '/tmp/a', 'test' => 'P\\Tests\\MoneySpec::__pest_evaluable_it_adds'],
+        ['event' => 'killed', 'mutated' => '/tmp/a', 'test' => 'Tests\\LegacySpec::testAdds#(1)'],
+        ['event' => 'killed', 'mutated' => '/tmp/a', 'test' => ''],
+        ['event' => 'killed', 'mutated' => '/tmp/elsewhere', 'test' => 'P\\Tests\\OtherSpec::__pest_evaluable_it'],
+    ]));
+    $named = static fn(string $id): array => $records instanceof Records
+        ? array_map(static fn(TestId $test): string => $test->value(), [...$records->killersOf($id)])
+        : [];
+
+    expect($named('a'))->toBe(['P\\Tests\\MoneySpec::__pest_evaluable_it_adds', 'Tests\\LegacySpec::testAdds#(1)'])
+        ->and($named('b'))->toBe([])
+        ->and($named('unplanned'))->toBe([]);
 });

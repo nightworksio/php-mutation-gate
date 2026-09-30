@@ -27,9 +27,9 @@ use function sprintf;
  * event arrives, so a run stopped at its deadline leaves every result it had:
  * - the opening run's coverage map, copied beside the results before Pest
  *   deletes it;
- * - `planned`, every mutant with its file, lines, mutator class and diff, once
- *   they are all made, and `made`, how many there are and the opening run's
- *   seconds;
+ * - `planned`, every mutant with its file, lines, mutator class, diff and the
+ *   mutated copy Pest serves in a mutant's own process, once they are all
+ *   made, and `made`, how many there are and the opening run's seconds;
  * - `outcome`, each mutant's status as Pest decides it;
  * - `finished`, every mutant's final status and duration, which Pest sets only
  *   after the outcome is announced, and `end`.
@@ -41,6 +41,9 @@ final readonly class Recorder
 
     /** The variable Pest sets in each mutant's own process, naming the file its mutant replaces. */
     public const string MUTANT = 'PEST_MUTATION_TESTING';
+
+    /** The variable Pest sets beside it, naming the mutated copy it serves in the original's place. */
+    public const string MUTATED = 'PEST_MUTATION_FILE';
 
     /** A duration of whole seconds stays a float, so the adapter reads it as one. */
     private const int FLAGS = JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION;
@@ -159,6 +162,7 @@ final readonly class Recorder
                     'end' => $test->mutation->endLine,
                     'mutator' => $test->mutation->mutator,
                     'diff' => $test->mutation->diff,
+                    'mutated' => $test->mutation->modifiedSourcePath,
                 ]);
                 $made++;
             }
@@ -202,6 +206,6 @@ final readonly class Recorder
     /** @param array<string, mixed> $record */
     private function write(array $record): void
     {
-        file_put_contents($this->results, sprintf("%s\n", json_encode($record, self::FLAGS)), FILE_APPEND);
+        file_put_contents($this->results, sprintf("%s\n", json_encode($record, self::FLAGS)), FILE_APPEND | LOCK_EX);
     }
 }

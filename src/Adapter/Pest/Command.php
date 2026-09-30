@@ -9,6 +9,8 @@ use function array_values;
 use function dirname;
 use function getenv;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -32,13 +34,13 @@ final readonly class Command
         'PARATEST' => false,
         'TEST_TOKEN' => false,
         'UNIQUE_TEST_TOKEN' => false,
-        'PEST_MUTATION_TESTING' => false,
-        'PEST_MUTATION_FILE' => false,
-        'MUTATION_GATE_RESULTS' => false,
+        Recorder::MUTANT => false,
+        Recorder::MUTATED => false,
+        Recorder::RESULTS => false,
         'MUTATION_GATE_SHARED_COVERAGE' => false,
         'MUTATION_GATE_SUITE_SECONDS' => false,
         'MUTATION_GATE_CANARY' => false,
-        'MUTATION_GATE_GUARD' => false,
+        Guard::FILE => false,
     ];
 
     /**

@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
@@ -127,6 +129,7 @@ $six = static fn(string $root): array => [
     $plan($root, 'n6', 'src/Money.php:60', 'ef'),
     PestRun::made(6),
     PestRun::outcome('n1', 'tested'),
+    PestRun::killed('n1', INTERPRETED_TESTS[0]),
     PestRun::finished('n1', 'tested', 0.25),
     PestRun::finished('n2', 'uncovered', 0.0),
     PestRun::finished('n3', 'untested', 0.5),
@@ -140,7 +143,7 @@ $six = static fn(string $root): array => [
 $read = static fn(Project $project, Ran $ran, string $results): MutationResult|CannotJudge
     => new Interpretation($project, Patching::off())->of($ran, $results);
 
-it('reads a finished run by file and line, with a timeout\'s limit', function () use ($mutant, $six, $read): void {
+it('reads a finished run by file and line, with a killer and a timeout\'s limit', function () use ($mutant, $six, $read): void {
     [$project, $results, $root] = interpretedRun([11 => [0], 21 => [], 40 => [0]], [11 => [1]]);
     PestRun::write($results, $six($root));
     $unselected = Reason::that(
@@ -150,7 +153,8 @@ it('reads a finished run by file and line, with a timeout\'s limit', function ()
     expect($read($project, Ran::finished(succeeded: true, output: INTERPRETED_SUMMARY), $results))
         ->toEqual(MutationResult::of(Mutants::of(
             $mutant('n5', 'legacy/Legacy.php:11', 'amount', MutantStatus::Unjudged)->because($unselected),
-            $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Killed, 0.25),
+            $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Killed, 0.25)
+                ->killedBy(TestIds::of(TestId::of(INTERPRETED_TESTS[0]))),
             $mutant('n2', 'src/Money.php:21', 'amount', MutantStatus::Uncovered),
             $mutant('n3', 'src/Money.php:40', 'ab', MutantStatus::Survived, 0.5, 1),
             $mutant('n4', 'src/Money.php:50', 'cd', MutantStatus::TimedOut, 5.0)->withLimit(Seconds::of(6.0)),

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_diff_key;
 use function array_filter;
 use function array_key_exists;
+use function array_map;
 use function count;
 use function explode;
 use function file_get_contents;
@@ -20,6 +21,8 @@ use function json_decode;
 use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -28,10 +31,11 @@ use function uasort;
 
 /**
  * What the plugin wrote of one Pest run: every mutant it planned, and whether
- * it wrote all of them, the status each ended with, how long each ran, how
- * long the opening run took, and whether the run reached its end.
+ * it wrote all of them, the status each ended with, how long each ran, the
+ * tests that failed in each mutant's own process, how long the opening run
+ * took, and whether the run reached its end.
  *
- * @phpstan-type Planned array{file: string, start: int, end: int, mutator: string, diff: string}
+ * @phpstan-type Planned array{file: string, start: int, end: int, mutator: string, diff: string, mutated: string}
  */
 final readonly class Records
 {
@@ -52,12 +56,14 @@ final readonly class Records
      * @param array<string, string>  $statuses  the latest status, by native id
      * @param array<string, float>   $durations by native id
      * @param array<string, string>  $finished  the final status, by native id
+     * @param array<string, list<string>> $killers the tests that failed, in order, by the mutated copy they ran on
      */
     private function __construct(
         private array $planned,
         private array $statuses,
         private array $durations,
         private array $finished,
+        private array $killers,
         private Seconds|Unmeasured $opening,
         private bool $made,
         private bool $ended,
@@ -73,7 +79,7 @@ final readonly class Records
             ));
         }
 
-        $records = new self([], [], [], [], Unmeasured::duration(), made: false, ended: false);
+        $records = new self([], [], [], [], [], Unmeasured::duration(), made: false, ended: false);
 
         foreach (explode("\n", sprintf('%s', file_get_contents($file))) as $line) {
             $records = $records->read($line);
@@ -112,6 +118,18 @@ final readonly class Records
         $ran = array_key_exists($id, $this->durations) && $this->durations[$id] > 0.0;
 
         return $ran ? Seconds::of($this->durations[$id]) : Unmeasured::duration();
+    }
+
+    /**
+     * The tests that failed in a mutant's own process, in the order they
+     * failed: the first killed it. None where no test is known to have.
+     */
+    public function killersOf(string $id): TestIds
+    {
+        $mutated = array_key_exists($id, $this->planned) ? $this->planned[$id]['mutated'] : '';
+        $named = array_key_exists($mutated, $this->killers) ? $this->killers[$mutated] : [];
+
+        return TestIds::of(...array_map(TestId::of(...), $named));
     }
 
     /**
@@ -171,6 +189,7 @@ final readonly class Records
                 'statuses' => [...$this->statuses, $this->text($record, 'id') => $this->text($record, 'status')],
             ]),
             'finished' => $this->withFinished($record),
+            'killed' => $this->withKiller($record),
             'end' => clone($this, ['ended' => true]),
             default => $this,
         };
@@ -185,6 +204,7 @@ final readonly class Records
             'end' => $this->number($record, 'end'),
             'mutator' => $this->text($record, 'mutator'),
             'diff' => $this->text($record, 'diff'),
+            'mutated' => $this->text($record, 'mutated'),
         ];
 
         return clone($this, ['planned' => [...$this->planned, $this->text($record, 'id') => $planned]]);
@@ -217,6 +237,16 @@ final readonly class Records
             'durations' => $durations,
             'finished' => [...$this->finished, $id => $status],
         ]);
+    }
+
+    /** @param array<mixed> $record */
+    private function withKiller(array $record): self
+    {
+        $mutated = $this->text($record, 'mutated');
+        $test = $this->text($record, 'test');
+        $named = array_key_exists($mutated, $this->killers) ? $this->killers[$mutated] : [];
+
+        return $test === '' ? $this : clone($this, ['killers' => [...$this->killers, $mutated => [...$named, $test]]]);
     }
 
     /** @param array<mixed> $record */
