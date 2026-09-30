@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Console;
 
 use NightWorksIO\MutationGate\Core\Format\Inert;
 use Symfony\Component\Console\Output\ConsoleOutput;
+use Symfony\Component\Console\Output\ConsoleSectionOutput;
 use Symfony\Component\Console\Output\StreamOutput;
 
 /**
@@ -24,6 +25,15 @@ final class InertOutput extends ConsoleOutput
         if ($errors instanceof StreamOutput) {
             $this->setErrorOutput(InertStream::over($errors));
         }
+    }
+
+    /**
+     * No section: one writes past this output's own lines, so it could print
+     * a line that is not inert. The gate draws no section.
+     */
+    public function section(): ConsoleSectionOutput
+    {
+        throw NoSection::drawn();
     }
 
     protected function doWrite(string $message, bool $newline): void

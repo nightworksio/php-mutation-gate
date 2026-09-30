@@ -36,6 +36,9 @@ final class ShardedPlan
 {
     public const string COMMIT = '5eeca8f';
 
+    /** The path of a unit that holds every log command a CI reads: GitHub's, old and new, and Azure's. */
+    public const string HOSTILE = 'src/##[error]a/##vso[task.complete]b/::error::c.php';
+
     public static function of(int $shards): Plan
     {
         return Plan::of(Revision::ref(self::COMMIT), Digest::sha256Of('base'), Keys::none(), Shards::of(...array_map(
@@ -47,6 +50,18 @@ final class ShardedPlan
                 sprintf('src, part %d of %d', $id, $shards),
             ),
             $shards === 0 ? [] : range(1, $shards),
+        )));
+    }
+
+    /** A plan of one shard, which mutates {@see HOSTILE} and is labelled by it. */
+    public static function hostile(): Plan
+    {
+        return Plan::of(Revision::ref(self::COMMIT), Digest::sha256Of('base'), Keys::none(), Shards::of(Shard::of(
+            ShardId::of(1),
+            Package::at(Path::root()),
+            Units::of(Unit::file(Path::of(self::HOSTILE))),
+            Seconds::of(60.0),
+            self::HOSTILE,
         )));
     }
 

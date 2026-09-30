@@ -20,9 +20,10 @@ use function round;
  */
 final readonly class PlanListing
 {
+    /** The listing as a CI's log may show it: indented, and inert there ({@see JsonText::printed()}). */
     public static function of(Plan $plan): string
     {
-        return JsonText::encode(self::listed($plan));
+        return JsonText::printed(self::listed($plan));
     }
 
     /** The same listing on one line, as `$GITHUB_OUTPUT` takes a value. */

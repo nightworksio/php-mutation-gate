@@ -58,13 +58,13 @@ final readonly class MutantRecord
     /** The field of a record, and of the JSON report's mutant, that holds the rejection. */
     public const string REJECTION = 'rejection';
 
-    /** A field of a rejection, as {@see Rejection()} writes it. */
+    /** A field of a rejection, as {@see self::rejection()} writes it. */
     public const string ANALYSER = 'analyser';
 
-    /** A field of a rejection, as {@see Rejection()} writes it. */
+    /** A field of a rejection, as {@see self::rejection()} writes it. */
     public const string CODE = 'code';
 
-    /** A field of a rejection, as {@see Rejection()} writes it. */
+    /** A field of a rejection, as {@see self::rejection()} writes it. */
     public const string MESSAGE = 'message';
     private const string ID = 'id';
 

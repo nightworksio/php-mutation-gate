@@ -45,14 +45,21 @@ sees the same verdict.
    - **The console** (`console`) always. With `--output=problems` it prints
      one line per result for editors instead of its table (ADR-0015,
      decision 6).
-     Every line the gate writes to standard output or standard error starts
-     no command in a CI runner's log: a line whose trimmed text starts with
+     Every line the gate's console writes, to standard output or standard
+     error, starts no command in a CI runner's log. Split at `\r\n`, `\r`
+     and `\n`, as the runners split it, a line whose trimmed text starts with
      `::` gets a `\` before it, and `##[` or `##vso[` anywhere gets a space
-     before its `[`, so text from
-     outside, a test's name, a process's output or an analyser's message,
-     reaches the log only as text. Text from outside inside a line, such as
-     the analyser's rejection, is one plain line with no control or format
-     character.
+     before its `[`. So text from outside, such as a test's name, a
+     process's output or an analyser's message, reaches the log only as text,
+     and so does text the gate prints for a person to read or copy, such as
+     `config:show` and `init --stdout`, where a `##[` a project's path holds
+     is printed `## [`. Text from outside inside a line, such as the
+     analyser's rejection, is also one plain line with no control or format
+     character. Two kinds of output are written past the console: the gate's
+     own commands, the annotations with their encoding (decision 3) and the
+     Azure plan's output variable; and a plan printed for a CI to read, JSON
+     with each `#` written `\u0023`, which every reader decodes back and no
+     log reads a command in.
    - **File reports**, listed in `reports` (ADR-0002): each entry is
      `{"use": <name or class>, "path": <file or directory>, "with": <options>}`.
      The built-in names are `json`, `junit`, `sarif`, `html`, `tests` and

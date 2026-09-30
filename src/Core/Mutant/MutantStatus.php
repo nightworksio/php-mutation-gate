@@ -24,11 +24,11 @@ enum MutantStatus: string
     case Skipped = 'skipped';
 
     /**
-     * What two runs of the same code must agree on (ADR-0007, decision 3):
-     * the status, but a kill by static analysis and a kill by a test as one,
-     * since whether the analyser checked a mutant before its tests or after
-     * them depends on the run's placement, never on the code (ADR-0020,
-     * decision 11).
+     * The status as a run's answer about the mutant: a kill by static
+     * analysis and a kill by a test as one, since whether the analyser
+     * checked a mutant before its tests or after them is the run's placement,
+     * not the code (ADR-0020, decision 11). Survivor confirmation reads it,
+     * so a survivor killed either way the second time is flaky.
      */
     public function answer(): self
     {

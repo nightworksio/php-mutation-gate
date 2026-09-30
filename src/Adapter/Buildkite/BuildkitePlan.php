@@ -133,7 +133,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
 
         return file_put_contents(
             $this->to,
-            Json::object(Member::of('steps', Json::items(...$steps)))->pretty(),
+            Json::object(Member::of('steps', Json::items(...$steps)))->printed(),
         ) === false
             ? CannotJudge::because(sprintf('%s could not be written.', $this->to))
             : Written::to($this->to);
