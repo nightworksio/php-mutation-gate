@@ -26,7 +26,10 @@
                             "config-refused",
                             "php-not-read",
                             "workspace-not-ignored",
-                            "infection-config-to-import"
+                            "infection-config-to-import",
+                            "native-markers-refused",
+                            "mirrored-path-repository",
+                            "ignores-expiring"
                         ]
                     },
                     "severity": {

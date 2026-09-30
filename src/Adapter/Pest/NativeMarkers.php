@@ -9,23 +9,21 @@ use function is_array;
 use function is_dir;
 use function is_file;
 use function is_link;
-use function mb_strpos;
-use function mb_substr;
-use function mb_substr_count;
 
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
-use PhpToken;
+use NightWorksIO\MutationGate\Core\Mutant\SourceMarkers;
 
 use function scandir;
 use function sprintf;
 
 /**
- * Pest's own ignore marker (ADR-0008), `@pest-mutate-ignore` in a comment of
- * the source, each found with the `ignores.entries` entry that replaces it.
- * Whether a run may go ahead with them is the verdict's to decide.
+ * Pest's own ignore marker (ADR-0008), `MARKER` in a comment of the source,
+ * each found with the `ignores.entries` entry that replaces it. Whether a run
+ * may go ahead with them is the verdict's to decide. No comment here spells
+ * the marker, or Pest would read it as one.
  */
 final readonly class NativeMarkers
 {
@@ -49,19 +47,11 @@ final readonly class NativeMarkers
 
     private static function inFile(Project $project, string $file): Markers
     {
-        $markers = Markers::none();
-
-        foreach (PhpToken::tokenize(sprintf('%s', file_get_contents($file))) as $token) {
-            $at = $token->is([T_COMMENT, T_DOC_COMMENT]) ? mb_strpos($token->text, self::MARKER) : false;
-
-            if ($at !== false) {
-                $line = $token->line + mb_substr_count(mb_substr($token->text, 0, $at), "\n");
-                $where = sprintf('%s:%d', $project->relative($file)->value(), $line);
-                $markers = $markers->with(Marker::inSource($where, self::MARKER));
-            }
-        }
-
-        return $markers;
+        return SourceMarkers::in(
+            $project->relative($file),
+            Contents::of(sprintf('%s', file_get_contents($file))),
+            self::MARKER,
+        );
     }
 
     /** @return list<string> the file itself, or every PHP file under the directory, in name order */

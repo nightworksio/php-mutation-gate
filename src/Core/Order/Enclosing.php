@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Order;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 
-/** The named function or method a mutant is in, by its file and its name, as a hint names it. */
+/** The named function or method a mutant or a marker is in, by its file and its name, as a hint names it. */
 final readonly class Enclosing
 {
     /** @param non-empty-string $function */
@@ -22,8 +22,8 @@ final readonly class Enclosing
     }
 
     /**
-     * The function a mutant is in, as `Functions::around()` names it, or
-     * nameless code where it is in no named one.
+     * The function a mutant or a marker is in, as `Functions::around()`
+     * names it, or nameless code where it is in no named one.
      *
      * @param string|Nameless $function nothing, as a name, is nameless too
      */

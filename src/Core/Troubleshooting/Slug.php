@@ -20,4 +20,7 @@ enum Slug: string
     case PhpNotRead = 'php-not-read';
     case WorkspaceNotIgnored = 'workspace-not-ignored';
     case InfectionConfigToImport = 'infection-config-to-import';
+    case NativeMarkersRefused = 'native-markers-refused';
+    case MirroredPathRepository = 'mirrored-path-repository';
+    case IgnoresExpiring = 'ignores-expiring';
 }

@@ -5,23 +5,21 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function file_get_contents;
-use function mb_strpos;
-use function mb_substr;
-use function mb_substr_count;
 
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
-use PhpToken;
+use NightWorksIO\MutationGate\Core\Mutant\SourceMarkers;
 
 use function sprintf;
 
 /**
- * Infection's own ignore markers (ADR-0008): `@infection-ignore-all` in a
- * comment of the source, and `ignore` or `ignoreSourceCodeByRegex` under
- * `mutators` in its config. Each is found with the `ignores.entries` entry
- * that replaces it; whether a run may go ahead with them is the verdict's to
- * decide.
+ * Infection's own ignore markers (ADR-0008): `IN_SOURCE` in a comment of
+ * the source, and `ignore` or `ignoreSourceCodeByRegex` under `mutators` in
+ * its config. Each is found with the `ignores.entries` entry that replaces
+ * it; whether a run may go ahead with them is the verdict's to decide. No
+ * comment here spells the marker, or Infection would read it as one.
  */
 final readonly class NativeMarkers
 {
@@ -51,19 +49,11 @@ final readonly class NativeMarkers
 
     private static function inSource(Project $project, string $file): Markers
     {
-        $markers = Markers::none();
-
-        foreach (PhpToken::tokenize(sprintf('%s', file_get_contents($file))) as $token) {
-            $at = $token->is([T_COMMENT, T_DOC_COMMENT]) ? mb_strpos($token->text, self::IN_SOURCE) : false;
-
-            if ($at !== false) {
-                $line = $token->line + mb_substr_count(mb_substr($token->text, 0, $at), "\n");
-                $where = sprintf('%s:%d', $project->relative($file)->value(), $line);
-                $markers = $markers->with(Marker::inSource($where, self::IN_SOURCE));
-            }
-        }
-
-        return $markers;
+        return SourceMarkers::in(
+            $project->relative($file),
+            Contents::of(sprintf('%s', file_get_contents($file))),
+            self::IN_SOURCE,
+        );
     }
 
     private static function inConfig(OwnConfig $config): Markers

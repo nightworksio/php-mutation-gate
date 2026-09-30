@@ -199,7 +199,7 @@ final readonly class Pest implements Runner
         return $retried;
     }
 
-    /** Every `@pest-mutate-ignore` in the PHP files these paths name. */
+    /** Every one of Pest's own ignore markers in the PHP files these paths name. */
     public function markers(Paths $files): Markers
     {
         return NativeMarkers::in($this->project, $files);

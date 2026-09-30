@@ -21,6 +21,16 @@ final readonly class Lenient
         }
     }
 
+    /** True or false where the place holds it; otherwise what a reader takes when it holds neither. */
+    public static function boolean(Node $place, bool $otherwise): bool
+    {
+        try {
+            return $place->boolean();
+        } catch (NotInShape) {
+            return $otherwise;
+        }
+    }
+
     /**
      * The items of a list; none where the place holds no list.
      *

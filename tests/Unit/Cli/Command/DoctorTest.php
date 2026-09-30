@@ -11,7 +11,10 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 
-afterEach(function (): void {
+$here = (string) getcwd();
+
+afterEach(function () use ($here): void {
+    chdir($here);
     Scratch::sweep();
 });
 
