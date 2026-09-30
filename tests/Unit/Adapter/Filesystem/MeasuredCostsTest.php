@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\Cost\LineRate;
 use NightWorksIO\MutationGate\Core\Cost\LinesOfCode;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
@@ -29,7 +31,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -134,28 +136,30 @@ it('learns each unit\'s share of a shard\'s time from its mutants', function () 
         ->and($learned->secondsFor(Path::of('src/Money.php')))->toEqual(Seconds::of(30.0));
 });
 
-it('reads the working directory at a fifth of a second a line unless its options say otherwise', function () use (
+it('reads the working directory at the seconds a line costs that costs.secondsPerLine gives it', function () use (
     $linesOf,
 ): void {
     $file = 'src/Core/Time/Unlimited.php';
     $lines = $linesOf((string) file_get_contents($file));
-    $cost = static function (string $options) use ($file): Seconds|Invalid {
-        $model = MeasuredCosts::fromOptions(Options::ofJson($options));
+    $cost = static function (Options $options) use ($file): Seconds|Invalid {
+        $model = MeasuredCosts::fromOptions($options);
 
         return $model instanceof MeasuredCosts ? $model->cost(Unit::file(Path::of($file)), Timings::none()) : $model;
     };
 
     expect($lines)->toBeGreaterThan(0)
-        ->and($cost('{}'))->toEqual(Seconds::of($lines * 0.2))
-        ->and($cost('{"secondsPerLine": {"": 2.0, "src/Core": 3}}'))->toEqual(Seconds::of($lines * 3.0))
-        ->and($cost('{"secondsPerLine": {}}'))->toEqual(Seconds::of(0.0));
+        ->and($cost(Shards::none()->costOptions()))->toEqual(Seconds::of($lines * 0.2))
+        ->and($cost(Configs::options('{"secondsPerLine": {"": 2.0, "src/Core": 3}}')))->toEqual(Seconds::of($lines * 3.0))
+        ->and($cost(Configs::options('{"secondsPerLine": {}}')))->toEqual(Seconds::of(0.0));
 });
 
-it('refuses seconds per line that are not a map of prefix to number', function (): void {
-    $refused = Invalid::because(Problem::at('secondsPerLine', 'This maps a path prefix to seconds a line.'));
-
-    expect(MeasuredCosts::fromOptions(Options::ofJson('{"secondsPerLine": {"src": "fast"}}')))->toEqual($refused)
-        ->and(MeasuredCosts::fromOptions(Options::ofJson('{"secondsPerLine": 0.2}')))->toEqual($refused);
+it('refuses seconds per line that are not a map of prefix to number, or not given', function (): void {
+    expect(MeasuredCosts::fromOptions(Configs::options('{"secondsPerLine": {"src": "fast"}}')))
+        ->toEqual(Invalid::because(Problem::at('secondsPerLine.src', 'expected a number, got "fast"')))
+        ->and(MeasuredCosts::fromOptions(Configs::options('{"secondsPerLine": 0.2}')))
+        ->toEqual(Invalid::because(Problem::at('secondsPerLine', 'expected an object, got 0.2')))
+        ->and(MeasuredCosts::fromOptions(Options::none()))
+        ->toEqual(Invalid::because(Problem::at('secondsPerLine', 'expected the seconds a line costs, got nothing')));
 });
 
 it('does not walk into a linked directory under a held one, which may lead back up into a loop', function () use ($linesOf): void {

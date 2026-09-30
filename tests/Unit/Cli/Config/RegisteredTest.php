@@ -14,12 +14,14 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\TreeSource;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Yaml\Yaml;
 
@@ -88,7 +90,7 @@ it('registers the presets this package ships', function (string $preset) use ($r
         ->toBeInstanceOf(Layer::class);
 })->with(['library', 'laravel', 'symfony']);
 
-it('finds the trees of the working directory from phpunit.xml, or the fallback its options give', function () use (
+it('finds the trees from phpunit.xml, or the fallback its options give, and refuses one that is no list of paths', function () use (
     $registered,
     $paths,
 ): void {
@@ -96,12 +98,14 @@ it('finds the trees of the working directory from phpunit.xml, or the fallback i
     Scratch::write($project, 'composer.json', '{"autoload": {"psr-4": {"Acme\\\\": "src/"}}}');
     chdir($project);
     $phpunit = static fn(string $options): TreeSource|Invalid|CannotJudge => Lookup::in($registered(installed: false))
-        ->treeSource(Name::of('phpunit'), Options::ofJson($options));
+        ->treeSource(Name::of('phpunit'), Configs::options($options));
 
     expect($paths($phpunit('{}')))->toBe(['src'])
         ->and($paths($phpunit('{"fallback": ["lib"]}')))->toBe(['lib'])
-        ->and($paths($phpunit('{"fallback": "lib"}')))->toBe(['src'])
-        ->and($paths($phpunit('{"fallback": [3, "lib"]}')))->toBe(['lib'])
+        ->and($phpunit('{"fallback": "lib"}'))
+        ->toEqual(Invalid::because(Problem::at('fallback', 'expected a list of paths, got "lib"')))
+        ->and($phpunit('{"fallback": [3, "lib"]}'))
+        ->toEqual(Invalid::because(Problem::at('fallback[0]', 'expected text, got 3')))
         ->and($paths($phpunit('"phpunit"')))->toBe(['src']);
 });
 

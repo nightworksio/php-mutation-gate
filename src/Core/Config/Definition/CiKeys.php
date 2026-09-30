@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Effect;
@@ -11,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /** How the keys a config writes are read into its `Ci` part (ADR-0002). */
@@ -42,7 +44,7 @@ final readonly class CiKeys
 
                     return Reading::built(
                         static fn(): Ci => Ci::of(
-                            buildkiteStep: $keys->value(),
+                            buildkiteStep: self::step($keys->value()),
                             buildkiteDefinition: $pipeline->value(),
                         ),
                         $keys,
@@ -78,5 +80,10 @@ final readonly class CiKeys
                 $buildkite,
             ),
         )];
+    }
+
+    private static function step(Json|Absent $keys): BuildkiteStep|Absent
+    {
+        return $keys instanceof Json ? BuildkiteStep::of($keys) : $keys;
     }
 }

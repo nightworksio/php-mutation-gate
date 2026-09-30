@@ -19,6 +19,7 @@ use function implode;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
@@ -103,14 +104,14 @@ final readonly class Section implements Shape
      * layer holds is, so what an adapter gets is what the effective config shows.
      *
      * @param  Field<object|scalar> ...$fields
-     * @return self<Json>
+     * @return self<Options>
      */
     public static function options(Json $defaults, Field ...$fields): self
     {
         $checked = array_values($fields);
 
         return new self(
-            static function (Node $with) use ($checked, $defaults): Json|Invalid {
+            static function (Node $with) use ($checked, $defaults): Options|Invalid {
                 $readings = array_map(static fn(Field $field): Reading => $field->read($with), $checked);
                 $problems = Reading::problemsIn(...$readings);
                 $read = $defaults;
@@ -119,7 +120,7 @@ final readonly class Section implements Shape
                     $read = $read->with(Member::of($checked[$index]->key(), OptionJson::of($reading->value())));
                 }
 
-                return $problems instanceof Invalid ? $problems : $read;
+                return $problems instanceof Invalid ? $problems : Options::of($read);
             },
             $checked,
             [],

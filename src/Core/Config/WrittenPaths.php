@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_map;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
-use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
  * Paths a layer holds from the project, as the layer at an origin writes
@@ -40,24 +40,25 @@ final readonly class WrittenPaths
      */
     public static function choice(Choice $choice, Origin $origin, string ...$paths): Choice
     {
-        $options = Node::config($choice->options()->line());
-        $from = $choice->options();
+        $options = $choice->options();
+        $from = $options->written();
 
-        foreach ($paths as $key) {
-            $at = $options->field($key);
-            $from = match ($at->kind()) {
-                Kind::Text => $from->with(Member::of($key, $origin->written(Path::of($at->text())))),
-                Kind::List => $from->with(Member::of(
-                    $key,
+        foreach ($paths as $name) {
+            $path = $options->text(Key::of($name));
+            $list = $options->paths(Key::of($name));
+            $from = match (true) {
+                is_string($path) => $from->with(Member::of($name, $origin->written(Path::of($path)))),
+                $list instanceof Paths => $from->with(Member::of(
+                    $name,
                     Json::items(...array_map(
-                        static fn(Node $path): string => $origin->written(Path::of($path->text())),
-                        $at->items(),
+                        $origin->written(...),
+                        [...$list],
                     )),
                 )),
-                Kind::Map, Kind::Empty, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null, Kind::Nothing => $from,
+                default => $from,
             };
         }
 
-        return Choice::of($choice->use(), $from);
+        return Choice::of($choice->use()->value(), Options::of($from));
     }
 }

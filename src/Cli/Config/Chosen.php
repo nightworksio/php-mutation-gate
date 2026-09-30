@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Config;
 
 use function array_map;
-use function class_exists;
 
 use Closure;
 
@@ -13,16 +12,15 @@ use function is_a;
 
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -30,7 +28,6 @@ use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Port\TreeSource;
 
 use function sprintf;
-use function str_contains;
 
 /**
  * The adapters and extensions a config chooses, built (ADR-0002). A name is
@@ -119,12 +116,10 @@ final readonly class Chosen
      */
     private function built(string $setting, string $port, Choice $choice, Closure $registered): object
     {
-        $options = Options::ofJson($choice->options()->line());
         $use = $choice->use();
-        $named = str_contains($use, '\\') ? Absent::setting() : $registered(Name::of($use), $options);
-        $built = $named instanceof Absent || ($named instanceof CannotJudge && class_exists($use))
-            ? $this->fromClass($use, $port, $options)
-            : $named;
+        $built = $use instanceof Name
+            ? $registered($use, $choice->options())
+            : $this->fromClass($use->value(), $port, $choice->options());
 
         return $built instanceof Invalid ? $this->under(sprintf('%s.with', $setting), $built) : $built;
     }

@@ -7,19 +7,20 @@ namespace NightWorksIO\MutationGate\Adapter\Console;
 use function array_key_exists;
 use function file_get_contents;
 use function is_file;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Root;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Reporter;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -50,13 +51,12 @@ final readonly class ProblemsReport implements Configurable, Reporter
     /** To the console, from where the gate runs; `only: "changed"` shows the results on changed lines alone. */
     public static function fromOptions(Options $options): self|Invalid
     {
-        $only = Node::decode($options->json())->field('only');
-
-        try {
-            $named = $only->isPresent() ? $only->text() : ProblemsShown::All->value;
-        } catch (NotInShape) {
-            $named = '';
-        }
+        $only = $options->text(Key::of('only'));
+        $named = match (true) {
+            $only instanceof NotGiven => ProblemsShown::All->value,
+            is_string($only) => $only,
+            default => '',
+        };
 
         return match ($named) {
             ProblemsShown::All->value => new self(new ConsoleOutput(), Root::here(), ProblemsShown::All),

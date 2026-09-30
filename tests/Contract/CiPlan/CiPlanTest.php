@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -41,7 +42,7 @@ $plans = [
         'ci/gate.yml',
         $job(),
     ),
-    'Buildkite' => fn(): CiPlan => BuildkitePlan::printing(sprintf('%s/steps.json', Scratch::directory()), [], $job()),
+    'Buildkite' => fn(): CiPlan => BuildkitePlan::printing(sprintf('%s/steps.json', Scratch::directory()), BuildkiteStep::none(), $job()),
     'CircleCI' => fn(): CiPlan => CircleCiPlan::printing(sprintf('%s/plan.json', Scratch::directory()), $job()),
     'plain JSON' => fn(): CiPlan => JsonPlan::printing(sprintf('%s/plan.json', Scratch::directory()), $job()),
 ];

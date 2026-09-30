@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Console\ProblemsReport;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -47,12 +48,12 @@ it('shows every result unless asked for those on changed lines, and refuses anyt
     $console = static fn(ProblemsShown $shown): ProblemsReport => ProblemsReport::to(new ConsoleOutput(), Root::here(), $shown);
 
     expect(ProblemsReport::fromOptions(Options::none()))->toEqual($console(ProblemsShown::All))
-        ->and(ProblemsReport::fromOptions(Options::ofJson('{"only": "all"}')))->toEqual($console(ProblemsShown::All))
-        ->and(ProblemsReport::fromOptions(Options::ofJson('{"only": "changed"}')))->toEqual($console(ProblemsShown::Changed))
-        ->and(ProblemsReport::fromOptions(Options::ofJson('{"only": "changed"}')))->not->toEqual($console(ProblemsShown::All))
-        ->and(ProblemsReport::fromOptions(Options::ofJson('{"only": "survivors"}')))->toEqual(Invalid::because(Problem::at(
+        ->and(ProblemsReport::fromOptions(Configs::options('{"only": "all"}')))->toEqual($console(ProblemsShown::All))
+        ->and(ProblemsReport::fromOptions(Configs::options('{"only": "changed"}')))->toEqual($console(ProblemsShown::Changed))
+        ->and(ProblemsReport::fromOptions(Configs::options('{"only": "changed"}')))->not->toEqual($console(ProblemsShown::All))
+        ->and(ProblemsReport::fromOptions(Configs::options('{"only": "survivors"}')))->toEqual(Invalid::because(Problem::at(
             'only',
             'The problems output shows every result, or only those on changed lines: "changed".',
         )))
-        ->and(ProblemsReport::fromOptions(Options::ofJson('{"only": 3}')))->toBeInstanceOf(Invalid::class);
+        ->and(ProblemsReport::fromOptions(Configs::options('{"only": 3}')))->toBeInstanceOf(Invalid::class);
 });

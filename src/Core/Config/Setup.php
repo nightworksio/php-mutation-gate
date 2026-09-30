@@ -6,16 +6,16 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_flip;
 use function array_key_exists;
-use function array_keys;
 use function array_map;
 use function array_unique;
 use function array_values;
 use function count;
 
+use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
-use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 use function sprintf;
@@ -124,7 +124,9 @@ final readonly class Setup implements Part
 
     public function treeSource(): Choice
     {
-        return $this->treeSource instanceof Choice ? $this->treeSource : self::phpunit();
+        return $this->treeSource instanceof Choice
+            ? $this->treeSource
+            : Builtins::treeSources(ProjectRoot::origin())->standard(self::TREE_SOURCE);
     }
 
     /** The `phpunit` tree source, whose trees are these paths where `phpunit.xml` has no `<source>`. */
@@ -132,7 +134,7 @@ final readonly class Setup implements Part
     {
         return Choice::of(
             self::TREE_SOURCE,
-            Json::object(Member::of(self::FALLBACK, Json::items(...array_values($fallback)))),
+            Options::of(Json::object(Member::of(self::FALLBACK, Json::items(...array_values($fallback))))),
         );
     }
 
@@ -227,23 +229,24 @@ final readonly class Setup implements Part
     {
         $source = $this->treeSource();
 
-        return $source->use() === self::TREE_SOURCE ? WrittenPaths::choice($source, $origin, self::FALLBACK) : $source;
+        return $source->use()->value() === self::TREE_SOURCE
+            ? WrittenPaths::choice($source, $origin, self::FALLBACK)
+            : $source;
     }
 
     /** The tree source, by `Source::phpunit()` with its fallback paths where it is that one. */
     private function source(Choice $source): string
     {
-        $options = Node::config($source->options()->line());
-        $fallback = $options->field(self::FALLBACK);
-        $paths = $fallback->kind() === Kind::List ? $fallback->items() : [];
-        $onlyFallback = array_keys($options->kind() === Kind::Map ? $options->entries() : []) === [self::FALLBACK];
+        $options = $source->options();
+        $fallback = $options->paths(Key::of(self::FALLBACK));
+        $keys = array_map(static fn(Key $key): string => $key->value(), [...$options]);
 
-        return $source->use() === self::TREE_SOURCE && ($onlyFallback || $source->options()->isEmpty())
+        return $source->use()->value() === self::TREE_SOURCE && ($keys === [self::FALLBACK] || $keys === [])
             ? sprintf(
                 'Source::phpunit(%s)',
                 PhpCalls::literals(...array_map(
-                    static fn(Node $path): string => $path->text(),
-                    $paths,
+                    static fn(Path $path): string => $path->value(),
+                    $fallback instanceof Paths ? [...$fallback] : [],
                 )),
             )
             : PhpCalls::chosen($source, 'Source', 'composer');

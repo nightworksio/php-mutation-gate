@@ -177,12 +177,23 @@ cannot.
    - `extensions` lists extension classes to load in addition to those found
      through Composer (ADR-0001). It is a list of class strings, empty by
      default.
+   - A `use` with a backslash is a class, `Acme\Gate\SlackReporter`, or
+     `\SlackReporter` for one in the global namespace. Any other is a name an
+     extension registered. The choice decides this once, as it is read.
    - A class named in `use` implements the port and
      `NightWorksIO\MutationGate\Extension\Configurable`, whose one method is a
-     named constructor from a validated `Options` value. The class validates
-     its own options and returns its errors as an outcome, and they are
-     reported with the same path prefix as the gate's own
-     (`reports[0].with.channel`).
+     named constructor from `Core\Config\Options`: the `with` object, read one
+     key at a time as the type it should hold. `text()`, `flag()`,
+     `integer()`, `number()`, `paths()` and `texts()` each answer the value,
+     `NotGiven` where the key is left out, or the `Problem` at its path;
+     `object()` answers the options under a key. An adapter never decodes
+     JSON. The class validates its own options and returns its errors as an
+     outcome, and they are reported with the same path prefix as the gate's
+     own (`reports[0].with.channel`).
+   - A built-in adapter's options arrive as the definition read them, with
+     every default filled in, so its defaults live only in the definition. A
+     CI plan and the cost model the gate builds in take theirs from `ci` and
+     `costs`: `Ci::planOptions()` and `Shards::costOptions()`.
    - The schema leaves `with` open for a class string, because it cannot know a
      third party's options, and checks it strictly for every built-in name.
 

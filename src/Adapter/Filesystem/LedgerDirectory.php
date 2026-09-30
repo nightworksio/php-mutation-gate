@@ -10,21 +10,20 @@ use function is_dir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Workspace;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -51,13 +50,15 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
 
     public static function fromOptions(Options $options): self|Invalid
     {
-        $path = Node::decode($options->json())->field('path');
+        $path = $options->text(Key::of('path'));
 
-        try {
-            return self::at($path->isPresent() ? $path->text() : Workspace::ledger()->value());
-        } catch (NotInShape) {
-            return Invalid::because(Problem::at('path', 'The directory the ledgers are kept in is a path, as text.'));
-        }
+        return match (true) {
+            $path instanceof Problem => Invalid::because($path),
+            $path instanceof NotGiven => Invalid::because(
+                Problem::at('path', 'expected the directory the ledgers are kept in, got nothing'),
+            ),
+            default => self::at($path),
+        };
     }
 
     public function read(Scope $scope): Ledger

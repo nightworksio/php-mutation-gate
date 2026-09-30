@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
+use function str_contains;
+
 /**
  * An adapter a setting chooses (ADR-0002): a name an extension registered,
  * or a class, with the options written beside it, every default of a
@@ -14,23 +16,27 @@ use NightWorksIO\MutationGate\Core\Format\Member;
  */
 final readonly class Choice
 {
-    private function __construct(private string $use, private Json $options)
+    /** What sets a class apart from a name: a namespace, or the global one's leading backslash. */
+    private const string NAMESPACED = '\\';
+
+    private function __construct(private Name|ClassNamed $use, private Options $options)
     {
     }
 
-    public static function of(string $use, Json $options): self
+    /** As a config writes it: a class where it has a backslash, `Acme\Reporter` or `\Reporter`, else a name. */
+    public static function of(string $use, Options $options): self
     {
-        return new self($use, $options);
+        return new self(str_contains($use, self::NAMESPACED) ? ClassNamed::of($use) : Name::of($use), $options);
     }
 
-    /** The name or the class, as the config writes it. */
-    public function use(): string
+    /** The name or the class. */
+    public function use(): Name|ClassNamed
     {
         return $this->use;
     }
 
-    /** The options, as a JSON object, with every default of a built-in adapter's filled in. */
-    public function options(): Json
+    /** The options, with every default of a built-in adapter's filled in. */
+    public function options(): Options
     {
         return $this->options;
     }
@@ -38,8 +44,10 @@ final readonly class Choice
     /** As a config writes it: its name alone where it has no options, else `{"use": …, "with": …}`. */
     public function written(): Json|string
     {
-        return $this->options->isEmpty()
-            ? $this->use
-            : Json::object(Member::of('use', $this->use))->with(Member::of('with', $this->options));
+        $with = $this->options->written();
+
+        return $with->isEmpty()
+            ? $this->use->value()
+            : Json::object(Member::of('use', $this->use->value()))->with(Member::of('with', $with));
     }
 }

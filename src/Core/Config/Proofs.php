@@ -8,13 +8,12 @@ use function array_keys;
 use function array_map;
 use function array_values;
 use function implode;
+use function is_string;
 
+use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\File\Glob;
-use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
-use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
 
@@ -79,7 +78,7 @@ final readonly class Proofs implements Part
     {
         return $this->store instanceof Choice
             ? $this->store
-            : Choice::of(self::STORE, Json::object(Member::of('path', Workspace::ledger()->value())));
+            : Builtins::stores(ProjectRoot::origin())->standard(self::STORE);
     }
 
     /** @return Listed<Glob> the globs of the files no test reads */
@@ -132,35 +131,34 @@ final readonly class Proofs implements Part
     {
         $store = $this->store();
 
-        return $store->use() === self::STORE ? WrittenPaths::choice($store, $origin, self::PATH) : $store;
+        return $store->use()->value() === self::STORE ? WrittenPaths::choice($store, $origin, self::PATH) : $store;
     }
 
     /** The proof store, by `Proofs::directory()` or `Proofs::s3()` for the built-in ones. */
     private function storeCall(Choice $store): string
     {
-        $options = Node::config($store->options()->line());
-        $entries = $options->kind() === Kind::Map ? $options->entries() : [];
+        $options = $store->options();
+        $texts = [];
 
-        return match ($store->use()) {
-            self::STORE => sprintf(
-                'Proofs::directory(%s)',
-                PhpCalls::literals(...array_map(
-                    static fn(Node $option): string => $option->text(),
-                    array_values($entries),
-                )),
-            ),
+        foreach ($options as $key) {
+            $text = $options->text($key);
+            $texts = is_string($text) ? [...$texts, $key->value() => $text] : $texts;
+        }
+
+        return match ($store->use()->value()) {
+            self::STORE => sprintf('Proofs::directory(%s)', PhpCalls::literals(...array_values($texts))),
             self::S3 => sprintf(
                 'Proofs::s3(%s)',
                 implode(
                     ', ',
                     array_map(
-                        static fn(string $option, Node $value): string => sprintf(
+                        static fn(string $option, string $value): string => sprintf(
                             '%s: %s',
                             $option,
-                            PhpCalls::literal($value->text()),
+                            PhpCalls::literal($value),
                         ),
-                        array_keys($entries),
-                        $entries,
+                        array_keys($texts),
+                        $texts,
                     ),
                 ),
             ),

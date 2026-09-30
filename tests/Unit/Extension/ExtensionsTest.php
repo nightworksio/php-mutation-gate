@@ -10,28 +10,29 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Registering;
 
 it('builds what was registered under a name from the options a config gives it', function (ExtensionPoint $point): void {
     $adapter = Registering::adapter($point);
     $given = new ArrayObject();
     $registry = Registering::register($point, new Extensions(Origin::of('acme/a')), static function (Options $options) use ($given, $adapter): object {
-        $given->append($options->json());
+        $given->append($options->written()->line());
 
         return $adapter;
     });
 
-    expect(Registering::lookUp($point, $registry, Options::ofJson('{"channel": "#ci"}')))->toBe($adapter)
-        ->and($given->getArrayCopy())->toBe(['{"channel": "#ci"}']);
+    expect(Registering::lookUp($point, $registry, Configs::options('{"channel": "#ci"}')))->toBe($adapter)
+        ->and($given->getArrayCopy())->toBe(['{"channel":"#ci"}']);
 })->with(Registering::adapterPoints());
 
 it('passes on the problems an adapter finds in its options', function (ExtensionPoint $point): void {

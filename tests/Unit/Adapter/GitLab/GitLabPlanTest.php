@@ -10,13 +10,15 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
@@ -167,10 +169,10 @@ it('writes its pipeline where the gate expects it, with the named template', fun
     $directory = (string) getcwd();
     putenv('CI_JOB_NAME=mutation-plan');
     chdir($root);
-    $default = GitLabPlan::fromOptions(Options::none());
+    $default = GitLabPlan::fromOptions(Ci::none()->planOptions(Name::of('gitlab')));
     $wrote = $default instanceof GitLabPlan ? $default->publish(ShardedPlan::of(0)) : $default;
     $included = $pipelineIn(sprintf('%s/.mutation-gate/pipeline.yml', $root));
-    $named = GitLabPlan::fromOptions(Options::ofJson('{"template": "ci/gate.yml"}'));
+    $named = GitLabPlan::fromOptions(Configs::options('{"template": "ci/gate.yml"}'));
     $wroteNamed = $named instanceof GitLabPlan ? $named->publish(ShardedPlan::of(0)) : $named;
     chdir($directory);
     putenv($before === false ? 'CI_JOB_NAME' : sprintf('CI_JOB_NAME=%s', $before));
@@ -184,9 +186,12 @@ it('writes its pipeline where the gate expects it, with the named template', fun
         ->toMatchArray(['include' => [['local' => 'ci/gate.yml']]]);
 });
 
-it('refuses a template that is not written as text', function (): void {
-    expect(GitLabPlan::fromOptions(Options::ofJson('{"template": ["ci/gate.yml"]}')))
-        ->toEqual(Invalid::because(Problem::at('template', 'The template is a path, written as text.')));
+it('refuses a template that is not written as text, or not given', function (): void {
+    expect(GitLabPlan::fromOptions(Configs::options('{"template": ["ci/gate.yml"]}')))
+        ->toEqual(Invalid::because(Problem::at('template', 'expected text, got a list')))
+        ->and(GitLabPlan::fromOptions(Options::none()))->toEqual(Invalid::because(
+            Problem::at('template', 'expected the file that defines the hidden .mutation-gate job, got nothing'),
+        ));
 });
 
 it('gives no scope to a tag, which is no branch the gate writes for', function () use ($on): void {

@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\TestsReport;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -20,7 +21,7 @@ afterEach(function (): void {
 it('writes the tests report as JSON at its path, and as Markdown beside it', function (): void {
     $root = Scratch::directory();
     $verdict = Killings::verdict(MatrixKind::Full);
-    $options = Options::ofJson((string) json_encode(['path' => sprintf('%s/build/tests.json', $root)]));
+    $options = Configs::options((string) json_encode(['path' => sprintf('%s/build/tests.json', $root)]));
 
     expect(TestsReportFile::fromOptions($options))->toEqual(TestsReportFile::at(sprintf('%s/build/tests.json', $root)))
         ->and(TestsReportFile::at(sprintf('%s/build/tests.json', $root))->report($verdict))->toEqual(Written::to(sprintf('%s/build/tests.md', $root)))

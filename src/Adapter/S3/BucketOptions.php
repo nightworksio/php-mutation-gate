@@ -4,19 +4,22 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\S3;
 
+use function array_filter;
+use function array_values;
+
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
 
 /**
- * What the `s3` store's options say: `bucket`, which is required, `prefix`,
- * `mutation-gate` by default, `region`, `us-east-1` by default and `auto` for
- * R2, and `endpoint`, AWS's own by default. A store at another endpoint, such
- * as R2 or MinIO, is addressed by path rather than by a host name per bucket.
+ * What the `s3` store's options say, as the definition reads them with their
+ * defaults: `bucket`, `prefix` and `region`, `auto` for R2, and the
+ * `endpoint` where it is not AWS's own. A store at another endpoint, such as
+ * R2 or MinIO, is addressed by path rather than by a host name per bucket.
  */
 final readonly class BucketOptions
 {
@@ -28,71 +31,66 @@ final readonly class BucketOptions
 
     private const string ENDPOINT = 'endpoint';
 
-    /** Each option, and what it is where the config does not say. */
-    private const array DEFAULTS = [
-        self::BUCKET => '',
-        self::PREFIX => 'mutation-gate',
-        self::REGION => 'us-east-1',
-        self::ENDPOINT => '',
-    ];
-
-    /** @param array<string, string> $options by name */
-    private function __construct(private array $options)
-    {
+    private function __construct(
+        private string $bucket,
+        private string $prefix,
+        private string $region,
+        private Endpoint|NotGiven $endpoint,
+    ) {
     }
 
     public static function read(Options $options): self|Invalid
     {
-        $with = Node::decode($options->json());
-        $read = self::DEFAULTS;
-        $problems = [];
+        $bucket = self::required($options, self::BUCKET);
+        $prefix = self::required($options, self::PREFIX);
+        $region = self::required($options, self::REGION);
+        $endpoint = $options->text(Key::of(self::ENDPOINT));
 
-        foreach (self::DEFAULTS as $option => $otherwise) {
-            $value = self::textOr($with, $option, $otherwise);
-
-            if ($value instanceof Problem) {
-                $problems[] = $value;
-
-                continue;
-            }
-
-            $read[$option] = $value;
+        if ($bucket instanceof Problem || $prefix instanceof Problem || $region instanceof Problem) {
+            return Invalid::because(...self::problemsIn($bucket, $prefix, $region, $endpoint));
         }
 
-        $problems = $problems === [] && $read[self::BUCKET] === ''
-            ? [Problem::at(self::BUCKET, 'The bucket the ledgers are kept in is required.')]
-            : $problems;
-
-        return $problems === [] ? new self($read) : Invalid::because(...$problems);
+        return $endpoint instanceof Problem
+            ? Invalid::because($endpoint)
+            : new self($bucket, $prefix, $region, $endpoint instanceof NotGiven ? $endpoint : Endpoint::at($endpoint));
     }
 
     public function bucket(): string
     {
-        return $this->options[self::BUCKET];
+        return $this->bucket;
     }
 
     public function prefix(): string
     {
-        return $this->options[self::PREFIX];
+        return $this->prefix;
     }
 
     /** @return array{region: string, endpoint?: string, pathStyleEndpoint?: string} the client's configuration */
     public function configuration(): array
     {
-        $endpoint = $this->options[self::ENDPOINT];
-
         return [
-            self::REGION => $this->options[self::REGION],
-            ...$endpoint === '' ? [] : [self::ENDPOINT => $endpoint, 'pathStyleEndpoint' => 'true'],
+            self::REGION => $this->region,
+            ...$this->endpoint instanceof Endpoint
+                ? [self::ENDPOINT => $this->endpoint->url(), 'pathStyleEndpoint' => 'true']
+                : [],
         ];
     }
 
-    private static function textOr(Node $with, string $option, string $otherwise): string|Problem
+    /** @return list<Problem> */
+    private static function problemsIn(string|Problem|NotGiven ...$answers): array
     {
-        try {
-            return $with->field($option)->isPresent() ? $with->field($option)->text() : $otherwise;
-        } catch (NotInShape) {
-            return Problem::at($option, sprintf('The %s is written as text.', $option));
-        }
+        return array_values(array_filter(
+            $answers,
+            static fn(string|Problem|NotGiven $answer): bool => $answer instanceof Problem,
+        ));
+    }
+
+    private static function required(Options $options, string $option): string|Problem
+    {
+        $value = $options->text(Key::of($option));
+
+        return $value instanceof NotGiven
+            ? Problem::at($option, sprintf('expected the %s, got nothing', $option))
+            : $value;
     }
 }
