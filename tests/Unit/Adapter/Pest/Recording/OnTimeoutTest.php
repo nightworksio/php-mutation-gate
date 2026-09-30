@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnTimeout;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Tests\Support\Mutations;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Pest\Mutate\Event\Events\Test\Outcome\Timeout;
@@ -18,5 +20,5 @@ it('records a mutant Pest stopped at its time limit as the event arrives', funct
 
     new OnTimeout(Mutations::recorder($results, '/c'))->notify(new Timeout($test));
 
-    expect(Mutations::recorded($results))->toBe([['event' => 'outcome', 'id' => 'id-1', 'status' => 'timeout']]);
+    expect(Mutations::recorded($results))->toBe([RecordLine::outcome('id-1', PestStatus::Timeout)]);
 });

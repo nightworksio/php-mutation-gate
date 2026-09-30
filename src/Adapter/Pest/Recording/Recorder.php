@@ -10,9 +10,14 @@ use function file_put_contents;
 use function getenv;
 use function is_dir;
 use function is_string;
-use function json_encode;
 use function mkdir;
 
+use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
+use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use Pest\Mutate\Event\Facade;
 use Pest\Mutate\MutationSuite;
 use Pest\Mutate\MutationTest;
@@ -44,9 +49,6 @@ final readonly class Recorder
 
     /** The variable Pest sets beside it, naming the mutated copy it serves in the original's place. */
     public const string MUTATED = 'PEST_MUTATION_FILE';
-
-    /** How the plugin writes JSON: a duration of whole seconds stays a float, so the adapter reads it as one. */
-    public const int FLAGS = JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION;
 
     /**
      * @param string        $results   the file the lines are written to
@@ -154,47 +156,50 @@ final readonly class Recorder
 
         foreach ($suite->repository->all() as $collection) {
             foreach ($collection->tests() as $test) {
-                $this->write([
-                    'event' => 'planned',
-                    'id' => $test->getId(),
-                    'file' => $test->mutation->file->getRealPath(),
-                    'start' => $test->mutation->startLine,
-                    'end' => $test->mutation->endLine,
-                    'mutator' => $test->mutation->mutator,
-                    'diff' => $test->mutation->diff,
-                    'mutated' => $test->mutation->modifiedSourcePath,
-                ]);
+                $this->write(RecordLine::planned(self::plannedOf($test)));
                 $made++;
             }
         }
 
         $telemetry = $this->telemetry;
-        $this->write([
-            'event' => 'made',
-            'count' => $made,
-            'opening' => $telemetry instanceof TelemetryRepository ? $telemetry->getInitialTestSuiteDuration() : false,
-        ]);
+        $opening = $telemetry instanceof TelemetryRepository
+            ? Seconds::of($telemetry->getInitialTestSuiteDuration())
+            : Unmeasured::duration();
+        $this->write(RecordLine::made($made, $opening));
+    }
+
+    /** A mutant Pest made, as the plugin records it. */
+    public static function plannedOf(MutationTest $test): PlannedMutant
+    {
+        return PlannedMutant::of(
+            $test->getId(),
+            DiskPath::of(sprintf('%s', $test->mutation->file->getRealPath())),
+            Line::of($test->mutation->startLine),
+            Line::of($test->mutation->endLine),
+            $test->mutation->mutator,
+            $test->mutation->diff,
+            DiskPath::of($test->mutation->modifiedSourcePath),
+        );
     }
 
     public function outcome(MutationTest $test): void
     {
-        $this->write(['event' => 'outcome', 'id' => $test->getId(), 'status' => $test->result()->value]);
+        $this->write(RecordLine::outcome($test->getId(), PestStatus::from($test->result()->value)));
     }
 
     public function finished(MutationSuite $suite): void
     {
         foreach ($suite->repository->all() as $collection) {
             foreach ($collection->tests() as $test) {
-                $this->write([
-                    'event' => 'finished',
-                    'id' => $test->getId(),
-                    'status' => $test->result()->value,
-                    'duration' => $test->duration(),
-                ]);
+                $this->write(RecordLine::finished(
+                    $test->getId(),
+                    PestStatus::from($test->result()->value),
+                    $test->duration(),
+                ));
             }
         }
 
-        $this->write(['event' => 'end']);
+        $this->write(RecordLine::end());
     }
 
     /** @phpstan-assert-if-true non-empty-string $results */
@@ -203,9 +208,8 @@ final readonly class Recorder
         return is_string($results) && $results !== '' && ! is_string($mutant);
     }
 
-    /** @param array<string, mixed> $record */
-    private function write(array $record): void
+    private function write(string $line): void
     {
-        file_put_contents($this->results, sprintf("%s\n", json_encode($record, self::FLAGS)), FILE_APPEND | LOCK_EX);
+        file_put_contents($this->results, $line, FILE_APPEND | LOCK_EX);
     }
 }

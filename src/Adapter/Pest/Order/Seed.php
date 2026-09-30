@@ -11,7 +11,7 @@ use function json_encode;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function sprintf;
@@ -43,16 +43,12 @@ final readonly class Seed
         return sprintf('%s/%s', $directory, basename($mutated));
     }
 
-    /**
-     * Writes a mutant's order where its own process reads it.
-     *
-     * @param list<string> $covering the tests that cover the mutant, as the coverage map names them
-     */
+    /** Writes a mutant's order where its own process reads it, from the tests that cover it. */
     public static function write(
         string $seed,
         string $version,
         TestIds $killers,
-        array $covering,
+        TestIds $covering,
         CoverageFile $coverage,
     ): void {
         $defects = [];
@@ -63,7 +59,7 @@ final readonly class Seed
         }
 
         foreach ($covering as $test) {
-            $times[HistoryId::of($test)] = $coverage->secondsOf($test);
+            $times[HistoryId::of($test->value())] = $coverage->secondsOf($test);
         }
 
         if (! is_dir($seed)) {
@@ -76,6 +72,6 @@ final readonly class Seed
             'times' => $times === [] ? new stdClass() : $times,
         ];
 
-        file_put_contents(sprintf('%s/%s', $seed, self::HISTORY), json_encode($history, Recorder::FLAGS));
+        file_put_contents(sprintf('%s/%s', $seed, self::HISTORY), json_encode($history, RecordLine::FLAGS));
     }
 }

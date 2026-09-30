@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Order\Seeder;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Ran;
@@ -140,7 +141,7 @@ function adapterKilled(Command $command, Project $project): Ran
     PestRun::write($results, [
         PestRun::planned('n1', $money, 11, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
         PestRun::made(1),
-        PestRun::finished('n1', 'tested', 0.25),
+        PestRun::finished('n1', PestStatus::Tested, 0.25),
         PestRun::end(),
     ]);
 

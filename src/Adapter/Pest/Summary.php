@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
+use function array_map;
 use function array_sum;
+use function implode;
 use function intval;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -23,7 +25,8 @@ final readonly class Summary
 {
     private const string LINE = '/^\s*Mutations:(?<counts>.*)$/m';
 
-    private const string COUNT = '/(?<count>\d+) (?<status>untested|uncovered|pending|timeout|tested)\b/';
+    /** A count on the line, with the status it names, among the words Pest's summary names them with. */
+    private const string COUNT = '/(?<count>\d+) (?<status>%s)\b/';
 
     /** @param array<string, int> $counts by the status the plugin records */
     private function __construct(private array $counts)
@@ -39,20 +42,22 @@ final readonly class Summary
             ));
         }
 
-        preg_match_all(self::COUNT, $line['counts'], $found, PREG_SET_ORDER);
+        $words = array_map(static fn(PestStatus $status): string => $status->onSummary(), PestStatus::cases());
+        preg_match_all(sprintf(self::COUNT, implode('|', $words)), $line['counts'], $found, PREG_SET_ORDER);
         $counts = [];
 
         foreach ($found as $count) {
-            $counts[$count['status'] === 'pending' ? 'none' : $count['status']] = intval($count['count']);
+            $status = PestStatus::fromSummary($count['status']);
+            $counts[$status->value] = intval($count['count']);
         }
 
         return new self($counts);
     }
 
-    /** How many mutants the summary gives a status the plugin records: tested, untested, uncovered, timeout or none. */
-    public function count(string $status): int
+    /** How many mutants the summary gives a status. */
+    public function count(PestStatus $status): int
     {
-        return array_key_exists($status, $this->counts) ? $this->counts[$status] : 0;
+        return array_key_exists($status->value, $this->counts) ? $this->counts[$status->value] : 0;
     }
 
     public function total(): int

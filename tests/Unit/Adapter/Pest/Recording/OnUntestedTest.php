@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnUntested;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Tests\Support\Mutations;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Pest\Mutate\Event\Events\Test\Outcome\Untested;
@@ -18,5 +20,5 @@ it('records a mutant every test passed with as the event arrives', function (): 
 
     new OnUntested(Mutations::recorder($results, '/c'))->notify(new Untested($test));
 
-    expect(Mutations::recorded($results))->toBe([['event' => 'outcome', 'id' => 'id-1', 'status' => 'untested']]);
+    expect(Mutations::recorded($results))->toBe([RecordLine::outcome('id-1', PestStatus::Untested)]);
 });

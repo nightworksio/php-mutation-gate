@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -64,18 +65,21 @@ it('reads which tests ran each line, and how long each test took', function () u
 
 it('names each test that ran a range of lines once, by the file\'s path on disk', function () use ($written): void {
     $coverage = CoverageFile::at($written());
+    $covering = static fn(string $file, int $first, int $last): array => $coverage instanceof CoverageFile
+        ? array_map(
+            static fn(TestId $test): string => $test->value(),
+            [...$coverage->testsCovering(DiskPath::of($file), Line::of($first), Line::of($last))],
+        )
+        : [0];
 
-    expect($coverage instanceof CoverageFile ? $coverage->testsCovering('/nowhere/src/Money.php', 11, 13) : [])->toBe([
+    expect($covering('/nowhere/src/Money.php', 11, 13))->toBe([
         'P\Tests\MoneySpec::__pest_evaluable_it_adds',
         'Tests\MoneyTest::testLarge',
         'P\Tests\HeldSpec::__pest_evaluable_it_doubles',
     ])
-        ->and($coverage instanceof CoverageFile ? $coverage->testsCovering('/nowhere/src/Money.php', 14, 14) : [])
-        ->toBe(['P\Tests\HeldSpec::__pest_evaluable_it_doubles'])
-        ->and($coverage instanceof CoverageFile ? $coverage->testsCovering('/nowhere/src/Money.php', 10, 10) : [])
-        ->toBe(['P\Tests\MoneySpec::__pest_evaluable_it_adds'])
-        ->and($coverage instanceof CoverageFile ? $coverage->testsCovering('/nowhere/src/Nowhere.php', 1, 99) : [0])
-        ->toBe([]);
+        ->and($covering('/nowhere/src/Money.php', 14, 14))->toBe(['P\Tests\HeldSpec::__pest_evaluable_it_doubles'])
+        ->and($covering('/nowhere/src/Money.php', 10, 10))->toBe(['P\Tests\MoneySpec::__pest_evaluable_it_adds'])
+        ->and($covering('/nowhere/src/Nowhere.php', 1, 99))->toBe([]);
 });
 
 it('adds up how long the whole suite took, one test after another', function () use ($written): void {
@@ -87,9 +91,9 @@ it('adds up how long the whole suite took, one test after another', function () 
 it('times each test, and one it does not time as no time', function () use ($written): void {
     $coverage = CoverageFile::at($written());
 
-    expect($coverage instanceof CoverageFile ? $coverage->secondsOf('P\Tests\MoneySpec::__pest_evaluable_it_adds') : 0.0)
+    expect($coverage instanceof CoverageFile ? $coverage->secondsOf(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds')) : 0.0)
         ->toBeGreaterThan(0.0)
-        ->and($coverage instanceof CoverageFile ? $coverage->secondsOf('P\Tests\Nowhere::it') : 1.0)->toBe(0.0);
+        ->and($coverage instanceof CoverageFile ? $coverage->secondsOf(TestId::of('P\Tests\Nowhere::it')) : 1.0)->toBe(0.0);
 });
 
 it('cannot judge without a map', function (): void {

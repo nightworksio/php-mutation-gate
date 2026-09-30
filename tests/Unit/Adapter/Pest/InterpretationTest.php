@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Diff;
 use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Ran;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -81,12 +82,8 @@ const INTERPRETED_CHANGES = [
     'amount' => ['return $amount - 1;', 'return $amount + 1;', INTERPRETED_MINUS],
 ];
 
-/**
- * A mutant as the plugin plans it, at a file of the project and a line.
- *
- * @return array<string, mixed>
- */
-$plan = static function (string $root, string $id, string $where, string $change): array {
+/** A mutant as the plugin plans it, at a file of the project and a line. */
+$plan = static function (string $root, string $id, string $where, string $change): string {
     [$file, $line] = explode(':', $where);
     [$removed, $added, $mutator] = INTERPRETED_CHANGES[$change];
 
@@ -130,14 +127,14 @@ $six = static fn(string $root): array => [
     $plan($root, 'n5', 'legacy/Legacy.php:11', 'amount'),
     $plan($root, 'n6', 'src/Money.php:60', 'ef'),
     PestRun::made(6),
-    PestRun::outcome('n1', 'tested'),
+    PestRun::outcome('n1', PestStatus::Tested),
     PestRun::killed('n1', INTERPRETED_TESTS[0]),
-    PestRun::finished('n1', 'tested', 0.25),
-    PestRun::finished('n2', 'uncovered', 0.0),
-    PestRun::finished('n3', 'untested', 0.5),
-    PestRun::finished('n4', 'timeout', 5.0),
-    PestRun::finished('n5', 'uncovered', 0.0),
-    PestRun::finished('n6', 'none', 0.0),
+    PestRun::finished('n1', PestStatus::Tested, 0.25),
+    PestRun::finished('n2', PestStatus::Uncovered, 0.0),
+    PestRun::finished('n3', PestStatus::Untested, 0.5),
+    PestRun::finished('n4', PestStatus::Timeout, 5.0),
+    PestRun::finished('n5', PestStatus::Uncovered, 0.0),
+    PestRun::finished('n6', PestStatus::None, 0.0),
     PestRun::end(),
 ];
 
@@ -171,8 +168,8 @@ it('keeps what a stopped run judged, with limits, and leaves the rest', function
         $plan($root, 'n2', 'src/Money.php:12', 'cd'),
         $plan($root, 'n3', 'src/Money.php:13', 'ef'),
         PestRun::made(3),
-        PestRun::outcome('n1', 'tested'),
-        PestRun::outcome('n2', 'timeout'),
+        PestRun::outcome('n1', PestStatus::Tested),
+        PestRun::outcome('n2', PestStatus::Timeout),
     ]);
 
     expect($read($project, Ran::stopped('half a run'), $results))->toEqual(MutationResult::of(Mutants::of(
@@ -264,7 +261,7 @@ it('cannot judge a filter too long for Pest unpatched', function () use ($mutant
     PestRun::write($results, [
         $plan($root, 'n1', 'src/Money.php:11', 'ab'),
         PestRun::made(1),
-        PestRun::finished('n1', 'tested', 0.25),
+        PestRun::finished('n1', PestStatus::Tested, 0.25),
         PestRun::end(),
     ]);
     $ran = Ran::finished(succeeded: true, output: 'Mutations: 1 tested');

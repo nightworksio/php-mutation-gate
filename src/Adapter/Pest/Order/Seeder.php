@@ -12,11 +12,10 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Identities;
+use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
-use NightWorksIO\MutationGate\Adapter\Pest\Records;
 use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Php\Functions;
@@ -32,8 +31,6 @@ use function sprintf;
  * adapter planned and the opening run's coverage map, where the mutant's own
  * process reads it (ADR-0013, decision 3). Where it has no map, it writes
  * none, and each mutant runs its tests in Pest's own order.
- *
- * @phpstan-import-type Planned from Records
  */
 final readonly class Seeder
 {
@@ -90,38 +87,31 @@ final readonly class Seeder
         $ids = Identities::of($this->root, $planned);
         $functions = [];
 
-        foreach ($planned as $native => $mutant) {
-            $file = $mutant['file'];
+        foreach ($planned as $mutant) {
+            $file = $mutant->file()->value();
             $functions[$file] = array_key_exists($file, $functions)
                 ? $functions[$file]
                 : Functions::in(Contents::of(sprintf('%s', file_get_contents($file))));
-            $in = Enclosing::of($this->root->relative($file), $functions[$file]->around(Line::of($mutant['start'])));
+            $in = Enclosing::of($this->root->relative($file), $functions[$file]->around($mutant->start()));
 
             Seed::write(
-                Seed::directoryOf($this->directory, $mutant['mutated']),
+                Seed::directoryOf($this->directory, $mutant->mutated()->value()),
                 version(),
-                $history->likelyKillers($ids[$native], $in),
-                $coverage->testsCovering($file, $mutant['start'], $mutant['end']),
+                $history->likelyKillers($ids[$mutant->id()], $in),
+                $coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()),
                 $coverage,
             );
         }
     }
 
-    /** @return array<string, Planned> every mutant of a suite as the recorder plans it, by native id */
+    /** @return list<PlannedMutant> every mutant of a suite as the recorder plans it */
     private function plannedIn(MutationSuite $suite): array
     {
         $planned = [];
 
         foreach ($suite->repository->all() as $collection) {
             foreach ($collection->tests() as $test) {
-                $planned[$test->getId()] = [
-                    'file' => sprintf('%s', $test->mutation->file->getRealPath()),
-                    'start' => $test->mutation->startLine,
-                    'end' => $test->mutation->endLine,
-                    'mutator' => $test->mutation->mutator,
-                    'diff' => $test->mutation->diff,
-                    'mutated' => $test->mutation->modifiedSourcePath,
-                ];
+                $planned[] = Recorder::plannedOf($test);
             }
         }
 

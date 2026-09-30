@@ -456,13 +456,9 @@ services:
                 - src/Adapter/Buildkite/BuildkitePlan.php
                 - src/Adapter/GitHub/Answer.php
                 - src/Adapter/GitLab/GitLabPlan.php
-                - src/Adapter/Pest/Recording/Recorder.php
-                - src/Adapter/Pest/Records.php
                 - tests/Support/Configs.php
                 - tests/Support/Decoded.php
                 - tests/Support/InfectionRun.php
-                - tests/Support/Mutations.php
-                - tests/Support/PestRun.php
         tags:
             - phpstan.rules.rule
     # D8, with the files that translate an outside vocabulary into the gate's
@@ -476,13 +472,11 @@ services:
                 - src/Adapter/Infection/Families.php # Infection's mutator names
                 - src/Adapter/Infection/OwnConfig.php # infection.json's sections
                 - src/Adapter/Pest/Families.php # Pest's mutator names
-                - src/Adapter/Pest/Interpretation.php # Pest's status words
                 - src/Core/Runner/Opcache.php # PHP's ini switches, as the Pest plugin and doctor's probe read them
                 - src/Core/File/Glob.php # the glob grammar
             # Closed sets still to become enums, by the builder whose area holds them.
             awaiting:
                 - src/Adapter/GitHub/GitHubPlan.php # owner: flows (a GitHubEvent enum)
-                - src/Adapter/Pest/Records.php # owner: pest (a RecordEvent enum)
         tags:
             - phpstan.rules.rule
     # D9, with the constants whose value only coincides with another's.
@@ -525,10 +519,19 @@ services:
                     - NAMED # names a hint gives
                 'NightWorksIO\MutationGate\Adapter\GitHub\Annotations':
                     - PER_LEVEL # annotations GitHub shows
-                'NightWorksIO\MutationGate\Adapter\Pest\Records':
+                'NightWorksIO\MutationGate\Adapter\Pest\PestTimeLimit':
                     - EXTRA_SHARE # a share of Pest's opening time
                     - LEAST_EXTRA # Pest's least extra time
-                    - NONE # Pest's status word
+                'NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine':
+                    - ID # a field of a results line
+                    - END # a field of a results line
+                    - MUTATOR # a field of a results line
+                    - DIFF # a field of a results line
+                    - COUNT # a field of a results line
+                    - STATUS # a field of a results line
+                    - TEST # a field of a results line
+                'NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent':
+                    - End # an event of a results line
                 'NightWorksIO\MutationGate\Adapter\Infection\Limits':
                     - BOOTSTRAP # Infection's bootstrap time
                     - FACTOR # Infection's timeout factor

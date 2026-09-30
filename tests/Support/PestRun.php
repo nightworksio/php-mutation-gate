@@ -4,30 +4,29 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
-use function array_map;
 use function file_put_contents;
 use function implode;
-use function is_string;
-use function json_encode;
+
+use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
+use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+
+use function rtrim;
 use function sprintf;
 
 /** What this package's Pest plugin leaves after a run: its results file, one JSON line per record. */
 final readonly class PestRun
 {
-    /** @param list<array<string, mixed>|string> $records a string is written as it is */
-    public static function write(string $results, array $records): void
+    /** @param list<string> $lines each line as the plugin writes it, or any text a test writes in its place */
+    public static function write(string $results, array $lines): void
     {
-        $lines = array_map(
-            static fn(mixed $record): string => is_string($record)
-                ? $record
-                : (string) json_encode($record, JSON_PRESERVE_ZERO_FRACTION),
-            $records,
-        );
-
         file_put_contents($results, sprintf("%s\n", implode("\n", $lines)));
     }
 
-    /** @return array<string, mixed> a mutant as the plugin plans it */
+    /** A mutant as the plugin plans it. */
     public static function planned(
         string $id,
         string $file,
@@ -35,23 +34,34 @@ final readonly class PestRun
         string $mutator,
         string $removed,
         string $added,
-    ): array {
-        return [
-            'event' => 'planned',
-            'id' => $id,
-            'file' => $file,
-            'start' => $line,
-            'end' => $line,
-            'mutator' => $mutator,
-            'diff' => self::diff($removed, $added),
-            'mutated' => self::mutated($id),
-        ];
+    ): string {
+        return self::line(RecordLine::planned(self::mutant($id, $file, $line, $mutator, $removed, $added)));
     }
 
-    /** @return array<string, mixed> a test that failed in the own process of the mutant with this native id */
-    public static function killed(string $id, string $test): array
+    /** A mutant as Pest makes it. */
+    public static function mutant(
+        string $id,
+        string $file,
+        int $line,
+        string $mutator,
+        string $removed,
+        string $added,
+    ): PlannedMutant {
+        return PlannedMutant::of(
+            $id,
+            DiskPath::of($file),
+            Line::of($line),
+            Line::of($line),
+            $mutator,
+            self::diff($removed, $added),
+            DiskPath::of(self::mutated($id)),
+        );
+    }
+
+    /** A test that failed in the own process of the mutant with this native id. */
+    public static function killed(string $id, string $test): string
     {
-        return ['event' => 'killed', 'mutated' => self::mutated($id), 'test' => $test];
+        return self::line(RecordLine::killed(self::mutated($id), $test));
     }
 
     /** A change as Pest's diff of it reads: the line removed and the line that replaces it. */
@@ -66,27 +76,29 @@ final readonly class PestRun
         return sprintf('/tmp/mutations/%s', $id);
     }
 
-    /** @return array<string, mixed> */
-    public static function finished(string $id, string $status, float $duration): array
+    public static function finished(string $id, PestStatus $status, float $duration): string
     {
-        return ['event' => 'finished', 'id' => $id, 'status' => $status, 'duration' => $duration];
+        return self::line(RecordLine::finished($id, $status, $duration));
     }
 
-    /** @return array<string, mixed> */
-    public static function outcome(string $id, string $status): array
+    public static function outcome(string $id, PestStatus $status): string
     {
-        return ['event' => 'outcome', 'id' => $id, 'status' => $status];
+        return self::line(RecordLine::outcome($id, $status));
     }
 
-    /** @return array<string, mixed> how many mutants Pest made, after an opening run of 1.5 seconds */
-    public static function made(int $count): array
+    /** How many mutants Pest made, after an opening run of 1.5 seconds. */
+    public static function made(int $count): string
     {
-        return ['event' => 'made', 'count' => $count, 'opening' => 1.5];
+        return self::line(RecordLine::made($count, Seconds::of(1.5)));
     }
 
-    /** @return array<string, mixed> */
-    public static function end(): array
+    public static function end(): string
     {
-        return ['event' => 'end'];
+        return self::line(RecordLine::end());
+    }
+
+    private static function line(string $written): string
+    {
+        return rtrim($written, "\n");
     }
 }

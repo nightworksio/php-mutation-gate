@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\Codebase;
@@ -77,7 +79,11 @@ final readonly class Selector
     /** The test files whose tests run any line from the first to the last of a file, or all where Pest cannot say. */
     private function covering(Path $file, int $first, int $last): Paths
     {
-        $selection = Selection::of($this->coverage->testsCovering($this->project->absolute($file), $first, $last));
+        $selection = Selection::of($this->coverage->testsCovering(
+            DiskPath::of($this->project->absolute($file)),
+            Line::of($first),
+            Line::of($last),
+        ));
 
         return match (true) {
             $selection->count() === 0 => Paths::none(),
