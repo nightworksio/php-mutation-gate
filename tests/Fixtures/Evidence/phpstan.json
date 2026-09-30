@@ -1,0 +1,62 @@
+{
+ "totals": {
+  "errors": 0,
+  "file_errors": 8
+ },
+ "files": {
+  "/home/runner/work/php-mutation-gate/php-mutation-gate/src/Core/Planted/Bad.php": {
+   "errors": 8,
+   "messages": [
+    {
+     "message": "Class NightWorksIO\\MutationGate\\Core\\Planted\\Bad is neither abstract nor final.",
+     "line": 5,
+     "ignorable": true,
+     "identifier": "ergebnis.final"
+    },
+    {
+     "message": "Method NightWorksIO\\MutationGate\\Core\\Planted\\Bad::run() has no return type specified.",
+     "line": 6,
+     "ignorable": true,
+     "identifier": "missingType.return"
+    },
+    {
+     "message": "Method NightWorksIO\\MutationGate\\Core\\Planted\\Bad::run() has parameter $x with no type specified.",
+     "line": 6,
+     "ignorable": true,
+     "identifier": "missingType.parameter"
+    },
+    {
+     "message": "Missing native return typehint (string)|int",
+     "line": 6,
+     "ignorable": true,
+     "identifier": "shipmonk.missingNativeReturnTypehint"
+    },
+    {
+     "message": "Calling strlen() is forbidden, L3 \u2014 a path, a test name or a message is text, and a byte function splits a multibyte character in half. Use the mb_* equivalent (L3).",
+     "line": 7,
+     "ignorable": true,
+     "identifier": "disallowed.function"
+    },
+    {
+     "message": "H5 \u2014 build this with sprintf rather than concatenation. Concatenation spreads the shape of the string across the values going into it; sprintf keeps it in one literal (H5).",
+     "line": 7,
+     "ignorable": true,
+     "identifier": "mutationGate.preferSprintf"
+    },
+    {
+     "message": "Parameter #1 $string of function strlen expects string, array|float|int|string|false|null given.",
+     "line": 7,
+     "ignorable": true,
+     "identifier": "argument.type"
+    },
+    {
+     "message": "Using the else control structure is forbidden, C5 \u2014 no `else`. Return from the condition that refuses and let the rest carry on at one indent; where both branches are answers, write a match (C5).",
+     "line": 7,
+     "ignorable": true,
+     "identifier": "disallowed.else"
+    }
+   ]
+  }
+ },
+ "errors": []
+}

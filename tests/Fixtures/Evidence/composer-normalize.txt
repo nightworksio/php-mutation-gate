@@ -1,0 +1,20 @@
+Running ergebnis/composer-normalize 2.54.0 by Andreas Möller and contributors.
+
+composer.json is not normalized.
+
+---------- begin diff ----------
+--- original
++++ normalized
+@@ -1 +1,8 @@
+-{"require":{"php":"^8.5"},"name":"acme/x","type":"library","license":"MIT"}
++{
++    "name": "acme/x",
++    "license": "MIT",
++    "type": "library",
++    "require": {
++        "php": "^8.5"
++    }
++}
+
+----------- end diff -----------
+

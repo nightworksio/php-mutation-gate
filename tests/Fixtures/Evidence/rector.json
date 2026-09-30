@@ -1,0 +1,33 @@
+{
+ "totals": {
+  "changed_files": 1,
+  "errors": 0
+ },
+ "file_diffs": [
+  {
+   "file": "src/Core/Planted/Bad.php",
+   "diff": "--- Original\n+++ New\n@@ -1,9 +1,9 @@\n <?php\n declare(strict_types=1);\n namespace NightWorksIO\\MutationGate\\Core\\Planted;\n-use function array_map;\n class Bad {\n-    public function run($x) {\n-        if ($x) { return 1; } else { return strlen($x) . \"a\"; }\n+    public function run($x): int|string {\n+        if ($x) { return 1; }\n+        return strlen($x) . \"a\";\n     }\n }\n",
+   "applied_rectors": [
+    "Rector\\EarlyReturn\\Rector\\If_\\RemoveAlwaysElseRector",
+    "Rector\\TypeDeclaration\\Rector\\ClassMethod\\ReturnUnionTypeRector"
+   ],
+   "changes": [
+    {
+     "rector": "Rector\\TypeDeclaration\\Rector\\ClassMethod\\ReturnUnionTypeRector",
+     "line": 6
+    },
+    {
+     "rector": "Rector\\EarlyReturn\\Rector\\If_\\RemoveAlwaysElseRector",
+     "line": 7
+    },
+    {
+     "rector": "Rector\\PostRector\\Rector\\UnusedImportRemovingPostRector",
+     "line": 3
+    }
+   ]
+  }
+ ],
+ "changed_files": [
+  "src/Core/Planted/Bad.php"
+ ]
+}

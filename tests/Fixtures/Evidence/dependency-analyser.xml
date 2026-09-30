@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="unknown classes" failures="2">
+    <testcase name="Faker\Factory">
+      <failure>src/Core/Planted/Uses.php:11</failure>
+    </testcase>
+    <testcase name="Webmozart\Glob\Glob">
+      <failure>src/Core/Planted/Uses.php:11</failure>
+    </testcase>
+  </testsuite>
+  <!-- showing only first example failure usage -->
+</testsuites>

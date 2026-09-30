@@ -5,6 +5,8 @@
 #
 # Reads from the environment: SONAR_TOKEN; SCAN and TESTS, the results of the
 # `sonar` and `tests` jobs; EVENT; and on a pull request PR, AUTHOR and FORK.
+# Where it finds issues, it writes their counts to evidence/raw/sonar.json, the
+# job's evidence (ADR-0019, decision 5).
 set -euo pipefail
 
 project=$(sed -n 's/^sonar\.projectKey=//p' sonar-project.properties)
@@ -50,20 +52,30 @@ if [ "${found}" != 200 ]; then
 fi
 
 faults=""
+counted=""
+
+# Adds a count to the evidence: $1 is the rule, $2 the count.
+record() {
+	counted="${counted}${counted:+,}{\"path\": \"\", \"line\": 0, \"rule\": \"$1\", \"detail\": \"$2\"}"
+}
 
 if [ "${EVENT}" = pull_request ]; then
 	count "&pullRequest=${PR}"
 	if [ "${total}" -ne 0 ]; then
+		record sonar-new-issues "${total}"
 		faults="${faults}${total} new issue(s) on this pull request: ${host}/project/issues?id=${project}&pullRequest=${PR}&resolved=false. "
 	fi
 fi
 
 count ""
 if [ "${total}" -ne 0 ]; then
+	record sonar-open-issues "${total}"
 	faults="${faults}${total} open issue(s) against ${project}: ${host}/project/issues?id=${project}&resolved=false. "
 fi
 
 if [ -n "${faults}" ]; then
+	mkdir -p evidence/raw
+	printf '[%s]\n' "${counted}" >evidence/raw/sonar.json
 	say 1 "::error::${faults}This repository allows none. Fix each, or resolve one in SonarCloud with the reason it is not a defect."
 fi
 

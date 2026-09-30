@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Every commit subject in base..head, and the pull request title, is conventional.
 
-Usage: commit_lint.py <base_sha> <head_sha> [--title <pull request title>]
+Usage: commit_lint.py <base_sha> <head_sha> [--title <pull request title>] [--findings <file>]
 
 The title is checked because a squash merge makes it the subject of the commit
-that lands on main.
+that lands on main. With --findings, what failed is also written there as the
+job's evidence (ADR-0019, decision 5).
 
 Two halves: `_read` asks git, and `unconventional` decides from what git said.
 """
+import json
 import re
 import subprocess
 import sys
@@ -39,6 +41,20 @@ def unconventional(out: str) -> list[str]:
     return bad
 
 
+def as_findings(bad: list[str]) -> list[dict]:
+    """What `unconventional` and the title check found, as evidence: a commit by its short sha."""
+    found = []
+    for one in bad:
+        title = one.startswith("the pull request title")
+        found.append({
+            "path": "",
+            "line": 0,
+            "rule": "conventional-title" if title else "conventional-subject",
+            "detail": "title" if title else one.split(" ", 1)[0],
+        })
+    return found
+
+
 def _read(base: str, head: str) -> str:
     return subprocess.run(
         ["git", "log", f"--format={FORMAT}", f"{base}..{head}"],
@@ -60,6 +76,10 @@ def main(argv: list[str]) -> int:
         title = argv[argv.index("--title") + 1]
         if not conventional(title):
             bad.append(f"the pull request title: {title}")
+
+    if "--findings" in argv[3:]:
+        with open(argv[argv.index("--findings") + 1], "w", encoding="utf-8") as out:
+            json.dump(as_findings(bad), out)
 
     if bad:
         print("::error::commit subjects must be conventional (type(scope): subject):")

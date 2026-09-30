@@ -133,6 +133,10 @@
             "git config core.hooksPath .githooks"
         ],
         "analyse": "phpstan analyse --memory-limit=1G",
+        "bot:rules": [
+            "@php scripts/bot-rules/pint.php > .github/bot/rules/pint.json",
+            "@php scripts/bot-rules/rector.php > .github/bot/rules/rector.json"
+        ],
         "ci": [
             "@composer validate --strict",
             "@composer normalize --dry-run",

@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """No commit, and no pull request body, credits an AI assistant or a tool.
 
-Usage: attribution_check.py <base_sha> <head_sha> [--body-on-stdin]
+Usage: attribution_check.py <base_sha> <head_sha> [--body-on-stdin] [--findings <file>]
 
-Two halves: `_read` asks git, and `attributed` decides from text.
+Two halves: `_read` asks git, and `attributed` decides from text. With
+--findings, what it refused is also written there as the job's evidence
+(ADR-0019, decision 5).
 
 Every pattern is anchored to the start of a line with no leading whitespace, so
 prose that quotes a forbidden line, indented, can name it without being refused.
 .githooks/commit-msg holds the same patterns and the same names.
 """
+import json
 import re
 import subprocess
 import sys
@@ -74,6 +77,19 @@ def problems(out: str, body: str) -> list[str]:
     return said
 
 
+def as_findings(said: list[str]) -> list[dict]:
+    """What `problems` found, as evidence: a commit by its short sha, or the pull request."""
+    return [
+        {
+            "path": "",
+            "line": 0,
+            "rule": "credits-an-assistant",
+            "detail": "the pull request" if one.startswith("the pull request") else one.split(" ", 1)[0],
+        }
+        for one in said
+    ]
+
+
 def _read(base: str, head: str) -> str:
     return subprocess.run(
         ["git", "log", f"--format={FORMAT}", f"{base}..{head}"],
@@ -98,6 +114,10 @@ def main(argv: list[str]) -> int:
 
     body = sys.stdin.read() if "--body-on-stdin" in argv[3:] else ""
     said = problems(log, body)
+
+    if "--findings" in argv[3:]:
+        with open(argv[argv.index("--findings") + 1], "w", encoding="utf-8") as out:
+            json.dump(as_findings(said), out)
 
     if said:
         print("::error::The record credits an assistant or a tool:")

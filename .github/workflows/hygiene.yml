@@ -1,5 +1,7 @@
 # Workflow lint, spelling, links and Markdown, over the whole tree. Called by
-# ci.yml; each tool reads its configuration from the repository root.
+# ci.yml; each tool reads its configuration from the repository root, reports
+# in its structured form into evidence/raw, and the evidence step shows every
+# finding as an annotation (ADR-0019, decision 5).
 name: hygiene
 
 on:
@@ -9,24 +11,83 @@ permissions:
   contents: read
 
 jobs:
+  # The CLI rather than an action, so it can write JSON: pinned by version and
+  # by the SHA-256 its release lists in actionlint_<version>_checksums.txt.
   actionlint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      ACTIONLINT_VERSION: "1.7.12"
+      ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+      - id: actionlint
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/raw
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -sSfL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 --retry-all-errors \
+            -o "${RUNNER_TEMP}/actionlint.tar.gz" "$url"
+          sha256sum --check --strict <<<"${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/actionlint.tar.gz"
+          tar xzf "${RUNNER_TEMP}/actionlint.tar.gz" -C "${RUNNER_TEMP}" actionlint
+          "${RUNNER_TEMP}/actionlint" -format '{{json .}}' > evidence/raw/actionlint.json
+      # The job's evidence, whatever the steps above did.
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py hygiene/actionlint
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-hygiene-actionlint
+          path: evidence/hygiene-actionlint*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py hygiene/actionlint
 
-  # typos.toml turns hidden files on, so `.docs` and `.github` are read.
+  # typos.toml turns hidden files on, so `.docs` and `.github` are read. The
+  # CLI rather than the action, so it can write JSON: typos' releases list no
+  # checksums, so the SHA-256 is the one this repository first downloaded.
   typos:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      TYPOS_VERSION: "1.50.3"
+      TYPOS_SHA256: "aca6b5d546307092b8d0a8e0a89dd80f9da51f2f7617c5e45c5607c1684ffbf2"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: crate-ci/typos@00f422f3b19c57bc6338715ebfe3316d38768461 # v1.50.3
+      - id: typos
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/raw
+          url="https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/typos-v${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          curl -sSfL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 --retry-all-errors \
+            -o "${RUNNER_TEMP}/typos.tar.gz" "$url"
+          sha256sum --check --strict <<<"${TYPOS_SHA256}  ${RUNNER_TEMP}/typos.tar.gz"
+          tar xzf "${RUNNER_TEMP}/typos.tar.gz" -C "${RUNNER_TEMP}" ./typos
+          "${RUNNER_TEMP}/typos" --format json > evidence/raw/typos.jsonl
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py hygiene/typos
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-hygiene-typos
+          path: evidence/hygiene-typos*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py hygiene/typos
 
   # lychee.toml turns hidden files on and holds the accepted status codes.
   links:
@@ -40,19 +101,40 @@ jobs:
       # that reads nothing looks, unless the tree holds no Markdown link at all.
       - id: tree
         run: |
+          mkdir -p evidence/raw
           if git grep -qE '\]\(|https?://' -- '*.md'; then
             echo "links=true" >> "$GITHUB_OUTPUT"
           else
             echo "links=false" >> "$GITHUB_OUTPUT"
             echo "No Markdown file holds a link."
           fi
-      - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+      - id: lychee
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           args: --no-progress --config lychee.toml .
+          format: json
+          output: evidence/raw/lychee.json
           fail: true
           failIfEmpty: ${{ steps.tree.outputs.links }}
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py hygiene/links
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-hygiene-links
+          path: evidence/hygiene-links*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py hygiene/links
 
-  # markdownlint-cli2 matches dot-directories, so `**` reaches `.docs`.
+  # markdownlint-cli2 matches dot-directories, so `**` reaches `.docs`. It is
+  # the locked release in .github/bot/markdownlint, with the formatter that
+  # writes its evidence; the rules stay in .markdownlint.jsonc.
   markdown:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -60,6 +142,41 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          globs: "**/*.md"
+          node-version: 24
+      - name: install the locked markdownlint
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix .github/bot/markdownlint
+      - id: markdownlint
+        run: |
+          mkdir -p evidence/raw
+          node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \
+            --config .github/bot/markdownlint/.markdownlint-cli2.jsonc "**/*.md"
+      # The rule table the bot explains markdownlint's findings with is the
+      # locked markdownlint's own (ADR-0019, decision 7).
+      - id: table
+        if: ${{ !cancelled() }}
+        run: node .github/bot/markdownlint/rules.mjs | diff .github/bot/rules/markdownlint.json -
+      # The fix is mechanical, so it is computed here and offered to the pull
+      # request as a patch, never pushed (ADR-0019, decision 8).
+      - name: compute the mechanical fixes
+        if: failure() && steps.markdownlint.outcome == 'failure'
+        run: |
+          node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \
+            --config .github/bot/markdownlint/.markdownlint-cli2.jsonc --fix "**/*.md" || true
+          git diff > evidence/hygiene-markdown.fix.patch
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py hygiene/markdown
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-hygiene-markdown
+          path: evidence/hygiene-markdown*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py hygiene/markdown

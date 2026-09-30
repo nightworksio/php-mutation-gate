@@ -1,0 +1,30 @@
+{
+  "results": [
+    {
+      "source": {
+        "path": "/github/workspace/composer.lock",
+        "type": "lockfile"
+      },
+      "packages": [
+        {
+          "package": {
+            "name": "symfony/process",
+            "version": "7.4.4",
+            "ecosystem": "Packagist"
+          },
+          "vulnerabilities": [
+            {
+              "id": "GHSA-r39x-jcww-82v6",
+              "summary": "Symfony Process argument escaping on Windows"
+            }
+          ],
+          "groups": [
+            {
+              "ids": ["GHSA-r39x-jcww-82v6"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

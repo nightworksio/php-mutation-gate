@@ -32,6 +32,7 @@ final readonly class Fixtures
             ...self::theLanguage(),
             ...self::tests(),
             ...self::theRulesThemselves(),
+            ...self::theBotsTables(),
         ];
     }
 
@@ -445,6 +446,17 @@ final readonly class Fixtures
             Fixture::direct('R1', 'TheRulesAreRealTest: "finds a rule that claims a mechanism nothing of that kind carries" hands the judgement a rule whose mechanism does not carry it.'),
             Fixture::direct('R2', 'EveryRuleRefusesAViolationTest: "names a rule that nothing is planted under" hands the judgement a rule with no fixture.'),
             Fixture::edit('R3', 'rector.php', "        __DIR__ . '/phpstan',\n", '', 'reads the same trees with the analyser, the refactorer and the Arch suite', 'rector.php does not refactor'),
+        ];
+    }
+
+    /** @return list<Fixture> */
+    private static function theBotsTables(): array
+    {
+        return [
+            Fixture::edit('V1', '.github/gates.json', '"scope": {', '"scoped": {', 'has an entry in gates.json for every CI job', 'scope has no entry'),
+            Fixture::edit('V2', '.github/workflows/ci.yml', "        run: python3 .github/scripts/gate_summary.py commitlint\n", "        run: echo\n", 'leaves evidence from every CI job', 'commitlint does not end by explaining its failure'),
+            Fixture::edit('V3', '.github/gates.json', '"typo": "A word typos', '"typing": "A word typos', 'explains every rule the recorded evidence names', 'typos: typo'),
+            Fixture::edit('V4', '.github/bot/rules/pint.json', '"says": "All classes must be final', '"says": "Every class is final', 'holds the generated rule tables to what the locked tools say', 'pint.json is not what the locked tool says'),
         ];
     }
 
