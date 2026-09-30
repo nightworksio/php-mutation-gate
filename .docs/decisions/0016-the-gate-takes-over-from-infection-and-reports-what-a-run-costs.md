@@ -154,6 +154,9 @@ Operating the gate raises four needs its reports do not yet meet.
    `costs.perRunnerMinute` is `{amount, currency}`, and unset by default.
    When it is set, each time figure is shown with its price. It sits under
    `costs`, which the proof key leaves out (ADR-0007 decision 2.3).
+   The flows hand the verdict the rate as a `Core\Cost\Rate`, and the cost
+   is priced with `Cost::pricedAt(Rate)`. The config's `Price` stays with
+   the config, since nothing a verdict carries names a config type.
 
 8. **The cost appears once, out of the way.**
    - It is a collapsed `<details>` section at the end of the sticky PR

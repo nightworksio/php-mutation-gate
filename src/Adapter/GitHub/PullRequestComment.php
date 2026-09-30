@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -32,7 +33,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * by its hidden marker among the comments of the token's identity and updated
  * in place on every run, passing runs included. A run that cannot comment,
  * such as a fork's, whose token GitHub makes read-only, says why and fails
- * nothing; the step summary carries the same content (ADR-0009, decision 3).
+ * nothing; the step summary carries the same content. The plan job writes
+ * it first in its planned state (ADR-0009, decision 3).
  */
 final readonly class PullRequestComment implements Configurable, Reporter
 {
@@ -123,13 +125,28 @@ final readonly class PullRequestComment implements Configurable, Reporter
 
     public function report(Verdict $verdict): Written|NotWritten
     {
+        return $this->write(Markdown::comment($verdict, $this->run));
+    }
+
+    /**
+     * The comment in its planned state, which the plan job writes before the
+     * verdict replaces it (ADR-0019, decision 11).
+     */
+    public function planned(PlannedWork $work): Written|NotWritten
+    {
+        return $this->write(PlannedMarkdown::comment($work, $this->run));
+    }
+
+    /** The sticky comment, holding this, written or updated in place. */
+    private function write(string $markdown): Written|NotWritten
+    {
         $number = $this->pullRequest;
 
         if ($number instanceof NotWritten) {
             return $number;
         }
 
-        $body = ['body' => Markdown::comment($verdict, $this->run)];
+        $body = ['body' => $markdown];
         $existing = $this->existing($number, $this->identity === '' ? $this->identityOfToken() : $this->identity);
         $answer = $existing === 0
             ? $this->api->send('POST', sprintf(self::COMMENTS, $this->repository, $number->value()), $body)

@@ -308,7 +308,9 @@ would have cost without them.
         Each run counts its full one-job run less its runner time, never
         below nothing, and this run counts too. The flows hand the verdict
         the trend they read, on the default branch only, and the line shows
-        only then;
+        only then. The trend goes in the run's account,
+        `RunAccount::after(Trend)`, which the verdict takes with
+        `Verdict::withAccount` beside the run's timings, cost and savings;
       - the verdict writes `savings.json` beside `badge.json`, a shields.io
         endpoint (*mutation time saved: 41h / 30 days*), which the publish
         job publishes with the others. Showing it is the project's choice.

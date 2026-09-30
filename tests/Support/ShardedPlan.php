@@ -7,12 +7,16 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 use function array_map;
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -24,7 +28,8 @@ use function sprintf;
 /**
  * Plans made on commit 5eeca8f whose shard n mutates src/<n>.php, is
  * labelled "src, part n of m", and is expected to take n minutes and a half
- * second.
+ * second. Planned, such a plan is expected to take 6m wall and 14m runner
+ * time, 94% of it measured.
  */
 final class ShardedPlan
 {
@@ -42,5 +47,14 @@ final class ShardedPlan
             ),
             $shards === 0 ? [] : range(1, $shards),
         )));
+    }
+
+    public static function planned(int $shards): PlannedWork
+    {
+        return PlannedWork::of(
+            self::of($shards),
+            RunTime::estimated(Seconds::of(360.0), Seconds::of(840.0)),
+            Percentage::of(Floor::of(94.5)),
+        );
     }
 }

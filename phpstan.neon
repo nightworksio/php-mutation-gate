@@ -496,7 +496,7 @@ services:
                     - PAGE # comments a page
                     - PAGES # pages read
                 'NightWorksIO\MutationGate\Adapter\GitHub\Markdown':
-                    - COMMENTED # survivors a comment lists
+                    - COMMENTED # entries a comment's list holds
                 'NightWorksIO\MutationGate\Core\Config\Shards':
                     - MOST # shards
                 'NightWorksIO\MutationGate\Core\Config\Triage':
