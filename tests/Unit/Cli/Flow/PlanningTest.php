@@ -43,6 +43,7 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
@@ -253,4 +254,33 @@ it('cannot plan where it cannot hand a shard its map', function () use ($plan): 
     expect($plan($project, Mode::full(), Cut::exactly(1)))->toEqual(CannotJudge::because(
         sprintf('%s/.mutation-gate/coverage/shard-1/map.json.gz could not be written.', $project),
     ));
+});
+
+it('hands a full pull request plan the lines changed since the default branch, for new code', function () use (
+    $plan,
+): void {
+    $pullRequest = new CiPlanFake(ShardId::of(1), RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
+    $changed = Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))));
+    $checkout = new ChangeSourceFake(Revision::ref(Flows::MAIN), $changed, [
+        Revision::workingTree()->name() => Flows::FILES,
+        Flows::MAIN => Flows::FILES,
+    ]);
+
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $pullRequest, $checkout);
+
+    expect($planned instanceof Plan ? $planned->changed() : $planned)->toEqual($changed);
+});
+
+it('cannot plan a full pull request run where git cannot tell what changed since the default branch', function () use (
+    $plan,
+): void {
+    $pullRequest = new CiPlanFake(ShardId::of(1), RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
+
+    expect($plan(Flows::project(), Mode::full(), Cut::exactly(1), $pullRequest))->toEqual(CannotJudge::because(sprintf(
+        "%s %s\n%s\n%s",
+        'A pull request\'s new code is judged against refs/remotes/origin/main,',
+        'and git cannot tell what changed since it,',
+        'so no floor for new code can be held. refs/remotes/origin/main is not a revision this repository has.',
+        'Fetch the default branch into the checkout before the plan.',
+    )));
 });

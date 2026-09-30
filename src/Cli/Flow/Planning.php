@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -32,6 +34,12 @@ use function sprintf;
  */
 final readonly class Planning
 {
+    private const string NO_NEW_CODE = <<<'SAID'
+        A pull request's new code is judged against %s, and git cannot tell what changed since it,
+        so no floor for new code can be held. %s
+        Fetch the default branch into the checkout before the plan.
+        SAID;
+
     private const string PACKAGED = <<<'SAID'
         The package at %s has units to mutate, and the runner runs the suite of the project's root alone,
         which does not judge another package's code, so their mutants cannot be judged.
@@ -83,9 +91,14 @@ final readonly class Planning
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base());
         $shards = $cut->cut($this->workload($proving->toRun(), $inventory->trees, $ledgers), $inventory->trees);
         $shards = $shards instanceof Shards ? $this->rooted($shards) : $shards;
+        $changed = $this->newCode($inventory->standing, $reached);
 
         if ($shards instanceof CannotJudge) {
             return $shards;
+        }
+
+        if ($changed instanceof CannotJudge) {
+            return $changed;
         }
 
         $plan = Plan::of(
@@ -95,12 +108,35 @@ final readonly class Planning
             $shards,
         )
             ->on($inventory->standing->runOn())
-            ->reaching($reached->changed(), $reached->reach()->reasons())
+            ->reaching($changed, $reached->reach()->reasons())
             ->proving($this->unitsOf($proving->proved()))
             ->carrying($this->unitsOf($considering->carried()));
         $handed = new Handoff($this->adapters->project)->write($plan, $map);
 
         return $handed instanceof CannotJudge ? $handed : $plan;
+    }
+
+    /**
+     * The lines the verdict holds to the floor for new code: those the change
+     * added or modified. A pull request's new code is judged whatever the run
+     * considers, so where the run does not know its lines, as a full run
+     * does not, they are those since the default branch.
+     */
+    private function newCode(Standing $standing, Reached $reached): Changes|CannotJudge
+    {
+        $changed = $reached->changed();
+        $fetched = $standing->fetchedDefaultBranch();
+        $changed = $changed instanceof CannotTell && $standing->runOn()->isPullRequest()
+            ? Reached::linesSince($fetched, $this->adapters)
+            : $changed;
+
+        return match (true) {
+            $changed instanceof Changes => $changed,
+            $standing->runOn()->isPullRequest() => CannotJudge::because(
+                sprintf(self::NO_NEW_CODE, $fetched->name(), $changed->why()),
+            ),
+            default => Changes::none(),
+        };
     }
 
     /** The shards, where each is of the project's root package. */

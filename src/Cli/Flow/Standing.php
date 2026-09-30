@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function mb_strlen;
+use function mb_substr;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -26,6 +29,10 @@ use function sprintf;
 final readonly class Standing
 {
     private const string MAIN = 'main';
+
+    private const string BRANCH = 'refs/heads/';
+
+    private const string FETCHED = 'refs/remotes/origin/%s';
 
     private const string NO_HEAD = 'The commit HEAD is at cannot be read, so the run cannot be tied to one. %s';
 
@@ -71,6 +78,18 @@ final readonly class Standing
         $default = $this->runOn->defaultBranch();
 
         return $default instanceof Scope ? $default : Scope::branch(self::MAIN);
+    }
+
+    /** The default branch as a checkout that fetched it holds it, which a pull request is read against. */
+    public function fetchedDefaultBranch(): Revision
+    {
+        return self::fetched($this->defaultBranch());
+    }
+
+    /** A branch as a checkout that fetched it from `origin` holds it. */
+    public static function fetched(Scope $branch): Revision
+    {
+        return Revision::ref(sprintf(self::FETCHED, mb_substr($branch->ref(), mb_strlen(self::BRANCH))));
     }
 
     private static function runOf(RunOn|CannotTell $said, Repository $repository): RunOn

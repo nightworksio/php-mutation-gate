@@ -84,7 +84,7 @@ it('reaches every unit of a full run, for its reason', function () use ($money, 
     expect($reached->reach()->reaches($money))->toBeTrue()
         ->and($reached->reach()->reaches($held))->toBeTrue()
         ->and($reached->reach()->reasons())->toEqual(Reasons::of(Reason::that('A full run considers every unit.')))
-        ->and($reached->changed())->toEqual(Changes::none());
+        ->and($reached->changed())->toEqual(CannotTell::because('A full run considers every unit.'));
 });
 
 it('reaches what a source change reaches, and keeps the lines each change added or modified', function () use (
@@ -160,7 +160,7 @@ it('reaches nothing where only the commits a workflow is pinned at moved', funct
         ->and($reached->reach()->reaches($money))->toBeFalse();
 });
 
-it('reaches everything where git cannot tell what changed, and keeps no line', function () use ($held): void {
+it('reaches everything where git cannot tell what changed, and says why it keeps no line', function () use ($held): void {
     $checkout = new ChangeSourceFake(
         Revision::ref('elsewhere'),
         Changes::none(),
@@ -177,5 +177,5 @@ it('reaches everything where git cannot tell what changed, and keeps no line', f
     );
 
     expect($reached->reach()->reaches($held))->toBeTrue()
-        ->and($reached->changed())->toEqual(Changes::none());
+        ->and($reached->changed())->toEqual(CannotTell::because('base is not a revision this repository has.'));
 });

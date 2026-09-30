@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function mb_strlen;
-use function mb_substr;
-
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
-use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -25,10 +21,6 @@ use function sprintf;
  */
 final readonly class Baselines
 {
-    private const string BRANCH = 'refs/heads/';
-
-    private const string REMOTE = 'refs/remotes/origin/%s';
-
     private const string UNREAD = <<<'SAID'
         The baseline %s holds cannot be read,
         so a floor lowered here cannot be checked against it. %s
@@ -66,7 +58,7 @@ final readonly class Baselines
      */
     public function onDefaultBranch(Scope $defaultBranch): Baseline|CannotJudge
     {
-        $remote = Revision::ref(sprintf(self::REMOTE, mb_substr($defaultBranch->ref(), mb_strlen(self::BRANCH))));
+        $remote = Standing::fetched($defaultBranch);
         $contents = $this->adapters->changes->fileAt($this->file, $remote);
         $read = match (true) {
             $contents instanceof Contents => BaselineFile::decode($contents->text(), $this->file),

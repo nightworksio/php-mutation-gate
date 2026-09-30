@@ -25,18 +25,19 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 /**
  * What a run reaches: every unit for a full run, and otherwise what the
  * change since its base reaches, by the rules of ADR-0005, with the lines
- * each source file's change added or modified.
+ * each source file's change added or modified; or why those lines are not
+ * known, for a full run or where git cannot tell what changed.
  */
 final readonly class Reached
 {
-    private function __construct(private Reach $reach, private Changes $changed)
+    private function __construct(private Reach $reach, private Changes|CannotTell $changed)
     {
     }
 
     /** Every unit, for this reason. */
     public static function everything(Trees $trees, CannotTell $why): self
     {
-        return new self(Reach::nothing(Packages::of($trees))->everywhere(Reason::that($why->why())), Changes::none());
+        return new self(Reach::nothing(Packages::of($trees))->everywhere(Reason::that($why->why())), $why);
     }
 
     public static function since(
@@ -54,7 +55,15 @@ final readonly class Reached
             self::sources($changes, $base, $adapters, $suite->sources()),
         );
 
-        return new self($reach, $changes instanceof Changes ? self::withLines($changes) : Changes::none());
+        return new self($reach, $changes instanceof Changes ? self::withLines($changes) : $changes);
+    }
+
+    /** The lines each source file's change since a base added or modified, or why git cannot tell. */
+    public static function linesSince(Revision $base, Adapters $adapters): Changes|CannotTell
+    {
+        $changes = $adapters->changes->changesSince($base);
+
+        return $changes instanceof Changes ? self::withLines($changes) : $changes;
     }
 
     public function reach(): Reach
@@ -63,7 +72,7 @@ final readonly class Reached
     }
 
     /** The lines each source file's change added or modified, for the plan to hand the verdict. */
-    public function changed(): Changes
+    public function changed(): Changes|CannotTell
     {
         return $this->changed;
     }
