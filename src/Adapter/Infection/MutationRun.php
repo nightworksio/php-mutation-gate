@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
+use function dirname;
 use function file_put_contents;
+use function getenv;
+use function is_dir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+
+use function sprintf;
 
 /**
  * One run of Infection over a coverage directory: the config the gate writes
@@ -19,6 +25,9 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 final readonly class MutationRun
 {
+    /** The directory of the ini file that caps each mutant's memory. */
+    private const string MEMORY = 'php/%s';
+
     private const string STOPPED
         = 'Infection was stopped at its deadline, before it wrote its log, so no mutant of this run has a result.';
 
@@ -51,14 +60,21 @@ final readonly class MutationRun
         Targets $targets,
         Limits $limits,
     ): MutationResult|CannotJudge {
-        $ran = $this->shell->run(Invocation::mutation(
+        $invoked = Invocation::mutation(
             $this->project,
             $this->config,
             $request->judgedBy(),
             $coverage,
             $request->processes(),
             $targets->paths(),
-        )->withholding($request->withheld())->within($request->deadline()));
+        )->withholding($request->withheld())->within($request->deadline());
+        $command = $this->capped($invoked, $request->memory());
+
+        if ($command instanceof CannotJudge) {
+            return $command;
+        }
+
+        $ran = $this->shell->run($command);
 
         return $ran->wasStopped()
             ? CannotJudge::because(self::STOPPED)
@@ -69,6 +85,29 @@ final readonly class MutationRun
                 $limits,
                 $this->nativeMarkersAllowed,
             );
+    }
+
+    /**
+     * The command with every PHP process it starts, each mutant's PHPUnit
+     * among them, kept to the request's memory cap; or why the cap cannot be set.
+     */
+    private function capped(Command $command, MemoryCap $memory): Command|CannotJudge
+    {
+        if (! $memory->caps()) {
+            return $command;
+        }
+
+        $ini = $this->project->fresh($this->project->own(sprintf(self::MEMORY, MemoryCap::FILE)));
+
+        return match (true) {
+            $ini instanceof CannotJudge => $ini,
+            is_dir($ini) || file_put_contents($ini, $memory->ini()) === false => CannotJudge::because(
+                sprintf(MemoryCap::UNWRITTEN, $ini),
+            ),
+            default => $command->with([
+                MemoryCap::SCAN_DIR => MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), dirname($ini)),
+            ]),
+        };
     }
 
     /** What Infection allows each mutant, from the coverage the run reads. */

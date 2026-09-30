@@ -47,6 +47,7 @@ use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
@@ -366,6 +367,36 @@ it('mutates with a fresh results file, and reads what the plugin recorded', func
     expect($result)->toEqual(MutationResult::of(Mutants::of(adapterMutant()), 0))
         ->and($shell->commands())
         ->toEqual([adapterInvocation()->mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at))]);
+});
+
+it('keeps every PHP process of a capped run to the cap, through an ini file beside the results', function (): void {
+    $at = adapterProject();
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+    $capped = adapterMoney()->cappedAt(MemoryCap::standard());
+    $directory = sprintf('%s/.mutation-gate/pest/php', $at->root());
+
+    $result = new Pest($at, $shell, Patching::off())->mutate($capped);
+
+    expect($result)->toEqual(MutationResult::of(Mutants::of(adapterMutant()), 0))
+        ->and($shell->commands())->toEqual([
+            adapterInvocation()->mutation($capped, WholeSuite::tests(), adapterResults($at))->with([
+                MemoryCap::SCAN_DIR => MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $directory),
+            ]),
+        ])
+        ->and(file_get_contents(sprintf('%s/memory-cap.ini', $directory)))->toBe("memory_limit=1G\n");
+});
+
+it('cannot judge a capped run whose cap cannot be written', function (): void {
+    $at = adapterProject();
+    mkdir(sprintf('%s/.mutation-gate/pest/php/memory-cap.ini', $at->root()), recursive: true);
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    expect(new Pest($at, $shell, Patching::off())->mutate(adapterMoney()->cappedAt(MemoryCap::standard())))
+        ->toEqual(CannotJudge::because(sprintf(
+            'The memory cap cannot be written to %s/.mutation-gate/pest/php/memory-cap.ini. Make the directory writable.',
+            $at->root(),
+        )))
+        ->and($shell->commands())->toBe([]);
 });
 
 it('puts the likely killers first where the request asks, handing the plugin the history in a fresh order directory', function (): void {

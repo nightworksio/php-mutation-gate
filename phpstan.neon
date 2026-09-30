@@ -521,6 +521,8 @@ services:
             coincidences:
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
                     - STANDARD # runs of no test the plan times
+                'NightWorksIO\MutationGate\Core\Runner\MemoryUnit':
+                    - KILO # bytes in a kilobyte, as PHP counts one
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
                     - UNRELEASED # the package's own branch, in a link to its guide
                 'NightWorksIO\MutationGate\Core\Php\OwnMember':
