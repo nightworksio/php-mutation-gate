@@ -126,8 +126,10 @@ Two parts of that do not carry over to a public package.
      not whitespace, a comment or the opening tag. `costs.secondsPerLine` maps
      path prefixes to seconds per line, the longest matching prefix winning.
      The empty prefix matches every path, and the default is `{"": 0.2}`, so a
-     project adds prefixes of its own beside it. After one full CI run every
-     unit has been measured, and only new units are estimated.
+     project adds prefixes of its own beside it. Where a coverage map exists,
+     the estimate is instead coverage-weighted: mutants per line times the
+     time of each line's covering tests (ADR-0017). After one full CI run
+     every unit has been measured, and only new units are estimated.
    - **Costs decide placement only.** A cost decides which shard a unit goes to,
      never whether its mutants run. A wrong cost makes one runner slower, never
      a verdict wrong.
@@ -218,3 +220,4 @@ all proved plans zero shards and costs one planning job.
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): the ledger that holds proofs and timings
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the composite action and the reusable workflow
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the shard count from a target wall time, and the opening-run timings
+- [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the coverage-weighted cold start, and what a run saved

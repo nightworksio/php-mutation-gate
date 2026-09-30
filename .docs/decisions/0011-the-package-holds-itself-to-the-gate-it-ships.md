@@ -162,6 +162,8 @@ about Laravel, NativePHP or the project's modules, and does not.
    | analyze | CodeQL for the workflows, the reusable workflow and the action | yes |
    | scorecard | OpenSSF Scorecard | no |
    | full mutation | the weekly scheduled full run | no |
+   | runner canary | daily: the Runner contract suite against the newest Pest and Infection releases, red when one the `conflict` excludes passes (ADR-0017) | no |
+   | benchmark | `bench.yml`, on demand and monthly: the gate against plain Pest and Infection on four open-source projects (ADR-0017) | no |
 
 7. **The public API, and semantic versioning from 1.0.0.** What semver
    protects:
@@ -172,6 +174,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    - the file formats: the baseline, the JSON report, the ledger, and the plan
      as `plan --ci=json` prints it;
    - the problems output's line format (ADR-0015);
+   - `doctor`'s JSON output (ADR-0017);
    - the action's and the reusable workflow's inputs, outputs, secrets and job
      names;
    - the eight ports, `Extension`, `Extensions`, `Configurable`, the `Core`
@@ -238,7 +241,9 @@ about Laravel, NativePHP or the project's modules, and does not.
        to the `verdict` job; and `OTEL_EXPORTER_OTLP_ENDPOINT` and
        `OTEL_EXPORTER_OTLP_HEADERS`, passed to every job (ADR-0016).
      - **Outputs** are `verdict`, `scores` and `plan`, as the action's. The
-       reports are uploaded as the artifact `mutation-gate-reports`.
+       reports are uploaded as the artifact `mutation-gate-reports`, and a
+       baseline measured for trees with no floor as `mutation-gate-baseline`
+       (ADR-0017).
      - **Jobs:**
        - `plan` sets up as the action does, restores the ledgers, runs
          `plan --ci=github` and uploads `.mutation-gate` as an artifact. The
@@ -349,3 +354,4 @@ points at the ADR that decides it.
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the release gate covers every feature the README lists
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the problems output as public API, and the CI templates pinned to the package's own workflows
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): the reusable workflow's secrets for chat alerts and OpenTelemetry
+- [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the runner canary, the benchmark, `doctor`'s JSON and the measured-baseline artifact

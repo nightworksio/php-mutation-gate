@@ -180,6 +180,8 @@ itself, and goes up with the tests.
    There is deliberately no default floor, like the in-house gate, which has
    none: a tree that inherits a default is exempt from the decision rather than
    held to it.
+   In CI the run mutates before it refuses, and its message, step summary and
+   PR comment carry the baseline it measured, ready to commit (ADR-0017).
 
 ## Alternatives considered
 
@@ -216,3 +218,4 @@ failure message gives the command that writes it.
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): unjudged, flaky, timeouts and ignores
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): mutants proven equivalent
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): `trees[].exclude`
+- [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the first CI run measures before it refuses

@@ -50,9 +50,12 @@ cannot.
    - None present is zero-config (decision 5).
 
    `mutation-gate init --format=php|json|yaml|neon` (default `php`) writes a
-   starting file holding exactly what zero-config found, so adopting a file
-   changes nothing until somebody edits it. It also adds `.mutation-gate/` to
-   `.gitignore`. `init --ci=<provider>` also writes a CI definition, and
+   starting file holding what should stay fixed: the detected `runner` and
+   `preset`, and what its questions settled. Trees stay with the tree source,
+   and the ones it found are listed as a comment (ADR-0017, which supersedes
+   the snapshot of everything zero-config found). Adopting the file changes
+   nothing until somebody edits it. `init` also adds `.mutation-gate/` to
+   `.gitignore`, and asks only what detection cannot settle (ADR-0017). `init --ci=<provider>` also writes a CI definition, and
    `init --editor=vscode` the editor's task and recommendation, each only where
    no such file exists (ADR-0015). `init --from=<file>`, or `import <file>`,
    seeds the config from an Infection config and reports how each of its keys
@@ -169,7 +172,7 @@ cannot.
    |---------|---------|
    | Preset | `laravel` when `composer.json` requires `laravel/framework`, `symfony` when it requires `symfony/framework-bundle`, otherwise `library` (ADR-0008) |
    | Runner | Pest when `pestphp/pest-plugin-mutate` is installed, Infection when `infection/infection` is. Both installed stops the run (exit code 2) and asks the config to choose. |
-   | Trees | The `phpunit` tree source: one tree per `<directory>` and `<file>` under `<source><include>` in the `phpunit.xml` PHPUnit itself would read (`phpunit.xml`, else `phpunit.xml.dist`), minus `<source><exclude>`. Without a `<source>`, the preset's trees (ADR-0008); for `library` that is one tree per `autoload` path in `composer.json`, not `autoload-dev`. No tree at all is exit code 2. |
+   | Trees | The `phpunit` tree source: one tree per `<directory>` and `<file>` under `<source><include>` in the PHPUnit config PHPUnit itself would read (`phpunit.xml`, else `phpunit.dist.xml`, else `phpunit.xml.dist`), minus `<source><exclude>`. Without a `<source>`, the preset's trees (ADR-0008); for `library` that is one tree per `autoload` path in `composer.json`, not `autoload-dev`. No tree at all is exit code 2. |
    | Test directories | The `<directory>` entries under `<testsuites>` in the same file |
    | Floors | Each tree's declared floor from the nearest manifest, and its baseline floor (ADR-0003, ADR-0005); new code at 100 |
    | Proof store | A directory, `.mutation-gate/ledger`; in the GitHub Action, that directory kept in the Actions cache (ADR-0007) |
@@ -240,3 +243,4 @@ gate's own.
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): presets
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): `init --ci` and `init --editor`
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): `init --from`, and webhook URLs kept out of the config
+- [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): what `init` writes and asks, and the PHPUnit configs zero-config reads

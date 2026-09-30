@@ -168,6 +168,9 @@ has to bring its result with it.
      `gitlab:<CI_PIPELINE_ID>`, on Buildkite `buildkite:<BUILDKITE_BUILD_ID>`,
      on CircleCI `circleci:<CIRCLE_WORKFLOW_ID>`, and otherwise
      `local:<time of the run>`.
+   - Each proof also keeps the digest of each item of its content key, so
+     that `doctor` can name the file whose change invalidated most proofs
+     (ADR-0017). The digests are read for that alone, never to match a key.
    - A mutant that was not killed keeps its full record, so reports can show a
      proved survivor. A killed one keeps its id, line, mutator and status,
      which ignores and the stale-ignore check need (ADR-0008), and `killedBy`,
@@ -276,3 +279,4 @@ signed, and the README says where the boundary lies for each store.
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): `tests.order` in the key, the killer history and opening runs in the ledger, and forks reading the S3 store
 - [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): `killedBy` in the proof
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): `trees[].exclude` in the key
+- [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the per-item digests `doctor` reads
