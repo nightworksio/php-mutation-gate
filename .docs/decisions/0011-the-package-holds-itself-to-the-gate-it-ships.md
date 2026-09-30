@@ -38,7 +38,9 @@ about Laravel, NativePHP or the project's modules, and does not.
 ## Decision
 
 1. **The package gates itself with itself, at 100.**
-   - The config declares one tree, `src`, at floor 100 with new code at 100.
+   - The config declares one tree, `src`, at floor 100 with new code at 100,
+     and one tree for each first-party plugin's `plugins/<name>/src`, at the
+     same floor (ADR-0021).
      Uncovered mutants count (`uncovered: count`), so every line must be both
      covered and mutation-tested.
    - The declared floor is 100, so the baseline cannot hold it lower.
@@ -165,7 +167,8 @@ about Laravel, NativePHP or the project's modules, and does not.
    | analyze | CodeQL for the workflows, the reusable workflow and the action | yes |
    | scorecard | OpenSSF Scorecard | no |
    | full mutation | the weekly scheduled full run | no |
-   | runner canary | daily: the Runner contract suite against the newest Pest and Infection releases, red when one the `conflict` excludes passes (ADR-0017) | no |
+   | runner canary | daily: the Runner contract suite against the newest Pest and Infection releases, red when one the `conflict` excludes passes (ADR-0017), and against the newest release of every native runner's framework (ADR-0027) | no |
+   | phar | builds the PHAR and runs its smoke suite, publishing nothing (ADR-0022) | yes |
    | benchmark | `bench.yml`, on demand and monthly: the gate against plain Pest and Infection on four open-source projects (ADR-0017) | no |
    | the contributor bot | `bot-*.yml`: the relay, the explainer, the commands, the checklist and the release draft (ADR-0019) | no |
 
@@ -183,7 +186,8 @@ about Laravel, NativePHP or the project's modules, and does not.
      (ADR-0018);
    - the action's and the reusable workflow's inputs, outputs, secrets and job
      names;
-   - the nine ports, `Extension`, `Extensions`, `Configurable`, the `Core`
+   - the ten ports (ADR-0020), the `Mutator` layer and its testing kit
+     (ADR-0021), `Extension`, `Extensions`, `Configurable`, the `Core`
      value types the ports use, and the `#[Holds]` attribute.
 
    Everything else is marked `@internal`, and that includes
@@ -323,6 +327,7 @@ about Laravel, NativePHP or the project's modules, and does not.
     | PHP | 8.5 and later 8.x | 8.5; each later minor added when it is released and green |
     | Pest | `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0 (`conflict` outside the range the contract suite has passed), on the PHPUnit 13 release each Pest version pins | lowest and highest in range |
     | Infection | `infection/infection` ~0.35.0, with PHPUnit 12 or 13 | 0.35.x lowest and highest, each with PHPUnit 12 and 13 |
+    | Native runners | PHPUnit (ADR-0023); Codeception, PhpSpec and Testo (ADR-0027), each at the versions its contract suite has passed | lowest and highest in range |
     | Coverage driver | pcov or Xdebug | pcov |
     | `symfony/console`, `symfony/process`, `symfony/http-client`, `psr/clock` | ^7.4 \|\| ^8.0 for Symfony, ^1.0 for `psr/clock` | lowest and highest |
     | Optional: `symfony/yaml`, `nette/neon`, `async-aws/s3` | ^7.4 \|\| ^8.0, ^3.4 and ^3 | lowest and highest |
@@ -342,7 +347,7 @@ about Laravel, NativePHP or the project's modules, and does not.
 | **Renaming the copied rules to slugs** (`no-else`, `method-cap`) instead of rule IDs (`C5`, `H3`) | `TheRulesAreRealTest` and Guards match on `<ID> —` at the start of each message, and the rules are copied as they are, so IDs stay. They identify code rules, not requirements: the widened check refuses requirement IDs (`<AREA>-R<n>`), and a rule ID in a comment beside an expectation stays allowed. |
 | **Deptrac for layer rules** | Pest arch and PHPStan already run in the suite, and Guards proves each of their rules refuses a violation. |
 | **Release candidates before 1.0.0** | The approved decision is no release before every feature the README lists. A release candidate is a release people depend on. |
-| **A PHAR instead of a Composer package** | Would avoid Symfony version conflicts in consuming projects, but the Pest adapter's plugin, the `#[Holds]` attribute and extension discovery all need the package to be in the project's autoloader. Broad Symfony ranges are the answer to conflicts. |
+| **A PHAR instead of a Composer package** | Would avoid Symfony version conflicts in consuming projects, but the Pest adapter's plugin, the `#[Holds]` attribute and extension discovery all need the package to be in the project's autoloader. Broad Symfony ranges are the answer to conflicts. ADR-0022 supersedes this row: a signed PHAR and a container image ship *beside* the Composer package, and the PHAR refuses a Pest project, whose plugin only the Composer package installs. |
 | **Referring to the action from the reusable workflow by tag** (`nightworksio/php-mutation-gate@v1`) | The workflow and the action could then be different commits, and the package's own CI would judge a change to the action with the released one. Checking out the workflow's own commit keeps them one version. |
 
 ## Consequences
@@ -373,3 +378,8 @@ points at the ADR that decides it.
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the runner canary, the benchmark, `doctor`'s JSON and the measured-baseline artifact
 - [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the `docs` job, message slugs, signed commits on `main`, and the changelog and release notes
 - [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): the `pr` and `scripts` jobs, zizmor, the contributor bot, tag verification, and the OIDC roles
+- [ADR-0021](0021-mutators-are-written-once-and-first-party-sets-can-leave.md): the plugins' trees, and the mutator SDK as public API
+- [ADR-0022](0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md): the PHAR and the image, the `phar` job, and what a release publishes
+- [ADR-0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): the native PHPUnit runner
+- [ADR-0024](0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md): the Composer plugin published from `plugins/composer`, and the `.pre-commit-hooks.yaml` ids
+- [ADR-0027](0027-codeception-phpspec-and-testo-get-native-runners.md): the Codeception, PhpSpec and Testo runners
