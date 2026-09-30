@@ -148,7 +148,7 @@ final readonly class Init
         $presets = [...$settings->presets()];
         $config = [
             'preset' => count($presets) === 1 ? $presets[0] : $presets,
-            'runner' => $settings->runner()->use(),
+            'runner' => $settings->runner()->choice()->use(),
             'trees' => array_map(self::tree(...), [...$trees]),
         ];
 

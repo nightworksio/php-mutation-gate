@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -64,11 +65,13 @@ const DEFAULTS = <<<'JSON'
             }
         },
         "ci": {
+            "check": "mutation / verdict",
             "gitlab": {
                 "template": ".gitlab/mutation-gate.yml"
             },
             "buildkite": {
-                "step": {}
+                "step": {},
+                "definition": ".buildkite/pipeline.yml"
             }
         },
         "proofs": {
@@ -124,7 +127,7 @@ const EVERYTHING = [
     '$schema' => 'resources/mutation-gate.schema.json',
     'extensions' => ['Acme\\GateSlack\\SlackExtension'],
     'preset' => ['laravel', 'acme'],
-    'runner' => ['use' => 'infection', 'with' => []],
+    'runner' => ['use' => 'infection', 'with' => [], 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH']],
     'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app', 'lib']]],
     'trees' => [
         ['path' => 'app/Domain', 'floor' => 100],
@@ -143,8 +146,9 @@ const EVERYTHING = [
     'ci' => [
         'plan' => 'gitlab',
         'defaultBranch' => 'trunk',
+        'check' => 'gate / verdict',
         'gitlab' => ['template' => '.gitlab/gate.yml'],
-        'buildkite' => ['step' => ['agents' => ['queue' => 'mutation']]],
+        'buildkite' => ['step' => ['agents' => ['queue' => 'mutation']], 'definition' => '.buildkite/mutation.yml'],
     ],
     'proofs' => [
         'store' => ['use' => 's3', 'with' => ['bucket' => 'proofs', 'endpoint' => 'https://r2.example.com']],
@@ -192,7 +196,7 @@ it('reads the defaults into their types', function (): void {
 
     expect([...$settings->extensions()])->toBe([])
         ->and([...$settings->presets()])->toBe([])
-        ->and($settings->runner())->toEqual(Choice::of('pest', '{}'))
+        ->and($settings->runner()->choice())->toEqual(Choice::of('pest', '{}'))
         ->and($settings->treeSource())->toEqual(Choice::of('phpunit', '{"fallback":[]}'))
         ->and($floors->trees())->toEqual(Absent::setting())
         ->and($floors->newCode())->toEqual(Floor::of(100))
@@ -207,8 +211,11 @@ it('reads the defaults into their types', function (): void {
         ->and([...$settings->shards()->secondsPerLine()])->toBe(['' => 0.2])
         ->and($settings->ci()->plan())->toEqual(Absent::setting())
         ->and($settings->ci()->defaultBranch())->toEqual(Absent::setting())
+        ->and($settings->ci()->check())->toBe('mutation / verdict')
         ->and($settings->ci()->gitlabTemplate())->toEqual(Path::of('.gitlab/mutation-gate.yml'))
         ->and($settings->ci()->buildkiteStep())->toBe('{}')
+        ->and($settings->ci()->buildkiteDefinition())->toEqual(Path::of('.buildkite/pipeline.yml'))
+        ->and($settings->runner()->withhold())->toEqual(Withheld::nothing())
         ->and($settings->proofs()->store())->toEqual(Choice::of('directory', '{"path":".mutation-gate/ledger"}'))
         ->and([...$settings->proofs()->ignore()])->toBe([])
         ->and($settings->proofs()->write())->toBe(ProofWriting::Auto)
@@ -239,7 +246,8 @@ it('reads every setting a config writes into its type', function (): void {
 
     expect([...$settings->extensions()])->toBe(['Acme\\GateSlack\\SlackExtension'])
         ->and([...$settings->presets()])->toBe(['laravel', 'acme'])
-        ->and($settings->runner())->toEqual(Choice::of('infection', '{}'))
+        ->and($settings->runner()->choice())->toEqual(Choice::of('infection', '{}'))
+        ->and($settings->runner()->withhold())->toEqual(Withheld::of('DEPLOY_*', 'COMPOSER_AUTH'))
         ->and($settings->treeSource())->toEqual(Choice::of('phpunit', '{"fallback":["app","lib"]}'))
         ->and(array_map(
             static fn(DeclaredTree $tree): array => [$tree->path()->value(), $tree->declared()],
@@ -262,8 +270,10 @@ it('reads every setting a config writes into its type', function (): void {
         ->and([...$settings->shards()->secondsPerLine()])->toBe(['' => 0.25, 'src/Legacy' => 2.0])
         ->and($ci->plan())->toEqual(Choice::of('gitlab', '{}'))
         ->and($ci->defaultBranch())->toBe('trunk')
+        ->and($ci->check())->toBe('gate / verdict')
         ->and($ci->gitlabTemplate())->toEqual(Path::of('.gitlab/gate.yml'))
         ->and($ci->buildkiteStep())->toBe('{"agents":{"queue":"mutation"}}')
+        ->and($ci->buildkiteDefinition())->toEqual(Path::of('.buildkite/mutation.yml'))
         ->and($proofs->store())->toEqual(Choice::of(
             's3',
             '{"bucket":"proofs","prefix":"mutation-gate","region":"us-east-1","endpoint":"https://r2.example.com"}',
@@ -313,6 +323,33 @@ it('reads each report with its reporter and where it is written', function (): v
     ]);
 });
 
+it('shows what the runner withholds beside the runner, and only where it withholds anything', function (): void {
+    $withholding = Configs::settings(['runner' => ['use' => 'pest', 'withhold' => ['DEPLOY_*']]]);
+
+    expect(Configs::shown($withholding, 'runner'))->toBe(['use' => 'pest', 'withhold' => ['DEPLOY_*']])
+        ->and(Configs::shown(Configs::settings(['runner' => ['use' => 'pest']]), 'runner'))->toBe('pest')
+        ->and(Configs::shown(Configs::settings(EVERYTHING), 'runner'))
+        ->toBe(['use' => 'infection', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH']]);
+});
+
+it('refuses a runner that withholds without naming the runner, or withholds anything but names', function (
+    array $runner,
+    string $problem,
+): void {
+    expect(Configs::problems(Configs::validated(['runner' => $runner])))->toBe([$problem]);
+})->with([
+    'no runner at all' => [['withhold' => ['DEPLOY_*']], 'runner.use: expected a name or a class, got nothing'],
+    'options for no runner' => [['with' => ['a' => 1]], 'runner.use: expected a name or a class, got nothing'],
+    'one name, not a list' => [
+        ['use' => 'pest', 'withhold' => 'DEPLOY_*'],
+        'runner.withhold: expected a list, got "DEPLOY_*"',
+    ],
+    'an empty name' => [
+        ['use' => 'pest', 'withhold' => ['']],
+        'runner.withhold[0]: expected a variable name or a glob, got ""',
+    ],
+]);
+
 it('leaves an ignore without an end date open when nothing limits it', function (): void {
     $settings = Configs::settings([
         'runner' => 'pest',
@@ -351,6 +388,7 @@ it('keeps the settings that only judge or report out of the canonical form', fun
         'ignores' => ['entries' => []],
         'budget' => '5m',
         'proofs' => ['write' => 'auto'],
+        'runner' => ['use' => 'infection', 'with' => []],
     ];
 
     expect(Configs::settings($judging)->canonical())->toBe(Configs::settings(EVERYTHING)->canonical());
@@ -585,13 +623,22 @@ it('reads an adapter written as an object, checking a built-in one\'s options st
         ->toBe(['runner: expected a name, a class, or an object with use and with, got ""']);
 });
 
+it('refuses an adapter written as neither a name nor an object', function (string $key, array $config): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', ...$config])))
+        ->toBe([sprintf('%s: expected a name, a class, or an object with use and with, got 5', $key)]);
+})->with([
+    'the tree source' => ['treeSource', ['treeSource' => 5]],
+    'the CI plan' => ['ci.plan', ['ci' => ['plan' => 5]]],
+    'the proof store' => ['proofs.store', ['proofs' => ['store' => 5]]],
+]);
+
 it('leaves the options of a class or another extension\'s adapter to it', function (): void {
     $settings = Configs::settings([
         'runner' => ['use' => 'Acme\\Gate\\Runner', 'with' => ['workers' => 4]],
         'proofs' => ['store' => 'Acme\\Gate\\Store'],
     ]);
 
-    expect($settings->runner())->toEqual(Choice::of('Acme\\Gate\\Runner', '{"workers":4}'))
+    expect($settings->runner()->choice())->toEqual(Choice::of('Acme\\Gate\\Runner', '{"workers":4}'))
         ->and($settings->proofs()->store())->toEqual(Choice::of('Acme\\Gate\\Store', '{}'))
         ->and(Configs::shown($settings, 'runner'))->toBe(['use' => 'Acme\\Gate\\Runner', 'with' => ['workers' => 4]]);
 });

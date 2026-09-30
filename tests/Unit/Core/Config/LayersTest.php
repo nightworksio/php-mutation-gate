@@ -67,6 +67,25 @@ it('lays a later config over an earlier one', function (array $earlier, array $l
             'proofs' => ['store' => ['use' => 'directory'], 'write' => 'never'],
         ],
     ],
+    'what a runner withholds only grows, whichever runner a later layer chooses' => [
+        ['runner' => ['use' => 'pest', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH']]],
+        ['runner' => ['use' => 'infection', 'with' => ['a' => 1], 'withhold' => ['COMPOSER_AUTH', 'NPM_TOKEN']]],
+        ['runner' => [
+            'use' => 'infection',
+            'with' => ['a' => 1],
+            'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH', 'NPM_TOKEN'],
+        ]],
+    ],
+    'a runner named alone keeps what an earlier layer withholds' => [
+        ['runner' => ['use' => 'pest', 'withhold' => ['DEPLOY_*']]],
+        ['runner' => 'infection'],
+        ['runner' => ['use' => 'infection', 'withhold' => ['DEPLOY_*']]],
+    ],
+    'a layer that only withholds keeps the runner before it' => [
+        ['runner' => 'pest'],
+        ['runner' => ['withhold' => ['DEPLOY_*']]],
+        ['runner' => ['use' => 'pest', 'withhold' => ['DEPLOY_*']]],
+    ],
     'a map below the top merges too' => [
         ['ci' => ['gitlab' => ['template' => 'a.yml']]],
         ['ci' => ['buildkite' => ['step' => []]]],

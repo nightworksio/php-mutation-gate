@@ -330,6 +330,13 @@ its parser attributes. Both change when the checkout moves.
        `PARATEST`, `TEST_TOKEN`, `UNIQUE_TEST_TOKEN`) and no credential
        (`AWS_*`, `GITHUB_TOKEN`, `SONAR_TOKEN`, `ACTIONS_*`), because the
        project's tests and every mutant of its code run in them.
+     - A project withholds its own credentials from either runner with
+       `runner.withhold`, a list of variable names or globs whose `*` stands
+       for any run of characters, such as `DEPLOY_*` or `COMPOSER_AUTH`. It
+       only adds to what every run withholds, and it only grows: each layer of
+       config adds its own to the earlier layers', whichever runner a later
+       layer chooses, and a layer may write `withhold` alone for zero-config to
+       find the runner. It is not part of a proof's key (ADR-0007).
      - A run stopped at its deadline is *cannot judge*: Infection writes its
        logs only when it finishes, so no mutant of such a run has a result.
        A stopped run is stopped with every process it started.

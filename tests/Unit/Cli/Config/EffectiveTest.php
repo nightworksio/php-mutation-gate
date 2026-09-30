@@ -9,9 +9,11 @@ use NightWorksIO\MutationGate\Cli\Config\Given;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\ChosenRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
@@ -84,7 +86,28 @@ it('lays the config file over its presets, and the command line over both', func
 it('takes the runner from the config file before looking for one', function () use ($effective, $nothing): void {
     $settings = $effective(Tree::at('tests/Fixtures/Projects/Configured'))->settings($nothing());
 
-    expect($settings instanceof Settings ? $settings->runner() : $settings)->toEqual(Choice::of('infection', '{}'));
+    expect($settings instanceof Settings ? $settings->runner()->choice() : $settings)
+        ->toEqual(Choice::of('infection', '{}'));
+});
+
+it('finds the runner of a config that only says what it withholds', function () use ($effective, $nothing): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
+    Scratch::write($project, 'mutation-gate.json', '{"runner": {"withhold": ["DEPLOY_*"]}}');
+    $settings = $effective($project)->settings($nothing());
+    $runner = $settings instanceof Settings ? $settings->runner() : $settings;
+
+    expect($runner instanceof ChosenRunner ? [$runner->choice(), $runner->withhold()] : $runner)
+        ->toEqual([Choice::of('pest', '{}'), Withheld::of('DEPLOY_*')]);
+});
+
+it('keeps what the config withholds where the command line chooses the runner', function () use ($effective): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
+    Scratch::write($project, 'mutation-gate.json', '{"runner": {"use": "pest", "withhold": ["DEPLOY_*"]}}');
+    $settings = $effective($project)->settings(new Given('', 'infection', [], '', '', firstPartyOnly: false));
+    $runner = $settings instanceof Settings ? $settings->runner() : $settings;
+
+    expect($runner instanceof ChosenRunner ? [$runner->choice(), $runner->withhold()] : $runner)
+        ->toEqual([Choice::of('infection', '{}'), Withheld::of('DEPLOY_*')]);
 });
 
 it('applies a list of presets in order, the later winning', function () use (
@@ -163,7 +186,8 @@ it('lets the command line choose the runner where two are installed', function (
     $settings = $effective(Tree::at('tests/Fixtures/Projects/TwoRunners'))
         ->settings(new Given('', 'infection', [], '', '', firstPartyOnly: false));
 
-    expect($settings instanceof Settings ? $settings->runner() : $settings)->toEqual(Choice::of('infection', '{}'));
+    expect($settings instanceof Settings ? $settings->runner()->choice() : $settings)
+        ->toEqual(Choice::of('infection', '{}'));
 });
 
 it('reports a preset nothing registered at its path, with every other problem', function (

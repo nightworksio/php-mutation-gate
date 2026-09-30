@@ -230,7 +230,8 @@ has to bring its result with it.
      the first killer depends on the order the tests ran in (ADR-0013).
    - `passed` records the newest commit of this scope whose verdict passed.
      That commit is the `last-passed` base (ADR-0005). `check` is the name of
-     the check-run the verdict reported under, and `ownScopeProofs` is how
+     the check-run the verdict reported under, the one `ci.check` names
+     (`mutation / verdict` by default), and `ownScopeProofs` is how
      many proofs of this scope's own ledger that verdict used. A pull
      request's passing run is trusted on the default branch only where it
      used none, because its own code could have written them, and only as the

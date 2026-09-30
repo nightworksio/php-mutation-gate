@@ -56,10 +56,15 @@ final readonly class Reading
         return self::refused([Problem::at($at, sprintf('expected %s, got %s', $expected, Got::of($got)))]);
     }
 
-    /** This value, which affects results as it is shown when the setting it belongs to does. */
+    /**
+     * This value, which affects results as it is shown when the setting it belongs to does, unless it already
+     * says which part of it does.
+     */
     public function under(Effect $effect): self
     {
-        return $effect === Effect::AffectsResults ? clone($this, ['results' => $this->shown]) : $this;
+        return $effect === Effect::AffectsResults && $this->results instanceof Absent
+            ? clone($this, ['results' => $this->shown])
+            : $this;
     }
 
     public function value(): mixed

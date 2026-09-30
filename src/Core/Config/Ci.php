@@ -15,8 +15,10 @@ final readonly class Ci
     public function __construct(
         private Choice|Absent $plan,
         private string|Absent $defaultBranch,
+        private string $check,
         private Path $gitlabTemplate,
         private string $buildkiteStep,
+        private Path $buildkiteDefinition,
     ) {
     }
 
@@ -32,6 +34,15 @@ final readonly class Ci
         return $this->defaultBranch;
     }
 
+    /**
+     * `ci.check`: the name of the check-run the verdict reports under, which a passing run's proof records and a
+     * pull request's passing run is trusted by (ADR-0007).
+     */
+    public function check(): string
+    {
+        return $this->check;
+    }
+
     /** The file whose hidden `.mutation-gate` job GitLab's generated jobs extend. */
     public function gitlabTemplate(): Path
     {
@@ -42,5 +53,14 @@ final readonly class Ci
     public function buildkiteStep(): string
     {
         return $this->buildkiteStep;
+    }
+
+    /**
+     * `ci.buildkite.definition`: the pipeline file that runs the gate under Buildkite, which reach and the proof
+     * key count as its CI definition, since no Buildkite variable names the file a pipeline was uploaded from.
+     */
+    public function buildkiteDefinition(): Path
+    {
+        return $this->buildkiteDefinition;
     }
 }
