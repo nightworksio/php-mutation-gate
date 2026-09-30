@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Time\Day;
+
+use function sprintf;
 
 /** One mutant the config ignores, by the gate's id, with the reason and when the ignore ends (ADR-0008). */
 final readonly class IgnoredMutant implements Ignored
@@ -32,5 +36,26 @@ final readonly class IgnoredMutant implements Ignored
     public function expires(): Day|Absent
     {
         return $this->expires;
+    }
+
+    public function written(Origin $origin): Json
+    {
+        $written = Json::object(
+            Member::of('mutant', $this->mutant->value()),
+        )->with(Member::of('reason', $this->reason));
+
+        return $this->expires instanceof Day
+            ? $written->with(Member::of('expires', $this->expires->value()))
+            : $written;
+    }
+
+    public function php(Origin $origin): string
+    {
+        return sprintf(
+            'Ignore::mutant(%s, because: %s%s)',
+            PhpCalls::literal($this->mutant->value()),
+            PhpCalls::literal($this->reason),
+            $this->expires instanceof Day ? sprintf(', until: %s', PhpCalls::literal($this->expires->value())) : '',
+        );
     }
 }

@@ -13,7 +13,7 @@ use function is_file;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
@@ -65,7 +65,7 @@ final readonly class Plan
         $killers = KillersRecord::of($history, array_flip($tests));
         $plan = [LedgerFile::TESTS => $tests, KillersRecord::SECTION => $killers];
 
-        file_put_contents(self::in($directory), Json::compact($plan));
+        file_put_contents(self::in($directory), JsonText::compact($plan));
     }
 
     public static function read(string $directory): KillHistory

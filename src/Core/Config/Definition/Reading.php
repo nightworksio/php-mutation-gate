@@ -4,82 +4,128 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use function array_values;
+
+use Closure;
 use NightWorksIO\MutationGate\Core\Config\Absent;
-use NightWorksIO\MutationGate\Core\Config\Effect;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 
-use function sprintf;
-
 /**
- * One value read from a config: its typed value, the form the effective
- * config shows it in, the part of it that affects results, and every problem
- * found reading it. A value with a problem has no typed value.
+ * One value read from a config: its typed value, nothing where it was not
+ * written, or every problem found reading it. A value with a problem has no
+ * typed value.
+ *
+ * @template-covariant T of object|scalar = never
  */
 final readonly class Reading
 {
-    /** @param list<Problem> $problems */
-    private function __construct(
-        private mixed $value,
-        private mixed $shown,
-        private mixed $results,
-        private array $problems,
-    ) {
-    }
-
-    /** A value read cleanly, and how it is shown. */
-    public static function of(mixed $value, mixed $shown): self
+    /**
+     * @phpstan-param T|Absent $value
+     *
+     * @param list<Problem> $problems
+     */
+    private function __construct(private object|string|int|float|bool $value, private array $problems)
     {
-        return new self($value, $shown, Absent::setting(), []);
-    }
-
-    /** A value read cleanly, with the part of it that affects results. */
-    public static function affecting(mixed $value, mixed $shown, mixed $results): self
-    {
-        return new self($value, $shown, $results, []);
-    }
-
-    /** A value nobody wrote and nothing defaults. */
-    public static function nothing(): self
-    {
-        return new self(Absent::setting(), Absent::setting(), Absent::setting(), []);
-    }
-
-    /** @param list<Problem> $problems */
-    public static function refused(array $problems): self
-    {
-        return new self(Absent::setting(), Absent::setting(), Absent::setting(), $problems);
-    }
-
-    /** A value that is not what its definition asks for. */
-    public static function mismatch(string $at, string $expected, mixed $got): self
-    {
-        return self::refused([Problem::at($at, sprintf('expected %s, got %s', $expected, Got::of($got)))]);
     }
 
     /**
-     * This value, which affects results as it is shown when the setting it belongs to does, unless it already
-     * says which part of it does.
+     * A value read cleanly.
+     *
+     * @template U of object|scalar
+     *
+     * @param  U         $value
+     * @return self<U>
      */
-    public function under(Effect $effect): self
+    public static function of(object|string|int|float|bool $value): self
     {
-        return $effect === Effect::AffectsResults && $this->results instanceof Absent
-            ? clone($this, ['results' => $this->shown])
-            : $this;
+        return new self($value, []);
     }
 
-    public function value(): mixed
+    /**
+     * A value nobody wrote.
+     *
+     * @return self<never>
+     */
+    public static function nothing(): self
+    {
+        return new self(Absent::setting(), []);
+    }
+
+    /** @return self<never> */
+    public static function refused(Problem $problem, Problem ...$more): self
+    {
+        return new self(Absent::setting(), [$problem, ...array_values($more)]);
+    }
+
+    /**
+     * A value built from others, or every problem with them.
+     *
+     * @return self<never>
+     */
+    public static function invalid(Invalid $invalid): self
+    {
+        return new self(Absent::setting(), [...$invalid]);
+    }
+
+    /**
+     * Every problem in these readings, or none.
+     *
+     * @param self<object|scalar> ...$readings
+     */
+    public static function problemsIn(self ...$readings): Invalid|Absent
+    {
+        $problems = [];
+
+        foreach ($readings as $reading) {
+            $problems = [...$problems, ...$reading->problems];
+        }
+
+        return $problems === [] ? Absent::setting() : Invalid::because(...$problems);
+    }
+
+    /**
+     * What a builder makes of these readings, or every problem with them, where there is one.
+     *
+     * @template U of object
+     *
+     * @param  Closure(): (U|Invalid)                              $build
+     * @param  self<object|scalar>            ...$readings
+     * @return U|Invalid
+     */
+    public static function built(Closure $build, self ...$readings): object
+    {
+        $problems = self::problemsIn(...$readings);
+
+        return $problems instanceof Invalid ? $problems : $build();
+    }
+
+    /** @return T|Absent the value, or nothing where it was not written or could not be read */
+    public function value(): object|string|int|float|bool
     {
         return $this->value;
     }
 
-    public function shown(): mixed
+    /**
+     * The value of a reading that must have one, such as a required setting of an object read without problems.
+     *
+     * @return T
+     */
+    public function must(): object|string|int|float|bool
     {
-        return $this->shown;
+        return $this->value instanceof Absent
+            ? throw MisreadSetting::nothingIn('a setting that must be written')
+            : $this->value;
     }
 
-    public function results(): mixed
+    /**
+     * This reading's problems, or nothing where it has none, holding no value.
+     *
+     * @return self<never>
+     */
+    public function withoutValue(): self
     {
-        return $this->results;
+        return new self(Absent::setting(), $this->problems);
     }
 
     /** @return list<Problem> */

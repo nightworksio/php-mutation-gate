@@ -6,9 +6,9 @@ use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
-use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Support\Registering;
 

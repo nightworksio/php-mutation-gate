@@ -7,8 +7,8 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 use DateTimeImmutable;
 use NightWorksIO\MutationGate\Cli\Console;
 use NightWorksIO\MutationGate\Cli\FirstParty;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Origin;
 
 use function sprintf;
 

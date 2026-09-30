@@ -4,68 +4,82 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use Closure;
+use function array_map;
+
 use DateTimeImmutable;
-use NightWorksIO\MutationGate\Core\Config\Definition\At;
-use NightWorksIO\MutationGate\Core\Config\Definition\Fields;
-use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Time\Day;
 
 use function sprintf;
 
-/** Equivalent mutants the config ignores (ADR-0008): `ignores.entries`, `ignores.maxDays`, `ignores.native`. */
-final readonly class Ignores
+/**
+ * Equivalent mutants (ADR-0008, ADR-0013): those the config ignores,
+ * `ignores.entries`, how long an ignore may last, `ignores.maxDays`, what the
+ * runners' own markers do, `ignores.native`, and whether a mutant the
+ * optimizer compiles as its original is proven equivalent,
+ * `equivalence.static`.
+ */
+final readonly class Ignores implements Part
 {
-    /** @param Listed<Ignored> $entries */
-    public function __construct(private Listed $entries, private int|Absent $maxDays, private NativeMarkers $native)
-    {
+    /** @param Listed<Ignored>|Absent $entries */
+    private function __construct(
+        private Listed|Absent $entries,
+        private int|Absent $maxDays,
+        private NativeMarkers|Absent $native,
+        private bool|Absent $staticEquivalence,
+    ) {
     }
 
-    /**
-     * The ignores a config's `ignores` object makes, or every entry that does not expire within `ignores.maxDays`
-     * of now; with no instant, no expiry is judged.
-     *
-     * @return Closure(Fields, string): (self|Invalid)
-     */
-    public static function read(DateTimeImmutable|Absent $now): Closure
-    {
-        return static function (Fields $read, string $at) use ($now): self|Invalid {
-            $ignores = new self(
-                Listed::of($read->objects('entries', Ignored::class)),
-                $read->has('maxDays') ? $read->int('maxDays') : Absent::setting(),
-                $read->object('native', NativeMarkers::class),
-            );
-            $late = $ignores->late($now, $at);
-
-            return $late === [] ? $ignores : Invalid::because(...$late);
-        };
+    /** @param Listed<Ignored>|Absent $entries */
+    public static function of(
+        Listed|Absent $entries = new Absent(),
+        int|Absent $maxDays = new Absent(),
+        NativeMarkers|Absent $native = new Absent(),
+        bool|Absent $staticEquivalence = new Absent(),
+    ): self {
+        return new self($entries, $maxDays, $native, $staticEquivalence);
     }
 
-    /** An `ignores.entries` entry: one mutant by its id, or a mutator in the paths a glob matches. */
-    public static function entry(Fields $read, string $at): IgnoredMutant|IgnoredPattern|Invalid
+    public static function none(): self
     {
-        $mutant = $read->optional('mutant', MutantId::class);
-        $pattern = $read->has('path') || $read->has('mutator');
-        $expires = $read->optional('expires', Day::class);
+        return self::of();
+    }
 
-        return match (true) {
-            $mutant instanceof MutantId && ! $pattern => IgnoredMutant::of($mutant, $read->string('reason'), $expires),
-            $mutant instanceof Absent && $read->has('path') && $read->has('mutator') => IgnoredPattern::of(
-                $read->string('path'),
-                $read->string('mutator'),
-                $read->string('reason'),
-                $expires,
-            ),
-            default => Invalid::because(
-                Problem::at($at, 'expected either mutant, or path and mutator, but not both'),
-            ),
-        };
+    public static function standard(): self
+    {
+        $none = self::none();
+
+        return self::of(
+            entries: $none->entries(),
+            native: $none->native(),
+            staticEquivalence: $none->staticEquivalence(),
+        );
+    }
+
+    public function over(Part $later): self
+    {
+        return $later instanceof self
+            ? new self(
+                match (true) {
+                    $later->entries instanceof Absent => $this->entries,
+                    $this->entries instanceof Absent => $later->entries,
+                    default => $this->entries->and(
+                        $later->entries,
+                        static fn(Ignored $ignored): string => $ignored->written(ProjectRoot::origin())->line(),
+                    ),
+                },
+                Absent::laid($this->maxDays, $later->maxDays),
+                Absent::laid($this->native, $later->native),
+                Absent::laid($this->staticEquivalence, $later->staticEquivalence),
+            )
+            : $this;
     }
 
     /** @return Listed<Ignored> each an IgnoredMutant or an IgnoredPattern */
     public function entries(): Listed
     {
-        return $this->entries;
+        return $this->entries instanceof Listed ? $this->entries : Listed::of();
     }
 
     /** How many days from a run every entry must expire within, or none, when entries may never expire. */
@@ -76,29 +90,34 @@ final readonly class Ignores
 
     public function native(): NativeMarkers
     {
-        return $this->native;
+        return $this->native instanceof NativeMarkers ? $this->native : NativeMarkers::Refuse;
+    }
+
+    /** `equivalence.static`: whether a mutant the optimizer compiles as its original is proven equivalent. */
+    public function staticEquivalence(): bool
+    {
+        return $this->staticEquivalence instanceof Absent || $this->staticEquivalence;
     }
 
     /**
-     * Every entry that does not expire within `maxDays` of now.
+     * Every entry that does not expire within `maxDays` of now, at its path.
      *
-     * @return list<Problem>
      */
-    private function late(DateTimeImmutable|Absent $now, string $at): array
+    public function late(DateTimeImmutable $now): Invalid|Absent
     {
-        if ($this->maxDays instanceof Absent || $now instanceof Absent) {
-            return [];
+        if ($this->maxDays instanceof Absent) {
+            return Absent::setting();
         }
 
         $latest = Day::on($now->modify(sprintf('+%d days', $this->maxDays)));
         $late = [];
 
-        foreach ($this->entries as $index => $entry) {
+        foreach ($this->entries() as $index => $entry) {
             $expires = $entry->expires();
 
             if ($expires instanceof Absent || $latest->isBefore($expires)) {
                 $late[] = Problem::at(
-                    At::key(At::index(At::key($at, 'entries'), $index), 'expires'),
+                    sprintf('ignores.entries[%d].expires', $index),
                     sprintf(
                         'expected a date by %s, within ignores.maxDays of today, got %s',
                         $latest->value(),
@@ -108,6 +127,49 @@ final readonly class Ignores
             }
         }
 
-        return $late;
+        return $late === [] ? Absent::setting() : Invalid::because(...$late);
+    }
+
+    public function written(Origin $origin): Json
+    {
+        $entries = $this->entries instanceof Listed ? Json::items(...array_map(
+            static fn(Ignored $ignored): Json => $ignored->written($origin),
+            [...$this->entries],
+        )) : $this->entries;
+
+        return Json::object(
+            Member::unlessEmpty(
+                'ignores',
+                Json::object(
+                    Member::of('entries', $entries),
+                    Member::of('maxDays', $this->maxDays),
+                    Member::of('native', $this->native instanceof NativeMarkers ? $this->native->value : $this->native),
+                ),
+            ),
+            Member::unlessEmpty('equivalence', Json::object(Member::of('static', $this->staticEquivalence))),
+        );
+    }
+
+    public function php(Origin $origin): PhpCalls
+    {
+        $entries = $this->entries instanceof Listed && [...$this->entries] !== []
+            ? PhpCalls::onGate(
+                'ignoring',
+                ...array_map(static fn(Ignored $ignored): string => $ignored->php($origin), [
+                    ...$this->entries,
+                ]),
+            )
+            : PhpCalls::none();
+
+        return $entries->and(PhpCalls::inWith(...[
+            ...$this->maxDays instanceof Absent ? [] : [sprintf('Ignores::within(%d)', $this->maxDays)],
+            ...$this->native instanceof NativeMarkers ? [match ($this->native) {
+                NativeMarkers::Refuse => 'Ignores::refusingNativeMarkers()',
+                NativeMarkers::Allow => 'Ignores::allowingNativeMarkers()',
+            }] : [],
+            ...$this->staticEquivalence instanceof Absent ? [] : [
+                $this->staticEquivalence ? 'Equivalence::provenStatically()' : 'Equivalence::notProvenStatically()',
+            ],
+        ]));
     }
 }

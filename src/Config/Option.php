@@ -6,7 +6,8 @@ namespace NightWorksIO\MutationGate\Config;
 
 use function array_values;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Json;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 /**
  * One option written beside an adapter, under `with`: `Option::of('channel', '#ci')`.
@@ -14,18 +15,18 @@ use NightWorksIO\MutationGate\Core\Config\Definition\Json;
  */
 final readonly class Option
 {
-    private function __construct(private string $key, private string $json)
+    private function __construct(private string $key, private Json|string|int|float|bool $value)
     {
     }
 
     public static function of(string $key, string|int|float|bool $value): self
     {
-        return new self($key, Json::encode($value));
+        return new self($key, $value);
     }
 
     public static function list(string $key, string|int|float|bool ...$values): self
     {
-        return new self($key, Json::encode(array_values($values)));
+        return new self($key, Json::items(...array_values($values)));
     }
 
     /** An option whose value is an object of options. */
@@ -35,28 +36,22 @@ final readonly class Option
     }
 
     /** Options as the JSON object they make, `{}` when there are none. */
-    public static function object(self ...$options): string
+    public static function object(self ...$options): Json
     {
-        $object = [];
+        $object = Json::object();
 
         foreach ($options as $option) {
-            $object[$option->key] = Json::decode($option->json);
+            $object = $object->with(Member::of($option->key, $option->value));
         }
 
-        return Json::encode(Json::object($object));
+        return $object;
     }
 
     /** An adapter as a setting chooses it: its name alone, or `{"use": …, "with": …}` when it has options. */
-    public static function choice(string $use, self ...$options): string
+    public static function choice(string $use, self ...$options): Json|string
     {
         return $options === []
-            ? Json::encode($use)
-            : Json::encode(['use' => $use, 'with' => Json::decode(self::object(...$options))]);
-    }
-
-    /** This option as the JSON object it makes on its own. */
-    public function written(): string
-    {
-        return self::object($this);
+            ? $use
+            : Json::object(Member::of('use', $use))->with(Member::of('with', self::object(...$options)));
     }
 }

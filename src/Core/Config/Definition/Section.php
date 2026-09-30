@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function array_combine;
 use function array_filter;
+use function array_flip;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
@@ -20,49 +20,112 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
 
 /**
- * An object of named settings. Every key it does not declare is refused,
- * with the declared key nearest to it, because a misspelt key that is
- * silently ignored is a setting that silently does nothing.
+ * An object of named settings, read into the value its settings make. Every
+ * key it does not declare is refused, with the declared key nearest to it,
+ * because a misspelt key that is silently ignored is a setting that silently
+ * does nothing.
  *
- * @template-covariant T
+ * @template-covariant T of object|scalar
+ *
+ * @implements Shape<T>
  */
-final readonly class Section implements Node
+final readonly class Section implements Shape
 {
+    /** What a problem says an object is. */
+    private const string EXPECTED = 'an object';
+
     /**
-     * @param Closure(Fields, string): (T|Invalid) $build        the value its settings make, or their problems
-     * @param array<string, Field>                 $fields       by key
-     * @param list<list<string>>                   $alternatives sets of keys of which exactly one is written
-     * @param list<string>                         $exclusive    keys of which at most one is written
+     * @param Closure(Node): (T|Invalid)      $build        the value its settings make, or their problems
+     * @param list<Field<object|scalar>>      $fields
+     * @param list<list<string>>              $alternatives sets of keys of which exactly one is written
+     * @param list<string>                    $exclusive    keys of which at most one is written
+     * @param Json|Absent                     $defaults     the value each setting takes when it is left out
      */
     private function __construct(
         private Closure $build,
         private array $fields,
         private array $alternatives,
         private array $exclusive,
+        private Json|Absent $defaults,
     ) {
     }
 
     /**
-     * @template U
+     * An object whose settings, read from it by the builder, make one value.
      *
-     * @param  Closure(Fields, string): (U|Invalid) $build the value its settings make, given them and its path
+     * @template U of object|scalar
+     *
+     * @param  Closure(Node): (U|Invalid)       $build
+     * @param  Field<object|scalar>       ...$fields
      * @return self<U>
      */
     public static function of(Closure $build, Field ...$fields): self
     {
-        $keys = array_map(static fn(Field $field): string => $field->key(), $fields);
-
-        return new self($build, array_combine($keys, $fields), [], []);
+        return new self($build, array_values($fields), [], [], Absent::setting());
     }
 
-    /** @return self<Fields> an object whose value is its settings */
-    public static function fields(Field ...$fields): self
+    /**
+     * An object of one setting, whose value, or nothing, makes the object's.
+     *
+     * @template V of object|scalar
+     * @template U of object
+     *
+     * @param  Field<V>                     $field
+     * @param  Closure(V|Absent): (U|Invalid) $build
+     * @return self<U>
+     */
+    public static function single(Field $field, Closure $build): self
     {
-        return self::of(static fn(Fields $read): Fields => $read, ...$fields);
+        return new self(
+            static function (Node $at) use ($field, $build): object {
+                $reading = $field->read($at);
+
+                return Reading::built(static fn(): object => $build($reading->value()), $reading);
+            },
+            [$field],
+            [],
+            [],
+            Absent::setting(),
+        );
+    }
+
+    /**
+     * An object whose settings are checked and kept as they read, laid over the values they take when they are
+     * left out: the options of a built-in adapter. A path among them is named from the project, as every path a
+     * layer holds is, so what an adapter gets is what the effective config shows.
+     *
+     * @param  Field<object|scalar> ...$fields
+     * @return self<Json>
+     */
+    public static function options(Json $defaults, Field ...$fields): self
+    {
+        $checked = array_values($fields);
+
+        return new self(
+            static function (Node $with) use ($checked, $defaults): Json|Invalid {
+                $readings = array_map(static fn(Field $field): Reading => $field->read($with), $checked);
+                $problems = Reading::problemsIn(...$readings);
+                $read = $defaults;
+
+                foreach ($readings as $index => $reading) {
+                    $read = $read->with(Member::of($checked[$index]->key(), OptionJson::of($reading->value())));
+                }
+
+                return $problems instanceof Invalid ? $problems : $read;
+            },
+            $checked,
+            [],
+            [],
+            $defaults,
+        );
     }
 
     /**
@@ -73,7 +136,7 @@ final readonly class Section implements Node
      */
     public function oneOf(array $sets): self
     {
-        return new self($this->build, $this->fields, $sets, $this->exclusive);
+        return new self($this->build, $this->fields, $sets, $this->exclusive, $this->defaults);
     }
 
     /**
@@ -84,57 +147,80 @@ final readonly class Section implements Node
      */
     public function atMostOne(array $keys): self
     {
-        return new self($this->build, $this->fields, $this->alternatives, $keys);
+        return new self($this->build, $this->fields, $this->alternatives, $keys, $this->defaults);
     }
 
-    public function read(mixed $value, string $at): Reading
+    /**
+     * This object, whose settings take these values where a config leaves them out, as its schema says.
+     *
+     * @return self<T>
+     */
+    public function defaulting(Json $defaults): self
     {
-        if (! Json::isMap($value)) {
-            return Reading::mismatch($at, $this->expected(), $value);
+        return new self($this->build, $this->fields, $this->alternatives, $this->exclusive, $defaults);
+    }
+
+    public function read(Node $at): Reading
+    {
+        if (! $this->isObject($at)) {
+            return Reading::refused($at->mismatch(self::EXPECTED));
         }
 
-        $readings = array_map(static fn(Field $field): Reading => $field->read($value, $at), $this->fields);
-        $problems = [];
+        $built = ($this->build)($at);
+        $problems = [
+            ...$built instanceof Invalid ? [...$built] : [],
+            ...$this->unknown($at),
+            ...$this->together($at),
+        ];
 
-        foreach ($readings as $reading) {
-            $problems = [...$problems, ...$reading->problems()];
-        }
-
-        $problems = [...$problems, ...$this->unknown($value, $at), ...$this->together($value, $at)];
-
-        return $problems === [] ? $this->built($readings, $at) : Reading::refused($problems);
+        return match (true) {
+            $problems !== [] => Reading::invalid(Invalid::because(...$problems)),
+            $built instanceof Invalid => Reading::invalid($built),
+            default => Reading::of($built),
+        };
     }
 
     public function expected(): string
     {
-        return 'an object';
+        return self::EXPECTED;
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        $schema = ['type' => 'object'];
+        return $this->schemaUnder($this->defaults);
+    }
 
-        if ($this->fields !== []) {
-            $schema['properties'] = array_map(static fn(Field $field): array => $field->schema(), $this->fields);
+    /** Its JSON Schema, with the value each of its settings takes when every layer leaves it out. */
+    public function schemaUnder(Json|Absent $defaults): Json
+    {
+        $schema = Json::object(Member::of('type', 'object'));
+        $properties = Json::object();
+
+        foreach ($this->fields as $field) {
+            $default = $defaults instanceof Json ? $this->member($defaults, $field->key()) : $defaults;
+            $properties = $properties->with(Member::of($field->key(), $field->schema($default)));
         }
 
-        $required = array_keys(array_filter($this->fields, static fn(Field $field): bool => $field->isRequired()));
+        $required = array_values(array_map(
+            static fn(Field $field): string => $field->key(),
+            array_filter($this->fields, static fn(Field $field): bool => $field->isRequired()),
+        ));
+        $schema = $this->fields === [] ? $schema : $schema->with(Member::of('properties', $properties));
+        $schema = $required === [] ? $schema : $schema->with(Member::of('required', Json::items(...$required)));
+        $schema = $schema->with(Member::of('additionalProperties', value: false));
+        $schema = $this->exclusive === []
+            ? $schema
+            : $schema->with(Member::of('not', Json::object(Member::of('required', Json::items(...$this->exclusive)))));
 
-        if ($required !== []) {
-            $schema['required'] = $required;
-        }
-
-        $schema['additionalProperties'] = false;
-
-        if ($this->exclusive !== []) {
-            $schema['not'] = ['required' => $this->exclusive];
-        }
-
-        if ($this->alternatives !== []) {
-            $schema['oneOf'] = array_map(static fn(array $set): array => ['required' => $set], $this->alternatives);
-        }
-
-        return $schema;
+        return $this->alternatives === [] ? $schema : $schema->with(
+            Member::of(
+                'oneOf',
+                Json::items(...array_map(
+                    static fn(array $set): Json => Json::object(Member::of('required', Json::items(...$set))),
+                    $this->alternatives,
+                )),
+            ),
+        );
     }
 
     public function effects(): array
@@ -160,64 +246,56 @@ final readonly class Section implements Node
         return $settings;
     }
 
-    /** @param array<string, Reading> $readings */
-    private function built(array $readings, string $at): Reading
+    /** What an object holds under a key, or nothing. */
+    private function member(Json $object, string $key): Json|Absent
     {
-        $values = array_map(static fn(Reading $reading): mixed => $reading->value(), $readings);
-        $built = ($this->build)(new Fields($values), $at);
-
-        if ($built instanceof Invalid) {
-            return Reading::refused([...$built]);
+        foreach ($object as $name => $value) {
+            if ($name === $key) {
+                return $value;
+            }
         }
 
-        $results = array_filter(
-            array_map(static fn(Reading $reading): mixed => $reading->results(), $readings),
-            static fn(mixed $results): bool => ! $results instanceof Absent,
-        );
+        return Absent::setting();
+    }
 
-        return Reading::affecting(
-            $built,
-            array_filter(
-                array_map(static fn(Reading $reading): mixed => $reading->shown(), $readings),
-                static fn(mixed $shown): bool => ! $shown instanceof Absent,
-            ),
-            $results === [] ? Absent::setting() : $results,
-        );
+    /** Whether a place holds an object, or nothing, which reads as an object with every setting left out. */
+    private function isObject(Node $at): bool
+    {
+        return match ($at->kind()) {
+            Kind::Map, Kind::Empty, Kind::Nothing => true,
+            Kind::List, Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null => false,
+        };
     }
 
     /**
      * The keys of which at most one may be written, where more are.
      *
-     * @param  array<mixed> $object
      * @return list<Problem>
      */
-    private function together(array $object, string $at): array
+    private function together(Node $at): array
     {
         $written = array_values(array_filter(
             $this->exclusive,
-            static fn(string $key): bool => array_key_exists($key, $object),
+            static fn(string $key): bool => $at->field($key)->kind() !== Kind::Nothing,
         ));
 
         return count($written) > 1
-            ? [Problem::at($at, sprintf('expected either %s, but not both', implode(' or ', $written)))]
+            ? [Problem::at($at->at(), sprintf('expected either %s, but not both', implode(' or ', $written)))]
             : [];
     }
 
-    /**
-     * @param  array<mixed> $object
-     * @return list<Problem>
-     */
-    private function unknown(array $object, string $at): array
+    /** @return list<Problem> */
+    private function unknown(Node $at): array
     {
+        $declared = array_map(static fn(Field $field): string => $field->key(), $this->fields);
+        $known = array_flip($declared);
         $problems = [];
 
-        foreach (array_keys($object) as $key) {
-            $name = sprintf('%s', $key);
-
-            if (! array_key_exists($name, $this->fields)) {
-                $nearest = Nearest::to($name, array_keys($this->fields));
+        foreach ($at->kind() === Kind::Map ? array_keys($at->entries()) : [] as $key) {
+            if (! array_key_exists($key, $known)) {
+                $nearest = Nearest::to($key, $declared);
                 $problems[] = Problem::at(
-                    At::key($at, $name),
+                    $at->field($key)->at(),
                     $nearest === '' ? 'unknown key' : sprintf('unknown key, did you mean %s?', $nearest),
                 );
             }

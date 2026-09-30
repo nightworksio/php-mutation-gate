@@ -6,7 +6,9 @@ use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
 use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
-use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -14,7 +16,7 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 // The README's Configuration section shows one config in four formats. Each
-// reads into the same effective config, but for the JSON Schema only JSON names.
+// reads into the same effective config.
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -35,16 +37,17 @@ $examples = static function (): array {
     return $examples;
 };
 
-/** @return array<mixed> the effective config an example reads into, without the JSON Schema it names */
+/** @return array<mixed> the effective config an example reads into */
 $effective = static function (string $format, string $example, ConfigLoader $loader): array {
     $project = Scratch::directory();
     Scratch::write($project, sprintf('mutation-gate.%s', $format), $example);
-    $document = $loader->load(Path::of(sprintf('%s/mutation-gate.%s', $project, $format)));
-    $shown = $document instanceof Document
-        ? json_decode(Configs::settings($document->json())->effective(), associative: true)
-        : [$document->why()];
+    $layer = $loader->load(
+        ConfigFile::at(Path::of(sprintf('%s/mutation-gate.%s', $project, $format)), Path::of($project)),
+    );
+    $settings = $layer instanceof Layer ? Settings::settled($layer, new DateTimeImmutable(Configs::NOW)) : $layer;
+    $shown = $settings instanceof Settings ? Configs::decoded($settings->effective()) : Configs::problems($settings);
 
-    return array_diff_key(is_array($shown) ? $shown : [], ['$schema' => true]);
+    return is_array($shown) ? $shown : [];
 };
 
 it('shows the config in all four formats', function () use ($examples): void {

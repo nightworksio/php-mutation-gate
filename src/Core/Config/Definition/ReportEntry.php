@@ -10,47 +10,65 @@ use function array_key_exists;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Report;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
 
 /**
- * One entry of `reports`: always an object, with the reporter in `use`, its
- * options in `with`, and in `path` where a file report is written, which a
- * built-in reporter needs (ADR-0009).
+ * A `reports` entry (ADR-0009): the reporter, where it writes its file, and
+ * its options. A built-in reporter that writes a file needs a path, and one
+ * that sends takes none.
+ *
+ * @implements Shape<Report>
  */
-final readonly class ReportEntry implements Node
+final readonly class ReportEntry implements Shape
 {
-    /**
-     * @param Section<Fields> $written
-     * @param list<string>    $sending the built-in reporters that send rather than write a file, and take no path
-     */
-    private function __construct(private Builtins $builtins, private Section $written, private array $sending)
+    /** The built-in reporters that send rather than write a file, and take no path (ADR-0016). */
+    private const array SENDING = ['slack', 'discord', 'webhook', 'otlp'];
+
+    /** @param Section<Report> $object */
+    private function __construct(private Builtins $builtins, private Section $object)
     {
     }
 
-    /** @param list<string> $sending the built-in reporters that send rather than write a file, and take no path */
-    public static function choosing(Builtins $builtins, array $sending): self
+    public static function choosing(Builtins $builtins, Origin $origin): self
     {
+        $judges = Effect::JudgesOrReportsOnly;
+        $use = Field::required('use', Text::of('a name or a class'), $judges);
+        $path = Field::optional('path', Location::path($origin), $judges);
+        $with = Field::optional('with', OpenObject::any(), $judges);
+
         return new self(
             $builtins,
-            Section::fields(
-                Field::required('use', Text::of('a name or a class'), Effect::JudgesOrReportsOnly),
-                Field::optional('path', Location::path(), Effect::JudgesOrReportsOnly),
-                Field::optional('with', OpenObject::any(), Effect::JudgesOrReportsOnly),
+            Section::of(
+                static function (Node $at) use ($builtins, $use, $path, $with): Report|Invalid {
+                    $named = $use->read($at);
+                    $where = $path->read($at);
+
+                    return Reading::built(
+                        static fn(): Report|Invalid => self::report($builtins, $at, $named->must(), $where->value()),
+                        $named,
+                        $where,
+                        $with->read($at),
+                    );
+                },
+                $use,
+                $path,
+                $with,
             ),
-            $sending,
         );
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        $written = $this->written->read($value, $at);
-        $fields = $written->value();
-
-        return $fields instanceof Fields ? $this->report($fields, $written, $at) : $written;
+        return $this->object->read($at);
     }
 
     public function expected(): string
@@ -58,11 +76,23 @@ final readonly class ReportEntry implements Node
         return 'an object with use and path';
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return [
-            'anyOf' => $this->builtins->schemas(['path' => Location::path()->schema()], ['path'], $this->sending),
-        ];
+        return Json::object(
+            Member::of(
+                'anyOf',
+                Json::items(...$this->builtins->schemas(
+                    Json::object(
+                        Member::of(
+                            'path',
+                            Json::object(Member::of('type', 'string'))->with(Member::of('minLength', 1)),
+                        ),
+                    ),
+                    ['path'],
+                    self::SENDING,
+                )),
+            ),
+        );
     }
 
     public function effects(): array
@@ -70,27 +100,25 @@ final readonly class ReportEntry implements Node
         return $this->builtins->effects();
     }
 
-    private function report(Fields $fields, Reading $written, string $at): Reading
+    private static function report(Builtins $builtins, Node $at, string $use, Path|Absent $path): Report|Invalid
     {
-        $use = $fields->string('use');
-        $path = $fields->optional('path', Path::class);
-        $chosen = $this->builtins->choose($use, $fields->has('with') ? Json::decode($fields->string('with')) : [], $at);
-        $choice = $chosen->value();
-
-        $sends = array_key_exists($use, array_flip($this->sending));
+        $choice = Adapter::chosen($builtins->choose($use, $at->field('with')));
+        $sends = array_key_exists($use, array_flip(self::SENDING));
 
         return match (true) {
-            ! $choice instanceof Choice => $chosen,
-            $path instanceof Absent && $this->builtins->has($use) && ! $sends => Reading::refused([
-                Problem::at(At::key($at, 'path'), 'expected a path, got nothing'),
-            ]),
-            $path instanceof Path && $sends => Reading::refused([
-                Problem::at(
-                    At::key($at, 'path'),
-                    sprintf('expected nothing, as %s writes no file, got "%s"', $use, $path->value()),
+            ! $choice instanceof Choice => $choice,
+            $path instanceof Absent && $builtins->has($use) && ! $sends => Invalid::because(
+                $at->field('path')->mismatch('a path'),
+            ),
+            $path instanceof Path && $sends => Invalid::because(Problem::at(
+                $at->field('path')->at(),
+                sprintf(
+                    'expected nothing, as %s writes no file, got "%s"',
+                    $use,
+                    $at->field('path')->text(),
                 ),
-            ]),
-            default => Reading::of(Report::of($choice, $path), $written->shown()),
+            )),
+            default => Report::of($choice, $path),
         };
     }
 }

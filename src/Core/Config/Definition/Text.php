@@ -4,10 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function is_string;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
-/** A string that is not empty, named for what it holds: `a group name`, `a glob`. */
-final readonly class Text implements Node
+/**
+ * Text that is not empty, named for what it holds: `a reason`, `a glob`.
+ *
+ * @implements Shape<non-empty-string>
+ */
+final readonly class Text implements Shape
 {
     private function __construct(private string $what)
     {
@@ -18,11 +25,11 @@ final readonly class Text implements Node
         return new self($what);
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        return is_string($value) && $value !== ''
-            ? Reading::of($value, $value)
-            : Reading::mismatch($at, $this->what, $value);
+        $text = $at->kind() === Kind::Text ? $at->text() : '';
+
+        return $text !== '' ? Reading::of($text) : Reading::refused($at->mismatch($this->what));
     }
 
     public function expected(): string
@@ -30,9 +37,9 @@ final readonly class Text implements Node
         return $this->what;
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['type' => 'string', 'minLength' => 1];
+        return Json::object(Member::of('type', 'string'))->with(Member::of('minLength', 1));
     }
 
     public function effects(): array

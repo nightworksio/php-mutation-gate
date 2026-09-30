@@ -16,7 +16,7 @@ use NightWorksIO\MutationGate\Core\Change\Commit;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -91,7 +91,7 @@ final readonly class LedgerFile
         $timings = self::timings($ledger->timings());
         $passed = $ledger->lastPassed();
 
-        return Gzip::pack(Json::compact([
+        return Gzip::pack(JsonText::compact([
             'format' => self::FORMAT,
             self::BASES => array_map(
                 static fn(Digest $base): string => $base->value(),

@@ -11,14 +11,22 @@ use function array_pop;
 use BackedEnum;
 
 use function implode;
+
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node;
+
 use function sprintf;
 
 /**
  * One of a closed set of words, read into the enum case it names.
  *
  * @template-covariant T of BackedEnum
+ *
+ * @implements Shape<T>
  */
-final readonly class Enumerated implements Node
+final readonly class Enumerated implements Shape
 {
     /** @param list<T> $cases */
     private function __construct(private array $cases)
@@ -36,13 +44,12 @@ final readonly class Enumerated implements Node
         return new self($cases);
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        $case = array_find($this->cases, static fn(BackedEnum $case): bool => $case->value === $value);
+        $word = $at->kind() === Kind::Text ? $at->text() : '';
+        $case = array_find($this->cases, static fn(BackedEnum $case): bool => $case->value === $word);
 
-        return $case instanceof BackedEnum
-            ? Reading::of($case, $value)
-            : Reading::mismatch($at, $this->expected(), $value);
+        return $case instanceof BackedEnum ? Reading::of($case) : Reading::refused($at->mismatch($this->expected()));
     }
 
     public function expected(): string
@@ -53,9 +60,17 @@ final readonly class Enumerated implements Node
         return sprintf('%s or %s', implode(', ', $quoted), $last);
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['enum' => array_map(static fn(BackedEnum $case): int|string => $case->value, $this->cases)];
+        return Json::object(
+            Member::of(
+                'enum',
+                Json::items(...array_map(
+                    static fn(BackedEnum $case): int|string => $case->value,
+                    $this->cases,
+                )),
+            ),
+        );
     }
 
     public function effects(): array

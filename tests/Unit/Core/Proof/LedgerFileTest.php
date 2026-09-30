@@ -7,7 +7,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -94,10 +94,10 @@ $data = static function () use ($ledger): array {
 
     return is_array($data) ? $data : [];
 };
-$written = static fn(array $file): string => Gzip::pack(Json::compact($file));
+$written = static fn(array $file): string => Gzip::pack(JsonText::compact($file));
 
 it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tuples with their killers, survivors in full, and the kill history', function () use ($ledger, $keyA, $keyB, $base, $killedId, $minusId, $survivedId): void {
-    expect(Gzip::unpack(LedgerFile::encode($ledger), 'the ledger'))->toBe(Json::compact([
+    expect(Gzip::unpack(LedgerFile::encode($ledger), 'the ledger'))->toBe(JsonText::compact([
         'format' => 2,
         'bases' => [$base],
         'mutators' => ['Plus', 'Minus'],

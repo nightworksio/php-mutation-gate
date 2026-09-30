@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
@@ -59,7 +59,7 @@ final readonly class PlanFile
 
     public static function encode(Plan $plan): string
     {
-        return Json::encode([...self::body($plan), self::DIGEST => self::digestOf($plan)->value()]);
+        return JsonText::encode([...self::body($plan), self::DIGEST => self::digestOf($plan)->value()]);
     }
 
     public static function decode(string $json): Plan|CannotJudge
@@ -77,7 +77,7 @@ final readonly class PlanFile
     /** The digest of everything a plan holds. */
     public static function digestOf(Plan $plan): Digest
     {
-        return Digest::sha256Of(Json::encode(self::body($plan)));
+        return Digest::sha256Of(JsonText::encode(self::body($plan)));
     }
 
     /** @return Body */

@@ -4,18 +4,21 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
+
 /**
- * An adapter a setting chooses: the name an extension registered it under,
- * or its class, with the options written beside it as JSON text.
+ * An adapter a setting chooses (ADR-0002): a name an extension registered,
+ * or a class, with the options written beside it, every default of a
+ * built-in adapter's filled in.
  */
 final readonly class Choice
 {
-    private function __construct(private string $use, private string $options)
+    private function __construct(private string $use, private Json $options)
     {
     }
 
-    /** @param string $options a JSON object */
-    public static function of(string $use, string $options): self
+    public static function of(string $use, Json $options): self
     {
         return new self($use, $options);
     }
@@ -27,8 +30,16 @@ final readonly class Choice
     }
 
     /** The options, as a JSON object, with every default of a built-in adapter's filled in. */
-    public function options(): string
+    public function options(): Json
     {
         return $this->options;
+    }
+
+    /** As a config writes it: its name alone where it has no options, else `{"use": …, "with": …}`. */
+    public function written(): Json|string
+    {
+        return $this->options->isEmpty()
+            ? $this->use
+            : Json::object(Member::of('use', $this->use))->with(Member::of('with', $this->options));
     }
 }

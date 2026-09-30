@@ -16,7 +16,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 final readonly class LineRate
 {
     /** How `costs.secondsPerLine` writes the prefix of every path. */
-    private const string EVERYWHERE = '';
+    public const string EVERYWHERE = '';
 
     private function __construct(private Path $prefix, private Seconds $perLine)
     {

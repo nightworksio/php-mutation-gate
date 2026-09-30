@@ -4,26 +4,39 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function array_all;
-use function array_is_list;
-use function is_array;
-use function is_string;
+use function array_any;
+use function array_map;
 
-/** One preset's name, or a list of them applied in order (ADR-0008). */
-final readonly class Presets implements Node
+use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node;
+
+/**
+ * The presets a config names: one name, or a list of them applied in order.
+ *
+ * @implements Shape<Listed<string>>
+ */
+final readonly class Presets implements Shape
 {
     public static function named(): self
     {
         return new self();
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        $names = is_string($value) ? [$value] : $value;
+        $items = match ($at->kind()) {
+            Kind::Text => [$at],
+            Kind::List, Kind::Empty => $at->items(),
+            Kind::Map, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null, Kind::Nothing => [$at->field('')],
+        };
+        $names = array_map(static fn(Node $item): string => $item->kind() === Kind::Text ? $item->text() : '', $items);
 
-        return is_array($names) && array_is_list($names) && array_all($names, $this->isName(...))
-            ? Reading::of($names, $value)
-            : Reading::mismatch($at, $this->expected(), $value);
+        return array_any($names, static fn(string $name): bool => $name === '')
+            ? Reading::refused($at->mismatch($this->expected()))
+            : Reading::of(Listed::of(...$names));
     }
 
     public function expected(): string
@@ -31,23 +44,22 @@ final readonly class Presets implements Node
         return 'a preset name, or a list of them';
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        $name = ['type' => 'string', 'minLength' => 1];
+        $name = Json::object(Member::of('type', 'string'))->with(Member::of('minLength', 1));
 
-        return [
-            'description' => 'Chosen from what composer.json requires when no layer names one.',
-            'anyOf' => [$name, ['type' => 'array', 'items' => $name]],
-        ];
+        return Json::object()
+            ->with(Member::of('description', 'Chosen from what composer.json requires when no layer names one.'))
+            ->with(
+                Member::of(
+                    'anyOf',
+                    Json::items($name, Json::object(Member::of('type', 'array'))->with(Member::of('items', $name))),
+                ),
+            );
     }
 
     public function effects(): array
     {
         return [];
-    }
-
-    private function isName(mixed $name): bool
-    {
-        return is_string($name) && $name !== '';
     }
 }

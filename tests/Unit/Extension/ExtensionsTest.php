@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
+use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
-use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Registering;
@@ -82,17 +87,17 @@ it('names every name two packages both register', function (): void {
     ));
 });
 
-it('holds presets, config fragments with a name', function (): void {
-    $fragment = Document::ofJson('{"trees": [{"path": "app"}]}');
-    $registry = $fragment instanceof Document ? new Extensions(Origin::of('acme/a'))->withPreset(Name::of('laravel'), $fragment) : new Extensions(Origin::of('acme/a'));
+it('holds presets, layers of config with a name', function (): void {
+    $fragment = Layer::of(Floors::of(trees: Listed::of(DeclaredTree::of(Path::of('app'), Undeclared::floor(), Listed::of()))));
+    $registry = new Extensions(Origin::of('acme/a'))->withPreset(Name::of('laravel'), $fragment);
 
     expect(Lookup::in($registry)->preset(Name::of('laravel')))->toBe($fragment)
         ->and(Lookup::in($registry)->preset(Name::of('symfony')))->toEqual(CannotJudge::because('No preset is registered as "symfony".'));
 });
 
 it('takes in the presets another package registered, and refuses one registered twice', function (): void {
-    $fragment = Document::ofJson('{}');
-    $preset = static fn(string $package): Extensions => $fragment instanceof Document ? new Extensions(Origin::of($package))->withPreset(Name::of('laravel'), $fragment) : new Extensions(Origin::of($package));
+    $fragment = Layer::none();
+    $preset = static fn(string $package): Extensions => new Extensions(Origin::of($package))->withPreset(Name::of('laravel'), $fragment);
     $merged = new Extensions(Origin::of('acme/a'))->merge($preset('acme/b'));
 
     expect($merged instanceof Extensions ? Lookup::in($merged)->preset(Name::of('laravel')) : $merged)->toBe($fragment)

@@ -4,23 +4,29 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function is_string;
-
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Time\Day;
 
-/** A calendar day, written `YYYY-MM-DD`. */
-final readonly class Date implements Node
+/**
+ * A calendar day written `YYYY-MM-DD`.
+ *
+ * @implements Shape<Day>
+ */
+final readonly class Date implements Shape
 {
     public static function written(): self
     {
         return new self();
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        $day = is_string($value) ? Day::of($value) : $value;
+        $day = $at->kind() === Kind::Text ? Day::of($at->text()) : $at;
 
-        return $day instanceof Day ? Reading::of($day, $value) : Reading::mismatch($at, $this->expected(), $value);
+        return $day instanceof Day ? Reading::of($day) : Reading::refused($at->mismatch($this->expected()));
     }
 
     public function expected(): string
@@ -28,9 +34,9 @@ final readonly class Date implements Node
         return 'a date written YYYY-MM-DD';
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['type' => 'string', 'pattern' => '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'];
+        return Json::object(Member::of('type', 'string'))->with(Member::of('pattern', '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'));
     }
 
     public function effects(): array

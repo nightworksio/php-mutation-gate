@@ -201,7 +201,7 @@ Operating the gate raises four needs its reports do not yet meet.
       - `slack`: `MUTATION_GATE_SLACK_URL` by default;
       - `discord`: `MUTATION_GATE_DISCORD_URL` by default;
       - `webhook`: `MUTATION_GATE_WEBHOOK_URL` by default.
-    - A literal `url` in `with` is refused by the validator, and the message
+    - A literal `url` in `with` is refused by the config's definition, and the message
       names the variable to use.
     - The reusable workflow takes these as optional secrets, passed to its
       `verdict` job only, with `MUTATION_GATE_WEBHOOK_SECRET` (decision 12).

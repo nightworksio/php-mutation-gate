@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotWritten;
@@ -28,9 +29,6 @@ use NightWorksIO\MutationGate\Port\ProofStore;
  */
 final readonly class LedgerDirectory implements Configurable, ProofStore
 {
-    /** Where the ledgers are kept unless the config says otherwise. */
-    public const string PATH = '.mutation-gate/ledger';
-
     private function __construct(private Directory $directory)
     {
     }
@@ -45,7 +43,7 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
         $path = Node::decode($options->json())->field('path');
 
         try {
-            return self::at($path->isPresent() ? $path->text() : self::PATH);
+            return self::at($path->isPresent() ? $path->text() : Workspace::ledger()->value());
         } catch (NotInShape) {
             return Invalid::because(Problem::at('path', 'The directory the ledgers are kept in is a path, as text.'));
         }

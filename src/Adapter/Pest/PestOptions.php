@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Pest as ConfigPest;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -28,7 +29,6 @@ final readonly class PestOptions
 
     private const string TESTS = 'tests';
 
-    private const string CANARY_GROUP = 'mutation-canary';
 
 
     private function __construct(private Patching $patching, private Paths $tests)
@@ -73,7 +73,9 @@ final readonly class PestOptions
     {
         try {
             return Group::named(
-                $with->field(self::CANARY)->isPresent() ? $with->field(self::CANARY)->text() : self::CANARY_GROUP,
+                $with->field(self::CANARY)->isPresent()
+                    ? $with->field(self::CANARY)->text()
+                    : ConfigPest::none()->canary()->name(),
             );
         } catch (NotInShape) {
             return Problem::at(self::CANARY, 'The canary is the name of a group, as text.');

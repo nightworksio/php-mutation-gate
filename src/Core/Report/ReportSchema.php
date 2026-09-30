@@ -11,7 +11,7 @@ use BackedEnum;
 
 use function in_array;
 
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\Standing;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -109,7 +109,7 @@ final readonly class ReportSchema
             ['price'],
         );
 
-        return Json::encode([
+        return JsonText::encode([
             '$schema' => self::DRAFT,
             '$id' => sprintf(self::ID, 'report'),
             'title' => 'mutation-gate report',
@@ -181,7 +181,7 @@ final readonly class ReportSchema
             'kills' => ['type' => 'array', 'items' => $kill],
         ], ['seconds']);
 
-        return Json::encode([
+        return JsonText::encode([
             '$schema' => self::DRAFT,
             '$id' => sprintf(self::ID, 'tests'),
             'title' => 'mutation-gate tests report',

@@ -10,7 +10,7 @@ use function explode;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Hint\Change;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
@@ -77,7 +77,7 @@ final readonly class Stryker
             $files[$path] = $file;
         }
 
-        return Json::encode([
+        return JsonText::encode([
             'schemaVersion' => self::SCHEMA_VERSION,
             'thresholds' => self::THRESHOLDS,
             'projectRoot' => '.',

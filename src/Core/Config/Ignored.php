@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Time\Day;
 
 /** An entry of `ignores.entries`: an IgnoredMutant or an IgnoredPattern (ADR-0008). */
@@ -14,4 +15,10 @@ interface Ignored
 
     /** The day it stops applying, or none. */
     public function expires(): Day|Absent;
+
+    /** This entry as a config writes it. */
+    public function written(Origin $origin): Json;
+
+    /** This entry as the builder's `Ignore` writes it. */
+    public function php(Origin $origin): string;
 }

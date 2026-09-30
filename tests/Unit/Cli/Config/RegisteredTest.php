@@ -12,12 +12,13 @@ use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
-use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Port\TreeSource;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Yaml\Yaml;
@@ -79,13 +80,13 @@ it('asks whether the class each library reads with can be loaded', function (): 
     expect($asked)->toBe([Yaml::class, Neon::class]);
 });
 
-it('registers the presets this package ships', function (string $preset, Closure $shipped) use ($registered): void {
-    expect(Lookup::in($registered(installed: false))->preset(Name::of($preset)))->toEqual($shipped());
-})->with([
-    'library' => ['library', Presets::library(...)],
-    'laravel' => ['laravel', Presets::laravel(...)],
-    'symfony' => ['symfony', Presets::symfony(...)],
-]);
+it('registers the presets this package ships', function (string $preset) use ($registered): void {
+    $shipped = Presets::registered(new Extensions(Origin::of('nightworksio/mutation-gate')));
+
+    expect(Lookup::in($registered(installed: false))->preset(Name::of($preset)))
+        ->toEqual(Lookup::in($shipped)->preset(Name::of($preset)))
+        ->toBeInstanceOf(Layer::class);
+})->with(['library', 'laravel', 'symfony']);
 
 it('finds the trees of the working directory from phpunit.xml, or the fallback its options give', function () use (
     $registered,

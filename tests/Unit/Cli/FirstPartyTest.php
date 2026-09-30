@@ -33,14 +33,15 @@ use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
-use NightWorksIO\MutationGate\Cli\Config\Presets;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
-use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
@@ -60,7 +61,7 @@ it('is named in this package\'s own composer.json', function (): void {
 
 it('registers the directory and the bucket proof stores', function () use ($registry): void {
     expect(Lookup::in($registry())->proofStore(Name::of('directory'), Options::none()))
-        ->toEqual(LedgerDirectory::at(LedgerDirectory::PATH))
+        ->toEqual(LedgerDirectory::at(Workspace::ledger()->value()))
         ->and(Lookup::in($registry())->proofStore(Name::of('s3'), Options::ofJson('{"bucket": "ledgers"}')))
         ->toBeInstanceOf(BucketLedger::class);
 });
@@ -99,7 +100,7 @@ it('registers a loader for every config format, the tree sources and the presets
         ->and($loader('neon'))->toBeInstanceOf(NeonConfig::class)
         ->and(Lookup::in($registry())->treeSource(Name::of('phpunit'), Options::none()))->toBeInstanceOf(PhpUnitTrees::class)
         ->and(Lookup::in($registry())->treeSource(Name::of('composer'), Options::none()))->toBeInstanceOf(AutoloadTrees::class)
-        ->and(Lookup::in($registry())->preset(Name::of('laravel')))->toEqual(Presets::laravel());
+        ->and(Lookup::in($registry())->preset(Name::of('laravel')))->toBeInstanceOf(Layer::class);
 });
 
 it('registers Infection as a runner, built from the options the flows write', function () use ($registry): void {

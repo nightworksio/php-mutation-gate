@@ -8,11 +8,12 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -73,7 +74,7 @@ it('writes the pipeline as JSON, which GitLab reads as YAML', function () use ($
     $pipeline = sprintf('%s/pipeline.yml', Scratch::directory());
     GitLabPlan::writing($pipeline, '.gitlab/mutation-gate.yml', $planJob('plan'))->publish(ShardedPlan::of(0));
 
-    expect(file_get_contents($pipeline))->toBe(Json::encode([
+    expect(file_get_contents($pipeline))->toBe(JsonText::encode([
         'include' => [['local' => '.gitlab/mutation-gate.yml']],
         'mutation-gate-verdict' => [
             'extends' => '.mutation-gate',
@@ -175,7 +176,7 @@ it('writes its pipeline where the gate expects it, with the named template', fun
     putenv($before === false ? 'CI_JOB_NAME' : sprintf('CI_JOB_NAME=%s', $before));
 
     expect(GitLabPlan::PIPELINE)->toBe('.mutation-gate/pipeline.yml')
-        ->and(GitLabPlan::TEMPLATE)->toBe('.gitlab/mutation-gate.yml')
+        ->and(Ci::none()->gitlabTemplate()->value())->toBe('.gitlab/mutation-gate.yml')
         ->and($wrote)->toEqual(Written::to('.mutation-gate/pipeline.yml'))
         ->and($wroteNamed)->toEqual(Written::to('.mutation-gate/pipeline.yml'))
         ->and($included)->toMatchArray(['include' => [['local' => '.gitlab/mutation-gate.yml']]])

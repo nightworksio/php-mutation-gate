@@ -4,19 +4,28 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function is_bool;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
-/** `true` or `false`, and nothing that merely reads as one. */
-final readonly class Flag implements Node
+/**
+ * `true` or `false`.
+ *
+ * @implements Shape<bool>
+ */
+final readonly class Flag implements Shape
 {
     public static function boolean(): self
     {
         return new self();
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        return is_bool($value) ? Reading::of($value, $value) : Reading::mismatch($at, $this->expected(), $value);
+        return $at->kind() === Kind::Boolean
+            ? Reading::of($at->boolean())
+            : Reading::refused($at->mismatch($this->expected()));
     }
 
     public function expected(): string
@@ -24,9 +33,9 @@ final readonly class Flag implements Node
         return 'true or false';
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['type' => 'boolean'];
+        return Json::object(Member::of('type', 'boolean'));
     }
 
     public function effects(): array

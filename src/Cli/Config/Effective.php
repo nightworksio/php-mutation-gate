@@ -4,25 +4,38 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Config;
 
+use function array_map;
+use function count;
+
 use DateTimeImmutable;
+use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
-use NightWorksIO\MutationGate\Core\Config\Definition\Json;
-use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Definition;
+use NightWorksIO\MutationGate\Core\Config\Definition\At;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\Config\Layers;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Config\Validator;
+use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Extension\Extensions;
+
+use function sprintf;
 
 /**
  * The effective config of a project (ADR-0002): zero-config defaults, then
- * the presets, then the config file, then the command line, validated once.
- * When no layer sets the preset or the runner, zero-config finds them.
+ * the presets, then the config file, then the command line. Each layer is
+ * read on its own, and what only every layer together can say, such as that
+ * no runner is chosen, once all of them are laid. When no layer sets the
+ * preset or the runner, zero-config finds them.
  */
 final readonly class Effective
 {
@@ -34,54 +47,91 @@ final readonly class Effective
     ) {
     }
 
-    public function settings(Given $given): Settings|Invalid|CannotJudge
+    public function settings(CommandLine $given): Settings|Invalid|CannotJudge
     {
         $file = $this->file($given->config);
+        $line = $given->layer();
 
-        if ($file instanceof CannotJudge) {
-            return $file;
+        if (! $file instanceof Layer || ! $line instanceof Layer) {
+            return $file instanceof Layer ? $line : $file;
         }
 
         $registry = $given->firstPartyOnly
             ? $this->extensions
-            : new Chosen($this->extensions)->withExtensions(Written::strings($file, 'extensions'), 'the config file');
+            : new Chosen($this->extensions)->withExtensions($file->setup()->extensions(), 'the config file');
 
-        return $registry instanceof CannotJudge ? $registry : $this->layered($file, $given, $registry);
+        return $registry instanceof CannotJudge ? $registry : $this->layered($file->over($line), $registry);
     }
 
-    /** The config file read, or an empty one for zero-config. */
-    private function file(string $given): Document|CannotJudge
+    /** The config file read, or a layer that sets nothing for zero-config. */
+    private function file(string $given): Layer|Invalid|CannotJudge
     {
-        $file = ConfigFile::in($this->project, $given);
+        $path = ConfigLocation::in($this->project, $given);
 
-        if (! $file instanceof Path) {
-            return $file instanceof Absent ? $this->document([]) : $file;
+        if (! $path instanceof Path) {
+            return $path instanceof Absent ? Layer::none() : $path;
         }
 
+        $file = ConfigFile::at($path, Path::of($this->project));
         $loader = Formats::loader($this->extensions, $file);
-        return $loader instanceof CannotJudge ? $loader : $loader->load($file);
+        $loaded = $loader instanceof CannotJudge ? $loader : $loader->load($file);
+
+        return $loaded instanceof Layer ? Definition::judged($loaded, $file) : $loaded;
     }
 
-    private function layered(Document $file, Given $given, Extensions $registry): Settings|Invalid|CannotJudge
+    /** The presets beneath the config file and the command line, and zero-config's findings beneath those. */
+    private function layered(Layer $written, Extensions $registry): Settings|Invalid|CannotJudge
     {
-        $named = Written::presets($file);
-        $detected = $named === [] ? $this->detected->preset() : '';
+        $named = $written->setup()->presets();
+        $detected = $named instanceof Absent ? $this->detected->preset() : '';
 
         if ($detected instanceof CannotJudge) {
             return $detected;
         }
 
-        [$layers, $problems] = $this->presetLayers($detected === '' ? $named : ['preset' => $detected], $registry);
-        $settings = $this->validated([...$layers, $file, $this->document($given->layer())], $detected);
+        $presets = $detected === '' ? $this->named($named) : ['preset' => $detected];
+        [$layers, $problems] = $this->presetLayers($presets, $registry);
+        $laid = Layer::none();
+
+        foreach ($layers as $layer) {
+            $laid = $laid->over($layer);
+        }
+
+        $merged = $laid->over($written);
+        $base = $this->base($merged, $detected);
+        $settings = $base instanceof Layer ? Settings::settled($base->over($merged), $this->now) : $base;
 
         return $problems === [] ? $settings : $this->joined($problems, $settings);
     }
 
     /**
+     * The presets a layer names, by the path it names each at: `preset` for one, `preset[1]` in a list.
+     *
+     * @param  Listed<string>|Absent $named
+     * @return array<string, string>
+     */
+    private function named(Listed|Absent $named): array
+    {
+        $presets = $named instanceof Listed ? [...$named] : [];
+
+        if (count($presets) === 1) {
+            return ['preset' => $presets[0]];
+        }
+
+        $paths = [];
+
+        foreach ($presets as $index => $preset) {
+            $paths[At::index('preset', $index)] = $preset;
+        }
+
+        return $paths;
+    }
+
+    /**
      * The layer of each preset, in order, and a problem at its path for each one nothing registered.
      *
-     * @param  array<string, string>                   $presets by the path the config names each at
-     * @return array{list<Document>, list<Problem>}
+     * @param  array<string, string>             $presets by the path the config names each at
+     * @return array{list<Layer>, list<Problem>}
      */
     private function presetLayers(array $presets, Extensions $registry): array
     {
@@ -90,14 +140,23 @@ final readonly class Effective
 
         foreach ($presets as $path => $preset) {
             $layer = Lookup::in($registry)->preset(Name::of($preset));
+            $judged = $layer instanceof Layer ? Definition::judged($layer, ProjectRoot::origin()) : $layer;
 
-            if ($layer instanceof Document) {
-                $layers[] = $layer;
+            if ($judged instanceof Layer) {
+                $layers[] = $judged;
 
                 continue;
             }
 
-            $problems[] = Problem::at($path, $layer->why());
+            $problems = [...$problems, ...$judged instanceof Invalid
+                ? array_map(
+                    static fn(Problem $problem): Problem => Problem::at(
+                        $path,
+                        sprintf('%s sets %s: %s', $preset, $problem->path(), $problem->message()),
+                    ),
+                    [...$judged],
+                )
+                : [Problem::at($path, $judged->why())]];
         }
 
         return [$layers, $problems];
@@ -119,42 +178,18 @@ final readonly class Effective
         return Invalid::because(...$problems, ...$rest);
     }
 
-    /** @param list<Document|CannotJudge> $layers */
-    private function validated(array $layers, string $preset): Settings|Invalid|CannotJudge
+    /** What zero-config finds, beneath every layer: the preset it chose, and the runner when nothing chooses one. */
+    private function base(Layer $merged, string $preset): Layer|CannotJudge
     {
-        $merged = $this->document([]);
-
-        foreach ($layers as $layer) {
-            $merged = match (true) {
-                $merged instanceof CannotJudge => $merged,
-                $layer instanceof CannotJudge => $layer,
-                default => Layers::over($merged, $layer),
-            };
-        }
-
-        $base = $merged instanceof Document ? $this->base($merged, $preset) : $merged;
-
-        return $base instanceof Document ? new Validator($this->now)->validate($base) : $base;
-    }
-
-    /** What zero-config finds, beneath every layer: the preset it chose, and the runner when nothing sets one. */
-    private function base(Document $merged, string $preset): Document|CannotJudge
-    {
-        $base = $preset === '' ? [] : ['preset' => $preset];
-        $runner = Written::choosesRunner($merged) ? '' : $this->detected->runner();
+        $runner = $merged->setup()->runner() instanceof Choice ? '' : $this->detected->runner();
 
         if ($runner instanceof CannotJudge) {
             return $runner;
         }
 
-        $layer = $this->document($runner === '' ? $base : [...$base, 'runner' => $runner]);
-
-        return $layer instanceof Document ? Layers::over($layer, $merged) : $layer;
-    }
-
-    /** @param array<mixed> $tree */
-    private function document(array $tree): Document|CannotJudge
-    {
-        return Document::ofJson(Json::encode(Json::object($tree)));
+        return Layer::of(Setup::of(
+            presets: $preset === '' ? Absent::setting() : Listed::of($preset),
+            runner: $runner === '' ? Absent::setting() : Choice::of($runner, Json::object()),
+        ));
     }
 }

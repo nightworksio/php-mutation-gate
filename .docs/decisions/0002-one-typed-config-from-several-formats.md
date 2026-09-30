@@ -30,15 +30,35 @@ cannot.
 
 ## Decision
 
-1. **One meaning, reached one way.** Each `ConfigLoader` (ADR-0001) reads its
-   file into the same untyped tree of maps, lists and scalars. One validator
-   turns that tree into the typed, immutable `Config`. The PHP builder is no
-   exception: its methods are typed for the person writing it, and underneath
-   they write the same tree, which goes through the same validator. So any
-   config converts to any other, and `mutation-gate config:show` prints the
-   effective config of a project whatever format it is written in. Config is
-   data. A closure or an object other than the builder's own values is refused.
-   Code that has to run belongs in an extension (ADR-0001).
+1. **One meaning, reached one way.** Each `ConfigLoader` (ADR-0001) decodes
+   its file into JSON and reads it through `ConfigFile::read()`, the one
+   definition of every setting, into a `Layer`: the typed sections the file
+   sets, each holding only what the file writes. A preset and the command line
+   are layers too. The PHP builder is no exception: its methods are typed for
+   the person writing it, and underneath they write the same JSON, which the
+   same definition reads. So any config converts to any other, and
+   `mutation-gate config:show` prints the effective config of a project
+   whatever format it is written in. Each section owns the value every setting
+   in it takes when every layer leaves it out, how a config writes it and how
+   the PHP builder writes it; the effective `Settings` are every layer laid
+   over those values. Config is data. A closure or an object other than the
+   builder's own values is refused. Code that has to run belongs in an
+   extension (ADR-0001).
+   - An extension's loader reads its files the same way, and
+     `ConfigLoaderContract::failures()` holds it, on two fixture files in its
+     format, to what every loader answers: the config read into the gate's own
+     layer, paths named from the file's directory, the gate's own problems for
+     an invalid file, and a file that is not there not judged.
+   - A preset an extension registers is a layer, `withPreset(Name, Layer)`,
+     which it can build with the PHP builder:
+     `Gate::configure()->…->layer(ProjectRoot::origin())`, its paths named
+     from the project.
+   - The gate reads every layer a loader answers or a preset holds again, as
+     the file it writes, through the same definition. A layer built by hand
+     is judged as a file is, so a floor of 0 without a reason, a negative
+     retry count or an ignore without a reason is refused however it was
+     built. A preset's problems are reported at the `preset` entry that
+     names it.
 
 2. **Where the config is found.**
    - `--config=<path>`, accepted by every command, names it.
@@ -98,7 +118,7 @@ cannot.
    - **JSON**. The schema ships in the package at
      `resources/mutation-gate.schema.json` and is published at
      `https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v1/resources/mutation-gate.schema.json`,
-     so an editor completes and checks the file. The validator accepts the
+     so an editor completes and checks the file. The definition accepts the
      `$schema` key and ignores its value:
 
      ```json
@@ -131,9 +151,9 @@ cannot.
      - **Dates need no quotes.** The YAML loader parses with
        `Yaml::PARSE_DATETIME`, and NEON reads a date as a date by itself. Each
        loader turns such a value back into the `YYYY-MM-DD` string the
-       validator expects.
+       definition expects.
      - **Mutant ids are always quoted.** Both parsers read an unquoted id such
-       as `12e456789012` as a number. The validator refuses a mutant id that is
+       as `12e456789012` as a number. The definition refuses a mutant id that is
        not a string, and its message says to quote it.
 
 4. **How a setting names an adapter or an extension.** Wherever a setting
@@ -182,32 +202,46 @@ cannot.
    Settings resolve in this order, later winning: zero-config defaults, then
    presets (`preset` takes one name or a list, applied in order), then the
    config file, then command-line options.
-   - When two layers set the same key, maps merge by key, and a scalar from the
-     later layer replaces the earlier one.
+   - Layers are laid section by section. A setting a later layer writes
+     replaces the earlier one's, and a setting it leaves out keeps it.
+   - Maps merge by key: a later layer's `costs.secondsPerLine` prefixes lie
+     beside an earlier one's. `badge.colors` is the exception: its colours are
+     bands of one scale, so a layer that sets them replaces them whole.
    - Lists concatenate, and an entry equal to an earlier one is dropped.
    - `trees` is the exception: a layer that sets it replaces the list whole, so
      declaring trees never adds them to the ones `phpunit.xml` or a preset
      found.
+   - An adapter a later layer chooses replaces the earlier one with its
+     options, and what the runner withholds only grows (ADR-0004).
+     `shards.seconds` and `shards.target` replace each other (ADR-0013).
    - The command-line options that set config are `--runner=<name>`,
      `--report=<name>:<path>` (repeatable, adding to `reports`),
      `--budget=<duration>` (ADR-0008) and `--ci=<name>` (ADR-0006).
 
-6. **Validation reports everything at once, by path.** A config with three
+6. **Validation reports everything at once, by path.** Each layer is read on
+   its own, and what only every layer together can say, that a runner is
+   chosen and that no ignore outlasts `ignores.maxDays`, is judged once every
+   layer reads. A config with three
    mistakes prints three errors, each with its path and what was expected:
    `trees[1].floor: expected a number from 0 to 100, got "80"`. Types are
    strict, so a string is not a number. An unknown key is an error and suggests
    the nearest known one (`newcode` → `newCode`), because a misspelt key that is
    silently ignored is a setting that silently does nothing. Durations are
-   written `90s`, `15m` or `1h30m`. Dates are `YYYY-MM-DD`. Paths are relative
-   to the config file, or to the working directory when there is none. The
+   written `90s`, `15m` or `1h30m`, and written back in the largest units
+   that hold them: `90s` is `1m30s`. Dates are `YYYY-MM-DD`. Paths are
+   relative to the config file, or to the working directory when there is
+   none, and a config the gate writes, such as `init`'s, names them from its
+   own directory. So are globs, the `phpunit` tree source's `fallback`, the
+   `directory` store's `path` and each `costs.secondsPerLine` prefix but
+   `""`, which is every path wherever it is written. The
    configuration reference lists every key with its type, its default and the
    ADR that decides it. It is generated from the same definitions as the
    schema, into `.docs/reference/configuration.md`, and the README holds it
    until that page is built (ADR-0018).
 
 7. **The schema is generated, not written.** `mutation-gate config:schema`
-   prints JSON Schema (draft 2020-12) from the same definitions the validator
-   uses. The committed `resources/mutation-gate.schema.json` must equal that
+   prints JSON Schema (draft 2020-12) from the same definition every layer is
+   read through. The committed `resources/mutation-gate.schema.json` must equal that
    output, and a test fails when the two differ.
 
 ## Alternatives considered
@@ -215,8 +249,8 @@ cannot.
 | Option | Why it lost |
 |--------|-------------|
 | **PHP only** | Simplest, and it is what Rector and Pint's PHP configs do. The approved scope has more, and JSON with a schema is what editors and CI templates can read, check and write without running PHP. |
-| **Each format with its own loader producing `Config` directly** | Four implementations of every rule, and a setting drifts in one of them. One tree and one validator make the formats equivalent by construction. |
-| **A hand-written JSON Schema as the source of truth** | The schema cannot express every rule (a tree path that exists, an expiry within `ignores.maxDays`), so the validator would still be needed, and the two would drift. Generating the schema from the validator's definitions keeps one source. |
+| **Each format with its own loader producing `Config` directly** | Four implementations of every rule, and a setting drifts in one of them. One JSON form and one definition make the formats equivalent by construction. |
+| **A hand-written JSON Schema as the source of truth** | The schema cannot express every rule (a tree path that exists, an expiry within `ignores.maxDays`), so a reader would still be needed, and the two would drift. Generating the schema from the definition every layer is read through keeps one source. |
 | **`mutation.php` (and `mutation.json`, …)** | A generic name a project may already use for something else, as the in-house gate's own script does. `mutation-gate.*` matches the package and the binary, and cannot be mistaken for another tool's file. |
 | **Precedence when several config files exist** (as `phpunit.xml` over `phpunit.xml.dist`) | Invites a forgotten local file that silently wins. The gate is a CI decision, and one file is one answer. |
 | **Silently ignoring unknown keys** | The most common config mistake is a typo, and ignoring it makes a stricter setting quietly not apply. |
@@ -229,7 +263,7 @@ cannot.
 `phpunit.xml` `<source>` and Pest installed plans, runs and reports.
 
 **Every format can say everything.** A setting added to the builder is in the
-tree, the validator and the generated schema at once, and the test that compares
+JSON, the definition and the generated schema at once, and the test that compares
 the committed schema fails until it is regenerated.
 
 **YAML and NEON cost nothing unless used.** The package's `require` stays small.

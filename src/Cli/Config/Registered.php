@@ -4,13 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Config;
 
-use function array_key_exists;
-
 use Closure;
 
 use function getcwd;
-use function is_array;
-use function is_string;
 
 use Nette\Neon\Neon;
 use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
@@ -19,12 +15,12 @@ use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
 use NightWorksIO\MutationGate\Adapter\Project\AutoloadTrees;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
-use NightWorksIO\MutationGate\Core\Config\Definition\Json;
-use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
@@ -57,34 +53,18 @@ final readonly class Registered
             ? $withYaml->withConfigLoader(Name::of(Format::Neon->value), static fn(): ConfigLoader => new NeonConfig())
             : $withYaml;
 
-        return self::presets($withNeon);
-    }
-
-    private static function presets(Extensions $registry): Extensions
-    {
-        $presets = $registry;
-
-        $shipped = ['library' => Presets::library(), 'laravel' => Presets::laravel(), 'symfony' => Presets::symfony()];
-
-        foreach ($shipped as $name => $preset) {
-            $presets = $preset instanceof Document ? $presets->withPreset(Name::of($name), $preset) : $presets;
-        }
-
-        return $presets;
+        return Presets::registered($withNeon);
     }
 
     /** The `fallback` paths a `phpunit` tree source's options give. */
     private static function fallback(Options $options): Paths
     {
-        $decoded = Json::decode($options->json());
-        $fallback = is_array($decoded) && array_key_exists('fallback', $decoded) && is_array($decoded['fallback'])
-            ? $decoded['fallback']
-            : [];
+        $fallback = Node::config($options->json())->field('fallback');
         $paths = [];
 
-        foreach ($fallback as $path) {
-            if (is_string($path)) {
-                $paths[] = Path::of($path);
+        foreach ($fallback->kind() === Kind::List ? $fallback->items() : [] as $path) {
+            if ($path->kind() === Kind::Text) {
+                $paths[] = Path::of($path->text());
             }
         }
 

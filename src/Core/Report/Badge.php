@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -27,7 +27,7 @@ final readonly class Badge
 
     public static function json(Score|NothingToMutate $score, BadgeColors $colors): string
     {
-        return Json::encode([
+        return JsonText::encode([
             'schemaVersion' => 1,
             'label' => 'mutation score',
             'message' => Percent::of($score),
@@ -42,7 +42,7 @@ final readonly class Badge
             ? sprintf(self::SAVED_IN, $saved->text(), SavingsText::DAYS)
             : self::NO_HISTORY;
 
-        return Json::encode([
+        return JsonText::encode([
             'schemaVersion' => 1,
             'label' => 'mutation time saved',
             'message' => $message,

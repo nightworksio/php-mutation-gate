@@ -18,11 +18,11 @@ use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
-use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -119,7 +119,7 @@ final readonly class Chosen
      */
     private function built(string $setting, string $port, Choice $choice, Closure $registered): object
     {
-        $options = Options::ofJson($choice->options());
+        $options = Options::ofJson($choice->options()->line());
         $use = $choice->use();
         $named = str_contains($use, '\\') ? Absent::setting() : $registered(Name::of($use), $options);
         $built = $named instanceof Absent || ($named instanceof CannotJudge && class_exists($use))

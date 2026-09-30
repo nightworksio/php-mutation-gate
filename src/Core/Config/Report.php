@@ -4,11 +4,20 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use NightWorksIO\MutationGate\Core\File\Path;
+use function implode;
 
-/** A report to write (ADR-0009): the reporter a config chooses, and where a file report goes. */
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
+
+use function sprintf;
+
+/** A `reports` entry (ADR-0009): a reporter, and where it writes its file; a reporter that sends has none. */
 final readonly class Report
 {
+    /** The built-in reporters the builder has a method of its own for. */
+    private const array NAMED = ['json', 'junit', 'sarif', 'html'];
+
     private function __construct(private Choice $reporter, private Path|Absent $path)
     {
     }
@@ -27,5 +36,35 @@ final readonly class Report
     public function path(): Path|Absent
     {
         return $this->path;
+    }
+
+    /** This entry as a config at this origin writes it. */
+    public function written(Origin $origin): Json
+    {
+        $chosen = $this->reporter->written();
+        $written = Json::object(Member::of('use', $this->reporter->use()));
+        $written = $this->path instanceof Path
+            ? $written->with(Member::of('path', $origin->written($this->path)))
+            : $written;
+
+        return $chosen instanceof Json ? $written->with(Member::of('with', $this->reporter->options())) : $written;
+    }
+
+    /** This entry as the builder's `Report` writes it. */
+    public function php(Origin $origin): string
+    {
+        $path = $this->path instanceof Path ? $origin->written($this->path) : '';
+        $named = PhpCalls::chosen($this->reporter, 'Report', ...self::NAMED);
+
+        return $path !== '' && $named === sprintf('Report::%s()', $this->reporter->use())
+            ? sprintf('Report::%s(%s)', $this->reporter->use(), PhpCalls::literal($path))
+            : sprintf(
+                'Report::uses(%s)',
+                implode(', ', [
+                    PhpCalls::literal($this->reporter->use()),
+                    PhpCalls::literal($path),
+                    ...PhpOptions::of($this->reporter->options()),
+                ]),
+            );
     }
 }

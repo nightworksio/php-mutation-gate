@@ -4,21 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-/** What a key that is not written means. */
+/** What leaving a setting out of a layer of config means. */
 enum Presence
 {
-    /** It takes its default. */
-    case Defaulted;
-
-    /** It is left out, and leaving it out means something of its own. */
+    /** Nothing: a later layer, or the setting's own default, gives it. */
     case Optional;
 
     /** It is a mistake. */
     case Required;
 
-    /** It is a mistake once every layer is laid, though a config file may leave it for zero-config to find. */
-    case Found;
-
-    /** It is an object whose every setting takes its default. */
+    /** It is an object whose every setting is left out. */
     case Section;
 }

@@ -4,14 +4,22 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\At;
-use NightWorksIO\MutationGate\Core\Config\Definition\Fields;
+use function array_map;
+use function implode;
+
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 
-/** A tree a config declares (ADR-0003): its path, and the floor it declares, if any. */
+use function sprintf;
+
+/**
+ * A `trees` entry (ADR-0003): a path, the floor it declares, the reason a
+ * floor of 0 needs, and the files in it that belong to no tree (ADR-0016).
+ */
 final readonly class DeclaredTree
 {
     /** @param Listed<string> $exclude */
@@ -22,21 +30,12 @@ final readonly class DeclaredTree
     ) {
     }
 
-    /** A `trees` entry: a floor of 0 has to carry its reason. */
-    public static function read(Fields $read, string $at): self|Invalid
+    /**
+     * @param Listed<string> $exclude
+     */
+    public static function of(Path $path, Floor|Exempt|Undeclared $declared, Listed $exclude): self
     {
-        $floor = $read->optional('floor', Floor::class);
-        $path = $read->object('path', Path::class);
-        $exclude = Listed::of($read->strings('exclude'));
-
-        return match (true) {
-            $floor instanceof Absent => new self($path, Undeclared::floor(), $exclude),
-            $floor->hundredths() > 0 => new self($path, $floor, $exclude),
-            $read->has('reason') => new self($path, Exempt::because($read->string('reason')), $exclude),
-            default => Invalid::because(
-                Problem::at(At::key($at, 'reason'), 'expected a reason when floor is 0, got nothing'),
-            ),
-        };
+        return new self($path, $declared, $exclude);
     }
 
     public function path(): Path
@@ -53,5 +52,56 @@ final readonly class DeclaredTree
     public function exclude(): Listed
     {
         return $this->exclude;
+    }
+
+    /** This entry as a config at this origin writes it. */
+    public function written(Origin $origin): Json
+    {
+        $written = Json::object(Member::of('path', $origin->written($this->path)));
+        $written = match (true) {
+            $this->declared instanceof Floor => $written->with(Member::of('floor', $this->declared->written())),
+            $this->declared instanceof Exempt => $written->with(
+                Member::of('floor', 0),
+            )->with(Member::of('reason', $this->declared->reason())),
+            default => $written,
+        };
+
+        $excluded = WrittenPaths::globs($origin, $this->exclude);
+
+        return $excluded === [] ? $written : $written->with(Member::of('exclude', Json::items(...$excluded)));
+    }
+
+    /** This entry as the builder's `Tree::at()` writes it. */
+    public function php(Origin $origin): string
+    {
+        $arguments = PhpCalls::literal($origin->written($this->path));
+        $arguments = match (true) {
+            $this->declared instanceof Floor => sprintf(
+                '%s, floor: %s',
+                $arguments,
+                PhpCalls::literal($this->declared->written()),
+            ),
+            $this->declared instanceof Exempt => sprintf(
+                '%s, floor: 0, because: %s',
+                $arguments,
+                PhpCalls::literal($this->declared->reason()),
+            ),
+            default => $arguments,
+        };
+        $excluded = WrittenPaths::globs($origin, $this->exclude);
+
+        return $excluded === []
+            ? sprintf('Tree::at(%s)', $arguments)
+            : sprintf(
+                'Tree::at(%s)->excluding(%s)',
+                $arguments,
+                implode(
+                    ', ',
+                    array_map(
+                        static fn(string $glob): string => sprintf('Glob::of(%s)', PhpCalls::literal($glob)),
+                        $excluded,
+                    ),
+                ),
+            );
     }
 }

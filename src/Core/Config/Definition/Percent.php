@@ -7,25 +7,29 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use function is_float;
 use function is_int;
 
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 
-/** A floor: a number from 0 to 100, kept to the hundredth it was written to (ADR-0003). */
-final readonly class Percent implements Node
+/**
+ * A floor: a number from 0 to 100.
+ *
+ * @implements Shape<Floor>
+ */
+final readonly class Percent implements Shape
 {
-    private const int NONE = 0;
-
-    private const int WHOLE = 100;
-
     public static function floor(): self
     {
         return new self();
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        return (is_int($value) || is_float($value)) && $value >= self::NONE && $value <= self::WHOLE
-            ? Reading::of(Floor::of($value), $value)
-            : Reading::mismatch($at, $this->expected(), $value);
+        $number = Number::percent()->read($at)->value();
+
+        return is_int($number) || is_float($number)
+            ? Reading::of(Floor::of($number))
+            : Reading::refused($at->mismatch($this->expected()));
     }
 
     public function expected(): string
@@ -33,9 +37,9 @@ final readonly class Percent implements Node
         return 'a number from 0 to 100';
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['type' => 'number', 'minimum' => self::NONE, 'maximum' => self::WHOLE];
+        return Number::percent()->schema();
     }
 
     public function effects(): array

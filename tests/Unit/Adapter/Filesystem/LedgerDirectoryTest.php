@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -84,7 +85,7 @@ it('says why a ledger it cannot write was not written', function () use ($proved
 });
 
 it('keeps its ledgers under .mutation-gate/ledger unless the options name another directory', function (): void {
-    expect(LedgerDirectory::PATH)->toBe('.mutation-gate/ledger')
+    expect(Workspace::ledger()->value())->toBe('.mutation-gate/ledger')
         ->and(LedgerDirectory::fromOptions(Options::none()))->toEqual(LedgerDirectory::at('.mutation-gate/ledger'))
         ->and(LedgerDirectory::fromOptions(Options::ofJson('{"path": "build/ledgers"}')))
         ->toEqual(LedgerDirectory::at('build/ledgers'));

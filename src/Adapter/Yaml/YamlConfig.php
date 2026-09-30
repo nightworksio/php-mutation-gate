@@ -10,9 +10,11 @@ use function is_string;
 use function json_decode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Parsed;
-use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 
 use function sprintf;
@@ -31,28 +33,31 @@ final readonly class YamlConfig implements ConfigLoader
 
     private const int INDENT = 2;
 
-    public function load(Path $file): Document|CannotJudge
+    public function load(ConfigFile $file): Layer|Invalid|CannotJudge
     {
-        $text = is_file($file->value()) ? file_get_contents($file->value()) : false;
+        $path = $file->file()->value();
+        $text = is_file($path) ? file_get_contents($path) : false;
 
         if (! is_string($text)) {
-            return CannotJudge::because(sprintf('%s could not be read.', $file->value()));
+            return CannotJudge::because(sprintf('%s could not be read.', $path));
         }
 
         try {
             $tree = Yaml::parse($text, Yaml::PARSE_DATETIME | Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE);
         } catch (ParseException $exception) {
-            return CannotJudge::because(sprintf('%s is not YAML: %s', $file->value(), $exception->getMessage()));
+            return CannotJudge::because(sprintf('%s is not YAML: %s', $path, $exception->getMessage()));
         }
 
-        return Parsed::document($tree, $file->value());
+        $json = Parsed::json($tree, $path);
+
+        return $json instanceof Json ? $file->read($json) : $json;
     }
 
     /** A config written as YAML, as `init` and `config:show` write it. */
-    public function render(Document $document): string
+    public function render(Json $config): string
     {
         return Yaml::dump(
-            json_decode($document->json(), associative: true),
+            json_decode($config->line(), associative: true),
             self::NESTED,
             self::INDENT,
             Yaml::DUMP_EMPTY_ARRAY_AS_SEQUENCE,

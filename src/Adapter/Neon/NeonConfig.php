@@ -12,9 +12,11 @@ use function json_decode;
 use Nette\Neon\Exception;
 use Nette\Neon\Neon;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Parsed;
-use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 
 use function sprintf;
@@ -27,28 +29,31 @@ final readonly class NeonConfig implements ConfigLoader
 {
     private const string INDENT = '    ';
 
-    public function load(Path $file): Document|CannotJudge
+    public function load(ConfigFile $file): Layer|Invalid|CannotJudge
     {
-        $text = is_file($file->value()) ? file_get_contents($file->value()) : false;
+        $path = $file->file()->value();
+        $text = is_file($path) ? file_get_contents($path) : false;
 
         if (! is_string($text)) {
-            return CannotJudge::because(sprintf('%s could not be read.', $file->value()));
+            return CannotJudge::because(sprintf('%s could not be read.', $path));
         }
 
         try {
-            $tree = Neon::decode($text);
+            $json = Parsed::json(Neon::decode($text), $path);
         } catch (Exception $exception) {
-            return CannotJudge::because(sprintf('%s is not NEON: %s', $file->value(), $exception->getMessage()));
+            return CannotJudge::because(sprintf('%s is not NEON: %s', $path, $exception->getMessage()));
         }
 
-        return Parsed::document($tree, $file->value());
+        return $json instanceof Json ? $file->read($json) : $json;
     }
 
     /** A config written as NEON, as `init` and `config:show` write it. */
-    public function render(Document $document): string
+    public function render(Json $config): string
     {
-        $tree = json_decode($document->json(), associative: true);
-
-        return Neon::encode($tree, blockMode: true, indentation: self::INDENT);
+        return Neon::encode(
+            json_decode($config->line(), associative: true),
+            blockMode: true,
+            indentation: self::INDENT,
+        );
     }
 }

@@ -6,12 +6,13 @@ namespace NightWorksIO\MutationGate\Config;
 
 use function array_values;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Json;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 /** `treeSource`: where the trees come from when the config lists none (ADR-0005). */
 final readonly class Source
 {
-    private function __construct(private string $json)
+    private function __construct(private Json|string $json)
     {
     }
 
@@ -22,8 +23,13 @@ final readonly class Source
     public static function phpunit(string ...$fallback): self
     {
         return $fallback === []
-            ? new self(Json::encode('phpunit'))
-            : new self(Json::encode(['use' => 'phpunit', 'with' => ['fallback' => array_values($fallback)]]));
+            ? new self('phpunit')
+            : new self(Json::object(Member::of('use', 'phpunit'))->with(
+                Member::of(
+                    'with',
+                    Json::object(Member::of('fallback', Json::items(...array_values($fallback)))),
+                ),
+            ));
     }
 
     /** One tree per `autoload` path of `composer.json`. */
@@ -38,7 +44,7 @@ final readonly class Source
         return new self(Option::choice($source, ...$options));
     }
 
-    public function written(): string
+    public function written(): Json|string
     {
         return $this->json;
     }

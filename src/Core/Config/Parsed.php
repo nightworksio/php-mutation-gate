@@ -14,34 +14,36 @@ use function is_array;
 use function is_finite;
 use function is_float;
 use function is_object;
+use function json_encode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Definition\Json;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Time\Day;
 
 use function sprintf;
 use function var_export;
 
 /**
- * A config a YAML or NEON parser read, made into the tree every format
- * shares. A date the parser read as a date is written `YYYY-MM-DD` again,
+ * A config a YAML or NEON parser read, made into the JSON every format
+ * reads into. A date the parser read as a date is written `YYYY-MM-DD` again,
  * and one with a time of day is refused. A number JSON cannot hold, such as
- * an unquoted mutant id read as an infinite float, becomes text the validator
+ * an unquoted mutant id read as an infinite float, becomes text the definition
  * can name. Any other object is refused: config is data (ADR-0002).
  */
 final readonly class Parsed
 {
-    private const string DAY = 'Y-m-d';
-
     /** The time of day a date without one is read at. */
     private const string TIME = 'H:i:s.u';
 
     private const string MIDNIGHT = '00:00:00.000000';
 
-    public static function document(mixed $tree, string $file): Document|CannotJudge
+    /** A parser's tree as the JSON value a config holds, or why it holds something a config cannot. */
+    public static function json(mixed $tree, string $file): Json|CannotJudge
     {
         $plain = self::plain($tree, $file);
 
-        return $plain instanceof CannotJudge ? $plain : Document::ofJson(Json::encode($plain));
+        return $plain instanceof CannotJudge ? $plain : Json::parse(json_encode($plain, JsonText::FLAGS));
     }
 
     private static function plain(mixed $value, string $file): mixed
@@ -61,7 +63,7 @@ final readonly class Parsed
     private static function day(DateTimeInterface $date, string $file): string|CannotJudge
     {
         return $date->format(self::TIME) === self::MIDNIGHT
-            ? $date->format(self::DAY)
+            ? $date->format(Day::FORMAT)
             : CannotJudge::because(sprintf(
                 '%s holds a date with a time, %s; a config date is a day, YYYY-MM-DD.',
                 $file,

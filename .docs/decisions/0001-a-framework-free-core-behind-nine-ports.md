@@ -75,7 +75,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    | `Reporter` | Writing a verdict for one audience | Console, JSON, JUnit, SARIF, HTML, GitHub annotations and step summary, PR comment, badge and trend (ADR-0009) |
    | `ChangeSource` | The repository as version control sees it: what changed since a base and on which lines, every file with a digest of its content and the time it last changed, and files as they were at the base, one or many read together | git, with GitHub as a source for the base (ADR-0005) |
    | `Repository` | Where the checkout stands: the commit it is at, the branch it is on or that its `HEAD` is detached, and the branch the remote calls its default | git (ADR-0006) |
-   | `ConfigLoader` | One config file read into the untyped tree that ADR-0002 validates | PHP, JSON, YAML, NEON (ADR-0002) |
+   | `ConfigLoader` | One config file read into its typed layer of config, through the definition ADR-0002 validates every layer with | PHP, JSON, YAML, NEON (ADR-0002) |
 
    Time is read through PSR-20's `Psr\Clock\ClockInterface`, a standard
    interface rather than a tenth port. `Psr\Clock` is the only package outside
@@ -123,7 +123,10 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    added under a name: `withRunner('pest', …)`, `withReporter('sarif', …)`,
    `withProofStore('s3', …)`, `withCiPlan('gitlab', …)`,
    `withConfigLoader('yaml', …)`, `withRepository('git', …)`,
-   `withPreset('laravel', …)` and so on for every port. Extensions only
+   `withPreset('laravel', …)` and so on for every port. A preset is a layer of
+   config (ADR-0002). The registry is made with the `Origin` of the package it
+   comes from, `NightWorksIO\MutationGate\Core\Registry\Origin`, which the
+   registry's own entries record. Extensions only
    register: `Extensions` offers no lookup to them. The composition root in
    `Cli` looks up what was registered, by name, and refuses what a
    registration builds that is not the kind it was registered as. The package's own adapters register through a first-party extension

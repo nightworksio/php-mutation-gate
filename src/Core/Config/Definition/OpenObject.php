@@ -4,22 +4,32 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node;
+
 /**
- * An object whose keys belong to something outside the gate, such as a
- * third-party adapter's options or a CI's step, read into its JSON text.
+ * An object of any keys, kept as it is written: options a third party's
+ * adapter checks itself, or keys the gate passes on to a CI unread.
+ *
+ * @implements Shape<Json>
  */
-final readonly class OpenObject implements Node
+final readonly class OpenObject implements Shape
 {
     public static function any(): self
     {
         return new self();
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        return Json::isMap($value)
-            ? Reading::of(Json::encode(Json::object($value)), Json::object($value))
-            : Reading::mismatch($at, $this->expected(), $value);
+        return match ($at->kind()) {
+            Kind::Map => Reading::of($at->value()),
+            Kind::Empty => Reading::of(Json::object()),
+            Kind::List, Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null, Kind::Nothing
+                => Reading::refused($at->mismatch($this->expected())),
+        };
     }
 
     public function expected(): string
@@ -27,9 +37,9 @@ final readonly class OpenObject implements Node
         return 'an object';
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['type' => 'object'];
+        return Json::object(Member::of('type', 'object'));
     }
 
     public function effects(): array

@@ -14,9 +14,6 @@ use function sprintf;
  */
 final readonly class JsonObject
 {
-    private const int FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-        | JSON_PRESERVE_ZERO_FRACTION;
-
     /**
      * An object of these members, an empty one where there are none.
      *
@@ -36,6 +33,6 @@ final readonly class JsonObject
     /** @param string|float|list<string> $value */
     public static function value(string|float|array $value): string
     {
-        return json_encode($value, self::FLAGS);
+        return json_encode($value, JsonText::FLAGS);
     }
 }

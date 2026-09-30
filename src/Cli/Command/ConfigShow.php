@@ -6,14 +6,14 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function is_string;
 
+use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
-use NightWorksIO\MutationGate\Cli\Config\Given;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -55,15 +55,14 @@ final readonly class ConfigShow
         Formats $formats,
         InputInterface $input,
     ): string|Invalid|CannotJudge {
-        $settings = $effective->settings(Given::from($input));
+        $settings = $effective->settings(CommandLine::from($input));
         $format = $input->getOption('format');
         $chosen = Formats::chosen(is_string($format) ? $format : '');
-        $document = $settings instanceof Settings ? Document::ofJson($settings->effective()) : $settings;
 
         return match (true) {
-            ! $document instanceof Document => $document,
+            ! $settings instanceof Settings => $settings,
             $chosen instanceof CannotJudge => $chosen,
-            default => $formats->render($document, $chosen),
+            default => $formats->render($settings->effective(), $chosen, ProjectRoot::origin()),
         };
     }
 }

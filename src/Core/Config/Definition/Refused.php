@@ -5,12 +5,17 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
- * A key a config may never write, with what to do instead: a webhook's `url`
- * is a credential, so it comes from the environment (ADR-0016).
+ * A key that is refused whatever it holds, with what to do instead: a
+ * webhook URL, which is a credential, and belongs in the environment.
+ *
+ * @implements Shape<never>
  */
-final readonly class Refused implements Node
+final readonly class Refused implements Shape
 {
     private function __construct(private string $instead)
     {
@@ -21,9 +26,9 @@ final readonly class Refused implements Node
         return new self($instead);
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        return Reading::refused([Problem::at($at, $this->instead)]);
+        return Reading::refused(Problem::at($at->at(), $this->instead));
     }
 
     public function expected(): string
@@ -31,9 +36,9 @@ final readonly class Refused implements Node
         return $this->instead;
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['not' => Json::object([]), 'description' => $this->instead];
+        return Json::object(Member::of('not', Json::object()))->with(Member::of('description', $this->instead));
     }
 
     public function effects(): array

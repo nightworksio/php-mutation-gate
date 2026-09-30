@@ -4,58 +4,96 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function is_string;
-
+use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
- * A setting that chooses an adapter (ADR-0002): a registered name such as
- * `pest`, a class, or `{"use": <name or class>, "with": <options>}`.
+ * A setting that chooses an adapter (ADR-0002): a name or a class alone, or
+ * `{"use": …, "with": …}` with its options.
+ *
+ * @implements Shape<Choice>
  */
-final readonly class Adapter implements Node
+final readonly class Adapter implements Shape
 {
-    /** @param Section<Fields> $written */
-    private function __construct(private Builtins $builtins, private Section $written)
+    public const string EXPECTED = 'a name, a class, or an object with use and with';
+
+    /** @param Section<Choice> $object */
+    private function __construct(private Builtins $builtins, private Section $object)
     {
     }
 
     public static function choosing(Builtins $builtins): self
     {
+        $judges = Effect::JudgesOrReportsOnly;
+        $use = Field::required('use', Text::of('a name or a class'), $judges);
+        $with = Field::optional('with', OpenObject::any(), $judges);
+
         return new self(
             $builtins,
-            Section::fields(
-                Field::required('use', Text::of('a name or a class'), Effect::JudgesOrReportsOnly),
-                Field::setting('with', OpenObject::any(), Effect::JudgesOrReportsOnly, []),
+            Section::of(
+                static function (Node $at) use ($builtins, $use, $with): Choice|Invalid {
+                    $named = $use->read($at);
+
+                    return Reading::built(
+                        static fn(): Choice|Invalid => self::chosen(
+                            $builtins->choose($named->must(), $at->field('with')),
+                        ),
+                        $named,
+                        $with->read($at),
+                    );
+                },
+                $use,
+                $with,
             ),
         );
     }
 
-    public function read(mixed $value, string $at): Reading
+    /**
+     * What a choice reads into: the chosen adapter, or every problem with its options.
+     *
+     * @param Reading<Choice> $chosen
+     */
+    public static function chosen(Reading $chosen): Choice|Invalid
     {
-        if (is_string($value) && $value !== '') {
-            return $this->builtins->choose($value, [], $at);
-        }
+        $choice = $chosen->value();
 
-        if (! Json::isMap($value)) {
-            return Reading::mismatch($at, $this->expected(), $value);
-        }
+        return $choice instanceof Choice ? $choice : Invalid::because(...$chosen->problems());
+    }
 
-        $written = $this->written->read($value, $at);
-        $fields = $written->value();
-
-        return $fields instanceof Fields
-            ? $this->builtins->choose($fields->string('use'), Json::decode($fields->string('with')), $at)
-            : $written;
+    public function read(Node $at): Reading
+    {
+        return match ($at->kind()) {
+            Kind::Text => $at->text() === ''
+                ? Reading::refused($at->mismatch(self::EXPECTED))
+                : $this->builtins->choose($at->text(), $at->field('with')),
+            Kind::Map, Kind::Empty => $this->object->read($at),
+            Kind::List, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null, Kind::Nothing => Reading::refused(
+                $at->mismatch(self::EXPECTED),
+            ),
+        };
     }
 
     public function expected(): string
     {
-        return 'a name, a class, or an object with use and with';
+        return self::EXPECTED;
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['anyOf' => [['type' => 'string', 'minLength' => 1], ...$this->builtins->schemas([], [], [])]];
+        return Json::object(
+            Member::of(
+                'anyOf',
+                Json::items(
+                    Json::object(Member::of('type', 'string'))->with(Member::of('minLength', 1)),
+                    ...$this->builtins->schemas(Json::object(), [], []),
+                ),
+            ),
+        );
     }
 
     public function effects(): array

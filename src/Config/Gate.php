@@ -7,29 +7,31 @@ namespace NightWorksIO\MutationGate\Config;
 use Closure;
 
 use function count;
-use function is_array;
 
-use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Definition\Json;
-use NightWorksIO\MutationGate\Core\Config\Document;
-use NightWorksIO\MutationGate\Core\Config\Layers;
+use NightWorksIO\MutationGate\Core\Config\Definition;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 /**
  * The PHP config (ADR-0002): a `mutation-gate.php` returns
- * `Gate::configure()` with its settings. Each method writes the part of the
- * same untyped config every other format reads into, and one validator reads
- * them all.
+ * `Gate::configure()` with its settings. Each method writes its part of the
+ * config as a JSON file would, and the config is read through the same
+ * definition as every other format.
  */
 final readonly class Gate
 {
-    /** @param array<mixed> $config */
-    private function __construct(private array $config)
+    private function __construct(private Json $config)
     {
     }
 
     public static function configure(): self
     {
-        return new self([]);
+        return new self(Json::object());
     }
 
     /** `extensions`: extension classes to load beside those Composer names. */
@@ -43,46 +45,51 @@ final readonly class Gate
     {
         $names = $this->each([$preset, ...$more], static fn(Preset $one): string => $one->name());
 
-        return $this->set('preset', count($names) === 1 ? $preset->name() : $names);
+        return $this->set('preset', count($more) === 0 ? $preset->name() : $names);
     }
 
     public function runner(Runner $runner): self
     {
-        return $this->set('runner', Json::decode($runner->written()));
+        return $this->set('runner', $runner->written());
+    }
+
+    /** `runner.withhold`, where a preset or another layer chooses the runner: `Withheld::of('DEPLOY_*')`. */
+    public function withholding(Withheld $withheld): self
+    {
+        $withhold = Json::object(Member::of('withhold', Json::items(...$withheld)));
+
+        return $this->merge(Json::object(Member::of('runner', $withhold)));
     }
 
     public function treeSource(Source $source): self
     {
-        return $this->set('treeSource', Json::decode($source->written()));
+        return $this->set('treeSource', $source->written());
     }
 
     /** `trees`: every tree, in place of those the tree source would find. */
     public function trees(Tree ...$trees): self
     {
-        return $this->set('trees', $this->each($trees, static fn(Tree $tree): mixed => Json::decode($tree->written())));
+        return $this->set('trees', $this->each($trees, static fn(Tree $tree): Json => $tree->written()));
     }
 
     /** `newCode.floor` */
     public function newCode(Floor $floor): self
     {
-        return $this->merge(['newCode' => ['floor' => $floor->percent()]]);
+        return $this->merge(Json::object(Member::of('newCode', Json::object(Member::of('floor', $floor->percent())))));
     }
 
     /** `ignores.entries`, added to those already given. */
     public function ignoring(Ignore ...$ignores): self
     {
-        $entries = $this->each($ignores, static fn(Ignore $ignore): mixed => Json::decode($ignore->written()));
+        $entries = $this->each($ignores, static fn(Ignore $ignore): Json => $ignore->written());
 
-        return $this->merge(['ignores' => ['entries' => $entries]]);
+        return $this->merge(Json::object(Member::of('ignores', Json::object(Member::of('entries', $entries)))));
     }
 
     /** `reports` */
     public function reporting(Report ...$reports): self
     {
-        return $this->set(
-            'reports',
-            $this->each($reports, static fn(Report $report): mixed => Json::decode($report->written())),
-        );
+        return $this->set('reports', $this->each($reports, static fn(Report $report): Json => $report->written()));
     }
 
     /** Any other setting, such as `Shards::seconds(900)` or `Timeouts::unjudged()`, laid over those already given. */
@@ -91,38 +98,41 @@ final readonly class Gate
         $gate = $this;
 
         foreach ($settings as $setting) {
-            $gate = $gate->merge(Json::decode($setting->written()));
+            $gate = $gate->merge($setting->written());
         }
 
         return $gate;
     }
 
-    /** The config this writes, read as every other format is. */
-    public function document(): Document|CannotJudge
+    /** The config this writes, as a JSON file would write it. */
+    public function written(): Json
     {
-        return Document::ofJson(Json::encode(Json::object($this->config)));
+        return $this->config;
     }
 
-    private function set(string $key, mixed $value): self
+    /** The layer of config this writes, read as every other format is, its paths named from this origin. */
+    public function layer(Origin $origin): Layer|Invalid
     {
-        return new self([...$this->config, $key => $value]);
+        return Definition::layer(Node::config($this->config->line()), $origin);
     }
 
-    private function merge(mixed $part): self
+    private function set(string $key, Json|string $value): self
     {
-        $merged = Layers::merged($this->config, $part);
+        return new self($this->config->with(Member::of($key, $value)));
+    }
 
-        return new self(is_array($merged) ? $merged : $this->config);
+    private function merge(Json $part): self
+    {
+        return new self($this->config->merged($part));
     }
 
     /**
      * @template T
      *
-     * @param  array<T>          $values
-     * @param  Closure(T): mixed $json
-     * @return list<mixed>
+     * @param  array<T>                     $values
+     * @param  Closure(T): (Json|string)   $json
      */
-    private function each(array $values, Closure $json): array
+    private function each(array $values, Closure $json): Json
     {
         $each = [];
 
@@ -130,6 +140,6 @@ final readonly class Gate
             $each[] = $json($value);
         }
 
-        return $each;
+        return Json::items(...$each);
     }
 }

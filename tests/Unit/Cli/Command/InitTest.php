@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
-use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 use NightWorksIO\MutationGate\Tests\Support\Commands;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 $here = (string) getcwd();
@@ -91,10 +93,12 @@ it('writes a YAML or NEON config that reads back into what zero-config found', f
 ) use ($init): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
     $init($project, ['--format' => $format]);
-    $document = $loader->load(Path::of(sprintf('%s/mutation-gate.%s', $project, $format)));
+    $layer = $loader->load(
+        ConfigFile::at(Path::of(sprintf('%s/mutation-gate.%s', $project, $format)), Path::of($project)),
+    );
 
-    expect($document instanceof Document ? $document->json() : $document)
-        ->toBe('{"preset":"laravel","runner":"pest","trees":[{"path":"app"}]}');
+    expect($layer instanceof Layer ? Configs::decoded($layer) : Configs::problems($layer))
+        ->toBe(['preset' => 'laravel', 'runner' => 'pest', 'trees' => [['path' => 'app']]]);
 })->with([
     'yaml' => ['yaml', fn(): ConfigLoader => new YamlConfig()],
     'neon' => ['neon', fn(): ConfigLoader => new NeonConfig()],
@@ -214,7 +218,7 @@ it('says so where it cannot read .gitignore', function () use ($init): void {
         ->and($ran->errors)->toEndWith("/.gitignore could not be read.\n");
 });
 
-it('writes the file --config names, in the format its extension names', function () use (
+it('writes the file --config names, in the format its extension names, its paths from its directory', function () use (
     $init,
     $file,
 ): void {
@@ -227,12 +231,12 @@ it('writes the file --config names, in the format its extension names', function
         '',
     ])->and($file($project, 'ci/gate.json'))->toBe(<<<'JSON'
         {
-            "$schema": "vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json",
+            "$schema": "../vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json",
             "preset": "laravel",
             "runner": "pest",
             "trees": [
                 {
-                    "path": "app"
+                    "path": "../app"
                 }
             ]
         }
@@ -248,7 +252,7 @@ it('reads the config it wrote at --config back into what zero-config found', fun
     $shown = Commands::run($project, 'config:show', ['--config' => 'ci/gate.yml']);
 
     expect(json_decode($shown->output, associative: true))
-        ->toMatchArray(['preset' => 'laravel', 'runner' => 'pest', 'trees' => [['path' => 'app', 'exclude' => []]]]);
+        ->toMatchArray(['preset' => 'laravel', 'runner' => 'pest', 'trees' => [['path' => 'app']]]);
 });
 
 it('writes nothing where the file --config names is in no format it writes', function () use ($init, $file): void {

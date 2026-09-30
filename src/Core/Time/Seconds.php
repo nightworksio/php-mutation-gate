@@ -32,6 +32,11 @@ final readonly class Seconds
         return new self($seconds);
     }
 
+    public static function minutes(int $minutes): self
+    {
+        return new self($minutes * self::PER_MINUTE);
+    }
+
     /** A duration as a config or an option writes it: `90s`, `15m` or `1h30m`. */
     public static function parse(string $duration): self|CannotJudge
     {
@@ -71,5 +76,22 @@ final readonly class Seconds
     public function preciseText(): string
     {
         return round($this->seconds) < self::PER_MINUTE ? sprintf('%.2fs', $this->seconds) : $this->text();
+    }
+
+    /** As a config writes a duration, in whole seconds: `90s` is `1m30s`, `3600s` is `1h`, and none is `0s`. */
+    public function written(): string
+    {
+        $whole = intval($this->seconds);
+        $hours = intdiv($whole, self::PER_HOUR);
+        $minutes = intdiv($whole % self::PER_HOUR, self::PER_MINUTE);
+        $seconds = $whole % self::PER_MINUTE;
+        $written = sprintf(
+            '%s%s%s',
+            $hours > 0 ? sprintf('%dh', $hours) : '',
+            $minutes > 0 ? sprintf('%dm', $minutes) : '',
+            $seconds > 0 ? sprintf('%ds', $seconds) : '',
+        );
+
+        return $written === '' ? '0s' : $written;
     }
 }

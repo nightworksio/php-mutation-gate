@@ -15,10 +15,15 @@ use function json_encode;
 
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Config\Validator;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use RuntimeException;
 
 use function sprintf;
@@ -29,19 +34,50 @@ final readonly class Configs
     /** The instant every test validates at. */
     public const string NOW = '2026-09-30T12:00:00+00:00';
 
-    /** @param array<mixed>|string $config a decoded config, or its JSON */
-    public static function document(array|string $config): Document
+    /**
+     * A config's JSON.
+     *
+     * @param array<mixed>|string $config a decoded config, or its JSON
+     */
+    public static function json(array|string $config): string
     {
-        $json = is_string($config) ? $config : (string) json_encode($config, JSON_UNESCAPED_SLASHES);
-        $document = Document::ofJson($json);
-
-        return $document instanceof Document ? $document : throw new RuntimeException($document->why());
+        return is_string($config) ? $config : (string) json_encode($config, JSON_UNESCAPED_SLASHES);
     }
 
-    /** @param array<mixed>|string $config */
+    /**
+     * One layer of config, read as a file at this origin is.
+     *
+     * @param array<mixed>|string $config
+     */
+    public static function layer(array|string $config, Origin $origin = new ProjectRoot()): Layer|Invalid
+    {
+        return Definition::layer(Node::config(self::json($config)), $origin);
+    }
+
+    /**
+     * One layer of config, which the test writes validly.
+     *
+     * @param array<mixed>|string $config
+     */
+    public static function valid(array|string $config): Layer
+    {
+        $layer = self::layer($config);
+
+        return $layer instanceof Layer
+            ? $layer
+            : throw new RuntimeException(sprintf('The layer is invalid: %s', json_encode(self::problems($layer))));
+    }
+
+    /**
+     * A config as the only layer, settled over every default.
+     *
+     * @param array<mixed>|string $config
+     */
     public static function validated(array|string $config): Settings|Invalid
     {
-        return new Validator(new DateTimeImmutable(self::NOW))->validate(self::document($config));
+        $layer = self::layer($config);
+
+        return $layer instanceof Layer ? Settings::settled($layer, new DateTimeImmutable(self::NOW)) : $layer;
     }
 
     /** @param array<mixed>|string $config */
@@ -57,15 +93,33 @@ final readonly class Configs
     /** The config a PHP builder writes, decoded. */
     public static function written(Gate $gate): mixed
     {
-        $document = $gate->document();
+        return json_decode($gate->written()->line(), associative: true);
+    }
 
-        return $document instanceof Document ? json_decode($document->json(), associative: true) : $document;
+    /** What a layer writes, decoded. */
+    public static function decoded(Layer $layer, Origin $origin = new ProjectRoot()): mixed
+    {
+        return json_decode($layer->written($origin)->line(), associative: true);
+    }
+
+    /** The effective config, as `config:show` prints it as JSON. */
+    public static function effective(Settings $settings): string
+    {
+        return $settings->effective()->written(ProjectRoot::origin())->pretty();
+    }
+
+    /** An adapter's options, as a config that writes them is read. */
+    public static function options(string $json): Json
+    {
+        $options = Node::config($json);
+
+        return $options->kind() === Kind::Empty ? Json::object() : $options->value();
     }
 
     /** What the effective config shows under these keys. */
     public static function shown(Settings $settings, string ...$keys): mixed
     {
-        $shown = json_decode($settings->effective(), associative: true);
+        $shown = self::decoded($settings->effective());
 
         foreach ($keys as $key) {
             $shown = is_array($shown) && array_key_exists($key, $shown)
@@ -81,7 +135,7 @@ final readonly class Configs
      *
      * @return list<string>
      */
-    public static function problems(Settings|Invalid|CannotJudge $outcome): array
+    public static function problems(Settings|Layer|Invalid|CannotJudge $outcome): array
     {
         if ($outcome instanceof CannotJudge) {
             return [$outcome->why()];

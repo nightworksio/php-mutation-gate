@@ -7,7 +7,14 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 use function array_map;
 use function array_unique;
 use function array_values;
+
+use ArrayIterator;
+
 use function implode;
+
+use Iterator;
+use IteratorAggregate;
+
 use function preg_quote;
 use function sprintf;
 use function str_replace;
@@ -16,8 +23,10 @@ use function str_replace;
  * The environment variables a runner never hands the project's tests, and
  * so never any mutant of them: the CI's credentials, each a name or a glob
  * whose `*` stands for any run of characters. It only ever grows.
+ *
+ * @implements IteratorAggregate<int, string>
  */
-final readonly class Withheld
+final readonly class Withheld implements IteratorAggregate
 {
     /** AWS's credentials, the Actions runtime's, GitHub's token and SonarCloud's. */
     private const array STANDARD = ['AWS_*', 'ACTIONS_*', 'GITHUB_TOKEN', 'SONAR_TOKEN'];
@@ -42,6 +51,12 @@ final readonly class Withheld
     public static function of(string ...$globs): self
     {
         return new self(array_values($globs));
+    }
+
+    /** @return Iterator<int, string> each name or glob, in the order given */
+    public function getIterator(): Iterator
+    {
+        return new ArrayIterator($this->globs);
     }
 
     /** What both withhold. */

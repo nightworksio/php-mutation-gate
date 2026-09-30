@@ -12,7 +12,6 @@ use function hash_update;
 
 use HashContext;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
@@ -67,9 +66,10 @@ final readonly class ContentKeys
     {
     }
 
+    /** @param string $config the settings that affect results, as their canonical form writes them (ADR-0007) */
     public static function of(
         Version $gate,
-        Document $config,
+        string $config,
         Identity $runner,
         Digest $installed,
         Source $source,
@@ -139,14 +139,14 @@ final readonly class ContentKeys
     private static function hashEveryKeyReads(
         HashContext $context,
         Version $gate,
-        Document $config,
+        string $config,
         Identity $runner,
         Digest $installed,
         Source $source,
     ): void {
         hash_update($context, self::framed(self::FORMAT, 'gate', $gate->package(), $gate->version()));
         hash_update($context, self::framed($gate->reference()));
-        hash_update($context, self::framed('config', $config->json(), 'runner', $runner->runner()));
+        hash_update($context, self::framed('config', $config, 'runner', $runner->runner()));
         self::hashVersionsIn($context, $runner);
         hash_update($context, self::framed($runner->platform()->value(), 'installed', $installed->value(), 'files'));
         self::hashFingerprintsIn($context, $source->files());

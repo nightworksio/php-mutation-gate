@@ -3,19 +3,36 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
-use NightWorksIO\MutationGate\Cli\Config\Given;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ChosenRunner;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
+use NightWorksIO\MutationGate\Core\Config\Floors;
+use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
+use NightWorksIO\MutationGate\Core\Config\Ignores;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Config\Setup;
+use NightWorksIO\MutationGate\Core\Config\Shards;
+use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Origin;
+use NightWorksIO\MutationGate\Port\ConfigLoader;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -34,13 +51,11 @@ $effective = static fn(string $project, bool $installed = true): Effective => ne
 );
 
 /** Nothing said on the command line. */
-$nothing = static fn(): Given => new Given('', '', [], '', '', firstPartyOnly: false);
+$nothing = static fn(): CommandLine => new CommandLine('', '', [], '', '', firstPartyOnly: false);
 
 /** @return array<mixed> */
 $shown = static fn(Settings|Invalid|CannotJudge $settings): array => $settings instanceof Settings
-    ? (static fn(mixed $shown): array => is_array($shown) ? $shown : [])(
-        json_decode($settings->effective(), associative: true),
-    )
+    ? (static fn(mixed $shown): array => is_array($shown) ? $shown : [])(Configs::decoded($settings->effective()))
     : ['not settings' => Configs::problems($settings)];
 
 it('finds the preset and the runner of a project with no config', function () use (
@@ -64,14 +79,13 @@ it('lays the config file over its presets, and the command line over both', func
     $shown,
 ): void {
     $settings = $effective(Tree::at('tests/Fixtures/Projects/Configured'))
-        ->settings(new Given('', 'pest', ['json:build/mutation.json'], '5m', 'github', firstPartyOnly: false));
+        ->settings(new CommandLine('', 'pest', ['json:build/mutation.json'], '5m', 'github', firstPartyOnly: false));
 
     expect($shown($settings))->toMatchArray([
-        '$schema' => 'vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json',
         'preset' => 'symfony',
         'runner' => 'pest',
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['src']]],
-        'trees' => [['path' => 'src/Domain', 'floor' => 100, 'exclude' => []]],
+        'trees' => [['path' => 'src/Domain', 'floor' => 100]],
         'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**']],
         'budget' => '5m',
         'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'retries' => 20],
@@ -80,14 +94,14 @@ it('lays the config file over its presets, and the command line over both', func
             ['use' => 'json', 'path' => 'build/mutation.json'],
         ],
     ])->and($settings instanceof Settings ? $settings->ci()->plan() : $settings)
-        ->toEqual(Choice::of('github', '{}'));
+        ->toEqual(Choice::of('github', Configs::options('{}')));
 });
 
 it('takes the runner from the config file before looking for one', function () use ($effective, $nothing): void {
     $settings = $effective(Tree::at('tests/Fixtures/Projects/Configured'))->settings($nothing());
 
     expect($settings instanceof Settings ? $settings->runner()->choice() : $settings)
-        ->toEqual(Choice::of('infection', '{}'));
+        ->toEqual(Choice::of('infection', Configs::options('{}')));
 });
 
 it('finds the runner of a config that only says what it withholds', function () use ($effective, $nothing): void {
@@ -97,17 +111,17 @@ it('finds the runner of a config that only says what it withholds', function () 
     $runner = $settings instanceof Settings ? $settings->runner() : $settings;
 
     expect($runner instanceof ChosenRunner ? [$runner->choice(), $runner->withhold()] : $runner)
-        ->toEqual([Choice::of('pest', '{}'), Withheld::of('DEPLOY_*')]);
+        ->toEqual([Choice::of('pest', Configs::options('{}')), Withheld::of('DEPLOY_*')]);
 });
 
 it('keeps what the config withholds where the command line chooses the runner', function () use ($effective): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
     Scratch::write($project, 'mutation-gate.json', '{"runner": {"use": "pest", "withhold": ["DEPLOY_*"]}}');
-    $settings = $effective($project)->settings(new Given('', 'infection', [], '', '', firstPartyOnly: false));
+    $settings = $effective($project)->settings(new CommandLine('', 'infection', [], '', '', firstPartyOnly: false));
     $runner = $settings instanceof Settings ? $settings->runner() : $settings;
 
     expect($runner instanceof ChosenRunner ? [$runner->choice(), $runner->withhold()] : $runner)
-        ->toEqual([Choice::of('infection', '{}'), Withheld::of('DEPLOY_*')]);
+        ->toEqual([Choice::of('infection', Configs::options('{}')), Withheld::of('DEPLOY_*')]);
 });
 
 it('applies a list of presets in order, the later winning', function () use (
@@ -129,6 +143,25 @@ it('applies a list of presets in order, the later winning', function () use (
             'routes/**',
             '.env.testing',
         ]],
+    ]);
+});
+
+it('gives a library listed after a framework its own timeout and floor', function () use (
+    $effective,
+    $nothing,
+    $shown,
+): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', '{"preset": ["laravel", "library"], "runner": "pest"}');
+    Scratch::write($project, 'framework.json', '{"preset": ["library", "laravel"], "runner": "pest"}');
+    $framework = new CommandLine('framework.json', '', [], '', '', firstPartyOnly: false);
+
+    expect($shown($effective($project)->settings($nothing())))->toMatchArray([
+        'newCode' => ['floor' => 100],
+        'timeouts' => ['seconds' => 10, 'retries' => 20, 'mode' => 'confirm'],
+    ])->and($shown($effective($project)->settings($framework)))->toMatchArray([
+        'newCode' => ['floor' => 100],
+        'timeouts' => ['seconds' => 30, 'retries' => 20, 'mode' => 'confirm'],
     ]);
 });
 
@@ -155,7 +188,7 @@ it('reports every problem of an invalid config', function () use ($effective, $n
     ]);
 });
 
-it('cannot judge what the project leaves undecided', function (string $project, Given $given, string $why) use (
+it('cannot judge what the project leaves undecided', function (string $project, CommandLine $given, string $why) use (
     $effective,
 ): void {
     $root = Tree::at(sprintf('tests/Fixtures/Projects/%s', $project));
@@ -164,19 +197,19 @@ it('cannot judge what the project leaves undecided', function (string $project, 
 })->with([
     'two config files' => [
         'TwoConfigs',
-        new Given('', '', [], '', '', firstPartyOnly: false),
+        new CommandLine('', '', [], '', '', firstPartyOnly: false),
         'More than one config file is here: mutation-gate.json, mutation-gate.yaml. '
         . 'Keep one, or name one with --config.',
     ],
     'two runners' => [
         'TwoRunners',
-        new Given('', '', [], '', '', firstPartyOnly: false),
+        new CommandLine('', '', [], '', '', firstPartyOnly: false),
         'Both pestphp/pest-plugin-mutate and infection/infection are installed. '
         . 'Choose one: set runner in the config, or pass --runner.',
     ],
     'a YAML config without its library' => [
         'TwoConfigs',
-        new Given('mutation-gate.yaml', '', [], '', '', firstPartyOnly: false),
+        new CommandLine('mutation-gate.yaml', '', [], '', '', firstPartyOnly: false),
         '%s/mutation-gate.yaml is YAML, which needs symfony/yaml to be read. '
         . 'Install it: composer require --dev symfony/yaml',
     ],
@@ -184,31 +217,45 @@ it('cannot judge what the project leaves undecided', function (string $project, 
 
 it('lets the command line choose the runner where two are installed', function () use ($effective): void {
     $settings = $effective(Tree::at('tests/Fixtures/Projects/TwoRunners'))
-        ->settings(new Given('', 'infection', [], '', '', firstPartyOnly: false));
+        ->settings(new CommandLine('', 'infection', [], '', '', firstPartyOnly: false));
 
     expect($settings instanceof Settings ? $settings->runner()->choice() : $settings)
-        ->toEqual(Choice::of('infection', '{}'));
+        ->toEqual(Choice::of('infection', Configs::options('{}')));
 });
 
-it('reports a preset nothing registered at its path, with every other problem', function (
+it('reports a preset nothing registered at its path, with what only every layer together can say', function (
     string $preset,
     array $problems,
 ) use ($effective, $nothing): void {
     $project = Scratch::directory();
-    $config = sprintf('{"preset": %s, "runner": "pest", "budget": "soon"}', $preset);
+    $ignores = '{"maxDays": 1, "entries": [{"mutant": "81d0c9e2aa17", "reason": "Equivalent"}]}';
+    $config = sprintf('{"preset": %s, "runner": "pest", "ignores": %s}', $preset, $ignores);
     Scratch::write($project, 'mutation-gate.json', $config);
 
     expect(Configs::problems($effective($project)->settings($nothing())))->toBe($problems);
 })->with([
     'one preset, misspelt' => ['"larvel"', [
         'preset: No preset is registered as "larvel". Did you mean "laravel"?',
-        'budget: expected a duration such as 90s, 15m or 1h30m, got "soon"',
+        'ignores.entries[0].expires: expected a date by 2026-10-01, within ignores.maxDays of today, got nothing',
     ]],
     'the second of a list, far from any' => ['["symfony", "acme"]', [
         'preset[1]: No preset is registered as "acme".',
-        'budget: expected a duration such as 90s, 15m or 1h30m, got "soon"',
+        'ignores.entries[0].expires: expected a date by 2026-10-01, within ignores.maxDays of today, got nothing',
     ]],
 ]);
+
+it('reports what is wrong in a layer before what the presets or every layer together can say', function () use (
+    $effective,
+    $nothing,
+): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', '{"preset": "acme", "budget": "soon"}');
+
+    expect(Configs::problems($effective($project)->settings($nothing())))
+        ->toBe(['budget: expected a duration such as 90s, 15m or 1h30m, got "soon"'])
+        ->and(Configs::problems($effective($project)->settings(new CommandLine('', 'pest', [], 'soon', '', firstPartyOnly: false))))
+        ->toBe(['budget: expected a duration such as 90s, 15m or 1h30m, got "soon"']);
+});
 
 it('reports a preset nothing registered where the rest of the config is valid', function () use (
     $effective,
@@ -237,7 +284,7 @@ it('cannot judge a config file it cannot read', function () use ($effective, $no
     Scratch::write($project, 'mutation-gate.json', '{"runner": ');
 
     expect($effective($project)->settings($nothing()))->toEqual(CannotJudge::because(sprintf(
-        '%s/mutation-gate.json: A config was read into text that is not JSON: Syntax error.',
+        '%s/mutation-gate.json is not JSON: Syntax error.',
         $project,
     )));
 });
@@ -249,9 +296,9 @@ it('loads the extensions the config file names, unless told to load none', funct
         'runner' => 'pest',
     ]));
 
-    expect($effective($project)->settings(new Given('', '', [], '', '', firstPartyOnly: true)))
+    expect($effective($project)->settings(new CommandLine('', '', [], '', '', firstPartyOnly: true)))
         ->toBeInstanceOf(Settings::class)
-        ->and($effective($project)->settings(new Given('', '', [], '', '', firstPartyOnly: false)))
+        ->and($effective($project)->settings(new CommandLine('', '', [], '', '', firstPartyOnly: false)))
         ->toEqual(CannotJudge::because(
             'the config file names Acme\\Missing\\Extension in extensions, and it is not a class that implements '
             . 'NightWorksIO\\MutationGate\\Extension\\Extension.',
@@ -262,8 +309,8 @@ it('reads the config file --config names', function () use ($effective, $shown):
     $project = Scratch::directory();
     Scratch::write($project, 'ci/gate.neon', "runner: pest\nbudget: 90s\n");
 
-    expect($shown($effective($project)->settings(new Given('ci/gate.neon', '', [], '', '', firstPartyOnly: false))))
-        ->toMatchArray(['runner' => 'pest', 'budget' => '90s']);
+    expect($shown($effective($project)->settings(new CommandLine('ci/gate.neon', '', [], '', '', firstPartyOnly: false))))
+        ->toMatchArray(['runner' => 'pest', 'budget' => '1m30s']);
 });
 
 it('cannot judge a project whose composer.json it cannot read, where it must choose the preset', function () use (
@@ -278,3 +325,49 @@ it('cannot judge a project whose composer.json it cannot read, where it must cho
         ->and(Configs::problems($effective($project)->settings($nothing()))[0])
         ->toEndWith('/composer.json could not be read.');
 });
+
+it('judges a layer a loader or a preset built by hand, as the definition judges a file', function (
+    string $config,
+    string $at,
+): void {
+    $unexplained = IgnoredMutant::of(MutantId::hash(Path::of('src/A.php'), 'Plus', '-a+b', 0), '', Absent::setting());
+    $smuggled = Layer::of(
+        Setup::of(runner: Choice::of('pest', Configs::options('{}'))),
+        Floors::of(trees: Listed::of(DeclaredTree::of(Path::of('src'), Floor::of(0), Listed::of()))),
+        Triage::of(limit: Seconds::of(-5), retries: -1),
+        Shards::of(seconds: Seconds::of(600), max: 0, target: Seconds::of(1200)),
+        Ignores::of(entries: Listed::of($unexplained)),
+    );
+    $loader = new readonly class ($smuggled) implements ConfigLoader {
+        public function __construct(private Layer $layer)
+        {
+        }
+
+        public function load(ConfigFile $file): Layer
+        {
+            return $this->layer;
+        }
+    };
+    $extensions = new Extensions(Origin::of('acme/smuggler'))
+        ->withConfigLoader(Name::of('smuggled'), static fn(): ConfigLoader => $loader)
+        ->withPreset(Name::of('smuggled'), $smuggled);
+    $project = Scratch::directory();
+    Scratch::write($project, 'gate.smuggled', '');
+    Scratch::write($project, 'preset.json', '{"preset": "smuggled", "runner": "pest"}');
+    $effective = new Effective(
+        $project,
+        Registered::config($extensions, static fn(): bool => false),
+        new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
+        new DateTimeImmutable(Configs::NOW),
+    );
+    $settings = $effective->settings(new CommandLine($config, '', [], '', '', firstPartyOnly: true));
+    $paths = array_map(static fn(string $problem): string => explode(': expected ', $problem)[0], Configs::problems($settings));
+
+    expect($paths)->toBe(array_map(
+        static fn(string $path): string => sprintf($at, $path),
+        ['trees[0].reason', 'shards.max', 'timeouts.seconds', 'timeouts.retries', 'ignores.entries[0].reason'],
+    ));
+})->with([
+    'a loader' => ['gate.smuggled', '%s'],
+    'a preset' => ['preset.json', 'preset: smuggled sets %s'],
+]);

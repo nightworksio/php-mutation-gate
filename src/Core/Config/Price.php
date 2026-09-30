@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Fields;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
-/** `costs.perRunnerMinute`: what a minute of a CI runner costs, which the cost report prices time with (ADR-0016). */
+/** What a runner-minute costs, in a currency the team names (ADR-0016): `costs.perRunnerMinute`. */
 final readonly class Price
 {
-    private function __construct(private float $amount, private string $currency)
+    private function __construct(private int|float $amount, private string $currency)
     {
     }
 
-    public static function read(Fields $read): self
+    public static function of(int|float $amount, string $currency): self
     {
-        return new self($read->float('amount'), $read->string('currency'));
+        return new self($amount, $currency);
     }
 
     public function amount(): float
@@ -26,5 +27,10 @@ final readonly class Price
     public function currency(): string
     {
         return $this->currency;
+    }
+
+    public function written(): Json
+    {
+        return Json::object(Member::of('amount', $this->amount))->with(Member::of('currency', $this->currency));
     }
 }

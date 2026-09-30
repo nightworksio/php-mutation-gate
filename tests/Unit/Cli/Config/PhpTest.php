@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
 use NightWorksIO\MutationGate\Cli\Config\Php;
-use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -13,19 +16,29 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** The effective config a config file shows, read back from the `mutation-gate.php` it is written as. */
-$roundTrip = static function (string $effective): string {
-    $project = Scratch::directory();
-    Scratch::write($project, 'mutation-gate.php', Php::render(Configs::document($effective)));
-    $document = new PhpConfig()->load(Path::of(sprintf('%s/mutation-gate.php', $project)));
+/** A config as the `mutation-gate.php` that writes it. */
+$php = static function (array $config): string {
+    $layer = Configs::layer($config);
 
-    return $document instanceof Document ? Configs::settings($document->json())->effective() : $document->why();
+    return $layer instanceof Layer ? Php::render($layer->php(ProjectRoot::origin())) : implode(', ', Configs::problems($layer));
+};
+
+/** The effective config of the `mutation-gate.php` a config's effective config is written as. */
+$roundTrip = static function (Settings $settings): string {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.php', Php::render($settings->effective()->php(ProjectRoot::origin())));
+    $layer = new PhpConfig()->load(
+        ConfigFile::at(Path::of(sprintf('%s/mutation-gate.php', $project)), Path::of($project)),
+    );
+    $read = $layer instanceof Layer ? Settings::settled($layer, new DateTimeImmutable(Configs::NOW)) : $layer;
+
+    return $read instanceof Settings ? Configs::effective($read) : implode(', ', Configs::problems($read));
 };
 
 it('writes a config that reads back into the same effective config', function (array $config) use ($roundTrip): void {
-    $effective = Configs::settings($config)->effective();
+    $settings = Configs::settings($config);
 
-    expect($roundTrip($effective))->toBe($effective);
+    expect($roundTrip($settings))->toBe(Configs::effective($settings));
 })->with([
     'every setting at its default' => [['runner' => 'pest']],
     'every setting away from its default' => [[
@@ -89,6 +102,21 @@ it('writes a config that reads back into the same effective config', function (a
         'ci' => ['plan' => ['use' => 'jenkins', 'with' => ['label' => 'php']]],
         'proofs' => ['store' => ['use' => 'redis', 'with' => ['dsn' => 'redis://cache']]],
     ]],
+    'the settings ADR-0013 to ADR-0016 declare' => [[
+        'runner' => ['use' => 'pest', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH']],
+        'trees' => [['path' => 'src', 'exclude' => ['src/Legacy/**', 'src/Generated/*.php']]],
+        'shards' => ['target' => '20m', 'setup' => '3m'],
+        'costs' => ['perRunnerMinute' => ['amount' => 0.008, 'currency' => 'USD']],
+        'ci' => ['check' => 'gate / verdict', 'buildkite' => ['definition' => '.buildkite/mutation.yml']],
+        'proofs' => ['store' => ['use' => 's3', 'with' => [
+            'bucket' => 'proofs',
+            'prefix' => 'gate',
+            'region' => 'eu-west-1',
+            'publicUrl' => 'https://proofs.example.com',
+        ]]],
+        'tests' => ['order' => 'runner'],
+        'equivalence' => ['static' => false],
+    ]],
     'the other built-in adapters' => [[
         'runner' => 'pest',
         'treeSource' => 'composer',
@@ -98,12 +126,29 @@ it('writes a config that reads back into the same effective config', function (a
     ]],
 ]);
 
-it('writes the config init writes as a builder a person reads', function (): void {
-    expect(Php::render(Configs::document([
+it('writes a layer that reads back into the same layer', function () use ($php): void {
+    $config = [
+        'runner' => ['withhold' => ['DEPLOY_*']],
+        'flaky' => ['confirmSurvivors' => true],
+        'tests' => ['order' => 'killers-first'],
+        'equivalence' => ['static' => true],
+        'pest' => ['patch' => false],
+    ];
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.php', $php($config));
+    $layer = new PhpConfig()->load(
+        ConfigFile::at(Path::of(sprintf('%s/mutation-gate.php', $project)), Path::of($project)),
+    );
+
+    expect($layer instanceof Layer ? Configs::decoded($layer) : Configs::problems($layer))->toBe($config);
+});
+
+it('writes the config init writes as a builder a person reads', function () use ($php): void {
+    expect($php([
         'preset' => 'laravel',
         'runner' => 'pest',
         'trees' => [['path' => 'app'], ['path' => 'app/Generated', 'floor' => 0, 'reason' => 'Generated']],
-    ])))->toBe(<<<'PHP'
+    ]))->toBe(<<<'PHP'
         <?php
 
         declare(strict_types=1);
@@ -124,12 +169,12 @@ it('writes the config init writes as a builder a person reads', function (): voi
         PHP);
 });
 
-it('writes an empty list of trees, which declares no tree at all', function (): void {
-    expect(Php::render(Configs::document(['runner' => 'pest', 'trees' => []])))->toContain("\n    ->trees()");
+it('writes an empty list of trees, which declares no tree at all', function () use ($php): void {
+    expect($php(['runner' => 'pest', 'trees' => []]))->toContain("\n    ->trees()");
 });
 
-it('writes every other setting in one call to with', function (): void {
-    expect(Php::render(Configs::document(['runner' => 'pest', 'budget' => '15m', 'shards' => ['max' => 4]])))
+it('writes every other setting in one call to with', function () use ($php): void {
+    expect($php(['runner' => 'pest', 'budget' => '15m', 'shards' => ['max' => 4]]))
         ->toContain(<<<'PHP'
             return Gate::configure()
                 ->runner(Runner::pest())

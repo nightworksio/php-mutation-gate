@@ -30,7 +30,6 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
-use NightWorksIO\MutationGate\Tests\Support\Configured;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 const CONTENT_KEY_SOURCE = [
@@ -126,7 +125,7 @@ function contentKeyOf(
 
     $keys = ContentKeys::of(
         Version::of('nightworksio/mutation-gate', $gateVersion, $gateReference),
-        Configured::document($config),
+        $config,
         Identity::of($runner, $drives, Digest::of($platform)),
         Digest::of($installed),
         Source::of(
@@ -304,7 +303,7 @@ it('keys no unit whose judging tests the runner cannot name', function () use ($
 
 $bare = static fn(): ContentKeys => ContentKeys::of(
     Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
-    Configured::document('{}'),
+    '{}',
     Identity::of('pest', Versions::none(), Digest::of('platform')),
     Digest::of('installed'),
     Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing(), Paths::none())),
@@ -361,7 +360,7 @@ function contentKeysPinned(): ContentKeys
 
     return ContentKeys::of(
         Version::of('nightworksio/mutation-gate', '1.2.3', 'abc'),
-        Configured::document('{"runner":"pest","floor":80}'),
+        '{"runner":"pest","floor":80}',
         Identity::of('pest', Versions::of(Version::of('pestphp/pest', '4.1.0', 'r1'), Version::of('pestphp/pest-plugin-mutate', '4.0.1', 'r2')), Digest::of('platform')),
         Digest::of('installed'),
         Source::of(
@@ -452,7 +451,7 @@ it('keys units in time linear in the test files that judge them', function (): v
 
         $keys = ContentKeys::of(
             Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
-            Configured::document('{}'),
+            '{}',
             Identity::of('pest', Versions::none(), Digest::of('platform')),
             Digest::of('installed'),
             Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing(), Paths::none())),

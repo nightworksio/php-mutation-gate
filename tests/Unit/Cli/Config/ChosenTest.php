@@ -11,11 +11,11 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
-use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\ConfigurableReporter;
 use NightWorksIO\MutationGate\Tests\Support\MisbuiltReporter;
 use NightWorksIO\MutationGate\Tests\Support\NotAReporter;
@@ -50,31 +51,31 @@ $classes = static fn(): Chosen => new Chosen(new Extensions(Origin::of('acme/gat
 it('builds the adapter an extension registered under the name a setting chooses', function () use ($registry): void {
     $chosen = new Chosen($registry());
 
-    expect($chosen->runner(Choice::of('it', '{}')))->toEqual(RunnerFake::ofTheFixture())
-        ->and($chosen->treeSource(Choice::of('it', '{}')))->toEqual(TreeSourceFake::ofTheFixture())
-        ->and($chosen->proofStore(Choice::of('it', '{}')))->toBeInstanceOf(ProofStoreFake::class)
-        ->and($chosen->ciPlan(Choice::of('it', '{}')))
+    expect($chosen->runner(Choice::of('it', Configs::options('{}'))))->toEqual(RunnerFake::ofTheFixture())
+        ->and($chosen->treeSource(Choice::of('it', Configs::options('{}'))))->toEqual(TreeSourceFake::ofTheFixture())
+        ->and($chosen->proofStore(Choice::of('it', Configs::options('{}'))))->toBeInstanceOf(ProofStoreFake::class)
+        ->and($chosen->ciPlan(Choice::of('it', Configs::options('{}'))))
         ->toEqual(new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')));
 });
 
 it('cannot judge with a name nothing registered', function () use ($registry): void {
-    expect(new Chosen($registry())->runner(Choice::of('pset', '{}')))
+    expect(new Chosen($registry())->runner(Choice::of('pset', Configs::options('{}'))))
         ->toEqual(CannotJudge::because('No runner is registered as "pset".'));
 });
 
 it('puts the problems a registered adapter has with its options under with', function () use ($registry): void {
-    expect(new Chosen($registry())->runner(Choice::of('picky', '{"workers": "4"}')))
+    expect(new Chosen($registry())->runner(Choice::of('picky', Configs::options('{"workers": "4"}'))))
         ->toEqual(Invalid::because(Problem::at('runner.with.workers', 'expected a number')));
 });
 
 it('builds a class a config names from its options', function () use ($classes): void {
-    $reporter = $classes()->reporter(Choice::of(ConfigurableReporter::class, '{"channel": "#ci"}'), 0);
+    $reporter = $classes()->reporter(Choice::of(ConfigurableReporter::class, Configs::options('{"channel": "#ci"}')), 0);
 
     expect($reporter instanceof ConfigurableReporter ? $reporter->channel : $reporter)->toBe('#ci');
 });
 
 it('puts the problems a class has with its options under with, as the gate\'s own', function () use ($classes): void {
-    expect($classes()->reporter(Choice::of(ConfigurableReporter::class, '{}'), 2))->toEqual(Invalid::because(
+    expect($classes()->reporter(Choice::of(ConfigurableReporter::class, Configs::options('{}')), 2))->toEqual(Invalid::because(
         Problem::at('reports[2].with.channel', 'expected a channel name, got nothing'),
         Problem::at('reports[2].with', 'needs a channel'),
     ));
@@ -84,8 +85,8 @@ it('refuses a class that is not configurable, or adapts another port', function 
     $classes,
 ): void {
     $built = $port === Runner::class
-        ? $classes()->runner(Choice::of($class, '{}'))
-        : $classes()->reporter(Choice::of($class, '{}'), 0);
+        ? $classes()->runner(Choice::of($class, Configs::options('{}')))
+        : $classes()->reporter(Choice::of($class, Configs::options('{}')), 0);
 
     expect($built)->toEqual(CannotJudge::because(sprintf(
         '%s is not a class that implements %s and %s, so a config cannot choose it.',
@@ -101,7 +102,7 @@ it('refuses a class that is not configurable, or adapts another port', function 
 ]);
 
 it('refuses a class whose named constructor builds something else', function () use ($classes): void {
-    expect($classes()->reporter(Choice::of(MisbuiltReporter::class, '{}'), 0))->toEqual(CannotJudge::because(sprintf(
+    expect($classes()->reporter(Choice::of(MisbuiltReporter::class, Configs::options('{}')), 0))->toEqual(CannotJudge::because(sprintf(
         '%s::fromOptions() built something other than a %s.',
         MisbuiltReporter::class,
         Reporter::class,
@@ -137,12 +138,12 @@ it('refuses an extension a config names that registers what another package does
 });
 
 it('suggests the registered name a misspelt one most likely meant', function () use ($registry): void {
-    expect(new Chosen($registry())->runner(Choice::of('pickey', '{}')))
+    expect(new Chosen($registry())->runner(Choice::of('pickey', Configs::options('{}'))))
         ->toEqual(CannotJudge::because('No runner is registered as "pickey". Did you mean "picky"?'));
 });
 
 it('builds a class in the global namespace a config names without a backslash', function () use ($classes): void {
-    expect($classes()->runner(Choice::of('ArrayObject', '{}')))->toEqual(CannotJudge::because(sprintf(
+    expect($classes()->runner(Choice::of('ArrayObject', Configs::options('{}'))))->toEqual(CannotJudge::because(sprintf(
         'ArrayObject is not a class that implements %s and %s, so a config cannot choose it.',
         Runner::class,
         Configurable::class,

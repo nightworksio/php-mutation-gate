@@ -8,27 +8,34 @@ use function array_flip;
 use function array_key_exists;
 use function array_map;
 use function basename;
-use function count;
 use function dirname;
 use function explode;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
-use NightWorksIO\MutationGate\Cli\Config\Given;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
-use NightWorksIO\MutationGate\Core\Config\Definition\Json;
-use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
+use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
+use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -50,13 +57,6 @@ use function trim;
  */
 final readonly class Init
 {
-    private const string SCHEMA = 'vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json';
-
-    /** The gate's own directory, as `.gitignore` names it with or without its slashes. */
-    private const string DIRECTORY = '.mutation-gate';
-
-    private const string IGNORED = '.mutation-gate/';
-
     private const string GITIGNORE = '.gitignore';
 
     public static function command(
@@ -80,7 +80,7 @@ final readonly class Init
                 $formats,
             ): int {
                 $format = $input->getOption('format');
-                $given = Given::from($input);
+                $given = CommandLine::from($input);
                 $destination = Destination::of($project, $given->config, is_string($format) ? $format : '');
 
                 if ($destination instanceof CannotJudge) {
@@ -121,8 +121,14 @@ final readonly class Init
         Formats $formats,
         Destination $destination,
     ): string|Invalid|CannotJudge {
-        $config = self::config($extensions, $settings, $destination);
-        $text = $config instanceof Document ? $formats->render($config, $destination->format()) : $config;
+        $config = self::config($extensions, $settings);
+        $text = $config instanceof Layer
+            ? $formats->file(
+                $config,
+                $destination->format(),
+                ConfigFile::at($destination->file(), Path::of($project)),
+            )
+            : $config;
 
         return is_string($text) ? self::write($project, $destination, $text) : $text;
     }
@@ -131,8 +137,7 @@ final readonly class Init
     private static function config(
         Extensions $extensions,
         Settings|Invalid|CannotJudge $settings,
-        Destination $destination,
-    ): Document|Invalid|CannotJudge {
+    ): Layer|Invalid|CannotJudge {
         if (! $settings instanceof Settings) {
             return $settings;
         }
@@ -140,31 +145,36 @@ final readonly class Init
         $source = new Chosen($extensions)->treeSource($settings->treeSource());
         $trees = $source instanceof Invalid || $source instanceof CannotJudge ? $source : $source->trees();
 
-        return $trees instanceof Trees ? self::document($settings, $trees, $destination->format()) : $trees;
+        return $trees instanceof Trees ? self::found($settings, $trees) : $trees;
     }
 
-    private static function document(Settings $settings, Trees $trees, Format $format): Document|CannotJudge
+    private static function found(Settings $settings, Trees $trees): Layer
     {
-        $presets = [...$settings->presets()];
-        $config = [
-            'preset' => count($presets) === 1 ? $presets[0] : $presets,
-            'runner' => $settings->runner()->choice()->use(),
-            'trees' => array_map(self::tree(...), [...$trees]),
-        ];
+        $declared = [];
 
-        $written = $format === Format::Json ? ['$schema' => self::SCHEMA, ...$config] : $config;
+        foreach ($trees as $tree) {
+            $declared[] = self::tree($tree);
+        }
 
-        return Document::ofJson(Json::pretty($written));
+        return Layer::of(
+            Setup::of(
+                presets: $settings->presets(),
+                runner: Choice::of($settings->runner()->choice()->use(), Json::object()),
+            ),
+            Floors::of(trees: Listed::of(...$declared)),
+        );
     }
 
-    /** @return array<string, mixed> a tree as `trees` lists it, with the floor of 0 an exclusion gives it */
-    private static function tree(Tree $tree): array
+    /** A tree as `trees` lists it, with the floor of 0 an exclusion gives it. */
+    private static function tree(Tree $tree): DeclaredTree
     {
         $declared = $tree->declared();
 
-        return $declared instanceof Exempt
-            ? ['path' => $tree->path()->value(), 'floor' => 0, 'reason' => $declared->reason()]
-            : ['path' => $tree->path()->value()];
+        return DeclaredTree::of(
+            $tree->path(),
+            $declared instanceof Exempt ? $declared : Undeclared::floor(),
+            Listed::of(),
+        );
     }
 
     /** The config written, said as a sentence. */
@@ -179,7 +189,7 @@ final readonly class Init
             $ignored => sprintf(
                 'Wrote %s with what zero-config found, and added %s to .gitignore.',
                 $destination->shown(),
-                self::IGNORED,
+                self::ignored(),
             ),
             default => sprintf('Wrote %s with what zero-config found.', $destination->shown()),
         };
@@ -199,7 +209,7 @@ final readonly class Init
             return $gitignore;
         }
 
-        if (array_key_exists(self::DIRECTORY, $lines)) {
+        if (array_key_exists(Workspace::root()->value(), $lines)) {
             return false;
         }
 
@@ -210,11 +220,17 @@ final readonly class Init
                     '%s%s%s',
                     $text,
                     $text === '' || str_ends_with($text, "\n") ? '' : "\n",
-                    sprintf("%s\n", self::IGNORED),
+                    sprintf("%s\n", self::ignored()),
                 ),
             ),
         );
 
         return $added instanceof CannotJudge ? $added : true;
+    }
+
+    /** The gate's own directory, as `init` adds it to `.gitignore`. */
+    private static function ignored(): string
+    {
+        return sprintf('%s/', Workspace::root()->value());
     }
 }
