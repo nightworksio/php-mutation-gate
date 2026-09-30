@@ -8,4 +8,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 interface Shell
 {
     public function run(Command $command): Ran;
+
+    /** The same shell, running each command in another directory. */
+    public function in(string $directory): self;
 }

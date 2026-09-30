@@ -43,6 +43,12 @@ final readonly class Project
         return new self(Root::of(self::real($root)), $tests, $workspace);
     }
 
+    /** The same project in one of its directories: the tests and the gate's directory are that directory's. */
+    public function in(Path $directory): self
+    {
+        return self::at($this->absolute($directory), $this->tests, $this->workspace);
+    }
+
     /** The root's real path, as Infection's config and the coverage layout write it. */
     public function root(): string
     {

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function addcslashes;
 use function implode;
+use function is_file;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
@@ -47,6 +48,12 @@ final readonly class Invocation
 
     /** An option with its value, `--name=value`. */
     private const string OPTION = '/^(?<name>-{1,2}[^=\s"]+)=(?<value>.*)$/s';
+
+    /** Whether Infection is installed in the project, where the adapter runs it from. */
+    public static function runnableIn(Project $project): bool
+    {
+        return is_file($project->absolute(Path::of(self::INFECTION)));
+    }
 
     public static function listingGroups(Project $project, OwnConfig $config): Command
     {

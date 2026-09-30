@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Tests\Contract\Runner;
 
 use function array_key_exists;
 use function array_map;
+use function basename;
+use function dirname;
 use function getenv;
 use function is_dir;
 use function iterator_to_array;
@@ -131,6 +133,35 @@ final class Library
         'held' => ['Plus', MutatorFamily::Arithmetic],
     ];
 
+    /** @var array<string, string> what the fake names each test it is asked, by the test's id */
+    private const array FAKE_NAMES = [
+        'MoneyTest::adds' => 'tests/MoneyTest.php::it adds',
+        'MoneyTest::adds#one' => 'tests/MoneyTest.php::it adds with data set "one"',
+        'Nowhere\\GoneTest::gone' => 'Nowhere\\GoneTest::gone',
+    ];
+
+    /**
+     * @var array<string, string> what Pest names each test it is asked, by the test's id: a Pest test by
+     *                            the description Pest gives it, a PHPUnit test by its method
+     */
+    private const array PEST_NAMES = [
+        'P\\Tests\\MoneySpec::__pest_evaluable_it_adds_two_amounts' => 'tests/MoneySpec.php::it adds two amounts',
+        'P\\Tests\\ShapesSpec::__pest_evaluable_it_is_held_in_every_row#(2)'
+            => 'tests/ShapesSpec.php::it is held in every row with data set "(2)"',
+        'P\\Tests\\ShapesSpec::__pest_evaluable__a_held_describe__→_it_is_held_by_its_describe'
+            => 'tests/ShapesSpec.php::`a held describe` → it is held by its describe',
+        'LegacySpec::decrements' => 'tests/LegacySpec.php::decrements',
+        'Nowhere\\GoneTest::gone' => 'Nowhere\\GoneTest::gone',
+    ];
+
+    /** @var array<string, string> what Infection names each test it is asked, by the test's id */
+    private const array INFECTION_NAMES = [
+        'Tests\\MoneySpec::addsTwoAmounts' => 'tests/MoneySpec.php::addsTwoAmounts',
+        'Tests\\MoneySpec::addsTwoAmounts#1' => 'tests/MoneySpec.php::addsTwoAmounts with data set #1',
+        'Tests\\MoneySpec::addsTwoAmounts#one' => 'tests/MoneySpec.php::addsTwoAmounts with data set "one"',
+        'Nowhere\\GoneTest::gone' => 'Nowhere\\GoneTest::gone',
+    ];
+
     /** @var array<string, MutationResult|CannotJudge> each real run's answer, by library and request */
     private static array $runs = [];
 
@@ -139,6 +170,10 @@ final class Library
      * @param bool                                         $endsReported whether the runner reports the line a mutant ends on,
      *                                                                   and how long each mutant it ran took
      * @param Paths                                        $defining     the files of the library that define its runner
+     * @param array<string, string>                        $naming       what the runner names each test it is asked
+     * @param Runner                                       $outside      the runner built in the directory around the
+     *                                                                   library, which holds no project of its own
+     * @param Path                                         $package      the library's directory, from that one
      */
     private function __construct(
         private readonly string $name,
@@ -146,6 +181,9 @@ final class Library
         private readonly array $vocabulary,
         private readonly bool $endsReported,
         private readonly Paths $defining,
+        private readonly array $naming,
+        private readonly Runner $outside,
+        private readonly Path $package,
     ) {
     }
 
@@ -153,7 +191,16 @@ final class Library
     {
         $defining = Paths::of(Path::of('tests/Pest.php'), Path::of('phpunit.xml'));
 
-        return new self('fake', RunnerFake::ofTheFixture(), self::FAKE, endsReported: true, defining: $defining);
+        return new self(
+            'fake',
+            RunnerFake::ofTheFixture(),
+            self::FAKE,
+            endsReported: true,
+            defining: $defining,
+            naming: self::FAKE_NAMES,
+            outside: RunnerFake::ofTheFixture(),
+            package: Path::of('fixture'),
+        );
     }
 
     /**
@@ -162,14 +209,22 @@ final class Library
      */
     public static function infection(Seconds $cap): self
     {
-        $root = Tree::at(self::INFECTION_DIRECTORY);
-        $project = InfectionProject::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
-        $runner = new Infection($project, new InfectionShell($root, getenv()), $cap, nativeMarkersAllowed: false);
+        $infection = static function (string $root) use ($cap): Infection {
+            $project = InfectionProject::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
 
-        $name = sprintf('infection %.1F', $cap->seconds());
-        $defining = Paths::of(Path::of('infection.json5'), Path::of('phpunit.xml'));
+            return new Infection($project, new InfectionShell($root, getenv()), $cap, nativeMarkersAllowed: false);
+        };
 
-        return new self($name, $runner, self::INFECTION, endsReported: false, defining: $defining);
+        return new self(
+            sprintf('infection %.1F', $cap->seconds()),
+            $infection(Tree::at(self::INFECTION_DIRECTORY)),
+            self::INFECTION,
+            endsReported: false,
+            defining: Paths::of(Path::of('infection.json5'), Path::of('phpunit.xml')),
+            naming: self::INFECTION_NAMES,
+            outside: $infection(dirname(Tree::at(self::INFECTION_DIRECTORY))),
+            package: Path::of(basename(self::INFECTION_DIRECTORY)),
+        );
     }
 
     public static function isInfectionInstalled(): bool
@@ -186,14 +241,23 @@ final class Library
     /** The Pest adapter over the installed library at a root, such as a link to it. */
     public static function pestAt(string $root, Patching $patching): self
     {
-        $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
+        $pest = static function (string $root) use ($patching): Pest {
+            $tests = Paths::of(Path::of('tests'));
+            $project = Project::at($root, $tests, Path::of('.mutation-gate'), Path::of('vendor'));
 
-        $name = sprintf('pest %s', $patching->isOn() ? 'patched' : 'unpatched');
+            return new Pest($project, new ProcessShell($root), $patching);
+        };
 
-        $runner = new Pest($project, new ProcessShell($root), $patching);
-        $defining = Paths::of(Path::of('tests/Pest.php'), Path::of('phpunit.xml'));
-
-        return new self($name, $runner, self::PEST, endsReported: true, defining: $defining);
+        return new self(
+            sprintf('pest %s', $patching->isOn() ? 'patched' : 'unpatched'),
+            $pest($root),
+            self::PEST,
+            endsReported: true,
+            defining: Paths::of(Path::of('tests/Pest.php'), Path::of('phpunit.xml')),
+            naming: self::PEST_NAMES,
+            outside: $pest(dirname($root)),
+            package: Path::of(basename($root)),
+        );
     }
 
     public static function isInstalled(): bool
@@ -210,6 +274,24 @@ final class Library
     public function runner(): Runner
     {
         return $this->runner;
+    }
+
+    /** @return array<string, string> what the runner names each test it is asked, by the test's id */
+    public function naming(): array
+    {
+        return $this->naming;
+    }
+
+    /** The runner built in the directory around the library, which holds no project of its own. */
+    public function outside(): Runner
+    {
+        return $this->outside;
+    }
+
+    /** The library's directory, from the one around it. */
+    public function package(): Path
+    {
+        return $this->package;
     }
 
     /** The files of the library that define its runner, from the library's root. */

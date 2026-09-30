@@ -23,6 +23,9 @@ final class ShellFake implements Shell
     /** @var list<Command> */
     private array $commands = [];
 
+    /** @var list<string> */
+    private array $directories = [];
+
     /** @param Closure(Command, int): Ran $answer */
     public function __construct(private readonly Closure $answer)
     {
@@ -40,6 +43,20 @@ final class ShellFake implements Shell
         $this->commands[] = $command;
 
         return ($this->answer)($command, $before);
+    }
+
+    /** This shell, which keeps the directory it was moved to. */
+    public function in(string $directory): self
+    {
+        $this->directories[] = $directory;
+
+        return $this;
+    }
+
+    /** @return list<string> every directory the shell was moved to, in order */
+    public function directories(): array
+    {
+        return $this->directories;
     }
 
     /** @return list<Command> every command run, in order */

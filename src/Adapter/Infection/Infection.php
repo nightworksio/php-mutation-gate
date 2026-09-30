@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function array_keys;
-use function explode;
 use function getenv;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -29,6 +28,9 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -49,6 +51,8 @@ final readonly class Infection implements Runner
     public const string RUNNER = 'infection';
 
     private const string HERE = '.';
+
+    private const string NO_PROJECT = '%s holds no project Infection can run: Infection is not installed there.';
 
     private const string COVERAGE_FAILED = "PHPUnit's coverage run failed. PHPUnit said:\n%s";
 
@@ -126,7 +130,7 @@ final readonly class Infection implements Runner
         $classes = [];
 
         foreach ($map->testsCoveringFile($file) as $test) {
-            $classes[explode('::', $test->value(), 2)[0]] = true;
+            $classes[TestMethod::of($test)->className()] = true;
         }
 
         return $classes === [] ? Paths::none() : TestFiles::declaring($this->project, array_keys($classes));
@@ -184,6 +188,25 @@ final readonly class Infection implements Runner
             : $config->phpUnitConfigs($this->project);
 
         return Paths::of(...OwnConfig::files(), ...$phpunit);
+    }
+
+    /**
+     * Each test by the file that declares its class and its method's name,
+     * as PHPUnit's JUnit log names it. Nothing runs, so nothing is withheld.
+     */
+    public function names(TestIds $tests, Withheld $withheld): TestNames
+    {
+        return Names::of($this->project, $tests);
+    }
+
+    /** Infection in a package's directory, where Composer installed it there. */
+    public function rootedAt(Path $package): self|CannotJudge
+    {
+        $project = $this->project->in($package);
+
+        return Invocation::runnableIn($project)
+            ? new self($project, $this->shell->in($project->root()), $this->cap, $this->nativeMarkersAllowed)
+            : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value()));
     }
 
     /**

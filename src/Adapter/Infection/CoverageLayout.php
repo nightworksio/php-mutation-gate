@@ -14,7 +14,6 @@ use function dirname;
 use DOMDocument;
 use DOMElement;
 
-use function explode;
 use function file_put_contents;
 use function max;
 
@@ -23,9 +22,9 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-use function preg_match;
 use function sprintf;
 
 /**
@@ -41,9 +40,6 @@ final readonly class CoverageLayout
 
     /** A report's share of lines run, where it records any. */
     private const string WHOLE = '100';
-
-    /** How a coverage id names a data set's test: its method, and the data set's number or name. */
-    private const string DATA_SET = '/^(?<method>[^#]+)#(?:(?<number>\d+)|(?<name>.*))$/sD';
 
     private const string NO_TEST_FILE
         = 'The coverage map names the test class %s, and no test file declares it, so Infection cannot run its tests.';
@@ -178,9 +174,10 @@ final readonly class CoverageLayout
         }
 
         foreach ($map->tests() as $test) {
-            [$class, $method] = [...explode('::', $test->value(), 2), ''];
+            $method = TestMethod::of($test);
+            $class = $method->className();
             self::appended($suites[$class], new DOMElement('testcase'), [
-                'name' => self::loggedName($method),
+                'name' => $method->in($files[$class], $method->method())->description(),
                 'class' => $class,
                 'file' => $project->absolute($files[$class]),
                 'time' => sprintf('%F', self::secondsOf($map, $test)),
@@ -212,22 +209,10 @@ final readonly class CoverageLayout
         $classes = [];
 
         foreach ($map->tests() as $test) {
-            $classes[explode('::', $test->value(), 2)[0]] = true;
+            $classes[TestMethod::of($test)->className()] = true;
         }
 
         return array_keys($classes);
-    }
-
-    /** A test's name as PHPUnit logs it: a data set's test as `<method> with data set #<n>` or `… "<name>"`. */
-    private static function loggedName(string $method): string
-    {
-        if (preg_match(self::DATA_SET, $method, $named, PREG_UNMATCHED_AS_NULL) !== 1) {
-            return $method;
-        }
-
-        return $named['name'] === null
-            ? sprintf('%s with data set #%s', $named['method'], $named['number'])
-            : sprintf('%s with data set "%s"', $named['method'], $named['name']);
     }
 
     private static function secondsOf(CoverageMap $map, TestId $test): float

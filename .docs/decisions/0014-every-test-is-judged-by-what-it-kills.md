@@ -102,15 +102,31 @@ running it: why is this mutant here, and has it always been?
 
 6. **A test is a test method or a Pest test, with its dataset rows folded
    in.** It is useless only when every row is. The JSON lists each row. A
-   test is named by the file and description its JUnit entry gives, such as
-   `tests/Unit/MoneyTest.php::it adds`, not by Pest's internal id.
+   test is named by its file and the description the runner gives it:
+   Pest's TestDox description, PHPUnit's method name. Such a name is
+   `tests/Unit/MoneyTest.php::it adds`, not Pest's internal id.
    - **The runner names its tests.** A coverage id's shape is the runner's,
      such as `P\Tests\Unit\MoneyTest::__pest_evaluable_it_adds` or
      `Tests\MoneyTest::testAdds#one`. So the Runner port answers
-     `names(TestIds): TestNames`: for each id, the whole test (file and
-     description) or the data set row its JUnit entry names. A row knows the
-     test it folds into. An id the runner names nothing is reported as it
-     is.
+     `names(TestIds, Withheld): TestNames`. For each id it gives the whole
+     test, by file and description, or the data set row, which PHPUnit
+     spells `#0` or `"one"`. A row knows the test it folds into. An id the
+     runner names nothing is reported as it is.
+   - **Where the names come from.**
+     - Infection runs nothing. The file is the one whose tokens declare the
+       id's class, and the description is the id's method.
+     - Pest lists the suite's tests with `--list-tests`, running none, and
+       the gate's plugin writes each test class's tests. A Pest test's file is
+       the one Pest built its class from, and its description is its TestDox.
+       A PHPUnit test's file is the one that declares its class, and its
+       description is its method.
+     - Listing loads the project's code, so it withholds what every child
+       process withholds.
+   - **Naming runs at most once a run, never in a shard.** The names travel
+     with the plan.
+   - **Naming never blocks a verdict.** A runner that cannot name its tests
+     answers *cannot judge* for the names alone. The reports then name each
+     test by its id, with a warning.
 
 7. **`run --kill-matrix=full` records every killer, under Pest.**
    - In each mutant's child the plugin drops `--bail`, so every covering test

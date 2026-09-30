@@ -342,6 +342,8 @@ parameters:
                 - phpstan/*
                 # Pest's filter reads #[Holds] from the closures Pest hands it (ADR-0004).
                 - src/Adapter/Pest/Grouping/HoldsGroups.php
+                # The plugin names each test from the class Pest built for it (ADR-0014).
+                - src/Adapter/Pest/Recording/Naming.php
 
     disallowedSuperglobals:
         # --- B6: the environment, read the other way -----------------------------

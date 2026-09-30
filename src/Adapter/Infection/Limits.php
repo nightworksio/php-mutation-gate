@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function array_keys;
-use function explode;
 use function min;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
@@ -42,7 +42,7 @@ final readonly class Limits
         $classes = [];
 
         foreach ($this->map->testsCovering($file, $line) as $test) {
-            $classes[explode('::', $test->value(), 2)[0]] = true;
+            $classes[TestMethod::of($test)->className()] = true;
         }
 
         $time = 0.0;

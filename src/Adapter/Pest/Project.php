@@ -33,6 +33,9 @@ final readonly class Project
 {
     private const string RESULTS = 'pest/results.jsonl';
 
+    /** Why a file of the adapter's own cannot be told from the one an earlier run wrote. */
+    private const string LEFT = 'An earlier run left %s, and the gate cannot remove it.';
+
     /** Why a run cannot be told from an earlier one. */
     private const string STALE = 'An earlier run left %s or the map beside it, and the gate cannot remove them.';
 
@@ -48,6 +51,15 @@ final readonly class Project
     public static function at(string $root, Paths $tests, Path $workspace, Path $vendor): self
     {
         return new self(Root::of(self::real($root)), $tests, $workspace, $vendor);
+    }
+
+    /**
+     * The same project in one of its directories: the tests, the gate's
+     * directory and the vendor directory are that directory's.
+     */
+    public function in(Path $directory): self
+    {
+        return self::at($this->absolute($directory), $this->tests, $this->workspace, $this->vendor);
     }
 
     /** The root's real path, as Pest's coverage and the processes it starts take it. */
@@ -106,6 +118,18 @@ final readonly class Project
         return $this->without($results, Recorder::coverageBeside($results), ...(is_array($copies) ? $copies : []))
             ? $results
             : CannotJudge::because(sprintf(self::STALE, $results));
+    }
+
+    /**
+     * A file of the adapter's own in the gate's directory, with its directory
+     * made and no earlier run's copy of it left, or why one is still there.
+     */
+    public function fresh(string $name): string|CannotJudge
+    {
+        $file = sprintf('%s/%s', $this->absolute($this->workspace), $name);
+        $this->directory(Path::of(dirname($file)));
+
+        return $this->without($file) ? $file : CannotJudge::because(sprintf(self::LEFT, $file));
     }
 
     /** Whether none of these files is there once each that is has been removed. */

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Ran;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -47,6 +48,10 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -524,6 +529,88 @@ it('finds every @pest-mutate-ignore in the files asked for, running nothing', fu
     expect(array_map(static fn(Marker $marker): string => $marker->where(), iterator_to_array($markers, preserve_keys: false)))
         ->toBe(['src/Money.php:3'])
         ->and($shell->commands())->toBe([]);
+});
+
+/** The file a project's listing run names its tests in. */
+function adapterNames(Project $at): string
+{
+    return sprintf('%s/.mutation-gate/pest/names.json', $at->root());
+}
+
+/** A listing run in which the plugin names a Pest test, rows and all, and a PHPUnit test of the same suite. */
+function adapterNamed(Command $command, Project $at): Ran
+{
+    $names = sprintf('%s', $command->environment()[Naming::FILE] ?? '');
+    file_put_contents($names, (string) json_encode([
+        ['test' => 'P\\Tests\\MoneySpec::__pest_evaluable_it_adds', 'file' => sprintf('%s/tests/MoneySpec.php', $at->root()), 'description' => 'it adds'],
+        ['test' => 'LegacySpec::decrements', 'file' => sprintf('%s/tests/LegacySpec.php', $at->root()), 'description' => 'decrements'],
+        ['file' => 'tests/Broken.php'],
+        'not a test',
+    ]));
+
+    return Ran::finished(succeeded: true, output: '   INFO  Available tests:');
+}
+
+it('names each test as the plugin names it in a run that lists the tests, withholding what it is told to', function (): void {
+    $at = adapterProject();
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterNamed($command, $at));
+    $asked = TestIds::of(
+        TestId::of(RUN_ADDS),
+        TestId::of('P\\Tests\\MoneySpec::__pest_evaluable_it_adds#dataset "one"'),
+        TestId::of('LegacySpec::decrements#3'),
+        TestId::of('P\\Tests\\GoneSpec::__pest_evaluable_it_goes'),
+    );
+    $names = new Pest($at, $shell, Patching::off())->names($asked, Withheld::of('CI_JOB_TOKEN'));
+    $adds = TestName::in(Path::of('tests/MoneySpec.php'), 'it adds');
+
+    expect($names)->toEqual(TestNames::none()
+        ->with(TestId::of(RUN_ADDS), $adds)
+        ->with(TestId::of('P\\Tests\\MoneySpec::__pest_evaluable_it_adds#dataset "one"'), TestRow::of($adds, '"dataset "one""'))
+        ->with(TestId::of('LegacySpec::decrements#3'), TestRow::of(TestName::in(Path::of('tests/LegacySpec.php'), 'decrements'), '#3')))
+        ->and($shell->commands())->toEqual([adapterInvocation()->listingTests(Withheld::of('CI_JOB_TOKEN'), adapterNames($at))]);
+});
+
+it('cannot name the tests where the listing run fails, names nothing, or cannot start afresh', function (): void {
+    $at = adapterProject();
+    $failed = ShellFake::answering(Ran::finished(succeeded: false, output: 'Fatal error'));
+    $silent = ShellFake::answering(Ran::finished(succeeded: true, output: '   INFO  Available tests:'));
+    $asked = TestIds::of(TestId::of(RUN_ADDS));
+    $unnamed = "Pest did not name the suite's tests. Pest said:\n%s";
+
+    expect(new Pest($at, $failed, Patching::off())->names($asked, Withheld::standard()))
+        ->toEqual(CannotJudge::because(sprintf($unnamed, 'Fatal error')))
+        ->and(new Pest($at, $silent, Patching::off())->names($asked, Withheld::standard()))
+        ->toEqual(CannotJudge::because(sprintf($unnamed, '   INFO  Available tests:')));
+
+    mkdir(adapterNames($at), recursive: true);
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    expect(new Pest($at, $shell, Patching::off())->names($asked, Withheld::standard()))->toEqual(CannotJudge::because(
+        sprintf('An earlier run left %s, and the gate cannot remove it.', adapterNames($at)),
+    ))->and($shell->commands())->toBe([]);
+});
+
+it('roots itself in a package that installs Pest, running there with the package\'s own files', function (): void {
+    $at = adapterProject();
+    Scratch::write($at->root(), 'packages/billing/vendor/pestphp/pest/bin/pest', '<?php');
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterNamed($command, $at));
+    $rooted = new Pest($at, $shell, Patching::off())->rootedAt(Path::of('packages/billing'));
+    $package = sprintf('%s/packages/billing', $at->root());
+    $names = $rooted instanceof Pest ? $rooted->names(TestIds::of(), Withheld::standard()) : $rooted;
+
+    expect($names)->toEqual(TestNames::none())
+        ->and($shell->directories())->toBe([$package])
+        ->and($shell->commands()[0]->environment()[Naming::FILE] ?? '')
+        ->toBe(sprintf('%s/.mutation-gate/pest/names.json', $package));
+});
+
+it('cannot root itself in a directory that installs no Pest', function (): void {
+    $at = adapterProject('lib/vendor');
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    expect(new Pest($at, $shell, Patching::off())->rootedAt(Path::of('packages/billing')))->toEqual(CannotJudge::because(
+        'packages/billing holds no project Pest can run: Pest is not installed in its lib/vendor.',
+    ))->and($shell->directories())->toBe([]);
 });
 
 it('is Pest in the project the gate runs in, as its options say, or the options\' problem', function (): void {

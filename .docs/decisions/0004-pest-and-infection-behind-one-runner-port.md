@@ -122,6 +122,8 @@ its parser attributes. Both change when the checkout moves.
    | `retry(mutants, limit)` | The same, for a few mutants run again (ADR-0008) |
    | `markers(files)` | The runner's own ignore markers in those files and in its config, each with the `ignores.entries` entry that replaces it (ADR-0008). Whether a run may go ahead with them is the verdict's to decide |
    | `definitions()` | The files that define how the runner runs, as paths from the project's root. Pest names `tests/Pest.php` and the PHPUnit config in the root; Infection names its config under each of its four names and the PHPUnit config in `phpUnit.configDir`, or in the root where the config sets none. Each PHPUnit config is named by each of the names PHPUnit looks for: `phpunit.xml`, `phpunit.dist.xml` and `phpunit.xml.dist`. A change to one reaches everything (ADR-0005), and every content key reads them (ADR-0007) |
+   | `names(tests, withheld)` | Each test by its file and the description the runner gives it, or the data set row that folds into it (ADR-0014, decision 6). Infection names a test from the file that declares its class and its method. Pest lists the suite's tests, running none, and its plugin names each one. That listing withholds what every child process withholds |
+   | `rootedAt(package)` | The same runner in a package's directory, with the package's tests, vendor and gate directory (ADR-0005, decision 7). A directory where the runner is not installed cannot be judged |
 
    A failed opening run, an unsupported version or a result that does not add up
    is returned as *cannot judge* with the runner's output (ADR-0001). The run

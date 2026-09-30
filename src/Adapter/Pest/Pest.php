@@ -32,6 +32,8 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -72,6 +74,8 @@ final readonly class Pest implements Runner
     private const string SHARED_MAP = '%s/shared.coverage.php';
 
     private const string NOT_FOUND_AGAIN = 'Run again alone, Pest made no mutant with this id.';
+
+    private const string NO_PROJECT = '%s holds no project Pest can run: Pest is not installed in its %s.';
 
     public function __construct(private Project $project, private Shell $shell, private Patching $patching)
     {
@@ -204,6 +208,27 @@ final readonly class Pest implements Runner
     public function definitions(): Paths
     {
         return Paths::of(Path::of(self::BOOT_FILE), ...PhpUnitConfig::candidatesIn(Path::root()));
+    }
+
+    /**
+     * Each test by the file Pest built it from and the description Pest gives
+     * it, as the plugin names them in a run that lists the tests and runs
+     * none. Listing loads the project's code, which never sees the variables
+     * withheld.
+     */
+    public function names(TestIds $tests, Withheld $withheld): TestNames|CannotJudge
+    {
+        return Names::listed($this->project, $this->shell, $withheld, $tests);
+    }
+
+    /** Pest in a package's directory, where Composer installed it in the package's vendor directory. */
+    public function rootedAt(Path $package): self|CannotJudge
+    {
+        $project = $this->project->in($package);
+
+        return Invocation::installedIn($project->vendor())->isIn($project)
+            ? new self($project, $this->shell->in($project->root()), $this->patching)
+            : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
     }
 
     /**

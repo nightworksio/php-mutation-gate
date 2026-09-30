@@ -168,6 +168,10 @@ The same repository has two more needs.
    - **A package** is a directory with its own `composer.json` and its own PHPUnit
      config. It is its own project: the runner runs in its directory, with its
      own coverage map, trees and floors.
+     - The Runner port's `rootedAt(package)` gives the runner in that
+       directory, with the package's tests, vendor and gate directory there.
+       There is no config key for it. A directory where the runner is not
+       installed cannot be judged.
      - Packages come from `packages`, a list of globs in the root config, empty
        by default, and from the root `composer.json`'s `path` repositories that
        hold a PHPUnit config.

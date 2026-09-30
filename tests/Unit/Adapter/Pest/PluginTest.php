@@ -4,14 +4,41 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Plugin;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
-it('records, guards and names no killer until Pest boots it', function (): void {
+it('records, guards, and names no killer and no test until Pest boots it', function (): void {
     expect(new Plugin()->recorder())->toBe(Off::Recording)
         ->and(new Plugin()->guard())->toBe(Off::Guarding)
-        ->and(new Plugin()->killers())->toBe(Off::NamingKillers);
+        ->and(new Plugin()->killers())->toBe(Off::NamingKillers)
+        ->and(new Plugin()->naming())->toBe(Off::NamingTests);
+});
+
+it('names the tests of a run that lists them for the adapter, writing the names when the run ends', function (): void {
+    $before = getenv('MUTATION_GATE_NAMES');
+    $names = sprintf('%s/mutation-gate-plugin-names.json', sys_get_temp_dir());
+    $plugin = new Plugin();
+
+    try {
+        putenv(sprintf('MUTATION_GATE_NAMES=%s', $names));
+        $plugin->boot();
+    } finally {
+        putenv(is_string($before) ? sprintf('MUTATION_GATE_NAMES=%s', $before) : 'MUTATION_GATE_NAMES');
+    }
+
+    if (is_file($names)) {
+        unlink($names);
+    }
+
+    $plugin->finish();
+    $named = json_decode((string) file_get_contents($names), associative: true);
+
+    expect($plugin->naming())->toBeInstanceOf(Naming::class)
+        ->and($plugin->guard())->toBe(Off::Guarding)
+        ->and(is_array($named) ? array_column($named, 'description', 'test') : [])
+        ->toHaveKey(sprintf('P\\Tests\\Unit\\Adapter\\Pest\\PluginTest::%s', '__pest_evaluable_it_names_the_tests_of_a_run_that_lists_them_for_the_adapter__writing_the_names_when_the_run_ends'));
 });
 
 it('guards a run the adapter starts on one mutant, writing what it saw when the run ends', function (): void {
