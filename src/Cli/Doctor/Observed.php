@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Cli\Doctor;
 
 use DateTimeImmutable;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
-use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\OwnConfig;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Adapter\Runtime\PhpProbe;
@@ -16,6 +15,7 @@ use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -104,7 +104,8 @@ final readonly class Observed
     private function phpOf(Settings|Invalid|CannotJudge $settings): RunnerPhp|CannotJudge
     {
         $withheld = $settings instanceof Settings ? $this->withheld($settings) : Withheld::standard();
-        $infection = $settings instanceof Settings && $settings->runner()->choice()->use() === Infection::RUNNER;
+        $infection = $settings instanceof Settings
+            && $settings->runner()->choice()->use()->value() === BuiltinRunner::Infection->value;
         $own = $infection ? OwnConfig::in($this->infectionProject()) : [];
 
         return $this->php->describe($withheld, ...($own instanceof OwnConfig ? $own->phpOptions() : []));

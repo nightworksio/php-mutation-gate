@@ -9,6 +9,7 @@ use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -44,8 +45,6 @@ use function sprintf;
  */
 final readonly class Pest implements Runner
 {
-    private const string RUNNER = 'pest';
-
     /** Where the gate runs Pest: the project's root, which the gate runs in. */
     private const string ROOT = '.';
 
@@ -102,7 +101,7 @@ final readonly class Pest implements Runner
         );
 
         return $platform instanceof Platform
-            ? Identity::of(self::RUNNER, $versions, $platform->digest())
+            ? Identity::of(BuiltinRunner::Pest->value, $versions, $platform->digest())
             : $platform;
     }
 

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection\Import;
 
-use NightWorksIO\MutationGate\Adapter\Infection\Infection;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\Json;
 
 use function pathinfo;
 use function sprintf;
@@ -28,7 +28,7 @@ final readonly class Choices
     /** The runner an Infection config's import chooses: Infection, whose config it is. */
     public static function runner(): Choice
     {
-        return Choice::of(Infection::RUNNER, Json::object());
+        return Choice::of(BuiltinRunner::Infection->value, Options::none());
     }
 
     /** The directory the HTML report is written to, from the file Infection wrote its own to: that file's stem. */

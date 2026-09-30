@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
 use NightWorksIO\MutationGate\Adapter\Project\AutoloadTrees;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
+use NightWorksIO\MutationGate\Core\Config\BuiltinTreeSource;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
@@ -42,10 +43,13 @@ final readonly class Registered
             ->withConfigLoader(Name::of(Format::Php->value), static fn(): ConfigLoader => new PhpConfig())
             ->withConfigLoader(Name::of(Format::Json->value), static fn(): ConfigLoader => new JsonConfig())
             ->withTreeSource(
-                Name::of('phpunit'),
+                BuiltinTreeSource::PhpUnit->named(),
                 static fn(Options $options): TreeSource|Invalid => self::phpunit($options),
             )
-            ->withTreeSource(Name::of('composer'), static fn(): TreeSource => AutoloadTrees::in(self::here()));
+            ->withTreeSource(
+                BuiltinTreeSource::Composer->named(),
+                static fn(): TreeSource => AutoloadTrees::in(self::here()),
+            );
         $withYaml = $installed(Yaml::class)
             ? $registry->withConfigLoader(Name::of(Format::Yaml->value), static fn(): ConfigLoader => new YamlConfig())
             : $registry;

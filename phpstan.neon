@@ -513,10 +513,12 @@ services:
                     - EACH # how a list's entries are named in a setting's path
                 'NightWorksIO\MutationGate\Core\Config\Proofs':
                     - PATH # the directory store's option
-                'NightWorksIO\MutationGate\Core\Config\Setup':
-                    - TREE_SOURCE # the tree source, not a test framework
                 'NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize':
                     - PER_MEGABYTE # bytes in a megabyte
+                'NightWorksIO\MutationGate\Adapter\Infection\OwnConfig':
+                    - FRAMEWORK # Infection's name for PHPUnit
+                'NightWorksIO\MutationGate\Core\Test\TestsDirectory':
+                    - CONVENTIONAL # the tests' directory
                 'NightWorksIO\MutationGate\Core\Hold\HotPaths':
                     - SMALLEST_SUITE # tests
                 'NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan':

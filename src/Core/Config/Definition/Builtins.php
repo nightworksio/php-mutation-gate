@@ -7,8 +7,13 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use function array_flip;
 use function array_key_exists;
 use function array_keys;
-use function array_map;
 
+use BackedEnum;
+use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
+use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
+use NightWorksIO\MutationGate\Core\Config\BuiltinTreeSource;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -46,18 +51,18 @@ final readonly class Builtins
 
     public static function runners(): self
     {
-        return self::none('pest', 'infection');
+        return self::none(...BuiltinRunner::cases());
     }
 
     /** The tree sources, whose paths are named from the layer's origin. */
     public static function treeSources(Origin $origin): self
     {
         return self::of([
-            'phpunit' => Section::options(
+            BuiltinTreeSource::PhpUnit->value => Section::options(
                 Json::object(Member::of('fallback', Json::items())),
                 Field::optional('fallback', Items::of(Location::path($origin)), Effect::AffectsResults),
             ),
-            'composer' => Section::options(Json::object()),
+            BuiltinTreeSource::Composer->value => Section::options(Json::object()),
         ]);
     }
 
@@ -67,11 +72,11 @@ final readonly class Builtins
         $judges = Effect::JudgesOrReportsOnly;
 
         return self::of([
-            'directory' => Section::options(
+            BuiltinStore::Directory->value => Section::options(
                 Json::object(Member::of('path', Workspace::ledger()->value())),
                 Field::optional('path', Location::path($origin), $judges),
             ),
-            's3' => Section::options(
+            BuiltinStore::S3->value => Section::options(
                 Json::object(Member::of('prefix', 'mutation-gate'))->with(Member::of('region', 'us-east-1')),
                 Field::required('bucket', Text::of('a bucket name'), $judges),
                 Field::optional('prefix', Text::of('a key prefix'), $judges),
@@ -84,7 +89,7 @@ final readonly class Builtins
 
     public static function ciPlans(): self
     {
-        return self::none('github', 'gitlab', 'buildkite', 'circleci', 'json');
+        return self::none(...BuiltinCiPlan::cases());
     }
 
     public static function reporters(): self
@@ -99,15 +104,26 @@ final readonly class Builtins
         );
 
         return self::of([
-            ...self::bare('json', 'junit', 'sarif', 'html', 'tests', 'kill-matrix', 'gitlab'),
-            'slack' => $chat('MUTATION_GATE_SLACK_URL', Json::object()),
-            'discord' => $chat('MUTATION_GATE_DISCORD_URL', Json::object()),
-            'webhook' => $chat(
+            ...self::bare(
+                BuiltinReporter::Json,
+                BuiltinReporter::JUnit,
+                BuiltinReporter::Sarif,
+                BuiltinReporter::Html,
+                BuiltinReporter::Tests,
+                BuiltinReporter::KillMatrix,
+                BuiltinReporter::GitLab,
+            ),
+            BuiltinReporter::Slack->value => $chat('MUTATION_GATE_SLACK_URL', Json::object()),
+            BuiltinReporter::Discord->value => $chat('MUTATION_GATE_DISCORD_URL', Json::object()),
+            BuiltinReporter::Webhook->value => $chat(
                 'MUTATION_GATE_WEBHOOK_URL',
                 Json::object(Member::of('secretEnv', 'MUTATION_GATE_WEBHOOK_SECRET')),
                 Field::optional('secretEnv', $variable, $judges),
             ),
-            'otlp' => Section::options(Json::object(), Field::optional('endpoint', Url::https(), $judges)),
+            BuiltinReporter::Otlp->value => Section::options(
+                Json::object(),
+                Field::optional('endpoint', Url::https(), $judges),
+            ),
         ]);
     }
 
@@ -209,14 +225,20 @@ final readonly class Builtins
     }
 
     /** Built-in adapters that take no options. */
-    private static function none(string ...$names): self
+    private static function none(BackedEnum ...$names): self
     {
         return self::of(self::bare(...$names));
     }
 
     /** @return array<string, Section<Options>> the options of adapters that take none, by name */
-    private static function bare(string ...$names): array
+    private static function bare(BackedEnum ...$names): array
     {
-        return array_map(static fn(): Section => Section::options(Json::object()), array_flip($names));
+        $bare = [];
+
+        foreach ($names as $name) {
+            $bare[sprintf('%s', $name->value)] = Section::options(Json::object());
+        }
+
+        return $bare;
     }
 }

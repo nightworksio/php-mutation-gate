@@ -12,9 +12,9 @@ use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Setup;
-use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -50,7 +50,7 @@ final readonly class ZeroConfig
         return Layer::of(
             Setup::of(
                 presets: $settings->presets(),
-                runner: Choice::of($settings->runner()->choice()->use(), Json::object()),
+                runner: Choice::of($settings->runner()->choice()->use()->value(), Options::none()),
             ),
             Floors::of(trees: Listed::of(...$declared)),
         );
