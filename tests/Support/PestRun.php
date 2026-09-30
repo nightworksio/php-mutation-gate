@@ -43,7 +43,7 @@ final readonly class PestRun
             'start' => $line,
             'end' => $line,
             'mutator' => $mutator,
-            'diff' => sprintf("\n  <fg=red>-        %s</>\n  <fg=green>+        %s</>\n", $removed, $added),
+            'diff' => self::diff($removed, $added),
             'mutated' => self::mutated($id),
         ];
     }
@@ -52,6 +52,12 @@ final readonly class PestRun
     public static function killed(string $id, string $test): array
     {
         return ['event' => 'killed', 'mutated' => self::mutated($id), 'test' => $test];
+    }
+
+    /** A change as Pest's diff of it reads: the line removed and the line that replaces it. */
+    public static function diff(string $removed, string $added): string
+    {
+        return sprintf("\n  <fg=red>-        %s</>\n  <fg=green>+        %s</>\n", $removed, $added);
     }
 
     /** Where Pest keeps the mutated copy of the mutant with this native id. */

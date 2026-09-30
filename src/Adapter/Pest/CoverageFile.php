@@ -97,6 +97,12 @@ final readonly class CoverageFile
         return array_values(array_unique($tests));
     }
 
+    /** How long a test took, or no time where the map does not time it. */
+    public function secondsOf(string $test): float
+    {
+        return array_key_exists($test, $this->durations) ? $this->durations[$test] : 0.0;
+    }
+
     /** How long the whole suite took, one test after another. */
     public function seconds(): float
     {

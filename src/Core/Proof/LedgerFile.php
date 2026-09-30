@@ -51,6 +51,9 @@ final readonly class LedgerFile
     /** The ledger's name, in whatever directory or bucket keeps it. */
     public const string NAME = 'ledger.json.gz';
 
+    /** The list a ledger's killed mutants and its kill history point into by index. */
+    public const string TESTS = 'tests';
+
     private const int FORMAT = 2;
 
     /** What a message calls the file. */
@@ -66,11 +69,8 @@ final readonly class LedgerFile
 
     private const string MUTATORS = 'mutators';
 
-    private const string TESTS = 'tests';
-
     private const string PASSED = 'passed';
 
-    private const string KILLERS = 'killers';
 
     public static function encode(Ledger $ledger): string
     {
@@ -101,7 +101,7 @@ final readonly class LedgerFile
             self::TESTS => $tests,
             'proofs' => $proofs === [] ? new stdClass() : $proofs,
             'timings' => $timings === [] ? new stdClass() : $timings,
-            self::KILLERS => KillersRecord::of($killers, array_flip($tests)),
+            KillersRecord::SECTION => KillersRecord::of($killers, array_flip($tests)),
             ...$passed instanceof Passed ? [self::PASSED => [
                 'commit' => $passed->commit()->name(),
                 'check' => $passed->check(),
@@ -136,7 +136,7 @@ final readonly class LedgerFile
             ->withBases(self::basesIn($file))
             ->withProofs(Proofs::of(...array_merge(...$proofs)))
             ->withTimings(Timings::of(...array_merge(...$timings)))
-            ->withKillers(KillersRecord::read($file->field(self::KILLERS), $tests));
+            ->withKillers(KillersRecord::read($file->field(KillersRecord::SECTION), $tests));
     }
 
     /**

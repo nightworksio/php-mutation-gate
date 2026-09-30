@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_count_values;
-use function array_key_exists;
 use function implode;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -108,7 +107,7 @@ final readonly class Interpretation
     private function mutants(Records $records, CoverageFile $coverage): MutationResult|CannotJudge
     {
         $mutants = Mutants::none();
-        $seen = [];
+        $ids = Identities::of(Root::of($this->project->root()), $records->planned());
 
         foreach ($records->planned() as $id => $planned) {
             $tests = $coverage->testsCovering($planned['file'], $planned['start'], $planned['end']);
@@ -123,11 +122,7 @@ final readonly class Interpretation
                 ));
             }
 
-            $path = $this->project->relative($planned['file']);
-            $key = sprintf("%s\n%s\n%s", $path->value(), $planned['mutator'], Diff::fromPest($planned['diff']));
-            $occurrence = $this->occurrences($seen, $key);
-            $mutants = $mutants->with($this->mutant($id, $planned, $records, $selection, $occurrence));
-            $seen[] = $key;
+            $mutants = $mutants->with($this->mutant($id, $ids[$id], $planned, $records, $selection));
         }
 
         return MutationResult::of($mutants, 0);
@@ -137,15 +132,14 @@ final readonly class Interpretation
      * The one place a Pest mutant becomes the gate's.
      *
      * @param Planned $planned
-     * @param int     $occurrence how many mutants before this one share its file, mutator and change
      */
-    private function mutant(string $id, array $planned, Records $records, Selection $selection, int $occurrence): Mutant
+    private function mutant(string $id, MutantId $gate, array $planned, Records $records, Selection $selection): Mutant
     {
         $path = $this->project->relative($planned['file']);
         $diff = Diff::fromPest($planned['diff']);
         $unselected = $selection->fits() ? $selection->unselected() : [];
         $mutant = Mutant::of(
-            MutantId::hash($path, $planned['mutator'], $diff, $occurrence),
+            $gate,
             $id,
             Location::of($path, Line::of($planned['start']), Line::of($planned['end'])),
             Mutation::of($planned['mutator'], Families::of($planned['mutator']), $diff),
@@ -163,14 +157,6 @@ final readonly class Interpretation
         $reason = Reason::that(sprintf(self::UNSELECTED, implode(', ', $unselected)));
 
         return $unselected === [] ? $limited : $limited->because($reason);
-    }
-
-    /** @param list<string> $seen the key of every mutant before this one */
-    private function occurrences(array $seen, string $key): int
-    {
-        $counts = array_count_values($seen);
-
-        return array_key_exists($key, $counts) ? $counts[$key] : 0;
     }
 
     private function statusOf(string $pest): MutantStatus

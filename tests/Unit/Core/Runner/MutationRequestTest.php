@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Coverage\Fresh;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -26,7 +29,8 @@ it('asks for some files judged by some tests, and by default nothing more', func
         ->and($request->deadline())->toEqual(Unlimited::time())
         ->and($request->uncovered())->toBe(Uncovered::Count)
         ->and($request->processes())->toEqual(Processes::of(1))
-        ->and($request->coverage())->toEqual(Fresh::coverage());
+        ->and($request->coverage())->toEqual(Fresh::coverage())
+        ->and($request->ordering())->toEqual(Ordering::runner());
 });
 
 it('takes each setting on its own, leaving the rest as they were', function (): void {
@@ -36,7 +40,8 @@ it('takes each setting on its own, leaving the rest as they were', function (): 
         ->within(Seconds::of(600.0))
         ->treatingUncovered(Uncovered::Exclude)
         ->across(Processes::of(8))
-        ->reusingCoverage(Path::of('.mutation-gate/coverage'));
+        ->reusingCoverage(Path::of('.mutation-gate/coverage'))
+        ->orderedBy(Ordering::of(TestOrder::KillersFirst, KillHistory::none()));
 
     expect($request->files())->toEqual(Paths::of(Path::of('src')))
         ->and($request->judgedBy())->toEqual(Group::named('slow'))
@@ -45,7 +50,8 @@ it('takes each setting on its own, leaving the rest as they were', function (): 
         ->and($request->deadline())->toEqual(Seconds::of(600.0))
         ->and($request->uncovered())->toBe(Uncovered::Exclude)
         ->and($request->processes())->toEqual(Processes::of(8))
-        ->and($request->coverage())->toEqual(Path::of('.mutation-gate/coverage'));
+        ->and($request->coverage())->toEqual(Path::of('.mutation-gate/coverage'))
+        ->and($request->ordering())->toEqual(Ordering::of(TestOrder::KillersFirst, KillHistory::none()));
 });
 
 it('leaves the request it came from as it was', function (): void {

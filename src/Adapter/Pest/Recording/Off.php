@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
 /**
- * The plugin records nothing, guards nothing, names no killer or names no
- * test: the adapter did not start this Pest for that, or this is, or is not,
- * a mutant's own process.
+ * The plugin records nothing, guards nothing, names no killer, names no test
+ * or orders no mutant's tests: the adapter did not start this Pest for that,
+ * or this is, or is not, a mutant's own process.
  */
 enum Off
 {
@@ -15,4 +15,5 @@ enum Off
     case Guarding;
     case NamingKillers;
     case NamingTests;
+    case Ordering;
 }

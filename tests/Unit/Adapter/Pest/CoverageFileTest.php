@@ -84,6 +84,14 @@ it('adds up how long the whole suite took, one test after another', function () 
     expect($coverage instanceof CoverageFile ? $coverage->seconds() : 0.0)->toBe(1.75);
 });
 
+it('times each test, and one it does not time as no time', function () use ($written): void {
+    $coverage = CoverageFile::at($written());
+
+    expect($coverage instanceof CoverageFile ? $coverage->secondsOf('P\Tests\MoneySpec::__pest_evaluable_it_adds') : 0.0)
+        ->toBeGreaterThan(0.0)
+        ->and($coverage instanceof CoverageFile ? $coverage->secondsOf('P\Tests\Nowhere::it') : 1.0)->toBe(0.0);
+});
+
 it('cannot judge without a map', function (): void {
     expect(CoverageFile::at('/nowhere/coverage.php'))
         ->toEqual(CannotJudge::because('There is no coverage map at /nowhere/coverage.php, so no test runs any line.'));

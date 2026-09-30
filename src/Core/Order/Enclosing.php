@@ -25,11 +25,11 @@ final readonly class Enclosing
      * The function a mutant is in, as `Functions::around()` names it, or
      * nameless code where it is in no named one.
      *
-     * @param non-empty-string|Nameless $function
+     * @param string|Nameless $function nothing, as a name, is nameless too
      */
     public static function of(Path $file, string|Nameless $function): self|Nameless
     {
-        return $function instanceof Nameless ? $function : new self($file, $function);
+        return $function instanceof Nameless || $function === '' ? Nameless::code() : new self($file, $function);
     }
 
     public function file(): Path

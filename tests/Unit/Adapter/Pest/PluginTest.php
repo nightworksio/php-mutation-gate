@@ -9,11 +9,12 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
-it('records, guards, and names no killer and no test until Pest boots it', function (): void {
+it('records, guards, names no killer and no test, and orders nothing until Pest boots it', function (): void {
     expect(new Plugin()->recorder())->toBe(Off::Recording)
         ->and(new Plugin()->guard())->toBe(Off::Guarding)
         ->and(new Plugin()->killers())->toBe(Off::NamingKillers)
-        ->and(new Plugin()->naming())->toBe(Off::NamingTests);
+        ->and(new Plugin()->naming())->toBe(Off::NamingTests)
+        ->and(new Plugin()->seeder())->toBe(Off::Ordering);
 });
 
 it('names the tests of a run that lists them for the adapter, writing the names when the run ends', function (): void {
@@ -39,6 +40,11 @@ it('names the tests of a run that lists them for the adapter, writing the names 
         ->and($plugin->guard())->toBe(Off::Guarding)
         ->and(is_array($named) ? array_column($named, 'description', 'test') : [])
         ->toHaveKey(sprintf('P\\Tests\\Unit\\Adapter\\Pest\\PluginTest::%s', '__pest_evaluable_it_names_the_tests_of_a_run_that_lists_them_for_the_adapter__writing_the_names_when_the_run_ends'));
+});
+
+it('leaves the arguments of a process that is no mutant\'s as they are', function (): void {
+    expect(new Plugin()->handleArguments([2 => 'vendor/bin/pest', 5 => '--cache-directory', 6 => '/v/.temp']))
+        ->toBe(['vendor/bin/pest', '--cache-directory', '/v/.temp']);
 });
 
 it('guards a run the adapter starts on one mutant, writing what it saw when the run ends', function (): void {

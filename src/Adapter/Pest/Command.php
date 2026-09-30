@@ -9,6 +9,7 @@ use function array_values;
 use function dirname;
 use function getenv;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Order\Seeder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -43,6 +44,7 @@ final readonly class Command
         'MUTATION_GATE_CANARY' => false,
         Guard::FILE => false,
         Naming::FILE => false,
+        Seeder::ORDER => false,
     ];
 
     /**
