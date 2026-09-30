@@ -319,8 +319,10 @@ its parser attributes. Both change when the checkout moves.
    - **The in-house gate's patches are an opt-in.** Enabling them is
      `pest.patch: true` (a boolean, `false` by default), plus
      `@php vendor/bin/mutation-gate pest:patch` in `post-install-cmd` and
-     `post-update-cmd`. The command applies every patch to
-     pest-plugin-mutate:
+     `post-update-cmd`. The GitHub action runs `pest:patch` itself after it
+     installs the project, wherever the effective config runs Pest with
+     `pest.patch` on, so the Composer hook serves every other run. The
+     command applies every patch to pest-plugin-mutate:
      - Shards open on a canary group (`pest.canary`, a group name,
        `mutation-canary` by default) and read the map the planning job wrote,
        instead of each running the whole suite again.
