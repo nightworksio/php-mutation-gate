@@ -90,11 +90,13 @@
     "prefer-stable": true,
     "autoload": {
         "psr-4": {
+            "NightWorksIO\\MutationGateDefault\\": "plugins/default/src/",
             "NightWorksIO\\MutationGate\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
+            "NightWorksIO\\MutationGateDefault\\Tests\\": "plugins/default/tests/",
             "NightWorksIO\\MutationGate\\PHPStan\\": "phpstan/",
             "NightWorksIO\\MutationGate\\Tests\\": "tests/"
         }
@@ -117,7 +119,8 @@
     "extra": {
         "mutation-gate": {
             "extensions": [
-                "NightWorksIO\\MutationGate\\Cli\\FirstParty"
+                "NightWorksIO\\MutationGate\\Cli\\FirstParty",
+                "NightWorksIO\\MutationGateDefault\\DefaultExtension"
             ]
         },
         "pest": {

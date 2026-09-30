@@ -1,0 +1,46 @@
+{
+    "name": "nightworksio/mutation-gate-default",
+    "description": "The default mutator set of NightWorksIO's mutation gate: Pest's default set and a mutator for each family it leaves out, written against the gate's mutator SDK.",
+    "license": "MIT",
+    "type": "library",
+    "keywords": [
+        "mutation testing",
+        "mutators"
+    ],
+    "authors": [
+        {
+            "name": "NightWorksIO",
+            "homepage": "https://nightworks.io"
+        },
+        {
+            "name": "Wessel Verheij",
+            "email": "info@nightworks.io"
+        }
+    ],
+    "homepage": "https://github.com/nightworksio/php-mutation-gate",
+    "require": {
+        "php": "^8.5",
+        "nightworksio/mutation-gate": "^1",
+        "nikic/php-parser": "^5.9"
+    },
+    "require-dev": {
+        "pestphp/pest": "^5.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "NightWorksIO\\MutationGateDefault\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "NightWorksIO\\MutationGateDefault\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "mutation-gate": {
+            "extensions": [
+                "NightWorksIO\\MutationGateDefault\\DefaultExtension"
+            ]
+        }
+    }
+}

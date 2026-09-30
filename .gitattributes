@@ -19,6 +19,7 @@
 /phpstan export-ignore
 /phpstan.neon export-ignore
 /phpunit.xml export-ignore
+/plugins/*/tests export-ignore
 /pint.json export-ignore
 /rector.php export-ignore
 /scripts export-ignore

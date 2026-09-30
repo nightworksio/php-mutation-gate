@@ -35,7 +35,18 @@ use function trait_exists;
 final readonly class Api
 {
     /**
-     * Every class-like PSR-4 places under a directory of `src`, loaded. A file
+     * Every class-like of the code the package ships, src's and each
+     * plugin's, loaded.
+     *
+     * @return list<ReflectionClass<object>>
+     */
+    public static function shippedClasses(): array
+    {
+        return array_merge(...array_map(self::classesUnder(...), Tree::shipped()));
+    }
+
+    /**
+     * Every class-like PSR-4 places under a directory, loaded. A file
      * whose path names a class it does not declare is left out here, never
      * loaded, and refused by W1: the autoloader includes such a file again on
      * every lookup, and the second include redeclares what the first declared.

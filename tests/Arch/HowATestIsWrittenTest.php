@@ -11,7 +11,8 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 const THAT_NAME_WHAT_THEY_REFUSE = ['tests/Arch/HowATestIsWrittenTest.php', 'tests/Guards/EveryRuleRefusesAViolationTest.php'];
 
 /**
- * Every test file, by its path relative to the repository, with its text.
+ * Every test file, the package's and each plugin's, by its path relative to
+ * the repository, with its text.
  *
  * @return array<string, string>
  */
@@ -19,7 +20,7 @@ function testFiles(): array
 {
     $found = [];
 
-    foreach (Tree::filesUnder('tests', 'Test.php') as $path) {
+    foreach ([...Tree::filesUnder('tests', 'Test.php'), ...Tree::filesUnder('plugins', 'Test.php')] as $path) {
         if (! in_array($path, THAT_NAME_WHAT_THEY_REFUSE, strict: true)) {
             $found[$path] = (string) file_get_contents(Tree::at($path));
         }
@@ -52,12 +53,19 @@ it('reads the tests it judges', function (): void {
 
 it('keeps every unit test beside the file it tests', function (): void {
     $orphans = [];
+    $mirrors = ['tests/Unit/' => 'src/'];
 
-    foreach (Tree::filesUnder('tests/Unit', 'Test.php') as $test) {
-        $source = sprintf('src/%s.php', mb_substr($test, mb_strlen('tests/Unit/'), -mb_strlen('Test.php')));
+    foreach (Tree::plugins() as $plugin) {
+        $mirrors[sprintf('%s/tests/', $plugin)] = sprintf('%s/src/', $plugin);
+    }
 
-        if (! is_file(Tree::at($source))) {
-            $orphans[] = sprintf('%s has no %s', $test, $source);
+    foreach ($mirrors as $tests => $sources) {
+        foreach (Tree::filesUnder($tests, 'Test.php') as $test) {
+            $source = sprintf('%s%s.php', $sources, mb_substr($test, mb_strlen($tests), -mb_strlen('Test.php')));
+
+            if (! is_file(Tree::at($source))) {
+                $orphans[] = sprintf('%s has no %s', $test, $source);
+            }
         }
     }
 

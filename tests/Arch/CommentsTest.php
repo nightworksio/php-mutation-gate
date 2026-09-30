@@ -27,7 +27,7 @@ it('keeps every comment to what is true now', function (): void {
     $offenders = [];
     $read = 0;
 
-    foreach ([...Tree::filesUnder('src'), ...Tree::filesUnder('tests'), ...Tree::filesUnder('phpstan')] as $path) {
+    foreach ([...Tree::filesUnder('src'), ...Tree::filesUnder('tests'), ...Tree::filesUnder('phpstan'), ...Tree::filesUnder('plugins')] as $path) {
         if (in_array($path, THAT_HOLD_THE_PHRASES, strict: true)) {
             continue;
         }

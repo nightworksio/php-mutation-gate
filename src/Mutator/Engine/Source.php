@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Mutator\Removal;
 use NightWorksIO\MutationGate\Mutator\Unchanged;
 use PhpParser\ErrorHandler\Collecting;
 use PhpParser\Node;
+use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Nop;
 use PhpParser\NodeTraverser;
@@ -39,11 +40,8 @@ use PhpParser\Token;
  */
 final readonly class Source
 {
-    /** The attribute php-parser's parent connecting keeps a node's parent in. */
-    private const string PARENT = 'parent';
-
     /**
-     * @param list<Node\Stmt> $statements the code as parsed, which is never changed
+     * @param list<Stmt> $statements the code as parsed, which is never changed
      * @param list<Token>     $tokens     the code's tokens, which printing it again preserves
      */
     private function __construct(private string $code, private array $statements, private array $tokens)
@@ -118,7 +116,7 @@ final readonly class Source
         $at = $node;
 
         while ($at instanceof Node && ! $at instanceof ClassMethod) {
-            $parent = $at->getAttribute(self::PARENT);
+            $parent = $at->getAttribute(Mutator::PARENT);
             $at = $parent instanceof Node ? $parent : false;
         }
 
@@ -149,8 +147,8 @@ final readonly class Source
                 return match (true) {
                     $node !== $this->target => $node,
                     $this->change instanceof Node => $this->withoutOriginal($this->change),
-                    $this->offered === Offered::Everywhere => NodeVisitor::REMOVE_NODE,
-                    default => new Nop(),
+                    $this->offered === Offered::InClassMethods && $node instanceof Stmt => new Nop(),
+                    default => NodeVisitor::REMOVE_NODE,
                 };
             }
 

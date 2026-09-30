@@ -26,6 +26,10 @@ src/
   Extension/   the Extension interface and the Extensions registry. Public API.
   Adapter/     one directory per outside thing: Pest, Infection, git, GitHub, S3.
   Cli/         the composition root and the command line.
+plugins/
+  <name>/      a first-party mutator set: a package in all but publication, with
+               its own composer.json, src and tests, which leaves by moving its
+               directory (ADR-0021).
 phpstan/Rules/ this repository's own analyser rules.
 tests/
   Arch/        the rules in this document that the suite enforces.
@@ -61,6 +65,9 @@ these differently.
 | **A3** | An adapter names no other adapter | arch: every class name each adapter's files write |
 | **A4** | A layer names only itself and the layers before it | arch: every class name each file under `src` writes |
 | **A5** | Attribute names nothing but PHP, and nothing else under `src` names it but the Pest plugin's filter, which reads `#[Holds]` from test closures (ADR-0004) | arch: every class name each file under `src` writes |
+| **A6** | Nothing under `src` names a plugin (ADR-0021) | arch: every class name each file under `src` writes |
+| **A7** | A plugin names only PHP, php-parser, the Mutator layer, `Extension\Extension`, `Extension\Extensions` and the core values the public API's signatures reach, and never another plugin (ADR-0021) | arch: every class name each file under `plugins/*/src` and `plugins/*/tests` writes |
+| **A8** | Each plugin's `composer.json` validates and is normalized on its own, names the plugin `nightworksio/mutation-gate-<directory>`, maps its namespaces, lists an extension the root lists too, and requires the gate, php-parser and every package its code names (ADR-0021) | arch: each plugin's manifest and every class name its `src` writes; ci: `composer validate` and `composer normalize` over each plugin's manifest |
 
 ## B — input and output
 
@@ -165,7 +172,7 @@ osv-scanner, which read the repository rather than the code.
 | **G4** | No dev dependency is reachable from `src`, and every dependency is used | `composer-dependency-analyser` |
 | **G5** | One assertion idiom: Pest's `expect()`, never PHPUnit's `assert*` | arch: over the text of every test |
 | **G6** | No committed `->only()`, and no `->skip()` without the reason | arch: over the text of every test |
-| **G7** | Every line of `src` is covered | ci: `pest --coverage --min=100` |
+| **G7** | Every line of `src` and of each plugin's `src` is covered | ci: `pest --coverage --min=100` |
 | **G8** | Every mutant of `src` is killed | planned: the package's own gate at a floor of 100, through its reusable workflow and action (`ci.yml` holds the place) |
 | **G9** | A diagnostic fails the run, and no setting exempts one | arch: the settings, read out of `phpunit.xml` |
 

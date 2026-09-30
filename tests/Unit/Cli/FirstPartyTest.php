@@ -74,7 +74,7 @@ it('is named in this package\'s own composer.json', function (): void {
     $manifest = json_decode((string) file_get_contents(sprintf('%s/composer.json', dirname(__DIR__, 3))), associative: true);
 
     expect($manifest)->toMatchArray(['name' => FirstParty::PACKAGE])
-        ->toHaveKey('extra.mutation-gate', ['extensions' => [FirstParty::class]]);
+        ->toHaveKey('extra.mutation-gate.extensions.0', FirstParty::class);
 });
 
 it('registers the directory and the bucket proof stores', function () use ($registry): void {

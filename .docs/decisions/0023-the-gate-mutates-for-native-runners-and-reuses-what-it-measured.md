@@ -160,6 +160,14 @@ manual.
      ADR-0021's SDK: a first-party `default` set in `plugins/default/`, under
      ADR-0021's plugin rules, covers ADR-0009's families, and every enabled
      set adds to it.
+   - The `default` set is a superset of Pest's `DefaultSet`. It holds Pest's
+     159 mutators, with the five Assignment mutators whose names clash with
+     Arithmetic's renamed `…Equal…`. It adds the two families Pest's set leaves
+     out: `RemoveThrow` (Exception) and `PublicToProtected` (Visibility).
+   - A first-party plugin counts as first party. `--no-extensions` means no
+     third-party code, so it still loads the plugins this repository ships,
+     recognised by their Composer package names from one list in `Core`, held
+     as data rather than class names.
    - Files are parsed with php-parser 5 and printed with its
      format-preserving printer, so only the mutated node's lines change and
      the diff is exact.
