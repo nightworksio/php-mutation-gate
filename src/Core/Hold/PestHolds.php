@@ -6,24 +6,21 @@ namespace NightWorksIO\MutationGate\Core\Hold;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 
 use function sprintf;
-use function str_ends_with;
 
 /**
  * The `#[Holds]` a Pest suite's test files write, each with its file, read
  * as Pest's plugin reads them: a `#[Holds]` from which no group can follow is
- * refused, and every path the tokens find must be a group Pest lists.
+ * refused, and every path the tokens find must be a group Pest lists. Which
+ * files Pest loads before any plugin starts is the runner's to say, among the
+ * files that define it.
  */
 final readonly class PestHolds
 {
-    /** The file Pest loads before it starts any plugin, at the end of a test file's path. */
-    private const string BOOTSTRAP = '/tests/Pest.php';
-
-
-
     /** How a refusal begins: where the `#[Holds]` is written. */
     private const string AT = '%s:%d: %s';
 
@@ -71,14 +68,24 @@ final readonly class PestHolds
         its autoloader: allow that Composer plugin and run composer dump-autoload.
         SAID;
 
-    /** @param list<array{Path, HoldsAttribute}> $read every `#[Holds]` read, with its file */
-    private function __construct(private array $read)
+    /**
+     * @param list<array{Path, HoldsAttribute}> $read  every `#[Holds]` read, with its file
+     * @param Paths                             $first the files Pest loads before it starts any plugin
+     */
+    private function __construct(private array $read, private Paths $first)
     {
     }
 
+    /** Nothing read, where no file is known to load before Pest's plugins. */
     public static function none(): self
     {
-        return new self([]);
+        return new self([], Paths::none());
+    }
+
+    /** Nothing read yet, where Pest loads these files, such as `tests/Pest.php`, before it starts any plugin. */
+    public static function after(Paths $first): self
+    {
+        return new self([], $first);
     }
 
     /**
@@ -99,7 +106,7 @@ final readonly class PestHolds
             $read[] = [$file, $attribute];
         }
 
-        return new self($read);
+        return new self($read, $this->first);
     }
 
     /**
@@ -135,8 +142,7 @@ final readonly class PestHolds
         $on = $attribute->standing();
 
         return match (true) {
-            str_ends_with(sprintf('/%s', $file->value()), self::BOOTSTRAP)
-                => sprintf(self::IN_BOOTSTRAP, $written, $file->value(), $path->group()),
+            $this->first->has($file) => sprintf(self::IN_BOOTSTRAP, $written, $file->value(), $path->group()),
             ! $on->isFiltered() => sprintf(self::NOT_FILTERED, $written, $on->called(), $path->group()),
             $on === Standing::KeptClosure => sprintf(self::KEPT, $written, $path->group()),
             $on->isPhpUnits() && ! $path->isLiteral()
