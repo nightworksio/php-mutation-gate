@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\Uncovered;
+use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
@@ -934,4 +935,27 @@ it('counts each unit a budget ran out before by its newest result, unjudged, and
         ->and($trees[0]->counts()->number(MutantJudgement::Unjudged))->toBe(count(Flows::mutantsOf('src/Money.php')))
         ->and($trees[0]->raised())->toEqual(Unraised::floor())
         ->and(count($store->read(Scope::branch('main'))->proofs()))->toBe(1);
+});
+
+it('finds the weak tests that let a survivor through from the test files the plan names, before it reports', function () use ($tree, $reporting, $judged): void {
+    $project = Flows::project();
+    Scratch::write($project, 'src/Money.php', Verdicts::MONEY);
+    Scratch::write($project, 'tests/MoneyTest.php', "<?php\n\nit('adds', function () {\n    expect(fits(1, 2))->toBeBool();\n});\n");
+    $literal = Verdicts::mutant('src/Money.php:11', 'FalseValue', MutatorFamily::Literal, Verdicts::diff('return false;', 'return true;'));
+    $recorded = new ReporterFake();
+    $verdict = judgingVerdictOf($judged(
+        Planned::of(Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(1.0), 'money'))
+            ->naming(TestNames::none()->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'it adds'))),
+        Flows::adapters($project, [], $tree(Floor::of(0)), ScriptedRunner::fixture()->answering(Mutants::of($literal), 0)),
+        judgingSettings(),
+        $reporting($recorded),
+    ));
+    $survivors = array_values(array_filter([...$verdict->trees()->mutants()], static fn(JudgedMutant|JudgedKill $judged): bool => $judged instanceof JudgedMutant));
+    $finding = $survivors[0]->finding();
+
+    expect($finding)->toBeInstanceOf(WeaklyAsserted::class)
+        ->and($finding instanceof WeaklyAsserted ? $finding->first()->test()->value() : '')->toBe('MoneyTest::adds')
+        ->and($finding instanceof WeaklyAsserted ? $finding->function() : '')->toBe('fits')
+        ->and($survivors[0]->hint()->text())->toContain('`tests/MoneyTest.php::it adds` asserts only `->toBeBool()`')
+        ->and($recorded->reported)->toBe([$verdict]);
 });

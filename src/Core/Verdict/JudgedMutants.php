@@ -132,6 +132,19 @@ final readonly class JudgedMutants implements Countable, IteratorAggregate
         return new self($marked, $this->kills);
     }
 
+    /** Every mutant, each survivor with what was found of it (ADR-0025, decision 7). */
+    public function found(Findings $findings): self
+    {
+        $marked = [];
+
+        foreach ($this->mutants as $mutant) {
+            $finding = $findings->of($mutant->mutant()->id());
+            $marked[] = $finding instanceof NoFinding ? $mutant : $mutant->found($finding);
+        }
+
+        return new self($marked, $this->kills);
+    }
+
     /** The mutants and kills on lines the change added or modified, in order. */
     public function changed(): self
     {

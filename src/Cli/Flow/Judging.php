@@ -8,6 +8,7 @@ use function count;
 use function implode;
 use function is_array;
 
+use NightWorksIO\MutationGate\Core\Assertion\Weakness;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Lowering;
@@ -55,8 +56,9 @@ use function sprintf;
  * `verdict --plan --results`: every shard's result merged with the proved and
  * carried ones, every tree judged whole against its floor, and in a pull
  * request the new code against its own floor, a raise that must be committed
- * and a floor lowered without its reason, and the survivors that share a
- * cause clustered. Then the reports, and the ledger.
+ * and a floor lowered without its reason; the survivors that share a cause
+ * clustered, and those a weak test let through marked. Then the reports,
+ * and the ledger.
  * A tree held to no floor stops a run in CI, and is warned of elsewhere.
  */
 final readonly class Judging
@@ -129,10 +131,12 @@ final readonly class Judging
             $ledgers->own()->proofs(),
         );
         $unjudged = LeftUnjudged::of($results->unjudged(), $ledgers->newest());
-        $unclustered = $judge->trees(
-            $fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results()),
+        $map = new Handoff($this->adapters->project)->forVerdict();
+        $matrix = $this->matrixOf($plan, $map);
+        $verdicts = $this->read(
+            $matrix,
+            $judge->trees($fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results())),
         );
-        $verdicts = $unclustered->clustered(Sources::ofSurvivors($unclustered, $this->adapters->project));
         $unfloored = Ratchet::unfloored($verdicts);
         $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));
 
@@ -150,6 +154,8 @@ final readonly class Judging
             $judge,
             $verdicts,
             $results->warnings(),
+            $map,
+            $matrix,
         );
         $ownScopeProofs = $proving->ownScopeProofs() + $carrying->ownScopeProofs();
         $recorded = $this->recorded($plan, $results, $ledgers, $verdict, $ownScopeProofs);
@@ -161,6 +167,21 @@ final readonly class Judging
         $judged = new Judged($verdict, [$recorded, ...$this->reported($verdict, $reporters)], $baseline);
 
         return $refused ? $judged->refusing() : $judged;
+    }
+
+    /**
+     * The trees, with their survivors of one cause clustered and each
+     * survivor a weak test let through marked, from the survivors' own files
+     * and their tests' files, read once (ADR-0022 decision 15, ADR-0025
+     * decisions 5 to 7).
+     */
+    private function read(KillMatrix $matrix, TreeVerdicts $judged): TreeVerdicts
+    {
+        $sources = Sources::ofSurvivors($judged, $this->adapters->project);
+        $clustered = $judged->clustered($sources);
+        $tests = Sources::of(Weakness::testFiles($clustered, $matrix), $this->adapters->project);
+
+        return $clustered->found(Weakness::findings($clustered, $matrix, $sources->and($tests)));
     }
 
     /**
@@ -193,6 +214,8 @@ final readonly class Judging
         Judge $judge,
         TreeVerdicts $verdicts,
         Warnings $shards,
+        CoverageMap|CannotJudge $map,
+        KillMatrix $matrix,
     ): Verdict {
         $pullRequest = $plan->runOn()->isPullRequest();
         $newCode = $pullRequest
@@ -201,7 +224,6 @@ final readonly class Judging
         $failures = $pullRequest
             ? $this->pullRequestFailures($lowered, $verdicts)->and($missed)
             : $missed;
-        $map = new Handoff($this->adapters->project)->forVerdict();
         $raised = $map instanceof CannotJudge
             ? $shards->with(Warning::that(sprintf(self::NO_MATRIX, $map->why())))
             : $this->hotPathsIn($plan, $map, $shards);
@@ -209,7 +231,7 @@ final readonly class Judging
         return Verdict::of($verdicts)
             ->withNewCode($newCode)
             ->withReach($plan->considered()->reach())
-            ->withMatrix($this->matrixOf($plan, $map))
+            ->withMatrix($matrix)
             ->withWarnings($this->warnings($plan, $verdicts, $raised))
             ->withFailures($failures);
     }

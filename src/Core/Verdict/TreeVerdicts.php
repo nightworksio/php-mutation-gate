@@ -65,6 +65,18 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
         return new self($clustered);
     }
 
+    /** These trees, with what was found of each survivor (ADR-0025, decision 7). */
+    public function found(Findings $findings): self
+    {
+        $found = [];
+
+        foreach ($this->verdicts as $tree) {
+            $found[] = $tree->found($findings);
+        }
+
+        return new self($found);
+    }
+
     /** The clusters the survivors of these trees are in; none before they are clustered. */
     public function clusters(): Clusters
     {

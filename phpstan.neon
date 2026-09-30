@@ -483,6 +483,7 @@ services:
                 - src/Adapter/Pest/Families.php # Pest's mutator names
                 - src/Core/Runner/Opcache.php # PHP's ini switches, as the Pest plugin and doctor's probe read them
                 - src/Core/File/Glob.php # the glob grammar
+                - src/Core/Assertion/AssertionTable.php # PHPUnit's assertions and Pest's expectations
             # Closed sets still to become enums, by the builder whose area holds them.
             awaiting:
                 - src/Adapter/GitHub/GitHubPlan.php # owner: flows (a GitHubEvent enum)
@@ -500,6 +501,10 @@ services:
             coincidences:
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
                     - UNRELEASED # the package's own branch, in a link to its guide
+                'NightWorksIO\MutationGate\Core\Assertion\AssertionTable':
+                    - TAUTOLOGY # the PHP literal an assertTrue is handed
+                'NightWorksIO\MutationGate\Core\Assertion\AssertionScan':
+                    - CALL_OPENS # tokens from a `->` to its call's bracket
                 'NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment':
                     - PAGE # comments a page
                     - PAGES # pages read
@@ -564,6 +569,8 @@ services:
                     - INDENT # a line of Pest's diff
                 'NightWorksIO\MutationGateDefault\Literals':
                     - 'TRUE' # PHP's constant, not Infection's setting
+                'NightWorksIO\MutationGateDefault\Calls':
+                    - VALUE # the name of a parameter the mutant's code declares
                 'NightWorksIO\MutationGate\Core\Proof\LedgerFile':
                     - FORMAT # a format version
                     - SECONDS # a field of the ledger

@@ -190,6 +190,12 @@ final readonly class ReportSchema
             'rows' => ['type' => 'array', 'items' => $row],
         ], ['rows']);
         $kill = self::object(['mutant' => self::ID_SPELLING, 'keptBy' => self::TEXT], []);
+        $weak = self::object([
+            'test' => self::TEXT,
+            'assertions' => self::listOf(self::TEXT),
+            'survivors' => self::listOf(self::ID_SPELLING),
+            'assert' => self::TEXT,
+        ], []);
         $removable = self::object([
             'test' => self::TEXT,
             'seconds' => self::SECONDS,
@@ -214,6 +220,7 @@ final readonly class ReportSchema
                         'removable' => ['type' => 'array', 'items' => $removable],
                     ], []),
                 ]],
+                'weak' => ['type' => 'array', 'items' => $weak],
             ], ['noCoverage']),
         ]);
     }

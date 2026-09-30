@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 
 it('is a mutant and what the gate made of it, on no changed line to begin with', function (): void {
@@ -62,7 +63,7 @@ it('says what its tests miss from its diff and judging tests until it is given t
     $judged = Judged::mutant('a', MutantJudgement::Survived)->judgedBy($tests);
     $read = Hint::that('No test uses a value at the boundary of `$amount < $limit`.');
 
-    expect($judged->hint())->toEqual(Hint::for($judged->mutant(), MutantJudgement::Survived, $tests, Missing::at(Path::of('src/Money.php'))))
+    expect($judged->hint())->toEqual(Hint::for($judged->mutant(), MutantJudgement::Survived, $tests, Missing::at(Path::of('src/Money.php')), NoFinding::survivor()))
         ->and($judged->hinted($read)->hint())->toBe($read)
         ->and($judged->hinted($read)->judgedBy(TestIds::none())->hint())->toBe($read);
 });

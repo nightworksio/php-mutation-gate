@@ -38,6 +38,7 @@ it('lists the useless tests with their rows, and asks for a full matrix before i
         ],
         'notAssessed' => 1,
         'redundant' => ['needs' => 'Needs a full kill matrix: run `mutation-gate run --kill-matrix=full`.'],
+        'weak' => [],
     ]);
 });
 
@@ -58,6 +59,7 @@ it('names the tests that can go from a full matrix, each kill with the kept test
                 ['test' => 'tests/CTest.php::it does C', 'seconds' => 0.2, 'kills' => []],
             ],
         ],
+        'weak' => [],
     ]);
 });
 
@@ -92,6 +94,10 @@ it('writes the same as Markdown, a section to each list', function (): void {
         '| <code>tests/CTest.php::it does C</code> | 0.20s |  |',
         '',
         'The kept set is a small one, not the smallest.',
+        '',
+        '## Asserts only existence or shape (0)',
+        '',
+        'None.',
         '',
     ]));
 });

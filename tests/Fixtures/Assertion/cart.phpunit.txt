@@ -1,0 +1,21 @@
+<?php
+
+abstract class CartTest extends TestCase
+{
+    abstract public function testLater(): void;
+
+    public function testAdds(): void
+    {
+        $this->assertNotNull($x);
+        self::assertIsArray($y);
+        $this->assertTrue(true);
+    }
+
+    public function &testValue(): void { static::assertTrue($x > 1); }
+
+    public function testMine(): void { $this->assertMoney($x); }
+
+    private function assertMoney($x): void { $this->assertSame(1, $x); }
+
+    public function testCallsIt(): void { $this->helper()->toArray(); assertCount(1, $x); }
+}

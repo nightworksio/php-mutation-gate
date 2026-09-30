@@ -23,6 +23,25 @@ enum MutatorFamily: string
     /** A mutator the runner's table of families does not know; its survivors show what `None`'s do. */
     case Unknown = 'unknown';
 
+    /**
+     * Whether an assertion of value would see its change, and not one of
+     * existence or shape alone (ADR-0025, decision 6).
+     */
+    public function isSeenByValue(): bool
+    {
+        return match ($this) {
+            self::ReturnValue, self::Literal, self::Arithmetic, self::Collection, self::Unwrap => true,
+            self::Boundary,
+            self::Condition,
+            self::Logical,
+            self::RemovedCall,
+            self::Exception,
+            self::Visibility,
+            self::None,
+            self::Unknown => false,
+        };
+    }
+
     /** Whether it names a kind of change a set of mutators shares, as none and unknown do not. */
     public function isKind(): bool
     {

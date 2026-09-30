@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\Cluster\Membership;
 use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -34,6 +35,7 @@ final readonly class JudgedMutant
         private TestIds $tests,
         private Hint|Missing $hint,
         private Membership|Unclustered $cluster,
+        private WeaklyAsserted|NoFinding $finding,
     ) {
     }
 
@@ -46,6 +48,7 @@ final readonly class JudgedMutant
             tests: TestIds::none(),
             hint: Missing::at($mutant->location()->file()),
             cluster: Unclustered::mutant(),
+            finding: NoFinding::survivor(),
         );
     }
 
@@ -73,6 +76,12 @@ final readonly class JudgedMutant
     public function inCluster(Membership $cluster): self
     {
         return clone($this, ['cluster' => $cluster]);
+    }
+
+    /** This mutant, with what the gate found beyond its hint's first sentence (ADR-0025, decision 7). */
+    public function found(WeaklyAsserted $finding): self
+    {
+        return clone($this, ['finding' => $finding]);
     }
 
     /**
@@ -113,13 +122,19 @@ final readonly class JudgedMutant
     {
         return $this->hint instanceof Hint
             ? $this->hint
-            : Hint::for($this->mutant, $this->judgement, $this->tests, $this->hint);
+            : Hint::for($this->mutant, $this->judgement, $this->tests, $this->hint, $this->finding);
     }
 
     /** The cluster it is in; none for a mutant that shares its cause with no other survivor. */
     public function cluster(): Membership|Unclustered
     {
         return $this->cluster;
+    }
+
+    /** What the gate found beyond its hint's first sentence; nothing where it found nothing. */
+    public function finding(): WeaklyAsserted|NoFinding
+    {
+        return $this->finding;
     }
 
     /** The one command that runs it again, on any machine with the same code. */

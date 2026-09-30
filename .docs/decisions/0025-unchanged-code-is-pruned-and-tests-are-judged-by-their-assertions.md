@@ -100,6 +100,21 @@ decision 3). The kill matrix knows which tests cover and which kill
      leaves its test *not assessed*.
    - A table test fails when a supported PHPUnit or Pest release adds an
      assertion the table does not classify.
+   - **As built.**
+     - `Core\Assertion\AssertionTable` holds the table, by name: every
+       assertion of PHPUnit's `Assert` and `TestCase`, its `expect…`
+       methods among them, and every Pest expectation. `assertTrue(true)`
+       is existence. A negated `toBeNull`, `toBeEmpty`, `toBeTrue` or
+       `toBeFalse` is existence, whatever the same expectation is
+       unnegated. `AssertionTableTest` reads the installed releases'
+       methods and fails on one the table does not hold.
+     - `TestAssertions` finds a test in its file's tokens: a PHPUnit method
+       by its name, and a Pest `it` or `test` by its description, with the
+       calls chained after it, so a test's `->throws()` counts as a value.
+       A method with no body has no assertions. `AssertionScan` reads the
+       calls: `assert…` and `expect…` as methods or functions, and each
+       expectation chained after `expect()`, where `->and()` ends a
+       negation.
 
 6. **A weak test is reported only beside the survivors it let through.** It is
    reported when it is a judging test of a survivor in the Return value,
@@ -107,6 +122,21 @@ decision 3). The kill matrix knows which tests cover and which kill
    value would see. The report pairs the test with those survivors and the
    assertion that would kill them (`assertSame(<expected>, …)` on the
    enclosing function's result), and `stub` offers it (ADR-0015 decision 1).
+   - **As built.**
+     - `Core\Assertion\Weakness` decides it over the verdict's survivors
+       judged *survived*. A survivor's judging tests are those the kill
+       matrix finds covering it that judge it: every test, or the group
+       that holds its unit. Only a test the runner names is read, from the
+       file its name gives, so a weak test is named by its file and
+       description, its data set rows folded in (ADR-0014 decision 6).
+     - The suggested assertion is in the test's own style:
+       `$this->assertSame(<expected>, fits(…))` beside a PHPUnit test, and
+       `expect(fits(…))->toBe(<expected>)` beside a Pest one. Outside any
+       function its subject is `…`.
+     - `Cli\Flow\Judging` builds the kill matrix before it reads the
+       trees, reads the test files it names through the project's
+       `Directory`, and hands each survivor its finding with
+       `TreeVerdicts::found()`.
 
 7. **The finding lives in the tests report and the hint.** It is a third
    section of the `tests` report and of `mutation-gate tests` (ADR-0014
@@ -114,6 +144,16 @@ decision 3). The kill matrix knows which tests cover and which kill
    weak assertion (ADR-0009 decision 7). It reports only. `Core` holds the
    table and the token read. This amends ADR-0014 decisions 2 and 5, and
    ADR-0009 decision 7.
+   - **As built.**
+     - `Core\Report\WeakAssertions` is the section's one home, and
+       `TestsReport` writes it in all three forms. The JSON's `weak` lists
+       each test once as `{test, assertions, survivors, assert}`, which
+       `resources/tests.schema.json` describes. Markdown and the console
+       head it *Asserts only existence or shape* with its count.
+     - The hint's second sentence names the first weak test on one plain
+       line, each assertion it makes once, and how many more tests are
+       weak: *`tests/CartTest.php::it fits` asserts only `->toBeBool()`,
+       which no change of value fails.*
 
 ### Score per suite
 
