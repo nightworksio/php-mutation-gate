@@ -6,8 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Git;
 
 use function array_key_exists;
 use function intval;
-use function mb_strpos;
-use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\File\ByPath;
@@ -15,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 
 use function preg_match;
 use function sprintf;
@@ -31,9 +30,6 @@ final readonly class Blobs
     private const string FOUND = '/^[0-9a-f]{40,64} (?<type>\S+) (?<size>\d+)$/D';
 
     private const string BLOB = 'blob';
-
-    /** The batch prints bytes, and its sizes count them. */
-    private const string BYTES = '8bit';
 
     private function __construct(private Command $git, private string $commit)
     {
@@ -116,8 +112,8 @@ final readonly class Blobs
      */
     private static function next(string $printed, int $offset, Path $path): array
     {
-        $end = mb_strpos($printed, "\n", $offset, self::BYTES);
-        $header = $end === false ? '' : mb_substr($printed, $offset, $end - $offset, self::BYTES);
+        $end = Bytes::find($printed, "\n", $offset);
+        $header = $end === false ? '' : Bytes::slice($printed, $offset, $end - $offset);
 
         if ($end === false || preg_match(self::FOUND, $header, $found) !== 1) {
             return [Missing::at($path), $end === false ? $offset : $end + 1];
@@ -125,7 +121,7 @@ final readonly class Blobs
 
         $size = intval($found['size']);
         $file = $found['type'] === self::BLOB
-            ? Contents::of(mb_substr($printed, $end + 1, $size, self::BYTES))
+            ? Contents::of(Bytes::slice($printed, $end + 1, $size))
             : Missing::at($path);
 
         return [$file, $end + 1 + $size + 1];

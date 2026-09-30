@@ -9,8 +9,8 @@ use function count;
 use function implode;
 use function intdiv;
 use function iterator_to_array;
-use function mb_strlen;
 
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Report\Label;
 use NightWorksIO\MutationGate\Core\Report\Mutator;
@@ -49,8 +49,6 @@ final readonly class Markdown
 
     /** The most survivors, and unjudged or flaky mutants, the comment lists. */
     private const int COMMENTED = 20;
-
-    private const string BYTES = '8bit';
 
     private const string RAISE
         = 'Raise them with `vendor/bin/mutation-gate baseline --write`, and commit the baseline.';
@@ -108,7 +106,7 @@ final readonly class Markdown
                 ...$tail,
             ]);
             $shown = intdiv($shown, 2);
-        } while (mb_strlen($summary, self::BYTES) > self::SUMMARY_BYTES && $shown > 0);
+        } while (Bytes::length($summary) > self::SUMMARY_BYTES && $shown > 0);
 
         return $summary;
     }

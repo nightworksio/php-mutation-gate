@@ -14,9 +14,6 @@ use function hash_init;
 use function hash_update;
 
 use HashContext;
-
-use function mb_strlen;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -24,6 +21,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -290,7 +288,7 @@ final readonly class ContentKeys
         $framed = '';
 
         foreach ($fields as $field) {
-            $framed .= sprintf("%d:%s\n", mb_strlen($field, '8bit'), $field);
+            $framed .= sprintf("%d:%s\n", Bytes::length($field), $field);
         }
 
         return $framed;

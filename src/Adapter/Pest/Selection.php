@@ -11,7 +11,9 @@ use function array_values;
 use function count;
 use function explode;
 use function implode;
-use function mb_strlen;
+
+use NightWorksIO\MutationGate\Core\Format\Bytes;
+
 use function preg_match;
 use function sprintf;
 use function str_replace;
@@ -66,7 +68,7 @@ final readonly class Selection
     /** Whether the `--filter` argument is short enough to be passed, in bytes, as the patch counts it. */
     public function fits(): bool
     {
-        return mb_strlen($this->argument(), '8bit') < self::CEILING;
+        return Bytes::length($this->argument()) < self::CEILING;
     }
 
     /** @return list<string> the covering tests the filter does not select */
