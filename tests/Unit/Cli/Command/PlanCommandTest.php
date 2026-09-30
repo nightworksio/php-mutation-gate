@@ -133,3 +133,15 @@ it('says nothing of the patch where it is on, the plan has one shard, or the run
     'one shard' => ['', '1', ScriptedRunner::fixture()->named('pest')],
     'another runner' => ['', '2', ScriptedRunner::fixture()->named('infection')],
 ]);
+
+it('asks the runner who it is withholding every CI\'s tokens, for the patch notice too', function () use (
+    $plan,
+): void {
+    $runner = ScriptedRunner::fixture()->named('pest');
+    $plan(FlowCommands::project(), '--shards=2', $runner, Flows::ci());
+    $identified = $runner->identified();
+
+    expect($identified)->toHaveCount(3)
+        ->and($identified)->each->toEqual($identified[0])
+        ->and(preg_match($identified[0]->pattern(), 'CI_JOB_TOKEN'))->toBe(1);
+});

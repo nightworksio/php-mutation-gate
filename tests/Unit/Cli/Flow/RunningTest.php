@@ -392,9 +392,10 @@ it('runs each timeout its cap decided once more with the cap doubled, up to time
 ) use ($statuses, $resultIn): void {
     $project = Flows::project();
     $scripted = ScriptedRunner::fixture()->named($runner);
+    $adapters = Flows::adapters($project, [], $scripted);
 
     new Running(
-        Flows::adapters($project, [], $scripted),
+        $adapters,
         Flows::settings(Timeouts::seconds(5), $retries, Flaky::notConfirmingSurvivors()),
         Flows::setup(),
     )->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
@@ -406,6 +407,8 @@ it('runs each timeout its cap decided once more with the cap doubled, up to time
         ],
         $scripted->retries(),
     ))->toEqual($retried)
+        ->and(array_map(static fn(array $retry): Withheld => $retry[3], $scripted->retries()))
+        ->each->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($statuses($resultIn($project, 1)))
         ->toContain($retried === [] ? 'Decrement-27 timed-out' : 'Decrement-27 survived');
 })->with([

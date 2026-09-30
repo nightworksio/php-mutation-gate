@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
 
 afterEach(function (): void {
@@ -269,4 +270,13 @@ function keyingColocated(string $clock): Digest|Unkeyed
 it('keys every file a tree holds as source, though the PHPUnit config keeps its tests beside it', function (): void {
     expect(keyingColocated("<?php\nfinal class Clock { public function now(): int { return 1; } }\n"))
         ->not->toEqual(keyingColocated("<?php\nfinal class Clock { public function now(): int { return 2; } }\n"));
+});
+
+it('asks the runner who it is withholding what the project\'s code may not see', function (): void {
+    $runner = ScriptedRunner::fixture();
+    $adapters = Flows::adapters(Flows::project(), [], $runner);
+
+    Keying::of($adapters, Flows::settings(), Flows::setup(), keyingSuite('1'), keyingMap());
+
+    expect($runner->identified())->toEqual([$adapters->withheld]);
 });
