@@ -84,6 +84,11 @@ final class NamesAsked implements Runner
         return $this->runner->judges($file, $map);
     }
 
+    public function startUp(Withheld $withheld): Seconds|CannotJudge
+    {
+        return $this->runner->startUp($withheld);
+    }
+
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
         return $this->runner->mutate($request);

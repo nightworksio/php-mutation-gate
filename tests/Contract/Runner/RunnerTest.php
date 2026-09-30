@@ -112,6 +112,13 @@ it('lists the group that holds a path, and the canary, among the suite\'s groups
         ->and($groups instanceof Groups && $groups->has(Library::canary()))->toBeTrue();
 })->with($libraries);
 
+it('times a run of no test, started as a mutant\'s own run', function (Library $library): void {
+    $startUp = $library->runner()->startUp(Withheld::standard());
+
+    expect($startUp)->toBeInstanceOf(Seconds::class)
+        ->and($startUp instanceof Seconds ? $startUp->seconds() : 0.0)->toBeGreaterThan(0.0);
+})->with($libraries);
+
 it('reports a killed, a survived, an uncovered and a timed-out mutant', function (Library $library) use ($money): void {
     $result = $money($library);
 
@@ -348,6 +355,21 @@ it('cannot judge a directory that holds no project it can run', function (Librar
     expect($library->runner()->rootedAt(Path::of('src')))->toBeInstanceOf(CannotJudge::class)
         ->and($library->outside()->rootedAt(Path::of('nowhere')))->toBeInstanceOf(CannotJudge::class);
 })->with($libraries);
+
+it('times a run of no test that loads no test file, where a run the suite narrows by a filter loads them all, with Infection', function (): void {
+    $marker = sprintf('%s/loaded', Scratch::directory());
+    // Symfony's Process hands a child the variables in $_ENV, whatever putenv() did.
+    $_ENV['CONTRACT_LOADED'] = $marker;
+    $library = Library::infection(Seconds::of(10.0));
+    $startUp = $library->runner()->startUp(Withheld::standard());
+    $loadedByStartUp = is_file($marker);
+    $library->runner()->coverage(CoverageRun::of(Filter::nothing(), Path::of('.mutation-gate/loaded')));
+    unset($_ENV['CONTRACT_LOADED']);
+
+    expect($startUp)->toBeInstanceOf(Seconds::class)
+        ->and($loadedByStartUp)->toBeFalse()
+        ->and(is_file($marker))->toBeTrue();
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 it('judges a held path by the tests its #[Holds] filter names, with Infection', function (): void {
     $library = Library::infection(Seconds::of(10.0));

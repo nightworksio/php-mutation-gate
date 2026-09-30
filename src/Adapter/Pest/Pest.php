@@ -66,6 +66,8 @@ final readonly class Pest implements Runner
 
     private const string NO_PROJECT = '%s holds no project Pest can run: Pest is not installed in its %s.';
 
+    private const string NOT_STARTED = "Pest's run of no test, timing a mutant's start-up, failed. Pest said:\n%s";
+
     /** The project's test files, listed once for every unit the runner is asked about. */
     private TestFiles $tests;
 
@@ -170,6 +172,14 @@ final readonly class Pest implements Runner
     }
 
     /** Every mutant of the requested files, where there are any to mutate: Pest's `--path` never names none. */
+    /** A run of no test, timed from its start to its end, started as pest-plugin-mutate starts a mutant's own run. */
+    public function startUp(Withheld $withheld): Seconds|CannotJudge
+    {
+        $ran = $this->shell->run(Invocation::installedIn($this->project->vendor())->startingUp($withheld));
+
+        return $ran->succeeded() ? $ran->took() : CannotJudge::because(sprintf(self::NOT_STARTED, $ran->output()));
+    }
+
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
         return $this->run($this->shell)->of($request);

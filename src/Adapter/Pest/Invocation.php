@@ -124,6 +124,23 @@ final readonly class Invocation
     }
 
     /**
+     * A run of no test, started as pest-plugin-mutate starts a mutant's own
+     * run: Pest with `--bail` and a filter, which loads every test file and
+     * then runs none.
+     */
+    public function startingUp(Withheld $withheld): Command
+    {
+        return Command::pest(
+            $this->script,
+            $withheld,
+            '--no-tia',
+            '--bail',
+            '--colors=never',
+            ...$this->narrowedTo(Filter::nothing()),
+        );
+    }
+
+    /**
      * The tests in some files, one after another, stopping at the first that
      * fails, narrowed to a holding group where one judges: the run that judges
      * a mutant of a line that is not executable through Pest's override.

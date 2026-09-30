@@ -9,6 +9,12 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+// Loading this file leaves a mark where CONTRACT_LOADED names one: the runner
+// contract's check that a run of no test loads no test file.
+if (getenv('CONTRACT_LOADED') !== false) {
+    touch((string) getenv('CONTRACT_LOADED'));
+}
+
 final class MoneySpec extends TestCase
 {
     #[Test]

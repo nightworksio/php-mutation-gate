@@ -75,6 +75,18 @@ it('runs the tests a filter names under coverage', function (): void {
     ]);
 });
 
+it('starts a run of no test as pest-plugin-mutate starts a mutant\'s own run, withholding what it is told', function (): void {
+    expect(invocation()->startingUp(Withheld::of('DEPLOY_*')))->toEqual(Command::pest(
+        'vendor/pestphp/pest/bin/pest',
+        Withheld::of('DEPLOY_*'),
+        '--no-tia',
+        '--bail',
+        '--colors=never',
+        '--filter=(?!)',
+        '--do-not-fail-on-empty-test-suite',
+    ));
+});
+
 it('mutates some files against the whole suite, over the project\'s own config, with no deadline', function (): void {
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')), WholeSuite::tests());
 

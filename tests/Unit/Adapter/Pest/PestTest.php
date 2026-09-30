@@ -270,6 +270,20 @@ it('cannot judge a coverage run that failed, with what Pest said', function (): 
         ->toEqual(CannotJudge::because("Pest's coverage run failed. Pest said:\nNo code coverage driver"));
 });
 
+it('times a run of no test, started as a mutant\'s own run', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: 'No tests found.')->taking(Seconds::of(1.8)));
+
+    expect(new Pest(adapterProject(), $shell, Patching::off())->startUp(Withheld::of('DEPLOY_*')))->toEqual(Seconds::of(1.8))
+        ->and($shell->commands())->toEqual([adapterInvocation()->startingUp(Withheld::of('DEPLOY_*'))]);
+});
+
+it('cannot judge a run of no test that failed, with what Pest said', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'Fatal error')->taking(Seconds::of(0.4)));
+
+    expect(new Pest(adapterProject(), $shell, Patching::off())->startUp(Withheld::standard()))
+        ->toEqual(CannotJudge::because("Pest's run of no test, timing a mutant's start-up, failed. Pest said:\nFatal error"));
+});
+
 it('reads the gate\'s own map another job handed over, running nothing', function (): void {
     $at = adapterProject();
     $map = CoverageMap::empty()->covered(Path::of('src/Held.php'), Line::of(5), TestId::of(RUN_ADDS));

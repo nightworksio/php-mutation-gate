@@ -47,6 +47,7 @@ final readonly class Invocation
 
     private const string INFECTION = 'vendor/bin/infection';
 
+
     /** An option with its value, `--name=value`. */
     private const string OPTION = '/^(?<name>-{1,2}[^=\s"]+)=(?<value>.*)$/s';
 
@@ -63,6 +64,28 @@ final readonly class Invocation
             sprintf('--configuration=%s', $config->configDirectory($project)),
             '--list-groups',
             '--colors=never',
+        );
+    }
+
+    /**
+     * A run of no test, started as Infection starts PHPUnit for a mutant: the
+     * project's PHP options and PHPUnit, on a config shaped as Infection
+     * shapes a mutant's (see StartUpConfig), whose one suite holds no test
+     * file, with the project's extra arguments and a filter that selects no
+     * test, passing having run none.
+     */
+    public static function startingUp(Project $project, OwnConfig $config, string $startUpConfig): Command
+    {
+        return Command::php(
+            ...$config->phpOptions(),
+            ...[
+                $config->phpunit($project),
+                sprintf('--configuration=%s', $startUpConfig),
+                '--colors=never',
+                ...$config->extraArguments(),
+                ...self::narrowedTo(Filter::nothing()),
+                '--do-not-fail-on-empty-test-suite',
+            ],
         );
     }
 

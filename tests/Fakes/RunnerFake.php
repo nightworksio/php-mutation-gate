@@ -137,6 +137,12 @@ final readonly class RunnerFake implements Runner
         return $map->testsCoveringFile($file)->count() > 0 ? $this->judges : Paths::none();
     }
 
+    /** A run of no test takes a second and a half. */
+    public function startUp(Withheld $withheld): Seconds
+    {
+        return Seconds::of(1.5);
+    }
+
     public function mutate(MutationRequest $request): MutationResult
     {
         $found = Mutants::none();
