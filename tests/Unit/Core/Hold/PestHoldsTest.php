@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\HeldPath;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Hold\HoldsAttribute;
@@ -31,7 +32,8 @@ $held = static fn(HoldsAttribute ...$attributes): HoldsAttributes => array_reduc
 );
 
 $refusal = static function (string $file, HoldsAttribute ...$attributes) use ($held): string {
-    $read = PestHolds::none()->read(Path::of($file), $held(...$attributes));
+    $first = Paths::of(Path::of('tests/Pest.php'), Path::of('packages/billing/tests/Pest.php'));
+    $read = PestHolds::after($first)->read(Path::of($file), $held(...$attributes));
 
     return $read instanceof CannotJudge ? $read->why() : 'read';
 };
@@ -77,7 +79,13 @@ it('refuses any #[Holds] in the file Pest loads before its plugins', function (s
 
 it('reads a file whose name only resembles the one Pest loads first', function (string $file) use ($kernel, $refusal): void {
     expect($refusal($file, HoldsAttribute::at(Standing::TestClosure, $kernel, 7)))->toBe('read');
-})->with(['mytests/Pest.php', 'tests/Pest.php/KernelTest.php', 'tests/Unit/PestTest.php']);
+})->with(['mytests/Pest.php', 'tests/Pest.php/KernelTest.php', 'tests/Unit/PestTest.php', 'other/tests/Pest.php']);
+
+it('reads tests/Pest.php as any other file where the runner does not say Pest loads it first', function () use ($kernel, $held): void {
+    $read = PestHolds::none()->read(Path::of('tests/Pest.php'), $held(HoldsAttribute::at(Standing::TestClosure, $kernel, 7)));
+
+    expect($read)->toBeInstanceOf(PestHolds::class);
+});
 
 it('refuses a #[Holds] Pest never passes to its filter', function (HoldsAttribute $attribute, string $on) use ($refusal): void {
     expect($refusal('tests/Feature/KernelTest.php', $attribute))->toBe(sprintf(<<<'SAID'
