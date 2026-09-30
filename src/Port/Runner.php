@@ -71,16 +71,13 @@ interface Runner
     public function mutate(MutationRequest $request): MutationResult|CannotJudge;
 
     /**
-     * These mutants run again, each allowed this long and judged by the tests
-     * that judged their unit, matched back by the gate's id. The tests never
-     * see the variables withheld.
+     * These mutants run again, as the invocation that made them asked: over
+     * their files alone with only their mutators, judged, covered, withheld,
+     * timed and ordered as the request says, each allowed this long where the
+     * runner lays a limit, and matched back by the gate's id. One the run
+     * made no mutant for again is unjudged.
      */
-    public function retry(
-        Mutants $mutants,
-        Seconds $limit,
-        WholeSuite|Group|Filter $judgedBy,
-        Withheld $withheld,
-    ): Mutants|CannotJudge;
+    public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge;
 
     /**
      * One mutant run again on its own: its file with only its mutator, judged

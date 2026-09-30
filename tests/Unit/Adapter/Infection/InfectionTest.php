@@ -407,7 +407,11 @@ it('runs each mutant again by its unit\'s tests at the higher cap and with no de
         'escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')],
     ]);
     $retried = new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false)
-        ->retry($mutants, Seconds::of(12.0), Group::named('holds:src/Money.php'), Withheld::of('DEPLOY_*'));
+        ->retry(
+            MutationRequest::of(Paths::of(Path::of('src')), Group::named('holds:src/Money.php'))->withholding(Withheld::of('DEPLOY_*')),
+            $mutants,
+            Seconds::of(12.0),
+        );
     $generated = json_decode((string) file_get_contents($at->own('infection.json5')), associative: true);
 
     expect(infectionStatuses($mutants))->toBe([MutantStatus::TimedOut, MutantStatus::Survived, MutantStatus::TimedOut])
@@ -419,6 +423,24 @@ it('runs each mutant again by its unit\'s tests at the higher cap and with no de
         ->and(array_map(static fn(Command $command): Withheld => $command->withheld(), $again->commands()))
         ->each->toEqual(Withheld::standard()->and(Withheld::of('DEPLOY_*')))
         ->and(is_array($generated) ? [$generated['timeout'], $generated['mutators']] : [])->toBe([12.0, ['Minus' => true]]);
+});
+
+it('runs mutants again on the map the planning job handed the invocation, and runs no suite for them', function (): void {
+    $at = infectionProject();
+    $money = sprintf('%s/src/Money.php', $at->root());
+    $first = new Infection($at, infectionShell($at, [
+        'timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')],
+    ]), Seconds::of(6.0), nativeMarkersAllowed: false)->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
+    infectionHandedOn($at, 'planned');
+    $again = infectionShell($at, infectionKilled($at));
+    $invocation = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->reusingCoverage(Path::of('planned'));
+
+    $retried = new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false)
+        ->retry($invocation, $first instanceof MutationResult ? $first->mutants() : Mutants::none(), Seconds::of(12.0));
+
+    expect(infectionStatuses($retried))->toBe([MutantStatus::Killed])
+        ->and(count($again->commands()))->toBe(1)
+        ->and(infectionRan($again)[0])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()));
 });
 
 it('runs nothing again where the formula decided every timeout, and cannot judge a retry whose runs fail', function (): void {
@@ -435,7 +457,7 @@ it('runs nothing again where the formula decided every timeout, and cannot judge
         $shell,
         Seconds::of($cap),
         nativeMarkersAllowed: false,
-    )->retry($mutants, Seconds::of($cap * 2), WholeSuite::tests(), Withheld::standard());
+    )->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $mutants, Seconds::of($cap * 2));
 
     expect($retried($at, $idle, 10.0))->toEqual($mutants)
         ->and($idle->commands())->toBe([])

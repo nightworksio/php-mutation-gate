@@ -101,6 +101,21 @@ final readonly class Patch
                 }
         PHP;
 
+    private const string ONLY_SHIPS = <<<'PHP'
+                        $mutationSuite->repository->add($mutation);
+        PHP;
+
+    private const string ONLY_BECOMES = <<<'PHP'
+                        // mutation-gate pest:patch: a run again makes only the mutants it names.
+                        $only = (string) getenv('%s');
+
+                        if ($only !== '' && ! in_array($mutation->id, explode(',', $only), true)) {
+                            continue;
+                        }
+
+                        $mutationSuite->repository->add($mutation);
+        PHP;
+
     /** Why pest:patch cannot change a file it has to. */
     private const string UNWRITABLE = 'pest:patch cannot write %s/%s. Make the vendor directory writable.';
 
@@ -119,19 +134,17 @@ final readonly class Patch
             $sources[$hunk->file()] = $source;
         }
 
-        $hunks = self::hunks();
-        $patching = array_filter($hunks, static fn(Hunk $hunk): bool => ! $hunk->isAppliedTo($sources[$hunk->file()]));
+        $patching = self::patching($sources);
         $unwritten = 0;
 
-        foreach ($patching as $hunk) {
-            $patched = $hunk->applyTo($sources[$hunk->file()]);
-            $unwritten += file_put_contents(sprintf(self::SOURCE, $vendor, $hunk->file()), $patched) === false ? 1 : 0;
+        foreach ($patching as $file => $source) {
+            $unwritten += file_put_contents(sprintf(self::SOURCE, $vendor, $file), $source) === false ? 1 : 0;
         }
 
         return $unwritten === 0 ? sprintf(
             'pest:patch patched %d of the %d files it changes in pest-plugin-mutate.',
             count($patching),
-            count($hunks),
+            count($sources),
         ) : CannotJudge::because(sprintf(self::UNWRITABLE, $vendor, 'pestphp/pest-plugin-mutate/src'));
     }
 
@@ -143,6 +156,28 @@ final readonly class Patch
 
             return is_file($file) && $hunk->isAppliedTo(sprintf('%s', file_get_contents($file)));
         });
+    }
+
+    /**
+     * Each file's source with every hunk it lacks applied, of the files a hunk changes.
+     *
+     * @param  array<string, string> $sources each file's source, by its path under the source directory
+     * @return array<string, string>
+     */
+    private static function patching(array $sources): array
+    {
+        $patched = $sources;
+
+        foreach (self::hunks() as $hunk) {
+            $source = $patched[$hunk->file()];
+            $patched[$hunk->file()] = $hunk->isAppliedTo($source) ? $source : $hunk->applyTo($source);
+        }
+
+        return array_filter(
+            $patched,
+            static fn(string $source, string $file): bool => $source !== $sources[$file],
+            ARRAY_FILTER_USE_BOTH,
+        );
     }
 
     /** @return list<Hunk> */
@@ -159,6 +194,11 @@ final readonly class Patch
                 'Tester/MutationTestRunner.php',
                 self::MAP_SHIPS,
                 sprintf(self::MAP_BECOMES, GateVariable::SharedCoverage->value, GateVariable::SuiteSeconds->value),
+            ),
+            Hunk::in(
+                'Tester/MutationTestRunner.php',
+                self::ONLY_SHIPS,
+                sprintf(self::ONLY_BECOMES, GateVariable::Only->value),
             ),
         ];
     }

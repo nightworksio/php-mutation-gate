@@ -154,8 +154,9 @@ final readonly class RunnerFake implements Runner
         return MutationResult::of($found, 0);
     }
 
-    public function retry(Mutants $mutants, Seconds $limit, WholeSuite|Group|Filter $judgedBy, Withheld $withheld): Mutants
+    public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants
     {
+        $judgedBy = $request->judgedBy();
         $found = Mutants::none();
 
         foreach ($this->library as $known) {

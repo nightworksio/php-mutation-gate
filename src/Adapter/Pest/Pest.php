@@ -171,33 +171,33 @@ final readonly class Pest implements Runner
     }
 
     /**
-     * The mutants run again, all in one run: their files with their mutators,
-     * judged by the tests that judged their unit, and each matched back by the
-     * gate's id. One run pays Pest's opening run once, where a run per file
-     * and mutator pays it for each. Pest allows each mutant its own time, so
-     * no limit is laid on the run.
+     * The mutants run again, all in one run of the invocation that made
+     * them: their files with their mutators, reading the coverage it read,
+     * so a patched shard opens on the canary group, not the whole suite
+     * under coverage. Patched, the run makes only these mutants; unpatched,
+     * every mutant of their files and mutators, and each asked for is
+     * matched back by the gate's id. Pest allows each mutant its own time,
+     * so no limit is laid on the run.
      */
-    public function retry(
-        Mutants $mutants,
-        Seconds $limit,
-        WholeSuite|Group|Filter $judgedBy,
-        Withheld $withheld,
-    ): Mutants|CannotJudge {
+    public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge
+    {
         $files = [];
         $mutators = [];
+        $natives = [];
 
         foreach ($mutants as $mutant) {
             $files[$mutant->location()->file()->value()] = $mutant->location()->file();
             $mutators[$mutant->mutation()->mutator()] = $mutant->mutation()->mutator();
+            $natives[] = $mutant->nativeId();
         }
 
         if ($files === []) {
             return Mutants::none();
         }
 
-        $result = $this->mutate(MutationRequest::of(Paths::of(...array_values($files)), $judgedBy)
-            ->onlyMutators(Mutators::named(...array_values($mutators)))
-            ->withholding($withheld));
+        $result = new MutationRun($this->project, $this->shell, $this->patching, $this->remembered, $this->groups(...))
+            ->only(...$natives)
+            ->of($request->narrowedTo(Paths::of(...array_values($files)), Mutators::named(...array_values($mutators))));
 
         return $result instanceof CannotJudge ? $result : $this->matching($mutants, $result->mutants());
     }

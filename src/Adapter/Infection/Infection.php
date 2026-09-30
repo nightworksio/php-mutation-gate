@@ -179,16 +179,13 @@ final readonly class Infection implements Runner
 
     /**
      * Each timed-out or skipped mutant the cap decided runs again with this
-     * limit as the cap, judged by the tests that judged its unit, and the rest
-     * are answered as they were. The tests never see a variable withheld.
+     * limit as the cap, as the invocation that made it asked: judged by its
+     * tests, reading the coverage it read, withheld and timed as it was. The
+     * rest are answered as they were.
      */
-    public function retry(
-        Mutants $mutants,
-        Seconds $limit,
-        WholeSuite|Group|Filter $judgedBy,
-        Withheld $withheld,
-    ): Mutants|CannotJudge {
-        return $this->rerunning()->retry(Retrial::under($this->cap), $mutants, $limit, $judgedBy, $withheld);
+    public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge
+    {
+        return $this->rerunning()->retry(Retrial::under($this->cap), $request, $mutants, $limit);
     }
 
     /** One mutant run again on its own, with what Infection printed (see Rerunning). */
@@ -290,11 +287,11 @@ final readonly class Infection implements Runner
         return $ran->succeeded() ? $directory : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
     }
 
-    /** Mutants run again, judged by the tests given with PHPUnit's coverage of them run first. */
+    /** Mutants run again, reading the coverage their request would have read. */
     private function rerunning(): Rerunning
     {
-        $covered = fn(OwnConfig $config, WholeSuite|Group|Filter $tests, Withheld $hidden): DiskPath|CannotJudge
-            => $this->covered($config, $tests, $hidden, $this->ownCoverage());
+        $covered = fn(OwnConfig $config, MutationRequest $request): DiskPath|CannotJudge
+            => $this->coverageFor($config, $request);
 
         return new Rerunning($this->project, $this->shell, $this->nativeMarkersAllowed, $covered);
     }

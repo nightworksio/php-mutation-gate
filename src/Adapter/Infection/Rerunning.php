@@ -23,16 +23,16 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * Mutants run again, each file with only one mutator and the project's
- * settings for it, judged by the tests given and allowed a limit as the cap,
- * which is no deadline for the run: a retry's, and one mutant reproduced with
- * what Infection printed. The run under coverage Infection reads first is not
- * part of what it printed.
+ * settings for it, allowed a limit as the cap: a retry's, as the invocation
+ * that made them asked and reading the coverage it read, and one mutant
+ * reproduced by the tests given, with what Infection printed. The run under
+ * coverage Infection reads first is not part of what it printed.
  */
 final readonly class Rerunning
 {
     /**
-     * @param Closure(OwnConfig, WholeSuite|Group|Filter, Withheld): (DiskPath|CannotJudge) $covered the
-     *        directory PHPUnit has run these tests under coverage into
+     * @param Closure(OwnConfig, MutationRequest): (DiskPath|CannotJudge) $covered the directory holding the
+     *        coverage a request reads: the map handed on, or PHPUnit's own run of its judging tests
      */
     public function __construct(
         private Project $project,
@@ -42,16 +42,18 @@ final readonly class Rerunning
     ) {
     }
 
-    /** The mutants the retrial takes run again, and the rest as they were. */
+    /**
+     * The mutants the retrial takes run again, as the invocation that made
+     * them asked, and the rest as they were.
+     */
     public function retry(
         Retrial $retrial,
+        MutationRequest $request,
         Mutants $mutants,
         Seconds $limit,
-        WholeSuite|Group|Filter $judgedBy,
-        Withheld $withheld,
     ): Mutants|CannotJudge {
         $runs = $retrial->runs($mutants);
-        $prepared = $runs === [] ? $mutants : $this->prepared($judgedBy, $withheld);
+        $prepared = $runs === [] ? $mutants : $this->prepared($request);
 
         if (! $prepared instanceof Prepared) {
             return $prepared;
@@ -60,7 +62,7 @@ final readonly class Rerunning
         $again = Mutants::none();
 
         foreach ($runs as [$file, $mutator]) {
-            $result = $this->ran($prepared, $file, $mutator, $limit, $judgedBy, $withheld, $this->shell);
+            $result = $this->ran($prepared, $request, $file, $mutator, $limit, $this->shell);
 
             if ($result instanceof CannotJudge) {
                 return $result;
@@ -78,10 +80,11 @@ final readonly class Rerunning
         Seconds $limit,
         Withheld $withheld,
     ): Reproduction|CannotJudge {
-        $prepared = $this->prepared($judgedBy, $withheld);
+        $request = MutationRequest::of(Paths::of($mutant->file()), $judgedBy)->withholding($withheld);
+        $prepared = $this->prepared($request);
         $shell = Transcribing::over($this->shell);
         $result = $prepared instanceof Prepared
-            ? $this->ran($prepared, $mutant->file(), $mutant->mutator(), $limit, $judgedBy, $withheld, $shell)
+            ? $this->ran($prepared, $request, $mutant->file(), $mutant->mutator(), $limit, $shell)
             : $prepared;
 
         return $result instanceof CannotJudge
@@ -89,8 +92,8 @@ final readonly class Rerunning
             : Reproduction::among($mutant->id(), $result, Reason::that(Retrial::NOT_FOUND_AGAIN), $shell->printed());
     }
 
-    /** The project's config, and the directory PHPUnit has run the judging tests under coverage into. */
-    private function prepared(WholeSuite|Group|Filter $judgedBy, Withheld $withheld): Prepared|CannotJudge
+    /** The project's config, and the directory holding the coverage the request reads. */
+    private function prepared(MutationRequest $request): Prepared|CannotJudge
     {
         $config = OwnConfig::in($this->project);
 
@@ -98,25 +101,22 @@ final readonly class Rerunning
             return $config;
         }
 
-        $coverage = ($this->covered)($config, $judgedBy, $withheld);
+        $coverage = ($this->covered)($config, $request);
 
         return $coverage instanceof CannotJudge ? $coverage : new Prepared($config, $coverage);
     }
 
+    /** One file with one mutator, narrowed from the request, allowed the limit as the cap. */
     private function ran(
         Prepared $prepared,
+        MutationRequest $request,
         Path $file,
         string $mutator,
         Seconds $limit,
-        WholeSuite|Group|Filter $judgedBy,
-        Withheld $withheld,
         Shell $shell,
     ): Mutants|CannotJudge {
-        $request = MutationRequest::of(Paths::of($file), $judgedBy)
-            ->onlyMutators(Mutators::named($mutator))
-            ->withholding($withheld);
         $result = new MutationRun($this->project, $shell, $prepared->config, $this->nativeMarkersAllowed)
-            ->of($request, $prepared->coverage, $limit);
+            ->of($request->narrowedTo(Paths::of($file), Mutators::named($mutator)), $prepared->coverage, $limit);
 
         return $result instanceof CannotJudge ? $result : $result->mutants();
     }

@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_values;
+
 use Closure;
 
 use function count;
 use function dirname;
+use function implode;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -48,14 +51,29 @@ final readonly class MutationRun
     /** Where the map another job handed over is written again for this job's Pest, beside the results. */
     private const string SHARED_MAP = '%s/shared.coverage.php';
 
-    /** @param Closure(Withheld): (Groups|CannotJudge) $groups the suite's groups, as the runner lists them */
+    /**
+     * @param Closure(Withheld): (Groups|CannotJudge) $groups the suite's groups, as the runner lists them
+     * @param list<string>                            $only   the native ids of the only mutants a patched run
+     *                                                        makes, or none for every mutant it finds
+     */
     public function __construct(
         private Project $project,
         private Shell $shell,
         private Patching $patching,
         private Remembered $remembered,
         private Closure $groups,
+        private array $only = [],
     ) {
+    }
+
+    /**
+     * This run, making only the mutants with these native ids where
+     * pest-plugin-mutate is patched; unpatched, it makes every mutant of its
+     * files and mutators, and the caller matches back the ones it asked for.
+     */
+    public function only(string ...$nativeIds): self
+    {
+        return clone($this, ['only' => array_values($nativeIds)]);
     }
 
     /** Every mutant of the requested files, where there are any to mutate: Pest's `--path` never names none. */
@@ -85,6 +103,9 @@ final readonly class MutationRun
         if ($command instanceof CannotJudge) {
             return $command;
         }
+
+        $only = [GateVariable::Only->value => implode(',', $this->only)];
+        $command = $this->only === [] ? $command : $command->with($only);
 
         $ran = $this->shell->run($command);
         $coverage = $shared instanceof CoverageMap
