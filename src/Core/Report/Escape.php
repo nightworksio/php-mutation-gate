@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\GitHub;
+namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_map;
 use function explode;
@@ -40,7 +40,7 @@ final readonly class Escape
     ];
 
     /** The shortest fence a code block takes. */
-    private const int FENCE = 3;
+    private const string FENCE = '~~~';
 
     /** Prose, whose backticked parts, as a hint writes code, are shown as code. */
     public static function text(string $text): string
@@ -65,7 +65,7 @@ final readonly class Escape
     {
         preg_match_all('/~+/', $text, $runs);
         $longest = max([0, ...array_map(mb_strlen(...), $runs[0])]);
-        $fence = str_repeat('~', max(self::FENCE, $longest + 1));
+        $fence = str_repeat('~', max(mb_strlen(self::FENCE), $longest + 1));
 
         return sprintf("%s%s\n%s\n%s", $fence, $language, $text, $fence);
     }

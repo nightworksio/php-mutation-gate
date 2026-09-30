@@ -112,3 +112,16 @@ it('keeps the names the runner gives its tests', function () use ($coverage, $fi
 
     expect(KillMatrix::of(MatrixKind::FirstKiller, $coverage())->named($names)->names())->toBe($names);
 });
+
+it('says a test outside the ones that judge a held mutant never ran with it', function () use ($judged, $coverage, $first, $second): void {
+    $matrix = KillMatrix::of(MatrixKind::Full, $coverage());
+    $held = $judged(MutantStatus::Killed, TestIds::of($first))->judgedBy(TestIds::of($first));
+    $open = $judged(MutantStatus::Killed, TestIds::of($first));
+
+    expect($matrix->judges($held, $first))->toBeTrue()
+        ->and($matrix->judges($held, $second))->toBeFalse()
+        ->and($matrix->judges($open, $second))->toBeTrue()
+        ->and($matrix->outcome($held, $second))->toBe(Outcome::NotRun)
+        ->and($matrix->outcome($held, $first))->toBe(Outcome::Killed)
+        ->and($matrix->coverage())->toEqual($coverage());
+});

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\GitHub\Escape;
+use NightWorksIO\MutationGate\Core\Report\Escape;
 
 it('leaves plain words as they are', function (): void {
     expect(Escape::text('src scores 82.14%, below its floor.'))->toBe('src scores 82.14%, below its floor.');

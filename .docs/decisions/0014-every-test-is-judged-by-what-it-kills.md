@@ -63,7 +63,9 @@ running it: why is this mutant here, and has it always been?
    nor against any test, because its killer is unknown. Unjudged, flaky and
    too-slow-to-judge mutants are left out. A test that covers only left-out
    mutants is *not assessed*. A held unit is judged only over its holding
-   group (ADR-0005 decision 9).
+   group (ADR-0005 decision 9). A covering test outside the group never ran with
+   the unit's mutants, so its cells are `not-run` and it is not judged over
+   them.
 
 4. **The report covers the whole project.** It reads the newest proof of every
    unit in the readable ledgers (ADR-0007), with the run's coverage map. A
@@ -78,6 +80,23 @@ running it: why is this mutant here, and has it always been?
    - Both exit 0 whatever they find. A test can have value that mutation
      cannot see (a template, a query, a contract), as a hot path's cost does
      not make a verdict wrong (ADR-0005 decision 11).
+   - **The JSON, `"format": 1`,** lists only the useless and removable tests.
+     Its schema is generated as the report's is, and committed at
+     `resources/tests.schema.json`:
+     `{"format": 1, "matrix", "useless": [{"test", "standing", "covers",
+     "rows"}], "notAssessed", "redundant"}`. `standing` is `kills-nothing`
+     or `never-first`, `covers` counts the mutants the test judged with a
+     known result, and `rows` lists each data set row with its own
+     standing. `redundant` is `{"kept": [tests], "removable": [{"test",
+     "seconds", "kills": [{"mutant", "keptBy"}]}]}`, or `{"needs":
+     <sentence>}` without a full kill matrix.
+   - **The Markdown twin** sits at the same path with `.md` in place of
+     `.json`, or after it where the path does not end in `.json`. Under
+     `# Tests mutation cannot see` it has a section per list, each a table:
+     *Kills nothing it covers*, *Never the first to kill*, headed as a
+     suspicion, and *Removable*, with each test's time and, per kill, the
+     kept test that makes it too. Every name in it is escaped as the PR
+     comment escapes it (ADR-0009 decision 3).
    - The verdict value carries the test-level data this needs: each test with
      the mutants it covers and those it killed (ADR-0009 decision 1).
 
@@ -119,6 +138,12 @@ running it: why is this mutant here, and has it always been?
      of a tree, and a test in a `holds:` group whose removal would leave the
      group short of the coverage ADR-0005 decision 10 checks. The report says
      it judges mutation kills only.
+   - **A test no coverage run timed** is taken to run as long as the slowest
+     one that was, so it is kept last among equals. Removability rests on
+     kills alone, so this never loses one.
+   - **A runner that cannot record every killer** is named by the matrix,
+     as a typed reason the flows set: under Infection the section says that
+     Infection cannot produce a full kill matrix.
    - **Without a full matrix,** the section says *needs a full kill matrix:
      run `mutation-gate run --kill-matrix=full`*, and lists nothing. Under
      Infection it says that Infection cannot produce one.

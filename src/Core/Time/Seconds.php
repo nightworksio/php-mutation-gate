@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Time;
 
+use function intdiv;
 use function intval;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 
 use function preg_match;
+use function round;
 use function sprintf;
 
 /** A duration, in seconds. */
@@ -46,5 +48,28 @@ final readonly class Seconds
     public function seconds(): float
     {
         return $this->seconds;
+    }
+
+    /**
+     * The duration as a report says it, to the nearest unit it shows: `45s`
+     * under a minute, then `6m`, then `1h 41m` (ADR-0017, decision 13).
+     */
+    public function text(): string
+    {
+        $minutes = intval(round($this->seconds / self::PER_MINUTE));
+        $hours = intdiv($minutes, self::PER_MINUTE);
+        $left = $minutes % self::PER_MINUTE;
+
+        return match (true) {
+            round($this->seconds) < self::PER_MINUTE => sprintf('%ds', round($this->seconds)),
+            $hours === 0 => sprintf('%dm', $minutes),
+            default => $left === 0 ? sprintf('%dh', $hours) : sprintf('%dh %dm', $hours, $left),
+        };
+    }
+
+    /** The duration of one test, which is often under a second: `0.25s`, or as `text()` says it from a minute. */
+    public function preciseText(): string
+    {
+        return round($this->seconds) < self::PER_MINUTE ? sprintf('%.2fs', $this->seconds) : $this->text();
     }
 }

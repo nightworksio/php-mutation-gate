@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\KillMatrixFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
@@ -90,6 +91,7 @@ final readonly class FirstParty implements Extension
             )
             ->withReporter(Name::of('gitlab'), CodeQualityReportFile::fromOptions(...))
             ->withReporter(Name::of('kill-matrix'), KillMatrixFile::fromOptions(...))
+            ->withReporter(Name::of('tests'), TestsReportFile::fromOptions(...))
             ->withReporter(Name::of('problems'), ProblemsReport::fromOptions(...))
             ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Git::at(self::HERE))
             ->withRepository(Name::of('git'), static fn(): Repository => Git::at(self::HERE))

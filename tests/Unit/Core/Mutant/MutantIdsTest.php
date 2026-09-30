@@ -21,3 +21,12 @@ it('holds each id once, and says whether it holds one', function () use ($id): v
         ->and($ids->has($id(1)))->toBeTrue()
         ->and($ids->has($id(2)))->toBeFalse();
 });
+
+it('joins and subtracts sets of ids, and walks them in the order they were added', function () use ($id): void {
+    [$a, $b, $c] = [$id(1), $id(2), $id(3)];
+    $joined = MutantIds::of($b, $a)->and(MutantIds::of($a, $c));
+
+    expect(iterator_to_array($joined, preserve_keys: false))->toEqual([$b, $a, $c])
+        ->and(iterator_to_array($joined->without(MutantIds::of($a)), preserve_keys: false))->toEqual([$b, $c])
+        ->and($joined->without(MutantIds::of($a, $b, $c)))->toHaveCount(0);
+});

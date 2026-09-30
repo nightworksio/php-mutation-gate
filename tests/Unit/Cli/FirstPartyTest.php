@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\KillMatrixFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
@@ -124,6 +125,7 @@ it('registers the console, every file report, GitHub\'s three and the badge by n
         ->and($sarif)->toEqual(SarifReportFile::at('build/mutation.sarif'))
         ->and($reporter('gitlab', '{"path": "build/gl-code-quality.json"}'))->toEqual(CodeQualityReportFile::at('build/gl-code-quality.json'))
         ->and($reporter('kill-matrix', '{"path": "build/kill-matrix.csv"}'))->toEqual(KillMatrixFile::at('build/kill-matrix.csv'))
+        ->and($reporter('tests', '{"path": "build/tests.json"}'))->toEqual(TestsReportFile::at('build/tests.json'))
         ->and($reporter('html', '{"path": "build/html"}'))->toBeInstanceOf(HtmlReportDirectory::class)
         ->and($reporter('github-annotations'))->toEqual(Annotations::printingTo('php://stdout'))
         ->and($reporter('github-summary'))->toBeInstanceOf(StepSummary::class)

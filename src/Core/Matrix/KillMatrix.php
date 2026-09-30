@@ -38,19 +38,20 @@ final readonly class KillMatrix
         private array $carried,
         private array $moved,
         private TestNames $names,
+        private NotFull $notFull,
     ) {
     }
 
     /** A matrix of first killers with no coverage, which knows only the killers each mutant's record names. */
     public static function none(): self
     {
-        return new self(MatrixKind::FirstKiller, CoverageMap::empty(), [], [], TestNames::none());
+        return self::of(MatrixKind::FirstKiller, CoverageMap::empty());
     }
 
     /** A matrix of this kind over the run's coverage map. */
     public static function of(MatrixKind $kind, CoverageMap $coverage): self
     {
-        return new self($kind, $coverage, [], [], TestNames::none());
+        return new self($kind, $coverage, [], [], TestNames::none(), NotFull::FirstKillers);
     }
 
     /** This matrix, with a carried mutant covered by the tests its proof names. */
@@ -80,9 +81,21 @@ final readonly class KillMatrix
         return clone($this, ['names' => $names]);
     }
 
+    /** This matrix, whose runner cannot record every killer, and why. */
+    public function cannotBeFull(NotFull $why): self
+    {
+        return clone($this, ['notFull' => $why]);
+    }
+
     public function kind(): MatrixKind
     {
         return $this->kind;
+    }
+
+    /** Why a matrix of first killers is not full: the run did not ask, or its runner cannot. */
+    public function whyNotFull(): NotFull
+    {
+        return $this->notFull;
     }
 
     public function names(): TestNames
@@ -110,7 +123,22 @@ final readonly class KillMatrix
         return $covering;
     }
 
-    /** What is known of this covering test with the mutant in place. */
+    /** The coverage the run read, for what each test covers line by line. */
+    public function coverage(): CoverageMap
+    {
+        return $this->coverage;
+    }
+
+    /**
+     * Whether this test judged the mutant: it is among the tests that judge
+     * it, such as a held unit's group, or nobody named those tests.
+     */
+    public function judges(JudgedMutant $judged, TestId $test): bool
+    {
+        return count($judged->tests()) === 0 || $judged->tests()->has($test);
+    }
+
+    /** What is known of this covering test with the mutant in place; a test that did not judge it never ran with it. */
     public function outcome(JudgedMutant $judged, TestId $test): Outcome
     {
         $mutant = $judged->mutant();
@@ -118,7 +146,11 @@ final readonly class KillMatrix
             || $judged->judgement() === MutantJudgement::Flaky
             || $mutant->status() === MutantStatus::TimedOut;
 
-        return $unknown ? Outcome::Unknown : $this->reported($judged, $test);
+        return match (true) {
+            ! $this->judges($judged, $test) => Outcome::NotRun,
+            $unknown => Outcome::Unknown,
+            default => $this->reported($judged, $test),
+        };
     }
 
     /** The outcome the mutant's own record gives the test. */
