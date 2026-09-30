@@ -5,13 +5,20 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_slice;
+
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Order\Bound;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
+
 use function usort;
 
 /**
  * What a ledger keeps when it is written. A proof can only be hit by a run
  * at the base it was established at, so the ledger keeps the proofs of the
  * bases its runs saw most recently, and of those, the newest, up to a cap
- * that bounds the file whatever the runs do.
+ * that bounds the file whatever the runs do. Its kill history keeps the
+ * mutants those proofs hold, and of those and of its functions the ones that
+ * most recently learned a killer, each up to a cap of its own.
  */
 final readonly class LedgerRetention
 {
@@ -21,14 +28,24 @@ final readonly class LedgerRetention
     /** How many proofs are kept at most, the newest. */
     private const int PROOFS = 20_000;
 
-    private function __construct(private int $bases, private int $proofs)
+    /** How many mutants keep their killers at most, the ones that learned one most recently. */
+    private const int KILLED = 20_000;
+
+    /** How many functions keep their killers at most, the ones that learned one most recently. */
+    private const int FUNCTIONS = 5_000;
+
+    /**
+     * @param positive-int $killed
+     * @param positive-int $functions
+     */
+    private function __construct(private int $bases, private int $proofs, private int $killed, private int $functions)
     {
     }
 
     /** The one retention every ledger is written with. */
     public static function standard(): self
     {
-        return new self(self::BASES, self::PROOFS);
+        return new self(self::BASES, self::PROOFS, self::KILLED, self::FUNCTIONS);
     }
 
     /** The bases whose proofs a ledger keeps: the ones its runs saw most recently. */
@@ -60,5 +77,25 @@ final readonly class LedgerRetention
         );
 
         return array_slice($kept, 0, $this->proofs);
+    }
+
+    /**
+     * The kill history a ledger keeps: of the mutants its kept proofs hold,
+     * and of its functions, those that learned a killer most recently, at
+     * most so many of each.
+     */
+    public function killersOf(Ledger $ledger): KillHistory
+    {
+        $held = [];
+
+        foreach ($this->proofsOf($ledger) as $proof) {
+            $held = [...$held, ...$proof->mutants()];
+        }
+
+        return $ledger->killers()->keeping(
+            Mutants::of(...$held),
+            Bound::atMost($this->killed),
+            Bound::atMost($this->functions),
+        );
     }
 }

@@ -76,11 +76,17 @@ decides are accepted for that release too.
      mutants. A mutant seen for the first time takes its function's history.
      The gate's id holds no line number (ADR-0004 decision 2), so the history
      survives code above it moving.
-   - **Where it lives.** A `killers` section of each scope's ledger
-     (ADR-0007 decision 3). A run reads its own scope's and the default
-     branch's, as it reads timings, and the verdict writes its own scope's.
-     Entries for mutant ids that no kept proof holds are dropped, and so are
-     functions whose unit is gone.
+   - **Where it lives.** A `killers` section of each scope's ledger, within
+     format 2 (ADR-0007 decision 3): each ranking a list of `[test, kills]`
+     pairs, most kills first, `test` an index into the ledger's `tests`. A
+     run reads its own scope's and the default branch's, as it reads
+     timings, with its own scope's ranking where both know a mutant or a
+     function, and the verdict writes its own scope's.
+   - **What it keeps.** The mutant ids a kept proof holds, and of those and
+     of the functions, the 20,000 mutants and 5,000 functions that most
+     recently learned a killer. Functions of files that no longer exist are
+     dropped. Of two tests with as many kills, the one that killed most
+     recently ranks first, so a new killer can displace an old one.
 
 3. **`tests.order` puts the likely killers first.** Its values are
    `killers-first`, the default, and `runner`.

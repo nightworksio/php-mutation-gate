@@ -7,11 +7,13 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
 
 /**
  * What one scope has proved: its proofs, how long each unit took, the bases
- * the runs that wrote it keyed their units at, the most recent first, and the
- * newest commit of the scope whose verdict passed.
+ * the runs that wrote it keyed their units at, the most recent first, the
+ * newest commit of the scope whose verdict passed, and which tests killed its
+ * mutants first.
  */
 final readonly class Ledger
 {
@@ -22,64 +24,78 @@ final readonly class Ledger
         private Timings $timings,
         private Bases $bases,
         private Passed|CannotTell $passed,
+        private KillHistory $killers,
     ) {
     }
 
     public static function empty(): self
     {
-        return new self(Proofs::none(), Timings::none(), Bases::none(), CannotTell::because(self::NEVER_PASSED));
+        return new self(
+            Proofs::none(),
+            Timings::none(),
+            Bases::none(),
+            CannotTell::because(self::NEVER_PASSED),
+            KillHistory::none(),
+        );
     }
 
     public function withProof(Proof $proof): self
     {
-        return new self($this->proofs->with($proof), $this->timings, $this->bases, $this->passed);
+        return clone($this, ['proofs' => $this->proofs->with($proof)]);
     }
 
     /** This ledger, with these proofs; a key it proves already keeps its own proof. */
     public function withProofs(Proofs $proofs): self
     {
-        return new self(Proofs::of(...$this->proofs, ...$proofs), $this->timings, $this->bases, $this->passed);
+        return clone($this, ['proofs' => Proofs::of(...$this->proofs, ...$proofs)]);
     }
 
     /** This ledger without the proof under a key, such as one a fresh result disagrees with. */
     public function withoutProof(Digest $key): self
     {
-        return new self($this->proofs->without($key), $this->timings, $this->bases, $this->passed);
+        return clone($this, ['proofs' => $this->proofs->without($key)]);
     }
 
     public function withTiming(Timing $timing): self
     {
-        return new self($this->proofs, $this->timings->with($timing), $this->bases, $this->passed);
+        return clone($this, ['timings' => $this->timings->with($timing)]);
     }
 
     /** This ledger, with what a finished shard measured, each unit keeping its newest timing. */
     public function withTimings(Timings $timings): self
     {
-        return new self($this->proofs, $this->timings->and($timings), $this->bases, $this->passed);
+        return clone($this, ['timings' => $this->timings->and($timings)]);
     }
 
     /** This ledger, written by a run that keyed its units at this base, which it has now seen most recently. */
     public function atBase(Digest $base): self
     {
-        return new self($this->proofs, $this->timings, $this->bases->seen($base), $this->passed);
+        return clone($this, ['bases' => $this->bases->seen($base)]);
     }
 
     /** This ledger, with these bases seen after the ones it holds. */
     public function withBases(Bases $bases): self
     {
-        return new self($this->proofs, $this->timings, $this->bases->and($bases), $this->passed);
+        return clone($this, ['bases' => $this->bases->and($bases)]);
     }
 
     /** This ledger, with the newest commit whose verdict passed, replacing the one held. */
     public function withPassed(Passed $passed): self
     {
-        return new self($this->proofs, $this->timings, $this->bases, $passed);
+        return clone($this, ['passed' => $passed]);
+    }
+
+    /** This ledger, with the kill history a run learned, replacing the one held. */
+    public function withKillers(KillHistory $killers): self
+    {
+        return clone($this, ['killers' => $killers]);
     }
 
     /**
      * This ledger and another scope's, read together: this one's proofs first,
      * so a key both prove keeps this one's, each unit's newest timing, this
-     * one's bases before the other's, and this one's passing commit.
+     * one's bases before the other's, this one's passing commit, and where
+     * both know who killed a mutant or a function's mutants, this one's.
      */
     public function and(self $other): self
     {
@@ -88,13 +104,20 @@ final readonly class Ledger
             $this->timings->and($other->timings),
             $this->bases->and($other->bases),
             $this->passed,
+            $this->killers->and($other->killers),
         );
     }
 
     /** This ledger with timings only for these units, which are the ones that still exist. */
     public function keepingTimingsOf(Paths $units): self
     {
-        return new self($this->proofs, $this->timings->onlyFor($units), $this->bases, $this->passed);
+        return clone($this, ['timings' => $this->timings->onlyFor($units)]);
+    }
+
+    /** This ledger with the kill history of the functions in these files only, which are the ones that still exist. */
+    public function keepingKillersIn(Paths $files): self
+    {
+        return clone($this, ['killers' => $this->killers->onlyIn($files)]);
     }
 
     public function proofs(): Proofs
@@ -132,5 +155,11 @@ final readonly class Ledger
     public function lastPassed(): Passed|CannotTell
     {
         return $this->passed;
+    }
+
+    /** Which tests killed this scope's mutants first, and its functions' mutants. */
+    public function killers(): KillHistory
+    {
+        return $this->killers;
     }
 }

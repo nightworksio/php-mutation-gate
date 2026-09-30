@@ -31,10 +31,12 @@ use stdClass;
  * A ledger as its file holds it: `"format": 2`, compact JSON, gzipped.
  *
  * Writing keeps what {@see LedgerRetention::standard()} keeps: the bases its
- * runs saw most recently, and the proofs established at them. Each mutant
+ * runs saw most recently, the proofs established at them, and the kill
+ * history of their mutants and of the most recent functions. Each mutant
  * that was not killed keeps its full record, and each killed one is
  * `[id, line, mutator, killers]`, the mutator an index into the ledger's
- * `mutators` and the killers indices into its `tests`.
+ * `mutators` and the killers indices into its `tests`. The `killers` section
+ * points into `tests` too ({@see KillersRecord}).
  *
  * Reading keeps each well-formed entry and drops anything else, never
  * repairing it, so an unreadable ledger, one of another format among them,
@@ -68,12 +70,18 @@ final readonly class LedgerFile
 
     private const string PASSED = 'passed';
 
+    private const string KILLERS = 'killers';
+
     public static function encode(Ledger $ledger): string
     {
         $retention = LedgerRetention::standard();
         $kept = $retention->proofsOf($ledger);
+        $killers = $retention->killersOf($ledger);
         $mutators = self::namesOf($kept, static fn(Mutant $killed): array => [$killed->mutation()->mutator()]);
-        $tests = self::namesOf($kept, static fn(Mutant $killed): array => self::idsOf($killed->killers()));
+        $tests = array_values(array_unique([
+            ...self::namesOf($kept, static fn(Mutant $killed): array => self::idsOf($killed->killers())),
+            ...KillersRecord::testsOf($killers),
+        ]));
         $proofs = [];
 
         foreach ($kept as $proof) {
@@ -93,6 +101,7 @@ final readonly class LedgerFile
             self::TESTS => $tests,
             'proofs' => $proofs === [] ? new stdClass() : $proofs,
             'timings' => $timings === [] ? new stdClass() : $timings,
+            self::KILLERS => KillersRecord::of($killers, array_flip($tests)),
             ...$passed instanceof Passed ? [self::PASSED => [
                 'commit' => $passed->commit()->name(),
                 'check' => $passed->check(),
@@ -126,7 +135,8 @@ final readonly class LedgerFile
         return self::passedIn($file)
             ->withBases(self::basesIn($file))
             ->withProofs(Proofs::of(...array_merge(...$proofs)))
-            ->withTimings(Timings::of(...array_merge(...$timings)));
+            ->withTimings(Timings::of(...array_merge(...$timings)))
+            ->withKillers(KillersRecord::read($file->field(self::KILLERS), $tests));
     }
 
     /**

@@ -17,6 +17,11 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Order\Enclosing;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\Kills;
+use NightWorksIO\MutationGate\Core\Order\RankedMutant;
+use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
@@ -71,7 +76,16 @@ $ledger = Ledger::empty()
     ->withProof(Proof::of(Digest::of($keyB), Path::of('src/B.php'), Mutants::none(), $run('github:2/1', '2026-09-29T21:00:00Z')))
     ->withTiming(Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'infection', $at('2026-09-29T20:48:17Z')))
     ->atBase(Digest::of($base))
-    ->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0));
+    ->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0))
+    ->withKillers(KillHistory::none()
+        ->withMutant($killedId, Ranking::of(
+            Kills::of(TestId::of('MoneyTest::adds'), 3),
+            Kills::of(TestId::of('TaxTest::rounds'), 1),
+        ))
+        ->withFunction(
+            Enclosing::named(Path::of('src/Money.php'), 'add'),
+            Ranking::of(Kills::of(TestId::of('TaxTest::rounds'), 2)),
+        ));
 
 // The ledger's file as data, to change one entry of and write back.
 $data = static function () use ($ledger): array {
@@ -82,12 +96,12 @@ $data = static function () use ($ledger): array {
 };
 $written = static fn(array $file): string => Gzip::pack(Json::compact($file));
 
-it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tuples with their killers and survivors in full', function () use ($ledger, $keyA, $keyB, $base, $killedId, $minusId, $survivedId): void {
+it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tuples with their killers, survivors in full, and the kill history', function () use ($ledger, $keyA, $keyB, $base, $killedId, $minusId, $survivedId): void {
     expect(Gzip::unpack(LedgerFile::encode($ledger), 'the ledger'))->toBe(Json::compact([
         'format' => 2,
         'bases' => [$base],
         'mutators' => ['Plus', 'Minus'],
-        'tests' => ['MoneyTest::adds', 'CartTest::totals'],
+        'tests' => ['MoneyTest::adds', 'CartTest::totals', 'TaxTest::rounds'],
         'proofs' => [
             $keyB => ['unit' => 'src/B.php', 'base' => $base, 'at' => '2026-09-29T21:00:00Z', 'run' => 'github:2/1', 'mutants' => []],
             $keyA => [
@@ -115,13 +129,17 @@ it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tup
             ],
         ],
         'timings' => ['src/Money.php' => ['seconds' => 12.4, 'runner' => 'infection', 'at' => '2026-09-29T20:48:17Z']],
+        'killers' => [
+            'mutants' => [$killedId->value() => [[0, 3], [2, 1]]],
+            'functions' => ['src/Money.php' => ['add' => [[2, 2]]]],
+        ],
         'passed' => ['commit' => '206b4e0', 'check' => 'mutation-gate', 'ownScopeProofs' => 0],
     ]));
 });
 
 it('writes an empty ledger as empty lists and maps and no passing commit', function (): void {
     expect(Gzip::unpack(LedgerFile::encode(Ledger::empty()), 'the ledger'))
-        ->toBe('{"format":2,"bases":[],"mutators":[],"tests":[],"proofs":{},"timings":{}}');
+        ->toBe('{"format":2,"bases":[],"mutators":[],"tests":[],"proofs":{},"timings":{},"killers":{"mutants":{},"functions":{}}}');
 });
 
 it('reads back the ledger it wrote', function () use ($ledger): void {
@@ -207,10 +225,12 @@ it('drops a proof that is not well formed and keeps the rest', function (Closure
     'a full record with a family there is not' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [1 => ['family' => 'nope']]]])],
 ]);
 
-it('drops every proof whose killed mutants point into a list whose names are not all names', /** @param array<int|string, int|string> $names */ function (string $list, array $names) use ($data, $written, $ledger, $keyA): void {
+it('drops every proof, and the kill history, that point into a list whose names are not all names', /** @param array<int|string, int|string> $names */ function (string $list, array $names) use ($data, $written, $ledger, $keyA): void {
     $file = [...$data(), $list => $names];
+    $dropped = $ledger->withoutProof(Digest::of($keyA));
 
-    expect(LedgerFile::decode($written($file)))->toEqual($ledger->withoutProof(Digest::of($keyA)));
+    expect(LedgerFile::decode($written($file)))
+        ->toEqual($list === 'tests' ? $dropped->withKillers(KillHistory::none()) : $dropped);
 })->with([
     'a mutator that is not text' => ['mutators', ['Plus', 7]],
     'mutators not in a list' => ['mutators', ['plus' => 'Plus']],
@@ -237,10 +257,48 @@ it('drops a timing that is not well formed and keeps a timing of no time at all'
         ->toEqual([Timing::of(Path::of('src/Nothing.php'), Seconds::of(0.0), 'pest', $at('2026-09-29T20:00:00Z'))]);
 });
 
-it('reads proofs and timings that are not maps as none, and keeps what else it holds', function () use ($data, $written, $base): void {
+it('reads proofs and timings that are not maps as none, and keeps what else it holds', function () use ($data, $written, $base, $ledger): void {
     $file = [...$data(), 'proofs' => 7, 'timings' => 'none'];
 
-    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0)));
+    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0))->withKillers($ledger->killers()));
+});
+
+it('drops each kill pair that is not well formed, a ranking left with none, and an entry under no name', function () use ($data, $written, $killedId): void {
+    $file = $data();
+    $file['killers'] = [
+        'mutants' => [
+            $killedId->value() => [[0, 3], [9, 1], [1, 0], [1, 2, 3], ['0', 1], 'pair', [2, 1]],
+            'not an id' => [[0, 1]],
+            str_repeat('f', 12) => [[9, 1]],
+        ],
+        'functions' => [
+            'src/Money.php' => ['add' => [[1, 1]], 'none' => [[0, -1]], 'many' => 'pairs'],
+            '' => ['add' => [[0, 1]]],
+            'src/Cart.php' => 'functions',
+        ],
+    ];
+
+    expect(LedgerFile::decode($written($file))->killers())->toEqual(KillHistory::none()
+        ->withMutant($killedId, Ranking::of(
+            Kills::of(TestId::of('MoneyTest::adds'), 3),
+            Kills::of(TestId::of('TaxTest::rounds'), 1),
+        ))
+        ->withFunction(
+            Enclosing::named(Path::of('src/Money.php'), 'add'),
+            Ranking::of(Kills::of(TestId::of('CartTest::totals'), 1)),
+        ))
+        ->and(LedgerFile::decode($written([...$data(), 'killers' => ['mutants' => 7, 'functions' => []]]))->killers())
+        ->toEqual(KillHistory::none());
+});
+
+it('writes the kill history of the mutants its kept proofs hold, and of every function', function () use ($ledger, $killedId): void {
+    $gone = MutantId::hash(Path::of('src/Gone.php'), 'Plus', "-+\n+-", 0);
+    $history = $ledger->killers()->withMutant($gone, Ranking::of(Kills::of(TestId::of('GoneTest::goes'), 1)));
+
+    $read = LedgerFile::decode(LedgerFile::encode($ledger->withKillers($history)))->killers();
+
+    expect(array_map(static fn(RankedMutant $ranked): string => $ranked->mutant()->value(), [...$read->mutants()]))
+        ->toBe([$killedId->value()]);
 });
 
 it('reads a passing record that is not well formed as none', function (array|int|string $passed) use ($data, $written, $ledger): void {
