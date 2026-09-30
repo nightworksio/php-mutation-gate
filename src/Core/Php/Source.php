@@ -20,9 +20,6 @@ use PhpToken;
  */
 final readonly class Source
 {
-    /** How a name is spelt. */
-    public const array NAMES = [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_NAME_RELATIVE];
-
     /** What stands before a name that is not a class's use: a declaration, an import, or a member's access. */
     private const array NOT_A_CLASS = [
         T_USE,
@@ -134,7 +131,7 @@ final readonly class Source
     {
         $found = [];
 
-        foreach ($this->tokens->indicesOf(...self::NAMES) as $at) {
+        foreach ($this->tokens->indicesOf(...Names::TOKENS) as $at) {
             $named = ! $this->tokens->is($at - 1, ...self::NOT_A_CLASS)
                 && $this->scope->resolve($this->tokens->text($at))->meet(Names::of($class));
             $found = $named ? [...$found, $at] : $found;

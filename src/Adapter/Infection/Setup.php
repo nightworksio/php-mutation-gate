@@ -7,11 +7,13 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Options;
 
@@ -25,10 +27,6 @@ use NightWorksIO\MutationGate\Extension\Options;
 final readonly class Setup
 {
     private const float TIMEOUT = 10.0;
-
-    private const string ALLOW = 'allow';
-
-    private const string REFUSE = 'refuse';
 
     private const string TESTS = 'tests';
 
@@ -77,7 +75,7 @@ final readonly class Setup
             $paths = $paths->with(Path::of($test->text()));
         }
 
-        return count($paths) === 0 ? Paths::of(Path::of(self::TESTS)) : $paths;
+        return count($paths) === 0 ? Paths::of(TestsDirectory::conventional()) : $paths;
     }
 
     /** @throws NotInShape */
@@ -89,11 +87,9 @@ final readonly class Setup
     /** @throws NotInShape */
     private static function allowedIn(Node $markers): bool
     {
-        $value = $markers->isPresent() ? $markers->text() : self::REFUSE;
-
-        return match ($value) {
-            self::ALLOW => true,
-            self::REFUSE => false,
+        return match ($markers->isPresent() ? NativeMarkers::tryFrom($markers->text()) : NativeMarkers::Refuse) {
+            NativeMarkers::Allow => true,
+            NativeMarkers::Refuse => false,
             default => throw NotInShape::at($markers->at(), '"refuse" or "allow"'),
         };
     }

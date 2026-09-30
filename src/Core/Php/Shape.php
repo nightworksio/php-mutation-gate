@@ -17,9 +17,6 @@ final readonly class Shape
     /** What declares a class-like body. */
     private const array CLASS_LIKE = [T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM];
 
-    /** Where nothing opens: at no token's index. */
-    private const int NONE = -1;
-
     /**
      * @param array<int, ClassLike> $classes    each class-like declaration, by where its body opens
      * @param array<int, Signature> $signatures each parameter list, by where it opens
@@ -35,7 +32,7 @@ final readonly class Shape
 
         foreach ($tokens->indicesOf(...self::CLASS_LIKE) as $at) {
             $body = self::braceAfter($tokens, $at, $at + 1);
-            $classes = $tokens->is($at - 1, T_DOUBLE_COLON) || $body === self::NONE
+            $classes = $tokens->is($at - 1, T_DOUBLE_COLON) || $body === Tokens::NONE
                 ? $classes
                 : $classes + [$body => ClassLike::at($tokens, $scope, $at, $body)];
         }
@@ -45,13 +42,13 @@ final readonly class Shape
 
         foreach ($tokens->indicesOf(T_FUNCTION, T_FN) as $at) {
             $list = self::parametersAfter($tokens, $at);
-            $body = $list === self::NONE || $tokens->is($at, T_FN)
-                ? self::NONE
+            $body = $list === Tokens::NONE || $tokens->is($at, T_FN)
+                ? Tokens::NONE
                 : self::braceAfter($tokens, $at, $tokens->closing($list) + 1);
-            $signatures = $list === self::NONE
+            $signatures = $list === Tokens::NONE
                 ? $signatures
                 : $signatures + [$list => self::signatureAt($tokens, $scope, $at, $classes)];
-            $bodies = $body === self::NONE ? $bodies : $bodies + [$body => true];
+            $bodies = $body === Tokens::NONE ? $bodies : $bodies + [$body => true];
         }
 
         return new self($classes, $signatures, $bodies);
@@ -104,11 +101,11 @@ final readonly class Shape
 
         for ($at = $from; $at < $end; $at++) {
             if ($tokens->enclosing($at) === $depth && $tokens->is($at, '{', ';')) {
-                return $tokens->is($at, '{') ? $at : self::NONE;
+                return $tokens->is($at, '{') ? $at : Tokens::NONE;
             }
         }
 
-        return self::NONE;
+        return Tokens::NONE;
     }
 
     /** Where the parameter list after `function` or `fn` opens, past a `&` and a name, if one does. */
@@ -117,7 +114,7 @@ final readonly class Shape
         $list = $at + 1 + ($tokens->is($at + 1, '&') ? 1 : 0);
         $list += $tokens->is($list, T_STRING) ? 1 : 0;
 
-        return $tokens->is($list, '(') ? $list : self::NONE;
+        return $tokens->is($list, '(') ? $list : Tokens::NONE;
     }
 
     /** @param array<int, ClassLike> $classes */

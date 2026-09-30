@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Extension\Options;
 
 /**
@@ -29,7 +30,6 @@ final readonly class PestOptions
 
     private const string CANARY_GROUP = 'mutation-canary';
 
-    private const string TEST_DIRECTORY = 'tests';
 
     private function __construct(private Patching $patching, private Paths $tests)
     {
@@ -83,7 +83,7 @@ final readonly class PestOptions
     private static function testsIn(Node $with): Paths|Problem
     {
         if (! $with->field(self::TESTS)->isPresent()) {
-            return Paths::of(Path::of(self::TEST_DIRECTORY));
+            return Paths::of(TestsDirectory::conventional());
         }
 
         try {

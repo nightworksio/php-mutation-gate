@@ -6,10 +6,10 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_any;
 use function array_map;
-use function basename;
 use function is_array;
 use function is_dir;
 
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 
 use function preg_replace;
@@ -25,8 +25,6 @@ use function str_ends_with;
  */
 final readonly class TestFiles
 {
-    private const string SUFFIX = '.php';
-
     /** What Pest removes from a file's name to make its class name. */
     private const array NOT_IN_A_CLASS_NAME = ['/%[a-fA-F0-9]{2}/', '/[^\p{L}\p{N}]/u'];
 
@@ -52,7 +50,7 @@ final readonly class TestFiles
         $named = Paths::none();
 
         foreach ($files as $file) {
-            $name = basename($file->value(), self::SUFFIX);
+            $name = $file->stem();
             $class = preg_replace(self::NOT_IN_A_CLASS_NAME, '', $name) ?? $name;
 
             if (array_any($classes, static fn(string $selected): bool => str_ends_with($class, $selected))) {
@@ -74,7 +72,7 @@ final readonly class TestFiles
             $found = [...$found, ...match (true) {
                 $entry === '.' || $entry === '..' => [],
                 is_dir($path) => self::under($path),
-                str_ends_with($entry, self::SUFFIX) => [$path],
+                Path::of($entry)->isPhp() => [$path],
                 default => [],
             }];
         }

@@ -18,8 +18,8 @@ use PhpToken;
  */
 final readonly class TopLevel
 {
-    /** What opens a block. */
-    private const array OPENS = ['{', T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES];
+    /** What opens a block, at the top or inside a function alike. */
+    public const array OPENS = ['{', T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES];
 
     /** What ends a statement at the top. */
     private const array ENDS = [';', '}'];

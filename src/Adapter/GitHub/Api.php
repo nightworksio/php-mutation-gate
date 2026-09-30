@@ -17,13 +17,17 @@ final readonly class Api
     /** The version of the API the answers are read as. */
     private const string VERSION = '2022-11-28';
 
+    /** GitHub's own API, which a run on an Enterprise server names another in place of. */
+    private const string GITHUB = 'https://api.github.com';
+
     private function __construct(private HttpClientInterface $client, private string $url, private string $token)
     {
     }
 
+    /** The API at a URL such as `GITHUB_API_URL` gives, or GitHub's own where it gives none. */
     public static function at(HttpClientInterface $client, string $url, string $token): self
     {
-        return new self($client, $url, $token);
+        return new self($client, $url === '' ? self::GITHUB : $url, $token);
     }
 
     /** What GitHub answers at a path of its API, or why it did not. */

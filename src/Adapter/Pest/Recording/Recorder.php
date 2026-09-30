@@ -39,8 +39,8 @@ final readonly class Recorder
     /** The variable the adapter names the results file in. */
     public const string RESULTS = 'MUTATION_GATE_RESULTS';
 
-    /** The variable Pest sets in each mutant's own process. */
-    private const string MUTANT = 'PEST_MUTATION_TESTING';
+    /** The variable Pest sets in each mutant's own process, naming the file its mutant replaces. */
+    public const string MUTANT = 'PEST_MUTATION_TESTING';
 
     /** A duration of whole seconds stays a float, so the adapter reads it as one. */
     private const int FLAGS = JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION;

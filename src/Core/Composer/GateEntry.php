@@ -14,7 +14,9 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
 
@@ -29,7 +31,7 @@ final readonly class GateEntry
     private const string EXTRA = 'extra';
 
     /** The gate's own key under it. */
-    private const string KEY = 'mutation-gate';
+    private const string KEY = ThisPackage::NAME;
 
     private const string FLOOR = 'floor';
 
@@ -43,8 +45,6 @@ final readonly class GateEntry
     private const int NONE = 0;
 
     /** The highest floor there is. */
-    private const int WHOLE = 100;
-
     private const string NOT_A_FLOOR = '%s: extra.mutation-gate.%s is not a number from 0 to 100.';
 
     private const string NO_REASON = '%s declares extra.mutation-gate.floor as 0 without a floorReason beside it.';
@@ -123,7 +123,7 @@ final readonly class GateEntry
             return $place->isPresent() ? $this->notAFloor($key) : Undeclared::floor();
         }
 
-        return $percent >= self::NONE && $percent <= self::WHOLE ? Floor::of($percent) : $this->notAFloor($key);
+        return Percentage::parse($percent) instanceof Percentage ? Floor::of($percent) : $this->notAFloor($key);
     }
 
     private function notAFloor(string $key): CannotJudge

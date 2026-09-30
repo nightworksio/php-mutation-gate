@@ -4,17 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
-use function array_find_key;
 use function array_map;
-use function array_slice;
-use function explode;
-use function hash;
 use function implode;
-use function is_int;
 use function mb_strlen;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 
 use function preg_match;
@@ -28,17 +24,12 @@ use function str_starts_with;
  */
 final readonly class MutantId
 {
-    private const string ALGORITHM = 'sha256';
-
     private const int LENGTH = 12;
 
     private const string SPELLING = '/^[0-9a-f]{12}$/D';
 
     /** A run of anything but whitespace. */
     private const string WORD = '/\S+/';
-
-    /** The line a unified diff's first hunk starts with; what comes before it is the header. */
-    private const string HUNK = '@@';
 
     private function __construct(private string $value)
     {
@@ -59,7 +50,7 @@ final readonly class MutantId
         $sized = array_map(static fn(string $field): string => sprintf('%d:%s', mb_strlen($field), $field), $fields);
         $canonical = implode("\n", $sized);
 
-        return new self(mb_substr(hash(self::ALGORITHM, $canonical), 0, self::LENGTH));
+        return new self(mb_substr(Digest::sha256Of($canonical)->value(), 0, self::LENGTH));
     }
 
     /** An id as a config, a report or a command line writes it. */
@@ -88,11 +79,9 @@ final readonly class MutantId
      */
     private static function changedLinesOf(string $diff): array
     {
-        $lines = explode("\n", $diff);
-        $hunk = array_find_key($lines, static fn(string $line): bool => str_starts_with($line, self::HUNK));
         $changed = [];
 
-        foreach (is_int($hunk) ? array_slice($lines, $hunk) : $lines as $line) {
+        foreach (Hunks::linesOf($diff) as $line) {
             if (str_starts_with($line, '-') || str_starts_with($line, '+')) {
                 preg_match_all(self::WORD, mb_substr($line, 1), $words);
                 $changed[] = sprintf('%s%s', mb_substr($line, 0, 1), implode(' ', $words[0]));

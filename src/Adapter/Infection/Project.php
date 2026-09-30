@@ -31,7 +31,7 @@ use function unlink;
 final readonly class Project
 {
     /** Where the adapter keeps its own files, inside the gate's directory. */
-    private const string OWN = 'infection';
+    private const string OWN = Infection::RUNNER;
 
     private const string STALE
         = 'The gate cannot remove %s, so it cannot tell what this run wrote from what an earlier one did.';

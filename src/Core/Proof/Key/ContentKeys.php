@@ -7,10 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Proof\Key;
 use function array_key_exists;
 use function array_map;
 use function count;
-use function hash;
 use function hash_copy;
-use function hash_final;
-use function hash_init;
 use function hash_update;
 
 use HashContext;
@@ -64,8 +61,6 @@ final readonly class ContentKeys
 {
     public const string FORMAT = 'mutation-gate proof 2';
 
-    private const string ALGORITHM = 'sha256';
-
     private const string MISSING = 'missing';
 
     private function __construct(private HashContext $everyKey, private Tests $tests)
@@ -80,7 +75,7 @@ final readonly class ContentKeys
         Source $source,
         Tests $tests,
     ): self {
-        $context = hash_init(self::ALGORITHM);
+        $context = Digest::hashing();
         self::hashEveryKeyReads($context, $gate, $config, $runner, $installed, $source);
         hash_update($context, self::testFiles('always', $tests->inEveryKey(), $tests));
 
@@ -94,7 +89,7 @@ final readonly class ContentKeys
      */
     public function base(): Digest
     {
-        return Digest::of(hash_final(hash_copy($this->everyKey)));
+        return Digest::finished(hash_copy($this->everyKey));
     }
 
     /**
@@ -220,7 +215,7 @@ final readonly class ContentKeys
         $values = array_map(static fn(Path $path): string => $path->value(), [...$judges]);
         sort($values);
 
-        return hash(self::ALGORITHM, self::framed(...$values));
+        return Digest::sha256Of(self::framed(...$values))->value();
     }
 
     /** Files of the test directories, each by its digest, in byte order, framed as a key reads them. */
@@ -252,7 +247,7 @@ final readonly class ContentKeys
         hash_update($context, $read);
         $this->hashUnitRead($context, $unit, $coverage);
 
-        return Digest::of(hash_final($context));
+        return Digest::finished($context);
     }
 
     private function hashUnitRead(HashContext $context, Unit $unit, CoverageMap $coverage): void

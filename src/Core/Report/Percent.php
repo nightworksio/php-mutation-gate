@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
-use function intdiv;
-
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
+use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Score;
 
 use function sprintf;
@@ -19,19 +18,11 @@ use function sprintf;
  */
 final readonly class Percent
 {
-    /** What a set with no score prints instead of a percentage. */
-    public const string NOTHING = 'nothing to mutate';
-    private const int HUNDREDTHS = 100;
-
     public static function of(Score|Floor|NothingToMutate $value): string
     {
         return $value instanceof NothingToMutate
-            ? self::NOTHING
-            : sprintf(
-                '%d.%02d%%',
-                intdiv($value->hundredths(), self::HUNDREDTHS),
-                $value->hundredths() % self::HUNDREDTHS,
-            );
+            ? NothingToMutate::SAID
+            : sprintf('%s%%', Percentage::points($value->hundredths()));
     }
 
     /** The change from one score to another, signed, in points: `+1.20`, `-0.05`, `±0.00`. */
@@ -45,6 +36,6 @@ final readonly class Percent
             default => '±',
         };
 
-        return sprintf('%s%d.%02d', $sign, intdiv($size, self::HUNDREDTHS), $size % self::HUNDREDTHS);
+        return sprintf('%s%s', $sign, Percentage::points($size));
     }
 }

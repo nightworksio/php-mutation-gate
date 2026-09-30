@@ -45,6 +45,9 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     /** GitHub's limit of jobs in one matrix, which caps `shards.max` here. */
     public const int MOST_JOBS = 256;
 
+    /** How `GITHUB_WORKFLOW_REF` spells the workflow: owner, repository, then its path before the ref. */
+    public const string WORKFLOW = '~^[^/]+/[^/]+/(?<path>[^@]+)@~';
+
     private const string OUTPUT = 'GITHUB_OUTPUT';
 
     /** One line of JSON, as `$GITHUB_OUTPUT` takes a value. */
@@ -56,9 +59,6 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     private const string BRANCH = '#^refs/heads/(.+)$#';
 
     private const string EVENT = 'GITHUB_EVENT_NAME';
-
-    /** How `GITHUB_WORKFLOW_REF` spells the workflow: owner, repository, then its path before the ref. */
-    private const string WORKFLOW = '~^[^/]+/[^/]+/(?<path>[^@]+)@~';
 
     /** The events whose ref is a branch the run may write for: none runs code from a pull request. */
     private const array TRUSTED = ['push', 'schedule', 'workflow_dispatch'];

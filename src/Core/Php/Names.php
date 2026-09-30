@@ -16,6 +16,12 @@ use function mb_strtolower;
  */
 final readonly class Names
 {
+    /** The tokens PHP spells a name with, but for one relative to the namespace. */
+    public const array UNRELATIVE = [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED];
+
+    /** The tokens PHP spells a name with. */
+    public const array TOKENS = [...self::UNRELATIVE, T_NAME_RELATIVE];
+
     /** @param array<string, string> $names each name, by itself */
     private function __construct(private array $names)
     {

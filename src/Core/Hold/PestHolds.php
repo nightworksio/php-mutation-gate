@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Hold;
 
-use function array_key_exists;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -24,15 +22,7 @@ final readonly class PestHolds
     /** The file Pest loads before it starts any plugin, at the end of a test file's path. */
     private const string BOOTSTRAP = '/tests/Pest.php';
 
-    /** Where a `#[Holds]` stands that Pest never passes to its filter, by what it is called. */
-    private const array UNFILTERED = [
-        'HookClosure' => 'a beforeEach, afterEach, beforeAll or afterAll closure',
-        'DatasetClosure' => 'a dataset closure',
-        'NamedFunction' => 'a named function',
-    ];
 
-    /** Where a `#[Holds]` stands that Pest loads as PHPUnit's, by what it is called. */
-    private const array PHPUNIT = ['TestClass' => 'class', 'TestMethod' => 'method'];
 
     /** How a refusal begins: where the `#[Holds]` is written. */
     private const string AT = '%s:%d: %s';
@@ -124,7 +114,7 @@ final readonly class PestHolds
         foreach ($this->read as [$file, $attribute]) {
             $path = $attribute->path();
 
-            if ($path->isLiteral() && ! $listing->has(Group::named(sprintf('holds:%s', $path->text())))) {
+            if ($path->isLiteral() && ! $listing->has(Group::holding($path->text()))) {
                 return CannotJudge::because(sprintf(
                     self::AT,
                     $file->value(),
@@ -142,18 +132,17 @@ final readonly class PestHolds
     {
         $written = $attribute->written();
         $path = $attribute->path();
-        $on = $attribute->standing()->name;
+        $on = $attribute->standing();
 
         return match (true) {
             str_ends_with(sprintf('/%s', $file->value()), self::BOOTSTRAP)
                 => sprintf(self::IN_BOOTSTRAP, $written, $file->value(), $path->group()),
-            array_key_exists($on, self::UNFILTERED)
-                => sprintf(self::NOT_FILTERED, $written, self::UNFILTERED[$on], $path->group()),
-            $attribute->standing() === Standing::KeptClosure => sprintf(self::KEPT, $written, $path->group()),
-            array_key_exists($on, self::PHPUNIT) && ! $path->isLiteral()
-                => sprintf(self::NOT_LITERAL, $written, self::PHPUNIT[$on], $attribute->holder()),
-            array_key_exists($on, self::PHPUNIT) && ! $attribute->isGrouped()
-                => sprintf(self::UNGROUPED, $written, self::PHPUNIT[$on], $attribute->holder(), $path->group()),
+            ! $on->isFiltered() => sprintf(self::NOT_FILTERED, $written, $on->called(), $path->group()),
+            $on === Standing::KeptClosure => sprintf(self::KEPT, $written, $path->group()),
+            $on->isPhpUnits() && ! $path->isLiteral()
+                => sprintf(self::NOT_LITERAL, $written, $on->called(), $attribute->holder()),
+            $on->isPhpUnits() && ! $attribute->isGrouped()
+                => sprintf(self::UNGROUPED, $written, $on->called(), $attribute->holder(), $path->group()),
             default => '',
         };
     }

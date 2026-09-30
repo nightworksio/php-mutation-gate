@@ -37,7 +37,7 @@ final readonly class ClassLike
 
         for ($each = $keyword + 1; $each < $body; $each++) {
             $naming = $naming || $tokens->is($each, ...self::PARENTS);
-            $parents = $naming && $tokens->is($each, ...Source::NAMES)
+            $parents = $naming && $tokens->is($each, ...Names::TOKENS)
                 ? $parents->merge($scope->resolve($tokens->text($each)))
                 : $parents;
         }

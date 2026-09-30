@@ -240,6 +240,24 @@ final readonly class Fixtures
                 PHP, 'names a closed set as an enum rather than a class'),
             self::inTheCore('D5', 'PlantedFlag', "return in_array(1, [1], true) ? 1 : 0;", 'int', 'D5 —'),
             self::inTheCore('D6', 'PlantedNumber', 'return 600;', 'int', 'D6 — give 600 a name'),
+            self::inTheCore('D8', 'PlantedWords', "return match (PHP_OS_FAMILY) {\n        'Linux' => 'l',\n        'Darwin' => 'd',\n        'Windows' => 'w',\n        default => '',\n    };", 'string', 'D8 — this match'),
+            Fixture::analyser('D9', 'src/Core/PlantedTwins.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                namespace NightWorksIO\MutationGate\Core;
+
+                final readonly class PlantedTwins
+                {
+                    public const string SUFFIX = '.planted';
+                }
+
+                final readonly class PlantedOtherTwin
+                {
+                    public const string SUFFIX = '.planted';
+                }
+                PHP, 'D9 — NightWorksIO\MutationGate\Core\PlantedTwins::SUFFIX holds'),
             self::inTheCore('D10', 'PlantedMixed', 'return 1;', 'mixed', 'D10 — this type says mixed'),
             Fixture::suite('D7', 'src/Core/PlantedOpen.php', <<<'PHP'
                 <?php

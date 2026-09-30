@@ -10,11 +10,13 @@ use function implode;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\JUnitLog;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 use function sprintf;
@@ -31,14 +33,7 @@ final readonly class Invocation
     public const string MAP = 'coverage.php';
 
     /** JUnit's log of a coverage run, in the same directory. */
-    public const string JUNIT = 'junit.xml';
-
-    /**
-     * What `--ignore` names when the gate leaves nothing out: its own
-     * directory, which holds no source, so that a project's own ignore list
-     * in `pest()->mutate()` never decides what is mutated.
-     */
-    private const string NOTHING = '.mutation-gate';
+    public const string JUNIT = JUnitLog::NAME;
 
     /** Pest's script, in the directory Composer installed the project's packages in. */
     private const string SCRIPT = '%s/pestphp/pest/bin/pest';
@@ -137,9 +132,14 @@ final readonly class Invocation
         return $tests instanceof Group ? [sprintf('--group=%s', $tests->name())] : [];
     }
 
+    /**
+     * What `--ignore` names: these paths, or, where the gate leaves nothing
+     * out, its own directory, which holds no source, so that a project's own
+     * ignore list in `pest()->mutate()` never decides what is mutated.
+     */
     private function ignored(Paths $paths): string
     {
-        return count($paths) === 0 ? self::NOTHING : PathList::of($paths)->joined(',');
+        return count($paths) === 0 ? Workspace::root()->value() : PathList::of($paths)->joined(',');
     }
 
     /** @return list<string> */

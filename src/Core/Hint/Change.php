@@ -18,6 +18,8 @@ use function mb_strcut;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Core\Mutant\Hunks;
+use NightWorksIO\MutationGate\Core\Php\Names;
 use PhpToken;
 
 use function sprintf;
@@ -31,9 +33,6 @@ use function trim;
  */
 final readonly class Change
 {
-    /** The line a unified diff's first hunk starts with; what comes before it is the header. */
-    private const string HUNK = '@@';
-
     /** What PHP code is read after, for a line that is not a file. */
     private const string OPENING = '<?php ';
 
@@ -52,9 +51,6 @@ final readonly class Change
     /** What closes one. */
     private const array CLOSES = [')', ']'];
 
-    /** How a function's or method's name is spelt where it is called. */
-    private const array NAMES = [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED];
-
     /**
      * @param list<PhpToken> $before the original's tokens
      * @param int            $from   where the tokens that differ begin
@@ -72,9 +68,7 @@ final readonly class Change
 
     public static function of(string $diff): self
     {
-        $lines = explode("\n", $diff);
-        $hunk = array_find_key($lines, static fn(string $line): bool => str_starts_with($line, self::HUNK));
-        $body = is_int($hunk) ? array_slice($lines, $hunk + 1) : $lines;
+        $body = Hunks::linesOf($diff);
         $removed = self::signed($body, '-');
         $added = self::signed($body, '+');
         $code = sprintf('%s%s', self::OPENING, $removed);
@@ -145,7 +139,7 @@ final readonly class Change
         $tokens = array_slice($this->before, $this->from, $this->to - $this->from);
         $called = array_find_key(
             $tokens,
-            static fn(PhpToken $token, int $at): bool => $token->is(self::NAMES)
+            static fn(PhpToken $token, int $at): bool => $token->is(Names::UNRELATIVE)
                 && array_slice($tokens, $at + 1, 1) !== []
                 && $tokens[$at + 1]->is('('),
         );

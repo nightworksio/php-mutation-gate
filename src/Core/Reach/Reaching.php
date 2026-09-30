@@ -20,7 +20,6 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
 use function sprintf;
-use function str_ends_with;
 
 /**
  * The rules that decide what a change reaches, in order; the first that
@@ -39,9 +38,6 @@ use function str_ends_with;
  */
 final readonly class Reaching
 {
-    /** How the name of a PHP file ends. */
-    private const string PHP = '.php';
-
     private const string CANNOT_TELL = '%s So every unit is reached.';
 
     private const string DECIDES = '`%s` decides how the gate runs, so every unit is reached.';
@@ -115,7 +111,7 @@ final readonly class Reaching
     private function isSource(Path $path): bool
     {
         foreach ($this->trees as $tree) {
-            if (str_ends_with($path->value(), self::PHP) && $path->within($tree->path())) {
+            if ($path->isPhp() && $path->within($tree->path())) {
                 return true;
             }
         }

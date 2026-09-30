@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Shell;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -37,8 +38,6 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  */
 final class Trial
 {
-    private const string ORIGINAL = 'PEST_MUTATION_TESTING';
-
     private const string MUTATED = 'PEST_MUTATION_FILE';
 
     private const string ALONE = 'the selected tests fail on their own';
@@ -81,7 +80,7 @@ final class Trial
         $this->project->without($this->guard);
         $started = microtime(as_float: true);
         $ran = $this->shell->run($this->judging($tests)->with([
-            self::ORIGINAL => $this->project->absolute($original),
+            Recorder::MUTANT => $this->project->absolute($original),
             self::MUTATED => $copy,
             Guard::FILE => $this->guard,
         ]));

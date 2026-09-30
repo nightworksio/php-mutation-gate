@@ -16,9 +16,6 @@ use function ltrim;
  */
 final readonly class SymbolAt
 {
-    /** Where nothing stands: at no token's index. */
-    private const int NONE = -1;
-
     private function __construct(private Tokens $tokens, private Shape $shape)
     {
     }
@@ -89,19 +86,19 @@ final readonly class SymbolAt
         $owner = $this->shape->classOf($body)->name();
 
         return match (true) {
-            $equals === self::NONE || $this->first($statement, T_FUNCTION) !== self::NONE => Executable::line(),
-            $this->first($statement, T_CONST) !== self::NONE => Symbol::constant(
+            $equals === Tokens::NONE || $this->first($statement, T_FUNCTION) !== Tokens::NONE => Executable::line(),
+            $this->first($statement, T_CONST) !== Tokens::NONE => Symbol::constant(
                 $owner,
                 $this->tokens->text($equals - 1),
             ),
-            $this->first($statement, T_CASE) !== self::NONE => Symbol::enumCase(
+            $this->first($statement, T_CASE) !== Tokens::NONE => Symbol::enumCase(
                 $owner,
                 $this->tokens->text($this->first($statement, T_CASE) + 1),
             ),
-            $this->first($statement, T_VARIABLE) !== self::NONE => Symbol::property(
+            $this->first($statement, T_VARIABLE) !== Tokens::NONE => Symbol::property(
                 $owner,
                 ltrim($this->tokens->text($this->first($statement, T_VARIABLE)), '$'),
-                static: $this->first($statement, T_STATIC) !== self::NONE,
+                static: $this->first($statement, T_STATIC) !== Tokens::NONE,
             ),
             default => Executable::line(),
         };
@@ -169,6 +166,6 @@ final readonly class SymbolAt
             }
         }
 
-        return self::NONE;
+        return Tokens::NONE;
     }
 }

@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Hold\HeldPath;
 use NightWorksIO\MutationGate\Core\Hold\HoldsAttribute;
 use NightWorksIO\MutationGate\Core\Hold\HoldsAttributes;
 use NightWorksIO\MutationGate\Core\Hold\Standing;
+use NightWorksIO\MutationGate\Core\Test\Group;
 
 use function sprintf;
 
@@ -32,12 +33,6 @@ final readonly class HoldsReader
 
     /** PHPUnit's attribute that puts a test in a group. */
     private const string GROUP = 'PHPUnit\Framework\Attributes\Group';
-
-    /** The group that holds a path. */
-    private const string HOLDING_GROUP = 'holds:%s';
-
-    /** How a name is spelt. */
-    private const array NAMES = [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_NAME_RELATIVE];
 
     /** What may stand between the attributes and what they stand on. */
     private const array MODIFIERS = [T_STATIC, T_ABSTRACT, T_FINAL, T_READONLY, T_PUBLIC, T_PROTECTED, T_PRIVATE];
@@ -104,7 +99,7 @@ final readonly class HoldsReader
         $names = [];
 
         foreach ($groups as $group) {
-            $names = [...$names, ...$this->tokens->inside($group, ...self::NAMES)];
+            $names = [...$names, ...$this->tokens->inside($group, ...Names::TOKENS)];
         }
 
         [$standing, $holder] = $this->standingAfter($this->tokens->closing(array_last($groups)) + 1, $start);
@@ -196,7 +191,7 @@ final readonly class HoldsReader
     {
         $path = $this->argumentOf($at);
         $line = $this->tokens->line($at);
-        $grouped = in_array(sprintf(self::HOLDING_GROUP, $path->text()), $declared, strict: true);
+        $grouped = in_array(Group::holding($path->text())->name(), $declared, strict: true);
 
         return match ($standing) {
             Standing::TestClass => HoldsAttribute::onClass($path, $line, $holder, $grouped),

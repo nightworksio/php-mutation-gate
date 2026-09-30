@@ -17,8 +17,6 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 
-use function preg_match;
-
 /**
  * A proof as a ledger holds it, under its key: its unit, the base, the time
  * and the id of the run that established it, and its mutants, each killed one
@@ -36,12 +34,9 @@ use function preg_match;
  */
 final readonly class ProofRecord
 {
-    /** A base: a SHA-256, in lowercase hex. */
-    private const string DIGEST = '/^[0-9a-f]{64}$/D';
-
+    /** When a run was, in the ledger's proofs and its timings alike. */
+    public const string AT = 'at';
     private const string BASE = 'base';
-
-    private const string AT = 'at';
 
     /**
      * @param  array<string, int> $mutators each mutator's index in the ledger, by its name
@@ -108,7 +103,7 @@ final readonly class ProofRecord
     {
         $base = $entry->field(self::BASE);
 
-        return preg_match(self::DIGEST, $base->text()) === 1
+        return Digest::isSha256($base->text())
             ? Digest::of($base->text())
             : throw NotInShape::at($base->at(), 'a base');
     }

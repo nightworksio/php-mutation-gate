@@ -6,9 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use DOMDocument;
 use DOMElement;
-
-use function is_file;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -26,9 +23,6 @@ use function sprintf;
  */
 final readonly class CoverageXml
 {
-    /** Options that keep the reader off the network and out of the error log. */
-    private const int QUIET = LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING;
-
     private const string INDEX = 'index.xml';
 
     private const string UNREADABLE
@@ -74,11 +68,7 @@ final readonly class CoverageXml
     /** An XML file, or why the coverage cannot be read where it is not there or not XML. */
     private static function loaded(string $file): DOMDocument|CannotJudge
     {
-        $document = new DOMDocument();
-
-        return is_file($file) && $document->load($file, self::QUIET)
-            ? $document
-            : CannotJudge::because(sprintf(self::UNREADABLE, $file));
+        return XmlFile::read($file, CannotJudge::because(sprintf(self::UNREADABLE, $file)));
     }
 
     private static function linesOf(

@@ -26,9 +26,6 @@ use function str_starts_with;
  */
 final readonly class Scope
 {
-    /** How a name is spelt in a `use` statement. */
-    private const array NAMES = [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED];
-
     /** What ends one clause of a `use` statement. */
     private const array CLAUSE_ENDS = [',', '}', ';'];
 
@@ -146,7 +143,7 @@ final readonly class Scope
      */
     private function namesIn(array $clause): array
     {
-        return array_values(array_filter($clause, static fn(PhpToken $token): bool => $token->is(self::NAMES)));
+        return array_values(array_filter($clause, static fn(PhpToken $token): bool => $token->is(Names::UNRELATIVE)));
     }
 
     private function lastSegmentOf(string $name): string
