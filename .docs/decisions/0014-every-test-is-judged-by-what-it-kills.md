@@ -99,6 +99,16 @@ running it: why is this mutant here, and has it always been?
      comment escapes it (ADR-0009 decision 3).
    - The verdict value carries the test-level data this needs: each test with
      the mutants it covers and those it killed (ADR-0009 decision 1).
+   - **As built.**
+     - `TestsReport` is the report's one home, in three forms over a
+       verdict: `json()`, `markdown()` and `text()`, which `mutation-gate
+       tests` prints on the console with each test on one plain line.
+     - Where the verdict holds no coverage, every form says so in place of
+       the useless tests: the JSON's optional `noCoverage` holds the
+       sentence, and the useless list is empty. Without a full kill matrix
+       every form says why in place of the removable tests: a run of first
+       killers, or Infection, which stops each mutant at its first failing
+       test.
 
 6. **A test is a test method or a Pest test, with its dataset rows folded
    in.** It is useless only when every row is. The JSON lists each row. A

@@ -37,18 +37,31 @@ final readonly class TestsReport
     /** The version of this format, which changes only when a reader would misread the new one. */
     public const int FORMAT = 1;
 
-    private const string TITLE = '# Tests mutation cannot see';
+    /** What the report is about. */
+    public const string TITLE = 'Tests mutation cannot see';
 
-    private const string SCOPE = 'This judges mutation kills only, and never fails anything.';
+    public const string SCOPE = 'This judges mutation kills only, and never fails anything.';
+
+    /** The first tier of useless tests. */
+    public const string KILLS_NOTHING = 'Kills nothing it covers';
+
+    /** The second tier, a suspicion under first killers. */
+    public const string NEVER_FIRST = 'Never the first to kill';
+
+    public const string REMOVABLE = 'Removable';
+
+    public const string SUSPICION
+        = 'A suspicion, not a finding: run `mutation-gate run --kill-matrix=full` to settle it.';
+
+    public const string SMALL = 'The kept set is a small one, not the smallest.';
+
+    /** What the report says in place of the useless tests where the verdict holds no coverage. */
+    public const string NO_COVERAGE
+        = 'The verdict holds no coverage map, so no test can be judged by what it kills.';
 
     private const string NOT_ASSESSED = '%d tests judged no mutant with a known result, so they are not assessed.';
 
     private const string ONE_NOT_ASSESSED = 'One test judged no mutant with a known result, so it is not assessed.';
-
-    private const string SUSPICION
-        = 'A suspicion, not a finding: run `mutation-gate run --kill-matrix=full` to settle it.';
-
-    private const string SMALL = 'The kept set is a small one, not the smallest.';
 
     public static function json(Verdict $verdict): string
     {
@@ -64,6 +77,7 @@ final readonly class TestsReport
         return JsonText::encode([
             'format' => self::FORMAT,
             'matrix' => $verdict->matrix()->kind()->value,
+            ...self::hasCoverage($verdict) ? [] : ['noCoverage' => self::NO_COVERAGE],
             'useless' => $useless,
             'notAssessed' => count($standings->thatStand(Standing::NotAssessed)),
             'redundant' => self::redundant($verdict),
@@ -75,15 +89,36 @@ final readonly class TestsReport
         $standings = TestStandings::of($verdict);
         $unassessed = count($standings->thatStand(Standing::NotAssessed));
 
+        $useless = self::hasCoverage($verdict) ? [
+            ...self::table(self::KILLS_NOTHING, $standings->thatStand(Standing::KillsNothing), []),
+            ...self::table(self::NEVER_FIRST, $standings->thatStand(Standing::NeverFirst), [self::SUSPICION]),
+        ] : [self::NO_COVERAGE];
         $blocks = [
-            self::TITLE,
+            sprintf('# %s', self::TITLE),
             implode(' ', [self::SCOPE, ...self::unassessed($unassessed)]),
-            ...self::table('Kills nothing it covers', $standings->thatStand(Standing::KillsNothing), []),
-            ...self::table('Never the first to kill', $standings->thatStand(Standing::NeverFirst), [self::SUSPICION]),
+            ...$useless,
             ...self::removable($verdict),
         ];
 
         return sprintf("%s\n", implode("\n\n", $blocks));
+    }
+
+    /** The console's form of the report: the same lists as the Markdown, as plain lines. */
+    public static function text(Verdict $verdict): string
+    {
+        return TestsText::of($verdict);
+    }
+
+    /** Whether any test of the verdict's coverage map ran, so a test can be judged by what it kills. */
+    public static function hasCoverage(Verdict $verdict): bool
+    {
+        return count($verdict->matrix()->coverage()->tests()) > 0;
+    }
+
+    /** How many tests could not be assessed, as a sentence; nothing where every test was. */
+    public static function unassessedOf(TestStandings $standings): string
+    {
+        return implode(' ', self::unassessed(count($standings->thatStand(Standing::NotAssessed))));
     }
 
     /** @return list<string> */
@@ -203,7 +238,7 @@ final readonly class TestsReport
     private static function removable(Verdict $verdict): array
     {
         if ($verdict->matrix()->kind() !== MatrixKind::Full) {
-            return ['## Removable', $verdict->matrix()->whyNotFull()->sentence()];
+            return [sprintf('## %s', self::REMOVABLE), $verdict->matrix()->whyNotFull()->sentence()];
         }
 
         $rows = ['| Test | Time | Its kills, each with the kept test that makes it too |', '|---|---|---|'];
@@ -229,6 +264,10 @@ final readonly class TestsReport
             ++$count;
         }
 
-        return [sprintf('## Removable (%d)', $count), $count === 0 ? 'None.' : implode("\n", $rows), self::SMALL];
+        return [
+            sprintf('## %s (%d)', self::REMOVABLE, $count),
+            $count === 0 ? 'None.' : implode("\n", $rows),
+            self::SMALL,
+        ];
     }
 }

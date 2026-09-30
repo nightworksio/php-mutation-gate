@@ -14,6 +14,9 @@
                 "full"
             ]
         },
+        "noCoverage": {
+            "type": "string"
+        },
         "useless": {
             "type": "array",
             "items": {
