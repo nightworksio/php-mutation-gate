@@ -6,9 +6,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
 use function file_put_contents;
 use function getenv;
+use function ini_set;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Core\Runner\InertSetting;
 use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade;
 use PHPUnit\Event\UnknownSubscriberTypeException;
@@ -17,7 +19,11 @@ use PHPUnit\Event\UnknownSubscriberTypeException;
  * What the Pest plugin writes in a mutant's own process: each test that fails
  * or errors there, with the mutated copy Pest serves, one JSON line at a time
  * in the results file the process inherits. Pest stops the process at the
- * first, so the first line a mutant has names the test that killed it.
+ * first, so the first line a mutant has names the test that killed it. It
+ * logs PHP's errors in that process to a file of the mutant's own, which the
+ * recorder reads for a fatal error Pest's own handling would lose, such as
+ * running out of memory (ADR-0004, decision 9). A test or config that sets
+ * `error_log` itself logs elsewhere.
  */
 final readonly class Killers
 {
@@ -50,6 +56,8 @@ final readonly class Killers
             return Off::NamingKillers;
         }
 
+        $killers->loggingErrors();
+
         return $killers;
     }
 
@@ -57,5 +65,14 @@ final readonly class Killers
     public function killedBy(string $test): void
     {
         file_put_contents($this->results, RecordLine::killed($this->mutated, $test), FILE_APPEND | LOCK_EX);
+    }
+
+    /** Logs PHP's errors in this process to the mutant's own log, emptied of any an earlier run left. */
+    private function loggingErrors(): void
+    {
+        $log = Recorder::errorsBeside($this->results, $this->mutated);
+        file_put_contents($log, '');
+        ini_set(InertSetting::LogErrors->value, '1');
+        ini_set(InertSetting::ErrorLog->value, $log);
     }
 }

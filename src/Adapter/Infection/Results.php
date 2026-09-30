@@ -60,24 +60,6 @@ use function usort;
  */
 final readonly class Results
 {
-    /** The list of the mutants tests killed, whose output names the tests that did. */
-    private const string KILLED_BY_TESTS = 'killed';
-
-    /** The lists whose mutants' own processes may have run out of the memory cap. */
-    private const array EXHAUSTIBLE = [self::KILLED_BY_TESTS, 'errored'];
-
-    /** Each list in the JSON log, with the count in `stats` that it must match and the status of its mutants. */
-    private const array LISTS = [
-        self::KILLED_BY_TESTS => ['killedCount', MutantStatus::Killed],
-        'killedByStaticAnalysis' => ['killedByStaticAnalysisCount', MutantStatus::KilledByStaticAnalysis],
-        'escaped' => ['escapedCount', MutantStatus::Survived],
-        'errored' => ['errorCount', MutantStatus::Errored],
-        'syntaxErrors' => ['syntaxErrorCount', MutantStatus::Errored],
-        'timeouted' => ['timeOutCount', MutantStatus::TimedOut],
-        'uncovered' => ['notCoveredCount', MutantStatus::Uncovered],
-        'ignored' => ['ignoredCount', MutantStatus::IgnoredByMarker],
-    ];
-
     /** The statuses of a mutant its limit decided, which are the ones that carry it. */
     private const array TIMED = [MutantStatus::TimedOut, MutantStatus::Skipped];
 
@@ -160,17 +142,17 @@ final readonly class Results
         $problems = [];
         $sum = 0;
 
-        foreach (self::LISTS as $list => [$count]) {
-            $counted = $stats->field($count)->integer();
-            $listed = count($log->field($list)->items());
+        foreach (LogList::cases() as $list) {
+            $counted = $stats->field($list->count())->integer();
+            $listed = count($log->field($list->value)->items());
             $sum += $counted;
-            $problems[] = $counted === $listed ? '' : sprintf(self::UNEVEN, $counted, $count, $listed);
+            $problems[] = $counted === $listed ? '' : sprintf(self::UNEVEN, $counted, $list->count(), $listed);
         }
 
         $skipped = $stats->field('skippedCount')->integer();
         $named = $text->count(TextLog::SKIPPED);
         $total = $stats->field('totalMutantsCount')->integer();
-        $ignored = $stats->field('ignoredCount')->integer();
+        $ignored = $stats->field(LogList::Ignored->count())->integer();
 
         $problems[] = $skipped === $named ? '' : sprintf(self::UNEVEN_SKIPPED, $skipped, $named);
         $problems[] = $total === $sum + $skipped ? '' : sprintf(self::UNEVEN_TOTAL, $total, $sum + $skipped);
@@ -188,11 +170,11 @@ final readonly class Results
     {
         $found = [];
 
-        foreach (self::LISTS as $list => [, $status]) {
-            foreach ($log->field($list)->items() as $entry) {
+        foreach (LogList::cases() as $list) {
+            foreach ($log->field($list->value)->items() as $entry) {
                 $mutator = $entry->field(self::MUTATOR);
                 $found[] = [
-                    'status' => self::exhausted($list, $entry, $cap) ? MutantStatus::OutOfMemory : $status,
+                    'status' => self::exhausted($list, $entry, $cap) ? MutantStatus::OutOfMemory : $list->status(),
                     'file' => $mutator->field('originalFilePath')->text(),
                     'line' => $mutator->field('originalStartLine')->integer(),
                     'mutator' => $mutator->field('mutatorName')->text(),
@@ -215,9 +197,9 @@ final readonly class Results
      *
      * @throws NotInShape
      */
-    private static function killersOf(string $list, Node $entry, MemoryCap $cap): TestIds
+    private static function killersOf(LogList $list, Node $entry, MemoryCap $cap): TestIds
     {
-        return $list === self::KILLED_BY_TESTS && ! self::exhausted($list, $entry, $cap)
+        return $list->namesKillers() && ! self::exhausted($list, $entry, $cap)
             ? KillingTests::in(Lenient::text($entry->field('processOutput')))
             : TestIds::none();
     }
@@ -228,9 +210,9 @@ final readonly class Results
      *
      * @throws NotInShape
      */
-    private static function exhausted(string $list, Node $entry, MemoryCap $cap): bool
+    private static function exhausted(LogList $list, Node $entry, MemoryCap $cap): bool
     {
-        return in_array($list, self::EXHAUSTIBLE, strict: true)
+        return $list->mayRunOutOfMemory()
             && Exhaustion::isOf(Exhaustion::in(Lenient::text($entry->field('processOutput'))), $cap);
     }
 

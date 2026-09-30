@@ -376,7 +376,7 @@ sees the same verdict.
    | Killed by static analysis | The static analyser the project runs rejects it, so it could not pass CI, which counts as killed. |
    | Errored | It crashes its tests, which counts as killed. |
    | Killed by timeout | Its tests ran far past their usual time with it in place, so the timeout counts as a kill. |
-   | Killed by the memory cap | It ran out of the memory cap, over twice what the unmutated suite holds, so the cap counts as a kill. |
+   | Killed by the memory cap | It ran out of the memory cap, at least twice what the unmutated suite holds, so the cap counts as a kill. |
 
    The judging tests are named as *It is judged by `A`, `B`, `C` and n more.*
 

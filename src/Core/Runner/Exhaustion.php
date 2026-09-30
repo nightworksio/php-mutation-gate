@@ -37,10 +37,11 @@ final readonly class Exhaustion
 
     /**
      * Whether a process ran out of exactly this cap, as the limit it ran out
-     * of says in bytes. A limit the project set itself is not the cap.
+     * of says in bytes. A limit the project set itself is not the cap, and no
+     * cap holds no bytes, which no limit PHP names is.
      */
     public static function isOf(MemoryCap|NotGiven $limit, MemoryCap $cap): bool
     {
-        return $limit instanceof MemoryCap && $cap->caps() && $limit->bytes() === $cap->bytes();
+        return $limit instanceof MemoryCap && $limit->bytes() === $cap->bytes();
     }
 }

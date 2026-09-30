@@ -106,7 +106,7 @@ final readonly class Hint
     private const string HOLD = 'Hold `%s` with a group of the tests that assert on it, or raise `timeouts.seconds`.';
 
     private const string MEMORY_CAP
-        = 'It ran out of the memory cap, over twice what the unmutated suite holds, so the cap counts as a kill.';
+        = 'It ran out of the memory cap, at least twice what the unmutated suite holds, so the cap counts as a kill.';
 
     private const string TOO_HEAVY
         = 'The unmutated suite holds more than half the memory cap, or was not measured, so the cap says nothing. %s';

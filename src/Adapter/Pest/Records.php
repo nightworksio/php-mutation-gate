@@ -223,7 +223,7 @@ final class Records
             RecordEvent::Finished => $this->withFinished($record),
             RecordEvent::Killed => $this->withKiller($record),
             RecordEvent::Exhausted => $this->exhausted[$record->field(RecordField::Mutated->value)->text()]
-                = WrittenBytes::read($record->field(RecordField::Limit->value)),
+                = WrittenBytes::read($record->field(RecordField::Bytes->value)),
             RecordEvent::End => $this->ended = true,
             null => throw NotInShape::at($event->at(), 'an event the plugin writes'),
         };

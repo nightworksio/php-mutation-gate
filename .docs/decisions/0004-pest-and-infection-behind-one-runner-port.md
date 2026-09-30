@@ -689,17 +689,23 @@ its parser attributes. Both change when the checkout moves.
      measured none.
    - A mutant whose own process ran out of exactly `runner.memory`, to the
      byte, is *out of memory*. PHP's fatal error names the limit it ran out
-     of: Pest's plugin reads it from the mutant's process output, which
-     only the process that started it holds, and the Infection adapter reads
-     it from the output Infection logs for a mutant it counts killed or
-     errored. A limit the project set itself, any other fatal error, the
+     of, and PHP logs it as it happens, before any shutdown function: Pest
+     and PHPUnit end the process, or run out of memory themselves, before
+     anything registered later could write it. So Pest's plugin logs PHP's
+     errors in each mutant's own process to a file of that mutant's own
+     (`log_errors` and `error_log`, which decide nothing a test computes),
+     and reads it in the process that started the mutant; a test or config
+     that sets `error_log` itself logs elsewhere. The Infection adapter reads
+     the error from the output Infection logs for a mutant it counts killed
+     or errored. A limit the project set itself, any other fatal error, the
      system's own out-of-memory killer and a crash keep the status the
      runner gave them. A mutant whose output holds no such error, as under
      Infection where PHP's errors go where Infection logs nothing of them,
      keeps its status too.
    - Memory triage judges a mutant out of memory the way timeout triage
-     judges a timeout (ADR-0008). Where the cap holds at least twice the
-     plan's peak, the mutant needed far more than its suite and ran away:
+     judges a timeout (ADR-0008). Where the plan's peak is at most half the
+     cap, the cap holds at least twice what the suite needs, so the mutant
+     needed far more than its suite and ran away:
      it is *killed by the memory cap*, and counts as killed, with no killer
      named. Otherwise, or where the plan measured no peak, it is *too heavy
      to judge*, and counts as not killed, under the `unjudged` rule. Twice

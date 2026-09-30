@@ -87,7 +87,7 @@ final readonly class RecordLine
         return self::line([
             RecordField::Event->value => RecordEvent::Exhausted->value,
             RecordField::Mutated->value => $mutated,
-            RecordField::Limit->value => $limit->bytes(),
+            RecordField::Bytes->value => $limit->bytes(),
         ]);
     }
 

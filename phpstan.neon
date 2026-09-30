@@ -304,6 +304,9 @@ parameters:
                 - tests/*
                 # The command, and no library code, gives its own process the memory its ledgers may need.
                 - bin/mutation-gate
+                # In a mutant's own process, which Pest starts for the gate, errors are logged to the mutant's own
+                # file, so a fatal error Pest's handling loses is still read; both settings are inert (ADR-0004).
+                - src/Adapter/Pest/Recording/Killers.php
                 # zlib raises a broken stream as a warning as well as answering false; the handler that keeps the
                 # warning from the run's output is restored before inflate_add's answer is returned.
                 - src/Core/Format/Gzip.php
@@ -372,8 +375,6 @@ parameters:
                 - src/Adapter/Pest/Grouping/HoldsGroups.php
                 # The plugin names each test from the class Pest built for it (ADR-0014).
                 - src/Adapter/Pest/Recording/Naming.php
-                # The plugin reads a mutant's own output from the process Pest keeps to itself (ADR-0004, decision 9).
-                - src/Adapter/Pest/Recording/MutantOutput.php
 
     disallowedSuperglobals:
         # --- B6: the environment, read the other way -----------------------------
@@ -628,7 +629,6 @@ services:
                     - END # a field of a shard result
                     - DIFF # a field of a shard result
                 'NightWorksIO\MutationGate\Adapter\Infection\Results':
-                    - KILLED_BY_TESTS # a list of Infection's log
                     - MUTATOR # a field of Infection's log
                 'NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming':
                     - PREFIX # PHPUnit's prefix of a test method

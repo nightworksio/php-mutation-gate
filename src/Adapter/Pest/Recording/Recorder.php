@@ -6,9 +6,12 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
 use function copy;
 use function dirname;
+use function file_get_contents;
 use function file_put_contents;
 use function getenv;
+use function hash;
 use function is_dir;
+use function is_file;
 use function is_string;
 use function mkdir;
 
@@ -29,6 +32,7 @@ use Pest\Support\Container;
 use Pest\Support\Coverage;
 
 use function sprintf;
+use function unlink;
 
 /**
  * What the Pest plugin writes for the adapter, one JSON line at a time as each
@@ -51,6 +55,9 @@ final readonly class Recorder
 
     /** The variable Pest sets beside it, naming the mutated copy it serves in the original's place. */
     public const string MUTATED = 'PEST_MUTATION_FILE';
+
+    /** The hash a mutated copy's path names its process's error log by. */
+    private const string HASH = 'xxh128';
 
     /**
      * @param string        $results   the file the lines are written to
@@ -118,6 +125,19 @@ final readonly class Recorder
     public function keepCoverage(): void
     {
         copy($this->coverage, self::coverageBeside($this->results));
+    }
+
+    /**
+     * Where a mutant's own process logs PHP's errors, beside a results file,
+     * by the mutated copy it runs on: PHP logs a fatal error as it happens,
+     * before any shutdown function, so the log keeps one that Pest's and
+     * PHPUnit's own handling of it would lose.
+     *
+     * @return non-empty-string
+     */
+    public static function errorsBeside(string $results, string $mutated): string
+    {
+        return sprintf('%s.%s.log', $results, hash(self::HASH, $mutated));
     }
 
     /**
@@ -190,18 +210,23 @@ final readonly class Recorder
     }
 
     /**
-     * The memory limit a mutant's own process ran out of, where PHP's fatal
-     * error in its output says so. Only the process that started it can tell:
-     * in the mutant's own process, Pest's and PHPUnit's handling of the fatal
-     * error runs out of memory itself, and Pest ends the process before any
-     * shutdown function a plugin registers.
+     * The memory limit a mutant's own process ran out of, where the errors
+     * it logged say so; the log is removed once read.
      */
     public function exhausted(MutationTest $test): void
     {
-        $limit = Exhaustion::in(MutantOutput::of($test));
+        $mutated = $test->mutation->modifiedSourcePath;
+        $log = self::errorsBeside($this->results, $mutated);
+
+        if (! is_file($log)) {
+            return;
+        }
+
+        $limit = Exhaustion::in((string) file_get_contents($log));
+        unlink($log);
 
         if ($limit instanceof MemoryCap) {
-            $this->write(RecordLine::exhausted($test->mutation->modifiedSourcePath, $limit));
+            $this->write(RecordLine::exhausted($mutated, $limit));
         }
     }
 
