@@ -452,6 +452,11 @@ services:
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoManyReturnsRule
         tags:
             - phpstan.rules.rule
+    # H9
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\ListLayoutRule
+        tags:
+            - phpstan.rules.rule
     # P1
     -
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoMagicMethodRule

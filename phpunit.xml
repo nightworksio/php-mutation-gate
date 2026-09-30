@@ -37,6 +37,12 @@
             <exclude>tests/Contract/Runner/fixture</exclude>
         </testsuite>
 
+        <!-- The judgements of the rules in phpstan/Rules, each test file beside the
+             file it tests, mirroring phpstan. -->
+        <testsuite name="PHPStan">
+            <directory>tests/PHPStan</directory>
+        </testsuite>
+
         <!-- R2, on its own: plants a violation of every rule in a throwaway copy
              of the tree and runs the analyser and the suite over it. -->
         <testsuite name="Guards">
