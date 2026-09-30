@@ -64,12 +64,14 @@ final readonly class Carrying
      * Whether a mutant of a result that stands for its unit stands too, or is
      * unjudged, and why. A timeout is unjudged, since triage can count it as
      * a kill (ADR-0008); a skipped mutant stands, since nothing counts it as
-     * one.
+     * one. A kill by static analysis carries like a kill with no killing test
+     * file: the analyser's answer is fixed by what the base covers.
      */
     public function carry(Proof $proof, Mutant|ProvedKill $mutant): Carry
     {
         return match ($mutant->status()) {
             MutantStatus::Killed => $this->kill($proof, $mutant),
+            MutantStatus::KilledByStaticAnalysis => $this->rejection($proof),
             MutantStatus::Errored, MutantStatus::TimedOut => Carry::KillerUnknown,
             MutantStatus::Uncovered => $this->uncovered($mutant),
             MutantStatus::Survived,
@@ -98,6 +100,12 @@ final readonly class Carrying
             count($kill->killers()) === 0 || ! $this->names instanceof TestNames => Carry::KillerUnknown,
             default => $this->killers($proof->inputs(), $kill, $this->names),
         };
+    }
+
+    /** A kill by static analysis stands at the same base, and no test file killed it. */
+    private function rejection(Proof $proof): Carry
+    {
+        return $proof->run()->base()->value() === $this->base->value() ? Carry::Stands : Carry::OtherBase;
     }
 
     /** Whether every test that killed a mutant is named, and reads what it read when it killed it. */
