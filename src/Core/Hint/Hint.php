@@ -7,13 +7,17 @@ namespace NightWorksIO\MutationGate\Core\Hint;
 use function array_map;
 use function array_pop;
 use function array_slice;
+use function array_unique;
+use function array_values;
 use function count;
 use function implode;
 use function in_array;
 use function iterator_to_array;
 
+use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Php\Functions;
@@ -21,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 
 use function sprintf;
 
@@ -96,6 +101,12 @@ final readonly class Hint
 
     private const string JUDGED_BY = '%s It is judged by %s.';
 
+    /** The second sentence of a survivor an assertion of value would kill, which a weak test let through. */
+    private const string WEAK = '%s `%s` asserts only %s, which no change of value fails.';
+
+    /** The same, where more than one weak test judges it. */
+    private const string WEAK_MORE = '%s `%s` and %d more assert only %s, which no change of value fails.';
+
     /** The judgements whose hint names the judging tests: those a score counts as not killed that tests ran. */
     private const array NAMING = [
         MutantJudgement::Survived,
@@ -126,6 +137,7 @@ final readonly class Hint
         MutantJudgement $judgement,
         TestIds $tests,
         Contents|Missing $source,
+        WeaklyAsserted|NoFinding $finding,
     ): self {
         $sentence = match ($judgement) {
             MutantJudgement::Survived => self::missed($mutant, $source),
@@ -143,6 +155,7 @@ final readonly class Hint
             MutantJudgement::IgnoredByMarker => self::MARKED,
             MutantJudgement::Equivalent => self::EQUIVALENT,
         };
+        $sentence = $finding instanceof WeaklyAsserted ? self::weak($sentence, $finding) : $sentence;
         $naming = in_array($judgement, self::NAMING, strict: true) && count($tests) > 0;
 
         return new self($naming ? sprintf(self::JUDGED_BY, $sentence, self::named($tests)) : $sentence);
@@ -151,6 +164,25 @@ final readonly class Hint
     public function text(): string
     {
         return $this->text;
+    }
+
+    /** A sentence, then the one naming the first weak test that lets it through, and what it asserts. */
+    private static function weak(string $sentence, WeaklyAsserted $finding): string
+    {
+        $first = $finding->first();
+        $written = [];
+
+        foreach ($first->assertions() as $assertion) {
+            $written[] = sprintf('`%s`', $assertion->written());
+        }
+
+        $more = count($finding->tests()) - 1;
+        $asserted = self::listed(array_values(array_unique($written)));
+        $name = Fit::plain($first->name()->value());
+
+        return $more > 0
+            ? sprintf(self::WEAK_MORE, $sentence, $name, $more, $asserted)
+            : sprintf(self::WEAK, $sentence, $name, $asserted);
     }
 
     /** What the tests miss about a survivor, by its mutator's family. */
@@ -186,6 +218,18 @@ final readonly class Hint
     private static function about(string|Nameless $name, string $named, string $here): string
     {
         return $name instanceof Nameless ? $here : sprintf($named, $name);
+    }
+
+    /**
+     * Some words, as a sentence lists them: `a`, `a and b`, `a, b and c`.
+     *
+     * @param list<string> $words
+     */
+    private static function listed(array $words): string
+    {
+        $last = array_pop($words);
+
+        return $words === [] ? sprintf('%s', $last) : sprintf('%s and %s', implode(', ', $words), $last);
     }
 
     /** Up to three tests, in backticks, then how many more. */

@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('is a kill a ledger proved, killed, with nothing its tests miss, on no changed line to begin with', function (): void {
@@ -22,7 +23,7 @@ it('is a kill a ledger proved, killed, with nothing its tests miss, on no change
         ->and($judged->isOnChangedLine())->toBeFalse()
         ->and($judged->tests())->toEqual(TestIds::none())
         ->and($judged->hint())->toEqual(Hint::killed())
-        ->and($judged->hint())->toEqual(Hint::for(Verdicts::killed(), MutantJudgement::Killed, TestIds::none(), Missing::at(Path::of('src/Money.php'))))
+        ->and($judged->hint())->toEqual(Hint::for(Verdicts::killed(), MutantJudgement::Killed, TestIds::none(), Missing::at(Path::of('src/Money.php')), NoFinding::survivor()))
         ->and($judged->reproduce())->toBe(sprintf('vendor/bin/mutation-gate reproduce %s', $id))
         ->and($judged->explain())->toBe(sprintf('vendor/bin/mutation-gate explain %s', $id));
 });

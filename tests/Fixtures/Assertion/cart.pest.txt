@@ -1,0 +1,16 @@
+<?php
+
+it('adds', function () {
+    expect($cart->total())->not->toBeNull()->toBeInt();
+    expect($cart)->toBeInstanceOf(Cart::class)->and($cart->items())->not->toHaveCount(2);
+});
+
+test('refuses', function () {
+    expect(fn () => $cart->add(-1))->toThrow(InvalidArgumentException::class);
+});
+
+it('checks money', function () { expect($m)->toBeMoney(); });
+it('throws', function () { $cart->add(-1); })->throws(Exception::class)->group('cart');
+it('does nothing', function () { $cart->add(1); });
+it('mixes', function () { $this->assertSame(3, $total); expect($total)->toBeInt(); });
+it('escapes \'quotes\'', function () { expect($a)->toBeArray(); });

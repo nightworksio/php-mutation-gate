@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 
 /**
@@ -33,6 +34,25 @@ final readonly class Sources
                 $read[$file->value()] = true;
                 $sources = $contents instanceof Contents ? $sources->with($file, $contents) : $sources;
             }
+        }
+
+        return $sources;
+    }
+
+    /**
+     * Each of these files the project holds, such as the test files whose
+     * assertions are read (ADR-0025, decision 5). A file that cannot be read
+     * is left out.
+     *
+     * @return ByPath<Contents>
+     */
+    public static function of(Paths $files, Directory $project): ByPath
+    {
+        $sources = ByPath::none();
+
+        foreach ($files as $file) {
+            $contents = $project->read($file);
+            $sources = $contents instanceof Contents ? $sources->with($file, $contents) : $sources;
         }
 
         return $sources;

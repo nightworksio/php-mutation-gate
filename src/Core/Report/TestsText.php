@@ -54,6 +54,7 @@ final readonly class TestsText
             rtrim(sprintf('%s %s', TestsReport::SCOPE, TestsReport::unassessedOf($standings))),
             ...$useless,
             ...self::removable($verdict),
+            ...WeakAssertions::text($verdict),
         ];
 
         return sprintf("%s\n", implode("\n", $lines));

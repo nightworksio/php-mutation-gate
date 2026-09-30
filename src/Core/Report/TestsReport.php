@@ -22,9 +22,10 @@ use function sprintf;
 
 /**
  * The `tests` report, as JSON and as its Markdown twin: the tests that kill
- * nothing they judged, those never the first to kill, and, from a full kill
- * matrix, those that can go together without losing a kill. It judges
- * mutation kills only, and never fails anything (ADR-0014, decisions 2 to 8).
+ * nothing they judged, those never the first to kill, from a full kill
+ * matrix those that can go together without losing a kill, and those whose
+ * weak assertions let survivors through. It judges mutation kills only, and
+ * never fails anything (ADR-0014, decisions 2 to 8; ADR-0025, decision 7).
  *
  * @phpstan-type Row array{name: string, standing: value-of<Standing>}
  * @phpstan-type Useless array{test: string, standing: value-of<Standing>, covers: int, rows?: list<Row>}
@@ -81,6 +82,7 @@ final readonly class TestsReport
             'useless' => $useless,
             'notAssessed' => count($standings->thatStand(Standing::NotAssessed)),
             'redundant' => self::redundant($verdict),
+            'weak' => WeakAssertions::of($verdict),
         ]);
     }
 
@@ -98,6 +100,7 @@ final readonly class TestsReport
             implode(' ', [self::SCOPE, ...self::unassessed($unassessed)]),
             ...$useless,
             ...self::removable($verdict),
+            ...WeakAssertions::markdown($verdict),
         ];
 
         return sprintf("%s\n", implode("\n\n", $blocks));

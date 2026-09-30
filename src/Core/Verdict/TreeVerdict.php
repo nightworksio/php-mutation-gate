@@ -69,6 +69,12 @@ final readonly class TreeVerdict
         return clone($this, ['mutants' => $this->mutants->clustered($this->uncovered, $sources)]);
     }
 
+    /** This verdict, with what was found of each survivor (ADR-0025, decision 7). */
+    public function found(Findings $findings): self
+    {
+        return clone($this, ['mutants' => $this->mutants->found($findings)]);
+    }
+
     /** The tree, with the floor it declares. */
     public function tree(): Tree
     {

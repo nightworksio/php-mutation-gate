@@ -24,6 +24,9 @@ it('prints the useless tests as the console shows them, a line to each, and asks
         Removable
           Needs a full kill matrix: run `mutation-gate run --kill-matrix=full`.
 
+        Asserts only existence or shape (0)
+          None.
+
         TEXT);
 });
 
@@ -33,6 +36,9 @@ it('prints the tests that can go from a full matrix, each with its time and the 
           tests/BTest.php::it does B  1.00s  kills 219893cfc02e by tests/ATest.php::it does A
           tests/CTest.php::it does C  0.20s  kills nothing
           The kept set is a small one, not the smallest.
+
+        Asserts only existence or shape (0)
+          None.
 
         TEXT)
         ->and(TestsText::of(Killings::verdict(MatrixKind::Full)))->toContain("Kills nothing it covers (1)\n  tests/CTest.php::it does C  judged 2\n");
@@ -47,6 +53,9 @@ it('says why it names no useless test where the verdict holds no coverage', func
 
         Removable
           Needs a full kill matrix: run `mutation-gate run --kill-matrix=full`.
+
+        Asserts only existence or shape (0)
+          None.
 
         TEXT)
         ->and(TestsReport::text(Verdicts::failing()))->toBe(TestsText::of(Verdicts::failing()));

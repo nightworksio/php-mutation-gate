@@ -143,6 +143,40 @@
                     "additionalProperties": false
                 }
             ]
+        },
+        "weak": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "test": {
+                        "type": "string"
+                    },
+                    "assertions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "survivors": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{12}$"
+                        }
+                    },
+                    "assert": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "test",
+                    "assertions",
+                    "survivors",
+                    "assert"
+                ],
+                "additionalProperties": false
+            }
         }
     },
     "required": [
@@ -150,7 +184,8 @@
         "matrix",
         "useless",
         "notAssessed",
-        "redundant"
+        "redundant",
+        "weak"
     ],
     "additionalProperties": false
 }
