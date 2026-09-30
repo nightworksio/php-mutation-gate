@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Workspace as GateDirectory;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 
 use function sprintf;
@@ -15,27 +16,25 @@ use function sprintf;
  */
 final readonly class Workspace
 {
-    private const string DIRECTORY = '.mutation-gate';
-
     public static function plan(): Path
     {
-        return Path::of(sprintf('%s/plan.json', self::DIRECTORY));
+        return Path::of(sprintf('%s/plan.json', GateDirectory::root()->value()));
     }
 
     public static function coverage(): Path
     {
-        return Path::of(sprintf('%s/coverage', self::DIRECTORY));
+        return Path::of(sprintf('%s/coverage', GateDirectory::root()->value()));
     }
 
     /** The directory of the coverage map the plan hands one shard: the lines of that shard's files alone. */
     public static function shardCoverage(ShardId $shard): Path
     {
-        return Path::of(sprintf('%s/coverage/shard-%d', self::DIRECTORY, $shard->number()));
+        return Path::of(sprintf('%s/coverage/shard-%d', GateDirectory::root()->value(), $shard->number()));
     }
 
     public static function results(): Path
     {
-        return Path::of(sprintf('%s/results', self::DIRECTORY));
+        return Path::of(sprintf('%s/results', GateDirectory::root()->value()));
     }
 
     /** Where a shard leaves its result, in a directory of results. */

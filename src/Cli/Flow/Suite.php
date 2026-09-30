@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\TestFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 use NightWorksIO\MutationGate\Core\Reach\Sources;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
 use function sprintf;
@@ -29,8 +30,6 @@ use function str_contains;
 final readonly class Suite
 {
     /** Where a package keeps its tests. */
-    private const string TESTS = 'tests';
-
     /** @param array<string, Contents> $contents each test file's contents, by its path */
     private function __construct(
         private Paths $directories,
@@ -128,11 +127,12 @@ final readonly class Suite
 
     private static function directoriesOf(Trees $trees): Paths
     {
-        $directories = Paths::of(Path::of(self::TESTS));
+        $tests = TestsDirectory::conventional();
+        $directories = Paths::of($tests);
 
         foreach ($trees as $tree) {
             $package = $tree->package()->path()->value();
-            $directories = $directories->with(Path::of(sprintf('%s/%s', $package, self::TESTS)));
+            $directories = $directories->with(Path::of(sprintf('%s/%s', $package, $tests->value())));
         }
 
         return $directories;

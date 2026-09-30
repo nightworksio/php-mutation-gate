@@ -17,8 +17,8 @@ use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\WholeNumber;
 
-use function preg_match;
 use function sprintf;
 
 use Symfony\Component\Console\Command\Command;
@@ -41,9 +41,6 @@ final readonly class FlowOptions
     public const string SHARD = 'shard';
 
     public const string RESULTS = 'results';
-
-    /** A count of one or more, as an option spells it. */
-    private const string COUNT = '/^[1-9]\d*$/D';
 
     /** `plan`'s options, which the all-in-one run takes too. */
     public static function planning(Command $command): Command
@@ -101,7 +98,7 @@ final readonly class FlowOptions
                 (int) $settings->shards()->seconds()->seconds(),
                 $settings->shards()->max(),
             ),
-            preg_match(self::COUNT, $shards) === 1 => Cut::exactly(intval($shards)),
+            WholeNumber::isPositive($shards) => Cut::exactly(intval($shards)),
             default => CannotJudge::because(sprintf('--shards=%s is not a number of shards.', $shards)),
         };
     }
@@ -113,7 +110,7 @@ final readonly class FlowOptions
 
         return match (true) {
             $shard === '' => Absent::setting(),
-            preg_match(self::COUNT, $shard) === 1 => ShardId::of(intval($shard)),
+            WholeNumber::isPositive($shard) => ShardId::of(intval($shard)),
             default => CannotJudge::because(sprintf('--shard=%s is not a shard number.', $shard)),
         };
     }

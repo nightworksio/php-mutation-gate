@@ -19,8 +19,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\WholeNumber;
 
-use function preg_match;
 use function sprintf;
 
 use stdClass;
@@ -55,9 +55,6 @@ final readonly class CoverageMapFile
 
     /** Why a file cannot be read as a map. */
     private const string UNREADABLE = 'The coverage map is not one this gate writes, so no line of it can be read.';
-
-    /** A line's number, as a key of the file. */
-    private const string LINE = '/^[1-9]\d*$/D';
 
     private const string SECONDS = 'seconds';
 
@@ -251,7 +248,7 @@ final readonly class CoverageMapFile
             return [];
         }
 
-        return preg_match(self::LINE, $number) === 1 ? [CoveredLine::of($file, intval($number), ...$ids)] : [];
+        return WholeNumber::isPositive($number) ? [CoveredLine::of($file, intval($number), ...$ids)] : [];
     }
 
     /**

@@ -33,8 +33,6 @@ use function str_contains;
 final readonly class Reporting
 {
     /** What chose the reporters the run chooses on GitHub. */
-    private const string GITHUB = 'GITHUB_ACTIONS';
-
     public function __construct(private Chosen $chosen, private Variables $environment)
     {
     }
@@ -78,11 +76,11 @@ final readonly class Reporting
 
         return [
             ...$this->onGitHub() ? [
-                $this->chosen->reporterChosenBy(self::GITHUB, Choice::of('github-annotations', $none)),
-                $this->chosen->reporterChosenBy(self::GITHUB, Choice::of('github-summary', $none)),
+                $this->chosen->reporterChosenBy(Variables::GITHUB_ACTIONS, Choice::of('github-annotations', $none)),
+                $this->chosen->reporterChosenBy(Variables::GITHUB_ACTIONS, Choice::of('github-summary', $none)),
             ] : [],
             ...$this->onAPullRequestThatCanBeCommentedOn()
-                ? [$this->chosen->reporterChosenBy(self::GITHUB, Choice::of('github-comment', $none))]
+                ? [$this->chosen->reporterChosenBy(Variables::GITHUB_ACTIONS, Choice::of('github-comment', $none))]
                 : [],
             ...$this->environment->inCi() && $this->onDefaultBranch($runOn)
                 ? [$this->chosen->reporterChosenBy('badge', $badge)]

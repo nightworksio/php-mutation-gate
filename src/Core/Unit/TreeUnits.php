@@ -9,8 +9,6 @@ use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
-use function str_ends_with;
-
 /**
  * Every unit of the trees the gate mutates: each held path in such a tree,
  * then each PHP file of such a tree that no held path holds. A path whose
@@ -18,8 +16,6 @@ use function str_ends_with;
  */
 final readonly class TreeUnits
 {
-    private const string PHP = '.php';
-
     public static function of(Trees $trees, Fingerprints $files, Units $held): Units
     {
         $units = Units::none();
@@ -30,7 +26,7 @@ final readonly class TreeUnits
 
         foreach ($files as $file) {
             $unit = Unit::file($file->path());
-            $mutated = str_ends_with($file->path()->value(), self::PHP)
+            $mutated = $file->path()->isPhp()
                 && self::isMutated($trees, $unit)
                 && ! self::isHeld($held, $unit);
             $units = $mutated ? $units->with($unit) : $units;

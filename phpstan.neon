@@ -586,13 +586,24 @@ services:
                     - LANGUAGE # Stryker's name for the language
                 'NightWorksIO\MutationGate\Core\Report\SavingsText':
                     - DAYS # days the savings count
+                'NightWorksIO\MutationGate\Cli\Command\FlowOptions':
+                    - COVERAGE # an option of the gate's commands
+                    - FULL # an option of the gate's commands
+                'NightWorksIO\MutationGate\Cli\Flow\Wiring':
+                    - PLAIN # the JSON CI plan's name
+                'NightWorksIO\MutationGate\Core\Plan\PlanFile':
+                    - BASE # a field of the plan
+                    - PROVED # a field of the plan
+                    - CARRIED # a field of the plan
+                    - CHANGED # a field of the plan
+                'NightWorksIO\MutationGate\Core\Plan\ShardResultFile':
+                    - FLAKY # a field of a shard result
             # Constants still to refer to their value's one home, by the builder whose area holds them.
             awaiting:
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':
                     - OWN # owner: flows (Workspace::root())
                 'NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests':
                     - API # owner: flows (Api::at() gives GitHub's own)
-                    - WORKFLOW # owner: flows (GitHubPlan::WORKFLOW)
                 'NightWorksIO\MutationGate\Cli\Console':
                     - NAME # owner: flows (ThisPackage::NAME)
                 'NightWorksIO\MutationGate\Cli\FirstParty':

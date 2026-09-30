@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -34,8 +35,6 @@ use Symfony\Component\Console\Input\InputInterface;
  */
 final readonly class Composition
 {
-    private const string INSTALLED = 'composer/installed.json';
-
     private const string UNPLANNED = 'Every reporter is checked before the run knows what it runs on.';
 
     public function __construct(
@@ -50,7 +49,7 @@ final readonly class Composition
 
     private function setup(Path|Absent $configFile): Setup
     {
-        $installed = Directory::at($this->vendor)->read(Path::of(self::INSTALLED));
+        $installed = Directory::at($this->vendor)->read(Installed::fileIn(Path::root()));
 
         return new Setup(
             $configFile instanceof Path ? $configFile->relativeTo(Path::of($this->project)) : $configFile,

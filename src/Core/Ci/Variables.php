@@ -9,11 +9,11 @@ use function array_key_exists;
 /** The environment variables a CI set for a job, as the adapter that read them hands them on. */
 final readonly class Variables
 {
+    /** Set to `true` by GitHub Actions in every job it runs. */
+    public const string GITHUB_ACTIONS = 'GITHUB_ACTIONS';
+
     /** Set by every supported CI, and unset on a developer's machine. */
     private const string CI = 'CI';
-
-    /** Set to `true` by GitHub Actions in every job it runs. */
-    private const string GITHUB_ACTIONS = 'GITHUB_ACTIONS';
 
     /** @param array<string, string> $values by name */
     private function __construct(private array $values)
