@@ -11,6 +11,8 @@ use BackedEnum;
 
 use function in_array;
 
+use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
+use NightWorksIO\MutationGate\Core\Alert\WebhookPayload;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\Standing;
@@ -202,6 +204,40 @@ final readonly class ReportSchema
                         'removable' => ['type' => 'array', 'items' => $removable],
                     ], []),
                 ]],
+            ], []),
+        ]);
+    }
+
+    /** The schema of what the `webhook` reporter posts when the default branch changes state (ADR-0016). */
+    public static function webhook(): string
+    {
+        $lowered = self::object(['from' => self::PERCENT, 'reason' => self::TEXT], ['reason']);
+        $tree = self::object(
+            [
+                'path' => self::TEXT,
+                'floor' => self::PERCENT,
+                'score' => self::PERCENT,
+                'previous' => self::PERCENT,
+                'lowered' => $lowered,
+            ],
+            ['floor', 'score', 'previous', 'lowered'],
+        );
+
+        return JsonText::encode([
+            '$schema' => self::DRAFT,
+            '$id' => sprintf(self::ID, 'webhook'),
+            'title' => 'mutation-gate webhook',
+            'description' => 'What the webhook reporter posts when the default branch changes state (ADR-0016).',
+            ...self::object([
+                'format' => ['const' => WebhookPayload::FORMAT],
+                'event' => self::oneOf(...AlertEvent::cases()),
+                'repository' => self::TEXT,
+                'ref' => self::TEXT,
+                'commit' => self::TEXT,
+                'run' => self::TEXT,
+                'verdict' => self::oneOf(Judgement::Passed, Judgement::Failed, Judgement::CannotJudge),
+                'trees' => ['type' => 'array', 'items' => $tree],
+                'cannotJudge' => self::listOf(self::TEXT),
             ], []),
         ]);
     }
