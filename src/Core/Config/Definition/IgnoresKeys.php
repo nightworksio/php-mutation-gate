@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Time\Day;
@@ -114,7 +115,7 @@ final readonly class IgnoresKeys
     private static function ignored(
         Node $entry,
         MutantId|Absent $mutant,
-        string|Absent $path,
+        Glob|Absent $path,
         string|Absent $mutator,
         string $reason,
         Day|Absent $expires,

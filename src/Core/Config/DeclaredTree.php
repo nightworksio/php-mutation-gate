@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use function array_map;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -22,7 +23,7 @@ use function sprintf;
  */
 final readonly class DeclaredTree
 {
-    /** @param Listed<string> $exclude */
+    /** @param Listed<Glob> $exclude */
     private function __construct(
         private Path $path,
         private Floor|Exempt|Undeclared $declared,
@@ -31,7 +32,7 @@ final readonly class DeclaredTree
     }
 
     /**
-     * @param Listed<string> $exclude
+     * @param Listed<Glob> $exclude
      */
     public static function of(Path $path, Floor|Exempt|Undeclared $declared, Listed $exclude): self
     {
@@ -48,7 +49,7 @@ final readonly class DeclaredTree
         return $this->declared;
     }
 
-    /** @return Listed<string> `trees[].exclude`: globs from the repository root of files that belong to no tree */
+    /** @return Listed<Glob> `trees[].exclude`: globs from the repository root of files that belong to no tree */
     public function exclude(): Listed
     {
         return $this->exclude;

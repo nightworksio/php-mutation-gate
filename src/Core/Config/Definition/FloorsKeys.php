@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -122,7 +123,7 @@ final readonly class FloorsKeys
         )->defaulting(Json::object(Member::of('exclude', Json::items())));
     }
 
-    /** @param Listed<string>|Absent $exclude */
+    /** @param Listed<Glob>|Absent $exclude */
     private static function declared(
         Node $tree,
         Path $path,

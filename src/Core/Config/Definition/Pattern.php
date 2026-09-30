@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
@@ -16,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  * as a path is: `Gen/**` in `ci/gate.json` is `ci/Gen/**`, and `../src/**`
  * there is `src/**`.
  *
- * @implements Shape<non-empty-string>
+ * @implements Shape<Glob>
  */
 final readonly class Pattern implements Shape
 {
@@ -34,7 +35,7 @@ final readonly class Pattern implements Shape
         $written = $at->kind() === Kind::Text ? $at->text() : '';
 
         return $written !== ''
-            ? Reading::of($this->origin->path(Path::of($written))->value())
+            ? Reading::of(Glob::of($this->origin->path(Path::of($written))->value()))
             : Reading::refused($at->mismatch($this->expected()));
     }
 

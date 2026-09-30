@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Report;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -276,8 +277,8 @@ it('reads every setting a config writes into its type', function (): void {
         ->and($floors->uncovered())->toBe(UncoveredMutants::Exclude)
         ->and($floors->baseline())->toEqual(Path::of('build/baseline.json'))
         ->and($floors->improvement())->toBe(Improvement::Report)
-        ->and([...$settings->reach()->packages()])->toBe(['packages/*'])
-        ->and([...$settings->reach()->everything()])->toBe(['config/**', 'routes/**'])
+        ->and([...$settings->reach()->packages()])->toEqual([Glob::of('packages/*')])
+        ->and([...$settings->reach()->everything()])->toEqual([Glob::of('config/**'), Glob::of('routes/**')])
         ->and($settings->reach()->hotPaths()->share())->toBe(1.0)
         ->and($settings->shards()->seconds())->toEqual(Seconds::of(900))
         ->and($settings->shards()->max())->toBe(8)
@@ -292,7 +293,7 @@ it('reads every setting a config writes into its type', function (): void {
             's3',
             Configs::options('{"bucket":"proofs","prefix":"mutation-gate","region":"us-east-1","endpoint":"https://r2.example.com"}'),
         ))
-        ->and([...$proofs->ignore()])->toBe(['docs/**'])
+        ->and([...$proofs->ignore()])->toEqual([Glob::of('docs/**')])
         ->and($proofs->write())->toBe(ProofWriting::Never)
         ->and($settings->budget())->toEqual(Seconds::of(5400))
         ->and($triage->timeouts())->toBe(TimeoutMode::Unjudged)
@@ -324,7 +325,7 @@ it('reads each ignore as a mutant by its id or a mutator in a glob', function ()
         ->and($pattern)->toBeInstanceOf(IgnoredPattern::class)
         ->and($pattern instanceof IgnoredPattern
             ? [$pattern->path(), $pattern->mutator(), $pattern->reason(), $pattern->expires()]
-            : [])->toEqual(['src/Log/**', 'MethodCallRemoval', 'Logging is asserted elsewhere', Day::of('2026-10-01')])
+            : [])->toEqual([Glob::of('src/Log/**'), 'MethodCallRemoval', 'Logging is asserted elsewhere', Day::of('2026-10-01')])
         ->and(count($entries))->toBe(2);
 });
 
@@ -721,7 +722,7 @@ it('reads tree excludes, the shard target and setup, the price, the test order a
     $price = $settings->shards()->perRunnerMinute();
 
     expect($trees instanceof Absent ? [] : [...[...$trees][0]->exclude()])
-        ->toBe(['src/Legacy/**', 'src/Generated/*.php'])
+        ->toEqual([Glob::of('src/Legacy/**'), Glob::of('src/Generated/*.php')])
         ->and($settings->shards()->target())->toEqual(Seconds::of(1200))
         ->and($settings->shards()->setup())->toEqual(Seconds::of(180))
         ->and($price instanceof Price ? [$price->amount(), $price->currency()] : [])->toBe([0.008, 'USD'])
