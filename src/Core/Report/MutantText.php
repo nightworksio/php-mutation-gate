@@ -77,12 +77,11 @@ final readonly class MutantText
     public static function block(JudgedMutant $judged, TestNames $names): string
     {
         $reason = $judged->mutant()->reason();
-        $rejection = $judged->mutant()->rejection();
 
         $lines = [
             ...self::diffOf($judged),
             ...$reason instanceof Reason ? [sprintf('Why: %s', $reason->text())] : [],
-            ...$rejection instanceof Rejection ? [self::rejected($rejection)] : [],
+            ...$reason instanceof Rejection ? [self::rejected($reason)] : [],
             ...count($judged->tests()) === 0 ? [] : [sprintf(self::JUDGED_BY, $names->listed($judged->tests()))],
             $judged->hint()->text(),
             sprintf('Reproduce: %s', $judged->reproduce()),

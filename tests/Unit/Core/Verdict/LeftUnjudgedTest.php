@@ -18,7 +18,6 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
-use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -129,5 +128,5 @@ it('carries a kill by static analysis as unjudged, with no rejection, though its
     $carried = $results === [] ? [] : [...$results[0]->mutants()];
 
     expect($carried)->toEqual([$rejected->unjudged(OutOfTime::BeforeMutating)])
-        ->and($carried === [] ? $carried : $carried[0]->rejection())->toEqual(Unreported::rejection());
+        ->and($carried === [] ? $carried : $carried[0]->reason())->toEqual(OutOfTime::BeforeMutating->reason());
 });

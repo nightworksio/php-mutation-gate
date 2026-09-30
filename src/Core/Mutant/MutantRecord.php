@@ -102,7 +102,6 @@ final readonly class MutantRecord
         $limit = $mutant->limit();
         $judging = $mutant->judgingTime();
         $reason = $mutant->reason();
-        $rejection = $mutant->rejection();
 
         return [
             self::ID => $mutant->id()->value(),
@@ -119,7 +118,7 @@ final readonly class MutantRecord
             ...$judging instanceof Seconds ? [self::TEST_SECONDS => $judging->seconds()] : [],
             ...$reason instanceof Reason ? [self::REASON => $reason->text(), ...self::outOfTime($reason)] : [],
             ...count($mutant->killers()) > 0 ? [self::KILLED_BY => self::idsOf($mutant->killers())] : [],
-            ...$rejection instanceof Rejection ? [self::REJECTION => self::rejection($rejection)] : [],
+            ...$reason instanceof Rejection ? [self::REJECTION => self::rejection($reason)] : [],
         ];
     }
 

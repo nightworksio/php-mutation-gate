@@ -228,12 +228,12 @@ final readonly class JsonReport
     private static function why(Mutant|ProvedKill $mutant): array
     {
         $reason = $mutant->reason();
-        $rejection = $mutant->rejection();
 
-        return [
-            ...$reason instanceof Reason ? ['reason' => $reason->text()] : [],
-            ...$rejection instanceof Rejection ? [MutantRecord::REJECTION => MutantRecord::rejection($rejection)] : [],
-        ];
+        return match (true) {
+            $reason instanceof Reason => ['reason' => $reason->text()],
+            $reason instanceof Rejection => [MutantRecord::REJECTION => MutantRecord::rejection($reason)],
+            default => [],
+        };
     }
 
     /** @return ClusterEntry */

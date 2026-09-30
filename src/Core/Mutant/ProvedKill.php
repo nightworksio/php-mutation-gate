@@ -82,12 +82,6 @@ final readonly class ProvedKill
         return $this->reason;
     }
 
-    /** A kill a ledger proved was a test's, so no analyser rejected it. */
-    public function rejection(): Unreported
-    {
-        return Unreported::rejection();
-    }
-
     /** The ledger keeps no duration of a kill. */
     public function duration(): Unmeasured
     {
