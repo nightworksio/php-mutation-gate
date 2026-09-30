@@ -12,6 +12,15 @@ final readonly class Variables
     /** Set to `true` by GitHub Actions in every job it runs. */
     public const string GITHUB_ACTIONS = 'GITHUB_ACTIONS';
 
+    /** Set to `true` by GitLab CI in every job it runs. */
+    public const string GITLAB_CI = 'GITLAB_CI';
+
+    /** Set to `true` by Buildkite in every job it runs. */
+    public const string BUILDKITE = 'BUILDKITE';
+
+    /** Set to `true` by CircleCI in every job it runs. */
+    public const string CIRCLECI = 'CIRCLECI';
+
     /** Set by every supported CI, and unset on a developer's machine. */
     private const string CI = 'CI';
 
@@ -40,7 +49,13 @@ final readonly class Variables
     /** Whether GitHub Actions runs the job. */
     public function onGitHubActions(): bool
     {
-        return $this->valueOf(self::GITHUB_ACTIONS) === 'true';
+        return $this->says(self::GITHUB_ACTIONS);
+    }
+
+    /** Whether a variable is set to `true`, as each CI sets its own to say it runs the job. */
+    public function says(string $name): bool
+    {
+        return $this->valueOf($name) === 'true';
     }
 
     /** A variable's value, and nothing where it is not set. */

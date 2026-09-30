@@ -34,3 +34,12 @@ it('is on GitHub Actions only where GITHUB_ACTIONS is true', function (): void {
         ->and(Variables::of(['GITHUB_ACTIONS' => 'false'])->onGitHubActions())->toBeFalse()
         ->and(Variables::of(['CI' => 'true'])->onGitHubActions())->toBeFalse();
 });
+
+it('says a variable is set to true only where it holds exactly true', function (): void {
+    $variables = Variables::of([Variables::GITLAB_CI => 'true', Variables::BUILDKITE => 'TRUE', Variables::CIRCLECI => '']);
+
+    expect($variables->says(Variables::GITLAB_CI))->toBeTrue()
+        ->and($variables->says(Variables::BUILDKITE))->toBeFalse()
+        ->and($variables->says(Variables::CIRCLECI))->toBeFalse()
+        ->and($variables->says(Variables::GITHUB_ACTIONS))->toBeFalse();
+});

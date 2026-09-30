@@ -42,9 +42,9 @@ final readonly class Wiring
 {
     /** Each CI the gate detects, by the variable its runners set to `true`. */
     private const array DETECTED = [
-        'GITLAB_CI' => 'gitlab',
-        'BUILDKITE' => 'buildkite',
-        'CIRCLECI' => 'circleci',
+        Variables::GITLAB_CI => 'gitlab',
+        Variables::BUILDKITE => 'buildkite',
+        Variables::CIRCLECI => 'circleci',
     ];
 
     private const string PLAIN = 'json';
@@ -134,7 +134,7 @@ final readonly class Wiring
         $detected = $this->environment->onGitHubActions() ? self::GITHUB : self::PLAIN;
 
         foreach (self::DETECTED as $variable => $plan) {
-            $detected = $detected === self::PLAIN && $this->environment->valueOf($variable) === 'true'
+            $detected = $detected === self::PLAIN && $this->environment->says($variable)
                 ? $plan
                 : $detected;
         }

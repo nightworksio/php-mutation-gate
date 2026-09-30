@@ -46,9 +46,9 @@ final readonly class CiRun
     public static function read(Variables $variables): self|CannotTell
     {
         return match (true) {
-            $variables->valueOf('GITHUB_ACTIONS') === 'true' => self::github($variables),
-            $variables->valueOf('GITLAB_CI') === 'true' => self::gitlab($variables),
-            $variables->valueOf('BUILDKITE') === 'true' => new self(
+            $variables->onGitHubActions() => self::github($variables),
+            $variables->says(Variables::GITLAB_CI) => self::gitlab($variables),
+            $variables->says(Variables::BUILDKITE) => new self(
                 sprintf(
                     '%s/%s',
                     $variables->valueOf('BUILDKITE_ORGANIZATION_SLUG'),
@@ -59,7 +59,7 @@ final readonly class CiRun
                 $variables->valueOf('BUILDKITE_BUILD_URL'),
                 $variables->valueOf('BUILDKITE_PIPELINE_NAME'),
             ),
-            $variables->valueOf('CIRCLECI') === 'true' => new self(
+            $variables->says(Variables::CIRCLECI) => new self(
                 sprintf(
                     '%s/%s',
                     $variables->valueOf('CIRCLE_PROJECT_USERNAME'),
