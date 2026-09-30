@@ -163,3 +163,55 @@ else what its covering tests take once, for each of its mutants.
 
 Hold it with the tests that assert what it does: `#[Holds('<path>')]` on
 them, or the `holds:<path>` group under Pest.
+
+## verdict-not-required
+
+`doctor --online` found that the repository's default branch does not require
+the check-run the verdict reports under, `ci.check`, in any ruleset or branch
+protection rule. So a pull request whose verdict failed can still be merged.
+
+Require the status check `mutation / verdict`, or whatever `ci.check` names,
+on the default branch in a ruleset or a branch protection rule.
+
+## fork-approval-weak
+
+`doctor --online` found that the workflows of a pull request from a fork run
+without a maintainer's approval unless its author is a first-time
+contributor. A fork's pull request runs its own code in the gate's jobs, and
+can spend the runners' minutes.
+
+Require approval for all external contributors, under Settings, Actions,
+General, in the approval for running fork pull request workflows from
+contributors.
+
+## schedule-not-running
+
+`doctor --online` found that no GitHub workflow that runs the gate ran on a
+schedule in the last 8 days, or that GitHub disabled one after 60 days
+without activity in the repository. The scheduled run keeps the default
+branch's ledger current, which every pull request starts from.
+
+Enable a disabled workflow again, with `gh workflow enable` or in the Actions
+tab. Otherwise run the gate on a schedule, such as
+`on: schedule: [{cron: '0 3 * * 1'}]` in its workflow.
+
+## online-unread
+
+GitHub did not show `doctor --online` one of the settings it reads, which is
+usually a matter of the token's permissions. doctor cannot tell whether that
+setting is set as the gate needs, and a run is not affected.
+
+Run `doctor --online` with a `GITHUB_TOKEN` or `GH_TOKEN` that has the
+permission the finding names: `contents: read` for the required checks,
+`administration: read` for the fork approval policy, and `actions: read`
+for the scheduled runs.
+
+## no-github-repository
+
+`doctor --online` found no repository on GitHub to read: `GITHUB_REPOSITORY`
+is not set, and git's `origin` remote is not on GitHub's host. Every other
+check still ran.
+
+Run `doctor --online` where `GITHUB_REPOSITORY` names the repository, as
+`owner/name`, or where the `origin` remote is on GitHub. On an Enterprise
+server, set `GITHUB_SERVER_URL` and `GITHUB_API_URL`.

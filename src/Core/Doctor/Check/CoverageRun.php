@@ -42,7 +42,7 @@ final readonly class CoverageRun
 
     public static function in(Observations $observed): Findings
     {
-        $measured = $observed->measurement();
+        $measured = $observed->asked()->measurement();
         $coverage = $measured instanceof Measurement ? $measured->coverage() : false;
 
         return match (true) {

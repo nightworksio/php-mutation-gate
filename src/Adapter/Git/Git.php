@@ -41,7 +41,8 @@ use function trim;
  * base of a revision and HEAD to what is on disk, every file that is not
  * ignored with its blob id, and a file as it was at a revision. Uncommitted
  * changes and untracked files count. It also says the commit HEAD is at, the
- * branch it is on, and the branch the remote calls its default.
+ * branch it is on, the branch the remote calls its default, and the URL
+ * that remote fetches from.
  *
  * A revision is resolved to its commit once, the first time a file is read
  * at it, so every file read at it is read at the same commit, and the files
@@ -158,6 +159,14 @@ final class Git implements ChangeSource, Repository
         return $target instanceof CannotTell
             ? CannotTell::because(sprintf(self::NO_ORIGIN_HEAD, self::ORIGIN_HEAD))
             : RunOn::branchNamed(mb_substr(trim($target), mb_strlen(self::ORIGIN)));
+    }
+
+    /** The URL git's `origin` remote fetches from, as git spells it. */
+    public function originUrl(): string|CannotTell
+    {
+        $url = $this->git->run(['remote', 'get-url', '--', 'origin']);
+
+        return $url instanceof CannotTell ? $url : trim($url);
     }
 
     /**

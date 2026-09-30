@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
 use NightWorksIO\MutationGate\Cli\Doctor\Measure;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
+use NightWorksIO\MutationGate\Cli\Doctor\Online;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
@@ -32,6 +33,7 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\HttpClient\HttpClient;
 
 /** The command line: every command the README lists, with `run` when none is named. */
 final readonly class Console
@@ -112,6 +114,7 @@ final readonly class Console
         $application->addCommand(Doctor::command(
             new Observed($project, $extensions, $effective, $detected, $probe, $now),
             new Measure($composition),
+            new Online($project, $environment, HttpClient::create()),
             $installed instanceof Installed ? Guide::installedIn($installed) : Guide::unreleased(),
         ));
         $application->setDefaultCommand(self::DEFAULT);

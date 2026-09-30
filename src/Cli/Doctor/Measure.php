@@ -41,10 +41,12 @@ final readonly class Measure
         $composed = $this->composition->compose($input);
 
         return match (true) {
-            $composed instanceof Composed => $observed->withMeasurement(
-                $this->measured($composed->adapters, $composed->settings),
+            $composed instanceof Composed => $observed->withAsked(
+                $observed->asked()->withMeasurement($this->measured($composed->adapters, $composed->settings)),
             ),
-            $composed instanceof CannotJudge => $observed->withMeasurement($this->failed($composed)),
+            $composed instanceof CannotJudge => $observed->withAsked(
+                $observed->asked()->withMeasurement($this->failed($composed)),
+            ),
             default => $observed,
         };
     }

@@ -34,7 +34,12 @@
                             "ledger-slows-runs",
                             "coverage-run-failed",
                             "coverage-empty",
-                            "hot-path-unheld"
+                            "hot-path-unheld",
+                            "verdict-not-required",
+                            "fork-approval-weak",
+                            "schedule-not-running",
+                            "online-unread",
+                            "no-github-repository"
                         ]
                     },
                     "severity": {

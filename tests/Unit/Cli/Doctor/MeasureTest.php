@@ -30,7 +30,7 @@ it('runs the whole suite once under coverage, withholding every CI\'s tokens, an
 ): void {
     $project = FlowCommands::project();
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
-    $measured = $measuring($project, $runner)->measurement();
+    $measured = $measuring($project, $runner)->asked()->measurement();
     $withheld = $runner->ran()[0]->withheld();
 
     expect($measured)->toBeInstanceOf(Measurement::class)
@@ -45,7 +45,7 @@ it('measures why the suite could not be run, from the coverage run or from findi
     Runner $runner,
     string $why,
 ) use ($measuring): void {
-    $measured = $measuring(FlowCommands::project(), $runner)->measurement();
+    $measured = $measuring(FlowCommands::project(), $runner)->asked()->measurement();
 
     expect($measured instanceof Measurement ? $measured->coverage() : null)->toEqual(CannotJudge::because($why));
 })->with([
@@ -59,12 +59,12 @@ it('measures why the suite could not be run, from the coverage run or from findi
 it('measures nothing where the config is invalid, which its own check reports', function () use ($measuring): void {
     $project = FlowCommands::project('"shards": {"max": 0}');
 
-    expect($measuring($project, ScriptedRunner::fixture())->measurement())->toEqual(NotGiven::value());
+    expect($measuring($project, ScriptedRunner::fixture())->asked()->measurement())->toEqual(NotGiven::value());
 });
 
 it('measures why a run could not be built from a valid config', function () use ($measuring): void {
     $project = FlowCommands::project('"extensions": ["Acme\\\\Nowhere"]');
-    $measured = $measuring($project, ScriptedRunner::fixture())->measurement();
+    $measured = $measuring($project, ScriptedRunner::fixture())->asked()->measurement();
 
     expect($measured instanceof Measurement ? $measured->coverage() : null)->toBeInstanceOf(CannotJudge::class)
         ->and($measured instanceof Measurement ? count($measured->held()) : -1)->toBe(0);
