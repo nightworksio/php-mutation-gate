@@ -22,6 +22,9 @@ import json
 import os
 import sys
 
+# Each value below that the gate also holds is tied to the gate's own by
+# tests/Arch/TheActionScriptAgreesWithTheGateTest.php.
+
 # The events that run the default branch's workflow with a token or a cache
 # that can write, over content a pull request supplies (ADR-0019). The gate
 # never runs under them, so it never saves a ledger under them (C2.1).
