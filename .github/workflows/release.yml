@@ -5,7 +5,8 @@ name: release
 #
 # - Drafting, on workflow_dispatch: the next version from the commits since the
 #   last tag, its CHANGELOG.md section from git-cliff, and the pull request
-#   `release/vX.Y.Z`, opened or updated as the App.
+#   `release/vX.Y.Z`, opened as the App. A dispatch for a version whose
+#   branch exists is refused, so it never discards edits made there.
 # - Signing: the maintainer edits and merges that pull request, runs
 #   `git tag -s vX.Y.Z` on the squash commit and pushes the tag.
 # - Publishing, on that tag: the tag's signature is checked against
@@ -83,10 +84,11 @@ jobs:
           private-key: ${{ secrets.MUTATION_GATE_BOT_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
-      # The branch starts from main's head each time, and the commit goes
-      # through createCommitOnBranch with no custom author, so GitHub signs it
-      # and CI starts on it.
-      - name: Open or update the release pull request
+      # The branch starts from main's head, and the commit goes through
+      # createCommitOnBranch with no custom author, so GitHub signs it and CI
+      # starts on it. A branch that exists may hold the maintainer's edits of
+      # the section, so it is never reset.
+      - name: Open the release pull request
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           VERSION: ${{ steps.version.outputs.version }}
@@ -98,10 +100,10 @@ jobs:
           branch="release/v${VERSION}"
           head="$(git rev-parse HEAD)"
           if gh api "${repository}/git/ref/heads/${branch}" --silent 2>/dev/null; then
-            gh api --method PATCH "${repository}/git/refs/heads/${branch}" -f sha="${head}" -F force=true --silent
-          else
-            gh api "${repository}/git/refs" -f ref="refs/heads/${branch}" -f sha="${head}" --silent
+            echo "::error::${branch} exists, and may hold edits of its changelog section. Edit its pull request, or delete the branch to draft v${VERSION} again."
+            exit 1
           fi
+          gh api "${repository}/git/refs" -f ref="refs/heads/${branch}" -f sha="${head}" --silent
           changed=(CHANGELOG.md)
           if ! git diff --quiet -- .github/scripts/gate_action.py; then
             changed+=(.github/scripts/gate_action.py)
@@ -200,15 +202,24 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Everything here is the commit `verify` and the gate judged, never
+      # the tag read again by name: a tag moved since then is refused.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
+          tagged="$(gh api "repos/${GITHUB_REPOSITORY}/commits/refs/tags/${TAG}" --jq .sha)"
+          if [ "${tagged}" != "${COMMIT}" ]; then
+            echo "::error::${TAG} is at ${tagged} now, not at ${COMMIT}, which this run verified and judged."
+            exit 1
+          fi
           python3 .github/scripts/release.py notes > "${RUNNER_TEMP}/notes.md"
           gh release create "${TAG}" --repo "${GITHUB_REPOSITORY}" --verify-tag \
             --title "${TAG}" --notes-file "${RUNNER_TEMP}/notes.md"
@@ -216,11 +227,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
           repository="repos/${GITHUB_REPOSITORY}"
           major="${TAG%%.*}"
-          commit="$(git rev-parse HEAD)"
+          commit="${COMMIT}"
           if gh api "${repository}/git/ref/tags/${major}" --silent 2>/dev/null; then
             gh api --method PATCH "${repository}/git/refs/tags/${major}" -f sha="${commit}" -F force=true --silent
           else

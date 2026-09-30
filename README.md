@@ -746,7 +746,7 @@ permissions:
 
 jobs:
   mutation:
-    name: mutation testing
+    name: mutation / verdict # the check ci.check names by default
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -813,9 +813,10 @@ It takes the action's inputs less `shard`, and the optional secrets
 proof store, `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`,
 `MUTATION_GATE_WEBHOOK_URL` and `MUTATION_GATE_WEBHOOK_SECRET` for chat alerts,
 and `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` for
-OpenTelemetry. Its outputs are `verdict`, `scores` and `plan`, and it uploads the
-reports as the artifact `mutation-gate-reports`, and a baseline measured for
-trees with no floor as `mutation-gate-baseline`.
+OpenTelemetry. Each reaches only the step that uses it: the store's keys the
+plan and the verdict, the others the verdict. Its outputs are `verdict`,
+`scores` and `plan`, and it uploads the reports as the artifact
+`mutation-gate-reports`.
 
 The reusable workflow reaches S3 with those key secrets only. To assume an AWS
 role through OIDC instead, call the one-step action in a job of your own: give
@@ -825,10 +826,13 @@ default branch may deploy to, or the job's `job_workflow_ref`.
 
 Here is what the examples rely on:
 
-- **Branch protection** should require the verdict's check. In the one-step
-  example it is `mutation testing`. With the reusable workflow it is the
-  `verdict` job, shown as `mutation / verdict`. The verdict says *cannot
-  judge* (exit code 2) when any planned shard left no result.
+- **Branch protection** should require the verdict's check, `mutation /
+  verdict` in both examples: the one-step job is named so, and the reusable
+  workflow's `verdict` job shows as `<calling job> / verdict`. It is also
+  `ci.check`'s default, the check through which a merged pull request's
+  verdict proves its commit; a job named otherwise needs `ci.check` set to its
+  name. The verdict says *cannot judge* (exit code 2) when the plan could not
+  judge, or when any planned shard left no result.
 - **The schedule** is the full run, twice a week.
 - **The badge and trend** are published to a `mutation-gate` branch:
 
