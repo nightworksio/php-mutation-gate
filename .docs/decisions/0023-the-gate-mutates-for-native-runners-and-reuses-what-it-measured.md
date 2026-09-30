@@ -193,9 +193,11 @@ manual.
      and `Test\Finished`, and appends the first killer to the file
      `MUTATION_GATE_RESULTS` names.
    - The gate enforces the timeout on the process.
-   - The first step of the build proves `--test-id-filter-file`, `--extension`
-     and the prepended override on the lowest supported PHPUnit. If PHPUnit
-     12 lacks one of them, the runner supports PHPUnit 13 only.
+   - The runner supports PHPUnit 13.2.0 and later, the first release with
+     `--test-id-filter-file`: PHPUnit 12, 13.0 and 13.1 refuse the option.
+     `--extension` and the prepended override hold from PHPUnit 12.5.8, the
+     lowest the package's `conflict` allows. A lower PHPUnit is cannot judge,
+     naming the version installed.
 
 10. **The PHPUnit runner has everything Pest's has.**
     - **Coverage:** `--coverage-php`, read as the Pest adapter reads it, with
