@@ -193,3 +193,15 @@ it('cannot judge a <source> that excludes every path it includes', function () u
         'phpunit.xml excludes every path its <source> includes, so no tree is left; list trees in the config.',
     ));
 });
+
+it('says every path <source><include> names, none without a phpunit.xml, and why it cannot read one', function () use ($phpunit): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'phpunit.xml', $phpunit('<include><directory>src/</directory><file>lib/helpers.php</file></include><exclude><directory>src/Legacy</directory></exclude>'));
+    $none = Scratch::directory();
+    $broken = Scratch::directory();
+    Scratch::write($broken, 'phpunit.xml', '<phpunit');
+
+    expect(PhpUnitTrees::in($root, Paths::none())->included())->toEqual(Paths::of(Path::of('src'), Path::of('lib/helpers.php')))
+        ->and(PhpUnitTrees::in($none, Paths::none())->included())->toEqual(Paths::none())
+        ->and(PhpUnitTrees::in($broken, Paths::none())->included())->toBeInstanceOf(CannotJudge::class);
+});

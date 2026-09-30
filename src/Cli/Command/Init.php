@@ -5,42 +5,40 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function basename;
+
+use DateTimeImmutable;
+
 use function dirname;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Infection\Import\Choices;
 use NightWorksIO\MutationGate\Cli\CommandLine;
-use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
+use NightWorksIO\MutationGate\Cli\Config\Imported;
+use NightWorksIO\MutationGate\Cli\Config\InfectionFile;
 use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
-use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
-use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
-use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\GitIgnore;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
-use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Score\Exempt;
-use NightWorksIO\MutationGate\Core\Score\Undeclared;
-use NightWorksIO\MutationGate\Core\Tree\Tree;
-use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Import\Import;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
 use function sprintf;
 use function str_ends_with;
 
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -48,52 +46,115 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `init`: a config file holding exactly what zero-config found, so adopting
  * one changes nothing until somebody edits it (ADR-0002): the preset, the
- * runner and the trees. It also keeps `.mutation-gate/` out of git.
+ * runner and the trees. With `--from`, or as `import`, an Infection config
+ * seeds it too, and every key of that file is said to be imported, left in
+ * place or dropped (ADR-0016). It also keeps `.mutation-gate/` out of git.
  */
 final readonly class Init
 {
+    private const string ZERO_CONFIG = 'what zero-config found';
+
+    private const string AND_ZERO_CONFIG = '%s and what zero-config found';
+
     public static function command(
         string $project,
         Extensions $extensions,
         Effective $effective,
         Formats $formats,
+        DateTimeImmutable $now,
     ): Command {
-        return new Command('init')
+        return self::formatted(new Command('init'))
             ->setDescription('Write a config holding what zero-config found')
             ->addOption(
-                'format',
-                mode: InputOption::VALUE_REQUIRED,
-                description: 'php, json, yaml or neon',
-                default: Format::Php->value,
+                'from',
+                mode: InputOption::VALUE_OPTIONAL,
+                description: 'Start from an Infection config: this file, or the one Infection would read',
+                default: false,
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use (
                 $project,
                 $extensions,
                 $effective,
                 $formats,
+                $now,
             ): int {
-                $format = $input->getOption('format');
-                $given = CommandLine::from($input);
-                $destination = Destination::of($project, $given->config, is_string($format) ? $format : '');
+                $from = $input->getOption('from');
+                $file = $from === false ? NotGiven::value() : InfectionFile::named(is_string($from) ? $from : '');
+                $setting = new Setting($project, $extensions, $effective, $formats, $now);
 
-                if ($destination instanceof CannotJudge) {
-                    return Failed::because($output, $destination);
-                }
-
-                $existing = $destination->existing();
-                $settings = $existing instanceof NoConfigFile
-                    ? $effective->settings($given->withoutConfig())
-                    : self::refused($existing);
-                $written = self::written($project, $extensions, $settings, $formats, $destination);
-
-                if (! is_string($written)) {
-                    return Failed::because($output, $written);
-                }
-
-                $output->writeln($written, OutputInterface::OUTPUT_RAW);
-
-                return ExitCode::Passed->value;
+                return self::run($input, $output, $setting, $file);
             });
+    }
+
+    /** `import`: `init --from`, with the Infection config as an argument. */
+    public static function import(
+        string $project,
+        Extensions $extensions,
+        Effective $effective,
+        Formats $formats,
+        DateTimeImmutable $now,
+    ): Command {
+        return self::formatted(new Command('import'))
+            ->setDescription('Write a config from an Infection config and what zero-config found')
+            ->addArgument(
+                'file',
+                mode: InputArgument::OPTIONAL,
+                description: 'The Infection config, where it is not the one Infection would read',
+                default: '',
+            )
+            ->setCode(static function (InputInterface $input, OutputInterface $output) use (
+                $project,
+                $extensions,
+                $effective,
+                $formats,
+                $now,
+            ): int {
+                $file = $input->getArgument('file');
+                $setting = new Setting($project, $extensions, $effective, $formats, $now);
+
+                return self::run($input, $output, $setting, InfectionFile::named(is_string($file) ? $file : ''));
+            });
+    }
+
+    private static function formatted(Command $command): Command
+    {
+        return $command->addOption(
+            'format',
+            mode: InputOption::VALUE_REQUIRED,
+            description: 'php, json, yaml or neon',
+            default: Format::Php->value,
+        );
+    }
+
+    private static function run(
+        InputInterface $input,
+        OutputInterface $output,
+        Setting $setting,
+        InfectionFile|NotGiven $from,
+    ): int {
+        $format = $input->getOption('format');
+        $given = CommandLine::from($input);
+        $destination = Destination::of($setting->project, $given->config, is_string($format) ? $format : '');
+        $file = $from instanceof InfectionFile ? $from->in($setting->project) : NotGiven::value();
+
+        if ($destination instanceof CannotJudge || $file instanceof CannotJudge) {
+            return Failed::because($output, $destination instanceof CannotJudge ? $destination : $file);
+        }
+
+        $existing = $destination->existing();
+        $given = $file instanceof Path ? $given->choosing(Choices::runner()->use()) : $given;
+        $settings = $existing instanceof NoConfigFile
+            ? $setting->effective->settings($given->withoutConfig())
+            : self::refused($existing);
+        $written = self::written($setting, $settings, $destination, $file);
+
+        if (! is_string($written)) {
+            return Failed::because($output, $written);
+        }
+
+        $output->writeln($written, OutputInterface::OUTPUT_RAW);
+
+        return ExitCode::Passed->value;
     }
 
     private static function refused(Path|CannotJudge $existing): CannotJudge
@@ -106,73 +167,58 @@ final readonly class Init
             ));
     }
 
-    /** What was written, said as a sentence, or why nothing was. */
+    /** What was written, said as a sentence, and what became of each imported key, or why nothing was. */
     private static function written(
-        string $project,
-        Extensions $extensions,
+        Setting $setting,
         Settings|Invalid|CannotJudge $settings,
-        Formats $formats,
         Destination $destination,
+        Path|NotGiven $from,
     ): string|Invalid|CannotJudge {
-        $config = self::config($extensions, $settings);
-        $text = $config instanceof Layer
-            ? $formats->file(
-                $config,
+        $import = self::seeded($setting, $settings, $from);
+        $text = $import instanceof Import
+            ? $setting->formats->file(
+                $import->layer(),
                 $destination->format(),
-                ConfigFile::at($destination->file(), Path::of($project)),
+                ConfigFile::at($destination->file(), Path::of($setting->project)),
             )
-            : $config;
+            : $import;
 
-        return is_string($text) ? self::write($project, $destination, $text) : $text;
+        if (! is_string($text)) {
+            return $text;
+        }
+
+        $source = $from instanceof Path ? sprintf(self::AND_ZERO_CONFIG, $from->value()) : self::ZERO_CONFIG;
+        $said = self::write($setting->project, $destination, $text, $source);
+
+        return is_string($said) && $from instanceof Path
+            ? sprintf("%s\n%s", $said, $import->report($from->value()))
+            : $said;
     }
 
-    /** The preset, the runner and the trees zero-config found, as a config, or why there is none to write. */
-    private static function config(
-        Extensions $extensions,
+    /** What zero-config found, with the Infection config imported over it where one is named. */
+    private static function seeded(
+        Setting $setting,
         Settings|Invalid|CannotJudge $settings,
-    ): Layer|Invalid|CannotJudge {
-        if (! $settings instanceof Settings) {
-            return $settings;
+        Path|NotGiven $from,
+    ): Import|Invalid|CannotJudge {
+        $found = ZeroConfig::layer($setting->extensions, $settings);
+
+        if (! $found instanceof Layer) {
+            return $found;
         }
 
-        $source = new Chosen($extensions)->treeSource($settings->treeSource());
-        $trees = $source instanceof Invalid || $source instanceof CannotJudge ? $source : $source->trees();
-
-        return $trees instanceof Trees ? self::found($settings, $trees) : $trees;
+        return $from instanceof Path
+            ? Imported::from($setting->project, $from, $found, $setting->now)
+            : Import::of($found);
     }
 
-    private static function found(Settings $settings, Trees $trees): Layer
-    {
-        $declared = [];
-
-        foreach ($trees as $tree) {
-            $declared[] = self::tree($tree);
-        }
-
-        return Layer::of(
-            Setup::of(
-                presets: $settings->presets(),
-                runner: Choice::of($settings->runner()->choice()->use(), Json::object()),
-            ),
-            Floors::of(trees: Listed::of(...$declared)),
-        );
-    }
-
-    /** A tree as `trees` lists it, with the floor of 0 an exclusion gives it. */
-    private static function tree(Tree $tree): DeclaredTree
-    {
-        $declared = $tree->declared();
-
-        return DeclaredTree::of(
-            $tree->path(),
-            $declared instanceof Exempt ? $declared : Undeclared::floor(),
-            Listed::of(),
-        );
-    }
-
-    /** The config written, said as a sentence. */
-    private static function write(string $project, Destination $destination, string $text): string|CannotJudge
-    {
+    /** The config written, said as a sentence, with where what it holds came from. */
+    private static function write(
+        string $project,
+        Destination $destination,
+        string $text,
+        string $source,
+    ): string|CannotJudge {
         $file = $destination->file()->value();
         $written = Directory::at(dirname($file))->write(Path::of(basename($file)), Contents::of($text));
         $ignored = $written instanceof CannotJudge ? $written : self::ignore(Directory::at($project));
@@ -180,11 +226,12 @@ final readonly class Init
         return match (true) {
             $ignored instanceof CannotJudge => $ignored,
             $ignored => sprintf(
-                'Wrote %s with what zero-config found, and added %s to .gitignore.',
+                'Wrote %s with %s, and added %s to .gitignore.',
                 $destination->shown(),
+                $source,
                 self::ignored(),
             ),
-            default => sprintf('Wrote %s with what zero-config found.', $destination->shown()),
+            default => sprintf('Wrote %s with %s.', $destination->shown(), $source),
         };
     }
 

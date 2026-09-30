@@ -161,6 +161,16 @@ final readonly class Manifest
         );
     }
 
+    /** Where its `autoload` and `autoload-dev` would load each class from. */
+    public function classLocations(): ClassLocations
+    {
+        return ClassLocations::of(
+            Path::of(dirname($this->file->value())),
+            $this->manifest->field('autoload'),
+            $this->manifest->field('autoload-dev'),
+        );
+    }
+
     /** Its `extra.mutation-gate` entry. */
     public function gate(): GateEntry
     {

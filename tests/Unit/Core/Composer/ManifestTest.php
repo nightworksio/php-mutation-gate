@@ -120,6 +120,19 @@ it('reads which path repositories copy their packages, with symlink false, rathe
     expect($manifest->mirroredRepositories())->toEqual(Paths::of(Path::of('packages/*'), Path::of('libs/copied')));
 });
 
+it('reads where its autoload and autoload-dev would load a class from, below its own directory', function (): void {
+    $manifest = Manifest::decode(
+        Contents::of('{"autoload": {"psr-4": {"Acme\\\\": "src/"}}, "autoload-dev": {"psr-4": {"Acme\\\\Tests\\\\": "tests/"}}}'),
+        Path::of('packages/money'),
+    );
+    $files = $manifest instanceof Manifest ? $manifest->classLocations() : null;
+
+    expect($files?->files('Acme\\Tests\\MoneyTest'))->toEqual(Paths::of(
+        Path::of('packages/money/src/Tests/MoneyTest.php'),
+        Path::of('packages/money/tests/MoneyTest.php'),
+    ));
+});
+
 it('reads its extra.mutation-gate entry, which says it as its file', function (): void {
     expect(aManifest('{"extra": {"mutation-gate": {"floor": 90}}}')->gate()->floor())->toEqual(Floor::of(90))
         ->and(aManifest('{"extra": {"mutation-gate": {"extensions": 1}}}', 'modules/billing')->gate()->extensions())

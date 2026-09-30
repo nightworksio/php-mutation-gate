@@ -80,6 +80,14 @@ final readonly class PhpUnitTrees implements TreeSource
         return count($included) > 0 ? $this->source($included, $this->paths($xml, self::EXCLUDED)) : $this->fallback();
     }
 
+    /** Every path `<source><include>` names, none where there is no `phpunit.xml` or it includes none. */
+    public function included(): Paths|CannotJudge
+    {
+        $xml = $this->xml();
+
+        return $xml instanceof CannotJudge ? $xml : $this->paths($xml, self::INCLUDED);
+    }
+
     /**
      * The `<directory>` of every `<testsuite>`, where the tests are, each with
      * the suffix it tells its files of test cases by.

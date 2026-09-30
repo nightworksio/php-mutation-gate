@@ -101,6 +101,12 @@ final readonly class CommandLine
         return clone($this, ['config' => NotGiven::value()]);
     }
 
+    /** This command line, choosing this runner where it chooses none. */
+    public function choosing(string $runner): self
+    {
+        return $this->runner instanceof NotGiven ? $this->withRunner($runner) : $this;
+    }
+
     /** The settings the command line sets, as the last layer of the config, its paths named from the project. */
     public function layer(): Layer|Invalid
     {

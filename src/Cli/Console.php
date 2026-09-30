@@ -90,7 +90,8 @@ final readonly class Console
         $detected = new Detected(Directory::at($project), Directory::at($vendor));
         $effective = new Effective($project, $extensions, $detected, $now);
         $formats = new Formats(class_exists(...));
-        $application->addCommand(Init::command($project, $extensions, $effective, $formats));
+        $application->addCommand(Init::command($project, $extensions, $effective, $formats, $now));
+        $application->addCommand(Init::import($project, $extensions, $effective, $formats, $now));
         $application->addCommand(ConfigShow::command($effective, $formats));
         $application->addCommand(ConfigSchema::command());
         $installed = $detected->installed();
