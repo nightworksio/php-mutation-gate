@@ -69,8 +69,9 @@ final readonly class Wiring
         $proofs = $chosen->proofStore($settings->proofs()->store());
         $costs = $lookup->costModel(Name::of(self::COSTS), $this->costOptions($settings));
         $ci = $chosen->ciPlan($this->ciOf($settings));
-        $changes = $lookup->changeSource(Name::of($source), $this->sourceOptions($settings));
-        $repository = $lookup->repository(Name::of($source), $this->sourceOptions($settings));
+        $withheld = $this->withheld($settings, $chosen, $ci);
+        $changes = $lookup->changeSource(Name::of($source), $this->sourceOptions($settings, $withheld));
+        $repository = $lookup->repository(Name::of($source), $this->sourceOptions($settings, $withheld));
 
         return match (true) {
             ! $runner instanceof Runner => $runner,
@@ -90,19 +91,20 @@ final readonly class Wiring
                 $this->trustedRepository($repository, $proofs),
                 $project,
                 $this->environment,
-                $this->withheld($settings, $chosen, $ci),
+                $withheld,
             ),
         };
     }
 
     /**
-     * What no process that runs the project's code may see: every run's
+     * What no process the gate starts may see, git's and the project's: every run's
      * credentials, `runner.withhold`, and the tokens of every CI the gate
      * knows, whichever plan renders the run, since the job may run on any.
      */
-    private function withheld(Settings $settings, Chosen $chosen, CiPlan $ci): Withheld
+    private function withheld(Settings $settings, Chosen $chosen, CiPlan|Invalid|CannotJudge $ci): Withheld
     {
-        $withheld = Withheld::standard()->and($ci->withheld())->and($settings->runner()->withhold());
+        $withheld = $ci instanceof CiPlan ? Withheld::standard()->and($ci->withheld()) : Withheld::standard();
+        $withheld = $withheld->and($settings->runner()->withhold());
 
         foreach ([self::GITHUB, self::PLAIN, ...array_values(self::DETECTED)] as $plan) {
             $known = $chosen->ciPlan(Choice::of($plan, $this->ciOptions($plan, $settings)));
@@ -167,10 +169,16 @@ final readonly class Wiring
         return $source instanceof PassedPullRequests ? $source->trusting($proofs) : $source;
     }
 
-    /** The version control source's options: the check-run the verdict reports under, which GitHub's verifies. */
-    private function sourceOptions(Settings $settings): Options
+    /**
+     * The version control source's options: the check-run the verdict reports
+     * under, which GitHub's verifies, and what git's own children may not see.
+     */
+    private function sourceOptions(Settings $settings, Withheld $withheld): Options
     {
-        return Options::ofJson(Json::object(Member::of('check', $settings->ci()->check()))->line());
+        return Options::ofJson(Json::object(
+            Member::of('check', $settings->ci()->check()),
+            Member::of('withhold', Json::items(...$withheld)),
+        )->line());
     }
 
     private function costOptions(Settings $settings): Options

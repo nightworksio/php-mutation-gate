@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Git;
 use function array_key_exists;
 use function array_pop;
 use function explode;
+use function getenv;
 use function mb_strlen;
 use function mb_substr;
 
@@ -26,6 +27,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
 
@@ -74,6 +76,14 @@ final class Git implements ChangeSource, Repository
         $root = Root::of($directory);
 
         return new self(Command::in($root->value()), $root);
+    }
+
+    /** The repository from a directory, git itself never seeing what a run withholds. */
+    public static function withholding(string $directory, Withheld $withheld): self
+    {
+        $root = Root::of($directory);
+
+        return new self(Command::withholding($root->value(), $withheld, getenv()), $root);
     }
 
     public function changesSince(Revision $base): Changes|CannotTell

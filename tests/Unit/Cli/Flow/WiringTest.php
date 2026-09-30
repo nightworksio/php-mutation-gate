@@ -76,8 +76,8 @@ it('wires the runner, the store, the learned cost model, the JSON plan and git w
     expect($adapters->runner)->toEqual(RunnerFake::ofTheFixture())
         ->and($adapters->ci)->toEqual(JsonPlan::fromOptions(Options::none()))
         ->and($adapters->costs)->toEqual(MeasuredCosts::fromOptions(Options::none()))
-        ->and($adapters->changes)->toEqual(Git::at('.'))
-        ->and($adapters->repository)->toEqual(Git::at('.'))
+        ->and($adapters->changes)->toEqual(Git::withholding('.', $adapters->withheld))
+        ->and($adapters->repository)->toEqual(Git::withholding('.', $adapters->withheld))
         ->and($adapters->environment)->toEqual(Variables::of([]))
         ->and($adapters->withheld)->toEqual(Withheld::standard()->and(wiringEveryCi()));
 });
@@ -141,6 +141,19 @@ it('withholds every run\'s credentials, the CI\'s tokens and runner.withhold', f
     );
 });
 
+it('hands git what a run withholds, so no process git starts sees a CI token either', function (): void {
+    $settings = Flows::settings(Runner::uses('fake')->withholding(Withheld::of('DEPLOY_*')));
+    $variables = ['CI_JOB_TOKEN' => 'job', 'DEPLOY_KEY' => 'deploy'];
+    $adapters = Environment::during($variables, static fn(): Adapters => wiredOf($settings, Variables::of([])));
+    $plain = Environment::during($variables, static fn(): Git => Git::at('.'));
+    $withheld = $adapters->withheld;
+    $wired = Environment::during($variables, static fn(): Git => Git::withholding('.', $withheld));
+
+    expect($adapters->changes)->toEqual($wired)
+        ->and($adapters->repository)->toEqual($wired)
+        ->and($adapters->changes)->not->toEqual($plain);
+});
+
 it('withholds the tokens of the CI the job runs on, whichever plan the config names', function (): void {
     $withheld = wiredOf(Flows::settings(Ci::json()), Variables::of(['GITLAB_CI' => 'true']))->withheld;
 
@@ -165,20 +178,24 @@ it('hands a plan the config names its template, its step and its definition', fu
         )));
 });
 
-it('reads changes through GitHub under GitHub Actions, checked by ci.check and trusting the store', function (): void {
-    $variables = ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head'];
+it('reads changes through GitHub under GitHub Actions, by ci.check, trusting the store, withholding', function (): void {
+    $variables = ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head', 'CI_JOB_TOKEN' => 'job'];
     $adapters = Environment::during($variables, static fn(): Adapters => wiredOf(
         Flows::settings(Ci::check('gate / verdict')),
         Variables::of(['GITHUB_ACTIONS' => 'true']),
     ));
+    $withheld = $adapters->withheld;
+    $git = Environment::during($variables, static fn(): Git => Git::withholding('.', $withheld));
     $check = new ReflectionProperty(PassedPullRequests::class, 'check');
     $ledgers = new ReflectionProperty(PassedPullRequests::class, 'ledgers');
+    $source = new ReflectionProperty(PassedPullRequests::class, 'source');
 
     expect($adapters->changes)->toBeInstanceOf(PassedPullRequests::class)
         ->and($adapters->repository)->toBeInstanceOf(PassedPullRequests::class)
         ->and($check->getValue($adapters->changes))->toBe('gate / verdict')
         ->and($ledgers->getValue($adapters->changes))->toBe($adapters->proofs)
-        ->and($ledgers->getValue($adapters->repository))->toBe($adapters->proofs);
+        ->and($ledgers->getValue($adapters->repository))->toBe($adapters->proofs)
+        ->and($source->getValue($adapters->changes))->toEqual($git);
 });
 
 it('cannot wire a runner the registry does not have, or one that refuses its options', function (): void {
