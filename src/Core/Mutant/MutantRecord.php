@@ -55,6 +55,17 @@ use function sprintf;
  */
 final readonly class MutantRecord
 {
+    /** The field of a record, and of the JSON report's mutant, that holds the rejection. */
+    public const string REJECTION = 'rejection';
+
+    /** A field of a rejection, as {@see Rejection()} writes it. */
+    public const string ANALYSER = 'analyser';
+
+    /** A field of a rejection, as {@see Rejection()} writes it. */
+    public const string CODE = 'code';
+
+    /** A field of a rejection, as {@see Rejection()} writes it. */
+    public const string MESSAGE = 'message';
     private const string ID = 'id';
 
     private const string LINE = 'line';
@@ -83,14 +94,6 @@ final readonly class MutantRecord
 
     private const string KILLED_BY = 'killedBy';
 
-    private const string REJECTION = 'rejection';
-
-    private const string ANALYSER = 'analyser';
-
-    private const string CODE = 'code';
-
-    private const string MESSAGE = 'message';
-
     /** @return Full */
     public static function full(Mutant $mutant): array
     {
@@ -116,11 +119,21 @@ final readonly class MutantRecord
             ...$judging instanceof Seconds ? [self::TEST_SECONDS => $judging->seconds()] : [],
             ...$reason instanceof Reason ? [self::REASON => $reason->text(), ...self::outOfTime($reason)] : [],
             ...count($mutant->killers()) > 0 ? [self::KILLED_BY => self::idsOf($mutant->killers())] : [],
-            ...$rejection instanceof Rejection ? [self::REJECTION => [
-                self::ANALYSER => $rejection->analyser(),
-                self::CODE => $rejection->finding()->code(),
-                self::MESSAGE => $rejection->finding()->message(),
-            ]] : [],
+            ...$rejection instanceof Rejection ? [self::REJECTION => self::rejection($rejection)] : [],
+        ];
+    }
+
+    /**
+     * A rejection as a record and the JSON report write it.
+     *
+     * @return array{analyser: string, code: string, message: string}
+     */
+    public static function rejection(Rejection $rejection): array
+    {
+        return [
+            self::ANALYSER => $rejection->analyser(),
+            self::CODE => $rejection->finding()->code(),
+            self::MESSAGE => $rejection->finding()->message(),
         ];
     }
 
@@ -208,6 +221,8 @@ final readonly class MutantRecord
 
     /**
      * The mutant, rejected as the record says a static analyser rejected it.
+     * A rejection belongs only to a mutant killed by static analysis, so a
+     * record that gives one any other status contradicts itself.
      *
      * @throws NotInShape
      */
@@ -215,10 +230,17 @@ final readonly class MutantRecord
     {
         $rejection = $record->field(self::REJECTION);
 
-        return $rejection->isPresent() ? $mutant->rejected(Rejection::by(
-            $rejection->field(self::ANALYSER)->text(),
-            Finding::error($rejection->field(self::CODE)->text(), $rejection->field(self::MESSAGE)->text()),
-        )) : $mutant;
+        return match (true) {
+            ! $rejection->isPresent() => $mutant,
+            $mutant->status() !== MutantStatus::KilledByStaticAnalysis => throw NotInShape::at(
+                $rejection->at(),
+                'a rejection only on a mutant killed by static analysis',
+            ),
+            default => $mutant->rejected(Rejection::by(
+                $rejection->field(self::ANALYSER)->text(),
+                Finding::error($rejection->field(self::CODE)->text(), $rejection->field(self::MESSAGE)->text()),
+            )),
+        };
     }
 
     /** @throws NotInShape */

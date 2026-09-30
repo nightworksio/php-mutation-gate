@@ -25,6 +25,7 @@ it('is a kill a ledger proved: its id, its unit and line, its mutator and its ki
         ->and($kill->status())->toBe(MutantStatus::Killed)
         ->and($kill->killers())->toBe($killers)
         ->and($kill->reason())->toEqual(Unreported::reason())
+        ->and($kill->rejection())->toEqual(Unreported::rejection())
         ->and($kill->duration())->toEqual(Unmeasured::duration())
         ->and($kill->limit())->toEqual(Unmeasured::duration());
 });

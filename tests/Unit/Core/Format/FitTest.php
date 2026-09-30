@@ -31,7 +31,8 @@ it('says how many it left out', function (): void {
 it('makes text from outside one plain line, with no control character and valid UTF-8', function (): void {
     expect(Fit::plain("  one\n\ntwo\r\n\tthree  "))->toBe('one two three')
         ->and(Fit::plain("\e[31mred\e[0m\x07"))->toBe('[31mred[0m')
-        ->and(Fit::plain("ok\xC3(\u{85}"))->toBe('ok?(');
+        ->and(Fit::plain("ok\xC3(\u{85}"))->toBe('ok?(')
+        ->and(Fit::plain("left\u{202E}thgir\u{200B}\u{FEFF}"))->toBe('leftthgir');
 });
 
 it('drops every format character, so no text it is shown in is reordered or hidden', function (): void {

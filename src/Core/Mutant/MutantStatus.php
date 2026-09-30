@@ -23,6 +23,18 @@ enum MutantStatus: string
     case IgnoredByMarker = 'ignored-by-marker';
     case Skipped = 'skipped';
 
+    /**
+     * What two runs of the same code must agree on (ADR-0007, decision 3):
+     * the status, but a kill by static analysis and a kill by a test as one,
+     * since whether the analyser checked a mutant before its tests or after
+     * them depends on the run's placement, never on the code (ADR-0020,
+     * decision 11).
+     */
+    public function answer(): self
+    {
+        return $this === self::KilledByStaticAnalysis ? self::Killed : $this;
+    }
+
     /** Whether the mutant's time ran out: it timed out, or was skipped for taking as long as its timeout. */
     public function ranOutOfTime(): bool
     {

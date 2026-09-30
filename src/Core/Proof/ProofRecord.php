@@ -21,9 +21,9 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 
 /**
  * A proof as a ledger holds it, under its key: its unit, the base, the time
- * and the id of the run that established it, its mutants, each killed one as
- * a killed record and every other in full, and the digests of its inputs,
- * where it records them.
+ * and the id of the run that established it, its mutants, each one a test
+ * killed as a killed record and every other in full, and the digests of its
+ * inputs, where it records them.
  *
  * @internal the shape of a proof in the ledger file
  *

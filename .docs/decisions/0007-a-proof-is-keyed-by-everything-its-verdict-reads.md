@@ -249,7 +249,7 @@ has to bring its result with it.
      proved survivor. A timed-out or skipped mutant also keeps its limit
      (ADR-0004), and one a static analyser killed keeps its rejection
      (ADR-0020).
-   - A killed mutant is the tuple `[id, line, mutator, killedBy]`. `mutator`
+   - A mutant a test killed is the tuple `[id, line, mutator, killedBy]`. `mutator`
      is its index in the ledger's `mutators`, and `killedBy` is the indices in
      the ledger's `tests` of the test that killed it first, or of every test
      that failed under a full kill matrix (ADR-0014), and is empty where no

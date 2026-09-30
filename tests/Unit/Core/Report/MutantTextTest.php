@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
@@ -70,4 +72,15 @@ it('names the analyser that rejected a mutant, and the error it found', function
     expect(MutantText::block($rejected, TestNames::none()))
         ->toContain("\n    Rejected by phpstan: return.type: Method Log::id() should return string but returns int.\n")
         ->and(MutantText::block(Judged::listed(Verdicts::everyJudgement())[1], TestNames::none()))->not->toContain('Rejected by');
+});
+
+it('names the rejection in one plain line, whatever the analyser wrote', function (): void {
+    $mutant = Verdicts::mutant('src/Log.php:14', 'CastString', MutatorFamily::Unwrap, Verdicts::diff('return (string) $id;', 'return $id;'))
+        ->rejected(Rejection::by("php\u{202E}stan", Finding::error("x\e[31m", "red\e[0m\n::error::injected\u{200B}\r\n\tend")));
+    $block = MutantText::block(JudgedMutant::of($mutant, MutantJudgement::KilledByStaticAnalysis), TestNames::none());
+
+    expect($block)->toContain("\n    Rejected by phpstan: x[31m: red[0m ::error::injected end\n")
+        ->and($block)->not->toContain("\e")
+        ->and($block)->not->toContain("\n::")
+        ->and($block)->not->toContain("\u{202E}");
 });

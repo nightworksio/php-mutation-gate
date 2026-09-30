@@ -122,3 +122,19 @@ it('is killed by the static analyser that rejected it, none until one did, keepi
         ->and($rejected->duration())->toEqual(Seconds::of(0.1))
         ->and($mutant->status())->toBe(MutantStatus::Survived);
 });
+
+it('keeps no rejection once a budget leaves it unjudged, and no killer once an analyser rejects it', function (): void {
+    $mutant = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-+\n+-", 0),
+        '12',
+        Location::of(Path::of('src/Money.php'), Line::of(4), Unreported::line()),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, "-+\n+-"),
+        MutantStatus::Killed,
+        Seconds::of(0.1),
+    )->killedBy(TestIds::of(TestId::of('MoneyTest::adds')));
+    $rejected = $mutant->rejected(Rejection::by('phpstan', Finding::error('return.type', 'No.')));
+
+    expect($rejected->killers())->toEqual(TestIds::none())
+        ->and($rejected->unjudged(OutOfTime::BeforeMutating)->rejection())->toEqual(Unreported::rejection())
+        ->and($rejected->unjudged(OutOfTime::BeforeMutating)->status())->toBe(MutantStatus::Unjudged);
+});

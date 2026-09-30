@@ -89,13 +89,21 @@ final readonly class Mutant
     /** This mutant, left without a result by a time budget that ran out before this. */
     public function unjudged(OutOfTime $before): self
     {
-        return clone($this, ['status' => MutantStatus::Unjudged, 'reason' => $before->reason()]);
+        return clone($this, [
+            'status' => MutantStatus::Unjudged,
+            'reason' => $before->reason(),
+            'rejection' => Unreported::rejection(),
+        ]);
     }
 
-    /** This mutant, killed by a static analyser that rejected it. */
+    /** This mutant, killed by a static analyser that rejected it, and so by no test anyone knows. */
     public function rejected(Rejection $rejection): self
     {
-        return clone($this, ['status' => MutantStatus::KilledByStaticAnalysis, 'rejection' => $rejection]);
+        return clone($this, [
+            'status' => MutantStatus::KilledByStaticAnalysis,
+            'rejection' => $rejection,
+            'killers' => TestIds::none(),
+        ]);
     }
 
     /**

@@ -185,12 +185,15 @@ final readonly class Invoking
             : new Confirmed($this->replaced($mutants, $left), $this->killed($again));
     }
 
-    /** The ids of those of these mutants that were killed. */
+    /** The ids of those of these mutants that were killed, by a test or by a static analyser. */
     private function killed(Mutants $mutants): MutantIds
     {
         return MutantIds::of(...array_map(
             static fn(Mutant $mutant): MutantId => $mutant->id(),
-            array_filter([...$mutants], static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed),
+            array_filter(
+                [...$mutants],
+                static fn(Mutant $mutant): bool => $mutant->status()->answer() === MutantStatus::Killed,
+            ),
         ));
     }
 }

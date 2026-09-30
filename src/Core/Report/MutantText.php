@@ -10,6 +10,7 @@ use function explode;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
@@ -94,14 +95,18 @@ final readonly class MutantText
         ]);
     }
 
-    /** The line naming the analyser that rejected a mutant, and the error it found. */
+    /**
+     * The line naming the analyser that rejected a mutant, and the error it
+     * found, each part one plain line, since an analyser's words come from
+     * the project's code and custom rules.
+     */
     private static function rejected(Rejection $rejection): string
     {
         return sprintf(
             'Rejected by %s: %s: %s',
-            $rejection->analyser(),
-            $rejection->finding()->code(),
-            $rejection->finding()->message(),
+            Fit::plain($rejection->analyser()),
+            Fit::plain($rejection->finding()->code()),
+            Fit::plain($rejection->finding()->message()),
         );
     }
 

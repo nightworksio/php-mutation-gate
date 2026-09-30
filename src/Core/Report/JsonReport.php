@@ -13,9 +13,9 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
-use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -187,7 +187,6 @@ final readonly class JsonReport
         $end = $mutant->location()->end();
         $duration = $mutant->duration();
         $limit = $mutant->limit();
-        $reason = $mutant->reason();
         $cluster = $judged instanceof JudgedMutant ? $judged->cluster() : Unclustered::mutant();
         $tests = [];
 
@@ -206,8 +205,7 @@ final readonly class JsonReport
                 : [],
             'status' => $mutant->status()->value,
             'judgement' => $judged->judgement()->value,
-            ...$reason instanceof Reason ? ['reason' => $reason->text()] : [],
-            ...self::rejectionOf($mutant),
+            ...self::why($mutant),
             'changedLine' => $judged->isOnChangedLine(),
             'tests' => $tests,
             'coveredBy' => $table->placesOf($matrix->coveredBy($judged)),
@@ -222,19 +220,20 @@ final readonly class JsonReport
     }
 
     /**
-     * The rejection that killed a mutant, where a static analyser did.
+     * Why the mutant stands as it does, where its record says: the reason
+     * its runner gave, and the rejection of the analyser that killed it.
      *
-     * @return array{rejection?: array{analyser: string, code: string, message: string}}
+     * @return array{reason?: string, rejection?: array{analyser: string, code: string, message: string}}
      */
-    private static function rejectionOf(Mutant|ProvedKill $mutant): array
+    private static function why(Mutant|ProvedKill $mutant): array
     {
-        $rejection = $mutant instanceof Mutant ? $mutant->rejection() : Unreported::rejection();
+        $reason = $mutant->reason();
+        $rejection = $mutant->rejection();
 
-        return $rejection instanceof Rejection ? ['rejection' => [
-            'analyser' => $rejection->analyser(),
-            'code' => $rejection->finding()->code(),
-            'message' => $rejection->finding()->message(),
-        ]] : [];
+        return [
+            ...$reason instanceof Reason ? ['reason' => $reason->text()] : [],
+            ...$rejection instanceof Rejection ? [MutantRecord::REJECTION => MutantRecord::rejection($rejection)] : [],
+        ];
     }
 
     /** @return ClusterEntry */

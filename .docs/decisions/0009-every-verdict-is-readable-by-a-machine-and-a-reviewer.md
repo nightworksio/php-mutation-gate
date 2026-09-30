@@ -357,6 +357,7 @@ sees the same verdict.
    | Ignored | An ignore in the config leaves it out of the score. |
    | Ignored by a native marker | A native ignore marker leaves it out of the score. |
    | Killed | A test fails with it in place. |
+   | Killed by static analysis | The static analyser the project runs rejects it, so it could not pass CI, which counts as killed. |
    | Errored | It crashes its tests, which counts as killed. |
    | Killed by timeout | Its tests ran far past their usual time with it in place, so the timeout counts as a kill. |
 

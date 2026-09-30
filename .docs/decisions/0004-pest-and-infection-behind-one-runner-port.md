@@ -439,7 +439,8 @@ its parser attributes. Both change when the checkout moves.
      names it, `<class>::<method>` with `#<data set>` for a data set's test.
      Infection's mutant runs stop at the first defect, so that is the first
      killer. A mutant killed by static analysis, an error or a timeout, or
-     with no such list, carries none.
+     with no such list, carries none, and one killed by static analysis
+     carries no rejection either, since the log names no finding.
    - **Coverage** comes from `vendor/bin/phpunit --coverage-xml=<dir>/coverage-xml
      --log-junit=<dir>/junit.xml`, or `phpUnit.customPath`, with
      `initialTestsPhpOptions` as PHP options, the project's

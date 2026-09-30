@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Matrix\Standing;
 use NightWorksIO\MutationGate\Core\Matrix\TestStanding;
 use NightWorksIO\MutationGate\Core\Matrix\TestStandings;
 use NightWorksIO\MutationGate\Core\Matrix\WholeTest;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
@@ -35,6 +36,11 @@ it('settles each suspicion with a full matrix: a test joins the useless or leave
         ['tests/ETest.php::it does E', Standing::NotAssessed, 0, 1],
     ]);
 });
+
+it('assesses no test by a mutant a static analyser killed, which no test killed first', function (MatrixKind $kind) use ($summary): void {
+    expect($summary(TestStandings::of(Killings::verdict($kind, MutantStatus::KilledByStaticAnalysis)))[4])
+        ->toBe(['tests/ETest.php::it does E', Standing::NotAssessed, 0, 1]);
+})->with([MatrixKind::FirstKiller, MatrixKind::Full]);
 
 it('keeps each row of a data set with what it says on its own', function (): void {
     $b = iterator_to_array(TestStandings::of(Killings::verdict(MatrixKind::FirstKiller)), preserve_keys: false)[1];

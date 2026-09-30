@@ -288,9 +288,9 @@ it('leaves every invocation\'s mutants in one result, with what each skipped add
         ->and($runner->retries())->toBe([]);
 });
 
-it('runs each survivor once more and keeps those killed then as flaky', function () use ($resultIn, $flaky): void {
+it('runs each survivor once more and keeps those killed then as flaky', function (MutantStatus $killed) use ($resultIn, $flaky): void {
     $project = Flows::project();
-    $runner = ScriptedRunner::fixture()->killingAgain();
+    $runner = ScriptedRunner::fixture()->killingAgain($killed);
     $adapters = Flows::adapters($project, [], $runner);
 
     new Running($adapters, Flows::settings(), Flows::setup())
@@ -316,7 +316,7 @@ it('runs each survivor once more and keeps those killed then as flaky', function
             static fn(Mutant $mutant): string => $mutant->id()->value(),
             [...$retries[0][0], ...$retries[1][0]],
         ));
-});
+})->with(['by a test' => [MutantStatus::Killed], 'by a static analyser' => [MutantStatus::KilledByStaticAnalysis]]);
 
 it('keeps no survivor as flaky that survives again', function () use ($resultIn, $flaky): void {
     $project = Flows::project();

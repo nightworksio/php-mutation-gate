@@ -122,9 +122,15 @@ final readonly class TestStandings implements Countable, IteratorAggregate
         };
     }
 
-    /** Whether the gate counts the mutant as killed, so a test the run stopped before ran behind its first kill. */
+    /**
+     * Whether a test killed the mutant first, so a test the run stopped
+     * before ran behind that kill. A mutant killed with no killer known, as
+     * by a static analyser before any test ran, had no first kill to run
+     * behind.
+     */
     private static function wasKilled(JudgedMutant|JudgedKill $judged): bool
     {
-        return $judged->judgement()->scoring(Uncovered::Count) === Scoring::Killed;
+        return $judged->judgement()->scoring(Uncovered::Count) === Scoring::Killed
+            && count($judged->mutant()->killers()) > 0;
     }
 }
