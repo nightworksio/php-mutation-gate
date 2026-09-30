@@ -5,17 +5,16 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function array_key_exists;
-use function array_keys;
 use function array_merge;
 use function dirname;
 use function hrtime;
 use function is_int;
 
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
-use function preg_match;
 use function preg_match_all;
 use function sprintf;
 
@@ -81,27 +80,19 @@ final readonly class ProcessShell implements Shell
     }
 
     /**
-     * The inherited variables the process must not see, each set to false,
-     * and the `PATH` it starts with.
+     * Every variable the process inherits, each it must not see as false, and
+     * the `PATH` it starts with.
      *
      * @return array<string, string|false>
      */
     private function scrubbed(Withheld $withheld): array
     {
-        $never = $withheld->and($this->otherRuns())->pattern();
-        $scrubbed = [];
-
-        foreach (array_keys($this->inherited) as $name) {
-            if (preg_match($never, $name) === 1) {
-                $scrubbed[$name] = false;
-            }
-        }
-
+        $environment = Withholding::of($withheld->and(self::otherRuns()), $this->inherited);
         $path = 'PATH';
         $inherited = array_key_exists($path, $this->inherited) ? $this->inherited[$path] : '';
-        $scrubbed[$path] = sprintf('%s%s%s', dirname(PHP_BINARY), PATH_SEPARATOR, $inherited);
+        $environment[$path] = sprintf('%s%s%s', dirname(PHP_BINARY), PATH_SEPARATOR, $inherited);
 
-        return $scrubbed;
+        return $environment;
     }
 
     private function since(int|float $started): Seconds
