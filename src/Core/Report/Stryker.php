@@ -97,7 +97,7 @@ final readonly class Stryker
         ];
     }
 
-    /** Judging tests, the hint and the reproduce command, one to a line. */
+    /** Judging tests, the hint, and the reproduce and explain commands, one to a line. */
     private static function description(JudgedMutant $judged): string
     {
         $tests = [];
@@ -110,6 +110,7 @@ final readonly class Stryker
             ...count($tests) > 0 ? [sprintf('Judged by: %s', implode(', ', $tests))] : [],
             $judged->hint()->text(),
             sprintf('Reproduce: %s', $judged->reproduce()),
+            sprintf('Explain: %s', $judged->explain()),
         ]);
     }
 
@@ -124,7 +125,7 @@ final readonly class Stryker
             MutantJudgement::Flaky,
             MutantJudgement::TooSlowToJudge => 'Survived',
             MutantJudgement::Uncovered => $uncovered === Uncovered::Exclude ? 'Ignored' : 'NoCoverage',
-            MutantJudgement::Ignored, MutantJudgement::IgnoredByMarker => 'Ignored',
+            MutantJudgement::Ignored, MutantJudgement::IgnoredByMarker, MutantJudgement::Equivalent => 'Ignored',
         };
     }
 }

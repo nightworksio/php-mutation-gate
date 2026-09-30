@@ -5,6 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -13,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('holds nothing to begin with', function (): void {
     expect(JudgedMutants::none())->toHaveCount(0);
@@ -81,4 +84,18 @@ it('lists the mutants on changed lines, in reported order', function (): void {
 
     expect(Judged::natives($mutants->changed()))->toBe(['a', 'c'])
         ->and(array_keys(iterator_to_array($mutants->changed(), preserve_keys: true)))->toBe([0, 1]);
+});
+
+it('proves equivalent the survivors among these ids, and leaves every other mutant as it was', function (): void {
+    $at = static fn(int $line, MutantJudgement $judgement): JudgedMutant => JudgedMutant::of(
+        Verdicts::mutant(sprintf('src/Money.php:%d', $line), 'Plus', MutatorFamily::Arithmetic, Verdicts::diff(sprintf('$a%d + $b;', $line), sprintf('$a%d - $b;', $line))),
+        $judgement,
+    );
+    $mutants = JudgedMutants::of($at(1, MutantJudgement::Survived), $at(2, MutantJudgement::Killed), $at(3, MutantJudgement::Survived));
+    $all = iterator_to_array($mutants, preserve_keys: false);
+    $proven = $mutants->provenEquivalent(MutantIds::of($all[0]->mutant()->id(), $all[1]->mutant()->id()));
+
+    expect(array_map(static fn(JudgedMutant $mutant): MutantJudgement => $mutant->judgement(), iterator_to_array($proven, preserve_keys: false)))
+        ->toBe([MutantJudgement::Equivalent, MutantJudgement::Killed, MutantJudgement::Survived])
+        ->and(Judged::natives($proven))->toBe(['native-1', 'native-2', 'native-3']);
 });

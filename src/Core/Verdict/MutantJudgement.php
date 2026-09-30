@@ -30,6 +30,8 @@ enum MutantJudgement: string
     case Ignored = 'ignored';
     /** The runner's own marker or config ignored it, where the config allows that. */
     case IgnoredByMarker = 'ignored-by-marker';
+    /** It survived, and compiles to the same program as the original, so no test can fail on it (ADR-0013). */
+    case Equivalent = 'equivalent';
 
     /**
      * The judgement a status comes to before any triage: a timeout is a kill
@@ -55,7 +57,7 @@ enum MutantJudgement: string
     {
         return match ($this) {
             self::Killed, self::Errored, self::KilledByTimeout => Scoring::Killed,
-            self::Ignored, self::IgnoredByMarker => Scoring::LeftOut,
+            self::Ignored, self::IgnoredByMarker, self::Equivalent => Scoring::LeftOut,
             self::Uncovered => $uncovered === Uncovered::Exclude ? Scoring::LeftOut : Scoring::NotKilled,
             self::Survived, self::Unjudged, self::Flaky, self::TooSlowToJudge => Scoring::NotKilled,
         };

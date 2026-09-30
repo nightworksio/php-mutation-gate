@@ -24,7 +24,7 @@ $indented = static fn(string $block): string => implode("\n", array_map(
     explode("\n", $block),
 ));
 
-it('prints the verdict, the trees, new code, units, reach, what was not killed, ignores, failures and warnings', function () use ($printed, $indented): void {
+it('prints the verdict, the trees, new code, units, reach, what was not killed, ignores, equivalents, failures and warnings', function () use ($printed, $indented): void {
     $blocks = [];
 
     foreach (Verdicts::failing()->trees() as $tree) {
@@ -59,6 +59,9 @@ it('prints the verdict, the trees, new code, units, reach, what was not killed, 
         'Ignored',
         sprintf('  %s: Logging is asserted in the integration suite', MutantText::heading($ignored[7])),
         sprintf('  %s', MutantText::heading($ignored[8])),
+        '',
+        'Equivalent, proven',
+        sprintf('  %s', MutantText::heading($ignored[10])),
         '',
         'Failures',
         '  The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.',

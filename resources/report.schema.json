@@ -70,6 +70,10 @@
                 "ignored-by-marker": {
                     "type": "integer",
                     "minimum": 0
+                },
+                "equivalent": {
+                    "type": "integer",
+                    "minimum": 0
                 }
             },
             "required": [
@@ -82,7 +86,8 @@
                 "flaky",
                 "too-slow-to-judge",
                 "ignored",
-                "ignored-by-marker"
+                "ignored-by-marker",
+                "equivalent"
             ],
             "additionalProperties": false
         },
@@ -180,6 +185,10 @@
                             "ignored-by-marker": {
                                 "type": "integer",
                                 "minimum": 0
+                            },
+                            "equivalent": {
+                                "type": "integer",
+                                "minimum": 0
                             }
                         },
                         "required": [
@@ -192,7 +201,8 @@
                             "flaky",
                             "too-slow-to-judge",
                             "ignored",
-                            "ignored-by-marker"
+                            "ignored-by-marker",
+                            "equivalent"
                         ],
                         "additionalProperties": false
                     },
@@ -311,6 +321,10 @@
                             "ignored-by-marker": {
                                 "type": "integer",
                                 "minimum": 0
+                            },
+                            "equivalent": {
+                                "type": "integer",
+                                "minimum": 0
                             }
                         },
                         "required": [
@@ -323,7 +337,8 @@
                             "flaky",
                             "too-slow-to-judge",
                             "ignored",
-                            "ignored-by-marker"
+                            "ignored-by-marker",
+                            "equivalent"
                         ],
                         "additionalProperties": false
                     },
@@ -410,7 +425,8 @@
                             "flaky",
                             "too-slow-to-judge",
                             "ignored",
-                            "ignored-by-marker"
+                            "ignored-by-marker",
+                            "equivalent"
                         ]
                     },
                     "reason": {
@@ -429,6 +445,9 @@
                         "type": "string"
                     },
                     "reproduce": {
+                        "type": "string"
+                    },
+                    "explain": {
                         "type": "string"
                     },
                     "seconds": {
@@ -452,7 +471,8 @@
                     "changedLine",
                     "tests",
                     "hint",
-                    "reproduce"
+                    "reproduce",
+                    "explain"
                 ],
                 "additionalProperties": false
             }

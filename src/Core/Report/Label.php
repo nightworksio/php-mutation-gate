@@ -15,6 +15,7 @@ final readonly class Label
             MutantJudgement::KilledByTimeout => 'killed by timeout',
             MutantJudgement::TooSlowToJudge => 'too slow to judge',
             MutantJudgement::IgnoredByMarker => 'ignored by a native marker',
+            MutantJudgement::Equivalent => 'equivalent, proven',
             MutantJudgement::Killed,
             MutantJudgement::Errored,
             MutantJudgement::Survived,

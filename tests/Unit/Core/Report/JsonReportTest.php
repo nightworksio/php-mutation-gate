@@ -55,6 +55,7 @@ it('writes the verdict, the project and each tree', function (): void {
         ->and(Decoded::at($report, 'counts'))->toBe([
             'killed' => 1, 'errored' => 1, 'killed-by-timeout' => 1, 'survived' => 1, 'uncovered' => 1,
             'unjudged' => 1, 'flaky' => 1, 'too-slow-to-judge' => 1, 'ignored' => 1, 'ignored-by-marker' => 1,
+            'equivalent' => 1,
         ])
         ->and(Decoded::at($report, 'trees', 0))->toMatchArray([
             'path' => 'src',
@@ -72,7 +73,7 @@ it('writes the verdict, the project and each tree', function (): void {
             ],
         ])
         ->and(Decoded::at($report, 'trees', 0))->not->toHaveKey('raised')
-        ->and(Decoded::at($report, 'trees', 0, 'mutants'))->toHaveCount(10)
+        ->and(Decoded::at($report, 'trees', 0, 'mutants'))->toHaveCount(11)
         ->and(Decoded::at($report, 'trees', 1))->toMatchArray(['path' => 'app/Legacy', 'exempt' => 'Replaced by the new billing module', 'judgement' => 'exempt'])
         ->and(Decoded::at($report, 'trees', 1))->not->toHaveKeys(['declared', 'baseline', 'floor', 'score', 'base'])
         ->and(Decoded::at($report, 'trees', 2))->toMatchArray(['path' => 'src/Empty', 'floor' => 90.0, 'judgement' => 'nothing-to-mutate'])
@@ -85,17 +86,18 @@ it('writes the verdict, the project and each tree', function (): void {
             'counts' => [
                 'killed' => 0, 'errored' => 0, 'killed-by-timeout' => 0, 'survived' => 1, 'uncovered' => 0,
                 'unjudged' => 0, 'flaky' => 0, 'too-slow-to-judge' => 0, 'ignored' => 0, 'ignored-by-marker' => 0,
+                'equivalent' => 0,
             ],
             'mutants' => [Verdicts::survivor()->mutant()->id()->value()],
         ]]);
 });
 
-it('writes every mutant once, with its judgement, tests, hint and reproduce command', function (): void {
+it('writes every mutant once, with its judgement, tests, hint, and reproduce and explain commands', function (): void {
     $report = JsonReport::encode(Verdicts::failing());
     $survivor = Verdicts::survivor();
     $id = $survivor->mutant()->id()->value();
 
-    expect(Decoded::at($report, 'mutants'))->toHaveCount(10)
+    expect(Decoded::at($report, 'mutants'))->toHaveCount(11)
         ->and(Decoded::at($report, 'mutants', 0))->toBe([
             'id' => $id,
             'file' => 'src/Money.php',
@@ -110,10 +112,12 @@ it('writes every mutant once, with its judgement, tests, hint and reproduce comm
             'tests' => ['MoneyTest::fits', 'MoneyTest::refuses', 'PriceTest::adds', 'CartTest::totals'],
             'hint' => $survivor->hint()->text(),
             'reproduce' => sprintf('vendor/bin/mutation-gate reproduce %s', $id),
+            'explain' => sprintf('vendor/bin/mutation-gate explain %s', $id),
         ])
         ->and(Decoded::at($report, 'mutants', 4))->toMatchArray(['judgement' => 'unjudged', 'reason' => 'The run\'s budget ran out before it.'])
         ->and(Decoded::at($report, 'mutants', 5))->toMatchArray(['judgement' => 'too-slow-to-judge', 'limit' => 5.0])
-        ->and(Decoded::at($report, 'mutants', 7))->toMatchArray(['judgement' => 'ignored', 'reason' => 'Logging is asserted in the integration suite']);
+        ->and(Decoded::at($report, 'mutants', 7))->toMatchArray(['judgement' => 'ignored', 'reason' => 'Logging is asserted in the integration suite'])
+        ->and(Decoded::at($report, 'mutants', 10))->toMatchArray(['status' => 'survived', 'judgement' => 'equivalent']);
 });
 
 it('writes a run cut short, a unit a filter holds, the seconds a mutant ran and the floor a tree raises', function (): void {

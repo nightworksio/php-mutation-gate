@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\CodeQualityReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
@@ -43,6 +44,8 @@ $reporters = [
     'JSON' => fn(): Reporter => JsonReportFile::at(sprintf('%s/mutation.json', Scratch::directory())),
     'JUnit' => fn(): Reporter => JUnitReportFile::at(sprintf('%s/junit.xml', Scratch::directory())),
     'SARIF' => fn(): Reporter => SarifReportFile::at(sprintf('%s/mutation.sarif', Scratch::directory())),
+    'SARIF for an editor' => fn(): Reporter => SarifReportFile::rootedAt(sprintf('%s/mutation.sarif', Scratch::directory()), '/work/gate'),
+    'GitLab Code Quality' => fn(): Reporter => CodeQualityReportFile::at(sprintf('%s/gl-code-quality.json', Scratch::directory())),
     'HTML' => fn(): Reporter => HtmlReportDirectory::at(
         sprintf('%s/html', Scratch::directory()),
         Scratch::directory(),

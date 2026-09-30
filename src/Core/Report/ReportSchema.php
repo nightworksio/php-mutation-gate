@@ -147,6 +147,7 @@ final readonly class ReportSchema
             'tests' => self::listOf(self::TEXT),
             'hint' => self::TEXT,
             'reproduce' => self::TEXT,
+            'explain' => self::TEXT,
             'seconds' => self::SECONDS,
             'limit' => self::SECONDS,
         ], ['end', 'reason', 'seconds', 'limit']);

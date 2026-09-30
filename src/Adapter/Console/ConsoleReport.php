@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Console;
 use function count;
 use function explode;
 use function implode;
+use function in_array;
 
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
@@ -34,8 +35,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  * The reporter `console`, which every run has: the verdict, every tree and
  * new-code set, the units and where their results came from, what the change
  * reached and why, every mutant the score counts as not killed with its diff,
- * hint, judging tests and reproduce command, the ignored mutants with their
- * reasons, the floors that can rise, and the failures and warnings.
+ * hint, judging tests, reproduce and explain commands, the ignored mutants
+ * with their reasons, the mutants proven equivalent, the floors that can
+ * rise, and the failures and warnings.
  */
 final readonly class ConsoleReport implements Configurable, Reporter
 {
@@ -69,7 +71,11 @@ final readonly class ConsoleReport implements Configurable, Reporter
             ...$this->section('Units', $this->units($verdict)),
             ...$this->section('Reach', $this->texts($verdict->reach())),
             ...$this->section(sprintf('Not killed (%d)', count($overview->survivors())), $this->survivors($overview)),
-            ...$this->section('Ignored', $this->ignored($verdict)),
+            ...$this->section(
+                'Ignored',
+                $this->leftOut($verdict, MutantJudgement::Ignored, MutantJudgement::IgnoredByMarker),
+            ),
+            ...$this->section('Equivalent, proven', $this->leftOut($verdict, MutantJudgement::Equivalent)),
             ...$this->section('Floors that can rise', $this->raised($verdict)),
             ...$this->section('Failures', $this->texts($verdict->failures())),
             ...$this->section('Warnings', $this->texts($verdict->warnings())),
@@ -164,15 +170,17 @@ final readonly class ConsoleReport implements Configurable, Reporter
         return $blocks === [] ? [] : [implode("\n\n", $blocks)];
     }
 
-    /** @return list<string> */
-    private function ignored(Verdict $verdict): array
+    /**
+     * The mutants so judged, each with the reason its record gives.
+     *
+     * @return list<string>
+     */
+    private function leftOut(Verdict $verdict, MutantJudgement ...$judgements): array
     {
         $lines = [];
 
         foreach ($verdict->mutants() as $judged) {
-            $judgement = $judged->judgement();
-
-            if ($judgement !== MutantJudgement::Ignored && $judgement !== MutantJudgement::IgnoredByMarker) {
+            if (! in_array($judged->judgement(), $judgements, strict: true)) {
                 continue;
             }
 

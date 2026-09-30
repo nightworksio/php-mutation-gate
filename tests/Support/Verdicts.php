@@ -137,6 +137,8 @@ final class Verdicts
             JudgedMutant::of($ignored, Judged::Ignored),
             JudgedMutant::of(self::mutant('src/Log.php:6', 'Concat', Family::None, self::diff('return $a . $b;', 'return $b . $a;')), Judged::IgnoredByMarker),
             JudgedMutant::of(self::mutant('src/Log.php:9', 'Throw_', Family::Exception, self::diff('throw new Refused();', '')), Judged::Errored),
+            JudgedMutant::of(self::mutant('src/Log.php:12', 'ReturnValue', Family::ReturnValue, self::diff('return $x ?? 0;', 'return $x;')), Judged::Survived)
+                ->provenEquivalent(),
         );
     }
 

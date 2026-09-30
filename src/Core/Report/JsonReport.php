@@ -71,6 +71,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     tests: list<string>,
  *     hint: string,
  *     reproduce: string,
+ *     explain: string,
  *     seconds?: float,
  *     limit?: float,
  * }
@@ -183,6 +184,7 @@ final readonly class JsonReport
             'tests' => $tests,
             'hint' => $judged->hint()->text(),
             'reproduce' => $judged->reproduce(),
+            'explain' => $judged->explain(),
             ...$duration instanceof Seconds ? ['seconds' => $duration->seconds()] : [],
             ...$limit instanceof Seconds ? ['limit' => $limit->seconds()] : [],
         ];

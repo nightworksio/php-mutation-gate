@@ -315,11 +315,12 @@ Each reporter is registered by a name:
 
 | Name | When it runs | What it writes |
 |------|--------------|----------------|
-| `console` | Always | The verdict, each tree and new-code set, the units, the reach, every mutant counted as not killed with its diff, judging tests, hint and reproduce command, the ignores, the floors that can rise, failures and warnings |
+| `console` | Always | The verdict, each tree and new-code set, the units, the reach, every mutant counted as not killed with its diff, judging tests, hint, and reproduce and explain commands, the ignores, the mutants proven equivalent, the floors that can rise, failures and warnings |
 | `json` | Listed in `reports` | The gate's own report at `path`, `"format": 1`, described by [`resources/report.schema.json`](resources/report.schema.json); every score and floor in it is a percentage with at most two decimals, truncated |
 | `junit` | Listed in `reports` | JUnit XML at `path`: a suite per tree with a `floor` test case, a `new code` suite, and a `run` suite for failures no floor decides |
-| `sarif` | Listed in `reports` | SARIF 2.1.0 at `path`, for code scanning |
+| `sarif` | Listed in `reports` | SARIF 2.1.0 at `path`, for code scanning; with `CI` unset it also names the repository's root as a `file://` URI, for an editor's SARIF viewer |
 | `html` | Listed in `reports` | `mutation-report.json` and a self-contained `index.html` under the `path` directory, shown with Stryker's viewer |
+| `gitlab` | Listed in `reports` | GitLab's Code Quality JSON at `path`: an issue per mutant counted as not killed, `major` in a set that failed and `minor` otherwise |
 | `github-annotations` | Under GitHub Actions | Up to 10 error, 10 warning and 10 notice annotations, changed lines first |
 | `github-summary` | Under GitHub Actions | The step summary, with every mutant counted as not killed in one table |
 | `github-comment` | On a pull request, with `GITHUB_TOKEN` | One sticky comment, updated in place; `with: {identity: …}` names the account it is found by when the token is not `GITHUB_TOKEN` |
@@ -327,7 +328,10 @@ Each reporter is registered by a name:
 
 Every mutant the score counts as not killed carries its reproduce command,
 `vendor/bin/mutation-gate reproduce <id>`, and a sentence saying what the
-tests miss.
+tests miss. The console, JSON and HTML reports also give
+`vendor/bin/mutation-gate explain <id>`. A survivor proven equivalent
+([ADR-0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md))
+is left out of the score and listed as *equivalent, proven*.
 
 ### Configuration reference
 
@@ -436,7 +440,7 @@ Files the gate reads and writes:
 | `.mutation-gate/publish/badge.json`, `trend.json`, `trend.svg` | The badge and trend | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `.mutation-gate/publish/savings.json` | A shields.io endpoint with the time saved in the last 30 days | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | `.mutation-gate/baseline.measured.json` | The baseline a CI run measured for trees with no floor, to commit as `mutation-gate.baseline.json` | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
-| A `json`, `junit` or `sarif` report's `path` | That report | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| A `json`, `junit`, `sarif` or `gitlab` report's `path` | That report | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | An `html` report's `path`: `index.html`, `mutation-report.json` | The HTML report and its data | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 
 ### Holding tests

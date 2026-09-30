@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\CodeQualityReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
@@ -85,6 +86,7 @@ final readonly class FirstParty implements Extension
                     new SystemClock(),
                 ),
             )
+            ->withReporter(Name::of('gitlab'), CodeQualityReportFile::fromOptions(...))
             ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Git::at(self::HERE))
             ->withRepository(Name::of('git'), static fn(): Repository => Git::at(self::HERE))
             ->withChangeSource(Name::of('github'), static fn(): ChangeSource => self::github())

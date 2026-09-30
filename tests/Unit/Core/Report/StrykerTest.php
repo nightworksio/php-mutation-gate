@@ -59,6 +59,7 @@ it('writes a mutant at its columns, with its judgement, and its tests, hint and 
             'Judged by: MoneyTest::fits, MoneyTest::refuses, PriceTest::adds, CartTest::totals',
             $survivor->hint()->text(),
             sprintf('Reproduce: vendor/bin/mutation-gate reproduce %s', $id),
+            sprintf('Explain: vendor/bin/mutation-gate explain %s', $id),
         ]),
     ]);
 });
@@ -71,8 +72,13 @@ it('gives each judgement the viewer status the gate\'s score treats the same way
         ->and($of('src/Money.php', 'statusReason'))->toBe(['survived', 'killed', 'uncovered'])
         ->and($of('src/Order.php', 'status'))->toBe(['Survived', 'Survived', 'Survived', 'Timeout'])
         ->and($of('src/Order.php', 'statusReason'))->toBe(['flaky', 'unjudged: The run\'s budget ran out before it.', 'too slow to judge', 'killed by timeout'])
-        ->and($of('src/Log.php', 'status'))->toBe(['Ignored', 'Ignored', 'Killed'])
-        ->and($of('src/Log.php', 'statusReason'))->toBe(['ignored: Logging is asserted in the integration suite', 'ignored by a native marker', 'errored']);
+        ->and($of('src/Log.php', 'status'))->toBe(['Ignored', 'Ignored', 'Killed', 'Ignored'])
+        ->and($of('src/Log.php', 'statusReason'))->toBe([
+            'ignored: Logging is asserted in the integration suite',
+            'ignored by a native marker',
+            'errored',
+            'equivalent, proven',
+        ]);
 });
 
 it('ignores an uncovered mutant the score leaves out', function (): void {

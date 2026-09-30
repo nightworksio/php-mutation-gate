@@ -62,6 +62,25 @@ it('says what its tests miss from its diff and judging tests until it is given t
         ->and($judged->hinted($read)->judgedBy(TestIds::none())->hint())->toBe($read);
 });
 
+it('gives the one command that explains it without running anything', function (): void {
+    $judged = Judged::mutant('a', MutantJudgement::Survived);
+
+    expect($judged->explain())->toBe(sprintf('vendor/bin/mutation-gate explain %s', $judged->mutant()->id()->value()));
+});
+
+it('turns a survivor proven equivalent into an equivalent one, and nothing else', function (MutantJudgement $judgement, MutantJudgement $proven): void {
+    $judged = Judged::mutant('a', $judgement)->judgedBy(TestIds::of(TestId::of('MoneyTest::adds')));
+
+    expect($judged->provenEquivalent()->judgement())->toBe($proven)
+        ->and($judged->provenEquivalent()->tests())->toEqual($judged->tests());
+})->with([
+    'a survivor' => [MutantJudgement::Survived, MutantJudgement::Equivalent],
+    'a killed mutant' => [MutantJudgement::Killed, MutantJudgement::Killed],
+    'an uncovered one' => [MutantJudgement::Uncovered, MutantJudgement::Uncovered],
+    'a flaky one' => [MutantJudgement::Flaky, MutantJudgement::Flaky],
+    'an ignored one' => [MutantJudgement::Ignored, MutantJudgement::Ignored],
+]);
+
 it('gives the one command that reproduces it', function (): void {
     $judged = Judged::mutant('a', MutantJudgement::Survived);
 

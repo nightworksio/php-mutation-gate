@@ -91,6 +91,7 @@ it('says what each other judgement means', function (MutantJudgement $judgement,
     'too slow to judge' => [MutantJudgement::TooSlowToJudge, 'Its tests take half its time limit or more, so a timeout says nothing about it. Hold `src/Order.php` with a group of the tests that assert on it, or raise `timeouts.seconds`.'],
     'ignored' => [MutantJudgement::Ignored, 'An ignore in the config leaves it out of the score.'],
     'ignored by a marker' => [MutantJudgement::IgnoredByMarker, 'A native ignore marker leaves it out of the score.'],
+    'equivalent' => [MutantJudgement::Equivalent, 'It compiles to the same program as the original, so no test can fail on it.'],
 ]);
 
 it('keeps a hint as it was written', function (): void {
@@ -108,4 +109,5 @@ it('names no test of a mutant that was killed, left out or never run', function 
     MutantJudgement::KilledByTimeout,
     MutantJudgement::Ignored,
     MutantJudgement::IgnoredByMarker,
+    MutantJudgement::Equivalent,
 ]);
