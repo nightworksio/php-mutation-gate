@@ -28,8 +28,18 @@ it('guards a run the adapter starts on one mutant, writing what it saw when the 
         }
     }
 
+    if (is_file($guard)) {
+        unlink($guard);
+    }
+
+    new Plugin()->finish();
+    $unwatched = is_file($guard);
+    $plugin->finish();
+
     expect($plugin->guard())->toBeInstanceOf(Guard::class)
-        ->and($plugin->recorder())->toBe(Off::Recording);
+        ->and($plugin->recorder())->toBe(Off::Recording)
+        ->and($unwatched)->toBeFalse()
+        ->and(json_decode((string) file_get_contents($guard), associative: true))->toMatchArray(['before' => true, 'loaded' => true]);
 });
 
 it('records nothing when Pest boots it outside the adapter\'s runs', function (): void {

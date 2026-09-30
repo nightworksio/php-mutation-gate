@@ -112,7 +112,7 @@ final readonly class Invocation
      * fails, narrowed to a holding group where one judges: the run that judges
      * a mutant of a line that is not executable through Pest's override.
      */
-    public function judging(Paths $tests, WholeSuite|Group $judgedBy): Command
+    public function judging(Paths $tests, WholeSuite|Group $judgedBy, Withheld $withheld): Command
     {
         $files = [];
 
@@ -122,6 +122,7 @@ final readonly class Invocation
 
         return Command::pest(
             $this->script,
+            $withheld,
             '--no-tia',
             '--bail',
             '--colors=never',

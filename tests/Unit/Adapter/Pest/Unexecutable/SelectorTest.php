@@ -19,12 +19,18 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
+/** The map a run left beside its results. */
+function selectorMap(string $results): CoverageFile
+{
+    $coverage = CoverageFile::at(Recorder::coverageBeside($results));
+
+    return $coverage instanceof CoverageFile ? $coverage : throw new RuntimeException('The run left no map.');
+}
+
 /** The selector over the project's run, whose map is the one the run left. */
 function selectorOver(Project $at): Selector
 {
-    $coverage = CoverageFile::at(Recorder::coverageBeside(Unexecutables::run($at, [])));
-
-    return Selector::over($at, $coverage instanceof CoverageFile ? $coverage : throw new RuntimeException('no map'), Paths::of(Path::of('src/Money.php')));
+    return Selector::over($at, selectorMap(Unexecutables::run($at, [])), Paths::of(Path::of('src/Money.php')));
 }
 
 /** Test files by their names under tests/. */
@@ -59,8 +65,7 @@ it('reads only the files still there, and falls back on every test where Pest\'s
         [$long],
         [$long => 0.1],
     );
-    $coverage = CoverageFile::at(Recorder::coverageBeside($results));
-    $selector = Selector::over($at, $coverage instanceof CoverageFile ? $coverage : throw new RuntimeException('no map'), Paths::none());
+    $selector = Selector::over($at, selectorMap($results), Paths::none());
     $every = selectorTests('InternalSpec', 'MoneySpec', 'OtherSpec');
 
     expect($selector->choose(Symbol::constant('App\Money', 'INTERNAL'), Path::of('src/Money.php')))

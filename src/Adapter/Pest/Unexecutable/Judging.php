@@ -67,13 +67,20 @@ final readonly class Judging
         $selector = Selector::over($this->project, $coverage, $request->files());
         $invocation = Invocation::installedIn($this->project->vendor());
         $guard = sprintf(self::GUARD, dirname($results));
-        $trial = new Trial($this->project, $this->shell, $invocation, $judgedBy, $records->limit(), $guard);
+        $trial = new Trial(
+            $this->project,
+            $this->shell,
+            $invocation,
+            $judgedBy,
+            $request->withheld(),
+            $records->limit(),
+            $guard,
+        );
         $mutants = Mutants::none();
 
         foreach ($result->mutants() as $mutant) {
-            $mutants = $mutants->with(
-                $mutant->status() === MutantStatus::Uncovered ? $this->one($mutant, $selector, $trial, $results) : $mutant,
-            );
+            $uncovered = $mutant->status() === MutantStatus::Uncovered;
+            $mutants = $mutants->with($uncovered ? $this->one($mutant, $selector, $trial, $results) : $mutant);
         }
 
         return MutationResult::of($mutants, $result->skipped());

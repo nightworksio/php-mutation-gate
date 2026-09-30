@@ -58,8 +58,9 @@ final readonly class Choice
     public function then(): Paths
     {
         $others = Paths::none();
+        $fallback = count($this->covering) <= self::BOUND && ! $this->ambiguous ? $this->covering : Paths::none();
 
-        foreach (count($this->covering) <= self::BOUND && ! $this->ambiguous ? $this->covering : Paths::none() as $file) {
+        foreach ($fallback as $file) {
             $others = $this->reading->has($file) ? $others : $others->with($file);
         }
 

@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -58,6 +59,7 @@ final class Trial
         private readonly Shell $shell,
         private readonly Invocation $invocation,
         private readonly WholeSuite|Group $judgedBy,
+        private readonly Withheld $withheld,
         private readonly Seconds|Unmeasured $limit,
         private readonly string $guard,
     ) {
@@ -101,7 +103,7 @@ final class Trial
 
     private function judging(Paths $tests): Command
     {
-        return $this->invocation->judging($tests, $this->judgedBy)
+        return $this->invocation->judging($tests, $this->judgedBy, $this->withheld)
             ->within($this->limit instanceof Seconds ? $this->limit : Unlimited::time());
     }
 

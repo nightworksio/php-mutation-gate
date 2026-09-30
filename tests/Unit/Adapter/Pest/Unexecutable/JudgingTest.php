@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -27,7 +28,11 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** Each mutant as status and reason, by its id. */
+/**
+ * Each mutant as status and reason, by its id.
+ *
+ * @return array<string, string>
+ */
 function judgingOutcomes(MutationResult|CannotJudge $result): array
 {
     $outcomes = [];
@@ -77,7 +82,7 @@ it('runs the tests that read the value, then the fallback\'s others where the mu
     $judging = Invocation::installedIn(Path::of('vendor'));
     $copy = Recorder::mutantBeside($results, 'internal');
     $override = static fn(string $spec): Command => $judging
-        ->judging(Paths::of(Path::of(sprintf('tests/%s.php', $spec))), WholeSuite::tests())
+        ->judging(Paths::of(Path::of(sprintf('tests/%s.php', $spec))), WholeSuite::tests(), Withheld::standard())
         ->within(Seconds::of(6.0))
         ->with([
             'PEST_MUTATION_TESTING' => sprintf('%s/src/Money.php', $at->root()),
@@ -88,9 +93,9 @@ it('runs the tests that read the value, then the fallback\'s others where the mu
     new Judging($at, $shell)->of(judgingResult('internal'), $money, $results);
 
     expect($shell->commands())->toEqual([
-        $judging->judging(Paths::of(Path::of('tests/InternalSpec.php')), WholeSuite::tests())->within(Seconds::of(6.0)),
+        $judging->judging(Paths::of(Path::of('tests/InternalSpec.php')), WholeSuite::tests(), Withheld::standard())->within(Seconds::of(6.0)),
         $override('InternalSpec'),
-        $judging->judging(Paths::of(Path::of('tests/OtherSpec.php')), WholeSuite::tests())->within(Seconds::of(6.0)),
+        $judging->judging(Paths::of(Path::of('tests/OtherSpec.php')), WholeSuite::tests(), Withheld::standard())->within(Seconds::of(6.0)),
         $override('OtherSpec'),
     ]);
 });

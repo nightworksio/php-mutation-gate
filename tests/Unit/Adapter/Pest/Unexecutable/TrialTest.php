@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -35,14 +36,13 @@ function trialAnswering(string $guard, Ran $mutant): Closure
 {
     return static function (Command $command) use ($guard, $mutant): Ran {
         $environment = $command->environment();
-        $guarded = array_key_exists('MUTATION_GATE_GUARD', $environment)
-            && is_string($environment['MUTATION_GATE_GUARD']);
+        $file = array_key_exists('MUTATION_GATE_GUARD', $environment) ? $environment['MUTATION_GATE_GUARD'] : false;
 
-        if ($guarded && $guard !== '') {
-            file_put_contents((string) $environment['MUTATION_GATE_GUARD'], $guard);
+        if (is_string($file) && $guard !== '') {
+            file_put_contents($file, $guard);
         }
 
-        return $guarded ? $mutant : Ran::finished(succeeded: true, output: '');
+        return is_string($file) ? $mutant : Ran::finished(succeeded: true, output: '');
     };
 }
 
@@ -54,6 +54,7 @@ function trialOf(Project $at, ShellFake $shell, WholeSuite|Group $judgedBy = new
         $shell,
         Invocation::installedIn(Path::of('vendor')),
         $judgedBy,
+        Withheld::standard(),
         Seconds::of(6.0),
         sprintf('%s/guard.json', $at->root()),
     );
@@ -63,7 +64,7 @@ it('runs the tests with Pest\'s override serving the mutated copy, and a guard, 
     $at = trialProject();
     $shell = new ShellFake(trialAnswering('{"before":false,"loaded":true,"opcache":false}', Ran::finished(succeeded: false, output: '')));
     $tests = Paths::of(Path::of('tests/MoneySpec.php'));
-    $judging = Invocation::installedIn(Path::of('vendor'))->judging($tests, WholeSuite::tests());
+    $judging = Invocation::installedIn(Path::of('vendor'))->judging($tests, WholeSuite::tests(), Withheld::standard());
 
     $outcome = trialOf($at, $shell)->of($tests, Path::of('src/Money.php'), '/copies/n1.php');
 
@@ -120,7 +121,7 @@ it('judges nothing where the tests fail on their own, running them alone once fo
         ->and($second)->toEqual($first)
         ->and($shell->commands())->toEqual([
             Invocation::installedIn(Path::of('vendor'))
-                ->judging($tests, Group::named('holds:src/Money.php'))
+                ->judging($tests, Group::named('holds:src/Money.php'), Withheld::standard())
                 ->within(Seconds::of(6.0)),
         ]);
 });
@@ -128,13 +129,21 @@ it('judges nothing where the tests fail on their own, running them alone once fo
 it('lays no limit on a run where Pest measured none', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: ''));
     $at = trialProject();
-    $trial = new Trial($at, $shell, Invocation::installedIn(Path::of('vendor')), WholeSuite::tests(), Unmeasured::duration(), '/g');
+    $trial = new Trial(
+        $at,
+        $shell,
+        Invocation::installedIn(Path::of('vendor')),
+        WholeSuite::tests(),
+        Withheld::standard(),
+        Unmeasured::duration(),
+        '/g',
+    );
     $tests = Paths::of(Path::of('tests/A.php'));
 
     $trial->of($tests, Path::of('src/Money.php'), '/c');
 
     expect($trial->limit())->toEqual(Unmeasured::duration())
         ->and($shell->commands())->toEqual([
-            Invocation::installedIn(Path::of('vendor'))->judging($tests, WholeSuite::tests())->within(Unlimited::time()),
+            Invocation::installedIn(Path::of('vendor'))->judging($tests, WholeSuite::tests(), Withheld::standard())->within(Unlimited::time()),
         ]);
 });

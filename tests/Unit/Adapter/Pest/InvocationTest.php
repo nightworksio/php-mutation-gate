@@ -151,3 +151,26 @@ it('withholds from the listing, the coverage run and the mutation run what each 
         ->and($listing->environment())->toMatchArray(['CI_JOB_TOKEN' => false])
         ->and($unlisted->environment())->not->toHaveKey('CI_JOB_TOKEN');
 });
+
+it('judges one mutant by some test files, one after another, stopping at the first that fails', function (): void {
+    $tests = Paths::of(Path::of('tests/MoneySpec.php'), Path::of('tests/Unit/TaxSpec.php'));
+
+    expect(invocation()->judging($tests, WholeSuite::tests(), Withheld::standard()))->toEqual(Command::pest(
+        'vendor/pestphp/pest/bin/pest',
+        Withheld::standard(),
+        '--no-tia',
+        '--bail',
+        '--colors=never',
+        'tests/MoneySpec.php',
+        'tests/Unit/TaxSpec.php',
+    ))->and(invocation()->judging($tests, Group::named('holds:src/Money.php'), Withheld::nothing())->arguments())->toBe([
+        PHP_BINARY,
+        'vendor/pestphp/pest/bin/pest',
+        '--no-tia',
+        '--bail',
+        '--colors=never',
+        '--group=holds:src/Money.php',
+        'tests/MoneySpec.php',
+        'tests/Unit/TaxSpec.php',
+    ]);
+});

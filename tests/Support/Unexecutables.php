@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use Pest\Mutate\Mutators\Number\IncrementInteger;
 
 use function realpath;
 use function sprintf;
@@ -68,7 +69,7 @@ final class Unexecutables
 
     private const string OTHER = 'P\Tests\OtherSpec::__pest_evaluable_it_runs_the_other';
 
-    private const string INCREMENT = 'Pest\Mutate\Mutators\Number\IncrementInteger';
+    private const string INCREMENT = IncrementInteger::class;
 
     public static function project(): Project
     {

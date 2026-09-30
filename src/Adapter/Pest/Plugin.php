@@ -37,12 +37,17 @@ final class Plugin implements Bootable
         HoldsGroups::register(TestSuite::getInstance()->tests);
         $this->recorder = Recorder::fromEnvironment();
         $this->guard = Guard::fromEnvironment();
-        $guard = $this->guard;
 
-        if ($guard instanceof Guard) {
-            register_shutdown_function(static function () use ($guard): void {
-                $guard->write(get_included_files(), Opcache::current());
-            });
+        if ($this->guard instanceof Guard) {
+            register_shutdown_function($this->finish(...));
+        }
+    }
+
+    /** Writes what the guard saw, where one watches this run: Pest calls it once the run ends. */
+    public function finish(): void
+    {
+        if ($this->guard instanceof Guard) {
+            $this->guard->write(get_included_files(), Opcache::current());
         }
     }
 
