@@ -58,7 +58,9 @@ The pieces already exist in the design:
    - **What it judges.** It runs change-scoped from that base (ADR-0005) under a
      budget of `local.prePushBudget`, a duration, `5m` by default. It judges the
      new-code floor and the floors of the trees the change reaches, with
-     carried results completing each tree (ADR-0003).
+     carried results completing each tree (ADR-0003). Before its verdict it
+     prints each reached tree's score change against the merge base with the
+     default branch (ADR-0015, decision 10).
    - **Exit code.** Non-zero blocks the push. That covers new code below its
      floor, a tree below its floor, and unjudged mutants, because a run that ran
      out of time or could not reach them did not judge them (ADR-0008). The
@@ -76,7 +78,10 @@ The pieces already exist in the design:
    already there, it changes nothing and prints the one line to add to that
    hook. `mutation-gate hook uninstall` removes only a hook it wrote. The
    command is an ordinary executable, so CaptainHook, GrumPHP or a Composer
-   script can call it instead.
+   script can call it instead. `hook install --pre-commit` also writes a
+   `pre-commit` hook, by the same rules, which calls
+   `vendor/bin/mutation-gate pre-commit`: it runs nothing and never blocks
+   (ADR-0015, decision 10).
 
 4. **Local runs share CI's code paths.** `watch` and `pre-push` are the same
    plan, run and verdict steps (ADR-0006), in one process, with the console
@@ -93,7 +98,7 @@ The pieces already exist in the design:
 | **File-system events** (`inotify`, `fsevents`) instead of polling | Need a PHP extension or a native helper per platform. Polling digests once a second is enough for a loop measured in tens of seconds. |
 | **Watch mode re-running the full coverage map on every test change** | Minutes per save on a large suite. Re-covering only the changed tests keeps the map true for what changed. |
 | **A pre-push hook that warns and lets the push through when time runs out** | Unjudged is never passed (ADR-0008). A generous default budget, and change-scoped reach, keep the hook fast. `--no-verify` is the deliberate way past it. |
-| **A pre-commit hook** | Commits are frequent and often partial. Pushing is the moment code is offered to others, and CI judges exactly what is pushed. |
+| **A pre-commit hook that judges** | Commits are frequent and often partial. Pushing is the moment code is offered to others, and CI judges exactly what is pushed. A pre-commit hook that only reports, runs nothing and never blocks is decided in ADR-0015, which supersedes this row for that hook. |
 | **Overwriting an existing hook** | Destroys somebody's setup silently. Printing the line to add leaves them in charge. |
 | **Local runs enforcing the baseline ratchet** | The baseline is raised deliberately with `baseline --write` or by a full run (ADR-0003). A watch session that rewrote it on every save would leave diffs nobody asked for. |
 
@@ -117,3 +122,4 @@ adds it there.
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): reach from uncommitted changes
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): proofs over content on disk
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): budgets and unjudged mutants
+- [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the reporting pre-commit hook, and the score change pre-push prints

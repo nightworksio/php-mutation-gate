@@ -52,7 +52,9 @@ cannot.
    `mutation-gate init --format=php|json|yaml|neon` (default `php`) writes a
    starting file holding exactly what zero-config found, so adopting a file
    changes nothing until somebody edits it. It also adds `.mutation-gate/` to
-   `.gitignore`. `mutation-gate config:show --format=php|json|yaml|neon`
+   `.gitignore`. `init --ci=<provider>` also writes a CI definition, and
+   `init --editor=vscode` the editor's task and recommendation, each only where
+   no such file exists (ADR-0015). `mutation-gate config:show --format=php|json|yaml|neon`
    (default `json`) prints the effective config in any of the four formats.
 
 3. **The four formats.**
@@ -234,3 +236,4 @@ gate's own.
 - [ADR-0003](0003-a-floor-only-rises.md): the baseline that zero-config floors come from
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): monorepo tree sources
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): presets
+- [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): `init --ci` and `init --editor`

@@ -171,6 +171,7 @@ about Laravel, NativePHP or the project's modules, and does not.
      setting;
    - the file formats: the baseline, the JSON report, the ledger, and the plan
      as `plan --ci=json` prints it;
+   - the problems output's line format (ADR-0015);
    - the action's and the reusable workflow's inputs, outputs, secrets and job
      names;
    - the eight ports, `Extension`, `Extensions`, `Configurable`, the `Core`
@@ -343,3 +344,4 @@ points at the ADR that decides it.
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): what the reusable workflow runs
 - [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): what the workflow posts and publishes
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the release gate covers every feature the README lists
+- [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the problems output as public API, and the CI templates pinned to the package's own workflows

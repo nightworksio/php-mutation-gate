@@ -26,6 +26,7 @@ that reproduces it and a sentence saying what the tests miss.
 | | Feature | Decided in |
 |---|---------|------------|
 | **Adoption** | Zero-config start: trees from `phpunit.xml`'s `<source>`, and an optional config file | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
+| | `init --ci`: a ready, pinned workflow for GitHub, GitLab, Buildkite or CircleCI | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | | Floors that only rise: a committed baseline, which fails on regression and rises on improvement | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | | Pull-request mode: changed lines and what the change reaches, with a stricter floor for new code | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | | Monorepos: a floor per package and module, with reach that follows the dependencies | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
@@ -42,6 +43,9 @@ that reproduces it and a sentence saying what the tests miss.
 | | Holding tests: Pest `holds:` groups and a `#[Holds]` attribute, a check that a group covers what it holds, and a warning for code every test runs through that nothing holds | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | | Infection as well as Pest | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | **Local use** | Watch mode and a pre-push hook | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
+| | A score change before each commit, from a hook that runs nothing and never blocks | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
+| | Survivors inline in VS Code and PhpStorm | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
+| | `stub`: a failing Pest or PHPUnit test to fill in, for a survivor | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | | One command that reproduces each survivor | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | For each survivor, what the tests miss | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | `explain`: a mutant's diff, tests, their outcomes and its history, without running it | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
@@ -118,9 +122,11 @@ to write one.
 | `tests` | Print the useless-test and redundant-test report from the ledgers, running nothing |
 | `triage <path> [--repeat=<n>] [--order=runner\|killers-first]` | Run a unit n times (5 by default) and list every mutant whose result varied, with each mutant's tests in the order `--order` names (`tests.order` by default) |
 | `watch` | Re-judge what each save reaches |
-| `pre-push` | Judge the commits being pushed, as CI will |
-| `hook install` / `hook uninstall` | Add or remove the pre-push hook |
-| `init [--format=php\|json\|yaml\|neon]` | Write a config holding what zero-config found (PHP by default, or the file `--config` names, in the format of its extension), and add `.mutation-gate/` to `.gitignore` |
+| `pre-push` | Judge the commits being pushed, as CI will, after printing each reached tree's score change |
+| `pre-commit` | Print each reached tree's score change from the local ledger; runs nothing and always exits 0 |
+| `hook install [--pre-commit]` / `hook uninstall` | Add or remove the pre-push hook, and with `--pre-commit` the pre-commit hook too |
+| `init [--format=php\|json\|yaml\|neon] [--ci=github\|gitlab\|buildkite\|circleci] [--editor=vscode]` | Write a config holding what zero-config found (PHP by default, or the file `--config` names, in the format of its extension), and add `.mutation-gate/` to `.gitignore`; with `--ci`, a pinned CI definition, and with `--editor`, VS Code's watch task, each only where none exists |
+| `stub <id>` | Print a failing Pest or PHPUnit test for a survivor or an uncovered mutant, in the style of its nearest covering test |
 | `config:show [--format=…]` / `config:schema` | Print the effective config (JSON by default), or the JSON Schema |
 | `pest:patch` | Apply the optional Pest patches ([ADR-0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md)) |
 
@@ -141,6 +147,12 @@ Options:
 | `--plan=<file>` | `run`, `verdict` | The plan the shards and the verdict follow | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--shard=<id>` | `run` with a plan | The shard to mutate, instead of the one the CI names | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--results=<dir>` | `verdict` | Where every shard's result is | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `--output=problems` | `run`, `watch`, `pre-push` | Print one `<path>:<line>:<col>: <severity>: <message> [<rule>] <id>` line per result, for editors | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
+| `--only=changed` | `run`, `watch`, `pre-push` with `--output=problems` | Print only the mutants on changed lines | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
+| `--write` | `stub` | Append the stub to its nearest covering test file, or create one; never overwrite | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
+| `--style=pest\|phpunit` | `stub` | The stub's style, instead of the nearest covering test's | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
+| `--stdout` | `init` with `--ci` or `--editor` | Print the files instead of writing them | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
+| `--sharded`, `--single` | `init --ci=github` | The reusable workflow or the one-step action, instead of the one the estimated cost picks | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | `--kill-matrix=first\|full` | `run` | `full` records every test that kills each mutant, for the redundant-test report (Pest only) | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | `--publish-dir=<dir>` | `verdict`, `run` without a plan | Where the badge and trend are written, `.mutation-gate/publish` by default | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 
@@ -700,6 +712,8 @@ that directory after it.
 ```sh
 vendor/bin/mutation-gate watch          # re-judges what each save reaches, within 60 seconds
 vendor/bin/mutation-gate hook install   # a pre-push hook: judges the pushed commits within 5 minutes
+vendor/bin/mutation-gate hook install --pre-commit   # also shows the score change at each commit
+vendor/bin/mutation-gate init --editor=vscode        # survivors as problems in VS Code
 ```
 
 `.mutation-gate/` holds local results and proofs. It belongs in `.gitignore`,

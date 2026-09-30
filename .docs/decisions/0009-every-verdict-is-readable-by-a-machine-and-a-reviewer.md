@@ -41,7 +41,8 @@ sees the same verdict.
      their group does not cover (ADR-0005).
 
    Which reporters run:
-   - **The console** always.
+   - **The console** always. With `--output=problems` it prints one line per
+     result for editors instead of its table (ADR-0015, decision 6).
    - **File reports**, listed in `reports` (ADR-0002): each entry is
      `{"use": <name or class>, "path": <file or directory>, "with": <options>}`.
      The built-in names are `json`, `junit`, `sarif`, `html`, `tests` and
@@ -76,7 +77,9 @@ sees the same verdict.
      failure that belongs to no floor. JUnit failures match gate failures one
      to one.
    - **SARIF 2.1.0** (`sarif`).
-     - One run, with the tool named `mutation-gate`.
+     - One run, with the tool named `mutation-gate`. Paths are relative to
+       the repository. A local run (`CI` unset) also gives the absolute root
+       as `originalUriBaseIds.SRCROOT`, for editors (ADR-0015, decision 9).
      - Four rules: `survived`, `uncovered`, `unjudged` and `flaky`. The
        `unjudged` rule reports both unjudged mutants and those too slow to
        judge. A mutant proven equivalent is not a result (ADR-0013).
@@ -269,3 +272,4 @@ but data.
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the action and workflow that post and publish
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): *equivalent, proven*, the first killer, and a shard target the plan could not meet
 - [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): test-level data, the `tests` and `kill-matrix` reports, and `explain`
+- [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the problems output, and SARIF's local root
