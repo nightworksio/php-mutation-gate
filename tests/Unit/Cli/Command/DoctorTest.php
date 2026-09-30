@@ -28,15 +28,21 @@ afterEach(function () use ($here): void {
 });
 
 /**
- * `doctor` over a copy of a fixture project, with a PHP that loads pcov.
+ * `doctor` over a copy of a fixture project, with these files besides, and a PHP that loads pcov.
  *
  * @param  array<string, string>     $input
+ * @param  array<string, string>     $files each file's contents, by its path in the project
  * @return array{int, string, string} the exit code, and what it printed on each stream
  */
-function doctored(string $fixture, array $input = []): array
+function doctored(string $fixture, array $input = [], array $files = []): array
 {
     $project = Scratch::copy($fixture);
     Scratch::write($project, '.gitignore', ".mutation-gate/\n");
+
+    foreach ($files as $path => $contents) {
+        Scratch::write($project, $path, $contents);
+    }
+
     $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], ['extension_dir' => '/nowhere']));
     $measure = new Measure(FlowCommands::composition($project, ScriptedRunner::fixture(), new ProofStoreFake(), Flows::ci()));
     $tester = new CommandTester(Doctor::command(Doctored::observed($project, sprintf('%s/php', $php)), $measure, Guide::unreleased()));
@@ -76,6 +82,17 @@ it('exits 0 where nothing would fail a run, and writes the public JSON when aske
     expect($code)->toBe(0)
         ->and($written)->toMatchArray(['format' => 1, 'failsARun' => false])
         ->and(Decoded::column($output, 'slug', 'findings'))->toBe(['tree-without-floor']);
+});
+
+it('finds no tree without a floor where the config declares the tree\'s floor', function (): void {
+    [$code, $output] = doctored(
+        'tests/Fixtures/Projects/Library',
+        ['--format' => 'json'],
+        ['mutation-gate.json' => '{"trees": [{"path": "src", "floor": 60}]}'],
+    );
+
+    expect($code)->toBe(0)
+        ->and(Decoded::column($output, 'slug', 'findings'))->not->toContain('tree-without-floor');
 });
 
 it('cannot judge a format it does not write', function (): void {
