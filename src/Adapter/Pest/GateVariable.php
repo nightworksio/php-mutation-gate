@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
+
 /**
  * An environment variable the Pest adapter sets for this package's plugin,
  * or for the code `pest:patch` writes into pest-plugin-mutate. Only the
@@ -12,7 +14,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 enum GateVariable: string
 {
     /** The results file the plugin records a mutation run to. */
-    case Results = 'MUTATION_GATE_RESULTS';
+    case Results = ChildVariable::Results->value;
 
     /** The coverage map another job handed over, which a patched shard's opening run reads. */
     case SharedCoverage = 'MUTATION_GATE_SHARED_COVERAGE';
@@ -24,7 +26,7 @@ enum GateVariable: string
     case Canary = 'MUTATION_GATE_CANARY';
 
     /** The file the plugin's guard writes what a trial run loaded to. */
-    case Guard = 'MUTATION_GATE_GUARD';
+    case Guard = ChildVariable::Guard->value;
 
     /** The file the plugin writes each test's name to. */
     case Names = 'MUTATION_GATE_NAMES';

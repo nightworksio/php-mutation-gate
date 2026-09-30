@@ -7,7 +7,6 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Invocation;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\MutationRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Ran;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -18,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -43,7 +43,8 @@ function library(): string
 }
 
 /**
- * The mutation run over a library, whose PHPUnit fails every test it runs, and the shell it runs PHPUnit in.
+ * The mutation run over a library, whose PHPUnit serves each mutant and fails every test it runs, and the shell it
+ * runs PHPUnit in.
  *
  * @return array{MutationRun, PhpUnitShellFake}
  */
@@ -52,8 +53,9 @@ function killingRun(string $root): array
     $project = Project::at($root, Path::of('vendor'), Path::of('.mutation-gate'));
     $shell = new PhpUnitShellFake(static function (Command $command): Ran {
         file_put_contents($command->environment()[Variable::Results->value], "failed Tests%5CMoneySpec%3A%3Aadds\n");
+        file_put_contents($command->environment()[Variable::Guard->value], "served\n");
 
-        return Ran::finished(succeeded: false, output: '', took: Seconds::of(0.2));
+        return Ran::finished(succeeded: false, output: '')->took(Seconds::of(0.2));
     });
     $run = new MutationRun(
         $project,

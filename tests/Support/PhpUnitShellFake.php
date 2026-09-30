@@ -9,8 +9,8 @@ use Closure;
 use function count;
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Command;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Ran;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Shell;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 
 /**
  * A shell that runs no PHPUnit: it keeps every command it is given and

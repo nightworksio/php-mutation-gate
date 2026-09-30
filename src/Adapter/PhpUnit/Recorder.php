@@ -15,13 +15,11 @@ use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade;
 use PHPUnit\Event\UnknownSubscriberTypeException;
 
-use function rawurlencode;
-use function sprintf;
-
 /**
- * Appends each test's outcome to the results file as the test finishes: the
- * outcome, a space, and the test's id, encoded so a data set's name that holds
- * a space or a line break stays on its line.
+ * Appends to the results file each test that starts, before anything of it
+ * runs, and each test's outcome as it finishes. A test that started and never
+ * finished is one whose process died while it ran. The outcome is forgotten
+ * as each test starts and finishes, so none is written against another test.
  */
 final class Recorder
 {
@@ -46,6 +44,7 @@ final class Recorder
 
         try {
             $events->registerSubscribers(
+                new OnStarted($recorder),
                 new OnPassed($recorder),
                 new OnFailed($recorder),
                 new OnErrored($recorder),
@@ -56,6 +55,12 @@ final class Recorder
         }
     }
 
+    public function started(string $test): void
+    {
+        $this->outcome = Outcome::Neither;
+        $this->write(Outcome::Started->line($test));
+    }
+
     public function ended(Outcome $outcome): void
     {
         $this->outcome = $outcome;
@@ -63,11 +68,12 @@ final class Recorder
 
     public function finished(string $test): void
     {
-        file_put_contents(
-            $this->results,
-            sprintf("%s %s\n", $this->outcome->value, rawurlencode($test)),
-            FILE_APPEND | LOCK_EX,
-        );
+        $this->write($this->outcome->line($test));
         $this->outcome = Outcome::Neither;
+    }
+
+    private function write(string $line): void
+    {
+        file_put_contents($this->results, $line, FILE_APPEND | LOCK_EX);
     }
 }

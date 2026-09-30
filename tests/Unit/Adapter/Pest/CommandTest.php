@@ -23,18 +23,30 @@ it('runs Pest on the PHP that runs the gate', function (): void {
     expect(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups')->arguments())->toBe([PHP_BINARY, 'vendor/pestphp/pest/bin/pest', '--list-groups']);
 });
 
-it('puts that PHP first on Pest\'s path, and hands Pest none of its own or the gate\'s variables', function (): void {
-    expect(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups')->environment())->toMatchArray([
-        'PARATEST' => false,
-        'TEST_TOKEN' => false,
-        'UNIQUE_TEST_TOKEN' => false,
-        'PEST_MUTATION_TESTING' => false,
-        'PEST_MUTATION_FILE' => false,
-        'MUTATION_GATE_RESULTS' => false,
-        'MUTATION_GATE_SHARED_COVERAGE' => false,
-        'MUTATION_GATE_SUITE_SECONDS' => false,
-        'MUTATION_GATE_CANARY' => false,
-        'MUTATION_GATE_GUARD' => false,
+it('puts that PHP first on Pest\'s path, and hands Pest none of another run\'s or the gate\'s variables it inherits', function (): void {
+    $inherited = [
+        'PARATEST',
+        'TEST_TOKEN',
+        'UNIQUE_TEST_TOKEN',
+        'PEST_MUTATION_TESTING',
+        'PEST_MUTATION_FILE',
+        'INFECTION_MUTANT',
+        'MUTATION_GATE_RESULTS',
+        'MUTATION_GATE_CANARY',
+    ];
+
+    foreach ($inherited as $name) {
+        putenv(sprintf('%s=inherited', $name));
+    }
+
+    $environment = Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups')->environment();
+
+    foreach ($inherited as $name) {
+        putenv($name);
+    }
+
+    expect($environment)->toMatchArray([
+        ...array_fill_keys($inherited, value: false),
         'PATH' => sprintf('%s:%s', dirname(PHP_BINARY), getenv('PATH')),
     ])->and(Command::pest('pest', Withheld::standard())->with(['MUTATION_GATE_RESULTS' => '/r'])->environment())
         ->toHaveKey('MUTATION_GATE_RESULTS', '/r');

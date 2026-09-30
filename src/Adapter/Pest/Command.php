@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_fill_keys;
 use function array_filter;
-use function array_map;
 use function array_values;
-use function dirname;
 use function getenv;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Core\Runner\SearchPath;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -25,13 +22,6 @@ use function sprintf;
  */
 final readonly class Command
 {
-    /**
-     * What a Pest the gate starts never inherits besides the gate's own
-     * variables: the variables that make a process a paratest worker or a
-     * mutant's own run.
-     */
-    private const array PEST_OWN = ['PARATEST', 'TEST_TOKEN', 'UNIQUE_TEST_TOKEN', Recorder::MUTANT, Recorder::MUTATED];
-
     /**
      * @param list<string>                $arguments
      * @param array<string, string|false> $environment
@@ -64,11 +54,10 @@ final readonly class Command
     {
         return self::of(PHP_BINARY, ...$arguments)->with([
             ...array_filter(
-                Withholding::of($withheld, getenv()),
+                Withholding::of($withheld->and(Withheld::otherRuns()), getenv()),
                 static fn(string|false $value): bool => $value === false,
             ),
-            ...self::uninherited(),
-            'PATH' => sprintf('%s%s%s', dirname(PHP_BINARY), PATH_SEPARATOR, getenv('PATH')),
+            SearchPath::VARIABLE => SearchPath::phpFirst(sprintf('%s', getenv(SearchPath::VARIABLE))),
         ]);
     }
 
@@ -98,19 +87,5 @@ final readonly class Command
     public function deadline(): Seconds|Unlimited
     {
         return $this->deadline;
-    }
-
-    /**
-     * What a Pest the gate starts never inherits: Pest's own variables, and
-     * each the gate sets for its plugin, which only the command that needs it
-     * sets.
-     *
-     * @return array<string, false>
-     */
-    private static function uninherited(): array
-    {
-        $gate = array_map(static fn(GateVariable $variable): string => $variable->value, GateVariable::cases());
-
-        return array_fill_keys([...self::PEST_OWN, ...$gate], value: false);
     }
 }

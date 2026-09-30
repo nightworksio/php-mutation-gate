@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Library;
 
+use function str_repeat;
+
 final class Money
 {
     private int $counted = 0;
@@ -26,5 +28,11 @@ final class Money
         }
 
         return $amount;
+    }
+
+    /** A width of padding, one space whatever it is asked for. */
+    public function padded(int $width): string
+    {
+        return str_repeat(' ', $width + (-$width) + 1);
     }
 }

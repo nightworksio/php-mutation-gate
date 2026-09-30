@@ -10,7 +10,7 @@ use function mb_strtolower;
 
 /**
  * Whether opcache could serve a cached original of a file in place of the
- * mutated copy Pest's override serves: on for the command line, or keeping a
+ * mutated copy an override serves: on for the command line, or keeping a
  * file cache.
  */
 final readonly class Opcache
@@ -29,6 +29,16 @@ final readonly class Opcache
             || is_string($fileCache) && $fileCache !== '';
 
         return new self($cached);
+    }
+
+    /**
+     * As a PHP sets `opcache.enable_cli`, false where opcache is not loaded,
+     * where the gate turns it off for the command line: opcache then does
+     * not run, and uses no file cache either.
+     */
+    public static function ofCommandLine(string|false $cli): self
+    {
+        return self::of($cli, fileCache: false);
     }
 
     public function couldServeTheOriginal(): bool

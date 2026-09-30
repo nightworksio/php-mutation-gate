@@ -9,8 +9,8 @@ use Closure;
 use function count;
 
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
-use NightWorksIO\MutationGate\Adapter\Infection\Ran;
 use NightWorksIO\MutationGate\Adapter\Infection\Shell;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 
 /**
  * A shell that runs neither PHPUnit nor Infection: it keeps every command it

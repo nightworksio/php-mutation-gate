@@ -182,22 +182,39 @@ manual.
      compiler check after the run.
 
 9. **`runner: phpunit` runs each mutant through a PHPUnit extension.**
-   - The command is `php -d auto_prepend_file=<override> vendor/bin/phpunit
-     --extension 'NightWorksIO\MutationGate\Adapter\PhpUnit\Extension'
-     --test-id-filter-file=<ids> --stop-on-defect --no-output`.
+   - The command is `php -d opcache.enable_cli=0 -d
+     auto_prepend_file=<override> vendor/bin/phpunit --extension
+     'NightWorksIO\MutationGate\Adapter\PhpUnit\Extension'
+     --test-id-filter-file=<ids> --stop-on-error --stop-on-failure
+     --no-progress`. Opcache is off, so no cached original runs in the
+     mutated file's place and no mutated file is cached for a later run. The
+     run stops at the first test that fails or errors, and not at one that is
+     only risky or warns.
    - The prepended override is the gate's own `file://` wrapper. It serves
      the mutated file from before Composer's autoloader loads anything,
-     `files` autoloads included, and falls back to the real file for every
-     other path. ADR-0004 decision 8's guards check it.
-   - The extension subscribes to `Test\Failed`, `Test\Errored`, `Test\Passed`
-     and `Test\Finished`, and appends the first killer to the file
+     `files` autoloads included, wherever PHP includes the file by any path
+     that names it, and falls back to the real file for every other path.
+     The file and the mutated file each have a variable of their own.
+   - ADR-0004 decision 8's guards check it: the wrapper writes to the file
+     `MUTATION_GATE_GUARD` names each time it serves the mutated file, in any
+     of the run's processes, and the extension writes there where opcache
+     could serve a cached original. A run that served nothing, or could have
+     served a cached original, leaves the mutant unjudged, with its reason.
+     The gate refuses an override whose path PHP's command line would read
+     as ini syntax.
+   - The extension subscribes to `Test\PreparationStarted`, `Test\Failed`,
+     `Test\Errored`, `Test\Passed` and `Test\Finished`, and appends each
+     test that starts, and how each test ended, to the file
      `MUTATION_GATE_RESULTS` names.
+   - A test that fails or errors kills the mutant, and so does a test that
+     started and never finished, whose process died. A run PHPUnit fails
+     with no test failing, such as for a warning the project fails on,
+     leaves the mutant unjudged, with what PHPUnit said.
    - The gate enforces the timeout on the process.
    - The runner supports PHPUnit 13.2.0 and later, the first release with
      `--test-id-filter-file`: PHPUnit 12, 13.0 and 13.1 refuse the option.
-     `--extension` and the prepended override hold from PHPUnit 12.5.8, the
-     lowest the package's `conflict` allows. A lower PHPUnit is cannot judge,
-     naming the version installed.
+     The gate cannot judge with a lower PHPUnit, and names the version
+     installed.
 
 10. **The PHPUnit runner has everything Pest's has.**
     - **Coverage:** `--coverage-php`, read as the Pest adapter reads it, with
@@ -206,7 +223,8 @@ manual.
     - **Groups:** `--list-groups`. `#[Holds]` is read from tokens, and a held
       unit is narrowed by `--group=holds:<path>` or by the holding tests' ids.
     - **Kills:** the first killer from events, and `--kill-matrix=full` by
-      leaving out `--stop-on-defect` (ADR-0014 decision 7).
+      leaving out `--stop-on-error` and `--stop-on-failure` (ADR-0014
+      decision 7).
     - **Costs:** learned from the gate's own process timings (ADR-0006
       decision 4).
     - `Adapter\PhpUnit` holds the extension, the runner and the override. No

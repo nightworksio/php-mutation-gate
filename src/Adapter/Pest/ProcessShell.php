@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Core\Runner\Polling;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
@@ -23,9 +25,6 @@ use function usleep;
  */
 final readonly class ProcessShell implements Shell
 {
-    /** How long it waits between looks at a running process, in seconds. */
-    private const float POLL = 0.05;
-
     /** A shell running each command in a directory, its deadline measured on this clock. */
     public function __construct(private string $directory, private Clock $clock = new WallClock())
     {
@@ -62,7 +61,7 @@ final readonly class ProcessShell implements Shell
                 return Ran::stopped($this->outputOf($process))->taking($this->since($started));
             }
 
-            usleep(Seconds::of(self::POLL)->microseconds());
+            usleep(Polling::interval()->microseconds());
         }
 
         return Ran::finished(succeeded: $process->isSuccessful(), output: $this->outputOf($process))

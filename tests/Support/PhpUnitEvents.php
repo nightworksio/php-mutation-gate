@@ -17,6 +17,13 @@ use PHPUnit\Event\Facade;
  */
 final readonly class PhpUnitEvents
 {
+    /** Emits that the test running it is about to be prepared. */
+    public static function started(Facade $events): void
+    {
+        $events->seal();
+        self::emitterOf($events)->testPreparationStarted(TestMethodBuilder::fromCallStack());
+    }
+
     /** Emits that the test running it failed. */
     public static function failed(Facade $events): void
     {

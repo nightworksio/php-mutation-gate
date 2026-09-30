@@ -452,13 +452,15 @@ services:
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoPositionalBooleanArgumentRule
         tags:
             - phpstan.rules.rule
-    # D10, with the decoders of untrusted input, and the files that still hold
-    # a mixed to type, a list that only shrinks.
+    # D10, with the decoders of untrusted input, the classes whose signatures a
+    # PHP protocol fixes, and the files that still hold a mixed to type, a list
+    # that only shrinks.
     -
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoMixedOutsideDecodersRule
         arguments:
-            decoders:
+            protocols:
                 - src/Adapter/PhpUnit/MutantFile.php # PHP hands a stream wrapper resources, which have no native type
+            decoders:
                 - src/Core/Format/Node.php
                 - src/Core/Format/Json.php
                 - src/Core/Format/JsonText.php
@@ -562,8 +564,6 @@ services:
                 'NightWorksIO\MutationGate\Adapter\Infection\Limits':
                     - BOOTSTRAP # Infection's bootstrap time
                     - FACTOR # Infection's timeout factor
-                'NightWorksIO\MutationGate\Adapter\Infection\ProcessShell':
-                    - POLL # microseconds between polls
                 'NightWorksIO\MutationGate\Core\Proof\LedgerRetention':
                     - BASES # bases kept
                     - PROOFS # proofs kept
@@ -576,8 +576,6 @@ services:
                     - INDENT # a line of Pest's diff
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFile':
                     - PROTOCOL # the file:// stream protocol
-                'NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell':
-                    - NAP # microseconds between looks at a process
                 'NightWorksIO\MutationGateDefault\Literals':
                     - 'TRUE' # PHP's constant, not Infection's setting
                 'NightWorksIO\MutationGateDefault\Calls':
@@ -658,7 +656,7 @@ services:
                 'NightWorksIO\MutationGate\Cli\FirstParty':
                     - PACKAGE # owner: flows (ThisPackage::COMPOSER)
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\Project':
-                    - OWN # owner: phpunit runner (BuiltinRunner::PhpUnit, once runner: phpunit is registered)
+                    - OWN # owner: phpunit runner (BuiltinRunner::PhpUnit)
         tags:
             - phpstan.rules.rule
     # D6

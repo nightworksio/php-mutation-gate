@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Recorded;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Recorder;
-use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use PHPUnit\Event\Facade;
@@ -13,17 +11,31 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
+/**
+ * Each line a recorder wrote, with the test's id cut to what tells the tests apart.
+ *
+ * @return list<string>
+ */
+function recordedLines(string $results): array
+{
+    $lines = file($results, FILE_IGNORE_NEW_LINES);
 
-it('records a test that failed, errored or passed as it finishes, and a test that did neither as neither', function (Closure $ending, string $recorded): void {
+    return array_map(
+        static fn(string $line): string => sprintf('%s', preg_replace('/ P%5CTests%5C.*$/', ' <test>', $line)),
+        is_array($lines) ? $lines : [],
+    );
+}
+
+it('records a test as it starts, and as it finishes how it ended: failed, errored, passed, or neither', function (Closure $ending, string $recorded): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();
     Recorder::listening($results, $events);
 
+    PhpUnitEvents::started($events);
     $ending($events);
     PhpUnitEvents::finished($events);
 
-    expect((string) file_get_contents($results))->toStartWith(sprintf('%s P%%5CTests%%5CUnit', $recorded))
-        ->and(substr_count((string) file_get_contents($results), "\n"))->toBe(1);
+    expect(recordedLines($results))->toBe(['started <test>', sprintf('%s <test>', $recorded)]);
 })->with([
     'a failure' => [PhpUnitEvents::failed(...), 'failed'],
     'an error' => [PhpUnitEvents::errored(...), 'errored'],
@@ -31,19 +43,22 @@ it('records a test that failed, errored or passed as it finishes, and a test tha
     'a skip' => [static fn(Facade $events): Facade => $events, 'neither'],
 ]);
 
-it('reads back what it recorded, as the killers and whether a test ran', function (): void {
+it('writes no test\'s outcome against the next test to start', function (): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();
     Recorder::listening($results, $events);
 
+    PhpUnitEvents::errored($events);
+    PhpUnitEvents::started($events);
+    PhpUnitEvents::finished($events);
+    PhpUnitEvents::started($events);
     PhpUnitEvents::failed($events);
     PhpUnitEvents::finished($events);
-    $recorded = Recorded::in($results);
+    PhpUnitEvents::started($events);
+    PhpUnitEvents::finished($events);
 
-    expect($recorded->ranAny())->toBeTrue()
-        ->and(count($recorded->killers()))->toBe(1)
-        ->and(array_map(static fn(TestId $test): string => $test->value(), [...$recorded->killers()])[0])
-        ->toStartWith('P\\Tests\\Unit\\Adapter\\PhpUnit\\RecorderTest::');
+    expect(recordedLines($results))
+        ->toBe(['started <test>', 'neither <test>', 'started <test>', 'failed <test>', 'started <test>', 'neither <test>']);
 });
 
 it('records nothing where no results file is named, or PHPUnit takes no more subscribers', function (): void {

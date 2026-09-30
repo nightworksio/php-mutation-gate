@@ -11,3 +11,9 @@ it('could serve a cached original where opcache is on for the command line or ke
         ->and(Opcache::of('0', '')->couldServeTheOriginal())->toBeFalse()
         ->and(Opcache::of(cli: false, fileCache: false)->couldServeTheOriginal())->toBeFalse();
 });
+
+it('could serve a cached original from the command line only where opcache is on there', function (): void {
+    expect(Opcache::ofCommandLine('1')->couldServeTheOriginal())->toBeTrue()
+        ->and(Opcache::ofCommandLine('0')->couldServeTheOriginal())->toBeFalse()
+        ->and(Opcache::ofCommandLine(cli: false)->couldServeTheOriginal())->toBeFalse();
+});

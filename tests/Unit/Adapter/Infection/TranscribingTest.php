@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
-use NightWorksIO\MutationGate\Adapter\Infection\Ran;
 use NightWorksIO\MutationGate\Adapter\Infection\Transcribing;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Tests\Support\InfectionShellFake;
 
 it('keeps what every command printed, in another directory too, and answers as the shell it runs over', function (): void {
