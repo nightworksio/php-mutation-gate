@@ -91,6 +91,16 @@ it('reads a pull request from its id where the build is for one, and the ref it 
         ->and(azurePlanIn($push)->runOn())->toEqual(RunOn::at(Scope::branch('feature/money'), azureUnnamed()));
 });
 
+it('reads a GitHub pull request by its number, which Azure sets apart from its id', function (): void {
+    $github = Variables::of([
+        'BUILD_REASON' => 'PullRequest',
+        'SYSTEM_PULLREQUEST_PULLREQUESTID' => '1742905561',
+        'SYSTEM_PULLREQUEST_PULLREQUESTNUMBER' => '31',
+    ]);
+
+    expect(azurePlanIn($github)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), azureUnnamed()));
+});
+
 it('gives no scope to a tag, which is no branch the gate writes for', function (): void {
     expect(azurePlanIn(Variables::of(['BUILD_REASON' => 'Manual', 'BUILD_SOURCEBRANCH' => 'refs/tags/v1']))->runOn())
         ->toEqual(RunOn::detached(azureUnnamed()));
@@ -112,8 +122,8 @@ it('is run by the pipeline file the config names', function (): void {
         ->and($definitions('{}'))->toEqual($missing);
 });
 
-it('withholds the job\'s access token', function (): void {
-    expect(AzurePlan::withheld())->toEqual(Withheld::of('SYSTEM_ACCESSTOKEN'));
+it('withholds the job\'s access token, and the personal access token az devops reads', function (): void {
+    expect(AzurePlan::withheld())->toEqual(Withheld::of('SYSTEM_ACCESSTOKEN', 'AZURE_DEVOPS_EXT_PAT'));
 });
 
 it('is marked by TF_BUILD, which Azure Pipelines sets in every job', function (): void {

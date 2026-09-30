@@ -8,6 +8,7 @@ use function array_map;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
+use NightWorksIO\MutationGate\Core\Ci\CiTemplate;
 use NightWorksIO\MutationGate\Core\Ci\Definitions;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -20,8 +21,6 @@ final readonly class Ci implements Part
 {
     /** The check-run the verdict reports under. */
     private const string CHECK = 'mutation / verdict';
-
-    private const string GITLAB_TEMPLATE = '.gitlab/mutation-gate.yml';
 
     private const string BUILDKITE_DEFINITION = '.buildkite/pipeline.yml';
 
@@ -125,7 +124,7 @@ final readonly class Ci implements Part
     /** The file whose hidden `.mutation-gate` job GitLab's generated jobs extend. */
     public function gitlabTemplate(): Path
     {
-        return $this->gitlabTemplate instanceof Path ? $this->gitlabTemplate : Path::of(self::GITLAB_TEMPLATE);
+        return $this->gitlabTemplate instanceof Path ? $this->gitlabTemplate : CiTemplate::gitlabTemplate();
     }
 
     /** `ci.buildkite.step`: the step keys every generated Buildkite step is built from. */

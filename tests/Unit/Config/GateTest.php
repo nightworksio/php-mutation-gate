@@ -236,6 +236,11 @@ it('names each built-in adapter by a method of its own', function (Closure $gate
     ],
     'github' => [fn(): Gate => Gate::configure()->with(Ci::github()), ['ci' => ['plan' => 'github']]],
     'circleci' => [fn(): Gate => Gate::configure()->with(Ci::circleci()), ['ci' => ['plan' => 'circleci']]],
+    'azure' => [fn(): Gate => Gate::configure()->with(Ci::azure()), ['ci' => ['plan' => 'azure']]],
+    'the Azure DevOps definition' => [
+        fn(): Gate => Gate::configure()->with(Ci::azureDefinition('.azure/gate.yml')),
+        ['ci' => ['azure' => ['definition' => '.azure/gate.yml']]],
+    ],
     'the JSON plan' => [fn(): Gate => Gate::configure()->with(Ci::json()), ['ci' => ['plan' => 'json']]],
     'a CI plan by name' => [
         fn(): Gate => Gate::configure()->with(Ci::uses('acme', Option::of('x', 'y'))),

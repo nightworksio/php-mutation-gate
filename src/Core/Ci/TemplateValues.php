@@ -48,13 +48,13 @@ final readonly class TemplateValues
         string $check,
         Path|NotGiven $included,
     ): self|CannotJudge {
-        $templateFix = 'Set ci.gitlab.template to a path of letters, digits and ._/-.';
+        $gitlabFix = 'Set ci.gitlab.template to a path of letters, digits and ._/-.';
         $checked = [
             ['The default branch', $branch, self::NAME, 'Set ci.defaultBranch to a name of letters, digits and ._/-.'],
             ['The runner', $runner, self::RUNNER, 'Choose a runner by a name of letters, digits and ._-.'],
             ['The check', $check, self::CHECK, 'Set ci.check to a name of letters, digits, spaces and ._/-.'],
             ...$included instanceof Path
-                ? [['The file', $included->value(), self::NAME, $templateFix]]
+                ? [['The file', $included->value(), self::NAME, $gitlabFix]]
                 : [],
         ];
 

@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\CiTemplate;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Ci\GitHubWorkflow;
 use NightWorksIO\MutationGate\Core\Ci\Printed;
 use NightWorksIO\MutationGate\Core\Ci\TemplateValues;
+use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\Ci;
@@ -208,4 +210,34 @@ it('quotes every value a project gives wherever a template holds it, and runs no
 
 it('names the one-step action\'s job for the check the verdict reports under', function (): void {
     expect(ciTemplateRendered(CiTemplate::GitHubSingle))->toContain(sprintf("    name: '%s'\n", Ci::none()->check()));
+});
+
+it('keeps a status check in every condition of Azure\'s jobs, so no step runs after a cancel', function (): void {
+    preg_match_all('/condition: (.+)$/m', ciTemplateRendered(CiTemplate::AzureJobs), $conditions);
+
+    expect($conditions[1])->not->toBe([]);
+
+    foreach ($conditions[1] as $condition) {
+        expect($condition)->toMatch('/\b(succeeded|succeededOrFailed|failed|always|canceled)\(\)/');
+    }
+});
+
+it('reads the plan\'s matrix from the output the Azure plan sets, and each leg\'s shard from its variable', function (): void {
+    $jobs = ciTemplateRendered(CiTemplate::AzureJobs);
+
+    expect($jobs)->toContain("        name: gate\n")
+        ->and($jobs)->toContain(sprintf("dependencies.mutation_plan.outputs['gate.%s']", AzurePlan::OUTPUT))
+        ->and($jobs)->toContain(sprintf("ne(variables.%s, '')", WhichShard::VARIABLE))
+        ->and($jobs)->toContain(sprintf('mutation-results-$(%s)', WhichShard::VARIABLE));
+});
+
+it('drops the proof store\'s keys in the Azure plan and verdict steps of a fork\'s build, before the gate runs', function (): void {
+    $guard = 'if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; fi';
+    $jobs = ciTemplateRendered(CiTemplate::AzureJobs);
+
+    foreach (['vendor/bin/mutation-gate plan', 'vendor/bin/mutation-gate verdict'] as $gate) {
+        $step = substr($jobs, 0, (int) strpos($jobs, $gate));
+
+        expect(substr($step, (int) strrpos($step, '- bash: |')))->toContain($guard);
+    }
 });

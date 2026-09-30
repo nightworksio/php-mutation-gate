@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Ci;
 
+use function array_pop;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -47,10 +48,13 @@ enum CiTemplate: string
     /** The file of the gate's jobs, which the CI's own definition pulls in, in the directory `init` writes it to. */
     private const string GATE_JOBS = 'mutation-gate.yml';
 
-    /** The directory `init --ci=azure` writes the template of the gate's jobs to. */
+    /** The directory the gate's GitLab template is in by default: the gate's choice, beside `.gitlab-ci.yml`. */
+    private const string GITLAB_TEMPLATES = '.gitlab/';
+
+    /** The directory `init --ci=azure` writes the gate's template to: the gate's choice, not Azure's convention. */
     private const string AZURE_TEMPLATES = '.azure/';
 
-    private const string NO_TEMPLATE = 'init --ci writes a definition for each of %s, and none for %s.';
+    private const string NO_TEMPLATE = 'init --ci writes a definition for %s and %s, not for %s.';
 
     /**
      * The definitions `init --ci` renders for a CI, in the order it says them; none for plain JSON.
@@ -94,7 +98,15 @@ enum CiTemplate: string
             $written = self::for($plan, GitHubWorkflow::Single)->count() === 0 ? $written : [...$written, $plan->value];
         }
 
-        return CannotJudge::because(sprintf(self::NO_TEMPLATE, implode(', ', $written), $ci));
+        $last = array_pop($written);
+
+        return CannotJudge::because(sprintf(self::NO_TEMPLATE, implode(', ', $written), $last, $ci));
+    }
+
+    /** The template GitLab's jobs extend where `ci.gitlab.template` names none, which `init --ci=gitlab` writes. */
+    public static function gitlabTemplate(): Path
+    {
+        return Path::of(self::GITLAB_TEMPLATES)->child(Path::of(self::GATE_JOBS));
     }
 
     /** The pipeline `init --ci=buildkite` writes, which the step it prints uploads and the config names. */

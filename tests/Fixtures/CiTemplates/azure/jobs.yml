@@ -7,7 +7,9 @@
 # pcov, and without it the first run cannot judge.
 # For an S3 proof store, map AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from
 # secret variables into the env of the plan and verdict steps alone: a shard
-# needs neither.
+# needs neither. A fork's build gets no secrets, and Azure hands it a mapped
+# one as the text $(NAME), so those two steps drop the keys where
+# System.PullRequest.IsFork is True, and the gate runs without them.
 jobs:
   - job: mutation_plan
     displayName: 'mutation: plan'
@@ -19,8 +21,10 @@ jobs:
       - checkout: self
         fetchDepth: '0'
       - bash: |
-          mkdir -p .mutation-gate
-          if [ "$BUILD_REASON" = "PullRequest" ]; then echo "refs/pull/$SYSTEM_PULLREQUEST_PULLREQUESTID"
+          set -eu
+          mkdir -p .mutation-gate/ledger
+          number="${SYSTEM_PULLREQUEST_PULLREQUESTNUMBER:-${SYSTEM_PULLREQUEST_PULLREQUESTID:-}}"
+          if [ "$BUILD_REASON" = "PullRequest" ]; then echo "refs/pull/$number"
           else echo "$BUILD_SOURCEBRANCH"; fi > .mutation-gate/scope
           echo "refs/heads/$MUTATION_GATE_DEFAULT_BRANCH" > .mutation-gate/default-scope
         displayName: 'mutation: scope'
@@ -35,7 +39,10 @@ jobs:
       - bash: composer install --no-interaction --no-progress
         displayName: 'mutation: composer install'
       - bash: |
-          target="${SYSTEM_PULLREQUEST_TARGETBRANCH#refs/heads/}"
+          set -eu
+          if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; fi
+          target="${SYSTEM_PULLREQUEST_TARGETBRANCH:-}"
+          target="${target#refs/heads/}"
           if [ "$BUILD_REASON" = "Schedule" ]; then base=""
           elif [ "$BUILD_REASON" = "PullRequest" ]; then base="--changed-since=origin/$target"
           elif [ "$BUILD_SOURCEBRANCH" = "refs/heads/$MUTATION_GATE_DEFAULT_BRANCH" ]; then base="--changed-since=last-passed"
@@ -56,16 +63,17 @@ jobs:
       matrix: $[ dependencies.mutation_plan.outputs['gate.matrix'] ]
     steps:
       - checkout: self
-        condition: ne(variables.SHARD, '')
+        condition: and(succeeded(), ne(variables.SHARD, ''))
       - download: current
         artifact: mutation-plan
-        condition: ne(variables.SHARD, '')
+        condition: and(succeeded(), ne(variables.SHARD, ''))
       - bash: |
+          set -eu
           mkdir -p .mutation-gate
           cp -R "$PIPELINE_WORKSPACE/mutation-plan/." .mutation-gate/
           composer install --no-interaction --no-progress
           vendor/bin/mutation-gate run --ci=azure --plan=.mutation-gate/plan.json
-        condition: ne(variables.SHARD, '')
+        condition: and(succeeded(), ne(variables.SHARD, ''))
         displayName: 'mutation: run the shard'
       - publish: .mutation-gate/results
         artifact: mutation-results-$(SHARD)
@@ -87,13 +95,19 @@ jobs:
           mutation-plan/**
           mutation-results-*/**
       - bash: |
+          set -eu
           mkdir -p .mutation-gate/results
           cp -R "$PIPELINE_WORKSPACE/mutation-plan/." .mutation-gate/
+          # Each shard's results are named for its number, <n>.json, so they
+          # gather into one directory without a clash.
           find "$PIPELINE_WORKSPACE" -path '*/mutation-results-*/*.json' -exec cp {} .mutation-gate/results/ \;
         displayName: 'mutation: gather the results'
       - bash: composer install --no-interaction --no-progress
         displayName: 'mutation: composer install'
-      - bash: vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
+      - bash: |
+          set -eu
+          if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; fi
+          vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
         displayName: 'mutation: verdict'
       - publish: .mutation-gate/ledger
         artifact: mutation-ledger
@@ -113,15 +127,17 @@ jobs:
           mutation-plan/scope
           mutation-ledger/**
       - bash: |
+          set -eu
           mkdir -p .mutation-gate
           cp "$PIPELINE_WORKSPACE/mutation-plan/scope" .mutation-gate/scope
         displayName: 'mutation: scope'
       - task: Cache@2
         displayName: 'mutation: the ledger'
         inputs:
-          key: '"mutation-gate-ledger" | .mutation-gate/scope | "$(Build.BuildId)" | "judged"'
+          key: '"mutation-gate-ledger" | .mutation-gate/scope | "$(Build.BuildId)" | "judged" | "$(System.JobAttempt)"'
           path: .mutation-gate/ledger
       - bash: |
+          set -eu
           mkdir -p .mutation-gate/ledger
           cp -R "$PIPELINE_WORKSPACE/mutation-ledger/." .mutation-gate/ledger/
         displayName: 'mutation: the verdict''s ledger'

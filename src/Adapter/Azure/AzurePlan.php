@@ -42,13 +42,16 @@ use function sprintf;
  */
 final readonly class AzurePlan implements CiPlan, Configurable
 {
-    /** The output variable the matrix is set in, as the template reads it. */
-    private const string OUTPUT = 'matrix';
+    /** The output variable the matrix is set in, which the template's `mutation` job reads. */
+    public const string OUTPUT = 'matrix';
 
     /** How Azure's logging command sets a job's output variable. */
     private const string SET_OUTPUT = "##vso[task.setvariable variable=%s;isOutput=true]%s\n";
 
     private const string NO_DEFAULT = 'Azure DevOps does not name the default branch. Set ci.defaultBranch.';
+
+    /** A GitHub pull request's number, which Azure sets where it differs from the pull request's id. */
+    private const string PULL_REQUEST_NUMBER = 'SYSTEM_PULLREQUEST_PULLREQUESTNUMBER';
 
     private function __construct(private Variables $variables, private string $to, private Path $definition)
     {
@@ -89,19 +92,20 @@ final readonly class AzurePlan implements CiPlan, Configurable
     }
 
     /**
-     * A pull request where `BUILD_REASON` is `PullRequest`, by
-     * `SYSTEM_PULLREQUEST_PULLREQUESTID`; else the ref `BUILD_SOURCEBRANCH`
-     * names, which is a branch's scope, or none for a tag.
+     * A pull request where `BUILD_REASON` is `PullRequest`, by its number: `SYSTEM_PULLREQUEST_PULLREQUESTNUMBER`,
+     * which Azure sets for GitHub's pull requests, whose id is not their number, and otherwise
+     * `SYSTEM_PULLREQUEST_PULLREQUESTID`. Else the ref `BUILD_SOURCEBRANCH` names, which is a branch's scope, or
+     * none for a tag.
      */
     public function runOn(): RunOn|CannotTell
     {
         $defaultBranch = CannotTell::because(self::NO_DEFAULT);
+        $number = $this->variables->has(self::PULL_REQUEST_NUMBER)
+            ? $this->variables->valueOf(self::PULL_REQUEST_NUMBER)
+            : $this->variables->valueOf('SYSTEM_PULLREQUEST_PULLREQUESTID');
 
         return $this->variables->valueOf('BUILD_REASON') === 'PullRequest'
-            ? RunOn::pullRequest(
-                PullRequestNumber::parse($this->variables->valueOf('SYSTEM_PULLREQUEST_PULLREQUESTID')),
-                $defaultBranch,
-            )
+            ? RunOn::pullRequest(PullRequestNumber::parse($number), $defaultBranch)
             : RunOn::onRef($this->variables->valueOf('BUILD_SOURCEBRANCH'), $defaultBranch);
     }
 
@@ -111,10 +115,13 @@ final readonly class AzurePlan implements CiPlan, Configurable
         return Paths::of($this->definition);
     }
 
-    /** The job's access token, which can act on the project with the build's identity. */
+    /**
+     * The job's access token, which can act on the project with the build's identity, and the personal access
+     * token the `az devops` command line reads.
+     */
     public static function withheld(): Withheld
     {
-        return Withheld::of('SYSTEM_ACCESSTOKEN');
+        return Withheld::of('SYSTEM_ACCESSTOKEN', 'AZURE_DEVOPS_EXT_PAT');
     }
 
     /** Azure Pipelines sets `TF_BUILD` in every job, to `True`. */
@@ -126,11 +133,11 @@ final readonly class AzurePlan implements CiPlan, Configurable
     /** `{"s1": {"SHARD": "1"}, …}`, or one leg that runs nothing where the plan holds no shard. */
     private function matrixOf(Plan $plan): string
     {
-        $matrix = count($plan) === 0 ? ['none' => ['SHARD' => '']] : [];
+        $matrix = count($plan) === 0 ? ['none' => [WhichShard::VARIABLE => '']] : [];
 
         foreach ($plan as $shard) {
             $number = $shard->id()->number();
-            $matrix[sprintf('s%d', $number)] = ['SHARD' => sprintf('%d', $number)];
+            $matrix[sprintf('s%d', $number)] = [WhichShard::VARIABLE => sprintf('%d', $number)];
         }
 
         return json_encode($matrix, JsonText::FLAGS);

@@ -487,6 +487,16 @@ it('writes Azure\'s template, names it and the default branch in the config, and
         ->toBe(['defaultBranch' => 'main', 'azure' => ['definition' => '.azure/mutation-gate.yml']]);
 });
 
+it('writes a PHP config for Azure DevOps that names its template and default branch, and loads', function (): void {
+    [$project, $ran] = initCi(['--ci' => 'azure']);
+    $config = initCiFile($project, 'mutation-gate.php');
+
+    expect($ran->code)->toBe(0)
+        ->and($config)->toContain("Ci::defaultBranch('main')")
+        ->and($config)->toContain("Ci::azureDefinition('.azure/mutation-gate.yml')")
+        ->and(Commands::run($project, 'config:show', [])->code)->toBe(0);
+});
+
 it('prints CircleCI\'s config to add to .circleci/config.yml, and writes none', function (): void {
     [$project, $ran] = initCi(['--ci' => 'circleci']);
 
@@ -515,7 +525,7 @@ it('writes for the one CI the project\'s files show, where --ci names none', fun
 it('writes nothing where --ci names no CI it writes for, or where the files show none or several', function (): void {
     $refused = initCiRefused(...);
     $nothing = static fn(string $why): array => [2, '', sprintf("%s\n", $why), ''];
-    $unwritten = 'init --ci writes a definition for each of github, gitlab, buildkite, circleci, azure, and none for %s.';
+    $unwritten = 'init --ci writes a definition for github, gitlab, buildkite, circleci and azure, not for %s.';
 
     expect($refused(['--ci' => null]))
         ->toBe($nothing('No CI is detected here, so init writes nothing. Name one with --ci=<name>.'))

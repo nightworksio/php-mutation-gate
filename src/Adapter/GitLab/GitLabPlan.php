@@ -164,7 +164,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
         $shardJob = [
             self::EXTENDS => self::HIDDEN_JOB,
             self::NEEDS => [$fromThePlan],
-            'parallel' => ['matrix' => [['SHARD' => $shards]]],
+            'parallel' => ['matrix' => [[WhichShard::VARIABLE => $shards]]],
             self::SCRIPT => ['vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json'],
             'artifacts' => ['when' => 'always', 'paths' => ['.mutation-gate/results/']],
         ];

@@ -492,7 +492,7 @@ Environment variables that change what the gate does:
 | `CI`, or Azure Pipelines' `TF_BUILD` | Set: a tree with no floor stops the run, `baseline.improvement` applies, and on the default branch the badge and trend are written. Unset: a full run writes missing floors and raises improved ones | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `TF_BUILD` | Choose the CI plan, and under GitHub Actions the annotations and step summary | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | `SHARD`, `CI_NODE_INDEX`, `CI_NODE_TOTAL`, `BUILDKITE_PARALLEL_JOB`, `BUILDKITE_PARALLEL_JOB_COUNT`, `CIRCLE_NODE_INDEX`, `CIRCLE_NODE_TOTAL`, `CI_JOB_NAME`, `PARENT_PIPELINE_ID` | Which shard a job is, and how GitLab's child pipeline finds the plan | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
-| `GITHUB_REF`, `GITHUB_EVENT_NAME`, `GITHUB_EVENT_PATH`, `CI_COMMIT_REF_NAME`, `CI_MERGE_REQUEST_IID`, `CI_DEFAULT_BRANCH`, `BUILDKITE_BRANCH`, `BUILDKITE_PULL_REQUEST`, `BUILDKITE_PIPELINE_DEFAULT_BRANCH`, `CIRCLE_BRANCH`, `CIRCLE_PULL_REQUEST`, `BUILD_SOURCEBRANCH`, `BUILD_REASON`, `SYSTEM_PULLREQUEST_PULLREQUESTID` | The run's ref, whether it is a pull request, and the default branch | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
+| `GITHUB_REF`, `GITHUB_EVENT_NAME`, `GITHUB_EVENT_PATH`, `CI_COMMIT_REF_NAME`, `CI_MERGE_REQUEST_IID`, `CI_DEFAULT_BRANCH`, `BUILDKITE_BRANCH`, `BUILDKITE_PULL_REQUEST`, `BUILDKITE_PIPELINE_DEFAULT_BRANCH`, `CIRCLE_BRANCH`, `CIRCLE_PULL_REQUEST`, `BUILD_SOURCEBRANCH`, `BUILD_REASON`, `SYSTEM_PULLREQUEST_PULLREQUESTNUMBER`, `SYSTEM_PULLREQUEST_PULLREQUESTID` | The run's ref, whether it is a pull request, and the default branch | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | `GITHUB_WORKFLOW_REF`, `CI_CONFIG_PATH` | Which CI definition runs the gate, for reach and the proof key | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `GITHUB_OUTPUT`, `GITHUB_STEP_SUMMARY` | Where the GitHub plan and the step summary are written | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, `CI_PIPELINE_ID`, `BUILDKITE_BUILD_ID`, `CIRCLE_WORKFLOW_ID`, `BUILD_BUILDID` | The run a proof names | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
@@ -590,8 +590,8 @@ On GitLab, separate caches for protected branches do the same, and they also
 keep merge requests from reading the default branch's ledger. On Azure DevOps a
 pull request build reads the target branch's caches and cannot write them. On
 Buildkite and CircleCI a branch's pipeline config picks its cache key, so a
-cache is no boundary there. Wherever a pull request must read the default branch's proofs
-safely, keep the ledger in S3, with credentials that can write the default
+cache is no boundary there. Wherever a pull request must read the default
+branch's proofs safely, keep the ledger in S3, with credentials that can write the default
 branch's prefix held only by default-branch runs
 ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
 With an AWS OIDC role, make its trust policy match a GitHub environment that
@@ -870,11 +870,17 @@ shard, `{"s1": {"SHARD": "1"}, …}`, which the `mutation` job's
 empty `SHARD` runs nothing, because Azure always makes at least one job. The
 verdict runs with `condition: succeededOrFailed()`, so it says *cannot judge*
 even when a shard failed. The `Cache@2` task keeps the ledger keyed by the
-digest of the run's scope, and restores the default branch's second. A cache
-is saved only by a job that succeeds, so a last job, which runs whatever the
-verdict decided, saves the ledger the verdict wrote. The gate withholds
-`SYSTEM_ACCESSTOKEN` from the tests. Schedule the pipeline on the default
-branch twice a week, with `always: true`, for the full run.
+digest of the run's scope, and restores the default branch's second where
+Azure lets the run read that branch's caches: a pull request reads its
+target's, and any other run reads only `main`'s and `master`'s besides its
+own. A cache is saved only by a job that succeeds, so a last job, which runs
+whatever the verdict decided, saves the ledger the verdict wrote. A pull
+request is named by `System.PullRequest.PullRequestNumber` where Azure sets it,
+as for a GitHub repository, and by its id otherwise. A fork's build gets no
+secrets, so the plan and verdict steps drop the S3 keys where
+`System.PullRequest.IsFork` is `True`. The gate withholds `SYSTEM_ACCESSTOKEN`
+and `AZURE_DEVOPS_EXT_PAT` from the tests. Schedule the pipeline on the
+default branch twice a week, with `always: true`, for the full run.
 
 ### Any other CI
 

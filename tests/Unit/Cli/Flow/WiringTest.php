@@ -67,6 +67,7 @@ function wiringEveryCi(): Withheld
         'BUILDKITE_AGENT_TOKEN',
         'CIRCLE_OIDC_TOKEN*',
         'SYSTEM_ACCESSTOKEN',
+        'AZURE_DEVOPS_EXT_PAT',
     );
 }
 
