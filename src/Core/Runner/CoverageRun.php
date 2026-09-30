@@ -27,7 +27,7 @@ final readonly class CoverageRun
     /** These tests run under coverage in one process, leaving the map in a directory. */
     public static function of(WholeSuite|Group|Filter $tests, Path $into): self
     {
-        return new self($tests, $into, Processes::of(1), Withheld::standard());
+        return new self($tests, $into, Processes::single(), Withheld::standard());
     }
 
     public function across(Processes $processes): self

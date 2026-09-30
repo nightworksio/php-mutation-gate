@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
@@ -113,12 +114,16 @@ final readonly class Pest implements Runner
      * Pest's plugin reads each `#[Holds]` as its test files load, and Pest's
      * limit cannot be raised. Patched, every shard opens on the canary group,
      * whose test files every key then reads; unpatched, each shard pays a full
-     * opening run under coverage.
+     * opening run under coverage. It runs as many mutants at once as it
+     * counts cores, counted once.
      */
     public function behaviour(): RunnerBehaviour
     {
         $canary = $this->patching->canary();
-        $pest = RunnerBehaviour::standard()->holdingAsLoaded()->raisingNoLimit();
+        $pest = RunnerBehaviour::standard()
+            ->holdingAsLoaded()
+            ->raisingNoLimit()
+            ->runningAtOnce($this->remembered->processes(static fn(): Processes => Cores::counted()));
 
         return $canary instanceof Group ? $pest->readingInEveryKey($canary) : $pest->openingEachShard();
     }
