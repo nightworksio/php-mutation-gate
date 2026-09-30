@@ -14,6 +14,7 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -137,6 +138,12 @@ final readonly class GitLabPlan implements CiPlan, Configurable
     }
 
     /** The job's token and its signed identity, and the registry's and deploy tokens' passwords. */
+    /** GitLab CI sets `GITLAB_CI` to `true` in every job. */
+    public static function marker(): CiMarker
+    {
+        return CiMarker::saying(Variables::GITLAB_CI);
+    }
+
     public static function withheld(): Withheld
     {
         return Withheld::of(

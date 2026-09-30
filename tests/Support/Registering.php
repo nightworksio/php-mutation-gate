@@ -11,6 +11,7 @@ use LogicException;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -88,6 +89,7 @@ final class Registering
                 $name,
                 static fn(Options $options): CiPlan|Invalid => self::built($build($options), CiPlan::class),
                 Withheld::nothing(),
+                CiMarker::none(),
             ),
             ExtensionPoint::Reporter => $registry->withReporter(
                 $name,
@@ -129,7 +131,7 @@ final class Registering
             ExtensionPoint::TreeSource => $registry->withTreeSource($name, $build),
             ExtensionPoint::CostModel => $registry->withCostModel($name, $build),
             ExtensionPoint::ProofStore => $registry->withProofStore($name, $build),
-            ExtensionPoint::CiPlan => $registry->withCiPlan($name, $build, Withheld::nothing()),
+            ExtensionPoint::CiPlan => $registry->withCiPlan($name, $build, Withheld::nothing(), CiMarker::none()),
             ExtensionPoint::Reporter => $registry->withReporter($name, $build),
             ExtensionPoint::ChangeSource => $registry->withChangeSource($name, $build),
             ExtensionPoint::Repository => $registry->withRepository($name, $build),

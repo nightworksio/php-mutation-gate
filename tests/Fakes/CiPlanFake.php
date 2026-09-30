@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Fakes;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -62,5 +63,11 @@ final class CiPlanFake implements CiPlan
     public static function withheld(): Withheld
     {
         return Withheld::of('FAKE_CI_TOKEN');
+    }
+
+    /** The fake CI sets `FAKE_CI` to `true` in every job. */
+    public static function marker(): CiMarker
+    {
+        return CiMarker::saying('FAKE_CI');
     }
 }

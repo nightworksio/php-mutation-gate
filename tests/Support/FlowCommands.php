@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
@@ -92,7 +93,7 @@ final readonly class FlowCommands
             ->withTreeSource(Name::of('phpunit'), static fn(): TreeSource => new TreeSourceFake($trees))
             ->withProofStore(Name::of('directory'), static fn(): ProofStore => $proofs)
             ->withCostModel(Name::of('learned'), static fn(): CostModel => new CostModelFake(Seconds::of(1.0)))
-            ->withCiPlan(Name::of('json'), static fn(): CiPlan => $ci, Withheld::nothing())
+            ->withCiPlan(Name::of('json'), static fn(): CiPlan => $ci, Withheld::nothing(), CiMarker::none())
             ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Flows::checkout())
             ->withRepository(
                 Name::of('git'),

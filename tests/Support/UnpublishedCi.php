@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -44,5 +45,10 @@ final readonly class UnpublishedCi implements CiPlan
     public static function withheld(): Withheld
     {
         return CiPlanFake::withheld();
+    }
+
+    public static function marker(): CiMarker
+    {
+        return CiPlanFake::marker();
     }
 }

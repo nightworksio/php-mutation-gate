@@ -12,6 +12,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -163,6 +164,12 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
     }
 
     /** The agent's token, which can upload and change pipelines. */
+    /** Buildkite sets `BUILDKITE` to `true` in every job. */
+    public static function marker(): CiMarker
+    {
+        return CiMarker::saying(Variables::BUILDKITE);
+    }
+
     public static function withheld(): Withheld
     {
         return Withheld::of('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN');

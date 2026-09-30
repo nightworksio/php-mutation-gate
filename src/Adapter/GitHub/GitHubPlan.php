@@ -15,6 +15,7 @@ use function json_encode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -132,6 +133,12 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     }
 
     /** The Actions runtime's token and variables, and the workflow's `GITHUB_TOKEN`. */
+    /** GitHub Actions sets `GITHUB_ACTIONS` to `true` in every job. */
+    public static function marker(): CiMarker
+    {
+        return CiMarker::saying(Variables::GITHUB_ACTIONS);
+    }
+
     public static function withheld(): Withheld
     {
         return Withheld::of('ACTIONS_*', 'GITHUB_TOKEN');
