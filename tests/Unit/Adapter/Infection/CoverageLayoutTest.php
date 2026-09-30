@@ -84,6 +84,15 @@ it('writes each test class\'s suite with its file and the time its tests took, a
         ->and(layoutRead($log, '//testcase[@class="Tests\MoneyTest"][3]/@name'))->toBe('adds with data set "small amounts"');
 });
 
+it('logs no test for a covering id that names no test method, and asks no file to declare it', function (): void {
+    $project = layoutProject();
+    $directory = DiskPath::of(sprintf('%s/coverage', $project->root()));
+    $map = layoutMap()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('money.phpt'));
+
+    expect(CoverageLayout::write($project, $map, $directory))->toEqual($directory)
+        ->and(substr_count((string) file_get_contents(sprintf('%s/junit.xml', $directory->value())), '<testcase '))->toBe(4);
+});
+
 it('writes each report as Infection reads it: its path, a share of lines run, its methods and its lines', function (): void {
     $project = layoutProject();
     $directory = sprintf('%s/coverage', $project->root());

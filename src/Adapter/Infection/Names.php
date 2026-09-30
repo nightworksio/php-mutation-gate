@@ -23,7 +23,7 @@ final readonly class Names
         $classes = [];
 
         foreach ($tests as $test) {
-            $classes[TestMethod::of($test)->className()] = true;
+            $classes[TestMethod::classOf($test)] = true;
         }
 
         $files = TestFiles::byClass($project, array_keys($classes));
@@ -31,7 +31,7 @@ final readonly class Names
 
         foreach ($tests as $test) {
             $method = TestMethod::of($test);
-            $names = $method->method() !== '' && array_key_exists($method->className(), $files)
+            $names = $method instanceof TestMethod && array_key_exists($method->className(), $files)
                 ? $names->with($test, $method->in($files[$method->className()], $method->method()))
                 : $names;
         }

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -75,13 +76,20 @@ final readonly class Names
 
         foreach ($ids as $id) {
             $method = TestMethod::of($id);
-            $key = sprintf('%s::%s', $method->className(), $method->method());
-            $names = array_key_exists($key, $this->tests)
-                ? $names->with($id, $method->in($project->relative($this->tests[$key][0]), $this->tests[$key][1]))
-                : $names;
+            $names = $method instanceof TestMethod ? $this->named($names, $project, $id, $method) : $names;
         }
 
         return $names;
+    }
+
+    /** These names, with a test method's where the run named it. */
+    private function named(TestNames $names, Project $project, TestId $id, TestMethod $method): TestNames
+    {
+        $key = sprintf('%s::%s', $method->className(), $method->method());
+
+        return array_key_exists($key, $this->tests)
+            ? $names->with($id, $method->in($project->relative($this->tests[$key][0]), $this->tests[$key][1]))
+            : $names;
     }
 
     private static function read(string $text): self

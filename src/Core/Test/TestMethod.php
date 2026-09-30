@@ -14,23 +14,26 @@ use function sprintf;
 
 /**
  * A coverage id as PHPUnit spells a test method's, and Pest's with it:
- * `<class>::<method>`, with `#<data set>` for a row of a data set. An id of
- * another shape is a class with no method.
+ * `<class>::<method>`, with `#<data set>` for a row of a data set.
  */
 final readonly class TestMethod
 {
     /** The class, the method and, where there is one, the data set's number or name. */
-    private const string ID = '/^(?<class>.*?)::(?<method>[^#]*)(?:#(?:(?<number>\d+)|(?<name>.*)))?$/sD';
+    private const string ID = '/^(?<class>.*?)::(?<method>[^#]+)(?:#(?:(?<number>\d+)|(?<name>.*)))?$/sD';
 
-    /** @param string $row the data set as PHPUnit names its row, `#0` or `"one"`; empty for a whole test */
+    /**
+     * @param non-empty-string $method
+     * @param string           $row    the data set as PHPUnit names its row, `#0` or `"one"`; empty for a whole test
+     */
     private function __construct(private string $class, private string $method, private string $row)
     {
     }
 
-    public static function of(TestId $test): self
+    /** The test method an id runs; the id itself where it names none, such as a `.phpt` file's. */
+    public static function of(TestId $test): self|TestId
     {
         if (preg_match(self::ID, $test->value(), $parts, PREG_UNMATCHED_AS_NULL) !== 1) {
-            return new self($test->value(), '', '');
+            return $test;
         }
 
         $row = match (true) {
@@ -42,12 +45,20 @@ final readonly class TestMethod
         return new self($parts['class'], $parts['method'], $row);
     }
 
+    /** The class an id's test is in: a test method's class, or the whole id where it names no method. */
+    public static function classOf(TestId $test): string
+    {
+        $method = self::of($test);
+
+        return $method instanceof self ? $method->class : $test->value();
+    }
+
     public function className(): string
     {
         return $this->class;
     }
 
-    /** The method's name; empty where the id names none. */
+    /** @return non-empty-string */
     public function method(): string
     {
         return $this->method;

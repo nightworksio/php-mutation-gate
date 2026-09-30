@@ -177,13 +177,16 @@ final readonly class CoverageLayout
 
         foreach ($map->tests() as $test) {
             $method = TestMethod::of($test);
-            $class = $method->className();
-            self::appended($suites[$class], new DOMElement('testcase'), [
-                'name' => $method->in($files[$class], $method->method())->description(),
-                'class' => $class,
-                'file' => $project->absolute($files[$class]),
-                'time' => sprintf('%F', self::secondsOf($map, $test)),
-            ]);
+
+            if ($method instanceof TestMethod) {
+                $class = $method->className();
+                self::appended($suites[$class], new DOMElement('testcase'), [
+                    'name' => $method->in($files[$class], $method->method())->description(),
+                    'class' => $class,
+                    'file' => $project->absolute($files[$class]),
+                    'time' => sprintf('%F', self::secondsOf($map, $test)),
+                ]);
+            }
         }
 
         foreach ($suites as $suite) {
@@ -205,13 +208,14 @@ final readonly class CoverageLayout
         return $seconds;
     }
 
-    /** @return list<string> each test class the map's tests belong to, once, in their order */
+    /** @return list<string> each test class the map's test methods belong to, once, in their order */
     private static function classesOf(CoverageMap $map): array
     {
         $classes = [];
 
         foreach ($map->tests() as $test) {
-            $classes[TestMethod::of($test)->className()] = true;
+            $method = TestMethod::of($test);
+            $classes += $method instanceof TestMethod ? [$method->className() => true] : [];
         }
 
         return array_keys($classes);

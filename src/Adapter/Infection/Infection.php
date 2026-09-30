@@ -136,7 +136,7 @@ final readonly class Infection implements Runner
         $classes = [];
 
         foreach ($map->testsCoveringFile($file) as $test) {
-            $classes[TestMethod::of($test)->className()] = true;
+            $classes[TestMethod::classOf($test)] = true;
         }
 
         return $classes === [] ? Paths::none() : TestFiles::declaring($this->project, array_keys($classes));

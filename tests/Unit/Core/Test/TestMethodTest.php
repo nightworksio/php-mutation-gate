@@ -17,8 +17,9 @@ it('reads a coverage id\'s class and method, and names the test or the row it ru
     $test = TestMethod::of(TestId::of($id));
     $name = TestName::in(Path::of('tests/MoneyTest.php'), 'adds');
 
-    expect([$test->className(), $test->method()])->toBe([$class, $method])
-        ->and($test->in(Path::of('tests/MoneyTest.php'), 'adds'))
+    expect($test)->toBeInstanceOf(TestMethod::class)
+        ->and($test instanceof TestMethod ? [$test->className(), $test->method()] : [])->toBe([$class, $method])
+        ->and($test instanceof TestMethod ? $test->in(Path::of('tests/MoneyTest.php'), 'adds') : $test)
         ->toEqual($row === '' ? $name : TestRow::of($name, $row));
 })->with([
     'a test method' => ['Tests\MoneyTest::testAdds', 'Tests\MoneyTest', 'testAdds', ''],
@@ -32,12 +33,15 @@ it('reads a coverage id\'s class and method, and names the test or the row it ru
     'a row across lines' => ["Tests\\MoneyTest::testAdds#one\ntwo", 'Tests\MoneyTest', 'testAdds', "\"one\ntwo\""],
 ]);
 
-it('reads an id of another shape as a class with no method', function (string $id): void {
-    $test = TestMethod::of(TestId::of($id));
-
-    expect([$test->className(), $test->method()])->toBe([$id, ''])
-        ->and($test->in(Path::of('tests/MoneyTest.php'), 'adds'))->toEqual(TestName::in(Path::of('tests/MoneyTest.php'), 'adds'));
+it('reads an id of another shape as no test method, in a class of its whole id', function (string $id): void {
+    expect(TestMethod::of(TestId::of($id)))->toEqual(TestId::of($id))
+        ->and(TestMethod::classOf(TestId::of($id)))->toBe($id);
 })->with([
     'no method' => ['Tests\MoneyTest'],
+    'an empty method' => ['Tests\MoneyTest::'],
     'a phpt file' => ['tests/money.phpt'],
 ]);
+
+it('reads a test method\'s class', function (): void {
+    expect(TestMethod::classOf(TestId::of('Tests\MoneyTest::testAdds#one')))->toBe('Tests\MoneyTest');
+});
