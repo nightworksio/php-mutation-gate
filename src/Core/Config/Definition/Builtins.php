@@ -9,10 +9,12 @@ use function array_key_exists;
 use function array_keys;
 use function array_map;
 
+use NightWorksIO\MutationGate\Core\Analysis\BuiltInAnalyser;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
@@ -46,6 +48,16 @@ final readonly class Builtins
     public static function runners(): self
     {
         return self::none('pest', 'infection');
+    }
+
+    /** The analysers this package brings, and `auto` and `none`, none of which takes options. */
+    public static function staticCheckers(): self
+    {
+        return self::none(
+            StaticCheck::AUTO,
+            StaticCheck::NONE,
+            ...array_map(static fn(BuiltInAnalyser $analyser): string => $analyser->value, BuiltInAnalyser::cases()),
+        );
     }
 
     /** The tree sources, whose paths are named from the layer's origin. */

@@ -1111,6 +1111,130 @@
             },
             "additionalProperties": false
         },
+        "staticCheck": {
+            "type": "object",
+            "properties": {
+                "tool": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "auto"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "none"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "mago"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "phpstan"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "psalm"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "not": {
+                                        "enum": [
+                                            "auto",
+                                            "none",
+                                            "mago",
+                                            "phpstan",
+                                            "psalm"
+                                        ]
+                                    }
+                                },
+                                "with": {
+                                    "type": "object"
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        }
+                    ],
+                    "default": "auto"
+                },
+                "config": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "additionalProperties": false
+        },
         "local": {
             "type": "object",
             "properties": {

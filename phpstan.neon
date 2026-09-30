@@ -25,10 +25,12 @@ parameters:
 
     # The runner contract suite's fixture is a project of its own, with its own
     # dependencies, written as a user's library is rather than to these rules.
+    # The static checker's fixture holds mutants, which are wrong on purpose.
     excludePaths:
         analyseAndScan:
             - tests/Contract/Runner/fixture
             - tests/Contract/Runner/infection-fixture
+            - tests/Contract/StaticChecker/fixture
 
     # Pest's own annotation, corrected. See the stub.
     stubFiles:
@@ -514,6 +516,9 @@ services:
                     - EACH # how a list's entries are named in a setting's path
                 'NightWorksIO\MutationGate\Core\Config\Proofs':
                     - PATH # the directory store's option
+                'NightWorksIO\MutationGate\Core\Config\StaticCheck':
+                    - AUTO # the analyser zero-config finds, not a proof-writing mode
+                    - NONE # no analyser, not a mutator family or a Pest status
                 'NightWorksIO\MutationGate\Core\Config\Setup':
                     - TREE_SOURCE # the tree source, not a test framework
                 'NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize':

@@ -25,6 +25,7 @@ return (new Configuration())
     // dependencies.
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/fixture')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/infection-fixture')
+    ->addPathToExclude(__DIR__ . '/tests/Contract/StaticChecker/fixture')
     ->ignoreErrorsOnPackages(
         [
             // Included by phpstan.neon, which is configuration rather than code.

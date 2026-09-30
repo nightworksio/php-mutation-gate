@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Port\Runner;
+use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
 
 use function sprintf;
@@ -63,6 +64,20 @@ final readonly class Chosen
     public function ciPlan(Choice $choice): CiPlan|Invalid|CannotJudge
     {
         return $this->built('ci.plan', CiPlan::class, $choice, Lookup::in($this->extensions)->ciPlan(...));
+    }
+
+    /**
+     * The analyser `staticCheck.tool` names, built with its options. The caller resolves `auto` through
+     * `Detected::staticChecker()` first, and builds nothing for `none`.
+     */
+    public function staticChecker(Choice $choice): StaticChecker|Invalid|CannotJudge
+    {
+        return $this->built(
+            'staticCheck.tool',
+            StaticChecker::class,
+            $choice,
+            Lookup::in($this->extensions)->staticChecker(...),
+        );
     }
 
     /** The reporter of the `reports` entry at this index. */

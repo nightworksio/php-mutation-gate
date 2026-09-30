@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Port\Runner;
+use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
@@ -35,6 +36,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 
 use function sprintf;
@@ -100,6 +102,10 @@ final class Registering
                 $name,
                 static fn(Options $options): ConfigLoader|Invalid => self::built($build($options), ConfigLoader::class),
             ),
+            ExtensionPoint::StaticChecker => $registry->withStaticChecker(
+                $name,
+                static fn(Options $options): StaticChecker|Invalid => self::built($build($options), StaticChecker::class),
+            ),
             ExtensionPoint::Preset => throw new LogicException('A preset is registered as a document.'),
         };
     }
@@ -124,6 +130,7 @@ final class Registering
             ExtensionPoint::ChangeSource => $registry->withChangeSource($name, $build),
             ExtensionPoint::Repository => $registry->withRepository($name, $build),
             ExtensionPoint::ConfigLoader => $registry->withConfigLoader($name, $build),
+            ExtensionPoint::StaticChecker => $registry->withStaticChecker($name, $build),
             ExtensionPoint::Preset => throw new LogicException('A preset is registered as a document.'),
         };
     }
@@ -141,6 +148,7 @@ final class Registering
             ExtensionPoint::ChangeSource => ChangeSourceFake::ofTheFixture(),
             ExtensionPoint::Repository => RepositoryFake::onMain(Revision::ref('5eeca8f')),
             ExtensionPoint::ConfigLoader => ConfigLoaderFake::ofTheFixture(),
+            ExtensionPoint::StaticChecker => StaticCheckerFake::findingNothing(),
             ExtensionPoint::Preset => throw new LogicException('A preset is no adapter.'),
         };
     }
@@ -159,6 +167,7 @@ final class Registering
             ExtensionPoint::ChangeSource => $lookup->changeSource(Name::of('it'), $options),
             ExtensionPoint::Repository => $lookup->repository(Name::of('it'), $options),
             ExtensionPoint::ConfigLoader => $lookup->configLoader(Name::of('it'), $options),
+            ExtensionPoint::StaticChecker => $lookup->staticChecker(Name::of('it'), $options),
             ExtensionPoint::Preset => $lookup->preset(Name::of('it')),
         };
     }

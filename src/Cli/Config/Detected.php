@@ -4,19 +4,26 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Config;
 
+use function array_any;
+
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Core\Analysis\BuiltInAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Composer\Names;
+use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 
 use function sprintf;
 
 /**
  * What zero-config finds out about a project (ADR-0002): its preset, from
- * what its `composer.json` requires, and its runner, from what is installed.
+ * what its `composer.json` requires, and its runner and static analyser,
+ * from what is installed.
  */
 final readonly class Detected
 {
@@ -25,6 +32,10 @@ final readonly class Detected
 
     /** The package whose installation makes Infection the runner. */
     public const string INFECTION = 'infection/infection';
+
+    /** Where Composer links each installed package's commands, in the vendor directory, by its default bin-dir. */
+    private const string BIN = 'bin';
+
     /** The package that says each preset fits, in the order they are asked about (ADR-0008). */
     private const array PRESETS = ['laravel' => 'laravel/framework', 'symfony' => 'symfony/framework-bundle'];
 
@@ -61,6 +72,22 @@ final readonly class Detected
         return $installed instanceof CannotJudge ? $installed : $this->runnerIn($installed);
     }
 
+    /**
+     * The analyser `staticCheck.tool: auto` takes: the first whose command is
+     * installed and whose config the project has, or `none`. `doctor` asks
+     * this too, so the two can never disagree.
+     */
+    public function staticChecker(): Name
+    {
+        foreach (BuiltInAnalyser::cases() as $analyser) {
+            if ($this->installs($analyser->value) && $this->hasAny($analyser->configs())) {
+                return Name::of($analyser->value);
+            }
+        }
+
+        return Name::of(StaticCheck::NONE);
+    }
+
     /** What Composer installed in the vendor directory, as its `installed.json` lists it. */
     public function installed(): Installed|CannotJudge
     {
@@ -93,5 +120,17 @@ final readonly class Detected
                 self::INFECTION,
             )),
         };
+    }
+
+    /** Whether Composer linked this command into the vendor directory. */
+    private function installs(string $command): bool
+    {
+        return $this->vendor->read(Path::of(self::BIN)->child(Path::of($command))) instanceof Contents;
+    }
+
+    /** Whether the project's root has any of these files. */
+    private function hasAny(Paths $files): bool
+    {
+        return array_any([...$files], fn(Path $file): bool => $this->project->read($file) instanceof Contents);
     }
 }

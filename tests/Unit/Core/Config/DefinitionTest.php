@@ -101,6 +101,8 @@ it('declares every setting as affecting results or as judging or reporting only'
         'badge.colors' => $judges,
         'pest.patch' => $results,
         'pest.canary' => $results,
+        'staticCheck.tool' => $results,
+        'staticCheck.config' => $results,
         'local.watchBudget' => $judges,
         'local.prePushBudget' => $judges,
     ]);

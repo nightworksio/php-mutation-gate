@@ -21,12 +21,14 @@ use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Port\Runner;
+use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\ConfigurableReporter;
@@ -42,6 +44,7 @@ $registry = static fn(): Extensions => new Extensions(Origin::of('acme/gate'))
         Name::of('it'),
         static fn(): CiPlan => new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')),
     )
+    ->withStaticChecker(Name::of('it'), static fn(): StaticChecker => StaticCheckerFake::findingNothing())
     ->withRunner(
         Name::of('picky'),
         static fn(): Invalid => Invalid::because(Problem::at('workers', 'expected a number')),
@@ -62,7 +65,14 @@ it('builds the adapter an extension registered under the name a setting chooses'
         ->and($chosen->treeSource(Choice::of('it', Configs::options('{}'))))->toEqual(TreeSourceFake::ofTheFixture())
         ->and($chosen->proofStore(Choice::of('it', Configs::options('{}'))))->toBeInstanceOf(ProofStoreFake::class)
         ->and($chosen->ciPlan(Choice::of('it', Configs::options('{}'))))
-        ->toEqual(new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')));
+        ->toEqual(new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')))
+        ->and($chosen->staticChecker(Choice::of('it', Configs::options('{}'))))
+        ->toEqual(StaticCheckerFake::findingNothing());
+});
+
+it('names the static analyser nothing registered by its setting', function () use ($registry): void {
+    expect(new Chosen($registry())->staticChecker(Choice::of('phpstna', Configs::options('{}'))))
+        ->toEqual(CannotJudge::because('No static checker is registered as "phpstna".'));
 });
 
 it('cannot judge with a name nothing registered', function () use ($registry): void {

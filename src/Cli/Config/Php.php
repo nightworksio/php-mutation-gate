@@ -42,6 +42,7 @@ final readonly class Php
         'Runner' => self::BUILDER,
         'Shards' => self::BUILDER,
         'Source' => self::BUILDER,
+        'StaticCheck' => self::BUILDER,
         'Tests' => self::BUILDER,
         'Timeouts' => self::BUILDER,
         'Tree' => self::BUILDER,

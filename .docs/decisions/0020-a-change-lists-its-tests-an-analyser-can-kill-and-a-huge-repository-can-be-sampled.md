@@ -127,10 +127,10 @@ needs remain, and the runners' own behaviour shapes each answer.
 
 6. **A tenth port, `StaticChecker`, asks a static analyser about one
    mutant.**
-   - `identity(): Identity|CannotJudge` gives the analyser, its version and
-     its config's digest.
-   - `findings(Paths): Findings|CannotJudge` gives the original files'
-     findings, from one warm-up run.
+   - `identity(): AnalyserIdentity|CannotJudge` gives the analyser, its
+     version and its config's digest.
+   - `findings(Paths, Withheld): Findings|CannotJudge` gives the original
+     files' findings, from one warm-up run.
    - `check(Path original, Path mutant, Withheld): Findings|CannotJudge`
      checks one mutant, and a finding therefore always belongs to that
      mutant. A check that cannot run leaves the mutant to its tests. It never
@@ -138,7 +138,8 @@ needs remain, and the runners' own behaviour shapes each answer.
    - `Core` compares findings. The port has a fake in `tests/Fakes` and one
      contract suite, run against the fake and every adapter.
    - Its adapters are `Adapter\Mago`, `Adapter\PhpStan` and
-     `Adapter\Psalm`.
+     `Adapter\Psalm`. An extension registers another with
+     `Extensions::withStaticChecker(name, build)`, as it registers a runner.
    - This supersedes ADR-0001 decision 2's count: there are ten ports.
 
 7. **Each analyser runs in the mode its authors built for this, and answers
@@ -163,9 +164,12 @@ needs remain, and the runners' own behaviour shapes each answer.
 
 8. **`staticCheck.tool` chooses the analyser, and Mago comes first.**
    - `staticCheck.tool` is `auto`, `mago`, `phpstan`, `psalm` or `none`,
-     `auto` by default.
+     `auto` by default, or an analyser an extension registers. It is an
+     adapter choice, as `runner` is: a name or a class, with its options.
+     `auto` and `none` are names the gate resolves before it builds an
+     adapter, never adapters: `none` turns checking off.
    - `auto` takes the first of these that is installed and configured, else
-     `none`:
+     `none`, and `doctor` asks the same question of the same code:
      1. Mago: `vendor/bin/mago`, and a `mago.toml`, `mago.yaml` or
         `mago.json`;
      2. PHPStan: `vendor/bin/phpstan`, and a `phpstan.neon`,

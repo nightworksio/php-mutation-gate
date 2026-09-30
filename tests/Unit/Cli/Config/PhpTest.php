@@ -94,6 +94,7 @@ it('writes a config that reads back into the same effective config', function (a
         ],
         'badge' => ['colors' => ['green' => 95]],
         'pest' => ['patch' => true, 'canary' => 'canary'],
+        'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],
         'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s'],
     ]],
     'adapters another extension registers' => [[

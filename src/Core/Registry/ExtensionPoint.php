@@ -20,5 +20,6 @@ enum ExtensionPoint: string
     case ChangeSource = 'change source';
     case Repository = 'repository';
     case ConfigLoader = 'config loader';
+    case StaticChecker = 'static checker';
     case Preset = 'preset';
 }
