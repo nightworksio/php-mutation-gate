@@ -133,3 +133,33 @@ time each run spends.
 
 Delete the ledger of a scope that no longer runs. The next run of a live
 scope starts its ledger afresh, and keeps it within the proof cap.
+
+## coverage-run-failed
+
+`doctor --measure` could not measure the suite. It finds the units and runs
+the whole suite once under coverage, as every run begins, and one of those
+steps failed. The finding quotes why: a failing test, a driver the runner's
+PHP cannot load, or a runner that cannot list its groups.
+
+Run `vendor/bin/mutation-gate coverage` to see the same failure, and fix
+the test or the driver it names.
+
+## coverage-empty
+
+`doctor --measure` ran the whole suite under coverage, and the suite passed
+but covered no line of any file. A mutant no test covers is never killed, so
+no run could judge one.
+
+Collect coverage where the gate runs, with `XDEBUG_MODE=coverage` or
+`pcov.enabled=1`, and list the trees in the `<source>` of `phpunit.xml`.
+
+## hot-path-unheld
+
+Most of the suite runs through a file, and nothing holds it (ADR-0005,
+decision 11). Each of its mutants runs most of the suite, which costs time
+and never a verdict. `doctor --measure` finds it over the coverage run it
+measured. The time at stake is what the ledgers learned the file takes, or
+else what its covering tests take once, for each of its mutants.
+
+Hold it with the tests that assert what it does: `#[Holds('<path>')]` on
+them, or the `holds:<path>` group under Pest.

@@ -8,6 +8,7 @@ use function count;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -59,15 +60,26 @@ final readonly class HotPaths
         $tests = count($suite->tests());
         $warnings = [];
 
-        foreach ($tests < self::SMALLEST_SUITE ? [] : $suite->files() as $file) {
+        foreach ($this->hot($suite, $held) as $file) {
             $running = count($suite->testsCoveringFile($file));
-
-            if ($running / $tests >= $this->share && ! $this->isHeld($file, $held)) {
-                $warnings[] = Warning::that(sprintf(self::SAID, $file->value(), $running, $tests));
-            }
+            $warnings[] = Warning::that(sprintf(self::SAID, $file->value(), $running, $tests));
         }
 
         return Warnings::of(...$warnings);
+    }
+
+    /** The files the suite's map says this share of its tests run, where no held unit holds them. */
+    public function hot(CoverageMap $suite, Units $held): Paths
+    {
+        $tests = count($suite->tests());
+        $hot = Paths::none();
+
+        foreach ($tests < self::SMALLEST_SUITE ? [] : $suite->files() as $file) {
+            $running = count($suite->testsCoveringFile($file));
+            $hot = $running / $tests >= $this->share && ! $this->isHeld($file, $held) ? $hot->with($file) : $hot;
+        }
+
+        return $hot;
     }
 
     private function isHeld(Path $file, Units $held): bool

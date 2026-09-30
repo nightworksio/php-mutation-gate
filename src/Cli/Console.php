@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
+use NightWorksIO\MutationGate\Cli\Doctor\Measure;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -108,6 +109,7 @@ final readonly class Console
         $probe = PhpProbe::of(PHP_BINARY, getenv());
         $application->addCommand(Doctor::command(
             new Observed($project, $extensions, $effective, $detected, $probe, $now),
+            new Measure($composition),
             $installed instanceof Installed ? Guide::installedIn($installed) : Guide::unreleased(),
         ));
         $application->setDefaultCommand(self::DEFAULT);

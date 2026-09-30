@@ -14,8 +14,9 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 
 /**
  * What an adapter read about a project for the checks, read-only and without
- * running its code, and the day it read it (ADR-0017, decision 9). A part
- * nobody read is not given, and the checks that ask for it find nothing.
+ * running its code, and the day it read it (ADR-0017, decision 9); and, under
+ * `--measure`, what running its suite measured. A part nobody read is not
+ * given, and the checks that ask for it find nothing.
  */
 final readonly class Observations
 {
@@ -27,6 +28,7 @@ final readonly class Observations
         private Markers|NotGiven $markers,
         private ProjectFiles $files,
         private KeptLedgers|NotGiven $ledgers,
+        private Measurement|NotGiven $measurement,
         private DateTimeImmutable|NotGiven $now,
     ) {
     }
@@ -35,7 +37,7 @@ final readonly class Observations
     {
         $none = NotGiven::value();
 
-        return new self($none, $none, $none, $none, $none, ProjectFiles::none(), $none, $none);
+        return new self($none, $none, $none, $none, $none, ProjectFiles::none(), $none, $none, $none);
     }
 
     /** These, with the PHP the runner runs its tests on, or why it could not be read. */
@@ -79,6 +81,12 @@ final readonly class Observations
         return clone($this, ['ledgers' => $ledgers]);
     }
 
+    /** These, with what running the suite measured, under `doctor --measure`. */
+    public function withMeasurement(Measurement $measurement): self
+    {
+        return clone($this, ['measurement' => $measurement]);
+    }
+
     /** These, as of the instant they were read. */
     public function at(DateTimeImmutable $now): self
     {
@@ -118,6 +126,11 @@ final readonly class Observations
     public function ledgers(): KeptLedgers|NotGiven
     {
         return $this->ledgers;
+    }
+
+    public function measurement(): Measurement|NotGiven
+    {
+        return $this->measurement;
     }
 
     public function now(): DateTimeImmutable|NotGiven

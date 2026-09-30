@@ -31,7 +31,10 @@
                             "mirrored-path-repository",
                             "ignores-expiring",
                             "tree-without-floor",
-                            "ledger-slows-runs"
+                            "ledger-slows-runs",
+                            "coverage-run-failed",
+                            "coverage-empty",
+                            "hot-path-unheld"
                         ]
                     },
                     "severity": {

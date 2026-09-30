@@ -187,9 +187,14 @@ would have cost without them.
    does.**
    - It is read-only, offline and fast. It reads the config, the project's
      files, git's config, the runner's PHP as it describes itself, and what
-     `.mutation-gate/` holds from earlier runs: timings, the ledger and the
-     last coverage map.
-   - `--measure` adds the coverage run of decision 4.
+     `.mutation-gate/` holds from earlier runs: timings and the ledger.
+   - `--measure` adds the coverage run of decision 4. It runs the whole
+     suite once, finds the units as a run does, and writes no map. Where
+     measuring fails, `coverage-run-failed` says why. Where the run covers
+     no line, `coverage-empty` says so. Both are *will fail*.
+   - A hot path nothing holds is found only under `--measure`, over the
+     fresh map and the held units a run finds. What holds a file is the
+     groups the runner lists, and only running it lists them.
    - `--online`, with a token, reads GitHub's settings: whether branch
      protection requires the verdict, the fork approval policy, and whether
      a schedule exists.
@@ -210,7 +215,7 @@ would have cost without them.
    - Beside the checks of decision 10, it finds a config every command
      refuses (`config-refused`) and a runner's PHP that cannot describe itself
      (`php-not-read`), both *will fail*.
-   - `--measure` and `--online` are not accepted until each is built.
+   - `--online` is not accepted until it is built.
    - It never edits a file, as `hook install` never overwrites a hook
      (ADR-0010 decision 3).
    - `plan` and a one-process run begin with the same checks, one line for
@@ -238,7 +243,7 @@ would have cost without them.
     | A mirrored path repository (`symlink: false`) holding a tree | will fail |
     | `pest.patch: true` without `pest:patch` in `post-install-cmd` and `post-update-cmd` | will fail |
     | Pest with more than one shard in the recorded timings, and no `pest.patch` | slow: the opening run × (shards − 1) |
-    | A hot path nothing holds (ADR-0005 decision 11) | slow: its units' timings |
+    | A hot path nothing holds (ADR-0005 decision 11), under `--measure` | slow: its units' timings, or else its covering tests' time |
     | A ledger over 25 MB compressed, or at its proof cap with under 50% hits over its last 10 runs | slow |
     | One file outside the tests that invalidated most proofs in recent runs, found by comparing the digests of each item of the key, which every proof keeps (ADR-0007 decision 3) | slow |
     | A GitHub workflow that checks out without `fetch-depth: 0` | slow: everything is reached |
