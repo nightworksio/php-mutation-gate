@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Adapter\Pest;
+
+use function array_key_exists;
+
+use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+
+use function sprintf;
+
+/**
+ * The gate's id of each mutant Pest planned, the one place it is made: its
+ * file as the project spells it, its mutator and its change, and how many
+ * mutants before it, by file and then by line, share all three.
+ *
+ * @phpstan-import-type Planned from Records
+ */
+final readonly class Identities
+{
+    /**
+     * @param  array<string, Planned>  $planned by native id
+     * @return array<string, MutantId> by native id
+     */
+    public static function of(Root $root, array $planned): array
+    {
+        $ids = [];
+        $seen = [];
+
+        foreach (Records::sorted($planned) as $native => $mutant) {
+            $path = $root->relative($mutant['file']);
+            $diff = Diff::fromPest($mutant['diff']);
+            $key = sprintf("%s\n%s\n%s", $path->value(), $mutant['mutator'], $diff);
+            $occurrence = array_key_exists($key, $seen) ? $seen[$key] : 0;
+            $ids[$native] = MutantId::hash($path, $mutant['mutator'], $diff, $occurrence);
+            $seen[$key] = $occurrence + 1;
+        }
+
+        return $ids;
+    }
+}

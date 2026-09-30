@@ -9,6 +9,7 @@ use function array_values;
 use function count;
 use function dirname;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Judging;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
@@ -250,7 +251,7 @@ final readonly class Pest implements Runner
 
     private function mutated(MutationRequest $request, string $results): MutationResult|CannotJudge
     {
-        $command = $this->commandFor($request, $results);
+        $command = Plan::handedOver($this->project, $request, $this->commandFor($request, $results));
         $result = $command instanceof CannotJudge
             ? $command
             : new Interpretation($this->project, $this->patching)->of($this->shell->run($command), $results);

@@ -13,6 +13,8 @@ use function is_file;
 use function is_string;
 use function mkdir;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
+use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -36,8 +38,14 @@ final readonly class Project
     /** Why a file of the adapter's own cannot be told from the one an earlier run wrote. */
     private const string LEFT = 'An earlier run left %s, and the gate cannot remove it.';
 
+    /** Where the plugin keeps each mutant's order, under the workspace. */
+    private const string ORDER = 'order';
+
     /** Why a run cannot be told from an earlier one. */
     private const string STALE = 'An earlier run left %s or the map beside it, and the gate cannot remove them.';
+
+    /** Why a run's orders cannot be told from an earlier run's. */
+    private const string STALE_ORDER = 'An earlier run left orders in %s, and the gate cannot remove them.';
 
     private function __construct(
         private Root $root,
@@ -130,6 +138,20 @@ final readonly class Project
         $this->directory(Path::of(dirname($file)));
 
         return $this->without($file) ? $file : CannotJudge::because(sprintf(self::LEFT, $file));
+    }
+
+    /**
+     * The directory the plugin writes each mutant's order to, holding no
+     * earlier run's plan or orders, or why an earlier run's are still there.
+     */
+    public function freshOrder(): string|CannotJudge
+    {
+        $order = $this->directory($this->workspace->child(Path::of(self::ORDER)));
+        $seeds = glob(sprintf('%s/*/%s', $order, Seed::HISTORY));
+
+        return $this->without(Plan::in($order), ...(is_array($seeds) ? $seeds : []))
+            ? $order
+            : CannotJudge::because(sprintf(self::STALE_ORDER, $order));
     }
 
     /** Whether none of these files is there once each that is has been removed. */

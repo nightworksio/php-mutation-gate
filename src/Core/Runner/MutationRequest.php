@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Coverage\Fresh;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -17,8 +18,8 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 /**
  * What a runner is asked to mutate: some files, judged by the whole suite, a
  * group or a filter. By default it leaves nothing out, applies every mutator,
- * has no deadline, counts uncovered mutants, runs one process and collects its
- * own coverage.
+ * has no deadline, counts uncovered mutants, runs one process, collects its
+ * own coverage and runs each mutant's tests in the runner's own order.
  */
 final readonly class MutationRequest
 {
@@ -32,6 +33,7 @@ final readonly class MutationRequest
         private Processes $processes,
         private Path|Fresh $coverage,
         private Withheld $withheld,
+        private Ordering $ordering,
     ) {
     }
 
@@ -47,6 +49,7 @@ final readonly class MutationRequest
             Processes::of(1),
             Fresh::coverage(),
             Withheld::standard(),
+            Ordering::runner(),
         );
     }
 
@@ -93,6 +96,17 @@ final readonly class MutationRequest
     public function reusingCoverage(Path $directory): self
     {
         return clone($this, ['coverage' => $directory]);
+    }
+
+    /** This request, running each mutant's covering tests in this order where the runner can. */
+    public function orderedBy(Ordering $ordering): self
+    {
+        return clone($this, ['ordering' => $ordering]);
+    }
+
+    public function ordering(): Ordering
+    {
+        return $this->ordering;
     }
 
     public function files(): Paths

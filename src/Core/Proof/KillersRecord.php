@@ -40,6 +40,9 @@ use stdClass;
  */
 final readonly class KillersRecord
 {
+    /** The section's name, in a ledger and in the plan the Pest adapter hands its plugin. */
+    public const string SECTION = 'killers';
+
     private const string MUTANTS = 'mutants';
 
     private const string FUNCTIONS = 'functions';
@@ -126,7 +129,7 @@ final readonly class KillersRecord
     {
         foreach (self::entriesOf($functions) as $file => $named) {
             foreach (self::entriesOf($named) as $name => $pairs) {
-                $function = $file === '' || $name === '' ? Nameless::code() : Enclosing::of(Path::of($file), $name);
+                $function = $file === '' ? Nameless::code() : Enclosing::of(Path::of($file), $name);
                 $ranking = self::rankingIn($pairs, $tests);
                 $history = $function instanceof Enclosing && count($ranking) > 0
                     ? $history->withFunction($function, $ranking)

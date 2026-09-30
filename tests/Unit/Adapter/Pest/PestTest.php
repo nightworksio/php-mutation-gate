@@ -7,6 +7,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Diff;
 use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
+use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
+use NightWorksIO\MutationGate\Adapter\Pest\Order\Seeder;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
@@ -19,6 +21,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
@@ -36,6 +39,11 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Order\Enclosing;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\Kills;
+use NightWorksIO\MutationGate\Core\Order\Ordering;
+use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -295,6 +303,37 @@ it('mutates with a fresh results file, and reads what the plugin recorded', func
     expect($result)->toEqual(MutationResult::of(Mutants::of(adapterMutant()), 0))
         ->and($shell->commands())
         ->toEqual([adapterInvocation()->mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at))]);
+});
+
+it('puts the likely killers first where the request asks, handing the plugin the history in a fresh order directory', function (): void {
+    $at = adapterProject();
+    $order = sprintf('%s/.mutation-gate/order', $at->root());
+    Scratch::write($at->root(), '.mutation-gate/order/m1/test-run-history', 'an earlier run');
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+    $history = KillHistory::none()->withFunction(
+        Enclosing::named(Path::of('src/Money.php'), 'add'),
+        Ranking::of(Kills::of(TestId::of(RUN_ADDS), 1)),
+    );
+    $request = adapterMoney()->orderedBy(Ordering::of(TestOrder::KillersFirst, $history));
+
+    new Pest($at, $shell, Patching::off())->mutate($request);
+
+    expect($shell->commands())->toEqual([
+        adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))->with([Seeder::ORDER => $order]),
+    ])->and(Plan::read($order))->toEqual($history)
+        ->and(is_file(sprintf('%s/m1/test-run-history', $order)))->toBeFalse();
+});
+
+it('cannot judge where an earlier run\'s orders cannot be removed', function (): void {
+    $at = adapterProject();
+    mkdir(sprintf('%s/.mutation-gate/order/plan.json', $at->root()), recursive: true);
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+    $request = adapterMoney()->orderedBy(Ordering::of(TestOrder::KillersFirst, KillHistory::none()));
+
+    expect(new Pest($at, $shell, Patching::off())->mutate($request))->toEqual(CannotJudge::because(sprintf(
+        'An earlier run left orders in %s/.mutation-gate/order, and the gate cannot remove them.',
+        $at->root(),
+    )))->and($shell->commands())->toBe([]);
 });
 
 it('mutates against a group without reading a shared map', function (): void {

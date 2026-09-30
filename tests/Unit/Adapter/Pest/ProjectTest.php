@@ -95,3 +95,21 @@ it('cannot name a results file where an earlier run\'s cannot be removed', funct
         $results,
     )));
 });
+
+it('names the order directory with no earlier run\'s plan or orders left in it, or why they are', function () use ($project): void {
+    $at = $project();
+    $order = sprintf('%s/.mutation-gate/order', $at->root());
+    mkdir(sprintf('%s/m1', $order), recursive: true);
+    file_put_contents(sprintf('%s/plan.json', $order), 'earlier');
+    file_put_contents(sprintf('%s/m1/test-run-history', $order), 'earlier');
+    $fresh = $at->freshOrder();
+    $emptied = ! is_file(sprintf('%s/plan.json', $order)) && ! is_file(sprintf('%s/m1/test-run-history', $order));
+    mkdir(sprintf('%s/plan.json', $order));
+
+    expect($fresh)->toBe($order)
+        ->and($emptied)->toBeTrue()
+        ->and($at->freshOrder())->toEqual(CannotJudge::because(sprintf(
+            'An earlier run left orders in %s, and the gate cannot remove them.',
+            $order,
+        )));
+});

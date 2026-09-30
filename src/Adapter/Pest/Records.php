@@ -95,7 +95,18 @@ final readonly class Records
      */
     public function planned(): array
     {
-        $planned = $this->planned;
+        return self::sorted($this->planned);
+    }
+
+    /**
+     * Planned mutants ordered by file and then by the line each starts on,
+     * each keeping its place among those that share both.
+     *
+     * @param  array<string, Planned> $planned
+     * @return array<string, Planned>
+     */
+    public static function sorted(array $planned): array
+    {
         uasort(
             $planned,
             static fn(array $one, array $two): int => $one['file'] === $two['file']

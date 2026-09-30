@@ -93,20 +93,50 @@ decides are accepted for that release too.
    - **The order.** The tests the history names come first, most frequent
      first. The other covering tests follow, fastest first by the coverage
      map's durations. A mutant with no history at all runs fastest first.
-   - **Pest.** Before the mutants run, the plugin, in Pest's parent process,
-     writes each mutant's order as a PHPUnit test run history: the likely
-     killers as defects, and every covering test's time. It writes into
-     `.mutation-gate/order/<name of the mutated file>/`. In the child, the
-     plugin's `HandlesArguments` adds `--order-by=defects
-     --cache-directory=<that directory>`.
+   - **Pest.** The adapter hands the plugin the kill history in
+     `.mutation-gate/order/plan.json`, as a ledger's `tests` and `killers`
+     sections hold it, and names that directory in `MUTATION_GATE_ORDER`.
+     Once Pest has made its mutants and before any runs, the plugin, in
+     Pest's own process, writes each mutant's order into
+     `.mutation-gate/order/<name of its mutated copy>/test-run-history`. That
+     name is what a mutant's own process sees, in `PEST_MUTATION_FILE`. In
+     that process, the plugin's `HandlesArguments` points PHPUnit at the
+     order with `--cache-directory=<that directory> --record-test-run-history
+     --order-by=defects,duration`.
+   - **What an order can say.** Pest keeps PHPUnit's test run history in a
+     file of its own, whose `version` is `pest_` and the version
+     `Pest\version()` answers, which is not always the version Composer
+     installed. So the plugin writes it in Pest's own process. PHPUnit reads
+     a history of any other version as none.
+     - Under `--order-by=defects` PHPUnit weighs a test's recorded status
+       alone: an error before a failure, and every other status the same as
+       none, with no tie broken by time. So the first likely killer is an
+       error and the next four are failures, which keep the suite's order
+       among themselves.
+     - `duration` orders every test by its recorded time first, so the tests
+       below the likely killers run fastest first. Each covering test's time
+       comes from the opening run's coverage map.
+     - PHPUnit orders a file by the highest weight among its tests and never
+       interleaves two files' tests. So a file that holds a likely killer runs
+       first, with that test first within it.
+     - The coverage map names a data set's row `Class::method#<name>`, and
+       the history `Class::method with data set "<name>"`, or `#<number>` for
+       a row keyed by a number. One place turns one into the other.
+   - **An order never makes a kill.** PHPUnit warns, and so exits with the
+     failure a mutant counts as a kill, when an option is given twice, when
+     two options contradict, or when it is asked to order by defects with its
+     history not recorded. So before it adds its own, the rewrite drops every
+     `--cache-directory`, `--order-by`, `--record-test-run-history`,
+     `--do-not-record-test-run-history`, `--cache-result` and
+     `--do-not-cache-result` the process was started with, Pest's own among
+     them. Where the plugin wrote no order for a mutant, because there was no
+     plan, no opening run's map, or the process is no mutant's, the arguments
+     are left as they are and the tests run in Pest's own order. A contract
+     test proves that a survivor stays one and a kill a kill with each of
+     those options.
    - **Infection.** Infection keeps its own fastest-first order, and the gate
      passes it nothing. `plan` says once, under Infection, that
      `killers-first` records killers and leaves the order to Infection.
-   - **The first step of the build proves** that PHPUnit 13.3 runs a Pest
-     child's tests in the order of a history the gate wrote, under
-     `--order-by=defects --cache-directory=<dir>`. If it does not, Pest keeps
-     its suite order as Infection keeps its own, `plan` says so once, and the
-     killer history is still recorded.
 
 4. **Ordering is treated as something that can change a result.** With
    `--bail`, a mutant is killed when some covering test fails. In a suite whose

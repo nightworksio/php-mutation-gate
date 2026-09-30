@@ -45,8 +45,8 @@ final readonly class Recorder
     /** The variable Pest sets beside it, naming the mutated copy it serves in the original's place. */
     public const string MUTATED = 'PEST_MUTATION_FILE';
 
-    /** A duration of whole seconds stays a float, so the adapter reads it as one. */
-    private const int FLAGS = JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION;
+    /** How the plugin writes JSON: a duration of whole seconds stays a float, so the adapter reads it as one. */
+    public const int FLAGS = JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION;
 
     /**
      * @param string        $results   the file the lines are written to
