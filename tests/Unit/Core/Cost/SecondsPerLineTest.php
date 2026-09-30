@@ -36,3 +36,10 @@ it('costs a path under no prefix nothing', function (): void {
 
     expect($perLine->forPath(Path::of('lib/A.php')))->toEqual(Seconds::of(0.0));
 });
+
+it('writes its rates by prefix as costs.secondsPerLine does', function (): void {
+    $perLine = SecondsPerLine::of(LineRate::of('src/Domain/', Seconds::of(0.5)), LineRate::of('', Seconds::of(0.1)));
+
+    expect($perLine->written())->toBe(['src/Domain' => 0.5, '' => 0.1])
+        ->and(SecondsPerLine::standard()->written())->toBe(['' => 0.2]);
+});
