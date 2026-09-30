@@ -9,8 +9,6 @@ use function array_map;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 
-use function sprintf;
-
 /**
  * The names PHPUnit's config has, in the order PHPUnit looks for them in a
  * directory: it reads the first it finds. Both runners run PHPUnit with it.
@@ -32,6 +30,6 @@ enum PhpUnitConfig: string
     /** Where the config of this name would be in a directory. */
     public function in(Path $directory): Path
     {
-        return Path::of(sprintf('%s/%s', $directory->value(), $this->value));
+        return $directory->child(Path::of($this->value));
     }
 }

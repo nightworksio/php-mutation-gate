@@ -89,7 +89,7 @@ final readonly class OwnConfig
     public static function in(Project $project): self|CannotJudge
     {
         foreach (self::NAMES as $name) {
-            $file = sprintf('%s/%s', $project->root(), $name);
+            $file = $project->absolute(Path::of($name));
 
             if (is_file($file)) {
                 return self::read($name, sprintf('%s', file_get_contents($file)));

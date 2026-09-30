@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Project\Manifests;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -27,7 +28,7 @@ it('lists every path the root composer.json autoloads, once, in its order', func
         ],
         'autoload-dev' => ['psr-4' => ['Tests\\' => 'tests/']],
     ]));
-    $paths = Manifests::in($project)->autoloaded();
+    $paths = Manifests::in(Root::of($project))->autoloaded();
 
     expect($paths instanceof Paths
         ? array_map(static fn(Path $path): string => $path->value(), [...$paths])
@@ -42,14 +43,14 @@ it('autoloads nothing without a composer.json, or with one that autoloads nothin
         Scratch::write($project, 'composer.json', $manifest);
     }
 
-    expect(Manifests::in($project)->autoloaded())->toEqual(Paths::none());
+    expect(Manifests::in(Root::of($project))->autoloaded())->toEqual(Paths::none());
 })->with(['', '{}', '{"autoload": {"psr-4": "src"}}']);
 
 it('cannot judge a root composer.json that is not a JSON object', function (): void {
     $project = Scratch::directory();
     Scratch::write($project, 'composer.json', '"src"');
 
-    expect(Manifests::in($project)->autoloaded())->toEqual(CannotJudge::because('composer.json is not a JSON object.'));
+    expect(Manifests::in(Root::of($project))->autoloaded())->toEqual(CannotJudge::because('composer.json is not a JSON object.'));
 });
 
 it('reads a floor of 0 with its reason as exempt', function (): void {
@@ -59,7 +60,7 @@ it('reads a floor of 0 with its reason as exempt', function (): void {
         'gen/composer.json',
         '{"extra": {"mutation-gate": {"floor": 0, "floorReason": "Generated"}}}',
     );
-    $trees = Manifests::in($project)->trees(Paths::of(Path::of('gen')));
+    $trees = Manifests::in(Root::of($project))->trees(Paths::of(Path::of('gen')));
 
     expect($trees instanceof Trees
         ? array_map(static fn(Tree $tree): mixed => $tree->declared(), [...$trees])
@@ -73,7 +74,7 @@ it('reads the ends of the range as floors', function (int|float $floor, Floor $r
         'composer.json',
         sprintf('{"extra": {"mutation-gate": {"floor": %s, "floorReason": "x"}}}', $floor),
     );
-    $trees = Manifests::in($project)->trees(Paths::of(Path::of('src')));
+    $trees = Manifests::in(Root::of($project))->trees(Paths::of(Path::of('src')));
 
     expect($trees instanceof Trees
         ? array_map(static fn(Tree $tree): mixed => $tree->declared(), [...$trees])
@@ -87,7 +88,7 @@ it('cannot judge a floor a manifest declares wrongly', function (string $setting
     $project = Scratch::directory();
     Scratch::write($project, 'src/composer.json', sprintf('{"extra": {"mutation-gate": %s}}', $settings));
 
-    expect(Manifests::in($project)->trees(Paths::of(Path::of('src'))))->toEqual(CannotJudge::because($why));
+    expect(Manifests::in(Root::of($project))->trees(Paths::of(Path::of('src'))))->toEqual(CannotJudge::because($why));
 })->with([
     'a string' => ['{"floor": "80"}', 'src/composer.json: extra.mutation-gate.floor is not a number from 0 to 100.'],
     '0 without a reason' => [

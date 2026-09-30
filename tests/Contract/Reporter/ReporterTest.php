@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
 use NightWorksIO\MutationGate\Core\Written;
@@ -45,7 +46,7 @@ $pullRequest = static fn(): string => (string) json_encode(['pull_request' => [
 $reporters = [
     'the fake' => fn(): Reporter => new ReporterFake(),
     'the console' => fn(): Reporter => ConsoleReport::to(new BufferedOutput()),
-    'the problems output' => fn(): Reporter => ProblemsReport::to(new BufferedOutput(), Scratch::directory(), ProblemsShown::All),
+    'the problems output' => fn(): Reporter => ProblemsReport::to(new BufferedOutput(), Root::of(Scratch::directory()), ProblemsShown::All),
     'JSON' => fn(): Reporter => JsonReportFile::at(sprintf('%s/mutation.json', Scratch::directory())),
     'JUnit' => fn(): Reporter => JUnitReportFile::at(sprintf('%s/junit.xml', Scratch::directory())),
     'SARIF' => fn(): Reporter => SarifReportFile::at(sprintf('%s/mutation.sarif', Scratch::directory())),

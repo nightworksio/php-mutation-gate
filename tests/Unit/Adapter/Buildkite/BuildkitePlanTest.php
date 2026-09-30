@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -154,7 +155,7 @@ it('reads a pull request, a branch and the default branch from Buildkite', funct
         'BUILDKITE_PIPELINE_DEFAULT_BRANCH' => 'main',
     ]);
 
-    expect($on($pullRequest)->runOn())->toEqual(RunOn::pullRequest('42', $main))
+    expect($on($pullRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('42'), $main))
         ->and($on($push)->runOn())->toEqual(RunOn::branch('main', $main))
         ->and($on(Variables::of(['BUILDKITE_BRANCH' => 'feature']))->runOn())
         ->toEqual(RunOn::branch('feature', RunOn::branchNamed('')));

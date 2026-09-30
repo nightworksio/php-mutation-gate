@@ -34,9 +34,14 @@ final readonly class RunOn
         return self::scoped(sprintf('refs/heads/%s', $branch), $defaultBranch);
     }
 
-    public static function pullRequest(string $number, Scope|CannotTell $defaultBranch): self|CannotTell
-    {
-        return self::scoped(sprintf('%s%s', self::PULL_REQUEST, $number), $defaultBranch);
+    /** A run on a pull request, or why there is none where its CI names no number the gate can read. */
+    public static function pullRequest(
+        PullRequestNumber|CannotTell $number,
+        Scope|CannotTell $defaultBranch,
+    ): self|CannotTell {
+        return $number instanceof PullRequestNumber
+            ? self::scoped(sprintf('%s%d', self::PULL_REQUEST, $number->value()), $defaultBranch)
+            : $number;
     }
 
     /** A run on a ref already read as a scope, as a plan records it. */

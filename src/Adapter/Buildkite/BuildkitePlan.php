@@ -15,6 +15,7 @@ use function json_decode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
@@ -129,7 +130,8 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
         $pullRequest = $this->variables->valueOf('BUILDKITE_PULL_REQUEST');
 
         return match (true) {
-            $pullRequest !== '' && $pullRequest !== 'false' => RunOn::pullRequest($pullRequest, $defaultBranch),
+            $pullRequest !== '' && $pullRequest !== 'false'
+                => RunOn::pullRequest(PullRequestNumber::parse($pullRequest), $defaultBranch),
             $this->variables->valueOf('BUILDKITE_TAG') !== '' => RunOn::detached($defaultBranch),
             default => RunOn::branch($this->variables->valueOf('BUILDKITE_BRANCH'), $defaultBranch),
         };

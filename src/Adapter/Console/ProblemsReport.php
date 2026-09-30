@@ -11,6 +11,7 @@ use function is_file;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Report\Problems;
@@ -20,9 +21,6 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Reporter;
-
-use function sprintf;
-
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -38,13 +36,13 @@ final readonly class ProblemsReport implements Configurable, Reporter
 
     private function __construct(
         private OutputInterface $output,
-        private string $project,
+        private Root $project,
         private ProblemsShown $shown,
     ) {
     }
 
     /** Problems printed to this output, with the mutated files read under this directory. */
-    public static function to(OutputInterface $output, string $project, ProblemsShown $shown): self
+    public static function to(OutputInterface $output, Root $project, ProblemsShown $shown): self
     {
         return new self($output, $project, $shown);
     }
@@ -61,8 +59,8 @@ final readonly class ProblemsReport implements Configurable, Reporter
         }
 
         return match ($named) {
-            ProblemsShown::All->value => new self(new ConsoleOutput(), '.', ProblemsShown::All),
-            ProblemsShown::Changed->value => new self(new ConsoleOutput(), '.', ProblemsShown::Changed),
+            ProblemsShown::All->value => new self(new ConsoleOutput(), Root::here(), ProblemsShown::All),
+            ProblemsShown::Changed->value => new self(new ConsoleOutput(), Root::here(), ProblemsShown::Changed),
             default => Invalid::because(Problem::at('only', self::ONLY)),
         };
     }
@@ -90,7 +88,7 @@ final readonly class ProblemsReport implements Configurable, Reporter
 
         foreach ($verdict->mutants() as $judged) {
             $path = $judged->mutant()->location()->file()->value();
-            $file = sprintf('%s/%s', $this->project, $path);
+            $file = $this->project->at($judged->mutant()->location()->file())->value();
             $text = array_key_exists($path, $sources) || ! is_file($file) ? false : file_get_contents($file);
 
             if ($text !== false) {

@@ -14,7 +14,7 @@ use function sprintf;
  */
 final readonly class Holding
 {
-    private function __construct(private string $declared, private Group|string $by)
+    private function __construct(private string $declared, private Group|Holder $by)
     {
     }
 
@@ -25,7 +25,7 @@ final readonly class Holding
     }
 
     /** A `#[Holds]` on a test class, or on a method written as `Class::method`. */
-    public static function byAttribute(string $declared, string $holder): self
+    public static function byAttribute(string $declared, Holder $holder): self
     {
         return new self($declared, $holder);
     }
@@ -37,7 +37,7 @@ final readonly class Holding
     }
 
     /** The group that holds it, or the class or method `#[Holds]` stands on. */
-    public function by(): Group|string
+    public function by(): Group|Holder
     {
         return $this->by;
     }
@@ -47,6 +47,6 @@ final readonly class Holding
     {
         return $this->by instanceof Group
             ? $this->by->name()
-            : sprintf("#[Holds('%s')] on %s", $this->declared, $this->by);
+            : sprintf("#[Holds('%s')] on %s", $this->declared, $this->by->written());
     }
 }

@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -38,7 +39,7 @@ final readonly class ComposerTrees implements TreeSource
      * @param list<string> $manifests shell globs of the manifests whose autoload names trees, from the root
      * @param list<string> $packages  shell globs of the packages' directories, from the root
      */
-    public static function at(string $root, array $manifests, array $packages): self
+    public static function at(Root $root, array $manifests, array $packages): self
     {
         return new self(Disk::at($root), $manifests, $packages);
     }

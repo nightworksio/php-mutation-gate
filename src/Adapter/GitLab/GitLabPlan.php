@@ -14,6 +14,7 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
@@ -122,7 +123,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
 
         return match (true) {
             $this->variables->has('CI_MERGE_REQUEST_IID') => RunOn::pullRequest(
-                $this->variables->valueOf('CI_MERGE_REQUEST_IID'),
+                PullRequestNumber::parse($this->variables->valueOf('CI_MERGE_REQUEST_IID')),
                 $defaultBranch,
             ),
             $this->variables->has('CI_COMMIT_TAG') => RunOn::detached($defaultBranch),

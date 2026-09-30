@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -105,7 +106,7 @@ it('reads a pull request from its merge ref, and the default branch from the eve
         'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "trunk"}}'),
     ]));
 
-    expect($github->runOn())->toEqual(RunOn::pullRequest('12', RunOn::branchNamed('trunk')));
+    expect($github->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('12'), RunOn::branchNamed('trunk')));
 });
 
 it('takes the pull request the payload names, whatever the event and its ref', function (string $name) use ($event): void {
@@ -115,7 +116,7 @@ it('takes the pull request the payload names, whatever the event and its ref', f
         'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "main"}, "pull_request": {"number": 7}}'),
     ]));
 
-    expect($github->runOn())->toEqual(RunOn::pullRequest('7', RunOn::branchNamed('main')));
+    expect($github->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('7'), RunOn::branchNamed('main')));
 })->with(['pull_request_target', 'pull_request', 'push']);
 
 it('reads a branch on push, schedule and workflow_dispatch, for the commit GitHub names', function (string $name) use ($event): void {
@@ -149,7 +150,7 @@ it('reads a pull request event with no payload from its merge ref alone', functi
     $github = GitHubPlan::in(Variables::of(['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_REF' => 'refs/pull/12/merge']));
 
     expect($github->runOn())->toEqual(RunOn::pullRequest(
-        '12',
+        PullRequestNumber::parse('12'),
         CannotTell::because('No event payload could be read, so the default branch is not known.'),
     ));
 });

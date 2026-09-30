@@ -51,7 +51,7 @@ final readonly class HoldsAttributes implements Countable, IteratorAggregate
 
         foreach ($this->attributes as $attribute) {
             $holdings = in_array($attribute->standing(), self::SELECTABLE, strict: true)
-                ? $holdings->with(Holding::byAttribute($attribute->path()->text(), $attribute->holder()))
+                ? $holdings->with(Holding::byAttribute($attribute->path()->text(), Holder::of($attribute->holder())))
                 : $holdings;
         }
 

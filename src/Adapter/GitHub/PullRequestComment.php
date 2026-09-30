@@ -11,6 +11,7 @@ use function getenv;
 use function is_file;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotWritten;
@@ -55,10 +56,9 @@ final readonly class PullRequestComment implements Configurable, Reporter
     private const string UNWRITTEN = 'The pull request comment could not be written (%s); the step summary carries it.';
 
     private function __construct(
-        private string $refusal,
         private Api $api,
         private string $repository,
-        private int $pullRequest,
+        private PullRequestNumber|NotWritten $pullRequest,
         private string $run,
         private string $identity,
     ) {
@@ -81,18 +81,18 @@ final readonly class PullRequestComment implements Configurable, Reporter
         $read = static fn(string $name): string => array_key_exists($name, $environment) ? $environment[$name] : '';
         $payload = Node::decode($event)->field('pull_request');
         $number = self::numberIn($payload);
-        $refusal = match (true) {
-            ! str_contains($read('GITHUB_EVENT_NAME'), 'pull_request') || $number === 0 => self::NOT_A_PULL_REQUEST,
-            $read('GITHUB_TOKEN') === '' => self::NO_TOKEN,
-            self::isFork($payload) => self::FORK,
-            default => '',
+        $target = match (true) {
+            ! str_contains($read('GITHUB_EVENT_NAME'), 'pull_request') || ! $number instanceof PullRequestNumber
+                => NotWritten::because(self::NOT_A_PULL_REQUEST),
+            $read('GITHUB_TOKEN') === '' => NotWritten::because(self::NO_TOKEN),
+            self::isFork($payload) => NotWritten::because(self::FORK),
+            default => $number,
         };
 
         return new self(
-            $refusal,
             Api::at($client, $read('GITHUB_API_URL'), $read('GITHUB_TOKEN')),
             $read('GITHUB_REPOSITORY'),
-            $number,
+            $target,
             sprintf(
                 '%s/%s/actions/runs/%s',
                 $read('GITHUB_SERVER_URL') === '' ? 'https://github.com' : $read('GITHUB_SERVER_URL'),
@@ -123,14 +123,16 @@ final readonly class PullRequestComment implements Configurable, Reporter
 
     public function report(Verdict $verdict): Written|NotWritten
     {
-        if ($this->refusal !== '') {
-            return NotWritten::because($this->refusal);
+        $number = $this->pullRequest;
+
+        if ($number instanceof NotWritten) {
+            return $number;
         }
 
         $body = ['body' => Markdown::comment($verdict, $this->run)];
-        $existing = $this->existing($this->identity === '' ? $this->identityOfToken() : $this->identity);
+        $existing = $this->existing($number, $this->identity === '' ? $this->identityOfToken() : $this->identity);
         $answer = $existing === 0
-            ? $this->api->send('POST', sprintf(self::COMMENTS, $this->repository, $this->pullRequest), $body)
+            ? $this->api->send('POST', sprintf(self::COMMENTS, $this->repository, $number->value()), $body)
             : $this->api->send('PATCH', sprintf('/repos/%s/issues/comments/%d', $this->repository, $existing), $body);
 
         return $answer instanceof CannotTell
@@ -148,7 +150,7 @@ final readonly class PullRequestComment implements Configurable, Reporter
     }
 
     /** The id of the sticky comment this identity wrote on the pull request; 0 where there is none. */
-    private function existing(string $identity): int
+    private function existing(PullRequestNumber $number, string $identity): int
     {
         $found = 0;
         $full = true;
@@ -157,7 +159,7 @@ final readonly class PullRequestComment implements Configurable, Reporter
             $comments = $this->api->get(sprintf(
                 '/repos/%s/issues/%d/comments?per_page=%d&page=%d',
                 $this->repository,
-                $this->pullRequest,
+                $number->value(),
                 self::PAGE,
                 $page,
             ));
@@ -187,12 +189,12 @@ final readonly class PullRequestComment implements Configurable, Reporter
         return 0;
     }
 
-    private static function numberIn(Node $payload): int
+    private static function numberIn(Node $payload): PullRequestNumber|CannotTell
     {
         try {
-            return $payload->field('number')->integer();
-        } catch (NotInShape) {
-            return 0;
+            return PullRequestNumber::of($payload->field('number')->integer());
+        } catch (NotInShape $misread) {
+            return CannotTell::because($misread->getMessage());
         }
     }
 

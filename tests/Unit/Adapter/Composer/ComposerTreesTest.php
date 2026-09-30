@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Composer\ComposerTrees;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -26,7 +27,7 @@ it('finds a tree for each path the root manifest autoloads, each with the floor 
     ]);
     $package = Package::at(Path::root());
 
-    expect(ComposerTrees::at($root, ['composer.json'], [])->trees())->toEqual(Trees::of(
+    expect(ComposerTrees::at(Root::of($root), ['composer.json'], [])->trees())->toEqual(Trees::of(
         Tree::at(Path::of('src'), Floor::of(100), $package)->withNewCodeFloor(Floor::of(90)),
         Tree::at(Path::of('lib'), Floor::of(80), $package)->withNewCodeFloor(Floor::of(95)),
     ));
@@ -40,7 +41,7 @@ it('finds the trees of every module manifest a glob matches', function (): void 
     ]);
     $package = Package::at(Path::root());
 
-    expect(ComposerTrees::at($root, ['composer.json', 'app-modules/*/composer.json'], [])->trees())->toEqual(Trees::of(
+    expect(ComposerTrees::at(Root::of($root), ['composer.json', 'app-modules/*/composer.json'], [])->trees())->toEqual(Trees::of(
         Tree::at(Path::of('app'), Undeclared::floor(), $package),
         Tree::at(Path::of('app-modules/billing/src'), Exempt::because('Being rewritten'), $package),
         Tree::at(Path::of('app-modules/shop/src'), Undeclared::floor(), $package)->withNewCodeFloor(Floor::of(95)),
@@ -54,7 +55,7 @@ it('finds the trees of every package in the package, depending on what it requir
         'packages/money/composer.json' => '{"name": "acme/money", "require": {"acme/core": "*"}, "autoload": {"psr-4": {"Money\\\\": "src/"}}}',
     ]);
 
-    expect(ComposerTrees::at($root, ['composer.json'], ['packages/*'])->trees())->toEqual(Trees::of(
+    expect(ComposerTrees::at(Root::of($root), ['composer.json'], ['packages/*'])->trees())->toEqual(Trees::of(
         Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root())),
         Tree::at(Path::of('packages/core/src'), Undeclared::floor(), Package::at(Path::of('packages/core'))),
         Tree::at(Path::of('packages/money/src'), Undeclared::floor(), Package::at(Path::of('packages/money'))->dependingOn(Path::of('packages/core'))),
@@ -62,13 +63,13 @@ it('finds the trees of every package in the package, depending on what it requir
 });
 
 it('finds no tree where no manifest autoloads anything', function (): void {
-    expect(ComposerTrees::at(Project::with(['composer.json' => '{}']), ['composer.json'], [])->trees())->toEqual(Trees::none())
-        ->and(ComposerTrees::at(Project::with([]), ['composer.json'], [])->trees())->toEqual(Trees::none());
+    expect(ComposerTrees::at(Root::of(Project::with(['composer.json' => '{}'])), ['composer.json'], [])->trees())->toEqual(Trees::none())
+        ->and(ComposerTrees::at(Root::of(Project::with([])), ['composer.json'], [])->trees())->toEqual(Trees::none());
 });
 
 it('cannot judge the trees where a manifest cannot be read or declares a floor it cannot use', function (string $root, string $path, string $manifest, string $said): void {
     $project = Project::with(['composer.json' => $root, $path => $manifest]);
-    $trees = ComposerTrees::at($project, ['composer.json', 'modules/*/composer.json'], ['packages/*'])->trees();
+    $trees = ComposerTrees::at(Root::of($project), ['composer.json', 'modules/*/composer.json'], ['packages/*'])->trees();
 
     expect($trees)->toBeInstanceOf(CannotJudge::class)
         ->and($trees instanceof CannotJudge ? $trees->why() : '')->toBe($said);

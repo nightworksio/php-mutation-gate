@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -51,14 +52,19 @@ final readonly class PhpUnitTrees implements TreeSource
 
     private const string TESTS = '/phpunit/testsuites/testsuite/directory';
 
-    private function __construct(private string $root, private Paths $fallback, private Manifests $manifests)
+    private function __construct(private Root $root, private Paths $fallback, private Manifests $manifests)
     {
     }
 
-    /** The tree source of the project at a root, with the paths it falls back on. */
+    /**
+     * The tree source of the project at a root, with the paths it falls back
+     * on. It takes the root as the registration spells it (owner: config).
+     */
     public static function in(string $root, Paths $fallback): self
     {
-        return new self($root, $fallback, Manifests::in($root));
+        $typed = Root::of($root);
+
+        return new self($typed, $fallback, Manifests::in($typed));
     }
 
     public function trees(): Trees|CannotJudge
@@ -138,7 +144,7 @@ final readonly class PhpUnitTrees implements TreeSource
     {
         $config = array_find(
             [...PhpUnitConfig::candidatesIn(Path::root())],
-            fn(Path $candidate): bool => is_file(sprintf('%s/%s', $this->root, $candidate->value())),
+            fn(Path $candidate): bool => is_file($this->root->at($candidate)->value()),
         );
 
         if (! $config instanceof Path) {
@@ -146,7 +152,7 @@ final readonly class PhpUnitTrees implements TreeSource
         }
 
         $xml = simplexml_load_string(
-            sprintf('%s', file_get_contents(sprintf('%s/%s', $this->root, $config->value()))),
+            sprintf('%s', file_get_contents($this->root->at($config)->value())),
             options: LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING,
         );
 

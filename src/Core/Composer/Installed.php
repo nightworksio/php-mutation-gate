@@ -61,7 +61,7 @@ final readonly class Installed implements IteratorAggregate
     /** Where Composer lists what it installed in a vendor directory. */
     public static function fileIn(Path $vendor): Path
     {
-        return Path::of(sprintf('%s/%s', $vendor->value(), self::FILE));
+        return $vendor->child(Path::of(self::FILE));
     }
 
     /** The list in a file, from its text, or why it cannot be read: it is not the one Composer 2 writes. */

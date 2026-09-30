@@ -10,6 +10,7 @@ use function getenv;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
+use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
@@ -72,7 +73,7 @@ final readonly class CircleCiPlan implements CiPlan, Configurable
 
         return match (true) {
             preg_match(self::PULL_REQUEST, $this->variables->valueOf('CIRCLE_PULL_REQUEST'), $number) === 1
-                => RunOn::pullRequest($number[1], $defaultBranch),
+                => RunOn::pullRequest(PullRequestNumber::parse($number[1]), $defaultBranch),
             $this->variables->valueOf('CIRCLE_TAG') !== '' => RunOn::detached($defaultBranch),
             default => RunOn::branch($this->variables->valueOf('CIRCLE_BRANCH'), $defaultBranch),
         };

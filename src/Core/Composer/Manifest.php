@@ -53,7 +53,7 @@ final readonly class Manifest
     /** Where the manifest of a directory is. */
     public static function fileIn(Path $directory): Path
     {
-        return Path::of(sprintf('%s/%s', $directory->value(), self::FILE));
+        return $directory->child(Path::of(self::FILE));
     }
 
     /** The manifest of a directory, from its text, or why it cannot be read: text that is not a JSON object. */
@@ -113,7 +113,7 @@ final readonly class Manifest
      */
     public function autoloaded(): Paths
     {
-        $directory = dirname($this->file->value());
+        $directory = Path::of(dirname($this->file->value()));
         $paths = [];
 
         foreach (AutoloadKind::cases() as $kind) {
@@ -168,13 +168,13 @@ final readonly class Manifest
      *
      * @return list<Path>
      */
-    private static function pathsIn(Node $entry, string $directory): array
+    private static function pathsIn(Node $entry, Path $directory): array
     {
         $paths = [];
 
         foreach ([$entry, ...Lenient::items($entry)] as $place) {
             $path = Lenient::text($place);
-            $paths = $path === '' ? $paths : [...$paths, Path::of(sprintf('%s/%s', $directory, $path))];
+            $paths = $path === '' ? $paths : [...$paths, $directory->child(Path::of($path))];
         }
 
         return $paths;

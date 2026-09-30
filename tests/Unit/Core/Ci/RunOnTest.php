@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
+use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Unnamed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -20,7 +21,7 @@ it('is a branch, scoped by its ref, with the default branch the CI names', funct
 
 it('is a pull request, scoped by its number, where the CI may not name the default branch', function (): void {
     $unknown = CannotTell::because('The CI does not say.');
-    $run = RunOn::pullRequest('12', $unknown);
+    $run = RunOn::pullRequest(PullRequestNumber::parse('12'), $unknown);
 
     expect($run instanceof RunOn ? $run->scope() : null)->toEqual(Scope::of('refs/pull/12'))
         ->and($run instanceof RunOn && $run->isPullRequest())->toBeTrue()
@@ -30,8 +31,8 @@ it('is a pull request, scoped by its number, where the CI may not name the defau
 it('cannot tell the scope of a ref that is not a branch or a pull request', function (): void {
     expect(RunOn::branch('a b', Scope::branch('main')))->toEqual(CannotTell::because(
         '"refs/heads/a b" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.',
-    ))->and(RunOn::pullRequest('twelve', Scope::branch('main')))->toEqual(CannotTell::because(
-        '"refs/pull/twelve" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.',
+    ))->and(RunOn::pullRequest(PullRequestNumber::parse('twelve'), Scope::branch('main')))->toEqual(CannotTell::because(
+        '"twelve" is not the number of a pull request.',
     ));
 });
 

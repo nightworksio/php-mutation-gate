@@ -10,9 +10,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Composer\Disk;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Path;
-
-use function sprintf;
-use function str_starts_with;
+use NightWorksIO\MutationGate\Core\File\Root;
 
 /**
  * Where Composer installed a project's packages, as Composer decides it:
@@ -21,11 +19,14 @@ use function str_starts_with;
  */
 final readonly class ComposerVendor
 {
-    /** The vendor directory of the project in this directory, as the project spells it. */
+    /**
+     * The vendor directory of the project in this directory, as the project
+     * spells it. It takes the project as the console spells it (owner: flows).
+     */
     public static function of(string $project): Path
     {
         $overridden = getenv('COMPOSER_VENDOR_DIR');
-        $manifest = Disk::at($project)->manifestIn(Path::root());
+        $manifest = Disk::at(Root::of($project))->manifestIn(Path::root());
 
         return match (true) {
             is_string($overridden) && $overridden !== '' => Path::of($overridden),
@@ -34,11 +35,12 @@ final readonly class ComposerVendor
         };
     }
 
-    /** The vendor directory of the project in this directory, where it is on disk. */
+    /**
+     * The vendor directory of the project in this directory, where it is on
+     * disk. It takes the project as the console spells it (owner: flows).
+     */
     public static function on(string $project): string
     {
-        $vendor = self::of($project)->value();
-
-        return str_starts_with($vendor, '/') ? $vendor : sprintf('%s/%s', $project, $vendor);
+        return Root::of($project)->at(self::of($project))->value();
     }
 }
