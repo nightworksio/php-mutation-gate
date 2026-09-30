@@ -68,6 +68,7 @@ final readonly class MutationRun
         }
 
         $ran = $this->shell->run($scan->onto($invoked));
+        $scan->remove();
 
         return $ran->wasStopped()
             ? CannotJudge::because(self::STOPPED)

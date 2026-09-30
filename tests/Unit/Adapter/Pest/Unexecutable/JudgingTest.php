@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
+use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Judging;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -85,11 +86,18 @@ it('judges each uncovered mutant on a line that is not executable by the tests t
     ])->and($judged instanceof MutationResult ? $judged->skipped() : -1)->toBe(2);
 });
 
-it('runs every judging of a mutant by reference under the run\'s memory cap', function () use ($money): void {
+it('runs every judging of a mutant by reference under the run\'s memory cap, and removes it once done', function () use (
+    $money,
+): void {
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['internal']);
-    $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php']));
-    $scan = MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), MemoryCap::directoryIn(dirname($results)));
+    $read = [];
+    $shell = new ShellFake(static function (Command $command) use ($results, &$read): Ran {
+        $read[] = (string) file_get_contents(sprintf('%s/%s', MemoryScan::directoryBeside($results), MemoryCap::FILE));
+
+        return Unexecutables::answering($command, ['tests/OtherSpec.php']);
+    });
+    $scan = MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), MemoryScan::directoryBeside($results));
 
     new Judging($at, $shell)->of(
         judgingResult('internal'),
@@ -101,13 +109,14 @@ it('runs every judging of a mutant by reference under the run\'s memory cap', fu
     expect($shell->commands())->not->toBeEmpty()
         ->and(array_map(static fn(Command $command): mixed => $command->environment()[MemoryCap::SCAN_DIR] ?? null, $shell->commands()))
         ->each->toBe($scan)
-        ->and(file_get_contents(sprintf('%s/%s', MemoryCap::directoryIn(dirname($results)), MemoryCap::FILE)))->toBe("memory_limit=256M\n");
+        ->and(array_unique($read))->toBe(["memory_limit=256M\n"])
+        ->and(is_dir(MemoryScan::directoryBeside($results)))->toBeFalse();
 });
 
 it('cannot judge a mutant by reference where the memory cap cannot be written', function () use ($money): void {
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['internal']);
-    mkdir(sprintf('%s/%s', MemoryCap::directoryIn(dirname($results)), MemoryCap::FILE), recursive: true);
+    mkdir(sprintf('%s/%s', MemoryScan::directoryBeside($results), MemoryCap::FILE), recursive: true);
 
     expect(new Judging($at, new ShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: '')))->of(
         judgingResult('internal'),

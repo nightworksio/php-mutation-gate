@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
-use function getmypid;
 use function intdiv;
 use function max;
 use function mb_strtoupper;
@@ -34,15 +33,8 @@ final readonly class MemoryCap
     /** Why a run cannot start capped, by the ini file it cannot write. */
     public const string UNWRITTEN = 'The memory cap cannot be written to %s. Make the directory writable.';
 
-    /**
-     * The directory of the cap's ini file inside a runner's workspace: one
-     * for each process of the gate, so two runs in one checkout never share
-     * the file, and PHP scans nothing else.
-     */
-    private const string DIRECTORY = '%s/php/%d';
-
-    /** Where the ini file is written before it is moved into place, whole. */
-    private const string STAGED = '%s.%d.staged';
+    /** Where the ini file is written before it is moved into place, whole, beside it. */
+    public const string STAGED = 'memory-cap.ini.staged';
 
     /** PHP's shorthand for an amount of memory, its unit in either case. */
     private const string SHORTHAND = '/\A(?<number>[1-9]\d*)(?<unit>[KMG]?)\z/i';
@@ -160,17 +152,6 @@ final readonly class MemoryCap
         return self::atLeast($this->bytes() * self::ROOM);
     }
 
-    /** The directory of the cap's ini file inside a runner's workspace, for this process of the gate. */
-    public static function directoryIn(string $workspace): string
-    {
-        return sprintf(self::DIRECTORY, $workspace, getmypid());
-    }
-
-    /** Where the ini file of this directory is written before it is moved into place. */
-    public static function stagedIn(string $directory): string
-    {
-        return sprintf(self::STAGED, sprintf('%s/%s', $directory, self::FILE), getmypid());
-    }
 
     /** The ini file that sets this cap, where it caps anything. */
     public function ini(): string

@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Diff;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
+use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
@@ -370,11 +371,16 @@ it('mutates with a fresh results file, and reads what the plugin recorded', func
         ->toEqual([adapterInvocation()->mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at))]);
 });
 
-it('keeps every PHP process of a capped run to the cap, through an ini file beside the results', function (): void {
+it('keeps every PHP process of a capped run to the cap, through an ini file beside the results it removes once done', function (): void {
     $at = adapterProject();
-    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+    $read = [];
+    $shell = new ShellFake(static function (Command $command) use ($at, &$read): Ran {
+        $read[] = (string) file_get_contents(sprintf('%s/%s', MemoryScan::directoryBeside(adapterResults($at)), MemoryCap::FILE));
+
+        return adapterKilled($command, $at);
+    });
     $capped = adapterMoney()->cappedAt(MemoryCap::standard());
-    $directory = MemoryCap::directoryIn(sprintf('%s/.mutation-gate/pest', $at->root()));
+    $directory = MemoryScan::directoryBeside(adapterResults($at));
 
     $result = new Pest($at, $shell, Patching::off())->mutate($capped);
 
@@ -384,18 +390,19 @@ it('keeps every PHP process of a capped run to the cap, through an ini file besi
                 MemoryCap::SCAN_DIR => MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $directory),
             ]),
         ])
-        ->and(file_get_contents(sprintf('%s/memory-cap.ini', $directory)))->toBe("memory_limit=1G\n");
+        ->and($read)->toBe(["memory_limit=1G\n"])
+        ->and(is_dir($directory))->toBeFalse();
 });
 
 it('cannot judge a capped run whose cap cannot be written', function (): void {
     $at = adapterProject();
-    mkdir(sprintf('%s/%s', MemoryCap::directoryIn(sprintf('%s/.mutation-gate/pest', $at->root())), MemoryCap::FILE), recursive: true);
+    mkdir(sprintf('%s/%s', MemoryScan::directoryBeside(adapterResults($at)), MemoryCap::FILE), recursive: true);
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
     expect(new Pest($at, $shell, Patching::off())->mutate(adapterMoney()->cappedAt(MemoryCap::standard())))
         ->toEqual(CannotJudge::because(sprintf(
             MemoryCap::UNWRITTEN,
-            sprintf('%s/%s', MemoryCap::directoryIn(sprintf('%s/.mutation-gate/pest', $at->root())), MemoryCap::FILE),
+            sprintf('%s/%s', MemoryScan::directoryBeside(adapterResults($at)), MemoryCap::FILE),
         )))
         ->and($shell->commands())->toBe([]);
 });
@@ -727,7 +734,7 @@ it('reproduces a mutant under the cap its request carries, as the run it came fr
     new Pest($at, $shell, Patching::off())->reproduce(Reproducible::of(adapterMutant()), $request, Seconds::of(20.0));
 
     expect(array_map(static fn(Command $command): mixed => $command->environment()[MemoryCap::SCAN_DIR] ?? null, $shell->commands()))
-        ->toBe([MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), MemoryCap::directoryIn(dirname(adapterResults($at))))]);
+        ->toBe([MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), MemoryScan::directoryBeside(adapterResults($at)))]);
 });
 
 it('says Pest made no mutant with the id where the run no longer makes it', function (): void {

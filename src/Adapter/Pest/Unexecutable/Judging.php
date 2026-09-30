@@ -64,7 +64,7 @@ final readonly class Judging
         }
 
         $records = Records::in($results);
-        $scan = MemoryScan::beside($this->project, $results, $request->memory());
+        $scan = MemoryScan::beside($results, $request->memory());
 
         if ($records instanceof CannotJudge || $scan instanceof CannotJudge) {
             return $records instanceof CannotJudge ? $records : $scan;
@@ -89,6 +89,8 @@ final readonly class Judging
             $uncovered = $mutant->status() === MutantStatus::Uncovered;
             $mutants = $mutants->with($uncovered ? $this->one($mutant, $selector, $trial, $results) : $mutant);
         }
+
+        $scan->remove();
 
         return MutationResult::of($mutants, $result->skipped());
     }

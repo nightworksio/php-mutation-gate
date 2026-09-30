@@ -62,9 +62,9 @@ final readonly class Planning
         SAID;
 
     private const string OVER_CAP = <<<'SAID'
-        The suite's processes held %s in its coverage run, more than the %s runner.memory lets each
-        mutant's process hold, so its mutants cannot be judged under the cap.
-        Raise runner.memory; doctor --measure says what the suite needs.
+        The largest process of the suite's coverage run held %s resident, more than the %s each mutant's
+        process may hold, so its mutants cannot be judged under that cap. Resident memory counts more than
+        memory_limit does. Raise runner.memory; doctor --measure says what the suite needs.
         SAID;
 
     public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
@@ -98,13 +98,15 @@ final readonly class Planning
 
     /**
      * The map of the coverage run just run, where the suite, unmutated, held
-     * no more than the memory cap in it; or why its mutants cannot be judged
-     * under the cap (ADR-0004, decision 9). A peak the system does not count
-     * refuses nothing.
+     * no more than the cap in force in it: `runner.memory`, or the project's
+     * own `memory_limit` where that lifts it; or why its mutants cannot be
+     * judged under that cap (ADR-0004, decision 9). The peak is the most
+     * resident memory of a process, an upper bound on what `memory_limit`
+     * counts. A peak the system does not count refuses nothing.
      */
     private function withinTheCap(CoverageMap $map, MemoryCap|NotGiven $peak): CoverageMap|CannotJudge
     {
-        $cap = $this->settings->runner()->memory();
+        $cap = ProjectMemoryLimit::inForce($this->adapters->project, $this->settings->runner()->memory());
 
         return $peak instanceof MemoryCap && $cap->isExceededBy($peak)
             ? CannotJudge::because(sprintf(self::OVER_CAP, $peak->written(), $cap->written()))

@@ -256,7 +256,9 @@ Under `doctor --measure`, the suite's processes held over half the memory
 `runner.memory` allows, by the most resident memory the system counts for
 them. Each mutant runs under the cap, so a mutant that needs more than it is
 stopped by the cap rather than by a test, and a plan refuses a suite whose
-coverage run held more than the cap.
+coverage run held more than the cap. Resident memory is an upper bound on
+what `memory_limit` counts, so a suite near the cap may be refused though
+its mutants would fit.
 
 Set `runner.memory` to at least what the finding names: twice what the suite
 held.

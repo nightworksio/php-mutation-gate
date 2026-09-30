@@ -7,9 +7,10 @@ namespace NightWorksIO\MutationGate\Cli\Doctor;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Composer\Disk;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Infection\Importable;
 use NightWorksIO\MutationGate\Adapter\Infection\OwnConfig;
-use NightWorksIO\MutationGate\Adapter\Project\PhpUnitIni;
+use NightWorksIO\MutationGate\Cli\Flow\ProjectMemoryLimit;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -27,8 +28,6 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
-use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
@@ -42,13 +41,13 @@ use function str_ends_with;
  */
 final readonly class Files
 {
-    private function __construct(private Disk $disk)
+    private function __construct(private Disk $disk, private Directory $project)
     {
     }
 
     public static function in(string $project): self
     {
-        return new self(Disk::at(Root::of($project)));
+        return new self(Disk::at(Root::of($project)), Directory::at($project));
     }
 
     public function of(Settings|Invalid|CannotJudge $settings): ProjectFiles
@@ -60,7 +59,7 @@ final readonly class Files
         $files = $composer instanceof ComposerSetup ? $files->withComposer($composer) : $files;
         $infection = $this->infection();
         $files = $infection instanceof InfectionConfig ? $files->withInfection($infection) : $files;
-        $memory = $this->phpUnitMemory();
+        $memory = ProjectMemoryLimit::in($this->project);
         $files = $memory instanceof PhpUnitMemory ? $files->withPhpUnitMemory($memory) : $files;
 
         return $settings instanceof Settings
@@ -68,21 +67,6 @@ final readonly class Files
             : $files;
     }
 
-    /** The `memory_limit` the first PHPUnit config the project has sets, as PHPUnit looks for its config. */
-    private function phpUnitMemory(): PhpUnitMemory|NotGiven
-    {
-        foreach (PhpUnitConfig::candidatesIn(Path::root()) as $candidate) {
-            $text = $this->disk->read($candidate);
-
-            if (! $text instanceof Missing) {
-                $limit = PhpUnitIni::memoryIn(is_string($text) ? $text : '');
-
-                return $limit instanceof MemoryCap ? PhpUnitMemory::of($candidate, $limit) : $limit;
-            }
-        }
-
-        return NotGiven::value();
-    }
 
     /** Every CI definition that names the gate, which a definition that runs it does. */
     private function runningTheGate(): Paths

@@ -23,24 +23,63 @@ $project = static fn(): Project => Project::at(
     Path::of('.gate'),
 );
 
-it('writes the cap whole into a directory of this process, in Infection\'s own', function () use ($project): void {
+it('keeps a directory for each process of the gate, in Infection\'s own', function () use ($project): void {
     $at = $project();
-    $directory = MemoryCap::directoryIn($at->own('.'));
 
-    $scan = MemoryScan::in($at, MemoryCap::of(64, MemoryUnit::Megabytes));
-
-    expect($scan instanceof MemoryScan ? $scan->onto(Command::php('-v'))->environment()[MemoryCap::SCAN_DIR] : $scan)
-        ->toBe(MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $directory))
-        ->and(file_get_contents(sprintf('%s/%s', $directory, MemoryCap::FILE)))->toBe("memory_limit=64M\n");
+    expect(MemoryScan::directoryIn($at))->toBe($at->own(sprintf('php/%d', getmypid())));
 });
 
-it('refuses to write the cap through a linked directory, and writes nothing for no cap', function () use ($project): void {
+it('writes the cap whole, clearing what an earlier process of the same id left, and removes it once done', function () use (
+    $project,
+): void {
     $at = $project();
-    $directory = MemoryCap::directoryIn($at->own('.'));
-    mkdir(dirname($directory), recursive: true);
-    symlink(Scratch::directory(), $directory);
+    $directory = MemoryScan::directoryIn($at);
+    mkdir($directory, recursive: true);
+    file_put_contents(sprintf('%s/%s', $directory, MemoryCap::STAGED), 'memory_limit=1K');
+    file_put_contents(sprintf('%s/foreign.ini', $directory), 'extension=elsewhere.so');
+
+    $scan = MemoryScan::in($at, MemoryCap::of(64, MemoryUnit::Megabytes));
+    $scanned = $scan instanceof MemoryScan ? $scan->onto(Command::php('-v'))->environment()[MemoryCap::SCAN_DIR] : $scan;
+    $held = glob(sprintf('%s/*', $directory));
+    $written = (string) file_get_contents(sprintf('%s/%s', $directory, MemoryCap::FILE));
+    if ($scan instanceof MemoryScan) {
+        $scan->remove();
+    }
+
+    expect($scanned)->toBe(MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $directory))
+        ->and($held)->toBe([sprintf('%s/%s', $directory, MemoryCap::FILE)])
+        ->and($written)->toBe("memory_limit=64M\n")
+        ->and(is_dir($directory))->toBeFalse();
+});
+
+it('refuses a link at any level of its directory, and anything but a file in it', function (string $where) use (
+    $project,
+): void {
+    $at = $project();
+    $directory = MemoryScan::directoryIn($at);
+    $elsewhere = Scratch::directory();
+    $linked = match ($where) {
+        'the directory' => $directory,
+        'the directory above it' => dirname($directory),
+        default => sprintf('%s/inside', $directory),
+    };
+    mkdir(dirname($linked), recursive: true);
+    $where === 'a directory in it' ? mkdir($linked) : symlink($elsewhere, $linked);
 
     expect(MemoryScan::in($at, MemoryCap::standard()))
         ->toEqual(CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, sprintf('%s/%s', $directory, MemoryCap::FILE))))
-        ->and(MemoryScan::in($project(), MemoryCap::none()))->toBeInstanceOf(MemoryScan::class);
+        ->and(glob(sprintf('%s/*', $elsewhere)))->toBe([]);
+})->with(['the directory', 'the directory above it', 'a directory in it']);
+
+it('writes nothing, removes nothing, and leaves a command as it is, where the run has no cap', function () use (
+    $project,
+): void {
+    $at = $project();
+    $scan = MemoryScan::in($at, MemoryCap::none());
+    if ($scan instanceof MemoryScan) {
+        $scan->remove();
+    }
+
+    expect($scan instanceof MemoryScan ? $scan->onto(Command::php('-v')) : $scan)->toEqual(Command::php('-v'))
+        ->and(is_dir(MemoryScan::directoryIn($at)))->toBeFalse();
 });

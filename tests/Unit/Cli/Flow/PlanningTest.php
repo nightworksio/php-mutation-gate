@@ -46,6 +46,7 @@ use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
@@ -131,23 +132,32 @@ it('plans every unit of a full run into shards, on the commit HEAD is at', funct
 });
 
 /** A plan under a 512M cap, where the suite's coverage run held this much. */
-$cappedPlan = static function (MemoryCap|NotGiven $peak) use ($coverage): Plan|CannotJudge {
+$cappedPlan = static function (
+    MemoryCap|NotGiven $peak,
+    string $phpUnit = '',
+    bool $handedOver = false,
+) use ($coverage): Plan|CannotJudge {
     $setup = Flows::setup();
+    $project = Flows::project();
+
+    if ($phpUnit !== '') {
+        Scratch::write($project, 'phpunit.xml', $phpUnit);
+    }
 
     return new Planning(
-        Flows::adapters(Flows::project()),
+        Flows::adapters($project),
         Flows::settings(ConfiguredRunner::uses('fake')->cappedAt(MemoryCap::of(512, MemoryUnit::Megabytes))),
         new Setup($setup->configFile, $setup->gate, $setup->installed, $setup->clock, new PeakMemoryFake($peak)),
-    )->plan(Mode::full(), $coverage(), Cut::exactly(2));
+    )->plan(Mode::full(), $handedOver ? CoverageRead::from(Path::of('.mutation-gate/planned')) : $coverage(), Cut::exactly(2));
 };
 
 it('refuses to plan where the suite held more memory in its coverage run than the cap', function () use (
     $cappedPlan,
 ): void {
     expect($cappedPlan(MemoryCap::of(600, MemoryUnit::Megabytes)))->toEqual(CannotJudge::because(implode("\n", [
-        'The suite\'s processes held 600M in its coverage run, more than the 512M runner.memory lets each',
-        'mutant\'s process hold, so its mutants cannot be judged under the cap.',
-        'Raise runner.memory; doctor --measure says what the suite needs.',
+        'The largest process of the suite\'s coverage run held 600M resident, more than the 512M each mutant\'s',
+        'process may hold, so its mutants cannot be judged under that cap. Resident memory counts more than',
+        'memory_limit does. Raise runner.memory; doctor --measure says what the suite needs.',
     ])));
 });
 
@@ -159,6 +169,26 @@ it('plans where the suite held no more than the cap, or the system did not count
     'at the cap' => [MemoryCap::of(512, MemoryUnit::Megabytes)],
     'not counted' => [NotGiven::value()],
 ]);
+
+it('plans where the project\'s own memory_limit lifts the cap over the suite, or none binds it', function (
+    string $limit,
+) use ($cappedPlan): void {
+    $phpUnit = sprintf('<phpunit><php><ini name="memory_limit" value="%s"/></php></phpunit>', $limit);
+
+    expect($cappedPlan(MemoryCap::of(600, MemoryUnit::Megabytes), $phpUnit))->toBeInstanceOf(Plan::class);
+})->with(['none' => ['-1'], 'higher' => ['1G']]);
+
+it('refuses where the project\'s own memory_limit is lower than the suite, weighing it against the cap', function () use (
+    $cappedPlan,
+): void {
+    $phpUnit = '<phpunit><php><ini name="memory_limit" value="256M"/></php></phpunit>';
+
+    expect($cappedPlan(MemoryCap::of(600, MemoryUnit::Megabytes), $phpUnit))->toBeInstanceOf(CannotJudge::class);
+});
+
+it('plans a map another job wrote, whatever this job\'s processes held', function () use ($cappedPlan): void {
+    expect($cappedPlan(MemoryCap::of(600, MemoryUnit::Megabytes), handedOver: true))->toBeInstanceOf(Plan::class);
+});
 
 it('hands each shard the map of its own files', function () use ($plan): void {
     $project = Flows::project();
