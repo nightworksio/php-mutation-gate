@@ -48,8 +48,8 @@ The CLI never decides anything by an adapter's name. Where the flows must know
 how a runner behaves, they ask the port: `Runner::behaviour()` answers a
 `RunnerBehaviour`, which says whether the runner reads `#[Holds]` as it loads
 its test files, whether a timeout's limit can be raised, which groups every
-proof key reads, and whether each shard pays its own opening run.
-`RunnerBehaviour::standard()` is the answer of a runner that does none of
+proof key reads, whether each shard pays its own opening run, and why a kill
+matrix of its run holds first killers only. `RunnerBehaviour::standard()` is the answer of a runner that does none of
 these differently.
 
 ## A — layers

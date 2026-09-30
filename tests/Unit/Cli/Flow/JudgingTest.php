@@ -44,6 +44,8 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -66,6 +68,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -711,6 +714,65 @@ it('names the tests as the plan names them, and warns once where it names none',
         ->and($unnamed->matrix()->names())->toEqual(TestNames::none())
         ->and(judgingTexts($unnamed->warnings()))
         ->toBe(['The reports name each test by its coverage id. Pest cannot list its tests.']);
+});
+
+it('builds the kill matrix of first killers over the map the plan handed it, as its runner can', function (
+    ScriptedRunner $runner,
+    NotFull $whyNotFull,
+) use ($tree, $reporting, $judged): void {
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), $runner),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+    $covered = array_map(
+        static fn(JudgedMutant|JudgedKill $judged): array => [
+            $judged->mutant()->location()->start()->number(),
+            array_map(
+                static fn(TestId $test): string => $test->value(),
+                [...$verdict->matrix()->coveredBy($judged)],
+            ),
+        ],
+        [...$verdict->trees()->mutants()],
+    );
+
+    expect($verdict->matrix()->kind())->toBe(MatrixKind::FirstKiller)
+        ->and($verdict->matrix()->whyNotFull())->toBe($whyNotFull)
+        ->and($verdict->matrix()->coverage()->files())
+        ->toEqual(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')))
+        ->and($covered)->toContain([11, ['MoneyTest::adds']])
+        ->and($verdict->matrix()->secondsOf(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.2))
+        ->and(judgingTexts($verdict->warnings()))->toBe([]);
+})->with([
+    'a runner that can record every killer' => [ScriptedRunner::fixture(), NotFull::FirstKillers],
+    'one that stops at the first' => [
+        ScriptedRunner::fixture()->behaving(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)),
+        NotFull::Infection,
+    ],
+]);
+
+it('holds each mutant\'s killers alone, and warns, where the plan handed the verdict no map', function () use (
+    $tree,
+    $reporting,
+): void {
+    $project = Flows::project();
+    $plan = Planned::oneShard();
+    $adapters = Flows::adapters($project, [], $tree(Floor::of(0)));
+    new Handoff($adapters->project)->write($plan, Flows::map(), KillHistory::none());
+    unlink(sprintf('%s/.mutation-gate/coverage/verdict/map.json.gz', $project));
+    new Running($adapters, judgingSettings(), Flows::setup())->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), $adapters->project);
+    $judging = new Judging($adapters, judgingSettings(), Flows::setup(), $reporting(new ReporterFake()));
+
+    $verdict = judgingVerdictOf($results instanceof Results ? $judging->verdict($plan, $results) : $results);
+
+    expect($verdict->matrix()->coverage())->toEqual(CoverageMap::empty())
+        ->and(judgingTexts($verdict->warnings()))->toBe([
+            'The kill matrix holds each mutant\'s killers alone. The verdict was handed no coverage map at '
+            . '.mutation-gate/coverage/verdict/map.json.gz. Hand it the plan\'s .mutation-gate/coverage.',
+        ])
+        ->and($verdict->judgement())->toBe(Judgement::Passed);
 });
 
 it('fails a verdict on a held unit its holding tests miss lines of, and proves nothing of it', function (

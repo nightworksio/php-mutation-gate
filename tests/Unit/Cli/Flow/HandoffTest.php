@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
+use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -167,5 +168,51 @@ it('cannot hand a shard a kill history it cannot write', function () use ($plan,
     expect(new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none()))
         ->toEqual(CannotJudge::because(
             sprintf('%s/.mutation-gate/coverage/shard-1/killers.json could not be written.', $project),
+        ));
+});
+
+it('hands the verdict the lines of every unit the plan considered, run, proved or carried', function () use (
+    $plan,
+    $map,
+): void {
+    $considered = $plan->considering(
+        Considered::everything()
+            ->proving(Units::of(Unit::file(Path::of('src/HeldToo.php'))))
+            ->carrying(Units::of(Unit::file(Path::of('src/Gone.php')))),
+    );
+    $handoff = new Handoff(Directory::at(Scratch::directory()));
+    $handoff->write($considered, $map, KillHistory::none());
+    $handed = $handoff->forVerdict();
+
+    expect($handed instanceof CoverageMap ? $handed->files() : $handed)->toEqual(Paths::of(
+        Path::of('src/Money.php'),
+        Path::of('src/Held/A.php'),
+        Path::of('src/Held/B.php'),
+        Path::of('src/HeldToo.php'),
+    ))
+        ->and($handed instanceof CoverageMap ? $handed->durationOf(TestId::of('MoneyTest::adds')) : $handed)
+        ->toEqual(Seconds::of(0.5));
+});
+
+it('says the verdict was handed no map where there is none, and cannot read one that is not a map', function (): void {
+    $project = Scratch::directory();
+    $handoff = new Handoff(Directory::at($project));
+    $missing = $handoff->forVerdict();
+    Scratch::write($project, '.mutation-gate/coverage/verdict/map.json.gz', 'not a map');
+
+    expect($missing)->toEqual(CannotJudge::because(
+        'The verdict was handed no coverage map at .mutation-gate/coverage/verdict/map.json.gz. '
+        . 'Hand it the plan\'s .mutation-gate/coverage.',
+    ))
+        ->and($handoff->forVerdict())->toBeInstanceOf(CannotJudge::class);
+});
+
+it('cannot hand the verdict a map it cannot write', function () use ($plan, $map): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '.mutation-gate/coverage/verdict/map.json.gz/blocked', '');
+
+    expect(new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none()))
+        ->toEqual(CannotJudge::because(
+            sprintf('%s/.mutation-gate/coverage/verdict/map.json.gz could not be written.', $project),
         ));
 });
