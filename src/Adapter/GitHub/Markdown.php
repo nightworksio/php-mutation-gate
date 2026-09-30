@@ -58,8 +58,8 @@ final readonly class Markdown
     /** The most bytes one step's summary may hold. */
     public const int SUMMARY_BYTES = 1_048_576;
 
-    /** The most survivors, and unjudged or flaky mutants, the comment lists. */
-    private const int COMMENTED = 20;
+    /** The most entries a list of the comment holds, before it says how many more there are. */
+    public const int COMMENTED = 20;
 
     private const string RAISE
         = 'Raise them with `vendor/bin/mutation-gate baseline --write`, and commit the baseline.';

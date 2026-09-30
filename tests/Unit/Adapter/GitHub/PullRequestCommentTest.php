@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
+use NightWorksIO\MutationGate\Adapter\GitHub\PlannedMarkdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
@@ -10,6 +11,7 @@ use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\JsonMockResponse;
@@ -71,6 +73,25 @@ it('finds its comment by the identity it is given, asking GitHub nothing about t
     PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'other-bot')->report(Verdicts::passing());
 
     expect($patch->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/comments/6');
+});
+
+it('writes its planned state into the same comment the verdict later replaces', function () use ($environment, $event, $comment): void {
+    $patch = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-5']);
+    $requests = [new JsonMockResponse([$comment(5, 'gate-bot', Markdown::MARKER)]), $patch];
+    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'gate-bot')
+        ->planned(ShardedPlan::planned(2));
+
+    expect($answer)->toEqual(Written::to('https://github.example/octo/gate/pull/12#issuecomment-5'))
+        ->and($patch->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/comments/5')
+        ->and(Decoded::at(is_string($patch->getRequestOptions()['body']) ? $patch->getRequestOptions()['body'] : '', 'body'))
+        ->toBe(PlannedMarkdown::comment(ShardedPlan::planned(2), 'https://github.example/octo/gate/actions/runs/7'));
+});
+
+it('writes no planned state, and says why, where the run cannot comment', function () use ($event): void {
+    $answer = PullRequestComment::inRun(['GITHUB_EVENT_NAME' => 'push'], $event(), new MockHttpClient([]), '')
+        ->planned(ShardedPlan::planned(1));
+
+    expect($answer)->toEqual(NotWritten::because('This run is not for a pull request, so there is no comment to write.'));
 });
 
 it('says why, and fails nothing, where GitHub refuses the comment', function () use ($environment, $event): void {
