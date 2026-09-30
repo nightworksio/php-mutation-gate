@@ -132,7 +132,9 @@ final readonly class Proofs implements Part
 
     public function written(Origin $origin): Json
     {
-        $proofs = $this->store instanceof Choice ? Json::object()->with('store', $this->store->written()) : Json::object();
+        $proofs = $this->store instanceof Choice
+            ? Json::object()->with('store', $this->store->written())
+            : Json::object();
         $proofs = $this->ignore instanceof Listed
             ? $proofs->with('ignore', Json::items([...$this->ignore]))
             : $proofs;

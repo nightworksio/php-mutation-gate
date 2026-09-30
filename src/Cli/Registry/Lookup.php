@@ -6,8 +6,8 @@ namespace NightWorksIO\MutationGate\Cli\Registry;
 
 use Closure;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -88,7 +88,7 @@ final readonly class Lookup
         return $this->built(ExtensionPoint::ConfigLoader, $name, $options, ConfigLoader::class);
     }
 
-    public function preset(Name $name): Document|CannotJudge
+    public function preset(Name $name): Layer|CannotJudge
     {
         $preset = $this->extensions->registered(ExtensionPoint::Preset, $name);
 

@@ -27,9 +27,6 @@ use function sprintf;
  */
 final readonly class Floors implements Part
 {
-    /** The floor new code is held to. */
-    private const int NEW_CODE = 100;
-
     private const string BASELINE = 'mutation-gate.baseline.json';
 
     /** @param Listed<DeclaredTree>|Absent $trees */
@@ -146,7 +143,7 @@ final readonly class Floors implements Part
     /** `newCode.floor` */
     public function newCode(): Floor
     {
-        return $this->newCode instanceof Floor ? $this->newCode : Floor::of(self::NEW_CODE);
+        return $this->newCode instanceof Floor ? $this->newCode : Floor::whole();
     }
 
     public function uncovered(): UncoveredMutants

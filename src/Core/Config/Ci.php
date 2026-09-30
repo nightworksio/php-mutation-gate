@@ -96,7 +96,10 @@ final readonly class Ci implements Part
                     $pipeline = $definition->read($buildkite);
 
                     return Reading::built(
-                        static fn(): self => self::of(buildkiteStep: $keys->value(), buildkiteDefinition: $pipeline->value()),
+                        static fn(): self => self::of(
+                            buildkiteStep: $keys->value(),
+                            buildkiteDefinition: $pipeline->value(),
+                        ),
                         $keys,
                         $pipeline,
                     );
@@ -203,7 +206,9 @@ final readonly class Ci implements Part
         $ci = $this->gitlabTemplate instanceof Path
             ? $ci->with('gitlab', Json::object()->with('template', $origin->written($this->gitlabTemplate)))
             : $ci;
-        $buildkite = $this->buildkiteStep instanceof Json ? Json::object()->with('step', $this->buildkiteStep) : Json::object();
+        $buildkite = $this->buildkiteStep instanceof Json
+            ? Json::object()->with('step', $this->buildkiteStep)
+            : Json::object();
         $buildkite = $this->buildkiteDefinition instanceof Path
             ? $buildkite->with('definition', $origin->written($this->buildkiteDefinition))
             : $buildkite;

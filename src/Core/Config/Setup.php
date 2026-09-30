@@ -177,9 +177,13 @@ final readonly class Setup implements Part
 
     public function treeSource(): Choice
     {
-        return $this->treeSource instanceof Choice
-            ? $this->treeSource
-            : Choice::of(self::TREE_SOURCE, Json::object()->with('fallback', Json::items([])));
+        return $this->treeSource instanceof Choice ? $this->treeSource : self::phpunit();
+    }
+
+    /** The `phpunit` tree source, whose trees are these paths where `phpunit.xml` has no `<source>`. */
+    public static function phpunit(string ...$fallback): Choice
+    {
+        return Choice::of(self::TREE_SOURCE, Json::object()->with('fallback', Json::items(array_values($fallback))));
     }
 
     public function written(Origin $origin): Json

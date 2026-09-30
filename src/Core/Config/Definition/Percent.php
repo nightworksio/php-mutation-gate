@@ -18,10 +18,6 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
  */
 final readonly class Percent implements Shape
 {
-    private const int NONE = 0;
-
-    private const int WHOLE = 100;
-
     public static function floor(): self
     {
         return new self();
@@ -29,7 +25,7 @@ final readonly class Percent implements Shape
 
     public function read(Node $at): Reading
     {
-        $number = Number::between(self::NONE, self::WHOLE)->read($at)->value();
+        $number = Number::percent()->read($at)->value();
 
         return is_int($number) || is_float($number)
             ? Reading::of(Floor::of($number))
@@ -43,7 +39,7 @@ final readonly class Percent implements Shape
 
     public function schema(): Json
     {
-        return Number::between(self::NONE, self::WHOLE)->schema();
+        return Number::percent()->schema();
     }
 
     public function effects(): array

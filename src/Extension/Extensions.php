@@ -9,8 +9,8 @@ use Closure;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Registry\Entries;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
@@ -61,7 +61,7 @@ final readonly class Extensions
     /** @var Entries<Closure(Options): (ConfigLoader|Invalid)> */
     private Entries $configLoaders;
 
-    /** @var Entries<Document> */
+    /** @var Entries<Layer> */
     private Entries $presets;
 
     /** An empty registry, whose additions come from this package. */
@@ -152,7 +152,7 @@ final readonly class Extensions
     }
 
     /** A config fragment with a name, applied before the config file so the project's own settings win. */
-    public function withPreset(Name $name, Document $fragment): self
+    public function withPreset(Name $name, Layer $fragment): self
     {
         return clone($this, [
             'presets' => $this->presets->with($name->value(), $this->origin->name(), $fragment),
@@ -206,7 +206,7 @@ final readonly class Extensions
      *
      * @internal extensions register; only the command line looks up
      */
-    public function registered(ExtensionPoint $point, Name $name): Closure|Document|CannotJudge
+    public function registered(ExtensionPoint $point, Name $name): Closure|Layer|CannotJudge
     {
         $entries = match ($point) {
             ExtensionPoint::Runner => $this->runners,

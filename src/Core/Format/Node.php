@@ -216,7 +216,8 @@ final readonly class Node
             Kind::Nothing => 'nothing',
             Kind::List, Kind::Empty => 'a list',
             Kind::Map => 'an object',
-            Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null => json_encode($this->value, self::FLAGS),
+            Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null
+                => json_encode($this->value, self::FLAGS),
         };
     }
 

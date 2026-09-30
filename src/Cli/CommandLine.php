@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Cli\Config;
+namespace NightWorksIO\MutationGate\Cli;
 
 use function array_key_exists;
 use function array_map;
@@ -10,6 +10,12 @@ use function explode;
 use function is_array;
 use function is_string;
 
+use NightWorksIO\MutationGate\Core\Config\Definition;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use Symfony\Component\Console\Input\InputInterface;
 
 /**
@@ -17,7 +23,7 @@ use Symfony\Component\Console\Input\InputInterface;
  * and the settings `--runner`, `--report`, `--budget` and `--ci` lay over
  * everything else (ADR-0002).
  */
-final readonly class Given
+final readonly class CommandLine
 {
     /** @param list<string> $reports each as `--report` writes it, `<name>:<path>` */
     public function __construct(
@@ -33,12 +39,10 @@ final readonly class Given
     /** What a command's options say, where the command takes them. */
     public static function from(InputInterface $input): self
     {
-        $reports = self::option($input, 'report');
-
         return new self(
             self::text(self::option($input, 'config')),
             self::text(self::option($input, 'runner')),
-            self::texts($reports),
+            self::texts(self::option($input, 'report')),
             self::text(self::option($input, 'budget')),
             self::text(self::option($input, 'ci')),
             $input->hasParameterOption('--no-extensions', onlyParams: true),
@@ -51,40 +55,31 @@ final readonly class Given
         return new self('', $this->runner, $this->reports, $this->budget, $this->ci, $this->firstPartyOnly);
     }
 
-    /**
-     * The settings the command line sets, as the last layer of the config.
-     *
-     * @return array<string, mixed>
-     */
-    public function layer(): array
+    /** The settings the command line sets, as the last layer of the config, its paths named from the project. */
+    public function layer(): Layer|Invalid
     {
-        $layer = [];
-
-        if ($this->runner !== '') {
-            $layer['runner'] = $this->runner;
-        }
-
-        if ($this->reports !== []) {
-            $layer['reports'] = array_map($this->report(...), $this->reports);
-        }
-
-        if ($this->budget !== '') {
-            $layer['budget'] = $this->budget;
-        }
-
-        if ($this->ci !== '') {
-            $layer['ci'] = ['plan' => $this->ci];
-        }
-
-        return $layer;
+        return Definition::layer(Node::config($this->written()->line()), ProjectRoot::origin());
     }
 
-    /** @return array{use: string, path?: string} */
-    private function report(string $report): array
+    /** The settings the command line sets, as a config file would write them. */
+    public function written(): Json
+    {
+        $layer = Json::object();
+        $layer = $this->runner === '' ? $layer : $layer->with('runner', $this->runner);
+        $layer = $this->reports === []
+            ? $layer
+            : $layer->with('reports', Json::items(array_map(self::report(...), $this->reports)));
+        $layer = $this->budget === '' ? $layer : $layer->with('budget', $this->budget);
+
+        return $this->ci === '' ? $layer : $layer->with('ci', Json::object()->with('plan', $this->ci));
+    }
+
+    private static function report(string $report): Json
     {
         $parts = explode(':', $report, 2);
+        $written = Json::object()->with('use', $parts[0]);
 
-        return array_key_exists(1, $parts) ? ['use' => $parts[0], 'path' => $parts[1]] : ['use' => $parts[0]];
+        return array_key_exists(1, $parts) ? $written->with('path', $parts[1]) : $written;
     }
 
     private static function option(InputInterface $input, string $name): mixed

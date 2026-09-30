@@ -12,8 +12,9 @@ use function is_file;
 use JsonException;
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Document;
-use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 
 use function sprintf;
@@ -25,23 +26,25 @@ use function sprintf;
  */
 final readonly class PhpConfig implements ConfigLoader
 {
-    public function load(Path $file): Document|CannotJudge
+    public function load(ConfigFile $file): Layer|Invalid|CannotJudge
     {
-        if (! is_file($file->value())) {
-            return CannotJudge::because(sprintf('%s could not be read.', $file->value()));
+        $path = $file->file()->value();
+
+        if (! is_file($path)) {
+            return CannotJudge::because(sprintf('%s could not be read.', $path));
         }
 
         try {
-            $returned = (static fn(string $path): mixed => require $path)($file->value());
+            $returned = (static fn(string $path): mixed => require $path)($path);
         } catch (Error|JsonException $error) {
-            return CannotJudge::because(sprintf('%s could not be read: %s', $file->value(), $error->getMessage()));
+            return CannotJudge::because(sprintf('%s could not be read: %s', $path, $error->getMessage()));
         }
 
         return $returned instanceof Gate
-            ? $returned->document()
+            ? $returned->layer($file)
             : CannotJudge::because(sprintf(
                 '%s returns %s. It must return Gate::configure() with its settings.',
-                $file->value(),
+                $path,
                 get_debug_type($returned),
             ));
     }

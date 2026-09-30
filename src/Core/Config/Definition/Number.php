@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 
 use function sprintf;
 
@@ -27,6 +28,12 @@ final readonly class Number implements Shape
         return new self($least, $most);
     }
 
+    /** A percentage: a number from 0 to 100. */
+    public static function percent(): self
+    {
+        return new self(0, Floor::whole()->written());
+    }
+
     public static function atLeast(int|float $least): self
     {
         return new self($least, Absent::setting());
@@ -37,7 +44,8 @@ final readonly class Number implements Shape
         $number = match ($at->kind()) {
             Kind::Integer => $at->integer(),
             Kind::Number => $at->number(),
-            Kind::Map, Kind::List, Kind::Empty, Kind::Text, Kind::Boolean, Kind::Null, Kind::Nothing => Absent::setting(),
+            Kind::Map, Kind::List, Kind::Empty, Kind::Text, Kind::Boolean, Kind::Null, Kind::Nothing
+                => Absent::setting(),
         };
 
         return ! $number instanceof Absent && $number >= $this->least && $this->fits($number)

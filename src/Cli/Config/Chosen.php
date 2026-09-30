@@ -119,7 +119,7 @@ final readonly class Chosen
      */
     private function built(string $setting, string $port, Choice $choice, Closure $registered): object
     {
-        $options = Options::ofJson($choice->options());
+        $options = Options::ofJson($choice->options()->line());
         $use = $choice->use();
         $named = str_contains($use, '\\') ? Absent::setting() : $registered(Name::of($use), $options);
         $built = $named instanceof Absent || ($named instanceof CannotJudge && class_exists($use))

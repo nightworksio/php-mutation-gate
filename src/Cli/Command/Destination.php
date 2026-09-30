@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function is_file;
 
-use NightWorksIO\MutationGate\Cli\Config\ConfigFile;
+use NightWorksIO\MutationGate\Cli\Config\ConfigLocation;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -38,7 +38,7 @@ final readonly class Destination
     {
         return $config === ''
             ? self::named($project, Formats::chosen($format))
-            : self::given(ConfigFile::named($project, $config), $config);
+            : self::given(ConfigLocation::named($project, $config), $config);
     }
 
     public function file(): Path
@@ -71,7 +71,7 @@ final readonly class Destination
                 Path::of(sprintf('%s/%s', $project, $format->fileName())),
                 $format,
                 $format->fileName(),
-                ConfigFile::in($project, ''),
+                ConfigLocation::in($project, ''),
             )
             : $format;
     }

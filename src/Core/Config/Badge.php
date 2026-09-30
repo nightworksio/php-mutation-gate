@@ -15,9 +15,6 @@ use function sprintf;
 /** The badge's colours (ADR-0009): `badge.colors`, the lowest score of each shields.io colour, red below them all. */
 final readonly class Badge implements Part
 {
-    /** The widest a percentage goes. */
-    private const int WHOLE = 100;
-
     /** The lowest score of each colour. */
     private const array COLORS = ['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60];
 
@@ -46,7 +43,7 @@ final readonly class Badge implements Part
         return [Field::section(
             'badge',
             Section::single(
-                Field::optional('colors', NumberMap::of(Number::between(0, self::WHOLE)), Effect::JudgesOrReportsOnly),
+                Field::optional('colors', NumberMap::of(Number::percent()), Effect::JudgesOrReportsOnly),
                 static fn(Table|Absent $colors): Layer => Layer::of(self::of($colors)),
             ),
         )];

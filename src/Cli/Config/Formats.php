@@ -10,16 +10,18 @@ use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 
-use function pathinfo;
 use function sprintf;
 
 use Symfony\Component\Yaml\Yaml;
@@ -32,6 +34,9 @@ use Symfony\Component\Yaml\Yaml;
  */
 final readonly class Formats
 {
+    /** The JSON Schema a config file names, where the package is installed in the project. */
+    private const string SCHEMA = 'vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json';
+
     /** @param Closure(class-string): bool $installed whether a library's class can be loaded */
     public function __construct(private Closure $installed)
     {
@@ -45,9 +50,9 @@ final readonly class Formats
     }
 
     /** The loader that reads a config file, or what to install to read it. */
-    public static function loader(Extensions $extensions, Path $file): ConfigLoader|CannotJudge
+    public static function loader(Extensions $extensions, ConfigFile $file): ConfigLoader|CannotJudge
     {
-        $extension = pathinfo($file->value(), PATHINFO_EXTENSION);
+        $extension = $file->extension();
         $format = Format::fromExtension($extension);
         $name = $format instanceof Format ? $format->value : $extension;
         $loader = Lookup::in($extensions)->configLoader(Name::of($name), Options::none());
@@ -59,29 +64,46 @@ final readonly class Formats
             ),
             $format instanceof Format && $format->isSuggested() => CannotJudge::because(sprintf(
                 '%s is %s, which needs %s to be read. Install it: composer require --dev %s',
-                $file->value(),
+                $file->file()->value(),
                 $format->title(),
                 $format->package(),
                 $format->package(),
             )),
             default => CannotJudge::because(sprintf(
                 'No config loader reads %s. Name a mutation-gate.php, .json, .yaml, .yml or .neon file.',
-                $file->value(),
+                $file->file()->value(),
             )),
         };
     }
 
-    /** A config written out as a person reads it. */
-    public function render(Document $document, Format $format): string|CannotJudge
+    /** A layer of config written out as a person reads it, its paths named from this origin. */
+    public function render(Layer $layer, Format $format, Origin $origin): string|CannotJudge
+    {
+        return $this->rendered($layer, $layer->written($origin), $format, $origin);
+    }
+
+    /**
+     * A layer of config written out as a config file, its paths named from the file's own directory: as JSON, it
+     * names the JSON Schema an editor checks it with.
+     */
+    public function file(Layer $layer, Format $format, ConfigFile $file): string|CannotJudge
+    {
+        $written = $layer->written($file);
+        $schema = Json::object()->with('$schema', $file->written(Path::of(self::SCHEMA)));
+
+        return $this->rendered($layer, $format === Format::Json ? $schema->merged($written) : $written, $format, $file);
+    }
+
+    private function rendered(Layer $layer, Json $written, Format $format, Origin $origin): string|CannotJudge
     {
         return match ($format) {
-            Format::Json => sprintf("%s\n", $document->json()),
-            Format::Php => Php::render($document),
+            Format::Json => sprintf("%s\n", $written->pretty()),
+            Format::Php => Php::render($layer->php($origin)),
             Format::Yaml => ($this->installed)(Yaml::class)
-                ? new YamlConfig()->render($document)
+                ? new YamlConfig()->render($written)
                 : $this->needs($format),
             Format::Neon => ($this->installed)(Neon::class)
-                ? new NeonConfig()->render($document)
+                ? new NeonConfig()->render($written)
                 : $this->needs($format),
         };
     }

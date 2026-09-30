@@ -23,7 +23,7 @@ use function sprintf;
  * `mutation-gate.*` in the project. Two of them is an error rather than a
  * precedence rule, and none is zero-config.
  */
-final readonly class ConfigFile
+final readonly class ConfigLocation
 {
     /**
      * The file `--config` names: a path from the project, or an absolute one.

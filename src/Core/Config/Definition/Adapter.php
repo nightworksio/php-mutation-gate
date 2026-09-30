@@ -39,7 +39,9 @@ final readonly class Adapter implements Shape
                     $named = $use->read($at);
 
                     return Reading::built(
-                        static fn(): Choice|Invalid => self::chosen($builtins->choose($named->must(), $at->field('with'))),
+                        static fn(): Choice|Invalid => self::chosen(
+                            $builtins->choose($named->must(), $at->field('with')),
+                        ),
                         $named,
                         $with->read($at),
                     );

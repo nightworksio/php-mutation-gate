@@ -41,6 +41,12 @@ final readonly class Floor
         return new self($hundredths);
     }
 
+    /** Every mutant killed: the highest floor there is. */
+    public static function whole(): self
+    {
+        return new self(self::WHOLE);
+    }
+
     public function hundredths(): int
     {
         return $this->hundredths;

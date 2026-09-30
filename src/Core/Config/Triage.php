@@ -186,7 +186,9 @@ final readonly class Triage implements Part
         $written = $this->budget instanceof Seconds
             ? Json::object()->with('budget', $this->budget->written())
             : Json::object();
-        $timeouts = $this->mode instanceof TimeoutMode ? Json::object()->with('mode', $this->mode->value) : Json::object();
+        $timeouts = $this->mode instanceof TimeoutMode
+            ? Json::object()->with('mode', $this->mode->value)
+            : Json::object();
         $timeouts = $this->limit instanceof Seconds
             ? $timeouts->with('seconds', intval($this->limit->seconds()))
             : $timeouts;
