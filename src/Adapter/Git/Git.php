@@ -145,11 +145,20 @@ final class Git implements ChangeSource, Repository
             : RunOn::branchNamed(mb_substr(trim($target), mb_strlen(self::ORIGIN)));
     }
 
-    /** The commit a revision names, resolved the first time it is asked for. */
+    /**
+     * The commit a revision names, resolved the first time it is asked for. A
+     * name spelt as an option names no commit: rev-parse would echo it back.
+     */
     private function commitOf(Revision $revision): string|CannotTell
     {
         if (! array_key_exists($revision->name(), $this->commits)) {
-            $commit = $this->git->run(['rev-parse', sprintf('%s^{commit}', $revision->name())]);
+            $commit = $this->git->run([
+                'rev-parse',
+                '--verify',
+                '--quiet',
+                '--end-of-options',
+                sprintf('%s^{commit}', $revision->name()),
+            ]);
             $this->commits[$revision->name()] = $commit instanceof CannotTell
                 ? CannotTell::because(sprintf(self::UNKNOWN, $revision->name()))
                 : trim($commit);

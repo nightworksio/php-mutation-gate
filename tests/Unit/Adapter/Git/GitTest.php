@@ -233,10 +233,10 @@ it('reads a file at a revision spelt from the directory it is at', function (): 
         ->toEqual(Contents::of("<?php\na\n"));
 });
 
-it('cannot tell what a file held at a revision the repository does not have', function (): void {
-    expect(Git::at(Repository::ofTheFixture()->root)->fileAt(Path::of('src/Money.php'), Revision::ref('no-such-revision')))
-        ->toEqual(CannotTell::because('no-such-revision is not a revision this repository has.'));
-});
+it('cannot tell what a file held at a revision the repository does not have, or one spelt as an option', function (string $revision): void {
+    expect(Git::at(Repository::ofTheFixture()->root)->fileAt(Path::of('src/Money.php'), Revision::ref($revision)))
+        ->toEqual(CannotTell::because(sprintf('%s is not a revision this repository has.', $revision)));
+})->with(['no-such-revision', '--short', '--show-toplevel']);
 
 it('reads every file at a revision at the commit it named when first read', function (): void {
     $repository = Repository::empty()->write('src/A.php', "<?php\na\n")->write('src/B.php', "<?php\nb\n")->commit('The base.');
