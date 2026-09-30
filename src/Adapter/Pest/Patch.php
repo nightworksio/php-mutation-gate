@@ -127,12 +127,14 @@ final readonly class Patch
 
         $hunks = self::hunks();
         $patching = array_filter($hunks, static fn(Hunk $hunk): bool => ! $hunk->isAppliedTo($sources[$hunk->file()]));
-        $unwritten = array_filter($patching, static fn(Hunk $hunk): bool => file_put_contents(
-            sprintf(self::SOURCE, $vendor, $hunk->file()),
-            $hunk->applyTo($sources[$hunk->file()]),
-        ) === false);
+        $unwritten = 0;
 
-        return $unwritten === [] ? sprintf(
+        foreach ($patching as $hunk) {
+            $patched = $hunk->applyTo($sources[$hunk->file()]);
+            $unwritten += file_put_contents(sprintf(self::SOURCE, $vendor, $hunk->file()), $patched) === false ? 1 : 0;
+        }
+
+        return $unwritten === 0 ? sprintf(
             'pest:patch patched %d of the %d files it changes in pest-plugin-mutate.',
             count($patching),
             count($hunks),
