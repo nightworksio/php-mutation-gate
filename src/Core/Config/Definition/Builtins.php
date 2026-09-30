@@ -7,52 +7,129 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use function array_flip;
 use function array_key_exists;
 use function array_keys;
+use function array_map;
 
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
 
 /**
- * The adapters this package ships for one setting, each with the options it
- * takes. A built-in adapter's options are checked here; a name another
- * extension registers, or a class, checks its own when it is built.
+ * The adapters this package builds in for one setting, each with the
+ * options it takes, checked strictly, where any other name or class takes
+ * any options.
  */
 final readonly class Builtins
 {
-    /** @param array<string, Section<Fields>> $options the options of each built-in adapter, by its name */
+    /** Why a chat reporter's options never hold its URL, and where it comes from instead (ADR-0016). */
+    private const string CREDENTIAL
+        = 'expected no url: a webhook URL is a credential; set %s, or name another variable in urlEnv';
+
+    /** @param array<string, Section<Json>> $options the options of each built-in adapter, by its name */
     private function __construct(private array $options)
     {
     }
 
-    /** @param array<string, Section<Fields>> $options */
+    /** @param array<string, Section<Json>> $options */
     public static function of(array $options): self
     {
         return new self($options);
     }
 
-    /**
-     * The adapter a config chooses, with its options at `<at>.with`, and how it is shown: by its name alone
-     * when it has no options to show.
-     */
-    public function choose(string $use, mixed $with, string $at): Reading
+    public static function runners(): self
     {
-        if (! array_key_exists($use, $this->options)) {
-            return Reading::of(
-                Choice::of($use, Json::encode(Json::object($with))),
-                $with === [] ? $use : ['use' => $use, 'with' => $with],
+        return self::none('pest', 'infection');
+    }
+
+    public static function treeSources(): self
+    {
+        return self::of([
+            'phpunit' => Section::options(
+                Json::object()->with('fallback', Json::items([])),
+                Field::optional('fallback', Items::of(Location::path(ProjectRoot::origin())), Effect::AffectsResults),
+            ),
+            'composer' => Section::options(Json::object()),
+        ]);
+    }
+
+    public static function stores(): self
+    {
+        $judges = Effect::JudgesOrReportsOnly;
+
+        return self::of([
+            'directory' => Section::options(
+                Json::object()->with('path', '.mutation-gate/ledger'),
+                Field::optional('path', Location::path(ProjectRoot::origin()), $judges),
+            ),
+            's3' => Section::options(
+                Json::object()->with('prefix', 'mutation-gate')->with('region', 'us-east-1'),
+                Field::required('bucket', Text::of('a bucket name'), $judges),
+                Field::optional('prefix', Text::of('a key prefix'), $judges),
+                Field::optional('region', Text::of('a region'), $judges),
+                Field::optional('endpoint', Text::of('a URL'), $judges),
+                Field::optional('publicUrl', Url::https(), $judges),
+            ),
+        ]);
+    }
+
+    public static function ciPlans(): self
+    {
+        return self::none('github', 'gitlab', 'buildkite', 'circleci', 'json');
+    }
+
+    public static function reporters(): self
+    {
+        $judges = Effect::JudgesOrReportsOnly;
+        $variable = Text::of('an environment variable name');
+        $chat = static fn(string $url, Json $defaults, Field ...$more): Section => Section::options(
+            Json::object()->with('urlEnv', $url)->merged($defaults),
+            Field::optional('urlEnv', $variable, $judges),
+            Field::optional('url', Refused::because(sprintf(self::CREDENTIAL, $url)), $judges),
+            ...$more,
+        );
+
+        return self::of([
+            ...self::bare('json', 'junit', 'sarif', 'html', 'tests', 'kill-matrix', 'gitlab'),
+            'slack' => $chat('MUTATION_GATE_SLACK_URL', Json::object()),
+            'discord' => $chat('MUTATION_GATE_DISCORD_URL', Json::object()),
+            'webhook' => $chat(
+                'MUTATION_GATE_WEBHOOK_URL',
+                Json::object()->with('secretEnv', 'MUTATION_GATE_WEBHOOK_SECRET'),
+                Field::optional('secretEnv', $variable, $judges),
+            ),
+            'otlp' => Section::options(Json::object(), Field::optional('endpoint', Url::https(), $judges)),
+        ]);
+    }
+
+    /**
+     * The adapter a config chooses, with its options at `with`: a built-in one's checked and filled in with
+     * their defaults, any other's kept as they are written.
+     *
+     * @return Reading<Choice>
+     */
+    public function choose(string $use, Node $with): Reading
+    {
+        if (array_key_exists($use, $this->options)) {
+            $options = $this->options[$use]->read($with);
+            $read = $options->value();
+
+            return $read instanceof Json ? Reading::of(Choice::of($use, $read)) : Reading::invalid(
+                Invalid::because(...$options->problems()),
             );
         }
 
-        $options = $this->options[$use]->read($with, sprintf('%s.with', $at));
-        $shown = $options->shown();
-
-        return $options->problems() === []
-            ? Reading::of(
-                Choice::of($use, Json::encode(Json::object($shown))),
-                $shown === [] ? $use : ['use' => $use, 'with' => $shown],
-            )
-            : $options;
+        return match ($with->kind()) {
+            Kind::Nothing, Kind::Empty => Reading::of(Choice::of($use, Json::object())),
+            Kind::Map => Reading::of(Choice::of($use, $with->value())),
+            Kind::List, Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null => Reading::refused(
+                $with->mismatch('an object'),
+            ),
+        };
     }
 
     public function has(string $use): bool
@@ -60,40 +137,51 @@ final readonly class Builtins
         return array_key_exists($use, $this->options);
     }
 
+    /** @return list<string> the names built in */
+    public function names(): array
+    {
+        return array_keys($this->options);
+    }
+
     /**
      * The JSON Schema of each way to choose one: every built-in adapter with its own options, and any other
      * name or class with any options.
      *
-     * @param  array<string, array<string, mixed>> $also         the other keys the object holds
-     * @param  list<string>                        $alsoRequired those a built-in adapter needs
-     * @param  list<string>                        $without      the built-in adapters that take none of them
-     * @return list<array<string, mixed>>
+     * @param  list<string> $alsoRequired those of the other keys a built-in adapter needs
+     * @param  list<string> $without      the built-in adapters that take none of the other keys
+     * @return list<Json>
      */
-    public function schemas(array $also, array $alsoRequired, array $without): array
+    public function schemas(Json $also, array $alsoRequired, array $without): array
     {
         $schemas = [];
         $bare = array_flip($without);
 
         foreach ($this->options as $name => $options) {
             $own = array_key_exists($name, $bare);
-            $schemas[] = [
-                'type' => 'object',
-                'properties' => ['use' => ['const' => $name], ...$own ? [] : $also, 'with' => $options->schema()],
-                'required' => ['use', ...$own ? [] : $alsoRequired],
-                'additionalProperties' => false,
-            ];
+            $properties = Json::object()->with('use', Json::object()->with('const', $name));
+            $properties = $own ? $properties : $properties->merged($also);
+            $schemas[] = Json::object()
+                ->with('type', 'object')
+                ->with('properties', $properties->with('with', $options->schema()))
+                ->with('required', Json::items(['use', ...$own ? [] : $alsoRequired]))
+                ->with('additionalProperties', value: false);
         }
 
-        $schemas[] = [
-            'type' => 'object',
-            'properties' => [
-                'use' => ['type' => 'string', 'minLength' => 1, 'not' => ['enum' => array_keys($this->options)]],
-                ...$also,
-                'with' => ['type' => 'object'],
-            ],
-            'required' => ['use'],
-            'additionalProperties' => false,
-        ];
+        $use = Json::object()
+            ->with('type', 'string')
+            ->with('minLength', 1)
+            ->with('not', Json::object()->with('enum', Json::items(array_keys($this->options))));
+        $schemas[] = Json::object()
+            ->with('type', 'object')
+            ->with(
+                'properties',
+                Json::object()
+                    ->with('use', $use)
+                    ->merged($also)
+                    ->with('with', Json::object()->with('type', 'object')),
+            )
+            ->with('required', Json::items(['use']))
+            ->with('additionalProperties', value: false);
 
         return $schemas;
     }
@@ -110,5 +198,17 @@ final readonly class Builtins
         }
 
         return $effects;
+    }
+
+    /** Built-in adapters that take no options. */
+    private static function none(string ...$names): self
+    {
+        return self::of(self::bare(...$names));
+    }
+
+    /** @return array<string, Section<Json>> the options of adapters that take none, by name */
+    private static function bare(string ...$names): array
+    {
+        return array_map(static fn(): Section => Section::options(Json::object()), array_flip($names));
     }
 }

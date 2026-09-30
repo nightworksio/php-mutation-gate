@@ -4,49 +4,62 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function array_is_list;
-use function is_array;
-
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
 
-/** A list, each of whose entries is read the same way. */
-final readonly class Items implements Node
+/**
+ * A list, each of whose entries has the same shape.
+ *
+ * @template-covariant T of object|scalar
+ *
+ * @implements Shape<Listed<T>>
+ */
+final readonly class Items implements Shape
 {
-    private function __construct(private Node $item)
+    /** @param Shape<T> $item */
+    private function __construct(private Shape $item)
     {
     }
 
-    public static function of(Node $item): self
+    /**
+     * @template U of object|scalar
+     *
+     * @param  Shape<U> $item
+     * @return self<U>
+     */
+    public static function of(Shape $item): self
     {
         return new self($item);
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        if (! is_array($value) || ! array_is_list($value)) {
-            return Reading::mismatch($at, $this->expected(), $value);
+        if ($at->kind() !== Kind::List && $at->kind() !== Kind::Empty) {
+            return Reading::refused($at->mismatch($this->expected()));
         }
 
         $values = [];
-        $shown = [];
-        $results = [];
-        $problems = [];
+        $readings = [];
 
-        foreach ($value as $index => $item) {
-            $reading = $this->item->read($item, At::index($at, $index));
-            $values[] = $reading->value();
-            $shown[] = $reading->shown();
-            $results[] = $reading->results();
-            $problems = [...$problems, ...$reading->problems()];
+        foreach ($at->items() as $item) {
+            $reading = $this->item->read($item);
+            $readings[] = $reading;
+            $value = $reading->value();
+
+            if (! $value instanceof Absent) {
+                $values[] = $value;
+            }
         }
 
-        return match (true) {
-            $problems !== [] => Reading::refused($problems),
-            $results !== [] && ! $results[0] instanceof Absent => Reading::affecting($values, $shown, $results),
-            default => Reading::of($values, $shown),
-        };
+        $problems = Reading::problemsIn(...$readings);
+
+        return $problems instanceof Invalid ? Reading::invalid($problems) : Reading::of(Listed::of($values));
     }
 
     public function expected(): string
@@ -54,9 +67,9 @@ final readonly class Items implements Node
         return 'a list';
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['type' => 'array', 'items' => $this->item->schema()];
+        return Json::object()->with('type', 'array')->with('items', $this->item->schema());
     }
 
     public function effects(): array

@@ -16,7 +16,7 @@ use function is_float;
 use function is_object;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Definition\Json;
+use NightWorksIO\MutationGate\Core\Format\Json;
 
 use function sprintf;
 use function var_export;
@@ -37,11 +37,12 @@ final readonly class Parsed
 
     private const string MIDNIGHT = '00:00:00.000000';
 
-    public static function document(mixed $tree, string $file): Document|CannotJudge
+    /** A parser's tree as the JSON value a config holds, or why it holds something a config cannot. */
+    public static function json(mixed $tree, string $file): Json|CannotJudge
     {
         $plain = self::plain($tree, $file);
 
-        return $plain instanceof CannotJudge ? $plain : Document::ofJson(Json::encode($plain));
+        return $plain instanceof CannotJudge ? $plain : Json::decoded($plain);
     }
 
     private static function plain(mixed $value, string $file): mixed

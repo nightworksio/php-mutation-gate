@@ -4,27 +4,29 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function is_string;
-
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 
 /**
- * A mutant's id, as every report prints it. YAML and NEON read an unquoted
- * id such as `123456789012` as a number, so an id that is not a string is
- * refused with a word about quoting it.
+ * A mutant's id: twelve lowercase hex characters, which YAML and NEON read as
+ * a number unless it is quoted.
+ *
+ * @implements Shape<MutantId>
  */
-final readonly class Identifier implements Node
+final readonly class Identifier implements Shape
 {
     public static function mutant(): self
     {
         return new self();
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        $id = is_string($value) ? MutantId::parse($value) : $value;
+        $id = $at->kind() === Kind::Text ? MutantId::parse($at->text()) : $at;
 
-        return $id instanceof MutantId ? Reading::of($id, $value) : Reading::mismatch($at, $this->expected(), $value);
+        return $id instanceof MutantId ? Reading::of($id) : Reading::refused($at->mismatch($this->expected()));
     }
 
     public function expected(): string
@@ -32,9 +34,9 @@ final readonly class Identifier implements Node
         return 'a mutant id, twelve lowercase hex characters in quotes';
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['type' => 'string', 'pattern' => '^[0-9a-f]{12}$'];
+        return Json::object()->with('type', 'string')->with('pattern', '^[0-9a-f]{12}$');
     }
 
     public function effects(): array

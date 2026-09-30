@@ -13,16 +13,24 @@ use function is_int;
 use function is_string;
 use function json_decode;
 use function json_encode;
+
+use NightWorksIO\MutationGate\Core\Config\Problem;
+
 use function sprintf;
 
 /**
- * One place in a decoded JSON file the gate wrote, read as the type it should
- * hold. A place that holds something else, or nothing, is refused with where
- * it is, so a reader drops the entry or refuses the file rather than guessing.
+ * One place in a decoded JSON text, read as the type it should hold. In a
+ * file the gate wrote, a place that holds something else, or nothing, is
+ * refused with where it is, so a reader drops the entry or refuses the file
+ * rather than guessing. A config a person wrote is read by first asking what
+ * a place holds, so that every mistake in it is reported at once.
  */
 final readonly class Node
 {
     private const string ROOT = 'the file';
+
+    /** The path of a config's own keys, which have nothing before them. */
+    private const string CONFIG = '';
 
     /** How a place is written back out: as it was read, slashes and non-ASCII text as they are. */
     private const int FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
@@ -38,12 +46,48 @@ final readonly class Node
         return new self(json_decode($json, associative: true), self::ROOT, present: true);
     }
 
+    /** The top of a config's JSON text, whose keys are named with nothing before them: `trees[1].floor`. */
+    public static function config(string $json): self
+    {
+        return new self(json_decode($json, associative: true), self::CONFIG, present: true);
+    }
+
     /** The place under a key of this one, which is absent, and holds nothing readable, where this holds no such key. */
     public function field(string $key): self
     {
         $present = is_array($this->value) && array_key_exists($key, $this->value);
+        $at = $this->at === self::CONFIG ? $key : sprintf('%s.%s', $this->at, $key);
 
-        return new self($present ? $this->value[$key] : $this, sprintf('%s.%s', $this->at, $key), $present);
+        return new self($present ? $this->value[$key] : $this, $at, $present);
+    }
+
+    /** The entry under a key of a map whose keys are data rather than settings, named `at["key"]`. */
+    public function entry(string $key): self
+    {
+        $present = is_array($this->value) && array_key_exists($key, $this->value);
+
+        return new self($present ? $this->value[$key] : $this, sprintf('%s["%s"]', $this->at, $key), $present);
+    }
+
+    /** What this place holds, to be asked before it is read where it was written by a person. */
+    public function kind(): Kind
+    {
+        return match (true) {
+            ! $this->present => Kind::Nothing,
+            $this->value === [] => Kind::Empty,
+            is_array($this->value) => array_is_list($this->value) ? Kind::List : Kind::Map,
+            is_string($this->value) => Kind::Text,
+            is_int($this->value) => Kind::Integer,
+            is_float($this->value) => Kind::Number,
+            is_bool($this->value) => Kind::Boolean,
+            default => Kind::Null,
+        };
+    }
+
+    /** That this place holds something other than what it should, said as a config's problem is: at its path. */
+    public function mismatch(string $expected): Problem
+    {
+        return Problem::at($this->at, sprintf('expected %s, got %s', $expected, $this->got()));
     }
 
     public function isPresent(): bool
@@ -153,6 +197,27 @@ final readonly class Node
     public function json(): string
     {
         return $this->present ? json_encode($this->value, self::FLAGS) : throw NotInShape::missing($this->at);
+    }
+
+    /**
+     * What this place holds, as the JSON value it is: an empty `{}` or `[]` is empty either way.
+     *
+     * @throws NotInShape
+     */
+    public function value(): Json
+    {
+        return $this->present ? Json::decoded($this->value) : throw NotInShape::missing($this->at);
+    }
+
+    /** What this place holds, as a problem says it: a value as JSON writes it, a list or an object, or nothing. */
+    private function got(): string
+    {
+        return match ($this->kind()) {
+            Kind::Nothing => 'nothing',
+            Kind::List, Kind::Empty => 'a list',
+            Kind::Map => 'an object',
+            Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null => json_encode($this->value, self::FLAGS),
+        };
     }
 
     private function refused(string $expected): NotInShape

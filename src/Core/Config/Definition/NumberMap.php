@@ -5,13 +5,21 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use function is_float;
+use function is_int;
 
+use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Table;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
-use function sprintf;
-
-/** An object whose keys are data, such as path prefixes or colours, and whose values are numbers. */
-final readonly class NumberMap implements Node
+/**
+ * An object whose keys are data, such as path prefixes or colour names, and
+ * whose values are numbers.
+ *
+ * @implements Shape<Table>
+ */
+final readonly class NumberMap implements Shape
 {
     private function __construct(private Number $number)
     {
@@ -22,30 +30,28 @@ final readonly class NumberMap implements Node
         return new self($number);
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        if (! Json::isMap($value)) {
-            return Reading::mismatch($at, $this->expected(), $value);
+        if ($at->kind() !== Kind::Map && $at->kind() !== Kind::Empty) {
+            return Reading::refused($at->mismatch($this->expected()));
         }
 
         $numbers = [];
-        $problems = [];
+        $readings = [];
 
-        foreach ($value as $key => $number) {
-            $name = sprintf('%s', $key);
-            $reading = $this->number->read($number, At::entry($at, $name));
-            $read = $reading->value();
+        foreach ($at->entries() as $key => $entry) {
+            $reading = $this->number->read($at->entry($key));
+            $number = $reading->value();
+            $readings[] = $reading;
 
-            if (is_float($read)) {
-                $numbers[$name] = $read;
+            if (is_int($number) || is_float($number)) {
+                $numbers[$key] = $number;
             }
-
-            $problems = [...$problems, ...$reading->problems()];
         }
 
-        return $problems === []
-            ? Reading::of(Table::of($numbers), Json::object($value))
-            : Reading::refused($problems);
+        $problems = Reading::problemsIn(...$readings);
+
+        return $problems instanceof Invalid ? Reading::invalid($problems) : Reading::of(Table::of($numbers));
     }
 
     public function expected(): string
@@ -53,9 +59,9 @@ final readonly class NumberMap implements Node
         return 'an object of numbers';
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['type' => 'object', 'additionalProperties' => $this->number->schema()];
+        return Json::object()->with('type', 'object')->with('additionalProperties', $this->number->schema());
     }
 
     public function effects(): array

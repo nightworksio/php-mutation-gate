@@ -4,11 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function is_int;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Node;
+
 use function sprintf;
 
-/** A whole number, of at least some least value. A number written as a string, or with a fraction, is not one. */
-final readonly class Integer implements Node
+/**
+ * A whole number of at least some least one.
+ *
+ * @implements Shape<int>
+ */
+final readonly class Integer implements Shape
 {
     private function __construct(private int $least)
     {
@@ -19,11 +26,11 @@ final readonly class Integer implements Node
         return new self($least);
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        return is_int($value) && $value >= $this->least
-            ? Reading::of($value, $value)
-            : Reading::mismatch($at, $this->expected(), $value);
+        return $at->kind() === Kind::Integer && $at->integer() >= $this->least
+            ? Reading::of($at->integer())
+            : Reading::refused($at->mismatch($this->expected()));
     }
 
     public function expected(): string
@@ -31,9 +38,9 @@ final readonly class Integer implements Node
         return sprintf('an integer of at least %d', $this->least);
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['type' => 'integer', 'minimum' => $this->least];
+        return Json::object()->with('type', 'integer')->with('minimum', $this->least);
     }
 
     public function effects(): array

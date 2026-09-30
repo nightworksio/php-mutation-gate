@@ -4,120 +4,53 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Fields;
-use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Test\Group;
+use DateTimeImmutable;
+use NightWorksIO\MutationGate\Core\Config\Definition\Adapter;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
+use function sprintf;
+
 /**
- * The effective config: every setting of the README's configuration
- * reference, typed, with its default where the config leaves it out, after
- * presets, the config file and the command line (ADR-0002).
+ * The effective config (ADR-0002): every layer laid in order, presets, the
+ * config file and the command line, over the value each setting takes when
+ * every layer leaves it out, and typed. It holds a runner, and no ignore that
+ * outlasts `ignores.maxDays`.
  */
 final readonly class Settings
 {
-    /**
-     * @param Listed<string> $extensions
-     * @param Listed<string> $presets
-     * @param Listed<Report> $reports
-     */
-    private function __construct(
-        private Listed $extensions,
-        private Listed $presets,
-        private ChosenRunner $runner,
-        private Choice $treeSource,
-        private Floors $floors,
-        private Reach $reach,
-        private Shards $shards,
-        private Ci $ci,
-        private Proofs $proofs,
-        private Seconds|Unlimited $budget,
-        private Triage $triage,
-        private Ignores $ignores,
-        private Listed $reports,
-        private Table $badge,
-        private Pest $pest,
-        private Local $local,
-        private string $effective,
-        private string $canonical,
-    ) {
+    private function __construct(private Layer $layer, private ChosenRunner $runner)
+    {
     }
 
-    /**
-     * The settings a config was read into, with the effective config as JSON and the canonical form of the
-     * settings that affect results.
-     */
-    public static function from(Fields $read, string $effective, string $canonical): self
+    /** The settings every layer laid over another makes, or every problem that remains once they are laid. */
+    public static function settled(Layer $layer, DateTimeImmutable $now): self|Invalid
     {
-        $budget = $read->optional('budget', Seconds::class);
+        $runner = $layer->setup()->runner();
+        $problems = [
+            ...$runner instanceof Choice
+                ? []
+                : [Problem::at('runner', sprintf('expected %s, got nothing', Adapter::EXPECTED))],
+            ...$layer->ignores()->late($now),
+        ];
 
-        return new self(
-            Listed::of($read->strings('extensions')),
-            Listed::of($read->has('preset') ? $read->strings('preset') : []),
-            $read->object('runner', ChosenRunner::class),
-            $read->object('treeSource', Choice::class),
-            Floors::read($read),
-            new Reach(
-                Listed::of($read->strings('packages')),
-                Listed::of($read->fields('reach')->strings('everything')),
-                $read->fields('holds')->float('hotPath'),
-            ),
-            new Shards(
-                Seconds::of($read->fields('shards')->int('seconds')),
-                $read->fields('shards')->int('max'),
-                $read->fields('costs')->object('secondsPerLine', Table::class),
-                $read->fields('shards')->optional('target', Seconds::class),
-                $read->fields('shards')->object('setup', Seconds::class),
-                $read->fields('costs')->optional('perRunnerMinute', Price::class),
-            ),
-            new Ci(
-                $read->fields('ci')->optional('plan', Choice::class),
-                $read->fields('ci')->has('defaultBranch')
-                    ? $read->fields('ci')->string('defaultBranch')
-                    : Absent::setting(),
-                $read->fields('ci')->string('check'),
-                $read->fields('ci')->fields('gitlab')->object('template', Path::class),
-                $read->fields('ci')->fields('buildkite')->string('step'),
-                $read->fields('ci')->fields('buildkite')->object('definition', Path::class),
-            ),
-            new Proofs(
-                $read->fields('proofs')->object('store', Choice::class),
-                Listed::of($read->fields('proofs')->strings('ignore')),
-                $read->fields('proofs')->object('write', ProofWriting::class),
-            ),
-            $budget instanceof Absent ? Unlimited::time() : $budget,
-            new Triage(
-                $read->fields('timeouts')->object('mode', TimeoutMode::class),
-                Seconds::of($read->fields('timeouts')->int('seconds')),
-                $read->fields('timeouts')->int('retries'),
-                $read->fields('flaky')->bool('confirmSurvivors'),
-                $read->fields('tests')->object('order', TestOrder::class),
-                $read->fields('equivalence')->bool('static'),
-            ),
-            $read->object('ignores', Ignores::class),
-            Listed::of($read->objects('reports', Report::class)),
-            $read->fields('badge')->object('colors', Table::class),
-            new Pest($read->fields('pest')->bool('patch'), Group::named($read->fields('pest')->string('canary'))),
-            new Local(
-                $read->fields('local')->object('watchBudget', Seconds::class),
-                $read->fields('local')->object('prePushBudget', Seconds::class),
-            ),
-            $effective,
-            $canonical,
-        );
+        return $runner instanceof Choice && $problems === []
+            ? new self($layer, ChosenRunner::of($runner, $layer->setup()->withhold()))
+            : Invalid::because(...$problems);
     }
 
     /** @return Listed<string> the extension classes the config loads, beside those Composer names */
     public function extensions(): Listed
     {
-        return $this->extensions;
+        return $this->layer->setup()->extensions();
     }
 
     /** @return Listed<string> the presets applied, in order */
     public function presets(): Listed
     {
-        return $this->presets;
+        $presets = $this->layer->setup()->presets();
+
+        return $presets instanceof Listed ? $presets : Listed::of([]);
     }
 
     /** The runner chosen, and what it withholds from the project's tests besides what every run withholds. */
@@ -128,76 +61,76 @@ final readonly class Settings
 
     public function treeSource(): Choice
     {
-        return $this->treeSource;
+        return $this->layer->setup()->treeSource();
     }
 
     public function floors(): Floors
     {
-        return $this->floors;
+        return $this->layer->floors();
     }
 
     public function reach(): Reach
     {
-        return $this->reach;
+        return $this->layer->reach();
     }
 
     public function shards(): Shards
     {
-        return $this->shards;
+        return $this->layer->shards();
     }
 
     public function ci(): Ci
     {
-        return $this->ci;
+        return $this->layer->ci();
     }
 
     public function proofs(): Proofs
     {
-        return $this->proofs;
+        return $this->layer->proofs();
     }
 
     /** How long a run may take, riskiest code first (ADR-0008). */
     public function budget(): Seconds|Unlimited
     {
-        return $this->budget;
+        return $this->layer->triage()->budget();
     }
 
     public function triage(): Triage
     {
-        return $this->triage;
+        return $this->layer->triage();
     }
 
     public function ignores(): Ignores
     {
-        return $this->ignores;
+        return $this->layer->ignores();
     }
 
-    /** @return Listed<Report> the file reports the config asks for */
+    /** @return Listed<Report> the reports the config asks for */
     public function reports(): Listed
     {
-        return $this->reports;
+        return $this->layer->reports()->reports();
     }
 
     /** `badge.colors`: the lowest score of each shields.io colour, red below them all. */
     public function badge(): Table
     {
-        return $this->badge;
+        return $this->layer->badge()->colors();
     }
 
     public function pest(): Pest
     {
-        return $this->pest;
+        return $this->layer->pest();
     }
 
     public function local(): Local
     {
-        return $this->local;
+        return $this->layer->local();
     }
 
-    /** The effective config, every setting with its value, as pretty JSON that reads back into these settings. */
-    public function effective(): string
+    /** The effective config: every setting with its value, which reads back into these settings. */
+    public function effective(): Layer
     {
-        return $this->effective;
+        return Layer::standard()->over($this->layer);
     }
 
     /**
@@ -207,6 +140,6 @@ final readonly class Settings
      */
     public function canonical(): string
     {
-        return $this->canonical;
+        return Canonical::of($this->effective()->written(ProjectRoot::origin()), Definition::effects());
     }
 }

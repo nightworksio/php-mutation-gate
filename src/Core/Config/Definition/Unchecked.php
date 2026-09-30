@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Node;
+
 /**
- * A value the gate keeps but never reads, such as the `$schema` an editor
- * checks a JSON config against: any value is taken as written.
+ * A key that may hold anything and changes nothing: the `$schema` an editor
+ * checks a file by.
+ *
+ * @implements Shape<never>
  */
-final readonly class Unchecked implements Node
+final readonly class Unchecked implements Shape
 {
     private function __construct(private string $description)
     {
@@ -19,9 +24,9 @@ final readonly class Unchecked implements Node
         return new self($description);
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        return Reading::of($value, $value);
+        return Reading::nothing();
     }
 
     public function expected(): string
@@ -29,9 +34,9 @@ final readonly class Unchecked implements Node
         return 'anything';
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['description' => $this->description];
+        return Json::object()->with('description', $this->description);
     }
 
     public function effects(): array

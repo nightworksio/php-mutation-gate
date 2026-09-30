@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Score;
 
 use function floor;
+use function intdiv;
 use function round;
 
 /**
@@ -48,5 +49,13 @@ final readonly class Floor
     public function percent(): float
     {
         return $this->hundredths / self::HUNDREDTHS_PER_PERCENT;
+    }
+
+    /** The percent as a config writes it: a whole percent as a whole number, `83.41` as it is. */
+    public function written(): int|float
+    {
+        return $this->hundredths % self::HUNDREDTHS_PER_PERCENT === 0
+            ? intdiv($this->hundredths, self::HUNDREDTHS_PER_PERCENT)
+            : $this->percent();
     }
 }

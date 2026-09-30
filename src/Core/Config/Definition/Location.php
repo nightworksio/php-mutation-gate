@@ -4,23 +4,36 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function is_string;
-
+use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
-/** A path, from the project's root. */
-final readonly class Location implements Node
+/**
+ * A path, named from where the layer that writes it is: a config file's own
+ * directory, or the project.
+ *
+ * @implements Shape<Path>
+ */
+final readonly class Location implements Shape
 {
-    public static function path(): self
+    private function __construct(private Origin $origin)
     {
-        return new self();
     }
 
-    public function read(mixed $value, string $at): Reading
+    public static function path(Origin $origin): self
     {
-        return is_string($value) && $value !== ''
-            ? Reading::of(Path::of($value), Path::of($value)->value())
-            : Reading::mismatch($at, $this->expected(), $value);
+        return new self($origin);
+    }
+
+    public function read(Node $at): Reading
+    {
+        $written = $at->kind() === Kind::Text ? $at->text() : '';
+
+        return $written !== ''
+            ? Reading::of($this->origin->path($written))
+            : Reading::refused($at->mismatch($this->expected()));
     }
 
     public function expected(): string
@@ -28,9 +41,9 @@ final readonly class Location implements Node
         return 'a path';
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['type' => 'string', 'minLength' => 1];
+        return Json::object()->with('type', 'string')->with('minLength', 1);
     }
 
     public function effects(): array

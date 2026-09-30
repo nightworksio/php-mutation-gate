@@ -4,110 +4,124 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function is_array;
-use function is_string;
-
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
-use NightWorksIO\MutationGate\Core\Config\ChosenRunner;
 use NightWorksIO\MutationGate\Core\Config\Effect;
-use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\Setup;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
  * The `runner` key: an adapter chosen as any other is, and in its object
  * form also `withhold`, the environment variables a project adds to those the
- * runner never hands its tests (ADR-0004). A config file may write
- * `withhold` alone, for zero-config to find the runner it goes with.
+ * runner never hands its tests (ADR-0004). A layer may write `withhold`
+ * alone, for a later layer or zero-config to choose the runner.
+ *
+ * @implements Shape<Setup>
  */
-final readonly class RunnerChoice implements Node
+final readonly class RunnerChoice implements Shape
 {
-    /** @param Section<Fields> $written */
-    private function __construct(private Builtins $builtins, private Section $written)
+    /**
+     * @param Shape<Choice>  $adapter
+     * @param Section<Setup> $object
+     */
+    private function __construct(private Shape $adapter, private Section $object, private Builtins $builtins)
     {
     }
 
     public static function choosing(Builtins $builtins): self
     {
         $judges = Effect::JudgesOrReportsOnly;
+        $use = Field::optional('use', Text::of('a name or a class'), $judges);
+        $with = Field::optional('with', OpenObject::any(), $judges);
+        $withhold = Field::optional('withhold', Items::of(Text::of('a variable name or a glob')), $judges);
 
         return new self(
-            $builtins,
-            Section::fields(
-                Field::required('use', Text::of('a name or a class'), $judges),
-                Field::optional('with', OpenObject::any(), $judges),
-                Field::setting('withhold', Items::of(Text::of('a variable name or a glob')), $judges, []),
+            Adapter::choosing($builtins),
+            Section::of(
+                static function (Node $at) use ($builtins, $use, $with, $withhold): Setup|Invalid {
+                    $named = $use->read($at);
+                    $withheld = $withhold->read($at);
+
+                    return Reading::built(
+                        static fn(): Setup|Invalid => self::object($builtins, $at, $named->value(), $withheld->value()),
+                        $named,
+                        $with->read($at),
+                        $withheld,
+                    );
+                },
+                $use,
+                $with,
+                $withhold,
             ),
+            $builtins,
         );
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        if (is_string($value) && $value !== '') {
-            return $this->chosen($this->builtins->choose($value, [], $at), []);
+        if ($at->kind() === Kind::Map || $at->kind() === Kind::Empty) {
+            return $this->object->read($at);
         }
 
-        if (! Json::isMap($value)) {
-            return Reading::mismatch($at, $this->expected(), $value);
-        }
+        $chosen = Adapter::chosen($this->adapter->read($at));
 
-        $written = $this->written->read($value, $at);
-        $fields = $written->value();
-
-        return $fields instanceof Fields ? $this->object($fields, $at) : $written;
+        return $chosen instanceof Choice ? Reading::of(Setup::of(runner: $chosen)) : Reading::invalid($chosen);
     }
 
     public function expected(): string
     {
-        return 'a name, a class, or an object with use and with';
+        return $this->adapter->expected();
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        $withhold = ['withhold' => Items::of(Text::of('a variable name or a glob'))->schema()];
+        $withhold = Json::object()->with('withhold', Items::of(Text::of('a variable name or a glob'))->schema());
 
-        return ['anyOf' => [
-            ['type' => 'string', 'minLength' => 1],
-            ...$this->builtins->schemas($withhold, [], []),
-            [
-                'type' => 'object',
-                'properties' => $withhold,
-                'required' => ['withhold'],
-                'additionalProperties' => false,
-            ],
-        ]];
+        return Json::object()->with(
+            'anyOf',
+            Json::items([
+                Json::object()->with('type', 'string')->with('minLength', 1),
+                ...$this->builtins->schemas($withhold, [], []),
+                Json::object()
+                    ->with('type', 'object')
+                    ->with('properties', $withhold)
+                    ->with('required', Json::items(['withhold']))
+                    ->with('additionalProperties', value: false),
+            ]),
+        );
     }
 
     public function effects(): array
     {
-        return [...$this->builtins->effects(), '.withhold' => Effect::JudgesOrReportsOnly];
+        return [...$this->adapter->effects(), '.withhold' => Effect::JudgesOrReportsOnly];
     }
 
-    private function object(Fields $fields, string $at): Reading
-    {
-        $with = $fields->has('with') ? Json::decode($fields->string('with')) : [];
+    /** @param Listed<string>|Absent $withhold */
+    private static function object(
+        Builtins $builtins,
+        Node $at,
+        string|Absent $use,
+        Listed|Absent $withhold,
+    ): Setup|Invalid {
+        $withheld = $withhold instanceof Absent ? [] : [...$withhold];
+        $options = $at->field('with');
 
-        return $this->chosen($this->builtins->choose($fields->string('use'), $with, $at), $fields->strings('withhold'));
+        return match (true) {
+            ! $use instanceof Absent => self::chosen(Adapter::chosen($builtins->choose($use, $options)), $withheld),
+            $withhold instanceof Absent, $options->kind() !== Kind::Nothing => Invalid::because(
+                $at->field('use')->mismatch('a name or a class'),
+            ),
+            default => Setup::of(withhold: $withheld),
+        };
     }
 
-    /**
-     * The runner chosen, shown by its name alone where nothing else is written, and affecting results as its
-     * choice does; what it withholds only judges.
-     *
-     * @param list<string> $withhold
-     */
-    private function chosen(Reading $chosen, array $withhold): Reading
+    /** @param list<string> $withhold */
+    private static function chosen(Choice|Invalid $choice, array $withhold): Setup|Invalid
     {
-        $choice = $chosen->value();
-
-        if (! $choice instanceof Choice) {
-            return $chosen;
-        }
-
-        $shown = $chosen->shown();
-
-        return Reading::affecting(
-            ChosenRunner::of($choice, Withheld::of(...$withhold)),
-            $withhold === [] ? $shown : [...is_array($shown) ? $shown : ['use' => $shown], 'withhold' => $withhold],
-            $shown,
-        );
+        return $choice instanceof Choice ? Setup::of(runner: $choice, withhold: $withhold) : $choice;
     }
 }

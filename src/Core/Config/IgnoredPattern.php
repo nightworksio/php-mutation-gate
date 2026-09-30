@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Time\Day;
+
+use function sprintf;
 
 /**
  * The mutants of one mutator, by its full name or its family, in the paths a
@@ -44,5 +47,26 @@ final readonly class IgnoredPattern implements Ignored
     public function expires(): Day|Absent
     {
         return $this->expires;
+    }
+
+    public function written(): Json
+    {
+        $written = Json::object()
+            ->with('path', $this->path)
+            ->with('mutator', $this->mutator)
+            ->with('reason', $this->reason);
+
+        return $this->expires instanceof Day ? $written->with('expires', $this->expires->value()) : $written;
+    }
+
+    public function php(): string
+    {
+        return sprintf(
+            'Ignore::mutator(%s, in: %s, because: %s%s)',
+            PhpCalls::literal($this->mutator),
+            PhpCalls::literal($this->path),
+            PhpCalls::literal($this->reason),
+            $this->expires instanceof Day ? sprintf(', until: %s', PhpCalls::literal($this->expires->value())) : '',
+        );
     }
 }

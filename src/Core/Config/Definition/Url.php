@@ -4,11 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function is_string;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Node;
+
 use function str_starts_with;
 
-/** An `https://` URL, such as the public base a ledger is read from (ADR-0013). */
-final readonly class Url implements Node
+/**
+ * An `https://` URL with something after the scheme.
+ *
+ * @implements Shape<non-empty-string>
+ */
+final readonly class Url implements Shape
 {
     private const string SCHEME = 'https://';
 
@@ -17,11 +24,13 @@ final readonly class Url implements Node
         return new self();
     }
 
-    public function read(mixed $value, string $at): Reading
+    public function read(Node $at): Reading
     {
-        return is_string($value) && str_starts_with($value, self::SCHEME) && $value !== self::SCHEME
-            ? Reading::of($value, $value)
-            : Reading::mismatch($at, $this->expected(), $value);
+        $url = $at->kind() === Kind::Text ? $at->text() : '';
+
+        return $url !== '' && str_starts_with($url, self::SCHEME) && $url !== self::SCHEME
+            ? Reading::of($url)
+            : Reading::refused($at->mismatch($this->expected()));
     }
 
     public function expected(): string
@@ -29,9 +38,9 @@ final readonly class Url implements Node
         return 'an https:// URL';
     }
 
-    public function schema(): array
+    public function schema(): Json
     {
-        return ['type' => 'string', 'pattern' => '^https://.'];
+        return Json::object()->with('type', 'string')->with('pattern', '^https://.');
     }
 
     public function effects(): array

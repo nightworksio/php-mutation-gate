@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function array_key_exists;
+
 use ArrayIterator;
+use Closure;
 
 use function count;
 
@@ -34,6 +37,34 @@ final readonly class Listed implements Countable, IteratorAggregate
      */
     public static function of(array $entries): self
     {
+        return new self($entries);
+    }
+
+    /**
+     * These entries, then each of a later layer's that is not one of them already, as its identity says.
+     *
+     * @template U
+     *
+     * @param  self<U>                 $later
+     * @param  Closure(T|U): string    $identity
+     * @return self<T|U>
+     */
+    public function and(self $later, Closure $identity): self
+    {
+        $entries = $this->entries;
+        $seen = [];
+
+        foreach ($this->entries as $entry) {
+            $seen[$identity($entry)] = true;
+        }
+
+        foreach ($later->entries as $entry) {
+            if (! array_key_exists($identity($entry), $seen)) {
+                $entries[] = $entry;
+                $seen[$identity($entry)] = true;
+            }
+        }
+
         return new self($entries);
     }
 
