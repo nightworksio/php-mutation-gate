@@ -117,8 +117,8 @@ final readonly class PlanFile
             ...self::runOn($plan->runOn()),
             'keys' => KeysRecord::of($plan->keys()),
             'shards' => array_map(self::shard(...), [...$plan]),
-            ...self::considered($plan),
-            ...self::change($plan),
+            ...self::considered($plan->considered()),
+            ...self::change($plan->considered()),
         ];
     }
 
@@ -135,29 +135,29 @@ final readonly class PlanFile
     }
 
     /** @return ConsideredWritten the units proved and those carried, each where there are any */
-    private static function considered(Plan $plan): array
+    private static function considered(Considered $considered): array
     {
         return [
-            ...count($plan->proved()) > 0 ? [self::PROVED => UnitRecord::all($plan->proved())] : [],
-            ...count($plan->carried()) > 0 ? [self::CARRIED => UnitRecord::all($plan->carried())] : [],
+            ...count($considered->proved()) > 0 ? [self::PROVED => UnitRecord::all($considered->proved())] : [],
+            ...count($considered->carried()) > 0 ? [self::CARRIED => UnitRecord::all($considered->carried())] : [],
         ];
     }
 
     /** @return ChangeWritten the lines a change added or modified, by file, and why it reached what it did */
-    private static function change(Plan $plan): array
+    private static function change(Considered $considered): array
     {
         $changed = [];
 
-        foreach ($plan->changed() as $change) {
+        foreach ($considered->changed() as $change) {
             $changed[$change->path()->value()] = array_map(
                 static fn(Line $line): int => $line->number(),
                 [...$change->lines()],
             );
         }
 
-        return $changed === [] && count($plan->reach()) === 0 ? [] : [
+        return $changed === [] && count($considered->reach()) === 0 ? [] : [
             self::CHANGED => $changed,
-            self::REACH => array_map(static fn(Reason $reason): string => $reason->text(), [...$plan->reach()]),
+            self::REACH => array_map(static fn(Reason $reason): string => $reason->text(), [...$considered->reach()]),
         ];
     }
 
@@ -196,9 +196,12 @@ final readonly class PlanFile
             Shards::of(...$shards),
         )
             ->on(self::runOnIn($file))
-            ->reaching(self::changedIn($file), self::reachIn($file))
-            ->proving(self::unitsIn($file->field(self::PROVED)))
-            ->carrying(self::unitsIn($file->field(self::CARRIED)));
+            ->considering(
+                Considered::everything()
+                    ->reaching(self::changedIn($file), self::reachIn($file))
+                    ->proving(self::unitsIn($file->field(self::PROVED)))
+                    ->carrying(self::unitsIn($file->field(self::CARRIED))),
+            );
 
         return $plan->digest()->value() === $file->field(self::DIGEST)->text()
             ? $plan

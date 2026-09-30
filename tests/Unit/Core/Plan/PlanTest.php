@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
-use NightWorksIO\MutationGate\Core\Change\Change;
-use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\File\Line;
-use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -19,8 +16,6 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
-use NightWorksIO\MutationGate\Core\Reach\Reason;
-use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -81,25 +76,21 @@ it('holds the commit it was made on and the key of every unit it considered', fu
         ->and($plan->keys())->toBe($keys);
 });
 
-it('proves and carries no unit until told which, each keeping everything else', function () use (
+it('considers nothing beyond its shards until told what, keeping everything else', function () use (
     $shard,
     $planOf,
 ): void {
     $plan = $planOf($shard(1))->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')));
-    $proved = Units::of(Unit::file(Path::of('src/A.php')));
-    $carried = Units::of(Unit::file(Path::of('src/B.php')), Unit::file(Path::of('src/C.php')));
-    $both = $plan->proving($proved)->carrying($carried);
+    $considered = Considered::everything()->proving(Units::of(Unit::file(Path::of('src/A.php'))));
+    $considering = $plan->considering($considered);
 
-    expect($plan->proved())->toHaveCount(0)
-        ->and($plan->carried())->toHaveCount(0)
-        ->and($both->proved())->toBe($proved)
-        ->and($both->carried())->toBe($carried)
-        ->and($both->carrying($carried)->proved())->toBe($proved)
-        ->and($both->proving($proved)->carried())->toBe($carried)
-        ->and($both->commit())->toBe($plan->commit())
-        ->and($both->base())->toBe($plan->base())
-        ->and($both->runOn())->toBe($plan->runOn())
-        ->and($both)->toHaveCount(1);
+    expect($plan->considered())->toEqual(Considered::everything())
+        ->and($considering->considered())->toBe($considered)
+        ->and($considering->commit())->toBe($plan->commit())
+        ->and($considering->base())->toBe($plan->base())
+        ->and($considering->runOn())->toBe($plan->runOn())
+        ->and($considering->keys())->toBe($plan->keys())
+        ->and($considering)->toHaveCount(1);
 });
 
 it('is made for a detached run that cannot tell its default branch, until told what it runs on', function () use ($shard, $planOf): void {
@@ -130,18 +121,4 @@ it('cannot judge a checkout of another commit', function () use ($planOf): void 
     expect($planOf()->forCheckout(Revision::ref('206b4e0')))->toEqual(CannotJudge::because(
         'The plan was made on 5eeca8f, and this checkout is 206b4e0. Run a shard on the commit its plan was made on.',
     ));
-});
-
-it('holds no change and no reason until it is made for a change', function () use ($shard, $planOf): void {
-    $plan = $planOf($shard(1));
-    $changed = Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))));
-    $reach = Reasons::of(Reason::that('src/Money.php changed.'));
-    $reaching = $plan->reaching($changed, $reach);
-
-    expect($plan->changed())->toHaveCount(0)
-        ->and($plan->reach())->toHaveCount(0)
-        ->and($reaching->changed())->toBe($changed)
-        ->and($reaching->reach())->toBe($reach)
-        ->and($reaching->commit())->toBe($plan->commit())
-        ->and($reaching)->toHaveCount(1);
 });

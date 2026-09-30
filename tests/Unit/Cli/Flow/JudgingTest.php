@@ -51,6 +51,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
+use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -366,10 +367,10 @@ it('judges a pull request\'s new code against its own floor, and fails a raise n
 ): void {
     $plan = Planned::twoShards()
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->reaching(
+        ->considering(Considered::everything()->reaching(
             Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(16)))),
             Reasons::of(Reason::that('src/Money.php changed.')),
-        );
+        ));
 
     $verdict = judgingVerdictOf($judged(
         $plan,
@@ -473,8 +474,9 @@ it('counts the proofs and the results of its own scope it took, and records how 
     $store = new ProofStoreFake();
     $plan = Planned::of()
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->proving(Units::of(Planned::money()))
-        ->carrying(Units::of(Planned::held()));
+        ->considering(
+            Considered::everything()->proving(Units::of(Planned::money()))->carrying(Units::of(Planned::held())),
+        );
     $run = Run::of('github:1/1', Moment::at('2026-09-29T12:00:00Z'), $plan->base());
     $proofOf = static fn(string $key, string $file): Proof => Proof::of(
         Digest::sha256Of($key),
@@ -509,7 +511,7 @@ it('uses none of its own scope where the default branch proved what it took', fu
     $store = new ProofStoreFake();
     $plan = Planned::of()
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->proving(Units::of(Planned::money()));
+        ->considering(Considered::everything()->proving(Units::of(Planned::money())));
     $run = Run::of('github:1/1', Moment::at('2026-09-29T12:00:00Z'), $plan->base());
     $mutants = Flows::mutantsOf('src/Money.php');
     $store->write(Scope::branch('main'), Ledger::empty()->withProof(
@@ -535,8 +537,9 @@ it('cannot judge where a unit the plan proved or carried has lost its proof', fu
     $store = new ProofStoreFake();
     $plan = Planned::of()
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->proving(Units::of(Planned::money()))
-        ->carrying(Units::of(Planned::held()));
+        ->considering(
+            Considered::everything()->proving(Units::of(Planned::money()))->carrying(Units::of(Planned::held())),
+        );
 
     $judgement = new Judging(
         Flows::adapters($project, [], $store, $tree(Floor::of(100))),
@@ -561,7 +564,7 @@ it('takes a planned proof from the run\'s own scope where it has moved there fro
     $store = new ProofStoreFake();
     $plan = Planned::of()
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->proving(Units::of(Planned::money()));
+        ->considering(Considered::everything()->proving(Units::of(Planned::money())));
     $run = Run::of('github:1/1', Moment::at('2026-09-29T12:00:00Z'), $plan->base());
     $mutants = Flows::mutantsOf('src/Money.php');
     $store->write(Scope::pullRequest(7), Ledger::empty()->withProof(

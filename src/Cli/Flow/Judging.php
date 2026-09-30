@@ -96,9 +96,9 @@ final readonly class Judging
     ): Judged|CannotJudge {
         $writing = Writing::from($this->settings->proofs()->write()->value);
         $ledgers = Ledgers::read($this->adapters->proofs, Standing::planned($plan), $writing);
-        $proving = $ledgers->proving($plan->proved(), $plan->keys(), $plan->base());
+        $proving = $ledgers->proving($plan->considered()->proved(), $plan->keys(), $plan->base());
         $carrying = Considering::of(
-            $plan->carried(),
+            $plan->considered()->carried(),
             Reach::nothing(Packages::of($trees)),
             $ledgers->defaultBranch()->proofs(),
             $ledgers->own()->proofs(),
@@ -187,7 +187,7 @@ final readonly class Judging
 
         return Verdict::of($verdicts)
             ->withNewCode($newCode)
-            ->withReach($plan->reach())
+            ->withReach($plan->considered()->reach())
             ->withWarnings($this->warnings($plan, $verdicts, $shards))
             ->withFailures($failures);
     }
@@ -273,7 +273,7 @@ final readonly class Judging
     {
         $reach = Reach::nothing(Packages::of($trees));
 
-        foreach ($plan->changed() as $change) {
+        foreach ($plan->considered()->changed() as $change) {
             $reach = $reach->withLines($change->path(), $change->lines());
         }
 

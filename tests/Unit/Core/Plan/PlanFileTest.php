@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -173,12 +174,14 @@ it('reads a plan that names no default branch as one that cannot tell it', funct
 });
 
 it('writes and reads back the lines a change added or modified, and why it reached what it did', function (): void {
-    $plan = planFileEmpty()->on(RunOn::detached(Scope::branch('main')))->reaching(
-        Changes::of(
-            Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3), Line::of(4))),
-            Change::modified(Path::of('src/Renamed.php'), Lines::none()),
+    $plan = planFileEmpty()->on(RunOn::detached(Scope::branch('main')))->considering(
+        Considered::everything()->reaching(
+            Changes::of(
+                Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3), Line::of(4))),
+                Change::modified(Path::of('src/Renamed.php'), Lines::none()),
+            ),
+            Reasons::of(Reason::that('`src/Money.php` changed, so its unit is reached.')),
         ),
-        Reasons::of(Reason::that('`src/Money.php` changed, so its unit is reached.')),
     );
     $written = PlanFile::encode($plan);
 
@@ -205,7 +208,7 @@ it('writes neither changed lines nor reasons for a full run', function (): void 
 it('writes the reasons of a change that changed no source line', function (): void {
     $plan = planFileEmpty()
         ->on(RunOn::detached(Scope::branch('main')))
-        ->reaching(Changes::none(), Reasons::of(Reason::that('Nothing reached.')));
+        ->considering(Considered::everything()->reaching(Changes::none(), Reasons::of(Reason::that('Nothing reached.'))));
 
     expect(PlanFile::decode(PlanFile::encode($plan)))->toEqual($plan);
 });
@@ -266,10 +269,8 @@ it('writes and reads back the units it proved and those it carries, and neither 
     $empty = planFileEmpty();
     $plan = $empty
         ->on(RunOn::detached(Scope::branch('main')))
-        ->proving(Units::of(Unit::file(Path::of('src/A.php'))))
-        ->carrying(Units::of(
-            Unit::held(Path::of('src/Kernel'), Group::named('holds:src/Kernel')),
-            Unit::file(Path::of('src/B.php')),
+        ->considering(Considered::everything()->proving(Units::of(Unit::file(Path::of('src/A.php'))))->carrying(
+            Units::of(Unit::held(Path::of('src/Kernel'), Group::named('holds:src/Kernel')), Unit::file(Path::of('src/B.php'))),
         ));
     $written = PlanFile::encode($plan);
     $none = PlanFile::encode($empty);

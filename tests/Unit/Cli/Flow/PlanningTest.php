@@ -107,11 +107,11 @@ it('plans every unit of a full run into shards, on the commit HEAD is at', funct
         ->toEqual(Paths::of(Path::of('src/Held.php'), Path::of('src/Money.php')))
         ->and($planned instanceof Plan ? $planned->keys()->keyOf(Path::of('src/Money.php')) : $planned)
         ->toBeInstanceOf(Digest::class)
-        ->and($planned instanceof Plan ? $planned->changed() : $planned)->toEqual(Changes::none())
-        ->and($planned instanceof Plan ? $planned->reach() : $planned)
+        ->and($planned instanceof Plan ? $planned->considered()->changed() : $planned)->toEqual(Changes::none())
+        ->and($planned instanceof Plan ? $planned->considered()->reach() : $planned)
         ->toEqual(Reasons::of(Reason::that('A full run considers every unit.')))
-        ->and($planned instanceof Plan ? $planned->proved() : $planned)->toEqual(Units::none())
-        ->and($planned instanceof Plan ? $planned->carried() : $planned)->toEqual(Units::none());
+        ->and($planned instanceof Plan ? $planned->considered()->proved() : $planned)->toEqual(Units::none())
+        ->and($planned instanceof Plan ? $planned->considered()->carried() : $planned)->toEqual(Units::none());
 });
 
 it('hands each shard the map of its own files', function () use ($plan): void {
@@ -214,9 +214,9 @@ it('drops every unit a proof with a matching key covers, and carries what the ch
     $scoped = $plan($project, Mode::since('base'), Cut::exactly(1), $store, $checkout);
 
     expect($shards($scoped))->toEqual([1 => []])
-        ->and($scoped instanceof Plan ? $scoped->proved() : $scoped)->toEqual(Units::of($money))
-        ->and($scoped instanceof Plan ? $scoped->carried() : $scoped)->toEqual(Units::of($held))
-        ->and($scoped instanceof Plan ? $scoped->changed() : $scoped)
+        ->and($scoped instanceof Plan ? $scoped->considered()->proved() : $scoped)->toEqual(Units::of($money))
+        ->and($scoped instanceof Plan ? $scoped->considered()->carried() : $scoped)->toEqual(Units::of($held))
+        ->and($scoped instanceof Plan ? $scoped->considered()->changed() : $scoped)
         ->toEqual(Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(2)))))
         ->and($scoped instanceof Plan ? $scoped->base() : $scoped)->toEqual($base)
         ->and($scoped instanceof Plan ? $scoped->keys()->units() : $scoped)
@@ -304,7 +304,7 @@ it('hands a full pull request plan the lines changed since the default branch, f
 
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $pullRequest, $checkout);
 
-    expect($planned instanceof Plan ? $planned->changed() : $planned)->toEqual($changed);
+    expect($planned instanceof Plan ? $planned->considered()->changed() : $planned)->toEqual($changed);
 });
 
 it('cannot plan a full pull request run where git cannot tell what changed since the default branch', function () use (
