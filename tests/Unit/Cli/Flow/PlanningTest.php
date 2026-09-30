@@ -131,21 +131,23 @@ it('plans every unit of a full run into shards, on the commit HEAD is at', funct
         ->and($planned instanceof Plan ? $planned->considered()->carried() : $planned)->toEqual(Units::none());
 });
 
-/** A plan under a 512M cap, where the suite's coverage run held this much. */
+/** A plan under a 512M cap, where the suite's coverage run held this much and the runner reads this config. */
 $cappedPlan = static function (
     MemoryCap|NotGiven $peak,
     string $phpUnit = '',
     bool $handedOver = false,
+    string $config = 'phpunit.xml',
+    string $reads = 'phpunit.xml',
 ) use ($coverage): Plan|CannotJudge {
     $setup = Flows::setup();
     $project = Flows::project();
 
     if ($phpUnit !== '') {
-        Scratch::write($project, 'phpunit.xml', $phpUnit);
+        Scratch::write($project, $config, $phpUnit);
     }
 
     return new Planning(
-        Flows::adapters($project),
+        Flows::adapters($project, [], RunnerFake::ofTheFixture()->definedBy(Paths::of(Path::of($reads)))),
         Flows::settings(ConfiguredRunner::uses('fake')->cappedAt(MemoryCap::of(512, MemoryUnit::Megabytes))),
         new Setup($setup->configFile, $setup->gate, $setup->installed, $setup->clock, new PeakMemoryFake($peak)),
     )->plan(Mode::full(), $handedOver ? CoverageRead::from(Path::of('.mutation-gate/planned')) : $coverage(), Cut::exactly(2));
@@ -184,6 +186,19 @@ it('refuses where the project\'s own memory_limit is lower than the suite, weigh
     $phpUnit = '<phpunit><php><ini name="memory_limit" value="256M"/></php></phpunit>';
 
     expect($cappedPlan(MemoryCap::of(600, MemoryUnit::Megabytes), $phpUnit))->toBeInstanceOf(CannotJudge::class);
+});
+
+it('weighs the memory_limit of the PHPUnit config the runner reads, not one it does not', function () use (
+    $cappedPlan,
+): void {
+    $phpUnit = '<phpunit><php><ini name="memory_limit" value="1G"/></php></phpunit>';
+
+    $peak = MemoryCap::of(600, MemoryUnit::Megabytes);
+
+    expect($cappedPlan($peak, $phpUnit, config: 'config/phpunit.xml', reads: 'config/phpunit.xml'))
+        ->toBeInstanceOf(Plan::class)
+        ->and($cappedPlan($peak, $phpUnit, config: 'phpunit.xml', reads: 'config/phpunit.xml'))
+        ->toBeInstanceOf(CannotJudge::class);
 });
 
 it('plans a map another job wrote, whatever this job\'s processes held', function () use ($cappedPlan): void {

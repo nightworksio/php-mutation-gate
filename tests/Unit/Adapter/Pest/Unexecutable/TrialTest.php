@@ -154,7 +154,7 @@ it('lays no limit on a run where Pest measured none', function (): void {
 
 function uncappedScan(Project $at): MemoryScan
 {
-    $scan = MemoryScan::beside(sprintf('%s/results.jsonl', $at->root()), MemoryCap::none());
+    $scan = MemoryScan::beside($at, sprintf('%s/results.jsonl', $at->root()), MemoryCap::none());
 
     return $scan instanceof MemoryScan ? $scan : throw new LogicException('An uncapped scan writes nothing.');
 }

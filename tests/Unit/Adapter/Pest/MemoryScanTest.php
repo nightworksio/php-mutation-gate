@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
+use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -13,25 +16,36 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** The results file a run writes, in a fresh workspace. */
-$results = static fn(): string => sprintf('%s/.mutation-gate/pest/results.jsonl', realpath(Scratch::directory()));
+/** A project in a fresh directory. */
+$project = static fn(): Project => Project::at(
+    (string) realpath(Scratch::directory()),
+    Paths::of(Path::of('tests')),
+    Path::of('.mutation-gate'),
+    Path::of('vendor'),
+);
 
-it('keeps a directory for each process of the gate, beside the results', function () use ($results): void {
-    $file = $results();
+/** The results file a run of the project writes. */
+$results = static fn(Project $at): string => sprintf('%s/pest/results.jsonl', $at->workspace());
+
+it('keeps a directory for each process of the gate, beside the results', function () use ($project, $results): void {
+    $at = $project();
+    $file = $results($at);
 
     expect(MemoryScan::directoryBeside($file))->toBe(sprintf('%s/php/%d', dirname($file), getmypid()));
 });
 
 it('writes the cap whole, clearing what an earlier process of the same id left, and removes it once done', function () use (
+    $project,
     $results,
 ): void {
-    $file = $results();
+    $at = $project();
+    $file = $results($at);
     $directory = MemoryScan::directoryBeside($file);
     mkdir($directory, recursive: true);
     file_put_contents(sprintf('%s/%s', $directory, MemoryCap::STAGED), 'memory_limit=1K');
     file_put_contents(sprintf('%s/foreign.ini', $directory), 'extension=elsewhere.so');
 
-    $scan = MemoryScan::beside($file, MemoryCap::of(64, MemoryUnit::Megabytes));
+    $scan = MemoryScan::beside($at, $file, MemoryCap::of(64, MemoryUnit::Megabytes));
     $scanned = $scan instanceof MemoryScan ? $scan->onto(Command::of('pest'))->environment()[MemoryCap::SCAN_DIR] : $scan;
     $held = glob(sprintf('%s/*', $directory));
     $written = (string) file_get_contents(sprintf('%s/%s', $directory, MemoryCap::FILE));
@@ -45,34 +59,59 @@ it('writes the cap whole, clearing what an earlier process of the same id left, 
         ->and(is_dir($directory))->toBeFalse();
 });
 
-it('refuses a link at any level of its directory, and anything but a file in it', function (string $where) use (
+it('refuses a link at any level from the gate\'s directory down to its own, and anything but a file in it', function (string $where) use (
+    $project,
     $results,
 ): void {
-    $file = $results();
+    $at = $project();
+    $file = $results($at);
     $directory = MemoryScan::directoryBeside($file);
     $elsewhere = Scratch::directory();
     $linked = match ($where) {
         'the directory' => $directory,
         'the directory above it' => dirname($directory),
+        'the gate\'s directory' => $at->workspace(),
         default => sprintf('%s/inside', $directory),
     };
-    mkdir(dirname($linked), recursive: true);
+    if (! is_dir(dirname($linked))) {
+        mkdir(dirname($linked), recursive: true);
+    }
     $where === 'a directory in it' ? mkdir($linked) : symlink($elsewhere, $linked);
 
-    expect(MemoryScan::beside($file, MemoryCap::standard()))
+    expect(MemoryScan::beside($at, $file, MemoryCap::standard()))
         ->toEqual(CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, sprintf('%s/%s', $directory, MemoryCap::FILE))))
         ->and(glob(sprintf('%s/*', $elsewhere)))->toBe([]);
-})->with(['the directory', 'the directory above it', 'a directory in it']);
+})->with(['the directory', 'the directory above it', 'the gate\'s directory', 'a directory in it']);
 
 it('writes nothing, removes nothing, and leaves a command as it is, where the run has no cap', function () use (
+    $project,
     $results,
 ): void {
-    $file = $results();
-    $scan = MemoryScan::beside($file, MemoryCap::none());
+    $at = $project();
+    $file = $results($at);
+    $scan = MemoryScan::beside($at, $file, MemoryCap::none());
     if ($scan instanceof MemoryScan) {
         $scan->remove();
     }
 
     expect($scan instanceof MemoryScan ? $scan->onto(Command::of('pest')) : $scan)->toEqual(Command::of('pest'))
         ->and(is_dir(MemoryScan::directoryBeside($file)))->toBeFalse();
+});
+
+it('leaves the cap\'s directory, quietly, where something made a directory in it during the run', function () use (
+    $project,
+    $results,
+): void {
+    $at = $project();
+    $file = $results($at);
+    $scan = MemoryScan::beside($at, $file, MemoryCap::standard());
+    $directory = MemoryScan::directoryBeside($file);
+    mkdir(sprintf('%s/made', $directory));
+
+    if ($scan instanceof MemoryScan) {
+        $scan->remove();
+    }
+
+    expect(glob(sprintf('%s/*', $directory)))->toBe([sprintf('%s/made', $directory)])
+        ->and(MemoryScan::beside($at, $file, MemoryCap::standard()))->toBeInstanceOf(CannotJudge::class);
 });

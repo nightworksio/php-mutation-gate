@@ -52,7 +52,7 @@ it('writes the cap whole, clearing what an earlier process of the same id left, 
         ->and(is_dir($directory))->toBeFalse();
 });
 
-it('refuses a link at any level of its directory, and anything but a file in it', function (string $where) use (
+it('refuses a link at any level from the gate\'s directory down to its own, and anything but a file in it', function (string $where) use (
     $project,
 ): void {
     $at = $project();
@@ -61,15 +61,18 @@ it('refuses a link at any level of its directory, and anything but a file in it'
     $linked = match ($where) {
         'the directory' => $directory,
         'the directory above it' => dirname($directory),
+        'the gate\'s directory' => $at->workspace(),
         default => sprintf('%s/inside', $directory),
     };
-    mkdir(dirname($linked), recursive: true);
+    if (! is_dir(dirname($linked))) {
+        mkdir(dirname($linked), recursive: true);
+    }
     $where === 'a directory in it' ? mkdir($linked) : symlink($elsewhere, $linked);
 
     expect(MemoryScan::in($at, MemoryCap::standard()))
         ->toEqual(CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, sprintf('%s/%s', $directory, MemoryCap::FILE))))
         ->and(glob(sprintf('%s/*', $elsewhere)))->toBe([]);
-})->with(['the directory', 'the directory above it', 'a directory in it']);
+})->with(['the directory', 'the directory above it', 'the gate\'s directory', 'a directory in it']);
 
 it('writes nothing, removes nothing, and leaves a command as it is, where the run has no cap', function () use (
     $project,
@@ -82,4 +85,20 @@ it('writes nothing, removes nothing, and leaves a command as it is, where the ru
 
     expect($scan instanceof MemoryScan ? $scan->onto(Command::php('-v')) : $scan)->toEqual(Command::php('-v'))
         ->and(is_dir(MemoryScan::directoryIn($at)))->toBeFalse();
+});
+
+it('leaves the cap\'s directory, quietly, where something made a directory in it during the run', function () use (
+    $project,
+): void {
+    $at = $project();
+    $scan = MemoryScan::in($at, MemoryCap::standard());
+    $directory = MemoryScan::directoryIn($at);
+    mkdir(sprintf('%s/made', $directory));
+
+    if ($scan instanceof MemoryScan) {
+        $scan->remove();
+    }
+
+    expect(glob(sprintf('%s/*', $directory)))->toBe([sprintf('%s/made', $directory)])
+        ->and(MemoryScan::in($at, MemoryCap::standard()))->toBeInstanceOf(CannotJudge::class);
 });

@@ -59,7 +59,7 @@ final readonly class MemoryScan
         $directory = self::directoryIn($project);
         $ini = sprintf('%s/%s', $directory, MemoryCap::FILE);
 
-        return self::fresh($directory) && self::written($directory, $ini, $memory)
+        return self::fresh($project->workspace(), $directory) && self::written($directory, $ini, $memory)
             ? new self($directory)
             : CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, $ini));
     }
@@ -74,33 +74,59 @@ final readonly class MemoryScan
             ]);
     }
 
-    /** Removes the cap's directory once the run that scans it is done; a run with no cap has none. */
+    /**
+     * Removes the cap's directory once the run that scans it is done; a run
+     * with no cap has none. A directory something made inside it is left,
+     * with the cap's directory, for the next run of the process to refuse.
+     */
     public function remove(): void
     {
         if ($this->directory instanceof Uncapped || ! is_dir($this->directory) || is_link($this->directory)) {
             return;
         }
 
+        $kept = false;
+
         foreach (self::entries($this->directory) as $entry) {
-            unlink($entry);
+            $file = is_link($entry) || is_file($entry);
+            $kept = $kept || ! $file;
+
+            if ($file) {
+                unlink($entry);
+            }
         }
 
-        rmdir($this->directory);
+        if (! $kept) {
+            rmdir($this->directory);
+        }
     }
 
     /**
      * Whether the cap's directory is there and holds nothing but files it
      * may clear: made where it is not, emptied of what an earlier process of
-     * the same id left. A link where it or a directory above it in the
-     * workspace should be, or anything but a file in it, is refused.
+     * the same id left. A link at any level from the gate's directory down to
+     * it, or anything but a file in it, is refused: making it would follow a
+     * link, and clearing it would reach beyond it.
      */
-    private static function fresh(string $directory): bool
+    private static function fresh(string $workspace, string $directory): bool
     {
         return match (true) {
-            is_link($directory) || is_link(dirname($directory)) || is_link(dirname($directory, 2)) => false,
+            self::linkedBetween($workspace, $directory) => false,
             is_dir($directory) => self::cleared($directory),
             default => mkdir($directory, recursive: true),
         };
+    }
+
+    /** Whether a directory from the gate's directory down to this one, both included, is a link. */
+    private static function linkedBetween(string $workspace, string $directory): bool
+    {
+        $level = $directory;
+
+        while (! is_link($level) && $level !== $workspace && dirname($level) !== $level) {
+            $level = dirname($level);
+        }
+
+        return is_link($level);
     }
 
     /** Whether the directory is emptied: it holds nothing but files, which it clears. */

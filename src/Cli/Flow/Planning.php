@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -106,7 +107,11 @@ final readonly class Planning
      */
     private function withinTheCap(CoverageMap $map, MemoryCap|NotGiven $peak): CoverageMap|CannotJudge
     {
-        $cap = ProjectMemoryLimit::inForce($this->adapters->project, $this->settings->runner()->memory());
+        $cap = ProjectMemoryLimit::inForce(
+            $this->adapters->project,
+            PhpUnitConfig::among($this->adapters->runner->definitions()),
+            $this->settings->runner()->memory(),
+        );
 
         return $peak instanceof MemoryCap && $cap->isExceededBy($peak)
             ? CannotJudge::because(sprintf(self::OVER_CAP, $peak->written(), $cap->written()))

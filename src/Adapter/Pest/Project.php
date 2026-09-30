@@ -61,6 +61,12 @@ final readonly class Project
         return new self(Root::of(self::real($root)), $tests, $workspace, $vendor);
     }
 
+    /** The gate's directory, where the adapter keeps what it writes. */
+    public function workspace(): string
+    {
+        return $this->root->at($this->workspace)->value();
+    }
+
     /**
      * The same project in one of its directories: the tests, the gate's
      * directory and the vendor directory are that directory's.

@@ -64,7 +64,7 @@ final readonly class Judging
         }
 
         $records = Records::in($results);
-        $scan = MemoryScan::beside($results, $request->memory());
+        $scan = MemoryScan::beside($this->project, $results, $request->memory());
 
         if ($records instanceof CannotJudge || $scan instanceof CannotJudge) {
             return $records instanceof CannotJudge ? $records : $scan;

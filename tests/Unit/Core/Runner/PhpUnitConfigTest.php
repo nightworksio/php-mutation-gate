@@ -15,3 +15,12 @@ it('names where PHPUnit\'s config may be in a directory, in the order PHPUnit lo
         ->and([...PhpUnitConfig::candidatesIn(Path::of('packages/money'))][2])->toEqual(Path::of('packages/money/phpunit.xml.dist'))
         ->and(PhpUnitConfig::DistXml->in(Path::of('config')))->toEqual(Path::of('config/phpunit.dist.xml'));
 });
+
+it('keeps, of a runner\'s files and in their order, those named as PHPUnit names its config', function (): void {
+    expect(PhpUnitConfig::among(Paths::of(
+        Path::of('tests/Pest.php'),
+        Path::of('config/phpunit.xml.dist'),
+        Path::of('phpunit.xml.bak'),
+        Path::of('phpunit.xml'),
+    )))->toEqual(Paths::of(Path::of('config/phpunit.xml.dist'), Path::of('phpunit.xml')));
+});

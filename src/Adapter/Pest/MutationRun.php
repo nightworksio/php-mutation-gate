@@ -98,7 +98,7 @@ final readonly class MutationRun
         CoverageMap|Unshared $shared,
     ): MutationResult|CannotJudge {
         $command = Plan::handedOver($this->project, $request, $this->commandFor($request, $results, $shared));
-        $scan = MemoryScan::beside($results, $request->memory());
+        $scan = MemoryScan::beside($this->project, $results, $request->memory());
 
         if ($command instanceof CannotJudge || $scan instanceof CannotJudge) {
             return $command instanceof CannotJudge ? $command : $scan;

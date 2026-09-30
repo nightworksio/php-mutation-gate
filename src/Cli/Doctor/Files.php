@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
@@ -59,7 +60,7 @@ final readonly class Files
         $files = $composer instanceof ComposerSetup ? $files->withComposer($composer) : $files;
         $infection = $this->infection();
         $files = $infection instanceof InfectionConfig ? $files->withInfection($infection) : $files;
-        $memory = ProjectMemoryLimit::in($this->project);
+        $memory = ProjectMemoryLimit::in($this->project, PhpUnitConfig::candidatesIn(Path::root()));
         $files = $memory instanceof PhpUnitMemory ? $files->withPhpUnitMemory($memory) : $files;
 
         return $settings instanceof Settings

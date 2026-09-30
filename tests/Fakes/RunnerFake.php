@@ -87,6 +87,12 @@ final readonly class RunnerFake implements Runner
         return clone($this, ['behaviour' => $behaviour]);
     }
 
+    /** This runner, defined by these files, as a runner reading its PHPUnit config from elsewhere is. */
+    public function definedBy(Paths $definitions): self
+    {
+        return clone($this, ['definitions' => $definitions]);
+    }
+
     public function behaviour(): RunnerBehaviour
     {
         return $this->behaviour;

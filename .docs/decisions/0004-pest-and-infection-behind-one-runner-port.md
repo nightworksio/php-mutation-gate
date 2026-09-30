@@ -670,17 +670,24 @@ its parser attributes. Both change when the checkout moves.
    - Coverage runs, listing the tests, and the gate's own process run
      uncapped.
    - The plan weighs the suite against the cap in force: `runner.memory`,
-     or the project's own `memory_limit` where that is higher or none. Where
-     the largest process of the coverage run it has just run held more, the
-     plan is *cannot judge*, and says to raise `runner.memory`. The peak is
-     the most resident memory `getrusage` counts for the processes the gate
-     waited for, an upper bound on what `memory_limit` counts, so a suite
-     near the cap can be refused though its mutants would fit. Where the
-     system counts no such peak, or the plan reads a map another job wrote,
-     it plans.
+     or the `memory_limit` of the PHPUnit config the runner reads (the
+     project root's for Pest; for Infection, the one in `phpUnit.configDir`,
+     or the root's where its config sets none) where that is higher or none.
+     Where the largest process of the coverage run it has just run held
+     more, the plan is *cannot judge*, and says to raise `runner.memory`. The
+     peak is the most resident memory `getrusage` counts for the processes
+     the gate waited for, an upper bound on what `memory_limit` counts, so a
+     suite near the cap can be refused though its mutants would fit. Where
+     the system counts no such peak, or the plan reads a map another job
+     wrote, it plans.
    - The cap's ini file is written, whole, into a directory of the runner's
      workspace for each process of the gate, which it empties first and
-     removes when the run is done. A link at any level of it is refused.
+     removes when the run is done. A link at any level from the gate's own
+     directory down to that one is refused; the levels above it are the
+     project's, which the gate reads through as it reads the project. An
+     entry other than a file in that directory is refused before a run;
+     after one, the files are removed and the directory is left, so the next
+     run refuses it.
    - The cap can change a mutant's result, so it is part of a proof's key
      (ADR-0007).
    - doctor's findings on it are advice (ADR-0017, decision 10):
