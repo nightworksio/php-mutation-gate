@@ -9,8 +9,6 @@ use function array_key_exists;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 
-use function sprintf;
-
 /**
  * The gate's id of each mutant Pest planned, the one place it is made: its
  * file as the project spells it, its mutator and its change, and how many
@@ -30,7 +28,7 @@ final readonly class Identities
         foreach (PlannedMutant::inOrder($planned) as $mutant) {
             $path = $root->relative($mutant->file()->value());
             $diff = Diff::fromPest($mutant->diff());
-            $key = sprintf("%s\n%s\n%s", $path->value(), $mutant->mutator(), $diff);
+            $key = MutantId::hash($path, $mutant->mutator(), $diff, 0)->value();
             $occurrence = array_key_exists($key, $seen) ? $seen[$key] : 0;
             $ids[$mutant->id()] = MutantId::hash($path, $mutant->mutator(), $diff, $occurrence);
             $seen[$key] = $occurrence + 1;

@@ -17,3 +17,7 @@ it('reads every line of a diff with no hunk', function (): void {
 it('keeps the lines of a later hunk, its own line among them', function (): void {
     expect(Hunks::linesOf("@@ -1 +1 @@\n-a\n+b\n@@ -9 +9 @@\n-c"))->toBe(['-a', '+b', '@@ -9 +9 @@', '-c']);
 });
+
+it('makes one hunk of changed lines, with a header that holds no line numbers', function (): void {
+    expect(Hunks::of("-return 1;\n+return 2;"))->toBe("@@ @@\n-return 1;\n+return 2;");
+});
