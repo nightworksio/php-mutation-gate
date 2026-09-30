@@ -87,6 +87,15 @@ final readonly class Definition
         return $layer instanceof Layer ? $layer : Invalid::because(...$reading->problems());
     }
 
+    /**
+     * A layer built elsewhere, such as a loader's or a preset's, read again as a file at this origin writes it:
+     * the definition judges every layer, however it was built, or none could be trusted to hold its values.
+     */
+    public static function judged(Layer $layer, Origin $origin): Layer|Invalid
+    {
+        return self::layer(Node::config($layer->written($origin)->line()), $origin);
+    }
+
     /** The JSON Schema (draft 2020-12) of a config, as `config:schema` prints it and the package ships it. */
     public static function schema(): string
     {

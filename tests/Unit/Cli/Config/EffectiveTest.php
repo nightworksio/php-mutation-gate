@@ -8,14 +8,31 @@ use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ChosenRunner;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
+use NightWorksIO\MutationGate\Core\Config\Floors;
+use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
+use NightWorksIO\MutationGate\Core\Config\Ignores;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Config\Setup;
+use NightWorksIO\MutationGate\Core\Config\Shards;
+use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Port\ConfigLoader;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -308,3 +325,49 @@ it('cannot judge a project whose composer.json it cannot read, where it must cho
         ->and(Configs::problems($effective($project)->settings($nothing()))[0])
         ->toEndWith('/composer.json could not be read.');
 });
+
+it('judges a layer a loader or a preset built by hand, as the definition judges a file', function (
+    string $config,
+    string $at,
+): void {
+    $unexplained = IgnoredMutant::of(MutantId::hash(Path::of('src/A.php'), 'Plus', '-a+b', 0), '', Absent::setting());
+    $smuggled = Layer::of(
+        Setup::of(runner: Choice::of('pest', Configs::options('{}'))),
+        Floors::of(trees: Listed::of(DeclaredTree::of(Path::of('src'), Floor::of(0), Listed::of()))),
+        Triage::of(limit: Seconds::of(-5), retries: -1),
+        Shards::of(seconds: Seconds::of(600), max: 0, target: Seconds::of(1200)),
+        Ignores::of(entries: Listed::of($unexplained)),
+    );
+    $loader = new readonly class ($smuggled) implements ConfigLoader {
+        public function __construct(private Layer $layer)
+        {
+        }
+
+        public function load(ConfigFile $file): Layer
+        {
+            return $this->layer;
+        }
+    };
+    $extensions = new Extensions(Origin::of('acme/smuggler'))
+        ->withConfigLoader(Name::of('smuggled'), static fn(): ConfigLoader => $loader)
+        ->withPreset(Name::of('smuggled'), $smuggled);
+    $project = Scratch::directory();
+    Scratch::write($project, 'gate.smuggled', '');
+    Scratch::write($project, 'preset.json', '{"preset": "smuggled", "runner": "pest"}');
+    $effective = new Effective(
+        $project,
+        Registered::config($extensions, static fn(): bool => false),
+        new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
+        new DateTimeImmutable(Configs::NOW),
+    );
+    $settings = $effective->settings(new CommandLine($config, '', [], '', '', firstPartyOnly: true));
+    $paths = array_map(static fn(string $problem): string => explode(': expected ', $problem)[0], Configs::problems($settings));
+
+    expect($paths)->toBe(array_map(
+        static fn(string $path): string => sprintf($at, $path),
+        ['trees[0].reason', 'shards.max', 'timeouts.seconds', 'timeouts.retries', 'ignores.entries[0].reason'],
+    ));
+})->with([
+    'a loader' => ['gate.smuggled', '%s'],
+    'a preset' => ['preset.json', 'preset: smuggled sets %s'],
+]);

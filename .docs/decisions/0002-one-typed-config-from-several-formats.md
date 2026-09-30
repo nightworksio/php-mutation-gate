@@ -53,6 +53,12 @@ cannot.
      which it can build with the PHP builder:
      `Gate::configure()->…->layer(ProjectRoot::origin())`, its paths named
      from the project.
+   - The gate reads every layer a loader answers or a preset holds again, as
+     the file it writes, through the same definition. A layer built by hand
+     is judged as a file is, so a floor of 0 without a reason, a negative
+     retry count or an ignore without a reason is refused however it was
+     built. A preset's problems are reported at the `preset` entry that
+     names it.
 
 2. **Where the config is found.**
    - `--config=<path>`, accepted by every command, names it.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Config;
 
+use function array_map;
 use function count;
 
 use DateTimeImmutable;
@@ -13,17 +14,21 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Definition\At;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Extension\Extensions;
+
+use function sprintf;
 
 /**
  * The effective config of a project (ADR-0002): zero-config defaults, then
@@ -69,8 +74,9 @@ final readonly class Effective
 
         $file = ConfigFile::at($path, Path::of($this->project));
         $loader = Formats::loader($this->extensions, $file);
+        $loaded = $loader instanceof CannotJudge ? $loader : $loader->load($file);
 
-        return $loader instanceof CannotJudge ? $loader : $loader->load($file);
+        return $loaded instanceof Layer ? Definition::judged($loaded, $file) : $loaded;
     }
 
     /** The presets beneath the config file and the command line, and zero-config's findings beneath those. */
@@ -134,14 +140,23 @@ final readonly class Effective
 
         foreach ($presets as $path => $preset) {
             $layer = Lookup::in($registry)->preset(Name::of($preset));
+            $judged = $layer instanceof Layer ? Definition::judged($layer, ProjectRoot::origin()) : $layer;
 
-            if ($layer instanceof Layer) {
-                $layers[] = $layer;
+            if ($judged instanceof Layer) {
+                $layers[] = $judged;
 
                 continue;
             }
 
-            $problems[] = Problem::at($path, $layer->why());
+            $problems = [...$problems, ...$judged instanceof Invalid
+                ? array_map(
+                    static fn(Problem $problem): Problem => Problem::at(
+                        $path,
+                        sprintf('%s sets %s: %s', $preset, $problem->path(), $problem->message()),
+                    ),
+                    [...$judged],
+                )
+                : [Problem::at($path, $judged->why())]];
         }
 
         return [$layers, $problems];
