@@ -84,3 +84,12 @@ it('names the rejection in one plain line, whatever the analyser wrote', functio
         ->and($block)->not->toContain("\n::")
         ->and($block)->not->toContain("\u{202E}");
 });
+
+it('starts no workflow command from a rejection that holds one, encoded or not', function (): void {
+    $mutant = Verdicts::mutant('src/Log.php:14', 'CastString', MutatorFamily::Unwrap, Verdicts::diff('return (string) $id;', 'return $id;'))
+        ->rejected(Rejection::by('phpstan', Finding::error("a,b:c%0A\n::error::code", "one, two: three%0A\n::error file=x,line=1::message\n##[error]older")));
+    $lines = explode("\n", MutantText::block(JudgedMutant::of($mutant, MutantJudgement::KilledByStaticAnalysis), TestNames::none()));
+
+    expect(array_values(array_filter($lines, static fn(string $line): bool => str_starts_with(ltrim($line), '::'))))->toBe([])
+        ->and($lines)->toContain('    Rejected by phpstan: a,b:c%0A ::error::code: one, two: three%0A ::error file=x,line=1::message ##[error]older');
+});

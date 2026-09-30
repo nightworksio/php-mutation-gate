@@ -34,7 +34,6 @@ use NightWorksIO\MutationGate\Port\Reporter;
 
 use function sprintf;
 
-use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -61,7 +60,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
 
     public static function fromOptions(Options $options): self
     {
-        return new self(new ConsoleOutput());
+        return new self(new InertOutput());
     }
 
     public function report(Verdict $verdict): Written

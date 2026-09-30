@@ -5,13 +5,13 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Gate;
 use Symfony\Component\Console\Input\ArgvInput;
-use Symfony\Component\Console\Output\ConsoleOutput;
+use NightWorksIO\MutationGate\Adapter\Console\InertOutput;
 
 $autoload = array_key_exists('_composer_autoload_path', $GLOBALS) && is_string($GLOBALS['_composer_autoload_path'])
     ? $GLOBALS['_composer_autoload_path']
     : sprintf('%s/vendor/autoload.php', dirname(__DIR__));
 require $autoload;
 
-$output = new ConsoleOutput();
+$output = new InertOutput();
 
 exit(Gate::in((string) getcwd(), dirname($autoload))->run(new ArgvInput(), $output, $output->getErrorOutput()));

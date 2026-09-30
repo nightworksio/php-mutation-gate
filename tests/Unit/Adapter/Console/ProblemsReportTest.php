@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Console\InertOutput;
 use NightWorksIO\MutationGate\Adapter\Console\ProblemsReport;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -15,7 +16,6 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\Console\Output\BufferedOutput;
-use Symfony\Component\Console\Output\ConsoleOutput;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -45,7 +45,7 @@ it('prints what the project wrote as it is, reading no markup in it', function (
 });
 
 it('shows every result unless asked for those on changed lines, and refuses anything else', function (): void {
-    $console = static fn(ProblemsShown $shown): ProblemsReport => ProblemsReport::to(new ConsoleOutput(), Root::here(), $shown);
+    $console = static fn(ProblemsShown $shown): ProblemsReport => ProblemsReport::to(new InertOutput(), Root::here(), $shown);
 
     expect(ProblemsReport::fromOptions(Options::none()))->toEqual($console(ProblemsShown::All))
         ->and(ProblemsReport::fromOptions(Configs::options('{"only": "all"}')))->toEqual($console(ProblemsShown::All))

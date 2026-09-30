@@ -22,7 +22,6 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\Reporter;
-use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -59,8 +58,8 @@ final readonly class ProblemsReport implements Configurable, Reporter
         };
 
         return match ($named) {
-            ProblemsShown::All->value => new self(new ConsoleOutput(), Root::here(), ProblemsShown::All),
-            ProblemsShown::Changed->value => new self(new ConsoleOutput(), Root::here(), ProblemsShown::Changed),
+            ProblemsShown::All->value => new self(new InertOutput(), Root::here(), ProblemsShown::All),
+            ProblemsShown::Changed->value => new self(new InertOutput(), Root::here(), ProblemsShown::Changed),
             default => Invalid::because(Problem::at('only', self::ONLY)),
         };
     }

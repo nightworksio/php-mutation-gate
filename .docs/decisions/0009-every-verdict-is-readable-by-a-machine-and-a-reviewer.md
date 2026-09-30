@@ -45,6 +45,14 @@ sees the same verdict.
    - **The console** (`console`) always. With `--output=problems` it prints
      one line per result for editors instead of its table (ADR-0015,
      decision 6).
+     Every line the gate writes to standard output or standard error starts
+     no command in a CI runner's log: a line whose trimmed text starts with
+     `::` gets a `\` before it, and `##[` or `##vso[` anywhere gets a space
+     before its `[`, so text from
+     outside, a test's name, a process's output or an analyser's message,
+     reaches the log only as text. Text from outside inside a line, such as
+     the analyser's rejection, is one plain line with no control or format
+     character.
    - **File reports**, listed in `reports` (ADR-0002): each entry is
      `{"use": <name or class>, "path": <file or directory>, "with": <options>}`.
      The built-in names are `json`, `junit`, `sarif`, `html`, `tests` and
