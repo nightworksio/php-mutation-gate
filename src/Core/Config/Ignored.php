@@ -17,8 +17,8 @@ interface Ignored
     public function expires(): Day|Absent;
 
     /** This entry as a config writes it. */
-    public function written(): Json;
+    public function written(Origin $origin): Json;
 
     /** This entry as the builder's `Ignore` writes it. */
-    public function php(): string;
+    public function php(Origin $origin): string;
 }

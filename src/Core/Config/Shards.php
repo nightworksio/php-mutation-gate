@@ -10,6 +10,7 @@ use function intval;
 
 use NightWorksIO\MutationGate\Core\Cost\LineRate;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -153,7 +154,7 @@ final readonly class Shards implements Part
                     Member::of(
                         'secondsPerLine',
                         $this->secondsPerLine instanceof Table
-                            ? $this->secondsPerLine->written()
+                            ? $this->perLineFrom($origin)->written()
                             : $this->secondsPerLine,
                     ),
                     Member::of(
@@ -182,15 +183,15 @@ final readonly class Shards implements Part
                 : [],
         ];
 
-        return PhpCalls::inWith(...$settings, ...$this->costs());
+        return PhpCalls::inWith(...$settings, ...$this->costs($origin));
     }
 
     /** @return list<string> */
-    private function costs(): array
+    private function costs(Origin $origin): array
     {
         $calls = [];
 
-        foreach ($this->secondsPerLine instanceof Table ? $this->secondsPerLine : [] as $prefix => $seconds) {
+        foreach ($this->secondsPerLine instanceof Table ? $this->perLineFrom($origin) : [] as $prefix => $seconds) {
             $calls[] = sprintf(
                 'Shards::secondsPerLine(%s, %s)',
                 PhpCalls::literal($prefix),
@@ -215,5 +216,20 @@ final readonly class Shards implements Part
         }
 
         return $table;
+    }
+
+    /** `costs.secondsPerLine` as a layer at this origin writes it: each prefix but `""`, every path, named from it. */
+    private function perLineFrom(Origin $origin): Table
+    {
+        $from = Table::none();
+
+        foreach ($this->secondsPerLine instanceof Table ? $this->secondsPerLine : [] as $prefix => $seconds) {
+            $key = $prefix;
+            $from = $from->merged(
+                Table::row($key === LineRate::EVERYWHERE ? $key : $origin->written(Path::of($key)), $seconds),
+            );
+        }
+
+        return $from;
     }
 }

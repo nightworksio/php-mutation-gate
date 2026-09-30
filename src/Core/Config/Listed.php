@@ -19,7 +19,7 @@ use Traversable;
 /**
  * The entries of a setting that is a list, in the order they were written.
  *
- * @template-covariant T
+ * @template-covariant T of object|string|int|float|bool
  *
  * @implements IteratorAggregate<int, T>
  */
@@ -44,7 +44,7 @@ final readonly class Listed implements Countable, IteratorAggregate
     /**
      * These entries, then each of a later layer's that is not one of them already, as its identity says.
      *
-     * @template U
+     * @template U of object|string|int|float|bool
      *
      * @param  self<U>                 $later
      * @param  Closure(T|U): string    $identity

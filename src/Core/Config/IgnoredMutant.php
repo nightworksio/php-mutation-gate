@@ -38,7 +38,7 @@ final readonly class IgnoredMutant implements Ignored
         return $this->expires;
     }
 
-    public function written(): Json
+    public function written(Origin $origin): Json
     {
         $written = Json::object(
             Member::of('mutant', $this->mutant->value()),
@@ -49,7 +49,7 @@ final readonly class IgnoredMutant implements Ignored
             : $written;
     }
 
-    public function php(): string
+    public function php(Origin $origin): string
     {
         return sprintf(
             'Ignore::mutant(%s, because: %s%s)',

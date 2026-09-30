@@ -201,7 +201,7 @@ it('answers each map as the effective config shows it', function (): void {
     expect(iterator_to_array($colors->badge(), preserve_keys: true))->toBe(['green' => 95])
         ->and(Configs::shown($colors, 'badge', 'colors'))->toBe(['green' => 95])
         ->and(iterator_to_array($costs->shards()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2, 'src' => 1.0])
-        ->and(Configs::shown($costs, 'costs', 'secondsPerLine'))->toBe(['' => 0.2, 'src/' => 1]);
+        ->and(Configs::shown($costs, 'costs', 'secondsPerLine'))->toBe(['' => 0.2, 'src' => 1]);
 });
 
 it('reads the defaults into their types', function (): void {

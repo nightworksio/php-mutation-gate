@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\Config\Proofs;
 use NightWorksIO\MutationGate\Core\Config\ProofWriting;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -15,11 +16,11 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 final readonly class ProofsKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(): array
+    public static function fields(Origin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
-        $store = Field::optional('store', Adapter::choosing(Builtins::stores()), $judges);
-        $ignore = Field::optional('ignore', Items::of(Text::of('a glob')), $judges);
+        $store = Field::optional('store', Adapter::choosing(Builtins::stores($origin)), $judges);
+        $ignore = Field::optional('ignore', Items::of(Pattern::glob($origin)), $judges);
         $write = Field::optional('write', Enumerated::of(ProofWriting::cases()), $judges);
 
         return [Field::section(

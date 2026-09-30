@@ -47,14 +47,14 @@ final readonly class Definition
     public static function config(Origin $origin): Section
     {
         $fields = [
-            ...SetupKeys::fields(),
+            ...SetupKeys::fields($origin),
             ...FloorsKeys::fields($origin),
-            ...ReachKeys::fields(),
-            ...ShardsKeys::fields(),
+            ...ReachKeys::fields($origin),
+            ...ShardsKeys::fields($origin),
             ...CiKeys::fields($origin),
-            ...ProofsKeys::fields(),
+            ...ProofsKeys::fields($origin),
             ...TriageKeys::fields(),
-            ...IgnoresKeys::fields(),
+            ...IgnoresKeys::fields($origin),
             ...ReportsKeys::fields($origin),
             ...BadgeKeys::fields(),
             ...PestKeys::fields(),

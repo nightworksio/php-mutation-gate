@@ -7,8 +7,12 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use function is_float;
 use function is_int;
 
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\Config\Table;
+use NightWorksIO\MutationGate\Core\Cost\LineRate;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -22,13 +26,19 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  */
 final readonly class NumberMap implements Shape
 {
-    private function __construct(private Number $number)
+    private function __construct(private Number $number, private Origin|Absent $origin)
     {
     }
 
     public static function of(Number $number): self
     {
-        return new self($number);
+        return new self($number, Absent::setting());
+    }
+
+    /** Numbers by path prefix, each named from where the layer is, but `""`, which is every path. */
+    public static function byPrefix(Number $number, Origin $origin): self
+    {
+        return new self($number, $origin);
     }
 
     public function read(Node $at): Reading
@@ -46,7 +56,7 @@ final readonly class NumberMap implements Shape
             $readings[] = $reading;
 
             if (is_int($number) || is_float($number)) {
-                $numbers = $numbers->merged(Table::row($key, $number));
+                $numbers = $numbers->merged(Table::row($this->keyed($key), $number));
             }
         }
 
@@ -70,5 +80,12 @@ final readonly class NumberMap implements Shape
     public function effects(): array
     {
         return [];
+    }
+
+    private function keyed(string $key): string
+    {
+        return $this->origin instanceof Absent || $key === LineRate::EVERYWHERE
+            ? $key
+            : $this->origin->path(Path::of($key))->value();
     }
 }

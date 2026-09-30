@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Ignores;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
+use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -22,10 +23,10 @@ use NightWorksIO\MutationGate\Core\Time\Day;
 final readonly class IgnoresKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(): array
+    public static function fields(Origin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
-        $entries = Field::optional('entries', Items::of(self::entry()), $judges);
+        $entries = Field::optional('entries', Items::of(self::entry($origin)), $judges);
         $maxDays = Field::optional('maxDays', Integer::atLeast(1), $judges);
         $native = Field::optional('native', Enumerated::of(NativeMarkers::cases()), $judges);
 
@@ -69,11 +70,11 @@ final readonly class IgnoresKeys
      *
      * @return Section<Ignored>
      */
-    private static function entry(): Section
+    private static function entry(Origin $origin): Section
     {
         $judges = Effect::JudgesOrReportsOnly;
         $mutant = Field::optional('mutant', Identifier::mutant(), $judges);
-        $path = Field::optional('path', Text::of('a glob'), $judges);
+        $path = Field::optional('path', Pattern::glob($origin), $judges);
         $mutator = Field::optional('mutator', Text::of('a mutator or a family of them'), $judges);
         $reason = Field::required('reason', Text::of('a reason'), $judges);
         $expires = Field::optional('expires', Date::written(), $judges);

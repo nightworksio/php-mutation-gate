@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 
 /** How the keys a config writes are read into its `Setup` part (ADR-0002). */
@@ -17,7 +18,7 @@ final readonly class SetupKeys
     private const string SCHEMA_KEY = 'The JSON Schema an editor checks this file by.';
 
     /** @return list<Field<Layer>> */
-    public static function fields(): array
+    public static function fields(Origin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
         $results = Effect::AffectsResults;
@@ -58,7 +59,7 @@ final readonly class SetupKeys
             Field::optional(
                 'treeSource',
                 Into::of(
-                    Adapter::choosing(Builtins::treeSources()),
+                    Adapter::choosing(Builtins::treeSources($origin)),
                     static fn(Choice $source): Layer => Layer::of(Setup::of(treeSource: $source)),
                 ),
                 $results,

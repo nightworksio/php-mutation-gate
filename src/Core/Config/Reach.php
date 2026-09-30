@@ -86,13 +86,17 @@ final readonly class Reach implements Part
         return Json::object(
             Member::of(
                 'packages',
-                $this->packages instanceof Listed ? Json::items(...$this->packages) : $this->packages,
+                $this->packages instanceof Listed
+                    ? Json::items(...WrittenPaths::globs($origin, $this->packages))
+                    : $this->packages,
             ),
             Member::unlessEmpty(
                 'reach',
                 Json::object(Member::of(
                     'everything',
-                    $this->everything instanceof Listed ? Json::items(...$this->everything) : $this->everything,
+                    $this->everything instanceof Listed
+                        ? Json::items(...WrittenPaths::globs($origin, $this->everything))
+                        : $this->everything,
                 )),
             ),
             Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
@@ -102,10 +106,13 @@ final readonly class Reach implements Part
     public function php(Origin $origin): PhpCalls
     {
         $packages = $this->packages instanceof Listed
-            ? [sprintf('Reach::packages(%s)', PhpCalls::literals(...$this->packages))]
+            ? [sprintf('Reach::packages(%s)', PhpCalls::literals(...WrittenPaths::globs($origin, $this->packages)))]
             : [];
         $everything = $this->everything instanceof Listed
-            ? [sprintf('Reach::everything(%s)', PhpCalls::literals(...$this->everything))]
+            ? [sprintf(
+                'Reach::everything(%s)',
+                PhpCalls::literals(...WrittenPaths::globs($origin, $this->everything)),
+            )]
             : [];
         $hotPath = $this->hotPath instanceof Absent
             ? []

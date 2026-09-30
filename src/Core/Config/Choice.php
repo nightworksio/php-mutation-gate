@@ -42,5 +42,4 @@ final readonly class Choice
             ? $this->use
             : Json::object(Member::of('use', $this->use))->with(Member::of('with', $this->options));
     }
-
 }

@@ -26,6 +26,9 @@ final readonly class Proofs implements Part
 
     private const string S3 = 's3';
 
+    /** Where the directory store keeps its ledgers. */
+    private const string PATH = 'path';
+
     /** @param Listed<string>|Absent $ignore */
     private function __construct(
         private Choice|Absent $store,
@@ -94,8 +97,16 @@ final readonly class Proofs implements Part
         return Json::object(Member::unlessEmpty(
             'proofs',
             Json::object(
-                Member::of('store', $this->store instanceof Choice ? $this->store->written() : $this->store),
-                Member::of('ignore', $this->ignore instanceof Listed ? Json::items(...$this->ignore) : $this->ignore),
+                Member::of(
+                    'store',
+                    $this->store instanceof Choice ? $this->storeFrom($origin)->written() : $this->store,
+                ),
+                Member::of(
+                    'ignore',
+                    $this->ignore instanceof Listed
+                        ? Json::items(...WrittenPaths::globs($origin, $this->ignore))
+                        : $this->ignore,
+                ),
                 Member::of('write', $this->write instanceof ProofWriting ? $this->write->value : $this->write),
             ),
         ));
@@ -104,15 +115,23 @@ final readonly class Proofs implements Part
     public function php(Origin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
-            ...$this->store instanceof Choice ? [$this->storeCall($this->store)] : [],
+            ...$this->store instanceof Choice ? [$this->storeCall($this->storeFrom($origin))] : [],
             ...$this->ignore instanceof Listed
-                ? [sprintf('Proofs::ignore(%s)', PhpCalls::literals(...$this->ignore))]
+                ? [sprintf('Proofs::ignore(%s)', PhpCalls::literals(...WrittenPaths::globs($origin, $this->ignore)))]
                 : [],
             ...$this->write instanceof ProofWriting ? [match ($this->write) {
                 ProofWriting::Auto => 'Proofs::writing()',
                 ProofWriting::Never => 'Proofs::readOnly()',
             }] : [],
         ]);
+    }
+
+    /** The store chosen, with the directory store's path named from the origin. */
+    private function storeFrom(Origin $origin): Choice
+    {
+        $store = $this->store();
+
+        return $store->use() === self::STORE ? WrittenPaths::choice($store, $origin, self::PATH) : $store;
     }
 
     /** The proof store, by `Proofs::directory()` or `Proofs::s3()` for the built-in ones. */

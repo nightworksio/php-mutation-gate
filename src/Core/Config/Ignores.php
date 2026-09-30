@@ -66,7 +66,7 @@ final readonly class Ignores implements Part
                     $this->entries instanceof Absent => $later->entries,
                     default => $this->entries->and(
                         $later->entries,
-                        static fn(Ignored $ignored): string => $ignored->written()->line(),
+                        static fn(Ignored $ignored): string => $ignored->written(ProjectRoot::origin())->line(),
                     ),
                 },
                 Absent::laid($this->maxDays, $later->maxDays),
@@ -133,7 +133,7 @@ final readonly class Ignores implements Part
     public function written(Origin $origin): Json
     {
         $entries = $this->entries instanceof Listed ? Json::items(...array_map(
-            static fn(Ignored $ignored): Json => $ignored->written(),
+            static fn(Ignored $ignored): Json => $ignored->written($origin),
             [...$this->entries],
         )) : $this->entries;
 
@@ -155,7 +155,7 @@ final readonly class Ignores implements Part
         $entries = $this->entries instanceof Listed && [...$this->entries] !== []
             ? PhpCalls::onGate(
                 'ignoring',
-                ...array_map(static fn(Ignored $ignored): string => $ignored->php(), [
+                ...array_map(static fn(Ignored $ignored): string => $ignored->php($origin), [
                     ...$this->entries,
                 ]),
             )

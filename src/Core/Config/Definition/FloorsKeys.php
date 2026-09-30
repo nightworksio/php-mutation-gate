@@ -92,7 +92,7 @@ final readonly class FloorsKeys
         $path = Field::required('path', Location::path($origin), $results);
         $floor = Field::optional('floor', Percent::floor(), $judges);
         $reason = Field::optional('reason', Text::of('a reason'), $judges);
-        $exclude = Field::optional('exclude', Items::of(Text::of('a glob')), $results);
+        $exclude = Field::optional('exclude', Items::of(Pattern::glob($origin)), $results);
 
         return Section::of(
             static function (Node $tree) use ($path, $floor, $reason, $exclude): DeclaredTree|Invalid {

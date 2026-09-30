@@ -66,7 +66,7 @@ final readonly class DeclaredTree
             default => $written,
         };
 
-        $excluded = [...$this->exclude];
+        $excluded = WrittenPaths::globs($origin, $this->exclude);
 
         return $excluded === [] ? $written : $written->with(Member::of('exclude', Json::items(...$excluded)));
     }
@@ -88,7 +88,7 @@ final readonly class DeclaredTree
             ),
             default => $arguments,
         };
-        $excluded = [...$this->exclude];
+        $excluded = WrittenPaths::globs($origin, $this->exclude);
 
         return $excluded === []
             ? sprintf('Tree::at(%s)', $arguments)

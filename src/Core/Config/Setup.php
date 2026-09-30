@@ -30,6 +30,9 @@ final readonly class Setup implements Part
     /** The tree source when no layer names one. */
     private const string TREE_SOURCE = 'phpunit';
 
+    /** The `phpunit` tree source's paths, where `phpunit.xml` has no `<source>`. */
+    private const string FALLBACK = 'fallback';
+
     /** The runners and presets the builder has a method of its own for. */
     private const array RUNNERS = ['pest', 'infection'];
 
@@ -129,7 +132,7 @@ final readonly class Setup implements Part
     {
         return Choice::of(
             self::TREE_SOURCE,
-            Json::object(Member::of('fallback', Json::items(...array_values($fallback)))),
+            Json::object(Member::of(self::FALLBACK, Json::items(...array_values($fallback)))),
         );
     }
 
@@ -144,7 +147,7 @@ final readonly class Setup implements Part
         $written = $this->runnerWritten($written);
 
         return $this->treeSource instanceof Choice
-            ? $written->with(Member::of('treeSource', $this->treeSource->written()))
+            ? $written->with(Member::of('treeSource', $this->sourceFrom($origin)->written()))
             : $written;
     }
 
@@ -165,7 +168,7 @@ final readonly class Setup implements Part
         $calls = $calls->and($this->runnerPhp());
 
         return $this->treeSource instanceof Choice
-            ? $calls->and(PhpCalls::onGate('treeSource', $this->source($this->treeSource)))
+            ? $calls->and(PhpCalls::onGate('treeSource', $this->source($this->sourceFrom($origin))))
             : $calls;
     }
 
@@ -219,13 +222,21 @@ final readonly class Setup implements Part
             : sprintf('Preset::named(%s)', PhpCalls::literal($name));
     }
 
+    /** The tree source chosen, with the `phpunit` one's fallback paths named from the origin. */
+    private function sourceFrom(Origin $origin): Choice
+    {
+        $source = $this->treeSource();
+
+        return $source->use() === self::TREE_SOURCE ? WrittenPaths::choice($source, $origin, self::FALLBACK) : $source;
+    }
+
     /** The tree source, by `Source::phpunit()` with its fallback paths where it is that one. */
     private function source(Choice $source): string
     {
         $options = Node::config($source->options()->line());
-        $fallback = $options->field('fallback');
+        $fallback = $options->field(self::FALLBACK);
         $paths = $fallback->kind() === Kind::List ? $fallback->items() : [];
-        $onlyFallback = array_keys($options->kind() === Kind::Map ? $options->entries() : []) === ['fallback'];
+        $onlyFallback = array_keys($options->kind() === Kind::Map ? $options->entries() : []) === [self::FALLBACK];
 
         return $source->use() === self::TREE_SOURCE && ($onlyFallback || $source->options()->isEmpty())
             ? sprintf(

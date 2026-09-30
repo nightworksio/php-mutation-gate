@@ -228,7 +228,9 @@ cannot.
    that hold them: `90s` is `1m30s`. Dates are `YYYY-MM-DD`. Paths are
    relative to the config file, or to the working directory when there is
    none, and a config the gate writes, such as `init`'s, names them from its
-   own directory. The
+   own directory. So are globs, the `phpunit` tree source's `fallback`, the
+   `directory` store's `path` and each `costs.secondsPerLine` prefix but
+   `""`, which is every path wherever it is written. The
    configuration reference lists every key with its type, its default and the
    ADR that decides it. It is generated from the same definitions as the
    schema, into `.docs/reference/configuration.md`, and the README holds it

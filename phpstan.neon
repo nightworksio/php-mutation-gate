@@ -504,6 +504,8 @@ services:
                     - TIMEOUT # seconds a mutant may run
                 'NightWorksIO\MutationGate\Core\Config\Canonical':
                     - EACH # how a list's entries are named in a setting's path
+                'NightWorksIO\MutationGate\Core\Config\Proofs':
+                    - PATH # the directory store's option
                 'NightWorksIO\MutationGate\Core\Config\Setup':
                     - TREE_SOURCE # the tree source, not a test framework
                 'NightWorksIO\MutationGate\Core\Hold\HotPaths':

@@ -98,8 +98,9 @@ final readonly class Section implements Shape
     }
 
     /**
-     * An object whose settings are checked and kept as they are written, laid over the values they take when
-     * they are left out: the options of a built-in adapter.
+     * An object whose settings are checked and kept as they read, laid over the values they take when they are
+     * left out: the options of a built-in adapter. A path among them is named from the project, as every path a
+     * layer holds is, so what an adapter gets is what the effective config shows.
      *
      * @param  Field<object|scalar> ...$fields
      * @return self<Json>
@@ -110,18 +111,15 @@ final readonly class Section implements Shape
 
         return new self(
             static function (Node $with) use ($checked, $defaults): Json|Invalid {
-                $problems = Reading::problemsIn(...array_map(
-                    static fn(Field $field): Reading => $field->read($with),
-                    $checked,
-                ));
+                $readings = array_map(static fn(Field $field): Reading => $field->read($with), $checked);
+                $problems = Reading::problemsIn(...$readings);
+                $read = $defaults;
 
-                return $problems instanceof Invalid
-                    ? $problems
-                    : $defaults->merged(
-                        $with->kind() === Kind::Nothing || $with->kind() === Kind::Empty
-                            ? Json::object()
-                            : $with->value(),
-                    );
+                foreach ($readings as $index => $reading) {
+                    $read = $read->with(Member::of($checked[$index]->key(), OptionJson::of($reading->value())));
+                }
+
+                return $problems instanceof Invalid ? $problems : $read;
             },
             $checked,
             [],

@@ -12,7 +12,7 @@ use function array_map;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
@@ -48,25 +48,27 @@ final readonly class Builtins
         return self::none('pest', 'infection');
     }
 
-    public static function treeSources(): self
+    /** The tree sources, whose paths are named from the layer's origin. */
+    public static function treeSources(Origin $origin): self
     {
         return self::of([
             'phpunit' => Section::options(
                 Json::object(Member::of('fallback', Json::items())),
-                Field::optional('fallback', Items::of(Location::path(ProjectRoot::origin())), Effect::AffectsResults),
+                Field::optional('fallback', Items::of(Location::path($origin)), Effect::AffectsResults),
             ),
             'composer' => Section::options(Json::object()),
         ]);
     }
 
-    public static function stores(): self
+    /** The proof stores, whose paths are named from the layer's origin. */
+    public static function stores(Origin $origin): self
     {
         $judges = Effect::JudgesOrReportsOnly;
 
         return self::of([
             'directory' => Section::options(
                 Json::object(Member::of('path', Workspace::ledger()->value())),
-                Field::optional('path', Location::path(ProjectRoot::origin()), $judges),
+                Field::optional('path', Location::path($origin), $judges),
             ),
             's3' => Section::options(
                 Json::object(Member::of('prefix', 'mutation-gate'))->with(Member::of('region', 'us-east-1')),

@@ -8,23 +8,24 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\Config\Reach;
 
 /** How the keys a config writes are read into its `Reach` part (ADR-0002). */
 final readonly class ReachKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(): array
+    public static function fields(Origin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
-        $everything = Field::optional('everything', Items::of(Text::of('a glob')), $judges);
+        $everything = Field::optional('everything', Items::of(Pattern::glob($origin)), $judges);
         $hotPath = Field::optional('hotPath', Number::between(0, 1), $judges);
 
         return [
             Field::optional(
                 'packages',
                 Into::of(
-                    Items::of(Text::of('a glob')),
+                    Items::of(Pattern::glob($origin)),
                     static fn(Listed $packages): Layer => Layer::of(Reach::of(packages: $packages)),
                 ),
                 Effect::AffectsResults,
