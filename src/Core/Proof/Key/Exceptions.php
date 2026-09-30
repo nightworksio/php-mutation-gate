@@ -8,6 +8,7 @@ use function array_any;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 use function str_starts_with;
 
@@ -17,7 +18,8 @@ use function str_starts_with;
  * baseline, which only holds floors; every CI definition, of which those that
  * run the gate are in the key as they run; the gate's own files, whatever
  * `.gitignore` says, since the ledger changes after every run; and what
- * `proofs.ignore` matches.
+ * `proofs.ignore` matches. None of them leaves out a file that defines the
+ * runner: every key reads those.
  */
 final readonly class Exceptions
 {
@@ -31,13 +33,15 @@ final readonly class Exceptions
         private Path $config,
         private Path $baseline,
         private Ignored $ignored,
+        private Paths $definitions,
         private Paths $own,
     ) {
     }
 
-    public static function of(Path $config, Path $baseline, Ignored $ignored): self
+    /** @param Paths $definitions the files that define the runner, which no exception leaves out */
+    public static function of(Path $config, Path $baseline, Ignored $ignored, Paths $definitions): self
     {
-        return new self($config, $baseline, $ignored, Paths::of(Path::of(self::OWN)));
+        return new self($config, $baseline, $ignored, $definitions, Paths::of(Path::of(self::OWN)));
     }
 
     /**
@@ -46,16 +50,36 @@ final readonly class Exceptions
      */
     public function andWritten(Path $path): self
     {
-        return new self($this->config, $this->baseline, $this->ignored, $this->own->with($path));
+        return new self($this->config, $this->baseline, $this->ignored, $this->definitions, $this->own->with($path));
     }
 
+    /** Whether a key leaves a file out; never one that defines the runner, whatever `proofs.ignore` says. */
     public function leaveOut(Path $path): bool
     {
-        return $path->equals($this->config)
-            || $path->equals($this->baseline)
-            || $this->ignored->matches($path)
-            || $this->isCiDefinition($path)
-            || $this->isOwn($path);
+        return ! $this->definitions->has($path)
+            && (
+                $path->equals($this->config)
+                || $path->equals($this->baseline)
+                || $this->ignored->matches($path)
+                || $this->isCiDefinition($path)
+                || $this->isOwn($path)
+            );
+    }
+
+    /**
+     * A warning for each `proofs.ignore` glob that matches a file among
+     * these that defines the runner, which every key reads all the same.
+     */
+    public function overruled(Paths $files): Warnings
+    {
+        $warnings = Warnings::none();
+
+        foreach ($files as $file) {
+            $overruled = $this->definitions->has($file) ? $this->ignored->overruledFor($file) : Warnings::none();
+            $warnings = Warnings::of(...$warnings, ...$overruled);
+        }
+
+        return $warnings;
     }
 
     private function isOwn(Path $path): bool

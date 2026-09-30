@@ -112,3 +112,13 @@ it('reads a path named only by digits as a path', function () use ($other, $valu
 
     expect($values($tests->inEveryKey()))->toBe(['123']);
 });
+
+it('puts a file that defines the runner in every key, even one that only declares', function () use ($case, $paths, $values): void {
+    $declares = "<?php\nfunction helper(): void {}\n";
+    $fingerprint = Fingerprint::of(Path::of('tests/Pest.php'), Digest::of('pest'));
+    $defined = Tests::of(TestFiles::of($case('tests/Unit/MoneyTest.php', "<?php\nit('adds');\n"), TestFile::definition($fingerprint, Contents::of($declares))), $paths(), $paths());
+    $other = Tests::of(TestFiles::of($case('tests/Unit/MoneyTest.php', "<?php\nit('adds');\n"), TestFile::other($fingerprint, Contents::of($declares))), $paths(), $paths());
+
+    expect($values($defined->inEveryKey()))->toContain('tests/Pest.php')
+        ->and($values($other->inEveryKey()))->not->toContain('tests/Pest.php');
+});

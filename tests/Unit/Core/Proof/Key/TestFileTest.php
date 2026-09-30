@@ -33,3 +33,11 @@ it('is loaded where it runs something, or is not PHP', function (string $path, s
     'an empty fixture' => ['tests/fixtures/empty.txt', ''],
     'a file named for PHP but not ending in it' => ['tests/fixtures/helper.php.dist', "<?php\nfinal class Helper {}\n"],
 ]);
+
+it('is loaded where it defines the runner, even where it only declares', function () use ($fingerprint): void {
+    $file = TestFile::definition($fingerprint('tests/Pest.php'), Contents::of("<?php\nfunction helper(): void {}\n"));
+
+    expect($file->role())->toBe(Role::Loaded)
+        ->and($file->fingerprint())->toEqual($fingerprint('tests/Pest.php'))
+        ->and($file->php())->toEqual(PhpFile::read(Contents::of("<?php\nfunction helper(): void {}\n")));
+});

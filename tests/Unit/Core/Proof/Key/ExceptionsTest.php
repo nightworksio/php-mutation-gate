@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Key\Exceptions;
 use NightWorksIO\MutationGate\Core\Proof\Key\Ignored;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
-$exceptions = Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate-baseline.json'), Ignored::globs('docs/**'));
+$exceptions = Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate-baseline.json'), Ignored::globs('docs/**'), Paths::none());
 
 it('leaves out the config file, the baseline, what proofs.ignore matches, every CI definition and the gate\'s own directory', function (string $path) use ($exceptions): void {
     expect($exceptions->leaveOut(Path::of($path)))->toBeTrue();
@@ -51,3 +54,40 @@ it('keeps every other file', function (string $path) use ($exceptions): void {
     'ci/.gitlab-ci.yml',
     'x.github/workflows/ci.yml',
 ]);
+
+/** Exceptions whose proofs.ignore matches every file that defines the runner, and docs. */
+function exceptionsIgnoringDefinitions(): Exceptions
+{
+    return Exceptions::of(
+        Path::of('mutation-gate.json'),
+        Path::of('mutation-gate-baseline.json'),
+        Ignored::globs('tests/*', '*.json5', 'phpunit.*', 'docs/**'),
+        Paths::of(Path::of('tests/Pest.php'), Path::of('infection.json5'), Path::of('phpunit.xml')),
+    );
+}
+
+it('keeps every file that defines the runner, whatever proofs.ignore matches', function (string $path): void {
+    expect(exceptionsIgnoringDefinitions()->leaveOut(Path::of($path)))->toBeFalse();
+})->with(['tests/Pest.php', 'infection.json5', 'phpunit.xml']);
+
+it('still leaves out what proofs.ignore matches that defines no runner', function (string $path): void {
+    expect(exceptionsIgnoringDefinitions()->leaveOut(Path::of($path)))->toBeTrue();
+})->with(['docs/index.md', 'phpunit.xml.bak', 'tests/fixtures.json5', 'mutation-gate.json']);
+
+it('warns, naming the glob and the file, for each glob that matches a file defining the runner', function (): void {
+    $present = Paths::of(Path::of('tests/Pest.php'), Path::of('infection.json5'), Path::of('phpunit.xml'), Path::of('docs/index.md'));
+
+    expect(exceptionsIgnoringDefinitions()->overruled($present))->toEqual(Warnings::of(
+        Warning::that('proofs.ignore lists tests/*, which matches tests/Pest.php. That file defines the runner, so every proof key reads it.'),
+        Warning::that('proofs.ignore lists *.json5, which matches infection.json5. That file defines the runner, so every proof key reads it.'),
+        Warning::that('proofs.ignore lists phpunit.*, which matches phpunit.xml. That file defines the runner, so every proof key reads it.'),
+    ));
+});
+
+it('warns of nothing where no glob matches a file that defines the runner, or none is present', function (): void {
+    $definitions = Paths::of(Path::of('phpunit.xml'));
+    $exceptions = Exceptions::of(Path::of('gate.json'), Path::of('baseline.json'), Ignored::globs('docs/**'), $definitions);
+
+    expect($exceptions->overruled($definitions))->toEqual(Warnings::none())
+        ->and(exceptionsIgnoringDefinitions()->overruled(Paths::of(Path::of('docs/index.md'))))->toEqual(Warnings::none());
+});

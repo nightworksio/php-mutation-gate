@@ -92,7 +92,8 @@ has to bring its result with it.
       blob id of its content as it is on disk. That means tracked files and
       untracked files git does not ignore. It includes source, `composer.json`,
       `composer.lock`, the PHPUnit config, the files that define the runner
-      (ADR-0004), templates, translations and documentation. Five exceptions:
+      (ADR-0004), templates, translations and documentation. Five exceptions,
+      none of which ever leaves out a file that defines the runner:
       - **The gate's config file** is left out, because item 3 already holds
         what of it affects results. Each `composer.json` is hashed with its
         `extra.mutation-gate` entry removed, for the same reason.
@@ -107,11 +108,16 @@ has to bring its result with it.
         key that held it would never match again.
       - **`proofs.ignore`**, a list of globs, empty by default, is the
         project's own statement that no test reads those paths (`docs/**`,
-        say).
+        say). A glob that matches a file defining the runner, such as
+        `phpunit.xml` or `infection.json5`, leaves that file in, and the run
+        shows a warning naming the glob and the file.
    7. **Of the test directories, what every key reads**, each file by its
       digest:
       - every file under a test directory that runs code when loaded, such as
-        `tests/Pest.php` and a bootstrap;
+        a bootstrap;
+      - every file under a test directory that defines the runner, such as
+        `tests/Pest.php`, even one that only declares. A `proofs.ignore` glob
+        that matches one is shown as a warning, as in item 6;
       - every test file the coverage map does not know;
       - with the Pest patch on, every test in the canary group;
       - the support those files name, and the support that names in turn,

@@ -66,10 +66,10 @@ final readonly class Detected
             default => Installed::missingAt($file),
         };
 
-        return $installed instanceof CannotJudge ? $installed : self::runnerIn($installed);
+        return $installed instanceof CannotJudge ? $installed : $this->runnerIn($installed);
     }
 
-    private static function runnerIn(Installed $installed): string|CannotJudge
+    private function runnerIn(Installed $installed): string|CannotJudge
     {
         $pest = $installed->has(self::PEST);
         $infection = $installed->has(self::INFECTION);

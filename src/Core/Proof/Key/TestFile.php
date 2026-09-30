@@ -22,6 +22,15 @@ final readonly class TestFile
         return new self($fingerprint, Role::TestCase, PhpFile::read($contents));
     }
 
+    /**
+     * A file that defines the runner, such as `tests/Pest.php`: in every key,
+     * even where it only declares.
+     */
+    public static function definition(Fingerprint $fingerprint, Contents $contents): self
+    {
+        return new self($fingerprint, Role::Loaded, PhpFile::read($contents));
+    }
+
     /** Any other file: support where it is PHP that only declares, and loaded otherwise. */
     public static function other(Fingerprint $fingerprint, Contents $contents): self
     {
