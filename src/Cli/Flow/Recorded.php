@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
@@ -46,14 +47,10 @@ final readonly class Recorded
             return $scope;
         }
 
-        $ledger = $this->learned(
-            $this->proved(
-                $ledgers->written()->atBase($plan->base()),
-                $plan,
-                $this->checked($plan, $results, $ledgers),
-                $run,
-            ),
-            $results,
+        $fresh = $this->checked($plan, $results, $ledgers);
+        $ledger = $this->taught(
+            $this->learned($this->proved($ledgers->written()->atBase($plan->base()), $plan, $fresh, $run), $results),
+            $fresh,
         );
 
         if ($ledger instanceof CannotJudge) {
@@ -96,6 +93,47 @@ final readonly class Recorded
         }
 
         return $ledger;
+    }
+
+    /**
+     * The ledger, having learned the first killer of every mutant the shards
+     * killed, in the function it is in, and keeping the killers of functions
+     * only in the files that still exist (ADR-0013, decision 2).
+     */
+    private function taught(Ledger|CannotJudge $ledger, UnitResults $fresh): Ledger|CannotJudge
+    {
+        if ($ledger instanceof CannotJudge) {
+            return $ledger;
+        }
+
+        $files = Paths::none();
+
+        foreach ($ledger->killers()->functions() as $ranked) {
+            $files = $files->with($ranked->function()->file());
+        }
+
+        foreach ($fresh as $result) {
+            foreach ($result->mutants() as $mutant) {
+                $files = $files->with($mutant->location()->file());
+            }
+        }
+
+        $functions = SourceFunctions::read($this->adapters->project, $files);
+
+        return $functions instanceof SourceFunctions ? $this->killedIn($ledger, $fresh, $functions) : $functions;
+    }
+
+    private function killedIn(Ledger $ledger, UnitResults $fresh, SourceFunctions $functions): Ledger
+    {
+        $history = $ledger->killers();
+
+        foreach ($fresh as $result) {
+            foreach ($result->mutants() as $mutant) {
+                $history = $history->learnedFrom($mutant, $functions->around($mutant));
+            }
+        }
+
+        return $ledger->withKillers($history)->keepingKillersIn($functions->files());
     }
 
     /** The ledger, with what each shard taught the cost model of its units, timed by the map it was handed. */
