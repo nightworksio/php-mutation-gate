@@ -182,7 +182,7 @@ final readonly class Recorder
 
     public function outcome(MutationTest $test): void
     {
-        $this->write(RecordLine::outcome($test->getId(), PestStatus::from($test->result()->value)));
+        $this->write(RecordLine::outcome($test->getId(), $this->statusOf($test)));
     }
 
     public function finished(MutationSuite $suite): void
@@ -191,13 +191,25 @@ final readonly class Recorder
             foreach ($collection->tests() as $test) {
                 $this->write(RecordLine::finished(
                     $test->getId(),
-                    PestStatus::from($test->result()->value),
+                    $this->statusOf($test),
                     $test->duration(),
                 ));
             }
         }
 
         $this->write(RecordLine::end());
+    }
+
+    /** A mutant's status as the plugin knows it, or as Pest names one it does not. */
+    private function statusOf(MutationTest $test): PestStatus|string
+    {
+        return $this->known($test->result()->value);
+    }
+
+    /** A status Pest names, as the plugin knows it, or as Pest names it where a later Pest adds one. */
+    private function known(string $word): PestStatus|string
+    {
+        return PestStatus::tryFrom($word) ?? $word;
     }
 
     /** @phpstan-assert-if-true non-empty-string $results */

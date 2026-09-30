@@ -38,10 +38,14 @@ final readonly class Node
     {
     }
 
-    /** The top of a JSON text; text that is not JSON reads as a place holding nothing that can be read. */
-    public static function decode(string $json): self
+    /**
+     * The top of a JSON text, which a message names as the file, or as what
+     * the text is; text that is not JSON reads as a place holding nothing
+     * that can be read.
+     */
+    public static function decode(string $json, string $named = self::ROOT): self
     {
-        return new self(json_decode($json, associative: true), self::ROOT, present: true);
+        return new self(json_decode($json, associative: true), $named, present: true);
     }
 
     /** The top of a config's JSON text, whose keys are named with nothing before them: `trees[1].floor`. */

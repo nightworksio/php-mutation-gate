@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function array_map;
 use function file_put_contents;
 use function implode;
 
@@ -23,7 +24,7 @@ final readonly class PestRun
     /** @param list<string> $lines each line as the plugin writes it, or any text a test writes in its place */
     public static function write(string $results, array $lines): void
     {
-        file_put_contents($results, sprintf("%s\n", implode("\n", $lines)));
+        file_put_contents($results, implode('', array_map(static fn(string $line): string => sprintf("%s\n", $line), $lines)));
     }
 
     /** A mutant as the plugin plans it. */

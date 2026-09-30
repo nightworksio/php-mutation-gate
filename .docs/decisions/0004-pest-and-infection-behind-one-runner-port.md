@@ -266,9 +266,13 @@ its parser attributes. Both change when the checkout moves.
        own summary line (`Mutations: … untested, … uncovered, … pending, …
        timeout, … tested`), and a missing file or a mismatch is *cannot judge*.
        So is a whole record that names an event, or a status, the plugin does
-       not write, or lacks a field its event carries. A line cut short, as a
-       run stopped while it wrote leaves its last, is not a record and is
-       skipped. The plugin and the adapter write and read the lines through
+       not write, lacks a field its event carries, or places a mutant on a line
+       no file has. The last line, which a run stopped while it wrote leaves
+       cut short, is skipped when it is not JSON; any other line that is not
+       JSON refuses the file, since a line lost there could be the test that
+       killed a mutant first. The plugin writes a status it does not know as
+       Pest names it, for the adapter to refuse, and fails rather than write
+       a record JSON cannot hold. The plugin and the adapter write and read the lines through
        one protocol: its events, its fields and Pest's statuses are each
        spelled once.
      - The plugin relies on Pest APIs that are `@internal`: the plugin
