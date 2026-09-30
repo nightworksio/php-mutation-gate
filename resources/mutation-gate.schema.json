@@ -638,7 +638,7 @@
                                         },
                                         "publicUrl": {
                                             "type": "string",
-                                            "pattern": "^https://."
+                                            "pattern": "^https://[^/?\\x23@\\s]+(/[^?\\x23\\s]*)?$"
                                         }
                                     },
                                     "required": [

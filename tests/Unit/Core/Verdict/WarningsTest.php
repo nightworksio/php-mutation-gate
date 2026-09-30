@@ -21,3 +21,12 @@ it('adds a warning without changing the warnings it came from', function () use 
     expect($texts($warnings->with(Warning::that('b'))))->toBe(['a', 'b'])
         ->and($warnings)->toHaveCount(1);
 });
+
+it('joins these warnings to those, these first, without changing either', function () use ($texts): void {
+    $these = Warnings::of(Warning::that('a'), Warning::that('b'));
+    $those = Warnings::of(Warning::that('c'));
+
+    expect($texts($these->and($those)))->toBe(['a', 'b', 'c'])
+        ->and($texts($those->and(Warnings::none())))->toBe(['c'])
+        ->and([count($these), count($those)])->toBe([2, 1]);
+});

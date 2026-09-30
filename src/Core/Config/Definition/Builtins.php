@@ -101,7 +101,7 @@ final readonly class Builtins
                 Field::optional('prefix', Text::of('a key prefix'), $judges),
                 Field::optional('region', Text::of('a region'), $judges),
                 Field::optional('endpoint', Url::web(), $judges),
-                Field::optional('publicUrl', Url::https(), $judges),
+                Field::optional('publicUrl', Url::base(), $judges),
             ),
         ], $origin);
     }

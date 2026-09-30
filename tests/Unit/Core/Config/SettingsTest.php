@@ -911,7 +911,19 @@ it('refuses a shard count set two ways, and a price, a public URL, an order or a
     ],
     'a public URL that is not https' => [
         ['proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'publicUrl' => 'http://proofs']]]],
-        ['proofs.store.with.publicUrl: expected an https:// URL, got "http://proofs"'],
+        ['proofs.store.with.publicUrl: expected an https:// URL with no user, query or fragment, got "http://proofs"'],
+    ],
+    'a public URL that names a user' => [
+        ['proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'publicUrl' => 'https://reader:secret@proofs']]]],
+        ['proofs.store.with.publicUrl: expected an https:// URL with no user, query or fragment, got "https://reader:secret@proofs"'],
+    ],
+    'a public URL with a query' => [
+        ['proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'publicUrl' => 'https://proofs/ledgers?signed=1']]]],
+        ['proofs.store.with.publicUrl: expected an https:// URL with no user, query or fragment, got "https://proofs/ledgers?signed=1"'],
+    ],
+    'a public URL with a fragment' => [
+        ['proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'publicUrl' => 'https://proofs/ledgers#main']]]],
+        ['proofs.store.with.publicUrl: expected an https:// URL with no user, query or fragment, got "https://proofs/ledgers#main"'],
     ],
     'a test order the gate does not know' => [
         ['tests' => ['order' => 'random']],

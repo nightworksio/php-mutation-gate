@@ -297,6 +297,9 @@ parameters:
             message: "Q1 — the gate runs inside somebody else's process when a test boots it, and a setting changed here stays changed for them. Pass the value where it is needed (Q1)."
             allowIn:
                 - tests/*
+                # zlib raises a broken stream as a warning as well as answering false; the handler that keeps the
+                # warning from the run's output is restored before inflate_add's answer is returned.
+                - src/Core/Format/Gzip.php
 
         # --- L3: bytes are not characters -----------------------------------------
         -
@@ -468,6 +471,7 @@ services:
                 - src/Adapter/Infection/RelaxedJson.php
                 - tests/Support/Bucket.php
                 - tests/Support/Commands.php
+                - tests/Support/CountingClient.php # Symfony's HttpClientInterface takes request options untyped
                 - tests/Support/PhpstanNeon.php
             allowIn:
                 - src/Adapter/GitHub/Answer.php

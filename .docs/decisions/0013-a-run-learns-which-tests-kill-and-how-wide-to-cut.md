@@ -254,12 +254,40 @@ decides are accepted for that release too.
 13. **A run without credentials reads the default branch's proofs from a
     public URL.**
     - **The setting.** `proofs.store.with.publicUrl` (`s3`) is an
-      `https://` base from which `<scope>/ledger.json.gz` is fetched with an
-      anonymous GET, whenever the store has no credentials.
+      `https://` base with no user, query or fragment. A run without the
+      store's credentials fetches `<prefix>/<scope>/ledger.json.gz` from it
+      with an anonymous GET, each segment percent-encoded as S3 encodes a
+      key. For S3 the credentials are `AWS_ACCESS_KEY_ID` and
+      `AWS_SECRET_ACCESS_KEY`, both set; each store declares its own. A run
+      without them sends the store no request. Without `publicUrl`, it reads
+      nothing.
+    - **The default branch's scope alone.** It reads the default branch's
+      scope and asks for no other, since the bucket policy makes no other
+      public. Every other scope reads as an empty ledger.
+    - **What it reads.** A 404 is a ledger not written yet, and reads as an
+      empty ledger with no warning. Every other answer leaves the ledger
+      unread, and the verdict warns where it was read from and why: any
+      other status, a redirect, which it never follows, no answer within 60
+      seconds, no connection, a body past 11 MB, one that inflates past
+      38 MB, or one that holds no ledger of a format the gate reads. The run
+      judges without it, which costs a run and never a verdict (ADR-0007
+      decision 3). S3 answers 403, not 404, for a missing key where the
+      reader may not list the bucket, so until the default branch's first run
+      writes its ledger, a run warns that it is unreadable (HTTP 403).
+    - **The limits.** The byte limits are twice what a ledger at the
+      retention cap measures. That ledger holds 20,000 proofs over 2,000
+      files, each with eight killed mutants of two killers each, one
+      survivor, and the digests of its source, its mutation and three test
+      files. Written in format 3 by PHP 8.5 on an Apple M1 Pro, it measures
+      5,486,948 bytes gzipped and 18,830,752 bytes decompressed. The 60
+      seconds are a choice: time to fetch 11 MB over a slow link, and no
+      more than a minute lost to a store that does not answer. Every store
+      reads within these limits, and writes within them too: retention caps
+      proofs, not bytes, so where a project's units hold enough mutants to
+      pass a limit first, the oldest of the kept proofs are dropped until the
+      ledger is within it, and the run says how many it kept.
     - **The bucket policy.** The README gives it: public `GetObject` on
-      `<prefix>/refs/heads/<default branch>/*` and nothing else. A read of
-      any other scope is then refused, and reads as an empty ledger. That
-      costs a run, never a verdict (ADR-0007 decision 3).
+      `<prefix>/refs/heads/<default branch>/*` and nothing else.
     - **Writing.** Writing still needs the credentials only default-branch
       runs hold (ADR-0007 decision 5).
 

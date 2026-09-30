@@ -13,13 +13,16 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Bucket;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 
 const IN_THE_BUCKET = 'https://ledgers.s3.eu-west-1.amazonaws.com/mutation-gate/refs/heads/main/ledger.json.gz';
 
@@ -73,7 +76,7 @@ it('addresses a bucket at another endpoint by path', function () use ($proved): 
 it('reads back a scope\'s ledger from its object', function () use ($proved, $store): void {
     $bucket = new Bucket()->holding(IN_THE_BUCKET, LedgerFile::encode($proved()));
 
-    expect(LedgerFile::encode($store($bucket)->read(Scope::branch('main'))))
+    expect(LedgerFile::encode(LedgerRead::ledger($store($bucket)->read(Scope::branch('main')))))
         ->toBe(LedgerFile::encode($proved()))
         ->and(array_column($bucket->requests, 'method'))->toBe(['GET'])
         ->and(array_column($bucket->requests, 'url'))->toBe([IN_THE_BUCKET]);
@@ -86,8 +89,22 @@ it('reads an empty ledger for a scope with no object', function () use ($store):
         ->and($bucket->requests)->toHaveCount(1);
 });
 
-it('reads an empty ledger where the bucket fails, costing a run and never a verdict', function () use ($store): void {
-    expect($store(new Bucket(500))->read(Scope::branch('main')))->toEqual(Ledger::empty());
+it('says why the bucket gave no ledger, and where it asked', function () use ($store): void {
+    expect(LedgerRead::unread($store(new Bucket(500))->read(Scope::branch('main'))))->toBe([
+        UnreadReason::Refused,
+        'The ledger is unreadable from s3://ledgers/mutation-gate/refs/heads/main/ledger.json.gz: HTTP 500, no error code. '
+        . 'The run judges without it.',
+    ]);
+});
+
+it('says an object the bucket keeps is no ledger this gate reads', function () use ($store): void {
+    $bucket = new Bucket()->holding(IN_THE_BUCKET, 'not a ledger');
+
+    expect(LedgerRead::unread($store($bucket)->read(Scope::branch('main'))))->toBe([
+        UnreadReason::Malformed,
+        'The ledger is unreadable from s3://ledgers/mutation-gate/refs/heads/main/ledger.json.gz: '
+        . 'The ledger is not a whole gzip stream. The run judges without it.',
+    ]);
 });
 
 it('says why a ledger the bucket refused was not written', function () use ($proved, $store): void {
@@ -116,4 +133,21 @@ it('is built from its options, which require a bucket', function (): void {
         ->toBeInstanceOf(BucketLedger::class)
         ->and(BucketLedger::fromOptions(Configs::options('{"prefix": "p", "region": "r"}')))
         ->toEqual(Invalid::because(Problem::at('bucket', 'expected the bucket, got nothing')));
+});
+
+it('writes a ledger within its limits, dropping the oldest proofs, and says so', function () use ($proved, $store): void {
+    $bucket = new Bucket();
+    $newer = $proved()->withProof(Proof::of(
+        Digest::sha256Of('src/Tax.php'),
+        Path::of('src/Tax.php'),
+        Mutants::none(),
+        Run::of('github:1/2', Instant::at(new DateTimeImmutable('2026-09-30T20:48:17Z')), Digest::of(str_repeat('b', 64))),
+    ));
+    $limits = LedgerLimits::of(strlen(LedgerFile::encode($newer)) - 1, 38_000_000, 60.0);
+
+    expect($store($bucket)->within($limits)->write(Scope::branch('main'), $newer))
+        ->toEqual(Written::noting(
+            's3://ledgers/mutation-gate/refs/heads/main/ledger.json.gz',
+            'It keeps the newest 1 of 2 proofs, so a run can still read the ledger.',
+        ));
 });

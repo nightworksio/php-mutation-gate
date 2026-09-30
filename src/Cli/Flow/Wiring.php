@@ -7,11 +7,14 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
+use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\CiEnvironment;
+use NightWorksIO\MutationGate\Core\Ci\DefaultBranch;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
@@ -57,12 +60,12 @@ final readonly class Wiring
         $runner = $chosen->runner($settings->runner()->choice());
         $found = $chosen->treeSource($settings->treeSource());
         $trees = $found instanceof TreeSource ? new DeclaredTrees($found, $settings->floors()->trees()) : $found;
-        $proofs = $this->kept($settings, $chosen->proofStore($settings->proofs()->store()));
         $costs = $lookup->costModel(BuiltinCostModel::Learned->named(), $settings->shards()->costOptions());
         $ci = $chosen->ciPlan($this->ciOf($settings));
         $withheld = $chosen->withheld($settings->ci(), $settings->runner()->withhold());
         $changes = $lookup->changeSource($source, $this->sourceOptions($settings, $withheld));
         $repository = $lookup->repository($source, $this->sourceOptions($settings, $withheld));
+        $proofs = $this->kept($settings, $this->configured($settings, $chosen, $ci, $repository));
 
         return match (true) {
             ! $runner instanceof Runner => $runner,
@@ -86,6 +89,28 @@ final readonly class Wiring
                 Cores::counted(),
             ),
         };
+    }
+
+    /**
+     * The store the config names; opened read-only, the default branch's scope alone, which is all a public URL
+     * serves (ADR-0013 decision 13), whether or not the CI and the repository can name that branch.
+     */
+    private function configured(
+        Settings $settings,
+        Chosen $chosen,
+        CiPlan|Invalid|CannotJudge $ci,
+        Repository|Invalid|CannotJudge $repository,
+    ): ProofStore|Invalid|CannotJudge {
+        $store = $chosen->proofStore($settings->proofs()->store());
+        $run = $ci instanceof CiPlan ? $ci->runOn() : $ci;
+        $detected = [
+            ...$run instanceof RunOn ? [$run->defaultBranch()] : [],
+            ...$repository instanceof Repository ? [$repository->defaultBranch()] : [],
+        ];
+
+        return $store instanceof PublicLedger
+            ? $store->onlyReading(DefaultBranch::of($settings->ci()->defaultBranch(), ...$detected))
+            : $store;
     }
 
     /**

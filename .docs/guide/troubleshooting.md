@@ -125,14 +125,15 @@ definition runs the gate yet, this is advice.
 Declare a floor for the tree, as `trees: [{path: src, floor: 80}]`, or
 commit the `mutation-gate.baseline.json` the first CI run measures.
 
-## ledger-slows-runs
+## ledger-too-large
 
-A ledger the proof store keeps is over 25 MB compressed. Every run
-restores, decompresses and writes back its scope's ledger, so its size is
-time each run spends.
+A ledger the proof store keeps is over 11 MB compressed. A run reads no
+ledger past that, so each run of its scope judges without it. The limit is
+twice what a ledger at the retention cap measures, so a ledger this large is
+not one the gate keeps: its retention was not applied, or it is another file.
 
-Delete the ledger of a scope that no longer runs. The next run of a live
-scope starts its ledger afresh, and keeps it within the proof cap.
+Delete it. The next run of its scope writes it afresh, within the retention
+cap.
 
 ## coverage-run-failed
 

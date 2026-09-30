@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Unreadable;
+use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
@@ -221,6 +223,15 @@ it('reads everything since the base when a pull request\'s ledger does not vouch
     'another check passed' => [Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-two'), 'lint', 0))],
     'its own proofs were used' => [Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 1))],
 ]);
+
+it('reads everything since the base when the pull requests\' ledgers cannot be read', function () use ($source): void {
+    $ledgers = ProofStoreFake::unreadable(
+        Unreadable::because(UnreadReason::TimedOut, 'https://ledgers.example.com', 'no answer came in time'),
+    );
+
+    expect(trusting($source(), answering(provedCommits(['one', 'two'])), $ledgers)->changesSince(Revision::ref('base')))
+        ->toEqual(CannotTell::because('base is not a revision this repository has.'));
+});
 
 it('asks GitHub where GITHUB_API_URL says, with GITHUB_TOKEN', function () use ($source, $uncommitted): void {
     $response = new JsonMockResponse(['total_commits' => 0, 'commits' => []]);

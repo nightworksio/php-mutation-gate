@@ -454,7 +454,7 @@ and `?` match within one directory, and `**` across any number of them.
 | `proofs.store.with.prefix` (`s3`) | string | `mutation-gate` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.region` (`s3`) | string | `us-east-1` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.endpoint` (`s3`) | `http://` or `https://` URL | AWS's own | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
-| `proofs.store.with.publicUrl` (`s3`) | `https://` URL a run without credentials reads ledgers from | none | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
+| `proofs.store.with.publicUrl` (`s3`) | `https://` URL a run without credentials reads the default branch's ledger from, at `<publicUrl>/<prefix>/refs/heads/<default branch>/ledger.json.gz`; one with a user, a query or a fragment is refused | none | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `proofs.ignore` | list of globs | `[]` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.write` | `auto` or `never` | `auto` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `budget` | duration | none | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
@@ -604,8 +604,15 @@ A fork's pull request runs without credentials. On GitHub's cache it restores
 the default branch's ledger read-only, as any pull request does. With S3, set
 `proofs.store.with.publicUrl` and give the bucket a policy that allows a public
 `GetObject` on `<prefix>/refs/heads/<default branch>/*` and nothing else. A run
-without credentials then reads the default branch's ledger from that URL, and
-writes nothing. A fork can plant no proof that another run trusts. It can
+without both `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` sends the bucket
+no request. It reads the default branch's ledger alone, with an anonymous GET
+from `<publicUrl>/<prefix>/refs/heads/<default branch>/ledger.json.gz`, writes
+nothing, and says *read-only: no credentials; this run's proofs are not kept*.
+A 404 reads as an empty ledger. Any other refusal, a redirect, no answer within
+a minute, or a ledger past 11 MB, or past 38 MB decompressed, is not read, and
+the verdict warns why. Until the default branch's first run writes its ledger,
+S3 answers 403, and the verdict warns of that. Without `publicUrl`, such a run
+reads nothing. A fork can plant no proof that another run trusts. It can
 influence only its own verdict, which its own workflow file could anyway, so
 require approval before outside contributors' workflows run
 ([ADR-0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md)).

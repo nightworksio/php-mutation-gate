@@ -17,6 +17,8 @@ use function sprintf;
  */
 final readonly class Reply
 {
+    /** The most characters of an answer, or of a failure, a refusal repeats. */
+    public const int ANSWER = 200;
     private const int TOO_MANY = 429;
 
     private const int SERVER = 500;
@@ -24,9 +26,6 @@ final readonly class Reply
     private const int OK = 200;
 
     private const int REDIRECT = 300;
-
-    /** The most characters of an answer a refusal repeats. */
-    private const int ANSWER = 200;
 
     private const string REFUSED = '%s answered %d: %s';
 

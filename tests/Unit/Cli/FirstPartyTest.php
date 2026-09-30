@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
+use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
@@ -80,13 +81,19 @@ it('is named in this package\'s own composer.json', function (): void {
         ->toHaveKey('extra.mutation-gate.extensions.0', FirstParty::class);
 });
 
-it('registers the directory and the bucket proof stores', function () use ($registry): void {
+it('registers the directory and the bucket proof stores, the bucket read-only in a job without its keys', function () use (
+    $registry,
+): void {
     $stores = Builtins::stores(ProjectRoot::origin());
+    $bucket = static fn(Extensions $registered): object => Lookup::in($registered)
+        ->proofStore(Name::of('s3'), Configs::builtin($stores, 's3', '{"bucket": "ledgers"}'));
+    $keys = ['AWS_ACCESS_KEY_ID' => 'AKIA', 'AWS_SECRET_ACCESS_KEY' => 'secret'];
+    $without = ['AWS_ACCESS_KEY_ID' => null, 'AWS_SECRET_ACCESS_KEY' => null];
 
     expect(Lookup::in($registry())->proofStore(Name::of('directory'), Configs::builtin($stores, 'directory')))
         ->toEqual(LedgerDirectory::at(Workspace::ledger()->value()))
-        ->and(Lookup::in($registry())->proofStore(Name::of('s3'), Configs::builtin($stores, 's3', '{"bucket": "ledgers"}')))
-        ->toBeInstanceOf(BucketLedger::class);
+        ->and($bucket(Environment::during($keys, $registry)))->toBeInstanceOf(BucketLedger::class)
+        ->and($bucket(Environment::during($without, $registry)))->toBeInstanceOf(PublicLedger::class);
 });
 
 it('registers the cost model that learns from every shard', function () use ($registry): void {

@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -233,13 +234,14 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
 
     /**
      * Whether a pull request's own ledger records this head as passed under
-     * the check, using none of its own proofs.
+     * the check, using none of its own proofs; not where it cannot be read.
      */
     private function recordedAt(int $pullRequest, string $head): bool
     {
-        $passed = $this->ledgers instanceof ProofStore
-            ? $this->ledgers->read(Scope::pullRequest($pullRequest))->lastPassed()
+        $ledger = $this->ledgers instanceof ProofStore
+            ? $this->ledgers->read(Scope::pullRequest($pullRequest))
             : NoLedgers::none();
+        $passed = $ledger instanceof Ledger ? $ledger->lastPassed() : $ledger;
 
         return $passed instanceof Passed
             && $passed->commit()->name() === $head

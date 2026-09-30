@@ -17,12 +17,15 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -52,15 +55,31 @@ it('reads back the ledger it wrote to a scope', function () use ($proved): void 
     $store = LedgerDirectory::at(Scratch::directory());
     $store->write(Scope::branch('main'), $proved());
 
-    expect(LedgerFile::encode($store->read(Scope::branch('main'))))->toBe(LedgerFile::encode($proved()))
+    expect(LedgerFile::encode(LedgerRead::ledger($store->read(Scope::branch('main')))))->toBe(LedgerFile::encode($proved()))
         ->and($store->read(Scope::branch('release')))->toEqual(Ledger::empty());
 });
 
-it('reads a ledger file that is not a ledger as empty', function (): void {
+it('says a ledger file holds no ledger this gate reads, and where it is', function (): void {
     $root = Scratch::directory();
     Scratch::write($root, 'refs/heads/main/ledger.json.gz', 'not JSON at all');
 
-    expect(LedgerDirectory::at($root)->read(Scope::branch('main')))->toEqual(Ledger::empty());
+    expect(LedgerRead::unread(LedgerDirectory::at($root)->read(Scope::branch('main'))))->toBe([
+        UnreadReason::Malformed,
+        sprintf(
+            'The ledger is unreadable from %s/refs/heads/main/ledger.json.gz: The ledger is not a whole gzip stream. The run judges without it.',
+            $root,
+        ),
+    ]);
+});
+
+it('says a ledger file could not be read, and where it is', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'refs/heads/main/ledger.json.gz/placeholder', '');
+
+    [$reason, $why] = LedgerRead::unread(LedgerDirectory::at($root)->read(Scope::branch('main')));
+
+    expect($reason)->toBe(UnreadReason::Refused)
+        ->and($why)->toStartWith(sprintf('The ledger is unreadable from %s/refs/heads/main/ledger.json.gz: ', $root));
 });
 
 it('reads nothing for a scope that is not a ref, though its path leads to a ledger', function () use ($proved): void {
@@ -132,4 +151,26 @@ it('keeps a directory from the project inside it, and writes no ledger that lead
             '../ledger/refs/heads/main/ledger.json.gz leads out of ., so the gate does not read or write it.',
         ))
         ->and(glob(sprintf('%s/ledger', $root)))->toBe([]);
+});
+
+it('writes a ledger within its limits, dropping the oldest proofs, and says so', function () use ($proved): void {
+    $root = Scratch::directory();
+    $newer = $proved()->withProof(Proof::of(
+        Digest::sha256Of('src/Tax.php'),
+        Path::of('src/Tax.php'),
+        Mutants::none(),
+        Run::of('github:1/2', Instant::at(new DateTimeImmutable('2026-09-30T20:48:17Z')), Digest::of(str_repeat('b', 64))),
+    ));
+    $limits = LedgerLimits::of(strlen(LedgerFile::encode($newer)) - 1, 38_000_000, 60.0);
+    $store = LedgerDirectory::at($root)->within($limits);
+
+    $written = $store->write(Scope::branch('main'), $newer);
+    $read = LedgerRead::ledger($store->read(Scope::branch('main')));
+
+    expect($written)->toEqual(Written::noting(
+        sprintf('%s/refs/heads/main/ledger.json.gz', $root),
+        'It keeps the newest 1 of 2 proofs, so a run can still read the ledger.',
+    ))
+        ->and($read->proofs()->has(Digest::sha256Of('src/Tax.php')))->toBeTrue()
+        ->and($read->proofs())->toHaveCount(1);
 });

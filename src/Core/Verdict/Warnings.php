@@ -41,6 +41,12 @@ final readonly class Warnings implements Countable, IteratorAggregate
         return new self([...$this->warnings, $warning]);
     }
 
+    /** These warnings, then those. */
+    public function and(self $other): self
+    {
+        return new self([...$this->warnings, ...$other->warnings]);
+    }
+
     public function count(): int
     {
         return count($this->warnings);

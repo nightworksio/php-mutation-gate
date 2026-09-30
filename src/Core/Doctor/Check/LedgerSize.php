@@ -11,19 +11,17 @@ use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 use function sprintf;
 
 /**
- * A ledger over 25 MB compressed (ADR-0017, decision 10), which every run
- * restores, decompresses and writes back before and after it mutates.
+ * A ledger past the compressed limit a run reads a ledger to (ADR-0017,
+ * decision 10; ADR-0013, decision 13), which no run reads.
  */
 final readonly class LedgerSize
 {
-    /** The size a ledger slows runs above, compressed; recalibrated from the benchmark. */
-    private const int LIMIT = 25_000_000;
-
     private const int PER_MEGABYTE = 1_000_000;
 
     private const string LEDGER = '%s is %.1f MB';
@@ -31,26 +29,27 @@ final readonly class LedgerSize
     private const string FOUND = '%s, compressed.';
 
     private const string WHY
-        = 'Every run restores, decompresses and writes back its scope\'s ledger, so its size is time each run spends.';
+        = 'No run reads a ledger past %.1f MB compressed, twice one at the retention cap: this one was never trimmed.';
 
     private const string FIX
-        = 'Delete the ledger of a scope that no longer runs; the next run of a live scope starts it afresh.';
+        = 'Delete it, or the file that is not a ledger; the next run of its scope writes its ledger afresh.';
 
     public static function in(Observations $observed): Findings
     {
         $ledgers = $observed->ledgers();
+        $limits = LedgerLimits::standard();
         $large = [];
 
         foreach ($ledgers instanceof KeptLedgers ? $ledgers : [] as $ledger) {
             $said = sprintf(self::LEDGER, $ledger->file()->value(), $ledger->bytes() / self::PER_MEGABYTE);
-            $large = $ledger->bytes() > self::LIMIT ? [...$large, $said] : $large;
+            $large = $limits->admitsPacked($ledger->bytes()) ? $large : [...$large, $said];
         }
 
         return $large === [] ? Findings::none() : Findings::of(Finding::of(
-            Slug::LedgerSlowsRuns,
+            Slug::LedgerTooLarge,
             Severity::Slow,
             sprintf(self::FOUND, implode('; ', $large)),
-            self::WHY,
+            sprintf(self::WHY, $limits->packed() / self::PER_MEGABYTE),
             self::FIX,
         ));
     }

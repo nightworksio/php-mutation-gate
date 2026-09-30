@@ -96,3 +96,16 @@ it('keeps the kill history of the mutants its kept proofs hold, and of its funct
     expect(LedgerRetention::standard()->killersOf($ledger))
         ->toEqual(KillHistory::none()->withMutant($held, $ranking)->withFunction($function, $ranking));
 });
+
+it('keeps no more proofs than it is told, the newest, and never more than the standard cap', function () use ($proof, $keys): void {
+    $ledger = Ledger::empty()->atBase(Digest::of(hash('sha256', 'base 1')))->withProofs(Proofs::of(
+        $proof('old', 1, '2026-09-29T20:00:00Z'),
+        $proof('mid', 1, '2026-09-29T21:00:00Z'),
+        $proof('new', 1, '2026-09-29T22:00:00Z'),
+    ));
+
+    expect($keys(...LedgerRetention::standard()->keepingAtMost(2)->proofsOf($ledger)))
+        ->toBe($keys($proof('new', 1), $proof('mid', 1)))
+        ->and(LedgerRetention::standard()->keepingAtMost(0)->proofsOf($ledger))->toBe([])
+        ->and(LedgerRetention::standard()->keepingAtMost(30_000))->toEqual(LedgerRetention::standard());
+});

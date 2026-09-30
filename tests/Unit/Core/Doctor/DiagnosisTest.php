@@ -51,7 +51,7 @@ it('runs every check over what was observed, what fails a run first', function (
         Slug::NativeMarkersRefused,
         Slug::MirroredPathRepository,
         Slug::XdebugSlowsTests,
-        Slug::LedgerSlowsRuns,
+        Slug::LedgerTooLarge,
         Slug::WorkspaceNotIgnored,
         Slug::IgnoresExpiring,
         Slug::InfectionConfigToImport,

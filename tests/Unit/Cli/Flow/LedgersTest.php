@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Cli\Flow\Ledgers;
 use NightWorksIO\MutationGate\Cli\Flow\Standing;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -28,17 +29,24 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Scopes;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
+use NightWorksIO\MutationGate\Core\Proof\Unreadable;
+use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
+use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -65,7 +73,7 @@ $store = static function () use ($ledger): ProofStoreFake {
 };
 
 /** The ledgers a run on this ref reads from a store, where main is the default branch. */
-function ledgersOn(RunOn $run, Writing $writing, ProofStoreFake $store): Ledgers
+function ledgersOn(RunOn $run, Writing $writing, ProofStore $store): Ledgers
 {
     $standing = Standing::of(
         new CiPlanFake(ShardId::of(1), $run),
@@ -103,6 +111,41 @@ it('reads its own scope beside the default branch\'s, and writes its own', funct
         ->and($timings->secondsFor(Path::of('src/B.php')))->toEqual(Seconds::of(2.0))
         ->and($timings)->toHaveCount(2)
         ->and($ledgers->lastPassed())->toEqual(Passed::of(Revision::ref('pr-passed'), 'check', 0));
+});
+
+it('says why for each ledger the store could not read, and judges without it', function (): void {
+    $unread = Unreadable::because(UnreadReason::TimedOut, 'https://ledgers.example.com', 'no answer came in time');
+    $ledgers = ledgersOn(
+        RunOn::at(Scope::pullRequest(7), Scope::branch('main')),
+        Writing::Auto,
+        ProofStoreFake::unreadable($unread),
+    );
+
+    expect($ledgers->unread())->toEqual(Warnings::of(Warning::that($unread->why()), Warning::that($unread->why())))
+        ->and($ledgers->defaultBranch())->toEqual(Ledger::empty())
+        ->and($ledgers->own())->toEqual(Ledger::empty());
+});
+
+it('says nothing was unread where the store read every ledger', function () use ($read): void {
+    expect($read(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))->unread())->toEqual(Warnings::none());
+});
+
+it('reads the default branch\'s ledger alone through a store that reads no other, and says why it could not', function (): void {
+    $sent = [];
+    $client = new MockHttpClient(static function (string $method, string $url) use (&$sent): MockResponse {
+        $sent[] = $url;
+
+        return new MockResponse('not a ledger');
+    });
+    $store = PublicLedger::at($client, 'https://ledgers.example.com', 'mutation-gate')->onlyReading(Scope::branch('main'));
+    $ledgers = ledgersOn(RunOn::at(Scope::pullRequest(7), Scope::branch('main')), Writing::Auto, $store);
+
+    expect($sent)->toBe(['https://ledgers.example.com/mutation-gate/refs/heads/main/ledger.json.gz'])
+        ->and($ledgers->unread())->toHaveCount(1)
+        ->and([...$ledgers->unread()][0]->text())->toBe(
+            'The ledger is unreadable from https://ledgers.example.com/mutation-gate/refs/heads/main/ledger.json.gz: '
+            . 'The ledger is not a whole gzip stream. The run judges without it.',
+        );
 });
 
 it('writes nothing where proofs.write says never', function () use ($read): void {
