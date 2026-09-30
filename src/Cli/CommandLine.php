@@ -89,7 +89,7 @@ final readonly class CommandLine
         return clone($this, ['ci' => $plan]);
     }
 
-    /** What the command line says, and `--no-extensions`: this package's own extension and no other. */
+    /** What the command line says, and `--no-extensions`: the first-party extensions, and no third party's. */
     public function firstPartyOnly(): self
     {
         return clone($this, ['firstPartyOnly' => true]);

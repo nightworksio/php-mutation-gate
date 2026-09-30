@@ -163,9 +163,11 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
 9. **A mutator is trusted as an extension is.** It comes from Composer's
    `extra` or the config's `extensions` (ADR-0001 decision 4), and runs in the
    runner's process, which already runs the project's tests.
-   `--no-extensions` turns off every set but those the package's own
-   extension registers. A mutator's `handles()` stays narrow, because Pest
-   re-parses a file once per mutation per mutator.
+   `--no-extensions` turns off every set but those the first-party packages
+   register: the gate's own and the plugins under `plugins/`, which count as
+   first party while they ship here (ADR-0023 decision 8). A mutator's
+   `handles()` stays narrow, because Pest re-parses a file once per mutation
+   per mutator.
 
 ### First-party sets that can leave
 

@@ -37,7 +37,7 @@ final readonly class Discovery
     {
     }
 
-    /** The registry of every declared extension, or of this package's own alone. */
+    /** The registry of every declared extension, or of the first-party packages' alone. */
     public function extensions(bool $firstPartyOnly): Extensions|CannotJudge
     {
         $declared = $this->declared();
@@ -48,7 +48,7 @@ final readonly class Discovery
 
         return $this->register(array_filter(
             $declared,
-            static fn(Declared $one): bool => ! $firstPartyOnly || $one->class === FirstParty::class,
+            static fn(Declared $one): bool => ! $firstPartyOnly || Origin::of($one->origin)->isFirstParty(),
         ));
     }
 

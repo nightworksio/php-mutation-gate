@@ -20,4 +20,10 @@ final readonly class Origin
     {
         return $this->name;
     }
+
+    /** Whether the package is one this repository ships, whose extensions are first party. */
+    public function isFirstParty(): bool
+    {
+        return FirstPartyPackage::tryFrom($this->name) instanceof FirstPartyPackage;
+    }
 }

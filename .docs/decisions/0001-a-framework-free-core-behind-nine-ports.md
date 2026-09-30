@@ -155,8 +155,10 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    - A config may also name extension classes directly, in `extensions`
      (ADR-0002).
    - `--no-extensions`, accepted by every command, loads the first-party
-     extension alone: neither Composer discovery nor the config's `extensions`.
-     It is for telling a fault in the gate from a fault in an extension.
+     extensions alone, the gate's own and its first-party plugins' (ADR-0023
+     decision 8): no other package's through Composer discovery, and nothing
+     the config names in `extensions`. It is for telling a fault in the gate
+     from a fault in an extension.
 
 5. **The arch tests that hold the boundary.** Each of the following is a Pest
    arch test or a PHPStan rule, listed in `ARCHITECTURE.md` beside what enforces

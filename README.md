@@ -191,7 +191,7 @@ Options:
 | Option | Accepted by | What it does | Decided in |
 |--------|-------------|--------------|------------|
 | `--config=<path>` | every command | Read this config file instead of looking for one | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
-| `--no-extensions` | every command | Load only the package's own adapters | [0001](.docs/decisions/0001-a-framework-free-core-behind-nine-ports.md) |
+| `--no-extensions` | every command | Load only the extensions of this package and its first-party plugins, and no third-party code | [0001](.docs/decisions/0001-a-framework-free-core-behind-nine-ports.md) |
 | `--runner=<name>` | every command | Set `runner` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--report=<name>:<path>` | every command, repeatable | Add a file report to `reports` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--changed-since=<ref>` | `plan`, `run` without a plan | Mutate only what the change since `<ref>` reaches; `last-passed` is the newest passing commit | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Composer\Autoload\ClassLoader;
+use NightWorksIO\MutationGate\Core\Registry\FirstPartyPackage;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Tests\Support\Api;
@@ -146,6 +147,10 @@ it('gives each plugin a manifest of its own that requires every package its code
             $offenders[] = sprintf('%s/composer.json is not named %s-%s', $plugin, THE_GATE, basename($plugin));
         }
 
+        if (! FirstPartyPackage::tryFrom($name) instanceof FirstPartyPackage) {
+            $offenders[] = sprintf('%s is not listed in %s, so --no-extensions would leave it out', $name, FirstPartyPackage::class);
+        }
+
         foreach ([THE_GATE, THE_PARSER] as $package) {
             if (! in_array($package, $required, strict: true)) {
                 $offenders[] = sprintf('%s/composer.json does not require %s', $plugin, $package);
@@ -183,7 +188,7 @@ it('gives each plugin a manifest of its own that requires every package its code
 
     // A8
     expect($offenders)->toBe([], sprintf(
-        "These plugins could not leave as they are:\n  %s\n\nA plugin leaves by moving its directory, and its composer.json is then all it has: its name, its autoloading, its extension and every package its code names (A8).",
+        "These plugins could not leave as they are:\n  %s\n\nA plugin leaves by moving its directory, and its composer.json is then all it has: its name, its autoloading, its extension and every package its code names. While it is here, its name is listed as first party (A8).",
         implode("\n  ", $offenders),
     ));
 });
