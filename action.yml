@@ -126,8 +126,11 @@ runs:
         GATE: ${{ steps.resolve.outputs.gate }}
       run: '"${GATE}" pest:patch'
 
+    # A shard of a plan reads no ledger: the plan it runs was made from them.
     - name: Restore this scope's ledger
-      if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
+      if: >-
+        inputs.shard == '' && steps.config.outputs.default_store == 'true'
+        && steps.resolve.outputs.own_dir != ''
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.resolve.outputs.own_dir }}
@@ -135,7 +138,9 @@ runs:
         restore-keys: ${{ steps.resolve.outputs.own_prefix }}
 
     - name: Restore the default branch's ledger
-      if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.default_dir != ''
+      if: >-
+        inputs.shard == '' && steps.config.outputs.default_store == 'true'
+        && steps.resolve.outputs.default_dir != ''
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.resolve.outputs.default_dir }}
