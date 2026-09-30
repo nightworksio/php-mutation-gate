@@ -24,11 +24,13 @@ use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 $registry = static fn(): Extensions => new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)));
 
@@ -92,6 +94,31 @@ it('registers Infection as a runner, built from the options the flows write', fu
         ->and(Lookup::in($registry())->runner(Name::of('infection'), Options::ofJson('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
 });
 
-it('registers Pest as a runner', function () use ($registry): void {
-    expect($registry()->runner(Name::of('pest'), Options::none()))->toBeInstanceOf(Pest::class);
+it('registers Pest as a runner, in the vendor directory Composer installed the project into', function () use (
+    $registry,
+): void {
+    $project = Scratch::directory();
+    $here = (string) getcwd();
+    Scratch::write($project, 'composer.json', '{"config": {"vendor-dir": "lib/vendor"}}');
+    $pest = static fn(): object => Lookup::in($registry())->runner(Name::of('pest'), Options::none());
+    $installedIn = static fn(string $vendor): object => Pest::fromOptions(Options::none(), Path::of($vendor));
+
+    $inThisPackage = [$pest(), $installedIn('vendor')];
+    chdir($project);
+
+    try {
+        $declared = [$pest(), $installedIn('lib/vendor')];
+        putenv('COMPOSER_VENDOR_DIR=');
+        $unset = [$pest(), $installedIn('lib/vendor')];
+        putenv('COMPOSER_VENDOR_DIR=deps/vendor');
+        $overridden = [$pest(), $installedIn('deps/vendor')];
+    } finally {
+        putenv('COMPOSER_VENDOR_DIR');
+        chdir($here);
+    }
+
+    expect($inThisPackage[0])->toEqual($inThisPackage[1])
+        ->and($declared[0])->toEqual($declared[1])
+        ->and($unset[0])->toEqual($unset[1])
+        ->and($overridden[0])->toEqual($overridden[1]);
 });

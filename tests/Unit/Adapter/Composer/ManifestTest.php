@@ -49,6 +49,13 @@ it('knows the directory it is in and the name it declares', function (): void {
         ->and(aManifest('{"name": 1}')->name())->toBe('');
 });
 
+it('installs its packages where config.vendor-dir says, or in vendor', function (): void {
+    expect(aManifest('{"config": {"vendor-dir": "lib/vendor"}}')->vendorDirectory())->toEqual(Path::of('lib/vendor'))
+        ->and(aManifest('{"config": {"vendor-dir": ""}}')->vendorDirectory())->toEqual(Path::of('vendor'))
+        ->and(aManifest('{"config": {"vendor-dir": 1}}')->vendorDirectory())->toEqual(Path::of('vendor'))
+        ->and(aManifest('{}')->vendorDirectory())->toEqual(Path::of('vendor'));
+});
+
 it('names every path its autoload names, spelt from the repository root', function (): void {
     $manifest = aManifest(<<<'JSON'
         {

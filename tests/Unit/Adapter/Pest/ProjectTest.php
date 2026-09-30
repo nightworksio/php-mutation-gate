@@ -17,6 +17,7 @@ $project = static fn(): Project => Project::at(
     sprintf('%s/', Scratch::directory()),
     Paths::of(Path::of('tests')),
     Path::of('.mutation-gate'),
+    Path::of('vendor'),
 );
 
 it('holds its root as its real path, as Pest reports files', function (): void {
@@ -24,12 +25,12 @@ it('holds its root as its real path, as Pest reports files', function (): void {
     mkdir(sprintf('%s/real', $root));
     symlink(sprintf('%s/real', $root), sprintf('%s/linked', $root));
 
-    expect(Project::at(sprintf('%s/linked', $root), Paths::none(), Path::of('.mutation-gate'))->root())
+    expect(Project::at(sprintf('%s/linked', $root), Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'))->root())
         ->toBe((string) realpath(sprintf('%s/real', $root)));
 });
 
 it('holds a root that is not there as it is spelt, less a trailing slash', function (): void {
-    expect(Project::at('/nowhere/at/all/', Paths::none(), Path::of('.mutation-gate'))->root())->toBe('/nowhere/at/all');
+    expect(Project::at('/nowhere/at/all/', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'))->root())->toBe('/nowhere/at/all');
 });
 
 it('names the directories its tests live in', function () use ($project): void {
@@ -37,14 +38,14 @@ it('names the directories its tests live in', function () use ($project): void {
 });
 
 it('finds a path of the project on disk, and an absolute path where it says', function (): void {
-    $project = Project::at('/nowhere', Paths::none(), Path::of('.mutation-gate'));
+    $project = Project::at('/nowhere', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
 
     expect($project->absolute(Path::of('src/Money.php')))->toBe('/nowhere/src/Money.php')
         ->and($project->absolute(Path::of('/elsewhere/Money.php')))->toBe('/elsewhere/Money.php');
 });
 
 it('spells a file inside it as the project does, and one outside as it is', function (): void {
-    $project = Project::at('/nowhere', Paths::none(), Path::of('.mutation-gate'));
+    $project = Project::at('/nowhere', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
 
     expect($project->relative('/nowhere/src/Money.php'))->toEqual(Path::of('src/Money.php'))
         ->and($project->relative('/nowhere-else/src/Money.php'))->toEqual(Path::of('/nowhere-else/src/Money.php'));

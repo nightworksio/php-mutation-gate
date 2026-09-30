@@ -19,11 +19,11 @@ it('lists its arguments in order, however they were spread', function (): void {
 });
 
 it('runs Pest on the PHP that runs the gate', function (): void {
-    expect(Command::pest('--list-groups')->arguments())->toBe([PHP_BINARY, 'vendor/bin/pest', '--list-groups']);
+    expect(Command::pest('vendor/pestphp/pest/bin/pest', '--list-groups')->arguments())->toBe([PHP_BINARY, 'vendor/pestphp/pest/bin/pest', '--list-groups']);
 });
 
 it('puts that PHP first on Pest\'s path, and hands Pest none of its own or the gate\'s variables', function (): void {
-    expect(Command::pest('--list-groups')->environment())->toMatchArray([
+    expect(Command::pest('vendor/pestphp/pest/bin/pest', '--list-groups')->environment())->toMatchArray([
         'PARATEST' => false,
         'TEST_TOKEN' => false,
         'UNIQUE_TEST_TOKEN' => false,
@@ -35,7 +35,7 @@ it('puts that PHP first on Pest\'s path, and hands Pest none of its own or the g
         'MUTATION_GATE_CANARY' => false,
         'MUTATION_GATE_GUARD' => false,
         'PATH' => sprintf('%s:%s', dirname(PHP_BINARY), getenv('PATH')),
-    ])->and(Command::pest()->with(['MUTATION_GATE_RESULTS' => '/r'])->environment())
+    ])->and(Command::pest('pest')->with(['MUTATION_GATE_RESULTS' => '/r'])->environment())
         ->toHaveKey('MUTATION_GATE_RESULTS', '/r');
 });
 
@@ -68,7 +68,7 @@ it('hands Pest none of the CI\'s credentials', function (): void {
             putenv(sprintf('%s=secret', $name));
         }
 
-        $environment = Command::pest()->environment();
+        $environment = Command::pest('pest')->environment();
     } finally {
         foreach ($set as $at => $name) {
             putenv(is_string($before[$at]) ? sprintf('%s=%s', $name, $before[$at]) : $name);

@@ -174,7 +174,7 @@ final class Library
     public static function pest(Patching $patching): self
     {
         $root = Tree::at(self::DIRECTORY);
-        $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
+        $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
 
         $name = sprintf('pest %s', $patching->isOn() ? 'patched' : 'unpatched');
 

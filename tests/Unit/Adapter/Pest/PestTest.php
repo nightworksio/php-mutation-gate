@@ -92,12 +92,18 @@ function adapterCanary(): Patching
     return Patching::on(Group::named('mutation-canary'));
 }
 
-/** A project in a new directory, by its real path. */
-function adapterProject(): Project
+/** Pest's command lines in a project that installs its packages in `vendor`. */
+function adapterInvocation(): Invocation
+{
+    return Invocation::installedIn(Path::of('vendor'));
+}
+
+/** A project in a new directory, by its real path, that installs its packages in `vendor` or another directory. */
+function adapterProject(string $vendor = 'vendor'): Project
 {
     $root = (string) realpath(Scratch::directory());
 
-    return Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
+    return Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of($vendor));
 }
 
 /** What Pest and the plugin leave when a run mutates src/Money.php's line 11 once, and a test kills it. */
@@ -139,16 +145,16 @@ function adapterMutant(): Mutant
 }
 
 /** A project with a patched copy of the installed pest-plugin-mutate, and the planning job's map. */
-function adapterPatched(): Project
+function adapterPatched(string $vendor = 'vendor'): Project
 {
-    $at = adapterProject();
+    $at = adapterProject($vendor);
 
     foreach (['MutationTest.php', 'Plugins/Mutate.php', 'Tester/MutationTestRunner.php'] as $file) {
         $installed = (string) file_get_contents(Tree::at(sprintf('vendor/pestphp/pest-plugin-mutate/src/%s', $file)));
-        Scratch::write($at->root(), sprintf('vendor/pestphp/pest-plugin-mutate/src/%s', $file), $installed);
+        Scratch::write($at->root(), sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $vendor, $file), $installed);
     }
 
-    Patch::applyIn(sprintf('%s/vendor', $at->root()));
+    Patch::applyIn(sprintf('%s/%s', $at->root(), $vendor));
     mkdir(sprintf('%s/planned', $at->root()));
     adapterMap($at->root(), 'planned/coverage.php', [], [RUN_ADDS => 1.25, 'Tests\B::c' => 2.0]);
 
@@ -188,7 +194,7 @@ it('lists the suite\'s groups as Pest lists them', function (): void {
     $groups = new Pest(adapterProject(), $shell, Patching::off())->groups();
 
     expect($groups)->toEqual(Groups::of(Group::named('mutation-canary')))
-        ->and($shell->commands())->toEqual([Invocation::listingGroups()]);
+        ->and($shell->commands())->toEqual([adapterInvocation()->listingGroups()]);
 });
 
 it('runs the suite under coverage into a directory it makes, and reads the map', function (): void {
@@ -205,7 +211,7 @@ it('runs the suite under coverage into a directory it makes, and reads the map',
     expect(new Pest($at, $shell, Patching::off())->coverage($request))->toEqual(CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(RUN_ADDS))
         ->timed(TestId::of(RUN_ADDS), Seconds::of(0.5)))
-        ->and($shell->commands())->toEqual([Invocation::coverage($request, $directory)]);
+        ->and($shell->commands())->toEqual([adapterInvocation()->coverage($request, $directory)]);
 });
 
 it('cannot judge a coverage run that failed, with what Pest said', function (): void {
@@ -263,7 +269,7 @@ it('mutates with a fresh results file, and reads what the plugin recorded', func
 
     expect($result)->toEqual(MutationResult::of(Mutants::of(adapterMutant()), 0))
         ->and($shell->commands())
-        ->toEqual([Invocation::mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at))]);
+        ->toEqual([adapterInvocation()->mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at))]);
 });
 
 it('mutates against a group without reading a shared map', function (): void {
@@ -274,7 +280,7 @@ it('mutates against a group without reading a shared map', function (): void {
 
     new Pest($at, $shell, adapterCanary())->mutate($request);
 
-    expect($shell->commands())->toEqual([Invocation::mutation($request, $held, adapterResults($at))]);
+    expect($shell->commands())->toEqual([adapterInvocation()->mutation($request, $held, adapterResults($at))]);
 });
 
 it('opens a patched shard on the canary group, reading the planning job\'s map', function (): void {
@@ -287,8 +293,8 @@ it('opens a patched shard on the canary group, reading the planning job\'s map',
 
     expect($result)->toBeInstanceOf(MutationResult::class)
         ->and($shell->commands())->toEqual([
-            Invocation::listingGroups(),
-            Invocation::mutation($request, WholeSuite::tests(), adapterResults($at))->with([
+            adapterInvocation()->listingGroups(),
+            adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))->with([
                 'MUTATION_GATE_SHARED_COVERAGE' => sprintf('%s/planned/coverage.php', $at->root()),
                 'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
                 'MUTATION_GATE_CANARY' => 'mutation-canary',
@@ -305,8 +311,8 @@ it('opens a shard on its own suite unpatched, or when it collects its own map', 
     new Pest($at, $shell, adapterCanary())->mutate(adapterMoney());
 
     expect($shell->commands())->toEqual([
-        Invocation::mutation($reusing, WholeSuite::tests(), adapterResults($at)),
-        Invocation::mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at)),
+        adapterInvocation()->mutation($reusing, WholeSuite::tests(), adapterResults($at)),
+        adapterInvocation()->mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at)),
     ]);
 });
 
@@ -315,8 +321,24 @@ it('cannot open a shard on the canary group without the patch applied', function
     $request = adapterMoney()->reusingCoverage(Path::of('planned'));
 
     expect(new Pest(adapterProject(), $shell, adapterCanary())->mutate($request))->toEqual(CannotJudge::because(
-        'pest.patch is on, but pest-plugin-mutate is not patched. Run vendor/bin/mutation-gate pest:patch.',
+        'pest.patch is on, but pest-plugin-mutate in vendor is not patched. Run mutation-gate pest:patch.',
     ))->and($shell->commands())->toBe([]);
+});
+
+it('finds Pest, what Composer installed and the patch in the vendor directory the project installs into', function (): void {
+    $at = adapterPatched('lib/vendor');
+    $installed = ['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/phpunit', 'phpunit/php-code-coverage'];
+    $packages = array_map(static fn(string $name): array => ['name' => $name, 'version' => '1.0.0'], $installed);
+    Scratch::write($at->root(), 'lib/vendor/composer/installed.json', (string) json_encode(['packages' => $packages]));
+    $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
+        ? Ran::finished(succeeded: true, output: RUN_LISTING)
+        : adapterKilled($command, $at));
+    $pest = new Pest($at, $shell, adapterCanary());
+    $invocation = Invocation::installedIn(Path::of('lib/vendor'));
+
+    expect($pest->identity())->toBeInstanceOf(Identity::class)
+        ->and($pest->mutate(adapterMoney()->reusingCoverage(Path::of('planned'))))->toBeInstanceOf(MutationResult::class)
+        ->and($shell->commands()[0])->toEqual($invocation->listingGroups());
 });
 
 it('cannot open a shard on a canary group with no test, or one it cannot list', function (): void {
@@ -372,8 +394,8 @@ it('runs the mutants again once per file and mutator, with no deadline, matched 
         Mutant::of($id, 'n9', $place, $change, MutantStatus::Unjudged, Unmeasured::duration())->because($notFound),
         Interpretation::unjudged($elsewhere, $notFound),
     ))->and($shell->commands())->toEqual([
-        Invocation::mutation($request, WholeSuite::tests(), adapterResults($at)),
-        Invocation::mutation($held, WholeSuite::tests(), adapterResults($at)),
+        adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at)),
+        adapterInvocation()->mutation($held, WholeSuite::tests(), adapterResults($at)),
     ]);
 });
 
@@ -386,7 +408,7 @@ it('runs a held unit\'s mutant again by the group that holds it', function (): v
 
     new Pest($at, $shell, Patching::off())->retry(Mutants::of(adapterMutant()), Seconds::of(20.0), $holding);
 
-    expect($shell->commands())->toEqual([Invocation::mutation($request, $holding, adapterResults($at))]);
+    expect($shell->commands())->toEqual([adapterInvocation()->mutation($request, $holding, adapterResults($at))]);
 });
 
 it('cannot judge a retry whose run failed', function (): void {
@@ -474,11 +496,11 @@ it('finds every @pest-mutate-ignore in the files asked for, running nothing', fu
 });
 
 it('is Pest in the project the gate runs in, as its options say, or the options\' problem', function (): void {
-    expect(Pest::fromOptions(Options::none()))->toEqual(new Pest(
-        Project::at('.', Paths::of(Path::of('tests')), Path::of('.mutation-gate')),
-        new ProcessShell(Project::at('.', Paths::none(), Path::of('.mutation-gate'))->root()),
+    expect(Pest::fromOptions(Options::none(), Path::of('lib/vendor')))->toEqual(new Pest(
+        Project::at('.', Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('lib/vendor')),
+        new ProcessShell(Project::at('.', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'))->root()),
         Patching::off(),
-    ))->and(Pest::fromOptions(Options::ofJson('{"patch": 1}')))->toEqual(Invalid::because(
+    ))->and(Pest::fromOptions(Options::ofJson('{"patch": 1}'), Path::of('vendor')))->toEqual(Invalid::because(
         Problem::at('patch', 'Whether the project applies pest:patch is true or false.'),
     ));
 });

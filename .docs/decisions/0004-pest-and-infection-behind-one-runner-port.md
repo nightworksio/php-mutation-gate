@@ -162,7 +162,7 @@ its parser attributes. Both change when the checkout moves.
    - **Invocation:**
 
      ```text
-     vendor/bin/pest --mutate --no-cache --parallel --no-tia --everything
+     <vendor>/pestphp/pest/bin/pest --mutate --no-cache --parallel --no-tia --everything
          --covered-only=false --stop-on-untested=false
          --stop-on-uncovered=false --retry=false --path=<files>
          --ignore=<held paths, or .mutation-gate> [--group=<holds group>]
@@ -184,8 +184,15 @@ its parser attributes. Both change when the checkout moves.
        mutant's own run, which is not parallel and rejects it, so every
        covered mutant would read as killed. Pest runs one mutant per core,
        and a request's process count does not apply to it.
+     - `<vendor>` is where Composer installed the project's packages:
+       `COMPOSER_VENDOR_DIR`, then `config.vendor-dir`, then `vendor`. The
+       gate reads Pest's versions from `<vendor>/composer/installed.json` and
+       checks `pest:patch` there too. Pest's own script loads
+       `vendor/autoload.php` from the directory that holds its vendor
+       directory, so Pest runs only where that directory is named `vendor`,
+       such as `lib/vendor`.
      - Pest runs on the PHP the gate runs on, which is first on its path,
-       because Pest starts each mutant's run through `vendor/bin/pest`. It
+       because Pest starts each mutant's run through the same script. It
        inherits none of the variables that make a process a paratest worker
        or a mutant's run, none of the gate's own, and none of the CI's
        credentials (`AWS_*`, `ACTIONS_*`, `GITHUB_TOKEN`, `SONAR_TOKEN`).
@@ -257,13 +264,13 @@ its parser attributes. Both change when the checkout moves.
      | `none` left at the end (Pest's *pending*) | unjudged |
 
    - **Coverage** is an invocation of its own, never part of a mutation run:
-     - `vendor/bin/pest --parallel --coverage-php=<dir>/coverage.php
+     - `<vendor>/pestphp/pest/bin/pest --parallel --coverage-php=<dir>/coverage.php
        --log-junit=<dir>/junit.xml` under pcov or Xdebug, without `--coverage`,
        whose own report path would win. The map is read with
        `phpunit/php-code-coverage`, and its `testResults` carry each test's
        duration. This is the layout `--coverage=<dir>` expects from an earlier
        job (ADR-0006).
-     - Groups come from `vendor/bin/pest --list-groups --colors=never`. A
+     - Groups come from `<vendor>/pestphp/pest/bin/pest --list-groups --colors=never`. A
        listing without `Available test group` is *cannot judge*, never *no
        groups*.
    - **The in-house gate's two patches are an opt-in.** Enabling it is

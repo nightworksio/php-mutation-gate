@@ -47,7 +47,7 @@ it('reads which tests ran each line, and how long each test took', function () u
     $doubles = TestId::of('P\Tests\HeldSpec::__pest_evaluable_it_doubles');
     $money = Path::of('src/Money.php');
 
-    $project = Project::at('/nowhere', Paths::none(), Path::of('.mutation-gate'));
+    $project = Project::at('/nowhere', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
 
     expect($coverage instanceof CoverageFile ? $coverage->map($project) : $coverage)
         ->toEqual(CoverageMap::empty()
