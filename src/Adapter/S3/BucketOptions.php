@@ -17,8 +17,9 @@ use function sprintf;
 
 /**
  * What the `s3` store's options say, as the definition reads them with their
- * defaults: `bucket`, `prefix` and `region`, `auto` for R2, and the
- * `endpoint` where it is not AWS's own. A store at another endpoint, such as
+ * defaults: `bucket`, `prefix` and `region`, `auto` for R2, the `endpoint`
+ * where it is not AWS's own, and the `publicUrl` a job without credentials
+ * reads the default branch's ledger from. A store at another endpoint, such as
  * R2 or MinIO, is addressed by path rather than by a host name per bucket.
  */
 final readonly class BucketOptions
@@ -31,11 +32,14 @@ final readonly class BucketOptions
 
     private const string ENDPOINT = 'endpoint';
 
+    private const string PUBLIC_URL = 'publicUrl';
+
     private function __construct(
         private string $bucket,
         private string $prefix,
         private string $region,
         private Endpoint|NotGiven $endpoint,
+        private string|NotGiven $publicUrl,
     ) {
     }
 
@@ -45,14 +49,23 @@ final readonly class BucketOptions
         $prefix = self::required($options, self::PREFIX);
         $region = self::required($options, self::REGION);
         $endpoint = $options->text(Key::of(self::ENDPOINT));
+        $publicUrl = $options->text(Key::of(self::PUBLIC_URL));
 
         if ($bucket instanceof Problem || $prefix instanceof Problem || $region instanceof Problem) {
-            return Invalid::because(...self::problemsIn($bucket, $prefix, $region, $endpoint));
+            return Invalid::because(...self::problemsIn($bucket, $prefix, $region, $endpoint, $publicUrl));
         }
 
-        return $endpoint instanceof Problem
-            ? Invalid::because($endpoint)
-            : new self($bucket, $prefix, $region, $endpoint instanceof NotGiven ? $endpoint : Endpoint::at($endpoint));
+        return match (true) {
+            $endpoint instanceof Problem, $publicUrl instanceof Problem
+                => Invalid::because(...self::problemsIn($endpoint, $publicUrl)),
+            default => new self(
+                $bucket,
+                $prefix,
+                $region,
+                $endpoint instanceof NotGiven ? $endpoint : Endpoint::at($endpoint),
+                $publicUrl,
+            ),
+        };
     }
 
     public function bucket(): string
@@ -63,6 +76,12 @@ final readonly class BucketOptions
     public function prefix(): string
     {
         return $this->prefix;
+    }
+
+    /** The URL a job without credentials reads the default branch's ledger from; none where none is named. */
+    public function publicUrl(): string|NotGiven
+    {
+        return $this->publicUrl;
     }
 
     /** @return array{region: string, endpoint?: string, pathStyleEndpoint?: string} the client's configuration */

@@ -255,7 +255,7 @@ would have cost without them.
     | `pest.patch: true` without `pest:patch` in `post-install-cmd` and `post-update-cmd` | will fail |
     | Pest with more than one shard in the recorded timings, and no `pest.patch` | slow: the opening run × (shards − 1) |
     | A hot path nothing holds (ADR-0005 decision 11), under `--measure` | slow: its units' timings, or else its covering tests' time |
-    | A ledger over 25 MB compressed, or at its proof cap with under 50% hits over its last 10 runs | slow |
+    | A ledger past the compressed limit a run reads (ADR-0013 decision 13), or at its proof cap with under 50% hits over its last 10 runs | slow |
     | One file outside the tests that invalidated most proofs in recent runs, found by comparing the digests of each item of the key, which every proof keeps (ADR-0007 decision 3) | slow |
     | A GitHub workflow that checks out without `fetch-depth: 0` | slow: everything is reached |
     | A GitHub workflow with no `schedule`, `cache: false` on the directory store, the action pinned by tag, or `persist-credentials` left on | advice |
@@ -263,8 +263,10 @@ would have cost without them.
     | `.mutation-gate/` not in `.gitignore` | advice |
     | An `infection.json5` with `minMsi` or native ignores | advice: `init --from` (ADR-0016) |
 
-    The ledger thresholds, 25 MB compressed and 50% hits over 10 runs, are
-    recalibrated from the benchmark.
+    The size threshold is the limit ADR-0013 decision 13 sets, twice what a
+    ledger at the retention cap measures, so a ledger past it is one no run
+    reads. The hit threshold, 50% over 10 runs, is recalibrated from the
+    benchmark.
 
 ### What a run saved
 

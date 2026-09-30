@@ -19,3 +19,9 @@ it('needs no credentials to write a directory, and the access key\'s id and secr
         ->and(BuiltinStore::S3->credentials()->heldIn(Variables::of(['AWS_ACCESS_KEY_ID' => 'AKIA'])))->toBeFalse()
         ->and(BuiltinStore::S3->credentials()->heldIn(Variables::of(['AWS_SECRET_ACCESS_KEY' => 'secret'])))->toBeFalse();
 });
+
+it('reads the access key\'s id and secret, then a session token and a role, for a bucket, and nothing for a directory', function (): void {
+    expect([...BuiltinStore::S3->variables()])
+        ->toBe(['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN', 'AWS_ROLE_ARN'])
+        ->and([...BuiltinStore::Directory->variables()])->toBe([]);
+});

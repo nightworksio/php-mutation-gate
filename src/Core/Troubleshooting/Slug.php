@@ -24,7 +24,7 @@ enum Slug: string
     case MirroredPathRepository = 'mirrored-path-repository';
     case IgnoresExpiring = 'ignores-expiring';
     case TreeWithoutFloor = 'tree-without-floor';
-    case LedgerSlowsRuns = 'ledger-slows-runs';
+    case LedgerTooLarge = 'ledger-too-large';
     case CoverageRunFailed = 'coverage-run-failed';
     case CoverageEmpty = 'coverage-empty';
     case HotPathUnheld = 'hot-path-unheld';

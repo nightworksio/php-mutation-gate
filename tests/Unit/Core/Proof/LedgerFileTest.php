@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -9,6 +10,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -27,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Proof\Bases;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
@@ -254,6 +257,37 @@ it('reads a file of another format, or no ledger at all, as an empty ledger', fu
     'a gzip stream cut short' => [substr(Gzip::pack('{"format": 2, "passed": "206b4e0"}'), 0, 20)],
     'nothing' => [''],
 ]);
+
+it('says why a file holds no ledger it reads: no whole gzip stream, or another format', function (
+    string $file,
+    string $why,
+): void {
+    expect(LedgerFile::read($file, LedgerLimits::standard()))->toEqual(CannotJudge::because($why));
+})->with([
+    'the first format' => [Gzip::pack('{"format": 1, "proofs": {}}'), 'The ledger is of a format this gate does not read.'],
+    'the fourth format' => [Gzip::pack('{"format": 4, "proofs": {}}'), 'The ledger is of a format this gate does not read.'],
+    'text that is not JSON' => [Gzip::pack('{"format": 3, "passed": '), 'The ledger is of a format this gate does not read.'],
+    'not gzipped' => ['{"format": 3, "proofs": {}}', 'The ledger is not a whole gzip stream.'],
+]);
+
+it('reads a ledger of either format it reads within the limits, and says one that inflates past them is too large', function () use (
+    $ledger,
+    $written,
+): void {
+    $bytes = LedgerFile::encode($ledger);
+    $json = Gzip::unpack($bytes, 'the ledger');
+    $file = is_string($json) ? json_decode($json, associative: true) : [];
+    $second = $written(array_replace(is_array($file) ? $file : [], ['format' => 2]));
+    $inflated = is_string($json) ? strlen($json) : 0;
+
+    expect(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes), $inflated, 60.0)))->toEqual(LedgerFile::decode($bytes))
+        ->and(LedgerFile::read($second, LedgerLimits::standard()))->toEqual(LedgerFile::decode($second))
+        ->and(LedgerFile::decode($second)->proofs())->toHaveCount(count($ledger->proofs()))
+        ->and(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes), $inflated - 1, 60.0)))
+        ->toEqual(TooLarge::because(sprintf('The ledger inflates to more than %d bytes.', $inflated - 1)))
+        ->and(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes) - 1, $inflated, 60.0)))
+        ->toEqual(TooLarge::because(sprintf('it is larger than %d bytes', strlen($bytes) - 1)));
+});
 
 it('writes no commit for inputs that stand for none, and reads them back so', function () use ($run, $keyA, $base, $uncommitted): void {
     $proof = Proof::of(Digest::of($keyA), Path::of('src/Money.php'), Mutants::of(), $run('github:1/1', '2026-09-29T20:48:17Z'))

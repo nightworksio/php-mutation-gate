@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
@@ -35,10 +36,21 @@ final readonly class LocalLedgers implements ProofStore
         return new self($local, $shared);
     }
 
-    /** A scope's local ledger, and the shared store's after it. */
-    public function read(Scope $scope): Ledger
+    /**
+     * A scope's local ledger, and the shared store's after it; where one cannot be read, why, with what the other
+     * holds beside it; where neither can, why for each, the shared store's first.
+     */
+    public function read(Scope $scope): Ledger|Unreadable
     {
-        return $this->local->read($scope)->and($this->shared->read($scope));
+        $local = $this->local->read($scope);
+        $shared = $this->shared->read($scope);
+
+        return match (true) {
+            $shared instanceof Unreadable && $local instanceof Unreadable => $shared->also($local),
+            $shared instanceof Unreadable => $shared->besides($local),
+            $local instanceof Unreadable => $local->besides($shared),
+            default => $local->and($shared),
+        };
     }
 
     /** The scope's local ledger; the shared store is never written. */

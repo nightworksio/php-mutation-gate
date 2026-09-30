@@ -14,19 +14,19 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 $ledger = static fn(string $scope, int $bytes): KeptLedger => KeptLedger::of(Path::of(sprintf('.mutation-gate/ledger/%s/ledger.json.gz', $scope)), $bytes);
 
-it('finds each ledger over 25 MB compressed, which slows every run of its scope', function () use ($ledger): void {
+it('finds each ledger past the compressed limit a run reads to, which no run reads', function () use ($ledger): void {
     $observed = Observations::none()->withLedgers(KeptLedgers::of(
         $ledger('refs/heads/main', 31_240_000),
-        $ledger('refs/heads/small', 25_000_000),
-        $ledger('refs/pull/7', 25_000_001),
+        $ledger('refs/heads/small', 11_000_000),
+        $ledger('refs/pull/7', 11_000_001),
     ));
 
     expect(LedgerSize::in($observed))->toEqual(Findings::of(Finding::of(
-        Slug::LedgerSlowsRuns,
+        Slug::LedgerTooLarge,
         Severity::Slow,
-        '.mutation-gate/ledger/refs/heads/main/ledger.json.gz is 31.2 MB; .mutation-gate/ledger/refs/pull/7/ledger.json.gz is 25.0 MB, compressed.',
-        'Every run restores, decompresses and writes back its scope\'s ledger, so its size is time each run spends.',
-        'Delete the ledger of a scope that no longer runs; the next run of a live scope starts it afresh.',
+        '.mutation-gate/ledger/refs/heads/main/ledger.json.gz is 31.2 MB; .mutation-gate/ledger/refs/pull/7/ledger.json.gz is 11.0 MB, compressed.',
+        'No run reads a ledger past 11.0 MB compressed, twice one at the retention cap: this one was never trimmed.',
+        'Delete it, or the file that is not a ledger; the next run of its scope writes its ledger afresh.',
     )));
 });
 

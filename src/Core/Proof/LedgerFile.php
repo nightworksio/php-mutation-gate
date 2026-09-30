@@ -11,14 +11,17 @@ use function array_unique;
 use function array_values;
 
 use Closure;
+
+use function is_string;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Commit;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
@@ -35,7 +38,8 @@ use stdClass;
  *
  * Writing keeps what {@see LedgerRetention::standard()} keeps: the bases its
  * runs saw most recently, the proofs established at them, and the kill
- * history of their mutants and of the most recent functions. Each mutant
+ * history of their mutants and of the most recent functions; and no more
+ * than the limits a run reads to ({@see EncodedLedger}). Each mutant
  * that was not killed keeps its full record, and each killed one is
  * `[id, line, mutator, killers]`, the mutator an index into the ledger's
  * `mutators` and the killers indices into its `tests`. The `killers` section
@@ -66,6 +70,8 @@ final readonly class LedgerFile
     /** What a message calls the file. */
     private const string NAMED = 'The ledger';
 
+    private const string OTHER_FORMAT = 'The ledger is of a format this gate does not read.';
+
     private const string SECONDS = 'seconds';
 
     private const string RUNNER = 'runner';
@@ -79,9 +85,15 @@ final readonly class LedgerFile
     private const string PASSED = 'passed';
 
 
+    /** A ledger's file, within the limits a run reads to: {@see EncodedLedger::within()}. */
     public static function encode(Ledger $ledger): string
     {
-        $retention = LedgerRetention::standard();
+        return EncodedLedger::within($ledger, LedgerLimits::standard())->bytes();
+    }
+
+    /** The JSON text of what a ledger keeps under this retention, before it is gzipped. */
+    public static function text(Ledger $ledger, LedgerRetention $retention): string
+    {
         $kept = $retention->proofsOf($ledger);
         $killers = $retention->killersOf($ledger);
         $mutators = self::namesOf($kept, static fn(Mutant|ProvedKill $killed): array => [$killed->mutator()]);
@@ -101,7 +113,7 @@ final readonly class LedgerFile
         $timings = self::timings($ledger->timings());
         $passed = $ledger->lastPassed();
 
-        return Gzip::pack(JsonText::compact([
+        return JsonText::compact([
             'format' => self::FORMAT,
             self::BASES => array_map(
                 static fn(Digest $base): string => $base->value(),
@@ -118,18 +130,36 @@ final readonly class LedgerFile
                 'check' => $passed->check(),
                 'ownScopeProofs' => $passed->ownScopeProofs(),
             ]] : [],
-        ]));
+        ]);
     }
 
+    /** The ledger these bytes hold; empty where they hold none this gate reads. */
     public static function decode(string $bytes): Ledger
     {
-        $json = Gzip::unpack($bytes, self::NAMED);
-        $file = Node::decode($json instanceof CannotJudge ? '' : $json);
+        $read = self::read($bytes, LedgerLimits::standard());
 
-        if (! self::isReadable($file)) {
-            return Ledger::empty();
+        return $read instanceof Ledger ? $read : Ledger::empty();
+    }
+
+    /**
+     * The ledger these bytes hold, within the limits; or why they hold none: they are past the limit, compressed
+     * or decompressed, no whole gzip stream, or of another format. Past the compressed limit, none is inflated.
+     */
+    public static function read(string $bytes, LedgerLimits $limits): Ledger|CannotJudge|TooLarge
+    {
+        $json = $limits->inflated($bytes, self::NAMED);
+
+        if (! is_string($json)) {
+            return $json;
         }
 
+        $file = Node::decode($json);
+
+        return self::isReadable($file) ? self::ledgerIn($file) : CannotJudge::because(self::OTHER_FORMAT);
+    }
+
+    private static function ledgerIn(Node $file): Ledger
+    {
         $mutators = self::namesIn($file, self::MUTATORS);
         $tests = self::namesIn($file, self::TESTS);
         $inputs = InputsTable::read($file->field(InputsTable::SECTION));

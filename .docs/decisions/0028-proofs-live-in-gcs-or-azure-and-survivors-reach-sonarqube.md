@@ -132,9 +132,9 @@ What SonarQube documents:
      every other scope to the private container, and `publicUrl` points at the
      public one. `doctor` reports an account whose `AllowBlobPublicAccess` is
      off.
-   - A read of any other scope without credentials is refused by the cloud,
-     and reads as an empty ledger, which costs a run, never a verdict
-     (ADR-0007 decision 3).
+   - A run without credentials asks for no other scope: it reads as an
+     empty ledger, which costs a run, never a verdict (ADR-0007 decision 3,
+     ADR-0013 decision 13).
    - This amends ADR-0013 decision 13.
 
 5. **The last write wins, as on every store.** Two verdicts writing one scope

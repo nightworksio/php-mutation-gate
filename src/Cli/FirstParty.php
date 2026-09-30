@@ -44,6 +44,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\Config\KeyedStore;
+use NightWorksIO\MutationGate\Cli\Config\PublicBucket;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
@@ -193,7 +194,7 @@ final readonly class FirstParty implements Extension
         return KeyedStore::of(
             BuiltinStore::S3->credentials(),
             BucketLedger::fromOptions(...),
-            HttpClient::create(),
+            new PublicBucket(HttpClient::create())->build(...),
             Variables::of(getenv()),
         );
     }

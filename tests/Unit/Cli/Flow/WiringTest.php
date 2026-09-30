@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
+use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\FirstParty;
@@ -32,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -43,6 +45,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Symfony\Component\HttpClient\HttpClient;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -103,6 +106,28 @@ it('keeps a local run\'s proofs on the machine, and a CI run\'s in the store the
         ->and(wiredOf(Flows::settings(Proofs::directory('cache/ledger')), Variables::of([]))->proofs)
         ->toEqual(LedgerDirectory::at('cache/ledger'));
 });
+
+it('opens the store read-only for a CI job without its credentials, reading the default branch\'s scope alone', function (
+    Settings $settings,
+    string $branch,
+): void {
+    $unset = ['AWS_ACCESS_KEY_ID' => null, 'AWS_SECRET_ACCESS_KEY' => null];
+    $ci = Environment::during($unset, static fn(): Adapters => wiredOf($settings, Variables::of(['CI' => 'true'])));
+
+    expect($ci->proofs)->toEqual(
+        PublicLedger::at(HttpClient::create(), 'https://ledgers.example.com', 'mutation-gate')
+            ->onlyReading(Scope::branch($branch)),
+    );
+})->with([
+    'the branch the config names' => [
+        Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::json(), Ci::defaultBranch('trunk')),
+        'trunk',
+    ],
+    'where the CI names none, the one git names' => [
+        Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::json()),
+        'main',
+    ],
+]);
 
 it('learns costs at the seconds a line the config sets, and at the standard ones otherwise', function (): void {
     $slow = wiredOf(Flows::settings(Shards::secondsPerLine('src/Slow', 0.5)), Variables::of([]))->costs;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
+use function array_map;
+use function explode;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -11,10 +13,12 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use function preg_split;
 
 /**
- * Where a store that keeps objects by key, a bucket or a public URL over one,
- * keeps a scope's ledger: `<prefix>/<scope>/ledger.json.gz` (ADR-0007
- * decision 5), for a scope that is a branch's or a pull request's ref and
- * nothing else.
+ * Where every store keeps a scope's ledger: `<prefix>/<scope>/ledger.json.gz`
+ * (ADR-0007 decision 5), under a directory, as a bucket's key, or as a path
+ * of a public URL over the bucket, for a scope that is a branch's or a pull
+ * request's ref and nothing else. In a URL each segment is percent-encoded
+ * as S3 encodes a key, so the path names the object the key names and no
+ * branch's name walks out of its scope.
  */
 final readonly class LedgerObject
 {
@@ -31,13 +35,29 @@ final readonly class LedgerObject
         return new self($segments === false ? [] : $segments);
     }
 
-    /** The key of a scope's ledger; why there is none for a ref that is no scope. */
+    /** The key of a scope's ledger, as a bucket or a directory names it; why there is none for a ref that is none. */
     public function of(Scope $scope): string|CannotJudge
+    {
+        $segments = $this->segments($scope);
+
+        return $segments instanceof CannotJudge ? $segments : implode('/', $segments);
+    }
+
+    /** The key of a scope's ledger as a URL's path, each segment percent-encoded; why there is none. */
+    public function path(Scope $scope): string|CannotJudge
+    {
+        $segments = $this->segments($scope);
+
+        return $segments instanceof CannotJudge ? $segments : implode('/', array_map(rawurlencode(...), $segments));
+    }
+
+    /** @return list<string>|CannotJudge */
+    private function segments(Scope $scope): array|CannotJudge
     {
         $parsed = Scope::parse($scope->ref());
 
-        return $parsed instanceof CannotJudge
-            ? $parsed
-            : implode('/', [...$this->prefix, $parsed->ref(), LedgerFile::NAME]);
+        return $parsed instanceof Scope
+            ? [...$this->prefix, ...explode('/', $parsed->ref()), LedgerFile::NAME]
+            : $parsed;
     }
 }

@@ -21,16 +21,19 @@ use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Records;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
+use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Port\CostModel;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
 /**
  * The ledgers a run reads, the default branch's and its own scope's where it
- * has one of its own, and which of them it may write.
+ * has one of its own, and which of them it may write. A ledger the store
+ * could not read is judged without, and a warning says why.
  */
 final readonly class Ledgers
 {
@@ -40,6 +43,7 @@ final readonly class Ledgers
         private Access $access,
         private Ledger $defaultBranch,
         private Ledger $own,
+        private Warnings $unread,
     ) {
     }
 
@@ -49,13 +53,23 @@ final readonly class Ledgers
         $default = $standing->defaultBranch();
         $ownScope = $scope instanceof Scope && ! $scope->equals($default);
 
+        $defaultBranch = $store->read($default);
+        $own = $ownScope ? $store->read($scope) : Ledger::empty();
+
         return new self(
             $scope,
             $default,
             Access::of($scope, $default, $writing),
-            $store->read($default),
-            $ownScope ? $store->read($scope) : Ledger::empty(),
+            $defaultBranch instanceof Unreadable ? $defaultBranch->ledger() : $defaultBranch,
+            $own instanceof Unreadable ? $own->ledger() : $own,
+            self::unreadIn($defaultBranch, $own),
         );
+    }
+
+    /** A warning for each ledger the store could not read, and why. */
+    public function unread(): Warnings
+    {
+        return $this->unread;
     }
 
     public function access(): Access
@@ -150,5 +164,16 @@ final readonly class Ledgers
             $this->access->reads()->count() > 1 => $this->own->lastPassed(),
             default => $this->defaultBranch->lastPassed(),
         };
+    }
+
+    private static function unreadIn(Ledger|Unreadable ...$read): Warnings
+    {
+        $warnings = Warnings::none();
+
+        foreach ($read as $ledger) {
+            $warnings = $ledger instanceof Unreadable ? $warnings->and($ledger->said()) : $warnings;
+        }
+
+        return $warnings;
     }
 }

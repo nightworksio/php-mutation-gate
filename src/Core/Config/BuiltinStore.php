@@ -19,28 +19,26 @@ enum BuiltinStore: string
     }
 
     /**
-     * The environment variables the store reads its credentials from (ADR-0007 decision 5), and nothing else:
-     * none for a directory.
+     * The environment variables the store reads its credentials from (ADR-0007 decision 5), and nothing else,
+     * those it needs to write first: none for a directory.
      *
      * @return Listed<string>
      */
     public function variables(): Listed
     {
-        return match ($this) {
-            self::Directory => Listed::of(),
-            self::S3 => Listed::of('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN', 'AWS_ROLE_ARN'),
-        };
+        return $this->credentials()->variables();
     }
 
     /**
-     * What the store needs to write (ADR-0007 decision 5): nothing for a directory; for S3, the access key's
-     * id and secret.
+     * What the store needs to write, and reads besides (ADR-0007 decision 5): nothing for a directory; for S3,
+     * the access key's id and secret, and a session token and a role to assume where they are set.
      */
     public function credentials(): Credentials
     {
         return match ($this) {
             self::Directory => Credentials::none(),
-            self::S3 => Credentials::of('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'),
+            self::S3 => Credentials::needing('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY')
+                ->reading('AWS_SESSION_TOKEN', 'AWS_ROLE_ARN'),
         };
     }
 }

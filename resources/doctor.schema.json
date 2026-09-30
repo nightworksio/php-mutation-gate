@@ -31,7 +31,7 @@
                             "mirrored-path-repository",
                             "ignores-expiring",
                             "tree-without-floor",
-                            "ledger-slows-runs",
+                            "ledger-too-large",
                             "coverage-run-failed",
                             "coverage-empty",
                             "hot-path-unheld",

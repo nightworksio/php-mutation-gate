@@ -286,7 +286,9 @@ has to bring its result with it.
      unreadable ledger costs a run and never a verdict. A ledger of format 2
      reads as it is, its proofs recording no digests, so none of them counts
      for a unit a budget never started. A ledger of format 1, or one that is
-     not a whole gzip stream, reads as empty: a miss, never an error. A proof
+     not a whole gzip stream, is not read, and the verdict warns where it
+     is and why: a miss, never an error. A ledger not written yet reads as
+     empty, with no warning. A proof
      whose digests are not well formed is dropped. Where any mutator name or test id in those lists is not text,
      every proof whose killed mutants point into that list is dropped, since
      an index past it would point at the wrong one, and where any test id is

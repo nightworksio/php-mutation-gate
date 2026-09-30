@@ -28,8 +28,9 @@ What exists to build on:
     comments, and edits only the nodes that change.
   - `symfony/yaml` and `nette/neon` parse into plain PHP values, which hold
     no comments, so a file they write back has none.
-- **The ledger needs no migration.** A ledger of another format reads as empty,
-  which costs a run and never a verdict (ADR-0007 decision 3).
+- **The ledger needs no migration.** A ledger of another format is not read,
+  and the verdict warns so, which costs a run and never a verdict (ADR-0007
+  decision 3).
 
 ## Decision
 

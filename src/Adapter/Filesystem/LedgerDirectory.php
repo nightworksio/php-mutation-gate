@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 use FilesystemIterator;
 
 use function is_dir;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -16,12 +17,18 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\EncodedLedger;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
+use NightWorksIO\MutationGate\Core\Proof\LedgerObject;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Unreadable;
+use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\ProofStore;
@@ -39,14 +46,20 @@ use function usort;
  */
 final readonly class LedgerDirectory implements Configurable, ProofStore
 {
-    private function __construct(private ProjectPath $path)
+    private function __construct(private ProjectPath $path, private LedgerLimits $limits)
     {
     }
 
     /** The ledgers under this directory: from the project and inside it, or absolute. */
     public static function at(string $path): self
     {
-        return new self(ProjectPath::of($path));
+        return new self(ProjectPath::of($path), LedgerLimits::standard());
+    }
+
+    /** Reading and writing ledgers within these limits. */
+    public function within(LedgerLimits $limits): self
+    {
+        return new self($this->path, $limits);
     }
 
     public static function fromOptions(Options $options): self|Invalid
@@ -62,22 +75,37 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
         };
     }
 
-    public function read(Scope $scope): Ledger
+    /**
+     * The scope's ledger; an empty one where the file is not there; or why the file could not be read, or holds
+     * no ledger this gate reads.
+     */
+    public function read(Scope $scope): Ledger|Unreadable
     {
         $file = $this->fileOf($scope);
-        $contents = $file instanceof Path ? $this->path->directory()->read($file) : $file;
 
-        return $contents instanceof Contents ? LedgerFile::decode($contents->text()) : Ledger::empty();
+        if (! $file instanceof ProjectPath) {
+            return Ledger::empty();
+        }
+
+        $contents = $this->path->directory()->read($file->inside());
+
+        return match (true) {
+            $contents instanceof Missing => Ledger::empty(),
+            $contents instanceof CannotJudge
+                => Unreadable::because(UnreadReason::Refused, $file->value(), $contents->why()),
+            default => $this->decoded($contents, $file),
+        };
     }
 
     public function write(Scope $scope, Ledger $ledger): Written|NotWritten
     {
         $file = $this->fileOf($scope);
-        $written = $file instanceof Path
-            ? $this->path->directory()->write($file, Contents::of(LedgerFile::encode($ledger)))
+        $encoded = EncodedLedger::within($ledger, $this->limits);
+        $written = $file instanceof ProjectPath
+            ? $this->path->directory()->write($file->inside(), Contents::of($encoded->bytes()))
             : $file;
 
-        return $written instanceof CannotJudge ? NotWritten::because($written->why()) : $written;
+        return $written instanceof CannotJudge ? NotWritten::because($written->why()) : $encoded->written($written);
     }
 
     /** Every ledger kept here, one per scope, with its size as it is kept, compressed. */
@@ -119,12 +147,18 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     }
 
     /** Where a scope's ledger is, for a scope that is a branch's or a pull request's ref and nothing else. */
-    private function fileOf(Scope $scope): Path|CannotJudge
+    private function fileOf(Scope $scope): ProjectPath|CannotJudge
     {
-        $parsed = Scope::parse($scope->ref());
+        $key = LedgerObject::under('')->of($scope);
 
-        return $parsed instanceof Scope
-            ? $this->path->inside()->child(Path::of($parsed->ref()))->child(Path::of(LedgerFile::NAME))
-            : $parsed;
+        return is_string($key) ? $this->path->child($key) : $key;
+    }
+
+    /** The ledger a file's contents are; or why they are none this gate reads. */
+    private function decoded(Contents $contents, ProjectPath $file): Ledger|Unreadable
+    {
+        $read = LedgerFile::read($contents->text(), $this->limits);
+
+        return $read instanceof Ledger ? $read : Unreadable::notRead($file->value(), $read);
     }
 }

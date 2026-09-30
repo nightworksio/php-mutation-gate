@@ -4,45 +4,50 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Http;
 
-use function mb_strlen;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Http\Reply;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerObject;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Unreadable;
+use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
 use function rtrim;
 use function sprintf;
 
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TimeoutExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
  * A store a job without its credentials opens read-only (ADR-0013 decisions
- * 13 and 14): each ledger is read with an anonymous GET from the public URL
- * the store's options name, at `<publicUrl>/<prefix>/<scope>/ledger.json.gz`,
- * and none is written. Where no public URL is named, nothing is read either.
- * A 404 is a scope with no ledger yet; any other refusal, a request that
- * fails or outlasts a minute, or a body past 256 MiB reads as an empty
- * ledger, which costs a run and never a verdict.
+ * 13 and 14): the default branch's ledger is read with an anonymous GET from
+ * the public URL the store's options name, at
+ * `<publicUrl>/<prefix>/<scope>/ledger.json.gz`, each segment percent-encoded,
+ * and none is written. No other scope is public, so none other is asked for,
+ * and where no public URL is named, nothing is. A 404 is a scope with no
+ * ledger yet. Any other answer, a request that fails or outlasts the limits'
+ * seconds, a body past their bytes, or one that is no ledger this gate reads,
+ * is unreadable, and says why.
  */
 final readonly class PublicLedger implements ProofStore
 {
-    /** The longest one read may take, in seconds: a ledger doctor calls slow is 25 MB. */
-    private const float TIMEOUT = 60.0;
-
-    /** The most bytes a ledger is read to, where no fewer are asked for, so an answer without end cannot hold a run. */
-    private const int LARGEST = 268_435_456;
+    /** The answer for a ledger that is not there yet. */
+    private const int NOT_FOUND = 404;
 
     private const string READ_ONLY = 'read-only: no credentials; this run\'s proofs are not kept. %s';
 
-    private const string READ_FROM = 'The ledgers are read from %s.';
+    private const string READ_FROM = 'The default branch\'s ledger is read from %s.';
 
     private const string READ_NOWHERE = 'No publicUrl names where the default branch\'s ledger is read from.';
 
@@ -50,35 +55,61 @@ final readonly class PublicLedger implements ProofStore
         private HttpClientInterface $client,
         private string|NotGiven $url,
         private LedgerObject $objects,
-        private int $largest,
+        private LedgerLimits $limits,
+        private Scope|NotGiven $readable,
     ) {
     }
 
     /** Reading from this public URL, the ledgers under this prefix. */
     public static function at(HttpClientInterface $client, string $url, string $prefix): self
     {
-        return new self($client, rtrim($url, '/'), LedgerObject::under($prefix), self::LARGEST);
+        return new self(
+            $client,
+            rtrim($url, '/'),
+            LedgerObject::under($prefix),
+            LedgerLimits::standard(),
+            NotGiven::value(),
+        );
     }
 
     /** Reading nothing, as no public URL is named. */
     public static function nowhere(HttpClientInterface $client): self
     {
-        return new self($client, NotGiven::value(), LedgerObject::under(''), self::LARGEST);
+        return new self(
+            $client,
+            NotGiven::value(),
+            LedgerObject::under(''),
+            LedgerLimits::standard(),
+            NotGiven::value(),
+        );
     }
 
-    /** Reading a ledger to no more than this many bytes. */
-    public function atMost(int $bytes): self
+    /** Reading within these limits. */
+    public function within(LedgerLimits $limits): self
     {
-        return new self($this->client, $this->url, $this->objects, $bytes);
+        return clone($this, ['limits' => $limits]);
     }
 
-    public function read(Scope $scope): Ledger
+    /** Reading this scope's ledger alone, the default branch's, the only one a public URL serves. */
+    public function onlyReading(Scope $scope): self
     {
-        $key = $this->objects->of($scope);
+        return clone($this, ['readable' => $scope]);
+    }
 
-        return $this->url instanceof NotGiven || $key instanceof CannotJudge
-            ? Ledger::empty()
-            : LedgerFile::decode($this->fetched(sprintf('%s/%s', $this->url, $key)));
+    public function read(Scope $scope): Ledger|Unreadable
+    {
+        $path = $this->objects->path($scope);
+        $unread = $this->readable instanceof Scope && ! $this->readable->equals($scope);
+
+        if ($this->url instanceof NotGiven || $path instanceof CannotJudge || $unread) {
+            return Ledger::empty();
+        }
+
+        $url = sprintf('%s/%s', $this->url, $path);
+        $fetched = $this->fetched($url);
+        $read = is_string($fetched) ? LedgerFile::read($fetched, $this->limits) : $fetched;
+
+        return $read instanceof Ledger || $read instanceof Unreadable ? $read : Unreadable::notRead($url, $read);
     }
 
     /** Nothing: without credentials, no request is made, and the run says so once. */
@@ -90,35 +121,50 @@ final readonly class PublicLedger implements ProofStore
         ));
     }
 
-    /** The bytes at this URL where it answers with at most as many as a ledger is read to; none otherwise. */
-    private function fetched(string $url): string
+    /** The bytes at this URL; an empty ledger where none is there yet; or why they could not be read. */
+    private function fetched(string $url): string|Ledger|Unreadable
     {
         try {
-            $response = $this->client->request('GET', $url, ['max_duration' => self::TIMEOUT, 'max_redirects' => 0]);
+            $response = $this->client->request(
+                'GET',
+                $url,
+                ['max_duration' => $this->limits->seconds(), 'max_redirects' => 0],
+            );
+            $status = $response->getStatusCode();
 
-            $accepted = Reply::of($response->getStatusCode(), '', '')->isAccepted();
-
-            return $accepted ? $this->bodyOf($response) : '';
-        } catch (ExceptionInterface) {
-            return '';
+            return match (true) {
+                $status === self::NOT_FOUND => Ledger::empty(),
+                Reply::of($status, '', '')->isAccepted() => $this->bodyOf($response, $url),
+                default => Unreadable::because(UnreadReason::Refused, $url, sprintf('HTTP %d', $status)),
+            };
+        } catch (TimeoutExceptionInterface) {
+            return Unreadable::because(UnreadReason::TimedOut, $url, 'no answer came in time');
+        } catch (ExceptionInterface $unreached) {
+            return Unreadable::because(
+                UnreadReason::Unreachable,
+                $url,
+                Fit::line(Fit::plain($unreached->getMessage()), Reply::ANSWER),
+            );
         }
     }
 
     /**
-     * The body as it streams in, or none once it passes the most a ledger is read to, when the response, no longer
+     * The body as it streams in; or, once it passes the limit, why it is not read, when the response, no longer
      * held, stops.
      *
      * @throws ExceptionInterface
      */
-    private function bodyOf(ResponseInterface $response): string
+    private function bodyOf(ResponseInterface $response, string $url): string|Unreadable
     {
         $bytes = '';
 
         foreach ($this->client->stream($response) as $chunk) {
             $bytes .= $chunk->getContent();
 
-            if (mb_strlen($bytes, '8bit') > $this->largest) {
-                return '';
+            if (! $this->limits->admitsPacked(Bytes::length($bytes))) {
+                $response->cancel();
+
+                return Unreadable::because(UnreadReason::TooLarge, $url, $this->limits->pastPacked());
             }
         }
 

@@ -30,6 +30,18 @@ final readonly class Url implements Shape
         return new self('^https://.', 'an https:// URL');
     }
 
+    /**
+     * An `https://` base another path is added to: no user or password, which a message would repeat, and no
+     * query or fragment, which would end the path.
+     */
+    public static function base(): self
+    {
+        return new self(
+            '^https://[^/?\\x23@\\s]+(/[^?\\x23\\s]*)?$',
+            'an https:// URL with no user, query or fragment',
+        );
+    }
+
     public static function web(): self
     {
         return new self('^https?://.', 'an http:// or https:// URL');

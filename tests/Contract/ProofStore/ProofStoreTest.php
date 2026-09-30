@@ -14,18 +14,33 @@ use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Unreadable;
+use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\Bucket;
+use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
 // What every proof store answers: an empty ledger for a scope nothing wrote,
 // and back what was written to a scope, and only to it; or, for a store
-// opened read-only, why it keeps nothing. One line per implementation.
+// opened read-only, why it keeps nothing; and, for a scope whose ledger it
+// holds but cannot read, why and where. One line per implementation.
+
+const UNREADABLE_KEY = 'refs/heads/main/ledger.json.gz';
+
+/** A new directory whose main branch's ledger file holds no ledger. */
+function directoryHoldingNoLedger(): string
+{
+    $root = Scratch::directory();
+    Scratch::write($root, UNREADABLE_KEY, 'not a ledger');
+
+    return $root;
+}
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -46,8 +61,29 @@ $readOnly = [
     ),
 ];
 
+$unreadable = [
+    'the fake' => fn(): ProofStore => ProofStoreFake::unreadable(
+        Unreadable::because(UnreadReason::Malformed, 'memory:refs/heads/main', 'not a ledger'),
+    ),
+    'the directory' => fn(): ProofStore => LedgerDirectory::at(directoryHoldingNoLedger()),
+    'the bucket' => fn(): ProofStore => BucketLedger::of(
+        new Bucket()->holding(sprintf('https://ledgers.s3.eu-west-1.amazonaws.com/mutation-gate/%s', UNREADABLE_KEY), 'not a ledger')->client(),
+        'ledgers',
+        'mutation-gate',
+    ),
+    'the local ledgers' => fn(): ProofStore => LocalLedgers::of(
+        LedgerDirectory::at(directoryHoldingNoLedger()),
+        new ProofStoreFake(),
+    ),
+    'the public ledger' => fn(): ProofStore => PublicLedger::at(
+        new MockHttpClient(new MockResponse('not a ledger')),
+        'https://ledgers.example.com',
+        'mutation-gate',
+    ),
+];
+
 it('reads an empty ledger for a scope nothing wrote', function (ProofStore $store): void {
-    expect($store->read(Scope::branch('main'))->proofs())->toHaveCount(0);
+    expect(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs())->toHaveCount(0);
 })->with([...$stores, ...$readOnly]);
 
 it('reads back what was written to a scope, and only to that scope', function (ProofStore $store): void {
@@ -56,8 +92,8 @@ it('reads back what was written to a scope, and only to that scope', function (P
     $ledger = Ledger::empty()->withProof(Proof::of($key, Path::of('src/Money.php'), Mutants::none(), $run))->atBase($run->base());
 
     expect($store->write(Scope::pullRequest(12), $ledger))->toBeInstanceOf(Written::class)
-        ->and($store->read(Scope::pullRequest(12))->proofs()->has($key))->toBeTrue()
-        ->and($store->read(Scope::branch('main'))->proofs())->toHaveCount(0);
+        ->and(LedgerRead::ledger($store->read(Scope::pullRequest(12)))->proofs()->has($key))->toBeTrue()
+        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs())->toHaveCount(0);
 })->with($stores);
 
 it('says why a store opened read-only keeps nothing, and reads nothing back', function (ProofStore $store): void {
@@ -67,5 +103,12 @@ it('says why a store opened read-only keeps nothing, and reads nothing back', fu
 
     expect($written)->toBeInstanceOf(NotWritten::class)
         ->and($written instanceof NotWritten ? $written->why() : '')->not->toBe('')
-        ->and($store->read(Scope::pullRequest(12))->proofs())->toHaveCount(0);
+        ->and(LedgerRead::ledger($store->read(Scope::pullRequest(12)))->proofs())->toHaveCount(0);
 })->with($readOnly);
+
+it('says why it cannot read a ledger it holds, and judges with none of it', function (ProofStore $store): void {
+    $read = $store->read(Scope::branch('main'));
+
+    expect(LedgerRead::unread($read)[0] ?? null)->toBe(UnreadReason::Malformed)
+        ->and($read instanceof Unreadable ? $read->ledger() : null)->toEqual(Ledger::empty());
+})->with($unreadable);

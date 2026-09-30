@@ -24,3 +24,21 @@ it('keeps no ledger for a ref that is no scope', function (): void {
         '"refs/tags/v1" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.',
     ));
 });
+
+it('names a scope\'s ledger as a URL\'s path, each segment of the prefix and the ref percent-encoded', function (
+    string $prefix,
+    string $branch,
+    string $path,
+): void {
+    expect(LedgerObject::under($prefix)->path(Scope::branch($branch)))->toBe($path);
+})->with([
+    'plain segments' => ['mutation-gate', 'release/2.x', 'mutation-gate/refs/heads/release/2.x/ledger.json.gz'],
+    'a prefix to encode' => ['team ledgers/gate', 'main', 'team%20ledgers/gate/refs/heads/main/ledger.json.gz'],
+    'encoded dots' => ['', '%2e%2e/secret', 'refs/heads/%252e%252e/secret/ledger.json.gz'],
+    'a fragment\'s mark' => ['', 'main#', 'refs/heads/main%23/ledger.json.gz'],
+    'a name beyond ASCII' => ['', 'zürich', 'refs/heads/z%C3%BCrich/ledger.json.gz'],
+]);
+
+it('names no path for a ref that is no scope', function (): void {
+    expect(LedgerObject::under('mutation-gate')->path(Scope::of('refs/tags/v1')))->toBeInstanceOf(CannotJudge::class);
+});

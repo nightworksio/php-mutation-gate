@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 $said = static fn(BucketOptions|Invalid $bucket): mixed => $bucket instanceof BucketOptions
@@ -59,4 +60,24 @@ it('refuses each option that is not written as text, and nothing more', function
         ))
         ->and(BucketOptions::read(Configs::options('{"bucket": "b", "prefix": "p", "region": "r", "endpoint": 3}')))
         ->toEqual(Invalid::because(Problem::at('endpoint', 'expected text, got 3')));
+});
+
+it('names the public URL a job without credentials reads from, and none where the options name none', function () use (
+    $s3,
+): void {
+    $named = BucketOptions::read($s3('{"bucket": "ledgers", "publicUrl": "https://ledgers.example.com/pub"}'));
+    $unnamed = BucketOptions::read($s3('{"bucket": "ledgers"}'));
+
+    expect($named instanceof BucketOptions ? $named->publicUrl() : $named)->toBe('https://ledgers.example.com/pub')
+        ->and($unnamed instanceof BucketOptions ? $unnamed->publicUrl() : $unnamed)->toEqual(NotGiven::value());
+});
+
+it('refuses a public URL not written as text, besides a missing bucket', function (): void {
+    expect(BucketOptions::read(Configs::options('{"bucket": "b", "prefix": "p", "region": "r", "publicUrl": 3}')))
+        ->toEqual(Invalid::because(Problem::at('publicUrl', 'expected text, got 3')))
+        ->and(BucketOptions::read(Configs::options('{"prefix": "p", "region": "r", "publicUrl": 3}')))
+        ->toEqual(Invalid::because(
+            Problem::at('bucket', 'expected the bucket, got nothing'),
+            Problem::at('publicUrl', 'expected text, got 3'),
+        ));
 });

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_merge;
 use function array_slice;
+use function min;
 
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Order\Bound;
@@ -47,6 +48,12 @@ final readonly class LedgerRetention
     public static function standard(): self
     {
         return new self(self::BASES, self::PROOFS, self::KILLED, self::FUNCTIONS);
+    }
+
+    /** This retention, keeping no more than so many proofs, the newest. */
+    public function keepingAtMost(int $proofs): self
+    {
+        return new self($this->bases, min($proofs, $this->proofs), $this->killed, $this->functions);
     }
 
     /** The bases whose proofs a ledger keeps: the ones its runs saw most recently. */

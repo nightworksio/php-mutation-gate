@@ -6,16 +6,26 @@ namespace NightWorksIO\MutationGate\Core;
 
 use function sprintf;
 
-/** Something was written, and where it went. */
+/** Something was written, where it went, and what else the writer says of it. */
 final readonly class Written
 {
-    private function __construct(private string $where)
+    private const string WROTE = 'Wrote %s.';
+
+    private const string WROTE_NOTING = 'Wrote %s. %s';
+
+    private function __construct(private string $where, private string $note)
     {
     }
 
     public static function to(string $where): self
     {
-        return new self($where);
+        return new self($where, '');
+    }
+
+    /** Written to there, with a sentence the writer says of what it wrote. */
+    public static function noting(string $where, string $note): self
+    {
+        return new self($where, $note);
     }
 
     public function where(): string
@@ -26,6 +36,8 @@ final readonly class Written
     /** The line a command prints for it. */
     public function said(): string
     {
-        return sprintf('Wrote %s.', $this->where);
+        return $this->note === ''
+            ? sprintf(self::WROTE, $this->where)
+            : sprintf(self::WROTE_NOTING, $this->where, $this->note);
     }
 }
