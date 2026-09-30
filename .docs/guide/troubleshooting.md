@@ -82,3 +82,35 @@ Infection's own rules. The gate reads neither: floors replace `minMsi`, and
 
 Run `mutation-gate init --from=infection.json5`, naming the config, which
 writes both into a config and says how each key maps.
+
+## native-markers-refused
+
+The source or the runner's config holds a runner's own ignore marker, such as
+`@pest-mutate-ignore` or `@infection-ignore-all`, and `ignores.native` is
+`refuse`, as it is by default. A marker hides mutants with no reason and no
+end, so a run refuses it (ADR-0008, decision 4). `doctor` lists each marker
+with its file, its line and the function it is in.
+
+Replace each marker with the `ignores.entries` entry `doctor` shows for it,
+and write why no test can tell its mutants apart. To adopt the gate first and
+replace the markers later, set `ignores.native: allow`: every run then says
+how many markers hide mutants (ADR-0017, decision 7).
+
+## mirrored-path-repository
+
+A `path` repository in `composer.json` sets `"symlink": false`, and a tree
+the gate mutates is inside it. Composer copies such a package into the vendor
+directory, so the tests load the copy, and a mutant of the tree changes code
+no test runs. Every such mutant survives.
+
+Remove `"symlink": false` from that repository's `options`, or set it to
+`true`, then run `composer update` for the packages it holds.
+
+## ignores-expiring
+
+An entry of `ignores.entries` has expired, or expires within 14 days
+(ADR-0008, decision 4). An ignore lasts only as long as its reason, so it has
+an end, and its mutants count again once it passes.
+
+Check each entry's reason again. Where it still holds, move `expires` later.
+Where a test can now tell the mutants apart, remove the entry.

@@ -7,6 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Composer;
 use function array_filter;
 use function array_keys;
 use function array_values;
+
+use Closure;
+
 use function dirname;
 use function is_string;
 
@@ -23,9 +26,10 @@ use function sprintf;
 /**
  * A `composer.json`, or one package's entry in Composer's list of what it
  * installed, read for what the gate asks of it: its name, the paths its
- * autoload names, the packages it requires, its path repositories, where it
- * installs packages, and its `extra.mutation-gate` entry. What holds another shape than Composer's
- * reads as holding nothing.
+ * autoload names, the packages it requires, its path repositories and which
+ * of them it mirrors, where it installs packages, and its
+ * `extra.mutation-gate` entry. What holds another shape than Composer's reads
+ * as holding nothing.
  */
 final readonly class Manifest
 {
@@ -140,15 +144,21 @@ final readonly class Manifest
     /** The `url` of every repository of type `path`: each a directory, or a shell glob of directories. */
     public function pathRepositories(): Paths
     {
-        $urls = [];
+        return $this->pathRepositoriesThat(static fn(): bool => true);
+    }
 
-        foreach (Lenient::items($this->manifest->field('repositories')) as $repository) {
-            $url = Lenient::text($repository->field('url'));
-            $isPath = Lenient::text($repository->field('type')) === self::PATH && $url !== '';
-            $urls = $isPath ? [...$urls, Path::of($url)] : $urls;
-        }
-
-        return Paths::of(...$urls);
+    /**
+     * The `url` of every path repository whose packages Composer copies into
+     * the vendor directory, `options.symlink: false`, rather than linking to.
+     */
+    public function mirroredRepositories(): Paths
+    {
+        return $this->pathRepositoriesThat(
+            static fn(Node $repository): bool => ! Lenient::boolean(
+                $repository->field('options')->field('symlink'),
+                otherwise: true,
+            ),
+        );
     }
 
     /** Its `extra.mutation-gate` entry. */
@@ -161,6 +171,24 @@ final readonly class Manifest
     public function withoutGateEntry(): Contents
     {
         return Contents::of(GateEntry::removedFrom($this->manifest));
+    }
+
+    /**
+     * The `url` of every repository of type `path` that passes a test.
+     *
+     * @param Closure(Node): bool $passes
+     */
+    private function pathRepositoriesThat(Closure $passes): Paths
+    {
+        $urls = [];
+
+        foreach (Lenient::items($this->manifest->field('repositories')) as $repository) {
+            $url = Lenient::text($repository->field('url'));
+            $isPath = Lenient::text($repository->field('type')) === self::PATH && $url !== '';
+            $urls = $isPath && $passes($repository) ? [...$urls, Path::of($url)] : $urls;
+        }
+
+        return Paths::of(...$urls);
     }
 
     /**

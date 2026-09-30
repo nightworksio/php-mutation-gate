@@ -103,6 +103,23 @@ it('names the url of every path repository', function (): void {
         ->and(aManifest('{"repositories": {"type": "path", "url": "libs/clock"}}')->pathRepositories())->toEqual(Paths::none());
 });
 
+it('reads which path repositories copy their packages, with symlink false, rather than link them', function (): void {
+    $manifest = aManifest(<<<'JSON'
+        {
+            "repositories": [
+                {"type": "path", "url": "packages/*", "options": {"symlink": false}},
+                {"type": "path", "url": "libs/linked", "options": {"symlink": true}},
+                {"type": "path", "url": "libs/default"},
+                {"type": "path", "url": "libs/odd", "options": {"symlink": "no"}},
+                {"type": "vcs", "url": "https://github.com/acme/money", "options": {"symlink": false}},
+                {"type": "path", "url": "libs/copied", "options": {"symlink": false}}
+            ]
+        }
+        JSON);
+
+    expect($manifest->mirroredRepositories())->toEqual(Paths::of(Path::of('packages/*'), Path::of('libs/copied')));
+});
+
 it('reads its extra.mutation-gate entry, which says it as its file', function (): void {
     expect(aManifest('{"extra": {"mutation-gate": {"floor": 90}}}')->gate()->floor())->toEqual(Floor::of(90))
         ->and(aManifest('{"extra": {"mutation-gate": {"extensions": 1}}}', 'modules/billing')->gate()->extensions())

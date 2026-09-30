@@ -95,7 +95,7 @@ final readonly class Console
         $application->addCommand(ConfigSchema::command());
         $installed = $detected->installed();
         $application->addCommand(Doctor::command(
-            new Observed($project, $extensions, $effective, $detected, PhpProbe::of(PHP_BINARY, getenv())),
+            new Observed($project, $extensions, $effective, $detected, PhpProbe::of(PHP_BINARY, getenv()), $now),
             $installed instanceof Installed ? Guide::installedIn($installed) : Guide::unreleased(),
         ));
         $application->setDefaultCommand(self::DEFAULT);

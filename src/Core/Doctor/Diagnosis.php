@@ -6,7 +6,10 @@ namespace NightWorksIO\MutationGate\Core\Doctor;
 
 use NightWorksIO\MutationGate\Core\Doctor\Check\Config;
 use NightWorksIO\MutationGate\Core\Doctor\Check\CoverageDriver;
+use NightWorksIO\MutationGate\Core\Doctor\Check\IgnoresExpiring;
 use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionImport;
+use NightWorksIO\MutationGate\Core\Doctor\Check\MirroredRepository;
+use NightWorksIO\MutationGate\Core\Doctor\Check\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Opcache;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Php;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Runners;
@@ -30,7 +33,10 @@ final readonly class Diagnosis
             Runners::in($observed),
             Config::in($observed),
             TreesFound::in($observed),
+            NativeMarkers::in($observed),
+            MirroredRepository::in($observed),
             Workspace::in($observed),
+            IgnoresExpiring::in($observed),
             InfectionImport::in($observed),
         );
     }
