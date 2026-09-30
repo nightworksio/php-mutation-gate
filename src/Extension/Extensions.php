@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Registry\Entries;
+use NightWorksIO\MutationGate\Core\Registry\Entry;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Port\ChangeSource;
@@ -84,7 +85,7 @@ final readonly class Extensions
     public function withRunner(Name $name, Closure $build): self
     {
         return clone($this, [
-            'runners' => $this->runners->with($name->value(), $this->origin->name(), $build),
+            'runners' => $this->runners->with(Entry::of($name, $this->origin, $build)),
         ]);
     }
 
@@ -92,7 +93,7 @@ final readonly class Extensions
     public function withTreeSource(Name $name, Closure $build): self
     {
         return clone($this, [
-            'treeSources' => $this->treeSources->with($name->value(), $this->origin->name(), $build),
+            'treeSources' => $this->treeSources->with(Entry::of($name, $this->origin, $build)),
         ]);
     }
 
@@ -100,7 +101,7 @@ final readonly class Extensions
     public function withCostModel(Name $name, Closure $build): self
     {
         return clone($this, [
-            'costModels' => $this->costModels->with($name->value(), $this->origin->name(), $build),
+            'costModels' => $this->costModels->with(Entry::of($name, $this->origin, $build)),
         ]);
     }
 
@@ -108,7 +109,7 @@ final readonly class Extensions
     public function withProofStore(Name $name, Closure $build): self
     {
         return clone($this, [
-            'proofStores' => $this->proofStores->with($name->value(), $this->origin->name(), $build),
+            'proofStores' => $this->proofStores->with(Entry::of($name, $this->origin, $build)),
         ]);
     }
 
@@ -116,7 +117,7 @@ final readonly class Extensions
     public function withCiPlan(Name $name, Closure $build): self
     {
         return clone($this, [
-            'ciPlans' => $this->ciPlans->with($name->value(), $this->origin->name(), $build),
+            'ciPlans' => $this->ciPlans->with(Entry::of($name, $this->origin, $build)),
         ]);
     }
 
@@ -124,7 +125,7 @@ final readonly class Extensions
     public function withReporter(Name $name, Closure $build): self
     {
         return clone($this, [
-            'reporters' => $this->reporters->with($name->value(), $this->origin->name(), $build),
+            'reporters' => $this->reporters->with(Entry::of($name, $this->origin, $build)),
         ]);
     }
 
@@ -132,7 +133,7 @@ final readonly class Extensions
     public function withChangeSource(Name $name, Closure $build): self
     {
         return clone($this, [
-            'changeSources' => $this->changeSources->with($name->value(), $this->origin->name(), $build),
+            'changeSources' => $this->changeSources->with(Entry::of($name, $this->origin, $build)),
         ]);
     }
 
@@ -140,7 +141,7 @@ final readonly class Extensions
     public function withRepository(Name $name, Closure $build): self
     {
         return clone($this, [
-            'repositories' => $this->repositories->with($name->value(), $this->origin->name(), $build),
+            'repositories' => $this->repositories->with(Entry::of($name, $this->origin, $build)),
         ]);
     }
 
@@ -148,7 +149,7 @@ final readonly class Extensions
     public function withConfigLoader(Name $name, Closure $build): self
     {
         return clone($this, [
-            'configLoaders' => $this->configLoaders->with($name->value(), $this->origin->name(), $build),
+            'configLoaders' => $this->configLoaders->with(Entry::of($name, $this->origin, $build)),
         ]);
     }
 
@@ -156,7 +157,7 @@ final readonly class Extensions
     public function withPreset(Name $name, Layer $fragment): self
     {
         return clone($this, [
-            'presets' => $this->presets->with($name->value(), $this->origin->name(), $fragment),
+            'presets' => $this->presets->with(Entry::of($name, $this->origin, $fragment)),
         ]);
     }
 
@@ -222,6 +223,6 @@ final readonly class Extensions
             ExtensionPoint::Preset => $this->presets,
         };
 
-        return $entries->find($name->value());
+        return $entries->find($name);
     }
 }

@@ -10,6 +10,8 @@ use function array_map;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Definition\Nearest;
+use NightWorksIO\MutationGate\Core\Config\Definition\NothingNear;
+use NightWorksIO\MutationGate\Core\Config\Name;
 
 use function sprintf;
 
@@ -22,9 +24,7 @@ use function sprintf;
  */
 final readonly class Entries
 {
-    /**
-     * @param array<string, array{origin: string, entry: T}> $entries by name
-     */
+    /** @param array<string, Entry<T>> $entries by name */
     public function __construct(private ExtensionPoint $point, private array $entries = [])
     {
     }
@@ -32,25 +32,23 @@ final readonly class Entries
     /**
      * @template U of object
      *
-     * @param  U         $entry
+     * @param  Entry<U>  $entry
      * @return self<T|U>
      */
-    public function with(string $name, string $origin, object $entry): self
+    public function with(Entry $entry): self
     {
         $entries = $this->entries;
-        $entries[$name] = ['origin' => $origin, 'entry' => $entry];
+        $entries[$entry->name()->value()] = $entry;
 
         return new self($this->point, $entries);
     }
 
     /** @return T|CannotJudge */
-    public function find(string $name): object
+    public function find(Name $name): object
     {
-        return array_key_exists($name, $this->entries)
-            ? $this->entries[$name]['entry']
-            : CannotJudge::because(
-                sprintf('No %s is registered as "%s".%s', $this->point->value, $name, $this->nearest($name)),
-            );
+        return array_key_exists($name->value(), $this->entries)
+            ? $this->entries[$name->value()]->value()
+            : CannotJudge::because($this->missing($name->value()));
     }
 
     /**
@@ -72,8 +70,8 @@ final readonly class Entries
                     'Two packages register a %s named "%s": %s and %s.',
                     $this->point->value,
                     $name,
-                    $this->entries[$name]['origin'],
-                    $theirs['origin'],
+                    $this->entries[$name]->origin()->name(),
+                    $theirs->origin()->name(),
                 );
             }
         }
@@ -94,11 +92,12 @@ final readonly class Entries
         return new self($this->point, [...$this->entries, ...$other->entries]);
     }
 
-    /** A registered name a missing one was most likely meant to be, said as a question, or nothing. */
-    private function nearest(string $name): string
+    /** That nothing is registered under a name, and the registered name it was most likely meant to be. */
+    private function missing(string $name): string
     {
+        $missing = sprintf('No %s is registered as "%s".', $this->point->value, $name);
         $nearest = Nearest::to($name, array_map(strval(...), array_keys($this->entries)));
 
-        return $nearest === '' ? '' : sprintf(' Did you mean "%s"?', $nearest);
+        return $nearest instanceof NothingNear ? $missing : sprintf('%s Did you mean "%s"?', $missing, $nearest);
     }
 }
