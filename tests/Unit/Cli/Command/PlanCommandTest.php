@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
+use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
+use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Port\CiPlan;
@@ -43,19 +47,36 @@ it('writes the plan, hands it to the CI, and hands each shard its map', function
     $written = PlanFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/plan.json', $project)));
 
     expect($planned->code)->toBe(0)
-        ->and($planned->output)->toBe("Wrote .mutation-gate/plan.json, with 2 shards.\n")
-        ->and($planned->errors)->toBe('')
+        ->and($planned->output)->toBe('')
+        ->and($planned->errors)->toBe("Wrote .mutation-gate/plan.json, with 2 shards.\n")
         ->and($written)->toBeInstanceOf(Plan::class)
         ->and($ci->published)->toEqual([$written])
         ->and($written instanceof Plan ? count($written) : $written)->toBe(2)
         ->and(is_file(sprintf('%s/.mutation-gate/coverage/shard-2/map.json.gz', $project)))->toBeTrue();
 });
 
+it('leaves standard output to the plan a CI reads from it, and says what it wrote on standard error', function (
+    CiPlan $printing,
+) use ($plan): void {
+    ob_start();
+    $planned = $plan(FlowCommands::project(), '--shards=2', ScriptedRunner::fixture()->named('pest'), $printing);
+    $stdout = sprintf('%s%s', ob_get_clean(), $planned->output);
+
+    expect($planned->code)->toBe(0)
+        ->and($stdout)->not->toBe('')
+        ->and(json_validate($stdout))->toBeTrue()
+        ->and($planned->errors)->toStartWith("Wrote .mutation-gate/plan.json, with 2 shards.\n");
+})->with([
+    'json' => [JsonPlan::printing('php://output', Variables::of([]))],
+    'circleci' => [CircleCiPlan::printing('php://output', Variables::of([]))],
+    'buildkite' => [BuildkitePlan::printing('php://output', [], Variables::of([]))],
+]);
+
 it('cuts shards by the config\'s size where no count is asked for', function () use ($plan): void {
     $planned = $plan(FlowCommands::project(), '', ScriptedRunner::fixture(), Flows::ci());
 
     expect($planned->code)->toBe(0)
-        ->and($planned->output)->toBe("Wrote .mutation-gate/plan.json, with 1 shards.\n");
+        ->and($planned->errors)->toBe("Wrote .mutation-gate/plan.json, with 1 shards.\n");
 });
 
 it('cannot plan with a config it cannot read', function () use ($plan): void {
@@ -117,7 +138,7 @@ it('says each shard pays a full opening run where Pest runs sharded without the 
     $planned = $plan(FlowCommands::project(), '--shards=2', ScriptedRunner::fixture()->named('pest'), Flows::ci());
 
     expect($planned->code)->toBe(0)
-        ->and($planned->output)->toBe(sprintf("Wrote .mutation-gate/plan.json, with 2 shards.\n%s", $unpatched(2)));
+        ->and($planned->errors)->toBe(sprintf("Wrote .mutation-gate/plan.json, with 2 shards.\n%s", $unpatched(2)));
 });
 
 it('says nothing of the patch where it is on, the plan has one shard, or the runner is not Pest', function (
@@ -127,7 +148,7 @@ it('says nothing of the patch where it is on, the plan has one shard, or the run
 ) use ($plan): void {
     $planned = $plan(FlowCommands::project($config), sprintf('--shards=%s', $shards), $runner, Flows::ci());
 
-    expect($planned->output)->toBe(sprintf("Wrote .mutation-gate/plan.json, with %s shards.\n", $shards));
+    expect($planned->errors)->toBe(sprintf("Wrote .mutation-gate/plan.json, with %s shards.\n", $shards));
 })->with([
     'the patch on' => ['"pest": {"patch": true}', '2', ScriptedRunner::fixture()->named('pest')],
     'one shard' => ['', '1', ScriptedRunner::fixture()->named('pest')],
