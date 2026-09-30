@@ -7,12 +7,14 @@ use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -171,4 +173,18 @@ it('takes a class in the global namespace by its leading backslash, and a word w
         ))
         ->and($classes()->runner(Choice::of('arrayobjects', Configs::options('{}'))))
         ->toEqual(CannotJudge::because('No runner is registered as "arrayobjects".'));
+});
+
+it('withholds every registered CI plan\'s credentials that builds, whichever plan the config names', function () use (
+    $registry,
+): void {
+    $chosen = new Chosen($registry()->withCiPlan(
+        Name::of('broken'),
+        static fn(): Invalid => Invalid::because(Problem::at('template', 'expected a path')),
+    ));
+    $unbuilt = Configs::settings(['runner' => 'pest', 'ci' => ['plan' => '\Acme\NoPlan']])->ci();
+
+    expect([...$chosen->withheld(Ci::none(), Withheld::of('DEPLOY_*'))])
+        ->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN', 'DEPLOY_*'])
+        ->and([...$chosen->withheld($unbuilt, Withheld::nothing())])->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN']);
 });

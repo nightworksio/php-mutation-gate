@@ -11,6 +11,7 @@ use function implode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Registry\Entries;
@@ -211,7 +212,25 @@ final readonly class Extensions
      */
     public function registered(ExtensionPoint $point, Name $name): Closure|Layer|CannotJudge
     {
-        $entries = match ($point) {
+        return $this->entries($point)->find($name);
+    }
+
+    /**
+     * The name of everything registered at this extension point, in the order it was registered.
+     *
+     * @internal extensions register; only the command line looks up
+     *
+     * @return Listed<Name>
+     */
+    public function names(ExtensionPoint $point): Listed
+    {
+        return $this->entries($point)->names();
+    }
+
+    /** @return Entries<Closure|Layer> */
+    private function entries(ExtensionPoint $point): Entries
+    {
+        return match ($point) {
             ExtensionPoint::Runner => $this->runners,
             ExtensionPoint::TreeSource => $this->treeSources,
             ExtensionPoint::CostModel => $this->costModels,
@@ -223,7 +242,5 @@ final readonly class Extensions
             ExtensionPoint::ConfigLoader => $this->configLoaders,
             ExtensionPoint::Preset => $this->presets,
         };
-
-        return $entries->find($name);
     }
 }

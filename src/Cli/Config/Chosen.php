@@ -16,11 +16,14 @@ use LogicException;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -64,6 +67,30 @@ final readonly class Chosen
     public function ciPlan(Choice $choice): CiPlan|Invalid|CannotJudge
     {
         return $this->built('ci.plan', CiPlan::class, $choice, Lookup::in($this->extensions)->ciPlan(...));
+    }
+
+    /**
+     * What no process the gate starts may see: every run's credentials, what the runner withholds, and the
+     * credentials of every CI plan registered and of the one `ci.plan` names, whichever the job runs on, each
+     * built with the options the `ci` settings give it. A plan that does not build withholds nothing of its own,
+     * and every other still withholds.
+     */
+    public function withheld(Ci $ci, Withheld $runner): Withheld
+    {
+        $named = $ci->plan();
+        $choices = [];
+        $withheld = [];
+
+        foreach ($this->extensions->names(ExtensionPoint::CiPlan) as $name) {
+            $choices[] = Choice::of($name->value(), $ci->planOptions($name));
+        }
+
+        foreach ($named instanceof Choice ? [...$choices, $named] : $choices as $choice) {
+            $plan = $this->ciPlan($choice);
+            $withheld[] = $plan instanceof CiPlan ? $plan->withheld() : Withheld::nothing();
+        }
+
+        return Withheld::composed($runner, ...$withheld);
     }
 
     /** The reporter of the `reports` entry at this index. */
