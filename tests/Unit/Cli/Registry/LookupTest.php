@@ -5,20 +5,21 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
-use NightWorksIO\MutationGate\Tests\Support\RegisteredKind;
+use NightWorksIO\MutationGate\Tests\Support\Registering;
 
-it('refuses what a registration built that is not the kind it was registered as', function (RegisteredKind $kind): void {
-    $registry = $kind->register(new Extensions(Origin::of('acme/gate')), static fn(): object => new stdClass());
+it('refuses what a registration built that is not what its extension point takes', function (ExtensionPoint $point): void {
+    $registry = Registering::registerMisbuilt($point, Name::of('it'), new Extensions(Origin::of('acme/gate')), static fn(): object => new stdClass());
 
-    expect($kind->lookUp($registry, Options::none()))->toEqual(CannotJudge::because(sprintf(
+    expect(Registering::lookUp($point, $registry, Options::none()))->toEqual(CannotJudge::because(sprintf(
         'The %1$s registered as "it" built something that is not a %1$s.',
-        $kind->value,
+        $point->value,
     )));
-})->with(RegisteredKind::cases());
+})->with(Registering::adapterPoints());
 
 it('builds each registration anew from the options it is given', function (): void {
     $registry = new Extensions(Origin::of('acme/gate'))

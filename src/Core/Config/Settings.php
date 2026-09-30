@@ -93,11 +93,7 @@ final readonly class Settings
                 $read->fields('tests')->object('order', TestOrder::class),
                 $read->fields('equivalence')->bool('static'),
             ),
-            new Ignores(
-                Listed::of($read->fields('ignores')->objects('entries', Ignored::class)),
-                $read->fields('ignores')->has('maxDays') ? $read->fields('ignores')->int('maxDays') : Absent::setting(),
-                $read->fields('ignores')->object('native', NativeMarkers::class),
-            ),
+            $read->object('ignores', Ignores::class),
             Listed::of($read->objects('reports', Report::class)),
             $read->fields('badge')->object('colors', Table::class),
             new Pest($read->fields('pest')->bool('patch'), Group::named($read->fields('pest')->string('canary'))),

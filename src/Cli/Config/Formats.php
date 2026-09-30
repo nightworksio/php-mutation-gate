@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Config;
 
-use function array_key_exists;
-
 use Closure;
 use Nette\Neon\Neon;
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
@@ -13,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -33,42 +32,37 @@ use Symfony\Component\Yaml\Yaml;
  */
 final readonly class Formats
 {
-    /** The formats that need a library, with what they are called and the package that reads them. */
-    private const array OPTIONAL = [
-        'yaml' => ['YAML', 'symfony/yaml'],
-        'neon' => ['NEON', 'nette/neon'],
-    ];
-
     /** @param Closure(class-string): bool $installed whether a library's class can be loaded */
     public function __construct(private Closure $installed)
     {
     }
 
-    /** The format a config file is written in, named by its extension; `.yml` is YAML. */
-    public static function of(Path $file): string
+    /** The format `--format` names. */
+    public static function chosen(string $given): Format|CannotJudge
     {
-        $extension = pathinfo($file->value(), PATHINFO_EXTENSION);
-
-        return $extension === 'yml' ? 'yaml' : $extension;
+        return Format::tryFrom($given)
+            ?? CannotJudge::because(sprintf('--format is php, json, yaml or neon, not "%s".', $given));
     }
 
     /** The loader that reads a config file, or what to install to read it. */
     public static function loader(Extensions $extensions, Path $file): ConfigLoader|CannotJudge
     {
-        $format = self::of($file);
-        $loader = Lookup::in($extensions)->configLoader(Name::of($format), Options::none());
+        $extension = pathinfo($file->value(), PATHINFO_EXTENSION);
+        $format = Format::fromExtension($extension);
+        $name = $format instanceof Format ? $format->value : $extension;
+        $loader = Lookup::in($extensions)->configLoader(Name::of($name), Options::none());
 
         return match (true) {
             $loader instanceof ConfigLoader => $loader,
             $loader instanceof Invalid => CannotJudge::because(
-                sprintf('The %s config loader needs options, and nothing can give it any.', $format),
+                sprintf('The %s config loader needs options, and nothing can give it any.', $name),
             ),
-            array_key_exists($format, self::OPTIONAL) => CannotJudge::because(sprintf(
+            $format instanceof Format && $format->isSuggested() => CannotJudge::because(sprintf(
                 '%s is %s, which needs %s to be read. Install it: composer require --dev %s',
                 $file->value(),
-                self::OPTIONAL[$format][0],
-                self::OPTIONAL[$format][1],
-                self::OPTIONAL[$format][1],
+                $format->title(),
+                $format->package(),
+                $format->package(),
             )),
             default => CannotJudge::because(sprintf(
                 'No config loader reads %s. Name a mutation-gate.php, .json, .yaml, .yml or .neon file.',
@@ -77,26 +71,28 @@ final readonly class Formats
         };
     }
 
-    /** A config written out as a person reads it: `php`, `json`, `yaml` or `neon`. */
-    public function render(Document $document, string $format): string|CannotJudge
+    /** A config written out as a person reads it. */
+    public function render(Document $document, Format $format): string|CannotJudge
     {
         return match ($format) {
-            'json' => sprintf("%s\n", $document->json()),
-            'php' => Php::render($document),
-            'yaml' => ($this->installed)(Yaml::class) ? new YamlConfig()->render($document) : $this->needs('yaml'),
-            'neon' => ($this->installed)(Neon::class) ? new NeonConfig()->render($document) : $this->needs('neon'),
-            default => CannotJudge::because(sprintf('--format is php, json, yaml or neon, not "%s".', $format)),
+            Format::Json => sprintf("%s\n", $document->json()),
+            Format::Php => Php::render($document),
+            Format::Yaml => ($this->installed)(Yaml::class)
+                ? new YamlConfig()->render($document)
+                : $this->needs($format),
+            Format::Neon => ($this->installed)(Neon::class)
+                ? new NeonConfig()->render($document)
+                : $this->needs($format),
         };
     }
 
-    /** @param 'yaml'|'neon' $format */
-    private function needs(string $format): CannotJudge
+    private function needs(Format $format): CannotJudge
     {
         return CannotJudge::because(sprintf(
             '--format=%s needs %s. Install it: composer require --dev %s',
-            $format,
-            self::OPTIONAL[$format][1],
-            self::OPTIONAL[$format][1],
+            $format->value,
+            $format->package(),
+            $format->package(),
         ));
     }
 }

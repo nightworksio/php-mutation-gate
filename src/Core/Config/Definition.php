@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use DateTimeImmutable;
 use NightWorksIO\MutationGate\Core\Config\Definition\Adapter;
 use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Definition\Date;
@@ -28,6 +29,8 @@ use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Config\Definition\Text;
 use NightWorksIO\MutationGate\Core\Config\Definition\Unchecked;
 use NightWorksIO\MutationGate\Core\Config\Definition\Url;
+use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
+use NightWorksIO\MutationGate\Core\Hold\HotPaths;
 
 use function sprintf;
 
@@ -56,16 +59,10 @@ final readonly class Definition
     /** The floor new code is held to (ADR-0003). */
     private const int NEW_CODE_FLOOR = 100;
 
-    /** The share of the suite past which code nothing holds is warned about (ADR-0005). */
-    private const float HOT_PATH = 0.8;
-
     /** The seconds of work one shard is cut to, and the most shards a plan cuts (ADR-0006). */
     private const int SHARD_SECONDS = 600;
 
     private const int MOST_SHARDS = 20;
-
-    /** The seconds a line of code costs to mutate before any are measured (ADR-0006). */
-    private const float SECONDS_PER_LINE = 0.2;
 
     /** The seconds a mutant may run, and how many timed-out mutants are run again (ADR-0008). */
     private const int TIMEOUT_SECONDS = 10;
@@ -78,8 +75,11 @@ final readonly class Definition
     /** The widest a percentage goes. */
     private const int WHOLE = 100;
 
-    /** @return Section<Fields> */
-    public static function config(): Section
+    /**
+     * @param  DateTimeImmutable|Absent $now the instant `ignores.maxDays` counts from, or none, to describe a config
+     * @return Section<Fields>
+     */
+    public static function config(DateTimeImmutable|Absent $now): Section
     {
         $results = Effect::AffectsResults;
         $judges = Effect::JudgesOrReportsOnly;
@@ -108,12 +108,22 @@ final readonly class Definition
                     Field::setting('floor', Percent::floor(), $judges, self::NEW_CODE_FLOOR),
                 ),
             ),
-            Field::setting('uncovered', Enumerated::of(UncoveredMutants::cases()), $judges, 'count'),
+            Field::setting(
+                'uncovered',
+                Enumerated::of(UncoveredMutants::cases()),
+                $judges,
+                UncoveredMutants::Count->value,
+            ),
             Field::section(
                 'baseline',
                 Section::fields(
                     Field::setting('path', Location::path(), $judges, 'mutation-gate.baseline.json'),
-                    Field::setting('improvement', Enumerated::of(Improvement::cases()), $judges, 'require'),
+                    Field::setting(
+                        'improvement',
+                        Enumerated::of(Improvement::cases()),
+                        $judges,
+                        Improvement::Require->value,
+                    ),
                 ),
             ),
             Field::setting('packages', Items::of(Text::of('a glob')), $results, []),
@@ -126,7 +136,7 @@ final readonly class Definition
             Field::section(
                 'holds',
                 Section::fields(
-                    Field::setting('hotPath', Number::between(0, 1), $judges, self::HOT_PATH),
+                    Field::setting('hotPath', Number::between(0, 1), $judges, HotPaths::standard()->share()),
                 ),
             ),
             Field::section(
@@ -145,7 +155,7 @@ final readonly class Definition
                         'secondsPerLine',
                         NumberMap::of(Number::atLeast(0)),
                         $judges,
-                        ['' => self::SECONDS_PER_LINE],
+                        SecondsPerLine::standard()->written(),
                     ),
                     Field::optional(
                         'perRunnerMinute',
@@ -164,14 +174,14 @@ final readonly class Definition
                 Section::fields(
                     Field::setting('store', Adapter::choosing(self::stores()), $judges, 'directory'),
                     Field::setting('ignore', Items::of(Text::of('a glob')), $judges, []),
-                    Field::setting('write', Enumerated::of(ProofWriting::cases()), $judges, 'auto'),
+                    Field::setting('write', Enumerated::of(ProofWriting::cases()), $judges, ProofWriting::Auto->value),
                 ),
             ),
             Field::optional('budget', Duration::written(), $judges),
             Field::section(
                 'timeouts',
                 Section::fields(
-                    Field::setting('mode', Enumerated::of(TimeoutMode::cases()), $judges, 'confirm'),
+                    Field::setting('mode', Enumerated::of(TimeoutMode::cases()), $judges, TimeoutMode::Confirm->value),
                     Field::setting('seconds', Integer::atLeast(1), $results, self::TIMEOUT_SECONDS),
                     Field::setting('retries', Integer::atLeast(0), $results, self::TIMEOUT_RETRIES),
                 ),
@@ -185,10 +195,15 @@ final readonly class Definition
             Field::section(
                 'tests',
                 Section::fields(
-                    Field::setting('order', Enumerated::of(TestOrder::cases()), $results, 'killers-first'),
+                    Field::setting(
+                        'order',
+                        Enumerated::of(TestOrder::cases()),
+                        $results,
+                        TestOrder::KillersFirst->value,
+                    ),
                 ),
             ),
-            Field::section('ignores', self::ignores()),
+            Field::section('ignores', self::ignores($now)),
             Field::section(
                 'equivalence',
                 Section::fields(Field::setting('static', Flag::boolean(), $judges, default: true)),
@@ -235,14 +250,14 @@ final readonly class Definition
             '$id' => self::PUBLISHED,
             'title' => 'mutation-gate',
             'description' => 'The config of nightworksio/mutation-gate: mutation-gate.json, .yaml, .yml or .neon.',
-            ...self::config()->schema(),
+            ...self::config(Absent::setting())->schema(),
         ]);
     }
 
     /** @return array<string, Effect> every setting, by its path, with what it can change */
     public static function effects(): array
     {
-        return self::config()->settings();
+        return self::config(Absent::setting())->settings();
     }
 
     /** @return Section<Fields> */
@@ -263,8 +278,8 @@ final readonly class Definition
         );
     }
 
-    /** @return Section<Fields> */
-    private static function ignores(): Section
+    /** @return Section<Ignores> */
+    private static function ignores(DateTimeImmutable|Absent $now): Section
     {
         $judges = Effect::JudgesOrReportsOnly;
         $entry = Section::of(
@@ -276,10 +291,11 @@ final readonly class Definition
             Field::optional('expires', Date::written(), $judges),
         )->oneOf([['mutant'], ['path', 'mutator']]);
 
-        return Section::fields(
+        return Section::of(
+            Ignores::read($now),
             Field::setting('entries', Items::of($entry), $judges, []),
             Field::optional('maxDays', Integer::atLeast(1), $judges),
-            Field::setting('native', Enumerated::of(NativeMarkers::cases()), $judges, 'refuse'),
+            Field::setting('native', Enumerated::of(NativeMarkers::cases()), $judges, NativeMarkers::Refuse->value),
         );
     }
 

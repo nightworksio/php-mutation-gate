@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Definition\Json;
 use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -70,7 +71,7 @@ final readonly class Init
                 'format',
                 mode: InputOption::VALUE_REQUIRED,
                 description: 'php, json, yaml or neon',
-                default: 'php',
+                default: Format::Php->value,
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use (
                 $project,
@@ -81,6 +82,11 @@ final readonly class Init
                 $format = $input->getOption('format');
                 $given = Given::from($input);
                 $destination = Destination::of($project, $given->config, is_string($format) ? $format : '');
+
+                if ($destination instanceof CannotJudge) {
+                    return Failed::because($output, $destination);
+                }
+
                 $existing = $destination->existing();
                 $settings = $existing instanceof Absent
                     ? $effective->settings($given->withoutConfig())
@@ -137,7 +143,7 @@ final readonly class Init
         return $trees instanceof Trees ? self::document($settings, $trees, $destination->format()) : $trees;
     }
 
-    private static function document(Settings $settings, Trees $trees, string $format): Document|CannotJudge
+    private static function document(Settings $settings, Trees $trees, Format $format): Document|CannotJudge
     {
         $presets = [...$settings->presets()];
         $config = [
@@ -146,7 +152,9 @@ final readonly class Init
             'trees' => array_map(self::tree(...), [...$trees]),
         ];
 
-        return Document::ofJson(Json::pretty($format === 'json' ? ['$schema' => self::SCHEMA, ...$config] : $config));
+        $written = $format === Format::Json ? ['$schema' => self::SCHEMA, ...$config] : $config;
+
+        return Document::ofJson(Json::pretty($written));
     }
 
     /** @return array<string, mixed> a tree as `trees` lists it, with the floor of 0 an exclusion gives it */

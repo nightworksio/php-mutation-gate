@@ -47,6 +47,12 @@ final readonly class HotPaths
         return new self($share);
     }
 
+    /** The share of the suite's tests that makes a file hot, as `holds.hotPath` writes it. */
+    public function share(): float
+    {
+        return $this->share;
+    }
+
     /** A warning for each file the suite's map says this share of its tests run, where no held unit holds it. */
     public function in(CoverageMap $suite, Units $held): Warnings
     {

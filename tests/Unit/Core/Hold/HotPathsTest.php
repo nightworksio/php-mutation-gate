@@ -68,3 +68,8 @@ it('takes the share of the suite that makes a file hot', function (): void {
         '`src/Kernel.php` is run by 20 of 40 tests and nothing holds it; each of its mutants runs most of the suite.',
     )));
 });
+
+it('writes its share as holds.hotPath does', function (): void {
+    expect(HotPaths::standard()->share())->toBe(0.8)
+        ->and(HotPaths::atShare(0.5)->share())->toBe(0.5);
+});

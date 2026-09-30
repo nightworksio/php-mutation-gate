@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -24,16 +25,10 @@ $registry = static fn(bool $installed): Extensions => Registered::config(
     static fn(): bool => $installed,
 );
 
-it('names the format of a config file by its extension', function (string $file, string $format): void {
-    expect(Formats::of(Path::of($file)))->toBe($format);
-})->with([
-    ['mutation-gate.php', 'php'],
-    ['mutation-gate.json', 'json'],
-    ['mutation-gate.yaml', 'yaml'],
-    ['mutation-gate.yml', 'yaml'],
-    ['ci/gate.neon', 'neon'],
-    ['gate', ''],
-]);
+it('takes the format --format names', function (): void {
+    expect(Formats::chosen('yaml'))->toBe(Format::Yaml)
+        ->and(Formats::chosen('yml'))->toEqual(CannotJudge::because('--format is php, json, yaml or neon, not "yml".'));
+});
 
 it('finds the loader registered for a config file\'s format', function () use ($registry): void {
     expect(Formats::loader($registry(installed: true), Path::of('mutation-gate.json')))->toEqual(new JsonConfig())
@@ -61,6 +56,14 @@ it('cannot judge a config file in no format a loader reads', function () use ($r
     ));
 });
 
+it('cannot judge a PHP or JSON file where no loader is registered', function (): void {
+    expect(Formats::loader(new Extensions(Origin::of('acme/gate')), Path::of('gate.json')))->toEqual(
+        CannotJudge::because(
+            'No config loader reads gate.json. Name a mutation-gate.php, .json, .yaml, .yml or .neon file.',
+        ),
+    );
+});
+
 it('cannot judge with a loader that will not be built without options', function (): void {
     $registry = new Extensions(Origin::of('acme/gate'))->withConfigLoader(
         Name::of('toml'),
@@ -76,10 +79,10 @@ it('writes a config in each format', function (): void {
     $formats = new Formats(static fn(): bool => true);
     $document = Configs::document("{\n    \"runner\": \"pest\"\n}");
 
-    expect($formats->render($document, 'json'))->toBe("{\n    \"runner\": \"pest\"\n}\n")
-        ->and($formats->render($document, 'yaml'))->toBe("runner: pest\n")
-        ->and($formats->render($document, 'neon'))->toBe("runner: pest\n")
-        ->and($formats->render($document, 'php'))->toBe(<<<'PHP'
+    expect($formats->render($document, Format::Json))->toBe("{\n    \"runner\": \"pest\"\n}\n")
+        ->and($formats->render($document, Format::Yaml))->toBe("runner: pest\n")
+        ->and($formats->render($document, Format::Neon))->toBe("runner: pest\n")
+        ->and($formats->render($document, Format::Php))->toBe(<<<'PHP'
             <?php
 
             declare(strict_types=1);
@@ -93,13 +96,13 @@ it('writes a config in each format', function (): void {
             PHP);
 });
 
-it('says what to install to write YAML or NEON', function (string $format, string $package): void {
+it('says what to install to write YAML or NEON', function (Format $format, string $package): void {
     expect(new Formats(static fn(): bool => false)->render(Configs::document('{}'), $format))->toEqual(
         CannotJudge::because(
-            sprintf('--format=%s needs %s. Install it: composer require --dev %s', $format, $package, $package),
+            sprintf('--format=%s needs %s. Install it: composer require --dev %s', $format->value, $package, $package),
         ),
     );
-})->with([['yaml', 'symfony/yaml'], ['neon', 'nette/neon']]);
+})->with([[Format::Yaml, 'symfony/yaml'], [Format::Neon, 'nette/neon']]);
 
 it('asks the installed check about the library each format needs', function (): void {
     $asked = new ArrayObject();
@@ -108,23 +111,18 @@ it('asks the installed check about the library each format needs', function (): 
 
         return false;
     });
-    $formats->render(Configs::document('{}'), 'yaml');
-    $formats->render(Configs::document('{}'), 'neon');
+    $formats->render(Configs::document('{}'), Format::Yaml);
+    $formats->render(Configs::document('{}'), Format::Neon);
 
     expect($asked->getArrayCopy())->toBe([Yaml::class, Neon::class]);
 });
 
-it('cannot write a config in a format it does not know', function (): void {
-    expect(new Formats(static fn(): bool => true)->render(Configs::document('{}'), 'toml'))
-        ->toEqual(CannotJudge::because('--format is php, json, yaml or neon, not "toml".'));
-});
-
 it('finds a loader for every format it writes', function () use ($registry): void {
     expect(array_map(
-        static fn(string $format): bool => Formats::loader(
+        static fn(Format $format): bool => Formats::loader(
             $registry(installed: true),
-            Path::of(sprintf('f.%s', $format)),
+            Path::of($format->fileName()),
         ) instanceof ConfigLoader,
-        ['php', 'json', 'yaml', 'neon'],
+        Format::cases(),
     ))->toBe([true, true, true, true]);
 });

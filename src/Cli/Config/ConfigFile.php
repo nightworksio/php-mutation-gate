@@ -12,6 +12,7 @@ use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\File\Path;
 
 use function sprintf;
@@ -24,15 +25,6 @@ use function str_starts_with;
  */
 final readonly class ConfigFile
 {
-    /** The names the gate looks for, one per format. */
-    public const array NAMES = [
-        'mutation-gate.php',
-        'mutation-gate.json',
-        'mutation-gate.yaml',
-        'mutation-gate.yml',
-        'mutation-gate.neon',
-    ];
-
     /** The file `--config` names: a path from the project, or an absolute one. */
     public static function named(string $project, string $given): Path
     {
@@ -47,7 +39,7 @@ final readonly class ConfigFile
         }
 
         $present = array_values(array_filter(
-            self::NAMES,
+            Format::fileNames(),
             static fn(string $name): bool => is_file(sprintf('%s/%s', $project, $name)),
         ));
 

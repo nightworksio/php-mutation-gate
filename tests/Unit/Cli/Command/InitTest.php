@@ -251,6 +251,17 @@ it('reads the config it wrote at --config back into what zero-config found', fun
         ->toMatchArray(['preset' => 'laravel', 'runner' => 'pest', 'trees' => [['path' => 'app', 'exclude' => []]]]);
 });
 
+it('writes nothing where the file --config names is in no format it writes', function () use ($init, $file): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
+    $ran = $init($project, ['--config' => 'ci/gate.toml', '--format' => 'json']);
+
+    expect([$ran->code, $ran->errors])->toBe([
+        2,
+        "ci/gate.toml is in no format init writes. Name a .php, .json, .yaml, .yml or .neon file.\n",
+    ])->and($file($project, 'ci/gate.toml'))->toBe('')
+        ->and($file($project, '.gitignore'))->toBe('');
+});
+
 it('writes nothing where the file --config names is already there', function () use ($init, $file): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
     Scratch::write($project, 'ci/gate.neon', "runner: pest\n");
