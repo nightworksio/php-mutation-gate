@@ -591,6 +591,8 @@ services:
                     - FULL # an option of the gate's commands
                 'NightWorksIO\MutationGate\Cli\Flow\Wiring':
                     - PLAIN # the JSON CI plan's name
+                'NightWorksIO\MutationGate\Cli\Flow\Standing':
+                    - MAIN # the project's default branch when none is configured or detected
                 'NightWorksIO\MutationGate\Core\Plan\PlanFile':
                     - BASE # a field of the plan
                     - PROVED # a field of the plan

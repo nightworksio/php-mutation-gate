@@ -13,12 +13,12 @@ use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Choice;
-use NightWorksIO\MutationGate\Core\Config\Definition\Json as ConfigJson;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\Config\Layers;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -123,14 +123,7 @@ final readonly class Wiring
         $plan = $named instanceof Choice ? $named->use() : $this->detected();
         $options = $this->ciOptions($plan, $settings);
 
-        return Choice::of(
-            $plan,
-            $named instanceof Choice
-                ? ConfigJson::encode(
-                    Layers::merged(ConfigJson::decode($options), ConfigJson::decode($named->options())),
-                )
-                : $options,
-        );
+        return Choice::of($plan, $named instanceof Choice ? $options->merged($named->options()) : $options);
     }
 
     /** The CI the environment shows: GitHub Actions, then the first other that sets its variable to `true`. */
@@ -148,17 +141,17 @@ final readonly class Wiring
     }
 
     /** The options a CI plan takes from the `ci.*` settings: GitLab's template, and Buildkite's step and pipeline. */
-    private function ciOptions(string $plan, Settings $settings): string
+    private function ciOptions(string $plan, Settings $settings): Json
     {
         $ci = $settings->ci();
 
         return match ($plan) {
-            'gitlab' => Json::compact(['template' => $ci->gitlabTemplate()->value()]),
-            'buildkite' => ConfigJson::encode([
-                'step' => ConfigJson::decode($ci->buildkiteStep()),
-                'definition' => $ci->buildkiteDefinition()->value(),
-            ]),
-            default => Options::none()->json(),
+            'gitlab' => Json::object(Member::of('template', $ci->gitlabTemplate()->value())),
+            'buildkite' => Json::object(
+                Member::of('step', $ci->buildkiteStep()),
+                Member::of('definition', $ci->buildkiteDefinition()->value()),
+            ),
+            default => Json::object(),
         };
     }
 
@@ -177,13 +170,11 @@ final readonly class Wiring
     /** The version control source's options: the check-run the verdict reports under, which GitHub's verifies. */
     private function sourceOptions(Settings $settings): Options
     {
-        return Options::ofJson(Json::encode(['check' => $settings->ci()->check()]));
+        return Options::ofJson(Json::object(Member::of('check', $settings->ci()->check()))->line());
     }
 
     private function costOptions(Settings $settings): Options
     {
-        $perLine = [...$settings->shards()->secondsPerLine()];
-
-        return $perLine === [] ? Options::none() : Options::ofJson(Json::encode(['secondsPerLine' => $perLine]));
+        return Options::ofJson(JsonText::compact(['secondsPerLine' => [...$settings->shards()->secondsPerLine()]]));
     }
 }

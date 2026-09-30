@@ -58,6 +58,7 @@ use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -73,7 +74,6 @@ use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
@@ -173,8 +173,8 @@ it('judges every tree whole, records the run, and reports it', function () use (
         ->toBe(['Wrote memory:refs/heads/main.', 'Wrote memory.'])
         ->and($recorded->reported)->toBe([$verdict])
         ->and($verdict->judgement())->toBe(Judgement::Failed)
-        ->and(count($verdict->units()))->toBe(2)
-        ->and(count($verdict->mutants()))->toBe(5)
+        ->and(count($verdict->trees()->units()))->toBe(2)
+        ->and(count($verdict->trees()->mutants()))->toBe(5)
         ->and(count($verdict->newCode()))->toBe(0)
         ->and(count($verdict->failures()))->toBe(0)
         ->and($judgement instanceof Judged ? $judgement->exitCode() : $judgement)->toBe(ExitCode::Failed)
@@ -570,7 +570,7 @@ it('takes a planned proof from the run\'s own scope where it has moved there fro
         $reporting(new ReporterFake()),
     )->verdict($plan, judgingNoResults($project));
 
-    expect($judgement instanceof Judged ? count($judgement->verdict->units()) : $judgement)->toBe(1)
+    expect($judgement instanceof Judged ? count($judgement->verdict->trees()->units()) : $judgement)->toBe(1)
         ->and($store->read(Scope::pullRequest(7))->lastPassed())
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1));
 });
@@ -701,7 +701,7 @@ it('judges flaky what a fresh result and a proof under its key disagree on, and 
         $reporting(new ReporterFake()),
     ));
     $money = array_values(array_filter(
-        [...$verdict->mutants()],
+        [...$verdict->trees()->mutants()],
         static fn(JudgedMutant $mutant): bool => $mutant->mutant()->location()->file()->value() === 'src/Money.php',
     ));
     $ledger = $store->read(Scope::branch('main'));

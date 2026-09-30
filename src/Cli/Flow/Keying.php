@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
-use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -47,20 +46,19 @@ final readonly class Keying
         CoverageMap $map,
     ): self|CannotJudge {
         $identity = $adapters->runner->identity();
-        $config = Document::ofJson($settings->canonical());
         $definitions = self::definitions($adapters);
 
-        foreach ([$identity, $config, $definitions] as $read) {
+        foreach ([$identity, $definitions] as $read) {
             if ($read instanceof CannotJudge) {
                 return $read;
             }
         }
 
-        return $identity instanceof Identity && $config instanceof Document && $definitions instanceof CiDefinitions
+        return $identity instanceof Identity && $definitions instanceof CiDefinitions
             ? new self(
                 ContentKeys::of(
                     $setup->gate,
-                    $config,
+                    $settings->canonical(),
                     $identity,
                     $setup->installed,
                     Source::of($suite->outside(), $definitions, self::exceptions($adapters, $settings, $setup)),
@@ -138,7 +136,7 @@ final readonly class Keying
     /** The directory store's `path`, where the config sets one. */
     private static function storePath(Settings $settings): Path|Absent
     {
-        $path = Node::decode($settings->proofs()->store()->options())->field('path');
+        $path = Node::decode($settings->proofs()->store()->options()->line())->field('path');
 
         try {
             return $path->isPresent() ? Path::of($path->text()) : Absent::setting();

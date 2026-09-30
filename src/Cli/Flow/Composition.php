@@ -6,10 +6,10 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use Composer\InstalledVersions;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
-use NightWorksIO\MutationGate\Cli\Config\ConfigFile;
+use NightWorksIO\MutationGate\Cli\Config\ConfigLocation;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
-use NightWorksIO\MutationGate\Cli\Config\Given;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -65,7 +65,7 @@ final readonly class Composition
 
     public function compose(InputInterface $input): Composed|Invalid|CannotJudge
     {
-        $given = Given::from($input);
+        $given = CommandLine::from($input);
         $settings = $this->effective->settings($given);
 
         if ($settings instanceof Invalid || $settings instanceof CannotJudge) {
@@ -74,8 +74,8 @@ final readonly class Composition
 
         $registry = $given->firstPartyOnly
             ? $this->extensions
-            : new Chosen($this->extensions)->withExtensions([...$settings->extensions()], 'the config file');
-        $configFile = ConfigFile::in($this->project, $given->config);
+            : new Chosen($this->extensions)->withExtensions($settings->extensions(), 'the config file');
+        $configFile = ConfigLocation::in($this->project, $given->config);
 
         return match (true) {
             $registry instanceof CannotJudge => $registry,

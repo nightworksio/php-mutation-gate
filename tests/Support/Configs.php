@@ -93,11 +93,7 @@ final readonly class Configs
     /** The settings of the config a PHP builder writes. */
     public static function built(Gate $gate): Settings
     {
-        $document = $gate->document();
-
-        return $document instanceof Document
-            ? self::settings($document->json())
-            : throw new RuntimeException($document->why());
+        return self::settings($gate->written()->line());
     }
 
     /** The config a PHP builder writes, decoded. */

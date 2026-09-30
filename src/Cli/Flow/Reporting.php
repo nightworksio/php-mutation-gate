@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function json_encode;
-use function ltrim;
-use function mb_substr;
-
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -17,11 +13,10 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Reporter;
 
-use function sprintf;
 use function str_contains;
 
 /**
@@ -71,8 +66,8 @@ final readonly class Reporting
     /** @return list<Reporter|Invalid|CannotJudge> the reporters where the run is and what it runs on choose */
     private function byTheRun(Settings $settings, RunOn $runOn): array
     {
-        $none = Options::none()->json();
-        $badge = Choice::of('badge', Json::encode(['colors' => [...$settings->badge()]]));
+        $none = Json::object();
+        $badge = Choice::of('badge', Json::object(Member::of('colors', $settings->badge()->written())));
 
         return [
             ...$this->onGitHub() ? [
@@ -109,11 +104,8 @@ final readonly class Reporting
     }
 
     /** A reporter's options, with the path its `reports` entry names, which it reads from there. */
-    private function withPath(string $options, Path $path): string
+    private function withPath(Json $options, Path $path): Json
     {
-        $rest = ltrim(mb_substr($options, 1));
-        $encoded = json_encode($path->value(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
-
-        return sprintf('{"path": %s%s%s', $encoded, $rest === '}' ? '' : ', ', $rest);
+        return Json::object(Member::of('path', $path->value()))->merged($options);
     }
 }

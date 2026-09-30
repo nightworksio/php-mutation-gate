@@ -26,10 +26,10 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
-use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
@@ -86,7 +86,9 @@ it('learns costs at the seconds a line the config sets, and at the standard ones
     $slow = wiredOf(Flows::settings(Shards::secondsPerLine('src/Slow', 0.5)), Variables::of([]))->costs;
     $unset = wiredOf(Flows::settings(), Variables::of([]))->costs;
 
-    expect($slow)->toEqual(MeasuredCosts::fromOptions(Options::ofJson('{"secondsPerLine": {"src/Slow": 0.5}}')))
+    $slowly = Options::ofJson('{"secondsPerLine": {"": 0.2, "src/Slow": 0.5}}');
+
+    expect($slow)->toEqual(MeasuredCosts::fromOptions($slowly))
         ->and($slow)->not->toEqual(MeasuredCosts::fromOptions(Options::none()))
         ->and($unset)->toEqual(MeasuredCosts::fromOptions(Options::none()));
 });

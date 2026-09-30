@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -78,11 +79,12 @@ it('builds a reporter the run chooses itself, putting its problems under what ch
     $registry,
 ): void {
     $chosen = new Chosen($registry());
+    $none = Json::object();
 
-    expect($chosen->reporterChosenBy('badge', Choice::of('it', '{}')))->toBeInstanceOf(ReporterFake::class)
-        ->and($chosen->reporterChosenBy('badge', Choice::of('picky', '{}')))
+    expect($chosen->reporterChosenBy('badge', Choice::of('it', $none)))->toBeInstanceOf(ReporterFake::class)
+        ->and($chosen->reporterChosenBy('badge', Choice::of('picky', $none)))
         ->toEqual(Invalid::because(Problem::at('badge.with.colors', 'expected a map of colours')))
-        ->and($chosen->reporterChosenBy('GITHUB_ACTIONS', Choice::of('github', '{}')))
+        ->and($chosen->reporterChosenBy('GITHUB_ACTIONS', Choice::of('github', $none)))
         ->toEqual(CannotJudge::because('No reporter is registered as "github".'));
 });
 
