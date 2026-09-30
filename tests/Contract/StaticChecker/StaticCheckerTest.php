@@ -34,7 +34,7 @@ $checkers = [
         Findings::none(),
         [
             $fixture('mutants/Money.invalid.php')->value() => Findings::of(
-                Finding::error('return.type', 'Method Acme\Money::add() should return int but returns string.'),
+                Finding::error('return.type', 'Method StaticCheckFixture\Money::add() should return int but returns string.'),
             ),
             $fixture('mutants/Money.valid.php')->value() => Findings::none(),
         ],
