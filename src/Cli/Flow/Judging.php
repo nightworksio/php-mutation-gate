@@ -9,6 +9,7 @@ use function implode;
 use function is_array;
 
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
+use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Lowering;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -54,6 +55,8 @@ use function sprintf;
 final readonly class Judging
 {
     private const string UNFLOORED = '%s has no floor yet. Run mutation-gate baseline --write and commit %s.';
+
+    private const string MEASURED = "The baseline this run measured, ready to commit as %s:\n%s";
 
     private const string VANISHED = <<<'SAID'
         The ledger no longer holds a proof the plan took, so these units cannot be judged:
@@ -118,30 +121,46 @@ final readonly class Judging
         $unfloored = Ratchet::unfloored($verdicts);
         $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));
 
-        if (count($unfloored) > 0 && $this->adapters->environment->inCi()) {
-            return CannotJudge::because(
-                Ratchet::unflooredBecause($unfloored, $this->settings->floors()->baseline())->text(),
-            );
-        }
-
         if ($committed instanceof CannotJudge) {
             return $committed;
         }
 
+        $refused = count($unfloored) > 0 && $this->adapters->environment->inCi();
         $verdict = $this->verdictOf(
             $plan,
             Lowering::against($committed, $baseline, $trees),
-            $this->missed($results->misses()),
+            $this->missed($results->misses())
+                ->and($refused ? $this->unfloored($baseline, $verdicts) : Failures::none()),
             $judge,
             $verdicts,
         );
         $ownScopeProofs = $proving->ownScopeProofs() + $carrying->ownScopeProofs();
-
         $recorded = $this->recorded($plan, $results, $ledgers, $verdict, $ownScopeProofs);
 
-        return $recorded instanceof CannotJudge
-            ? $recorded
-            : new Judged($verdict, [$recorded, ...$this->reported($verdict, $reporters)], $baseline);
+        if ($recorded instanceof CannotJudge) {
+            return $recorded;
+        }
+
+        $judged = new Judged($verdict, [$recorded, ...$this->reported($verdict, $reporters)], $baseline);
+
+        return $refused ? $judged->refusing() : $judged;
+    }
+
+    /**
+     * Why a CI run stops on trees held to no floor (ADR-0003, decision 9):
+     * each tree, and the baseline the run measured, ready to commit. The run
+     * judges, records and reports before it stops, so nothing it measured is
+     * lost.
+     */
+    private function unfloored(Baseline $baseline, TreeVerdicts $verdicts): Failures
+    {
+        $file = $this->settings->floors()->baseline();
+
+        return Ratchet::unflooredBecause(Ratchet::unfloored($verdicts), $file)->with(Failure::that(sprintf(
+            self::MEASURED,
+            $file->value(),
+            BaselineFile::encode($baseline->raisedBy($verdicts)),
+        )));
     }
 
     /**
@@ -228,7 +247,7 @@ final readonly class Judging
     {
         $warnings = new RunnerMarkers($this->adapters, $this->settings)->allowed($plan);
 
-        foreach (Ratchet::unfloored($verdicts) as $tree) {
+        foreach ($this->adapters->environment->inCi() ? [] : Ratchet::unfloored($verdicts) as $tree) {
             $warnings = $warnings->with(Warning::that(sprintf(
                 self::UNFLOORED,
                 $tree->value(),

@@ -33,3 +33,9 @@ it('says more lines after those it said, keeping the verdict and the baseline', 
         ->and($judged->verdict)->toBe($verdict)
         ->and($judged->baseline)->toBe($baseline);
 });
+
+it('cannot judge a verdict it reported and recorded but refuses, whatever it came to', function (): void {
+    expect(new Judged(Verdicts::passing(), [], Baseline::none())->refusing()->exitCode())->toBe(ExitCode::CannotJudge)
+        ->and(new Judged(Verdicts::failing(), [], Baseline::none())->refusing()->saying('x')->exitCode())
+        ->toBe(ExitCode::CannotJudge);
+});

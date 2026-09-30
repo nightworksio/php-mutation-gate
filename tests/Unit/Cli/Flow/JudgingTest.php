@@ -248,18 +248,36 @@ it('cannot judge where the ledger cannot learn what a shard cost, and reports no
         ->and($recorded->reported)->toBe([]);
 });
 
-it('stops a CI run on a tree held to no floor', function () use ($tree, $reporting, $judged): void {
+it('stops a CI run on a tree held to no floor once it reported and recorded what it measured', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $store = new ProofStoreFake();
     $judgement = $judged(
         Planned::twoShards(),
-        Flows::adapters(Flows::project(), ['CI' => 'true'], $tree(Undeclared::floor())),
+        Flows::adapters(Flows::project(), ['CI' => 'true'], $tree(Undeclared::floor()), $store),
         judgingSettings(),
         $reporting(new ReporterFake()),
     );
+    $verdict = judgingVerdictOf($judgement);
 
-    expect($judgement)->toEqual(CannotJudge::because(<<<'SAID'
-        src has no floor: no floor is declared for it, and the baseline holds none.
-        A tree is never held to no floor. Run mutation-gate baseline --write and commit mutation-gate.baseline.json.
-        SAID));
+    expect($judgement instanceof Judged ? $judgement->exitCode() : $judgement)->toBe(ExitCode::CannotJudge)
+        ->and(judgingTexts($verdict->failures()))->toBe([
+            sprintf(
+                "%s\n%s %s",
+                'src has no floor: no floor is declared for it, and the baseline holds none.',
+                'A tree is never held to no floor.',
+                'Run mutation-gate baseline --write and commit mutation-gate.baseline.json.',
+            ),
+            sprintf(
+                "The baseline this run measured, ready to commit as mutation-gate.baseline.json:\n%s",
+                BaselineFile::encode(Baseline::of(Entry::of(Path::of('src'), Floor::of(40)))),
+            ),
+        ])
+        ->and($verdict->warnings())->toHaveCount(0)
+        ->and($judgement instanceof Judged ? $judgement->said : $judgement)->toHaveCount(2)
+        ->and($store->read(Scope::branch('main'))->proofs())->toHaveCount(2);
 });
 
 it('warns of a tree held to no floor outside CI', function () use ($tree, $reporting, $judged): void {
