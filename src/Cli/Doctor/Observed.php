@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Adapter\Runtime\PhpProbe;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
+use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -120,7 +121,9 @@ final readonly class Observed
     {
         $source = new Chosen($this->extensions)->treeSource($settings->treeSource());
 
-        return $source instanceof Invalid || $source instanceof CannotJudge ? $source : $source->trees();
+        return $source instanceof Invalid || $source instanceof CannotJudge
+            ? $source
+            : new DeclaredTrees($source, $settings->floors()->trees())->trees();
     }
 
 

@@ -75,7 +75,11 @@ itself, and goes up with the tests.
    when the floor is 0 a `reason`, and an optional `exclude`: globs of paths
    inside the tree that belong to no tree (ADR-0016, decision 3). In the PHP
    builder that is `Tree::at('<path>', floor: <n>, because: '<reason>',
-   excluding: ['<glob>'])`. A tree's effective
+   excluding: ['<glob>'])`. The config's trees are laid over the tree
+   source's: an entry for a path the source lists gives that tree its floor,
+   reason and exclude, over a manifest's, and keeps its package; an entry for
+   a path the source does not list is a tree of the package that holds it.
+   Run, verdict and `doctor` judge the trees so laid. A tree's effective
    floor is the higher of:
    - the floor its config entry or manifest **declares**, which is a policy
      minimum;

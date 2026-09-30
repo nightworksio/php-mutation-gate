@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
+use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Score\Exempt;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Tree\Outside;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -46,4 +51,42 @@ it('answers the innermost tree that holds a path, whatever order the trees came 
 it('answers that no tree holds a path outside them all', function () use ($tree): void {
     expect(Trees::of($tree('app'))->holding(Path::of('lib/Money.php')))->toEqual(Outside::trees())
         ->and(Trees::none()->holding(Path::of('app/Money.php')))->toEqual(Outside::trees());
+});
+
+it('lays a declared floor and exclude over the tree of the same path, keeping its package and new-code floor', function (): void {
+    $package = Package::at(Path::of('packages/money'));
+    $found = Tree::at(Path::of('src'), Floor::of(50), $package)->withNewCodeFloor(Floor::of(90));
+    $declared = DeclaredTree::of(Path::of('src'), Floor::of(80), Listed::of(Glob::of('src/Generated/**')));
+    $laid = [...Trees::of($found, Tree::at(Path::of('lib'), Floor::of(10), $package))->declaring($declared)];
+
+    expect($laid)->toHaveCount(2)
+        ->and($laid[0]->declared())->toEqual(Floor::of(80))
+        ->and($laid[0]->package())->toBe($package)
+        ->and($laid[0]->newCodeFloor())->toEqual(Floor::of(90))
+        ->and($laid[0]->excludes(Path::of('src/Generated/Money.php')))->toBeTrue()
+        ->and($laid[1]->declared())->toEqual(Floor::of(10));
+});
+
+it('makes a declared path no tree has a tree of the package that holds it, or of the root', function (): void {
+    $package = Package::at(Path::of('packages/money'));
+    $exempt = Exempt::because('Generated code.');
+    $laid = [...Trees::of(Tree::at(Path::of('packages/money'), Floor::of(50), $package))->declaring(
+        DeclaredTree::of(Path::of('packages/money/src/Legacy'), $exempt, Listed::of()),
+        DeclaredTree::of(Path::of('tools'), Floor::of(30), Listed::of()),
+    )];
+
+    expect(array_map(static fn(Tree $tree): string => $tree->path()->value(), $laid))
+        ->toBe(['packages/money', 'packages/money/src/Legacy', 'tools'])
+        ->and($laid[1]->declared())->toBe($exempt)
+        ->and($laid[1]->package())->toBe($package)
+        ->and($laid[2]->package())->toEqual(Package::at(Path::root()));
+});
+
+it('answers that no tree holds a file a tree excludes', function (): void {
+    $trees = Trees::of(Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())))->declaring(
+        DeclaredTree::of(Path::of('src'), Floor::of(50), Listed::of(Glob::of('src/Generated/**'))),
+    );
+
+    expect($trees->holding(Path::of('src/Generated/Money.php')))->toEqual(Outside::trees())
+        ->and($trees->holding(Path::of('src/Money.php')))->toBeInstanceOf(Tree::class);
 });

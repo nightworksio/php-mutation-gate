@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
+use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -52,7 +53,8 @@ final readonly class Wiring
         $lookup = Lookup::in($this->extensions);
         $source = BuiltinVersionControl::in($this->environment)->named();
         $runner = $chosen->runner($settings->runner()->choice());
-        $trees = $chosen->treeSource($settings->treeSource());
+        $found = $chosen->treeSource($settings->treeSource());
+        $trees = $found instanceof TreeSource ? new DeclaredTrees($found, $settings->floors()->trees()) : $found;
         $proofs = $this->kept($settings, $chosen->proofStore($settings->proofs()->store()));
         $costs = $lookup->costModel(BuiltinCostModel::Learned->named(), $settings->shards()->costOptions());
         $ci = $chosen->ciPlan($this->ciOf($settings));

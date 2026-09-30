@@ -165,6 +165,22 @@ it('plans, runs and judges in one process without a plan, and exits as the verdi
     'at its floor' => [40.0, 0, 'passed'],
 ]);
 
+it('judges a tree at the floor the config declares for it, over the one its source declares', function (
+    string $declared,
+    int $code,
+    string $judgement,
+) use ($composed): void {
+    $project = FlowCommands::project(sprintf('"trees": [{"path": "src", "floor": %s}]', $declared));
+
+    $ran = FlowCommands::run(RunCommand::command($composed($project, 50.0, inCi: true)));
+
+    expect($ran->code)->toBe($code)
+        ->and($ran->output)->toStartWith(sprintf("Wrote memory:refs/heads/feature.\nmutation-gate: %s\n", $judgement));
+})->with([
+    'a declared floor the tree reaches, over a source floor it does not' => ['40', 0, 'passed'],
+    'a declared floor above what it reaches' => ['60', 1, 'failed'],
+]);
+
 it('writes the floors a local full run raised into the baseline, and says which lines to commit', function () use (
     $composed,
 ): void {

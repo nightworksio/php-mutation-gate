@@ -122,6 +122,20 @@ it('observes no markers where the chosen runner cannot be built, and nothing of 
         ->and($bareObserved->files()->composer())->toEqual(NotGiven::value());
 });
 
+it('observes the trees the config lays over the source\'s, and why there are none where no source can be built', function (): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($project, 'mutation-gate.json', '{"trees": [{"path": "src", "floor": 60}]}');
+    $unbuilt = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($unbuilt, 'mutation-gate.json', '{"treeSource": "\\\\Acme\\\\Missing"}');
+    $php = sprintf('%s/php', FakePhp::printing(Described::output(['pcov' => '1.0.12'], [])));
+    $trees = Doctored::observed($project, $php)->of(CommandLine::nothing())->trees();
+
+    expect($trees instanceof Trees ? array_map(static fn(Tree $tree): mixed => $tree->declared(), [...$trees]) : $trees)
+        ->toEqual([Floor::of(60)])
+        ->and(Doctored::observed($unbuilt, $php)->of(CommandLine::nothing())->trees())
+        ->not->toBeInstanceOf(Trees::class);
+});
+
 it('observes both runners left to choose, and no trees where the config cannot be used', function (): void {
     $project = Scratch::copy('tests/Fixtures/Projects/TwoRunners');
     $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
