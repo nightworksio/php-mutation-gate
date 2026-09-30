@@ -2,8 +2,8 @@
 
 > **In development, not yet released.** This README describes what the
 > decisions in [`.docs/decisions`](.docs/decisions/README.md) settle, and
-> nothing more. Nothing is tagged until all twenty features below are built,
-> tested and gated at 100%, and the first release is 1.0.0.
+> nothing more. Nothing is tagged until every feature below is built, tested
+> and gated at 100%, and the first release is 1.0.0.
 
 mutation-gate turns mutation testing into a CI gate for PHP projects. It
 decides:
@@ -32,6 +32,9 @@ that reproduces it and a sentence saying what the tests miss.
 | **CI and speed** | A cost model that learns how long each file takes from earlier shards | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | | Sharding on any CI: GitHub Actions, GitLab, Buildkite, CircleCI, or a JSON plan | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | | A proof cache keyed by content, stored in the GitHub cache, a directory or S3/R2 | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| | Likely killers first: each mutant's tests ordered by which of them killed it before | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
+| | A shard count chosen from a target wall time | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
+| | A fork's pull request reads the default branch's proofs, read-only | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | **Reporting** | JSON, JUnit and SARIF, and line annotations on GitHub | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | Holding tests: Pest `holds:` groups and a `#[Holds]` attribute, a check that a group covers what it holds, and a warning for code every test runs through that nothing holds | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | | Infection as well as Pest | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
@@ -41,6 +44,7 @@ that reproduces it and a sentence saying what the tests miss.
 | **Run control** | A time budget that runs the riskiest code first, and reports anything unjudged instead of passing it | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | | Triage of timeouts and flaky tests | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | | Ignores for equivalent mutants, each with a reason and an optional expiry | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| | Survivors the compiler proves equivalent, left out of the score | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | | Presets for Laravel, Symfony and plain libraries | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | **Visibility** | An HTML report | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | A sticky comment on the pull request | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
@@ -106,7 +110,7 @@ to write one.
 | `verdict --plan=<file> --results=<dir>` | Merge every shard's results, judge the floors, write reports and the ledger |
 | `baseline [--write]` | Show, or write, floors raised to what was measured |
 | `reproduce <id>` | Run one mutant again and show why it survives |
-| `triage <path> [--repeat=<n>]` | Run a unit n times (5 by default) and list every mutant whose result varied |
+| `triage <path> [--repeat=<n>] [--order=runner\|killers-first]` | Run a unit n times (5 by default) and list every mutant whose result varied, with each mutant's tests in the order `--order` names (`tests.order` by default) |
 | `watch` | Re-judge what each save reaches |
 | `pre-push` | Judge the commits being pushed, as CI will |
 | `hook install` / `hook uninstall` | Add or remove the pre-push hook |
@@ -275,6 +279,8 @@ chooses an adapter takes a registered name or `{"use": <name or class>,
 | `holds.hotPath` | number, 0 to 1 | `0.8` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `shards.seconds` | integer | `600` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `shards.max` | integer | `20` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `shards.target` | duration; replaces `shards.seconds`, and setting both is an error | none | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
+| `shards.setup` | duration: each shard's CI setup before the gate starts | `1m` | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `costs.secondsPerLine` | map of path prefix to number | `{"": 0.2}` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.plan` | adapter: `github`, `gitlab`, `buildkite`, `circleci`, `json` | detected from the environment | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.defaultBranch` | branch name | the CI's answer, else git's `origin/HEAD`, else `main` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
@@ -286,6 +292,7 @@ chooses an adapter takes a registered name or `{"use": <name or class>,
 | `proofs.store.with.prefix` (`s3`) | string | `mutation-gate` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.region` (`s3`) | string | `us-east-1` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.endpoint` (`s3`) | URL | AWS's own | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `proofs.store.with.publicUrl` (`s3`) | `https://` URL a run without credentials reads ledgers from | none | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `proofs.ignore` | list of globs | `[]` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.write` | `auto` or `never` | `auto` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `budget` | duration | none | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
@@ -293,9 +300,11 @@ chooses an adapter takes a registered name or `{"use": <name or class>,
 | `timeouts.seconds` | integer | `10`; `30` in the `laravel` and `symfony` presets | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `timeouts.retries` | integer | `20` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `flaky.confirmSurvivors` | boolean | `true` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| `tests.order` | `killers-first` or `runner` | `killers-first` | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `ignores.entries` | list of `{mutant, reason, expires}` or `{path, mutator, reason, expires}` | `[]` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `ignores.maxDays` | integer | none | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `ignores.native` | `refuse` or `allow` | `refuse` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| `equivalence.static` | boolean | `true` | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `reports` | list of `{use, path, with}`; built-in `json`, `junit`, `sarif`, `html` | `[]` | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `badge.colors` | map of shields.io colour to lowest score | `{"brightgreen": 90, "green": 80, "yellow": 70, "orange": 60}`, red below | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `pest.patch` | boolean | `false` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
@@ -384,10 +393,13 @@ A proof ledger lets each step skip what an earlier run already proved.
 
 Two things the setup relies on:
 
-- **The weekly run.** A weekly scheduled full run on the default branch is part
-  of the design on every CI, not an extra. It catches what a change's reach
-  cannot see
+- **The scheduled run.** A full run on the default branch, at least once a
+  week, is part of the design on every CI, not an extra. It catches what a
+  change's reach cannot see
   ([ADR-0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md)).
+  The GitHub examples run it twice a week, because GitHub evicts a cache entry
+  nothing restores for seven days
+  ([ADR-0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md)).
 - **The optional Pest patches.** For sharded Pest runs, enabling them
   (`pest.patch: true`, plus `@php vendor/bin/mutation-gate pest:patch` in
   `post-install-cmd` and `post-update-cmd`) lets every shard reuse the planning
@@ -402,6 +414,16 @@ boundary there. Wherever a pull request must read the default branch's proofs
 safely, keep the ledger in S3, with credentials that can write the default
 branch's prefix held only by default-branch runs
 ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
+
+A fork's pull request runs without credentials. On GitHub's cache it restores
+the default branch's ledger read-only, as any pull request does. With S3, set
+`proofs.store.with.publicUrl` and give the bucket a policy that allows a public
+`GetObject` on `<prefix>/refs/heads/<default branch>/*` and nothing else. A run
+without credentials then reads the default branch's ledger from that URL, and
+writes nothing. A fork can plant no proof that another run trusts. It can
+influence only its own verdict, which its own workflow file could anyway, so
+require approval before outside contributors' workflows run
+([ADR-0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md)).
 
 ### Use it in GitHub Actions
 
@@ -422,7 +444,7 @@ on:
   push:
     branches: [main] # your default branch
   schedule:
-    - cron: '0 3 * * 1'
+    - cron: '0 3 * * 1,4'
 
 permissions:
   contents: read
@@ -475,7 +497,7 @@ on:
   push:
     branches: [main] # your default branch
   schedule:
-    - cron: '0 3 * * 1'
+    - cron: '0 3 * * 1,4'
 
 permissions:
   contents: read
@@ -502,7 +524,7 @@ Here is what the examples rely on:
   example it is `mutation testing`. With the reusable workflow it is the
   `verdict` job, shown as `mutation / verdict`. The verdict says *cannot
   judge* (exit code 2) when any planned shard left no result.
-- **The schedule** is the weekly full run.
+- **The schedule** is the full run, twice a week.
 - **The badge and trend** are published to a `mutation-gate` branch:
 
   ```markdown

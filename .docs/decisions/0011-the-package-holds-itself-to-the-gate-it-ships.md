@@ -11,7 +11,8 @@ show. The maintainer's decisions for this package are:
 - it gates itself at a 100% floor;
 - it runs PHPStan at max and keeps its core isolated with arch tests;
 - it ships a composite GitHub Action (`action.yml`) in the same repository;
-- it has no release at all until all 20 accepted features are in.
+- it has no release at all until every feature the README lists is in
+  (ADR-0013, decision 17).
 
 The package also takes the code-quality, testing, tooling and architecture
 standards of the in-house project whose gate it generalises, reusing whatever
@@ -282,8 +283,8 @@ about Laravel, NativePHP or the project's modules, and does not.
    - **A commit that implements a decision** names it in a `Spec:` trailer:
      `Spec: 0006`, or several numbers. The commit-msg hook checks that each
      number is an ADR in `.docs/decisions`.
-   - **The first release is 1.0.0.** It is tagged only when all 20 features are
-     implemented, tested, gated at 100% and documented in the README. Nothing
+   - **The first release is 1.0.0.** It is tagged only when every feature the
+     README lists (ADR-0013, decision 17) is implemented, tested, gated at 100% and documented in the README. Nothing
      is tagged before that: no 0.x and no release candidates. Until then a
      project can require `dev-main`.
    - **Each release** is a signed tag on `main` and a GitHub release with notes
@@ -315,7 +316,7 @@ about Laravel, NativePHP or the project's modules, and does not.
 | **Ship the generic PHPStan rules and arch presets in this package** | Makes them public API of a mutation tool, and ties their versioning to the gate's. A rules package of their own is the place, if they are shared. |
 | **Renaming the copied rules to slugs** (`no-else`, `method-cap`) instead of rule IDs (`C5`, `H3`) | `TheRulesAreRealTest` and Guards match on `<ID> —` at the start of each message, and the rules are copied as they are, so IDs stay. They identify code rules, not requirements: the widened check refuses requirement IDs (`<AREA>-R<n>`), and a rule ID in a comment beside an expectation stays allowed. |
 | **Deptrac for layer rules** | Pest arch and PHPStan already run in the suite, and Guards proves each of their rules refuses a violation. |
-| **Release candidates before 1.0.0** | The approved decision is no release before all 20 features. A release candidate is a release people depend on. |
+| **Release candidates before 1.0.0** | The approved decision is no release before every feature the README lists. A release candidate is a release people depend on. |
 | **A PHAR instead of a Composer package** | Would avoid Symfony version conflicts in consuming projects, but the Pest adapter's plugin, the `#[Holds]` attribute and extension discovery all need the package to be in the project's autoloader. Broad Symfony ranges are the answer to conflicts. |
 | **Referring to the action from the reusable workflow by tag** (`nightworksio/php-mutation-gate@v1`) | The workflow and the action could then be different commits, and the package's own CI would judge a change to the action with the released one. Checking out the workflow's own commit keeps them one version. |
 
@@ -331,8 +332,8 @@ the other.
 **The package stands alone.** Its CI and tooling change only through commits to
 this repository.
 
-**The 20 features gate the first release, not a date.** The README lists them,
-and each points at the ADR that decides it.
+**The features the README lists gate the first release, not a date.** Each
+points at the ADR that decides it.
 
 ## Related
 
@@ -341,3 +342,4 @@ and each points at the ADR that decides it.
 - [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): the runner contract suite and `pest:patch`
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): what the reusable workflow runs
 - [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): what the workflow posts and publishes
+- [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the release gate covers every feature the README lists

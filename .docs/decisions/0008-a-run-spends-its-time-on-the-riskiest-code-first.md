@@ -102,7 +102,9 @@ presets for Laravel, Symfony and plain libraries.
      means a confirmed survivor. Survivors are few, so this is cheap.
      `flaky.confirmSurvivors` is a boolean, `true` by default. A mutant
      judged by reference (ADR-0004, decision 8) is run again through those
-     same steps, against its judging tests.
+     same steps, against its judging tests. The confirming run takes the
+     runner's own test order, whatever `tests.order` says, and a survivor
+     proven equivalent is not run again (ADR-0013, decisions 4 and 10).
    - **Proofs that disagree.** When two results for one key differ (the
      default branch's ledger and a pull request's, say, or two verdicts that
      wrote one scope), the mutants that differ are flaky, and neither result
@@ -111,7 +113,9 @@ presets for Laravel, Symfony and plain libraries.
      of the ledger, and is reported with its judging tests, which are the
      suspects.
    - **On demand.** `mutation-gate triage <path> --repeat=<n>` runs a unit n
-     times, 5 by default, and lists every mutant whose status varied. Its
+     times, 5 by default, and lists every mutant whose status varied.
+     `--order=runner|killers-first`, `tests.order` by default, chooses the
+     order of each mutant's tests, to hunt a kill an order made (ADR-0013). Its
      mutants judged by reference run through ADR-0004's decision 8 each
      time. This is
      the tool for a kill that might be flaky. A flaky kill cannot be told from a
@@ -147,7 +151,9 @@ presets for Laravel, Symfony and plain libraries.
    - **A stale ignore** matched no mutant in a run that judged every unit it
      could match. It fails the run (exit code 1) and says *remove it*, as
      PHPStan's `reportUnmatchedIgnoredErrors` does. Otherwise dead ignores would
-     pile up, and one could come back to life and hide a new mutant.
+     pile up, and one could come back to life and hide a new mutant. An
+     ignore that matches a mutant proven equivalent is not stale: it still
+     applies, and a notice says it can go (ADR-0013, decision 12).
    - **Native markers are refused by default.** These are `@pest-mutate-ignore`
      and `@infection-ignore-all` in source, and `ignore` or
      `ignoreSourceCodeByRegex` under `mutators` in `infection.json5`. With
@@ -218,3 +224,4 @@ warnings say where holding groups would save time.
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): holding groups and the hot-path warning
 - [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): mutator families, and how unjudged and flaky mutants are shown
 - [ADR-0010](0010-the-gate-runs-while-you-work-and-before-you-push.md): the budgets of watch and pre-push
+- [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the order survivor confirmation and `triage` use, and ignores a proof makes redundant

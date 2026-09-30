@@ -32,8 +32,10 @@ sees the same verdict.
    - every unit, and whether its result was run, proved or carried;
    - every mutant's record, with its hint and reproduce command;
    - the reach and its reasons;
-   - warnings: unheld hot paths (ADR-0005), and expired or expiring ignores
-     (ADR-0008);
+   - warnings: unheld hot paths (ADR-0005); expired or expiring ignores
+     (ADR-0008); and a shard target the plan could not meet, an ignore a
+     proof of equivalence makes redundant, a check for equivalence that could
+     not run, and a proof store opened read-only (ADR-0013);
    - failures that belong to no floor: stale ignores (ADR-0008) and held paths
      their group does not cover (ADR-0005).
 
@@ -59,7 +61,9 @@ sees the same verdict.
    - **JSON** (`json`), the gate's own format with a `"format": 1` field. Its
      schema is generated like the config's and committed at
      `resources/report.schema.json`. It carries everything in the verdict, and
-     it is public API (ADR-0011).
+     it is public API (ADR-0011). A mutant proven equivalent has the status
+     `equivalent`, and each killed mutant names the test that killed it first,
+     where one is known (ADR-0013).
    - **JUnit XML** (`junit`). One `<testsuite>` per tree, and one for new code.
      In each suite, one `<testcase>` stands for its floor. It fails exactly
      when the gate fails that tree, and the failure body lists every mutant it
@@ -72,7 +76,7 @@ sees the same verdict.
      - One run, with the tool named `mutation-gate`.
      - Four rules: `survived`, `uncovered`, `unjudged` and `flaky`. The
        `unjudged` rule reports both unjudged mutants and those too slow to
-       judge.
+       judge. A mutant proven equivalent is not a result (ADR-0013).
      - Each result is at the mutant's file and lines. Its level is `error` when
        the mutant is in a set that failed (new code, or a tree below its floor)
        and `warning` otherwise.
@@ -141,6 +145,7 @@ sees the same verdict.
    | survived, unjudged, flaky, and too slow to judge | `Survived` |
    | uncovered | `NoCoverage`, or `Ignored` under `uncovered: exclude` |
    | ignored, and ignored by a native marker | `Ignored` |
+   | equivalent, proven (ADR-0013) | `Ignored` |
 
    Judging tests, hints and reproduce commands go in each mutant's
    `description`. The schema requires a column for each location. The gate
@@ -254,3 +259,4 @@ but data.
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): hot-path warnings and reach reasons
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): unjudged, flaky and ignored mutants
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the action and workflow that post and publish
+- [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): *equivalent, proven*, the first killer, and a shard target the plan could not meet

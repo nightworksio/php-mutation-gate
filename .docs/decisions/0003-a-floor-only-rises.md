@@ -37,13 +37,14 @@ itself, and goes up with the tests.
    | timed out, and judged a kill by timeout triage (ADR-0008) | killed |
    | survived, uncovered, unjudged, flaky; timed out or skipped and too slow to judge (ADR-0008) | not killed |
    | ignored, with a reason or by a native marker (ADR-0008) | left out |
+   | equivalent, proven: a survivor that compiles to the original program (ADR-0013) | left out |
 
    **Score = killed ÷ (all mutants − ignored − excluded uncovered) × 100,
-   truncated to two decimals**, where "ignored" covers both kinds of ignore,
-   and uncovered mutants are excluded only under `uncovered: exclude`.
+   truncated to two decimals**, where "ignored" covers both kinds of ignore
+   and mutants proven equivalent, and uncovered mutants are excluded only under `uncovered: exclude`.
 
    A set with nothing left to count has no score: no mutants, or every mutant
-   ignored or, under `uncovered: exclude`, left out as uncovered. It passes, and the report says *nothing to mutate*
+   ignored or proven equivalent or, under `uncovered: exclude`, left out as uncovered. It passes, and the report says *nothing to mutate*
    rather than showing 100%. "No mutants" and "every mutant killed" must never
    print the same way.
 
@@ -211,3 +212,4 @@ failure message gives the command that writes it.
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): units, reach, changed lines and monorepo floors
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): proved and carried results
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): unjudged, flaky, timeouts and ignores
+- [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): mutants proven equivalent
