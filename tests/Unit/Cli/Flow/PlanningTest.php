@@ -342,3 +342,21 @@ it('cannot plan where the runner cannot look for its own ignore markers', functi
     expect($plan(Flows::project(), Mode::full(), Cut::exactly(1), $blind))
         ->toEqual(CannotJudge::because('infection.json5 cannot be read.'));
 });
+
+it('cuts to a target wall time counting the coverage run\'s tests as each shard\'s opening run', function (
+    float $opening,
+    int $count,
+) use ($plan): void {
+    $map = Flows::map()->timed(TestId::of('MoneyTest::adds'), Seconds::of($opening));
+    $planned = $plan(
+        Flows::project(),
+        Mode::full(),
+        Cut::toTarget(Seconds::of(2.5), Seconds::of(0.0), 20),
+        new CoverageAsked(RunnerFake::ofTheFixture(), $map),
+    );
+
+    expect($planned instanceof Plan ? count($planned) : $planned)->toBe($count);
+})->with([
+    'an opening run that leaves room for every unit in one shard' => [0.0, 1],
+    'an opening run that leaves room for one unit a shard' => [2.0, 2],
+]);

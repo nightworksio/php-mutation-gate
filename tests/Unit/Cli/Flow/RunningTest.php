@@ -506,3 +506,25 @@ it('cannot judge a shard handed no map, and mutates nothing of it, held units an
         ->toEqual(new Handoff(Directory::at($project))->read(ShardId::of(1)))
         ->and($result instanceof ShardResult ? $result->outcome() : $result)->toBeInstanceOf(CannotJudge::class);
 });
+
+it('spends one timeouts.retries across every invocation of a shard', function (): void {
+    $project = Flows::project();
+    $timedOut = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
+        'Plus-1',
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
+        MutantStatus::TimedOut,
+        Seconds::of(5.0),
+    )->withLimit(Seconds::of(5.0));
+    $scripted = ScriptedRunner::fixture()->answering(Mutants::of($timedOut), 0);
+
+    new Running(
+        Flows::adapters($project, [], $scripted),
+        Flows::settings(Timeouts::seconds(5), Timeouts::retries(1), Flaky::notConfirmingSurvivors()),
+        Flows::setup(),
+    )->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect($scripted->requests())->toHaveCount(2)
+        ->and($scripted->retries())->toHaveCount(1);
+});
