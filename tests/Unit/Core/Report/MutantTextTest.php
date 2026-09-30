@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
@@ -62,4 +64,32 @@ it('says why a mutant stands as it does, where its record says, and leaves out a
 
     expect(MutantText::block($unjudged, TestNames::none()))->toContain("\n    Why: The run's budget ran out before it.\n    Nothing judged it")
         ->and(explode("\n", MutantText::block($bare, TestNames::none())))->toHaveCount(4);
+});
+
+it('names the analyser that rejected a mutant, and the error it found', function (): void {
+    $rejected = Judged::listed(Verdicts::everyJudgement())[11];
+
+    expect(MutantText::block($rejected, TestNames::none()))
+        ->toContain("\n    Rejected by phpstan: return.type: Method Log::id() should return string but returns int.\n")
+        ->and(MutantText::block(Judged::listed(Verdicts::everyJudgement())[1], TestNames::none()))->not->toContain('Rejected by');
+});
+
+it('names the rejection in one plain line, whatever the analyser wrote', function (): void {
+    $mutant = Verdicts::mutant('src/Log.php:14', 'CastString', MutatorFamily::Unwrap, Verdicts::diff('return (string) $id;', 'return $id;'))
+        ->rejected(Rejection::by("php\u{202E}stan", Finding::error("x\e[31m", "red\e[0m\n::error::injected\u{200B}\r\n\tend")));
+    $block = MutantText::block(JudgedMutant::of($mutant, MutantJudgement::KilledByStaticAnalysis), TestNames::none());
+
+    expect($block)->toContain("\n    Rejected by phpstan: x[31m: red[0m ::error::injected end\n")
+        ->and($block)->not->toContain("\e")
+        ->and($block)->not->toContain("\n::")
+        ->and($block)->not->toContain("\u{202E}");
+});
+
+it('starts no workflow command from a rejection that holds one, encoded or not', function (): void {
+    $mutant = Verdicts::mutant('src/Log.php:14', 'CastString', MutatorFamily::Unwrap, Verdicts::diff('return (string) $id;', 'return $id;'))
+        ->rejected(Rejection::by('phpstan', Finding::error("a,b:c%0A\n::error::code", "one, two: three%0A\n::error file=x,line=1::message\n##[error]older")));
+    $lines = explode("\n", MutantText::block(JudgedMutant::of($mutant, MutantJudgement::KilledByStaticAnalysis), TestNames::none()));
+
+    expect(array_values(array_filter($lines, static fn(string $line): bool => str_starts_with(ltrim($line), '::'))))->toBe([])
+        ->and($lines)->toContain('    Rejected by phpstan: a,b:c%0A ::error::code: one, two: three%0A ::error file=x,line=1::message ##[error]older');
 });

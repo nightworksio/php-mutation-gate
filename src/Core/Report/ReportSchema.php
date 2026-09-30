@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\Standing;
+use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -316,6 +317,11 @@ final readonly class ReportSchema
             'status' => self::oneOf(...MutantStatus::cases()),
             'judgement' => self::oneOf(...MutantJudgement::cases()),
             'reason' => self::TEXT,
+            MutantRecord::REJECTION => self::object([
+                MutantRecord::ANALYSER => self::TEXT,
+                MutantRecord::CODE => self::TEXT,
+                MutantRecord::MESSAGE => self::TEXT,
+            ], []),
             'changedLine' => self::FLAG,
             'tests' => self::listOf(self::TEXT),
             'coveredBy' => self::listOf(self::WHOLE),
@@ -326,7 +332,7 @@ final readonly class ReportSchema
             'seconds' => self::SECONDS,
             'limit' => self::SECONDS,
             'cluster' => self::CLUSTER_ID,
-        ], ['end', 'family', 'diff', 'reason', 'seconds', 'limit', 'cluster']);
+        ], ['end', 'family', 'diff', 'reason', MutantRecord::REJECTION, 'seconds', 'limit', 'cluster']);
     }
 
     /** @return Flat */

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -49,6 +51,13 @@ function carryMutant(int $line, MutantStatus $status): Mutant
         $status,
         Unmeasured::duration(),
     );
+}
+
+/** A mutant of src/Money.php on this line, which PHPStan rejected. */
+function carryRejected(int $line): Mutant
+{
+    return carryMutant($line, MutantStatus::Survived)
+        ->rejected(Rejection::by('phpstan', Finding::error('return.type', 'Method Money::add() should return int.')));
 }
 
 /** A kill of src/Money.php on this line, by these tests. */
@@ -143,6 +152,8 @@ it('carries each mutant of a counted result as it stands, or unjudged, and says 
     'a kill by a test file the run no longer has' => ['base', carryKill(3, TestId::of('RateTest::rates')), Carry::KillerChanged],
     'a kill by a deleted test the run cannot name' => ['base', carryKill(3, TestId::of('GoneTest::adds')), Carry::KillerUnknown],
     'a kill no test is known for' => ['base', carryKill(3), Carry::KillerUnknown],
+    'a kill by static analysis at the same base, its finding\'s file unrecorded' => ['base', carryRejected(3), Carry::RejectionUnplaced],
+    'a kill by static analysis at another base' => ['other base', carryRejected(3), Carry::RejectionUnplaced],
     'a timeout, which triage may count a kill' => ['base', carryMutant(3, MutantStatus::TimedOut), Carry::KillerUnknown],
     'a crash, which counts a kill' => ['base', carryMutant(3, MutantStatus::Errored), Carry::KillerUnknown],
     'a survivor, at another base' => ['other base', carryMutant(3, MutantStatus::Survived), Carry::Stands],

@@ -29,6 +29,8 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\LogCommands;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
@@ -271,4 +273,13 @@ it('writes a label as the agent shows it, so a path a pull request names expands
     BuildkitePlan::printing($file, BuildkiteStep::none(), Variables::of([]))->publish($plan);
 
     expect($stepsIn((string) file_get_contents($file))[0])->toMatchArray(['label' => 'mutation: src/$$BUILDKITE_AGENT_ACCESS_TOKEN.php']);
+});
+
+it('prints a pipeline whose labels hold log commands so a CI\'s log reads none, and Buildkite reads the labels back', function (): void {
+    $file = sprintf('%s/pipeline.json', Scratch::directory());
+    BuildkitePlan::printing($file, BuildkiteStep::none(), Variables::of([]))->publish(ShardedPlan::hostile());
+    $printed = (string) file_get_contents($file);
+
+    expect(LogCommands::in($printed))->toBe([])
+        ->and(Decoded::at($printed, 'steps', 0, 'label'))->toBe(sprintf('mutation: %s', ShardedPlan::HOSTILE));
 });

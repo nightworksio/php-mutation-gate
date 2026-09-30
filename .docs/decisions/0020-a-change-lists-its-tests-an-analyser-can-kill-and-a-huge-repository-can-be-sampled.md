@@ -221,6 +221,17 @@ needs remain, and the runners' own behaviour shapes each answer.
       and 4.
     - Its `killedBy` is unknown (ADR-0013 decision 1), and every kill-matrix
       cell is `not-run` (ADR-0014).
+    - The mutant's record keeps its rejection where the gate's own check
+      found it: the analyser's name and the finding's code and message, the
+      code cut to 128 characters and the message to 1,024, each ending in
+      `…` where it was cut. A shard's results and the proof hold it, and so
+      does the JSON report's `rejection`. A kill Infection reports carries
+      none, since its log names no finding. A record that gives a rejection
+      to a mutant of any other status, or a reason or an `outOfTime` beside
+      its rejection, is not well formed.
+    - A kill by static analysis a time budget carries is unjudged (ADR-0008,
+      decision 1), since the record does not say which file the finding sits
+      in.
     - `explain` prints the analyser, the finding's code and its message.
 
 11. **Each mutant is checked where it pays: before its tests, after them, or

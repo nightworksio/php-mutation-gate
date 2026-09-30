@@ -49,14 +49,15 @@ use function sprintf;
  * - line 2, killed by `A`, and by `B`'s first row too under a full matrix;
  * - line 3, survived, covered by `B`'s second row and `C`;
  * - line 4, killed by `D`, also covered by `C`;
- * - line 5, timed out, covered by `E` alone.
+ * - line 5, timed out unless a test asks otherwise, covered by `E` alone.
  *
  * `A` runs for 0.4 seconds, `B`'s rows for 0.5 each, `C` for 0.2 and `E`
  * for 0.1; no coverage run timed `D`.
  */
 final class Killings
 {
-    public static function verdict(MatrixKind $kind): Verdict
+    /** The verdict, its fifth mutant, the one `E` covers, reported with this status. */
+    public static function verdict(MatrixKind $kind, MutantStatus $fifth = MutantStatus::TimedOut): Verdict
     {
         $full = $kind === MatrixKind::Full;
         $mutants = JudgedMutants::of(
@@ -64,7 +65,7 @@ final class Killings
             self::mutant(2, MutantStatus::Killed, $full ? self::ids('A', 'B0') : self::ids('A')),
             self::mutant(3, MutantStatus::Survived, TestIds::none()),
             self::mutant(4, MutantStatus::Killed, self::ids('D')),
-            self::mutant(5, MutantStatus::TimedOut, TestIds::none()),
+            self::mutant(5, $fifth, TestIds::none()),
         );
         $tree = TreeVerdict::judged(
             Tree::at(Path::of('src'), Floor::of(80), Package::at(Path::root())),

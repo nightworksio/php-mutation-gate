@@ -168,6 +168,7 @@ final readonly class KillMatrix
                 default => $afterTheKiller,
             },
             MutantStatus::TimedOut => Outcome::Unknown,
+            MutantStatus::KilledByStaticAnalysis,
             MutantStatus::Uncovered,
             MutantStatus::Unjudged,
             MutantStatus::IgnoredByMarker,

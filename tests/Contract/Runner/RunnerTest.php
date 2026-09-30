@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
@@ -516,7 +517,7 @@ it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select
     $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
 
     $statuses = array_map(static fn(Mutant $mutant): string => $mutant->status()->value, $mutants);
-    $reasons = array_map(static fn(Mutant $mutant): Reason|Unreported => $mutant->reason(), $mutants);
+    $reasons = array_map(static fn(Mutant $mutant): Reason|Rejection|Unreported => $mutant->reason(), $mutants);
 
     expect($statuses)->toBe([MutantStatus::Unjudged->value])
         ->and($reasons)->toEqual([Reason::that(

@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\LogCommands;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
@@ -74,4 +76,14 @@ it('is run by no definition of its own', function (): void {
 
 it('withholds nothing of its own', function (): void {
     expect(JsonPlan::withheld())->toEqual(Withheld::nothing());
+});
+
+it('prints a plan whose paths hold log commands so a CI\'s log reads none, and every reader reads the paths back', function (): void {
+    $file = sprintf('%s/plan.json', Scratch::directory());
+    JsonPlan::printing($file, Variables::of([]))->publish(ShardedPlan::hostile());
+    $printed = (string) file_get_contents($file);
+
+    expect(LogCommands::in($printed))->toBe([])
+        ->and(Decoded::at($printed, 'shards', 0, 'units'))->toBe([ShardedPlan::HOSTILE])
+        ->and(Decoded::at($printed, 'shards', 0, 'label'))->toBe(ShardedPlan::HOSTILE);
 });

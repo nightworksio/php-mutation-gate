@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 enum MutantJudgement: string
 {
     case Killed = 'killed';
+    /** A static analyser rejected it, which counts as killed (ADR-0020, decision 10). */
+    case KilledByStaticAnalysis = 'killed-by-static-analysis';
     /** The mutant crashed the tests. */
     case Errored = 'errored';
     /** It timed out, and timeout triage judged that a kill. */
@@ -42,6 +44,7 @@ enum MutantJudgement: string
     {
         return match ($status) {
             MutantStatus::Killed => self::Killed,
+            MutantStatus::KilledByStaticAnalysis => self::KilledByStaticAnalysis,
             MutantStatus::Survived => self::Survived,
             MutantStatus::Uncovered => self::Uncovered,
             MutantStatus::TimedOut => self::TooSlowToJudge,
@@ -62,6 +65,7 @@ enum MutantJudgement: string
         return match ($this) {
             self::Survived, self::Uncovered => true,
             self::Killed,
+            self::KilledByStaticAnalysis,
             self::Errored,
             self::KilledByTimeout,
             self::Unjudged,
@@ -77,7 +81,7 @@ enum MutantJudgement: string
     public function scoring(Uncovered $uncovered): Scoring
     {
         return match ($this) {
-            self::Killed, self::Errored, self::KilledByTimeout => Scoring::Killed,
+            self::Killed, self::KilledByStaticAnalysis, self::Errored, self::KilledByTimeout => Scoring::Killed,
             self::Ignored, self::IgnoredByMarker, self::Equivalent => Scoring::LeftOut,
             self::Uncovered => $uncovered === Uncovered::Exclude ? Scoring::LeftOut : Scoring::NotKilled,
             self::Survived, self::Unjudged, self::Flaky, self::TooSlowToJudge => Scoring::NotKilled,

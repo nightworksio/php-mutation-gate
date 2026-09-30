@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -99,4 +101,42 @@ it('names the tests that killed it, none until they are said, keeping the rest o
         ->and($killed->id())->toEqual($mutant->id())
         ->and($killed->status())->toBe(MutantStatus::Killed)
         ->and($killed->duration())->toEqual(Seconds::of(0.1));
+});
+
+it('is killed by the static analyser that rejected it, none until one did, keeping the rest of its record', function (): void {
+    $mutant = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-+\n+-", 0),
+        '12',
+        Location::of(Path::of('src/Money.php'), Line::of(4), Unreported::line()),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, "-+\n+-"),
+        MutantStatus::Survived,
+        Seconds::of(0.1),
+    );
+    $rejection = Rejection::by('mago', Finding::error('invalid-return-statement', 'Money::add() must return int.'));
+    $rejected = $mutant->rejected($rejection);
+
+    expect($mutant->reason())->toEqual(Unreported::reason())
+        ->and($rejected->reason())->toBe($rejection)
+        ->and($rejected->status())->toBe(MutantStatus::KilledByStaticAnalysis)
+        ->and($rejected->id())->toEqual($mutant->id())
+        ->and($rejected->duration())->toEqual(Seconds::of(0.1))
+        ->and($mutant->status())->toBe(MutantStatus::Survived);
+});
+
+it('keeps no rejection once a budget leaves it unjudged, and no killer and no other reason once an analyser rejects it', function (): void {
+    $mutant = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-+\n+-", 0),
+        '12',
+        Location::of(Path::of('src/Money.php'), Line::of(4), Unreported::line()),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, "-+\n+-"),
+        MutantStatus::Killed,
+        Seconds::of(0.1),
+    )->killedBy(TestIds::of(TestId::of('MoneyTest::adds')));
+    $rejected = $mutant->rejected(Rejection::by('phpstan', Finding::error('return.type', 'No.')));
+
+    expect($rejected->killers())->toEqual(TestIds::none())
+        ->and($mutant->unjudged(OutOfTime::BeforeMutating)->rejected(Rejection::by('phpstan', Finding::error('return.type', 'No.')))->reason())
+        ->toEqual(Rejection::by('phpstan', Finding::error('return.type', 'No.')))
+        ->and($rejected->unjudged(OutOfTime::BeforeMutating)->reason())->toEqual(OutOfTime::BeforeMutating->reason())
+        ->and($rejected->unjudged(OutOfTime::BeforeMutating)->status())->toBe(MutantStatus::Unjudged);
 });

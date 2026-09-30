@@ -45,6 +45,21 @@ sees the same verdict.
    - **The console** (`console`) always. With `--output=problems` it prints
      one line per result for editors instead of its table (ADR-0015,
      decision 6).
+     Every line the gate's console writes, to standard output or standard
+     error, starts no command in a CI runner's log. Split at `\r\n`, `\r`
+     and `\n`, as the runners split it, a line whose trimmed text starts with
+     `::` gets a `\` before it, and `##[` or `##vso[` anywhere gets a space
+     before its `[`. So text from outside, such as a test's name, a
+     process's output or an analyser's message, reaches the log only as text,
+     and so does text the gate prints for a person to read or copy, such as
+     `config:show` and `init --stdout`, where a `##[` a project's path holds
+     is printed `## [`. Text from outside inside a line, such as the
+     analyser's rejection, is also one plain line with no control or format
+     character. Two kinds of output are written past the console: the gate's
+     own commands, the annotations with their encoding (decision 3) and the
+     Azure plan's output variable; and a plan printed for a CI to read, JSON
+     with each `#` written `\u0023`, which every reader decodes back and no
+     log reads a command in.
    - **File reports**, listed in `reports` (ADR-0002): each entry is
      `{"use": <name or class>, "path": <file or directory>, "with": <options>}`.
      The built-in names are `json`, `junit`, `sarif`, `html`, `tests` and
@@ -92,7 +107,8 @@ sees the same verdict.
        `judgement`, `counts` and the ids of its `mutants`.
      - Each mutant is written once, at the top: `id`, `file`, `line`, `end`,
        `mutator`, `family`, `diff`, the runner's `status`, the gate's
-       `judgement`, the `reason` its record gives, `changedLine`, its judging
+       `judgement`, the `reason` its record gives, the `rejection` that killed
+       it where a static analyser did (ADR-0020), `changedLine`, its judging
        `tests`, its `hint`, its `reproduce` command, and the `seconds` it ran
        and the `limit` it was allowed where the runner says.
      - A value that is not known is left out, never written as null.
@@ -223,7 +239,7 @@ sees the same verdict.
 
    | Gate status | Viewer status |
    |-------------|---------------|
-   | killed, and errored | `Killed` |
+   | killed, errored, and killed by static analysis (ADR-0020) | `Killed` |
    | killed by timeout | `Timeout` |
    | survived, unjudged, flaky, and too slow to judge | `Survived` |
    | uncovered | `NoCoverage`, or `Ignored` under `uncovered: exclude` |
@@ -356,6 +372,7 @@ sees the same verdict.
    | Ignored | An ignore in the config leaves it out of the score. |
    | Ignored by a native marker | A native ignore marker leaves it out of the score. |
    | Killed | A test fails with it in place. |
+   | Killed by static analysis | The static analyser the project runs rejects it, so it could not pass CI, which counts as killed. |
    | Errored | It crashes its tests, which counts as killed. |
    | Killed by timeout | Its tests ran far past their usual time with it in place, so the timeout counts as a kill. |
 

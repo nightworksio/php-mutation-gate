@@ -30,7 +30,7 @@ $was = TrendEntry::none()->withScore(Path::of('src'), Score::ofHundredths(8_100)
 
 it('says of a failure each tree below its floor, the failures no floor decides, and the first survivors', function () use ($was): void {
     expect(AlertLines::of(Alert::of(AlertEvent::Failed, Verdicts::failing(), $was), Chat::Slack))->toBe([
-        ['Below the floor', ['`src`: 37.50%, below its floor of 80.00%; it was 81.00%.']],
+        ['Below the floor', ['`src`: 44.44%, below its floor of 80.00%; it was 81.00%.']],
         ['Failures', ['The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.']],
         ['Survivors', [
             '`src/Money.php:7` LessToLessOrEqual, survived',

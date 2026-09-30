@@ -20,7 +20,7 @@ it('writes a suite per tree, one for new code and one for the run, each failing 
 });
 
 it('fails a tree\'s floor with every mutant it counts as not killed', function () use ($failing): void {
-    $said = 'src scores 37.50%, below its floor of 80.00%. That is -2.50 against the base.';
+    $said = 'src scores 44.44%, below its floor of 80.00%. That is -2.50 against the base.';
     $blocks = [];
 
     foreach (Verdicts::failing()->trees() as $tree) {

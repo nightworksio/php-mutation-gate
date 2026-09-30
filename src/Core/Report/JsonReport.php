@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Cluster\Membership;
@@ -12,6 +13,8 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
@@ -77,6 +80,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     status: string,
  *     judgement: string,
  *     reason?: string,
+ *     rejection?: array{analyser: string, code: string, message: string},
  *     changedLine: bool,
  *     tests: list<string>,
  *     coveredBy: list<int>,
@@ -183,7 +187,6 @@ final readonly class JsonReport
         $end = $mutant->location()->end();
         $duration = $mutant->duration();
         $limit = $mutant->limit();
-        $reason = $mutant->reason();
         $cluster = $judged instanceof JudgedMutant ? $judged->cluster() : Unclustered::mutant();
         $tests = [];
 
@@ -202,7 +205,7 @@ final readonly class JsonReport
                 : [],
             'status' => $mutant->status()->value,
             'judgement' => $judged->judgement()->value,
-            ...$reason instanceof Reason ? ['reason' => $reason->text()] : [],
+            ...self::why($mutant),
             'changedLine' => $judged->isOnChangedLine(),
             'tests' => $tests,
             'coveredBy' => $table->placesOf($matrix->coveredBy($judged)),
@@ -214,6 +217,23 @@ final readonly class JsonReport
             ...$limit instanceof Seconds ? ['limit' => $limit->seconds()] : [],
             ...$cluster instanceof Membership ? ['cluster' => $cluster->id()->value()] : [],
         ];
+    }
+
+    /**
+     * Why the mutant stands as it does, where its record says: the reason
+     * its runner gave, and the rejection of the analyser that killed it.
+     *
+     * @return array{reason?: string, rejection?: array{analyser: string, code: string, message: string}}
+     */
+    private static function why(Mutant|ProvedKill $mutant): array
+    {
+        $reason = $mutant->reason();
+
+        return match (true) {
+            $reason instanceof Reason => ['reason' => $reason->text()],
+            $reason instanceof Rejection => [MutantRecord::REJECTION => MutantRecord::rejection($reason)],
+            default => [],
+        };
     }
 
     /** @return ClusterEntry */

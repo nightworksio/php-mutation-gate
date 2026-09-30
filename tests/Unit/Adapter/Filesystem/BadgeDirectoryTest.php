@@ -46,7 +46,7 @@ it('starts a trend where it finds none', function () use ($clock): void {
     $publish = sprintf('%s/publish', Scratch::directory());
     BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())->report(Verdicts::failing());
 
-    expect(iterator_to_array(Trend::decode((string) file_get_contents(sprintf('%s/trend.json', $publish)))->scores(), preserve_keys: false))->toBe([37.5]);
+    expect(iterator_to_array(Trend::decode((string) file_get_contents(sprintf('%s/trend.json', $publish)))->scores(), preserve_keys: false))->toBe([44.44]);
 });
 
 it('updates neither the badge nor the trend for a run its budget cut short', function () use ($clock): void {

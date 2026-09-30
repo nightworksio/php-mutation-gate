@@ -105,6 +105,11 @@ parameters:
                 # php-parser's own base of a visitor, which the mutation engine
                 # extends to put a change in place, as a bridge does.
                 - PhpParser\NodeVisitorAbstract
+                # Symfony's console streams, whose doWrite every line passes
+                # through once formatted: the one place a line can be made
+                # inert for a CI runner's log (Adapter\Console\InertOutput).
+                - Symfony\Component\Console\Output\ConsoleOutput
+                - Symfony\Component\Console\Output\StreamOutput
         # A named argument is how a call site says which of two strings is which.
         noNamedArgument:
             enabled: false
@@ -591,6 +596,8 @@ services:
                     - RUNNER # a field of the ledger
                     - TESTS # a field of the ledger
                     - PASSED # a field of the ledger
+                'NightWorksIO\MutationGate\Core\Analysis\RejectionLength':
+                    - CODE # characters of a recorded rejection's code
                 'NightWorksIO\MutationGate\Core\Mutant\MutantRecord':
                     - SECONDS # a field of a shard result
                     - MUTATOR # a field of a shard result

@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Report\Sarif;
 use NightWorksIO\MutationGate\Core\Report\SourceRoot;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
@@ -82,4 +85,13 @@ it('keeps every member of a cluster a result of its own, naming its cluster', fu
         ->and(Decoded::at($sarif, 'runs', 0, 'results', 0, 'properties', 'cluster'))->toBe($expression->id()->value())
         ->and(Decoded::at($sarif, 'runs', 0, 'results', 6, 'locations', 0, 'physicalLocation', 'region', 'startLine'))->toBe(11)
         ->and(Decoded::at($sarif, 'runs', 0, 'results', 6, 'properties'))->not->toHaveKey('cluster');
+});
+
+it('keeps a message that holds a workflow command JSON-escaped, on no line of its own', function (): void {
+    $mutant = Verdicts::mutant('src/Money.php:7', "Evil\n::error::injected,a:b%0A", MutatorFamily::None, Verdicts::BOUNDARY);
+    $sarif = Sarif::json(Verdicts::of(Floor::of(80), JudgedMutant::of($mutant, MutantJudgement::Survived)));
+    $lines = explode("\n", $sarif);
+
+    expect(array_values(array_filter($lines, static fn(string $line): bool => str_starts_with(ltrim($line), '::'))))->toBe([])
+        ->and(Decoded::at($sarif, 'runs', 0, 'results', 0, 'properties', 'mutator'))->toBe("Evil\n::error::injected,a:b%0A");
 });

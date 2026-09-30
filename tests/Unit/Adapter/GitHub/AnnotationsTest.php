@@ -147,3 +147,10 @@ it('ranks a cluster by any member on a changed line, and warns of one in a set t
         ->toBe(['::warning', '::warning', '::warning'])
         ->and($printed($passing)[2])->toStartWith('::warning file=src/Cart.php,line=11,');
 });
+
+it('writes a warning that holds a workflow command as one notice, encoded, which starts no other', function () use ($printed): void {
+    $verdict = Verdicts::of(Floor::of(0))
+        ->withWarnings(Warnings::of(Warning::that("phpstan said: return.type, x:y%0A\n::error::injected\r\n")));
+
+    expect($printed($verdict))->toBe(['::notice title=mutation-gate::phpstan said: return.type, x:y%250A%0A::error::injected%0D%0A']);
+});

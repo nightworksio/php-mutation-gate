@@ -39,7 +39,7 @@ it('posts the event, where it happened, the verdict and each tree, leaving out w
         'run' => 'https://github.example/octo/gate/actions/runs/7',
         'verdict' => 'failed',
         'trees' => [
-            ['path' => 'src', 'floor' => 80.0, 'score' => 37.5, 'previous' => 81.0],
+            ['path' => 'src', 'floor' => 80.0, 'score' => 44.44, 'previous' => 81.0],
             ['path' => 'app/Legacy'],
             ['path' => 'src/Empty', 'floor' => 90.0],
         ],

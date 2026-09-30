@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -15,7 +16,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * judging tests take on their own, which timeout triage compares. The native id is the
  * runner's own, and means something only within the run that printed it. A
  * mutant the runner left unjudged can say why, and a killed one names the
- * tests that killed it where the runner does.
+ * tests that killed it where the runner does. One a static analyser killed
+ * has the rejection that killed it as its reason.
  */
 final readonly class Mutant
 {
@@ -28,7 +30,7 @@ final readonly class Mutant
         private Seconds|Unmeasured $duration,
         private Seconds|Unmeasured $limit,
         private Seconds|Unmeasured $judgingTime,
-        private Reason|Unreported $reason,
+        private Reason|Rejection|Unreported $reason,
         private TestIds $killers,
     ) {
     }
@@ -85,7 +87,23 @@ final readonly class Mutant
     /** This mutant, left without a result by a time budget that ran out before this. */
     public function unjudged(OutOfTime $before): self
     {
-        return clone($this, ['status' => MutantStatus::Unjudged, 'reason' => $before->reason()]);
+        return clone($this, [
+            'status' => MutantStatus::Unjudged,
+            'reason' => $before->reason(),
+        ]);
+    }
+
+    /**
+     * This mutant, killed by a static analyser that rejected it: so by no
+     * test anyone knows, and for no reason but the rejection.
+     */
+    public function rejected(Rejection $rejection): self
+    {
+        return clone($this, [
+            'status' => MutantStatus::KilledByStaticAnalysis,
+            'reason' => $rejection,
+            'killers' => TestIds::none(),
+        ]);
     }
 
     /**
@@ -145,7 +163,8 @@ final readonly class Mutant
         return $this->judgingTime;
     }
 
-    public function reason(): Reason|Unreported
+    /** Why it stands as it does: the runner's reason, or the rejection of the analyser that killed it. */
+    public function reason(): Reason|Rejection|Unreported
     {
         return $this->reason;
     }

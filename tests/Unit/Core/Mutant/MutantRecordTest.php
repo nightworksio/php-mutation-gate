@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
@@ -117,6 +119,21 @@ it('writes and reads back in full the tests that killed a mutant', function () u
         ->and(MutantRecord::readFull($read(MutantRecord::full($killed->killedBy($killers)))))->toEqual($killed->killedBy($killers));
 });
 
+it('writes and reads back in full the rejection that killed a mutant', function () use ($unjudged, $killed, $read): void {
+    $rejected = $unjudged->rejected(Rejection::by('phpstan', Finding::error('return.type', 'Method Money::of() should return int but returns string.')));
+
+    expect(MutantRecord::full($rejected))->toMatchArray([
+        'status' => 'killed-by-static-analysis',
+        'rejection' => [
+            'analyser' => 'phpstan',
+            'code' => 'return.type',
+            'message' => 'Method Money::of() should return int but returns string.',
+        ],
+    ])
+        ->and(MutantRecord::full($killed))->not->toHaveKey('rejection')
+        ->and(MutantRecord::readFull($read(MutantRecord::full($rejected))))->toEqual($rejected);
+});
+
 it('reads back the mutant it wrote in full', function () use ($timedOut, $killed, $unjudged, $read): void {
     expect(MutantRecord::readFull($read(MutantRecord::full($timedOut))))->toEqual($timedOut)
         ->and(MutantRecord::readFull($read(MutantRecord::full($killed))))->toEqual($killed)
@@ -171,3 +188,32 @@ it('refuses killers of a full record that are not text, saying where', function 
     expect(fn(): Mutant => MutantRecord::readFull($read([...MutantRecord::full($killed), 'killedBy' => [7]])))->toThrow(NotInShape::at('the file.killedBy[0]', 'text'))
         ->and(fn(): Mutant => MutantRecord::readFull($read([...MutantRecord::full($killed), 'killedBy' => 'MoneyTest::adds'])))->toThrow(NotInShape::at('the file.killedBy', 'a list'));
 });
+
+it('refuses a record that gives a rejection to a mutant of any other status, saying where', function (string $status) use ($unjudged, $read): void {
+    $record = MutantRecord::full($unjudged);
+    $record['status'] = $status;
+    $record['rejection'] = ['analyser' => 'phpstan', 'code' => 'return.type', 'message' => 'No.'];
+
+    expect(static fn(): Mutant => MutantRecord::readFull($read($record)))
+        ->toThrow(NotInShape::at('the file.rejection', 'a rejection only on a mutant killed by static analysis'));
+})->with(['survived', 'unjudged', 'killed']);
+
+it('writes and reads back a rejected mutant left unjudged as unjudged, with no rejection', function () use ($killed, $read): void {
+    $left = $killed->rejected(Rejection::by('phpstan', Finding::error('return.type', 'No.')))->unjudged(OutOfTime::BeforeMutating);
+
+    expect(MutantRecord::full($left))->not->toHaveKey('rejection')
+        ->and(MutantRecord::readFull($read(MutantRecord::full($left))))->toEqual($left);
+});
+
+it('refuses a record that gives a rejection a reason or a time budget beside it, saying where', function (array $beside) use ($unjudged, $read): void {
+    $record = [
+        ...MutantRecord::full($unjudged->rejected(Rejection::by('phpstan', Finding::error('return.type', 'No.')))),
+        ...$beside,
+    ];
+
+    expect(static fn(): Mutant => MutantRecord::readFull($read($record)))
+        ->toThrow(NotInShape::at('the file.rejection', 'a rejection with no reason beside it'));
+})->with([
+    'a reason' => [['reason' => 'The runner said so.']],
+    'a time budget' => [['outOfTime' => 'before-mutating']],
+]);

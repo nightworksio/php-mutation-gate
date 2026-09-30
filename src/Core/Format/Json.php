@@ -114,6 +114,12 @@ final readonly class Json implements IteratorAggregate
         return json_encode($this->value, JsonText::FLAGS | JSON_PRETTY_PRINT);
     }
 
+    /** Indented, with each `#` written `\u0023`, for a document a CI's log shows ({@see JsonText::printed()}). */
+    public function printed(): string
+    {
+        return JsonText::inert($this->pretty());
+    }
+
     /** On one line. */
     public function line(): string
     {

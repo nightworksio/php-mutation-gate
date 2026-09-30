@@ -13,6 +13,8 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
 enum MutantStatus: string
 {
     case Killed = 'killed';
+    /** A static analyser rejected it, by an error its original does not have (ADR-0020, decision 10). */
+    case KilledByStaticAnalysis = 'killed-by-static-analysis';
     case Survived = 'survived';
     case Uncovered = 'uncovered';
     case TimedOut = 'timed-out';
@@ -20,6 +22,18 @@ enum MutantStatus: string
     case Unjudged = 'unjudged';
     case IgnoredByMarker = 'ignored-by-marker';
     case Skipped = 'skipped';
+
+    /**
+     * The status as a run's answer about the mutant: a kill by static
+     * analysis and a kill by a test as one, since whether the analyser
+     * checked a mutant before its tests or after them is the run's placement,
+     * not the code (ADR-0020, decision 11). Survivor confirmation reads it,
+     * so a survivor killed either way the second time is flaky.
+     */
+    public function answer(): self
+    {
+        return $this === self::KilledByStaticAnalysis ? self::Killed : $this;
+    }
 
     /** Whether the mutant's time ran out: it timed out, or was skipped for taking as long as its timeout. */
     public function ranOutOfTime(): bool

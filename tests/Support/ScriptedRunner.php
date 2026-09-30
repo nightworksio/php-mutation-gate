@@ -89,14 +89,14 @@ final class ScriptedRunner implements Runner
         return new self($fake, $identity, $fake, MutantStatus::Survived, $groups, $fake, $fake);
     }
 
-    /** This runner, whose survivors are killed when run again. */
-    public function killingAgain(): self
+    /** This runner, whose survivors are killed when run again, by a test or as the status says. */
+    public function killingAgain(MutantStatus $as = MutantStatus::Killed): self
     {
         return new self(
             $this->fake,
             $this->identity,
             $this->mutating,
-            MutantStatus::Killed,
+            $as,
             $this->groups,
             $this->covering,
             $this->marking,

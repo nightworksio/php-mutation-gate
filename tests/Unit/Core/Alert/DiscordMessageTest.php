@@ -22,7 +22,7 @@ it('sends one embed linked to the run, its groups in the description, and lets i
             'color' => 0xCB_24_31,
         ])
         ->and(Decoded::at($message, 'embeds', 0, 'description'))->toStartWith(
-            "**Below the floor**\n`src`: 37.50%, below its floor of 80.00%.\n\n**Failures**\n",
+            "**Below the floor**\n`src`: 44.44%, below its floor of 80.00%.\n\n**Failures**\n",
         );
 });
 

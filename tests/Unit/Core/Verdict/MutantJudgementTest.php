@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Scoring;
 it('spells each judgement as the reports write it', function (): void {
     expect(array_map(static fn(MutantJudgement $judgement): string => $judgement->value, MutantJudgement::cases()))->toBe([
         'killed',
+        'killed-by-static-analysis',
         'errored',
         'killed-by-timeout',
         'survived',
@@ -27,6 +28,7 @@ it('takes a reported status as it is, with a timeout too slow to judge until tri
     expect(MutantJudgement::reported($status))->toBe($judgement);
 })->with([
     [MutantStatus::Killed, MutantJudgement::Killed],
+    [MutantStatus::KilledByStaticAnalysis, MutantJudgement::KilledByStaticAnalysis],
     [MutantStatus::Survived, MutantJudgement::Survived],
     [MutantStatus::Uncovered, MutantJudgement::Uncovered],
     [MutantStatus::TimedOut, MutantJudgement::TooSlowToJudge],
@@ -41,6 +43,7 @@ it('counts each judgement in the score as the floors decide', function (MutantJu
         ->and($judgement->scoring(Uncovered::Exclude))->toBe($excluded);
 })->with([
     [MutantJudgement::Killed, Scoring::Killed, Scoring::Killed],
+    [MutantJudgement::KilledByStaticAnalysis, Scoring::Killed, Scoring::Killed],
     [MutantJudgement::Errored, Scoring::Killed, Scoring::Killed],
     [MutantJudgement::KilledByTimeout, Scoring::Killed, Scoring::Killed],
     [MutantJudgement::Survived, Scoring::NotKilled, Scoring::NotKilled],
