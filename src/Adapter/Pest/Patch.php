@@ -6,8 +6,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_all;
 use function array_filter;
+use function array_first;
 use function array_key_exists;
-use function array_key_first;
 use function array_keys;
 use function array_map;
 use function array_unique;
@@ -316,7 +316,7 @@ final readonly class Patch
             array_keys($changed),
             static fn(string $file): bool => ! is_writable(sprintf(self::SOURCE, $vendor, $file)),
         );
-        $first = sprintf(self::SOURCE, $vendor, $locked === [] ? '' : $locked[array_key_first($locked)]);
+        $first = sprintf(self::SOURCE, $vendor, $locked === [] ? '' : array_first($locked));
 
         return $locked === []
             ? $changed
