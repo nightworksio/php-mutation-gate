@@ -61,6 +61,20 @@ final readonly class JudgedMutants implements Countable, IteratorAggregate
         return new self($marked);
     }
 
+    /** The mutants on lines the change added or modified, in reported order. */
+    public function changed(): self
+    {
+        $changed = [];
+
+        foreach ($this->mutants as $mutant) {
+            if ($mutant->isOnChangedLine()) {
+                $changed[] = $mutant;
+            }
+        }
+
+        return new self($changed);
+    }
+
     /** The mutants the score counts as not killed: those on changed lines first, each part in reported order. */
     public function survivors(Uncovered $uncovered): self
     {

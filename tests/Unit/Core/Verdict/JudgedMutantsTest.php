@@ -70,3 +70,15 @@ it('lists the survivors on changed lines first, each part in reported order', fu
 it('counts its mutants by judgement', function (): void {
     expect(Judged::mutants(MutantJudgement::Flaky, MutantJudgement::Flaky)->counts()->number(MutantJudgement::Flaky))->toBe(2);
 });
+
+it('lists the mutants on changed lines, in reported order', function (): void {
+    $reach = Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/Money.php'), Lines::of(Line::of(2)));
+    $mutants = JudgedMutants::of(
+        Judged::mutant('a', MutantJudgement::Killed, line: 2),
+        Judged::mutant('b', MutantJudgement::Survived, line: 1),
+        Judged::mutant('c', MutantJudgement::Survived, line: 2),
+    )->within($reach);
+
+    expect(Judged::natives($mutants->changed()))->toBe(['a', 'c'])
+        ->and(array_keys(iterator_to_array($mutants->changed(), preserve_keys: true)))->toBe([0, 1]);
+});
