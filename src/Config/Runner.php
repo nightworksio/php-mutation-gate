@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
-use function array_values;
-
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 /** `runner`: the tool that mutates (ADR-0004). */
 final readonly class Runner
@@ -33,13 +32,13 @@ final readonly class Runner
 
     /**
      * This runner, withholding these environment variables from the project's tests besides those every run
-     * withholds (ADR-0004): `runner.withhold`, names or globs such as `DEPLOY_*`.
+     * withholds (ADR-0004): `runner.withhold`, such as `Withheld::of('DEPLOY_*')`.
      */
-    public function withholding(string ...$globs): self
+    public function withholding(Withheld $withheld): self
     {
         $runner = $this->json instanceof Json ? $this->json : Json::object()->with('use', $this->json);
 
-        return new self($runner->with('withhold', Json::items(array_values($globs))));
+        return new self($runner->with('withhold', Json::items([...$withheld])));
     }
 
     public function written(): Json|string

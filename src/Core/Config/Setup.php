@@ -239,7 +239,7 @@ final readonly class Setup implements Part
     /** The runner as the builder chooses it, with `->withholding()` where it withholds anything. */
     private function runnerPhp(): PhpCalls
     {
-        $withheld = PhpCalls::literals($this->withhold);
+        $withheld = sprintf('Withheld::of(%s)', PhpCalls::literals($this->withhold));
 
         return match (true) {
             $this->runner instanceof Choice && $this->withhold === [] => PhpCalls::onGate(
@@ -251,7 +251,7 @@ final readonly class Setup implements Part
                 sprintf('%s->withholding(%s)', $this->runner->php('Runner', self::RUNNERS), $withheld),
             ),
             $this->withhold === [] => PhpCalls::none(),
-            default => PhpCalls::onGate('withholding', ...array_map(PhpCalls::literal(...), $this->withhold)),
+            default => PhpCalls::onGate('withholding', $withheld),
         };
     }
 

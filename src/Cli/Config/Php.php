@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Config;
 
-use function array_filter;
 use function array_map;
 use function count;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 
+use function preg_match;
 use function sprintf;
-use function str_contains;
 
 /**
  * A config written as a `mutation-gate.php` (ADR-0002): `Gate::configure()`
@@ -21,33 +20,38 @@ use function str_contains;
  */
 final readonly class Php
 {
-    /** The builder classes a config's calls name, in the order their `use` statements are written. */
+    /** The package whose builder classes a config's calls name. */
+    private const string BUILDER = 'NightWorksIO\\MutationGate\\Config';
+
+    /** The classes a config's calls name, in the order their `use` statements are written, each by its namespace. */
     private const array CLASSES = [
-        'Badge',
-        'Baseline',
-        'Budget',
-        'Ci',
-        'Equivalence',
-        'Flaky',
-        'Floor',
-        'Gate',
-        'Ignore',
-        'Ignores',
-        'Load',
-        'Local',
-        'Option',
-        'Pest',
-        'Preset',
-        'Proofs',
-        'Reach',
-        'Report',
-        'Runner',
-        'Shards',
-        'Source',
-        'Tests',
-        'Timeouts',
-        'Tree',
-        'Uncovered',
+        'Badge' => self::BUILDER,
+        'Baseline' => self::BUILDER,
+        'Budget' => self::BUILDER,
+        'Ci' => self::BUILDER,
+        'Equivalence' => self::BUILDER,
+        'Flaky' => self::BUILDER,
+        'Floor' => self::BUILDER,
+        'Gate' => self::BUILDER,
+        'Ignore' => self::BUILDER,
+        'Ignores' => self::BUILDER,
+        'Load' => self::BUILDER,
+        'Local' => self::BUILDER,
+        'Option' => self::BUILDER,
+        'Pest' => self::BUILDER,
+        'Preset' => self::BUILDER,
+        'Proofs' => self::BUILDER,
+        'Reach' => self::BUILDER,
+        'Report' => self::BUILDER,
+        'Runner' => self::BUILDER,
+        'Shards' => self::BUILDER,
+        'Source' => self::BUILDER,
+        'Tests' => self::BUILDER,
+        'Timeouts' => self::BUILDER,
+        'Tree' => self::BUILDER,
+        'Uncovered' => self::BUILDER,
+        'Glob' => 'NightWorksIO\\MutationGate\\Core\\File',
+        'Withheld' => 'NightWorksIO\\MutationGate\\Core\\Runner',
     ];
 
     public static function render(PhpCalls $calls): string
@@ -58,22 +62,14 @@ final readonly class Php
         );
         $with = $calls->withCalls() === [] ? [] : [self::call('with', $calls->withCalls())];
         $code = implode('', [...$gate, ...$with]);
-        $used = array_filter(
-            self::CLASSES,
-            static fn(string $class): bool => $class === 'Gate' || str_contains($code, sprintf('%s::', $class)),
-        );
+        $imports = '';
 
-        return sprintf(
-            "<?php\n\ndeclare(strict_types=1);\n\n%s\nreturn Gate::configure()%s;\n",
-            implode('', array_map(self::import(...), $used)),
-            $code,
-        );
-    }
+        foreach (self::CLASSES as $class => $namespace) {
+            $used = $class === 'Gate' || preg_match(sprintf('/\\b%s::/', $class), $code) === 1;
+            $imports = $used ? sprintf("%suse %s\\%s;\n", $imports, $namespace, $class) : $imports;
+        }
 
-    /** The `use` statement that imports one builder class. */
-    private static function import(string $class): string
-    {
-        return sprintf("use NightWorksIO\\MutationGate\\Config\\%s;\n", $class);
+        return sprintf("<?php\n\ndeclare(strict_types=1);\n\n%s\nreturn Gate::configure()%s;\n", $imports, $code);
     }
 
     /** @param list<string> $arguments */

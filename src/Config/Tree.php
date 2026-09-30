@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 
 /**
- * A `trees` entry (ADR-0003): a path, the floor it declares, the reason a floor of 0 needs, and the globs of the
- * files it leaves out.
+ * A `trees` entry (ADR-0003): a path, the floor it declares, the reason a floor of 0 needs, and the files it leaves
+ * out (ADR-0016).
  */
 final readonly class Tree
 {
@@ -17,18 +18,24 @@ final readonly class Tree
     {
     }
 
-    /** @param list<string> $excluding globs from the repository root, each matching a file in the tree */
-    public static function at(
-        string $path,
-        int|float|Undeclared $floor = new Undeclared(),
-        string $because = '',
-        array $excluding = [],
-    ): self {
+    public static function at(string $path, int|float|Undeclared $floor = new Undeclared(), string $because = ''): self
+    {
         $tree = Json::object()->with('path', $path);
         $tree = $floor instanceof Undeclared ? $tree : $tree->with('floor', $floor);
-        $tree = $because === '' ? $tree : $tree->with('reason', $because);
 
-        return new self($excluding === [] ? $tree : $tree->with('exclude', Json::items($excluding)));
+        return new self($because === '' ? $tree : $tree->with('reason', $because));
+    }
+
+    /** This tree, but for the files these globs from the repository root match: `trees[].exclude`. */
+    public function excluding(Glob ...$globs): self
+    {
+        $excluded = [];
+
+        foreach ($globs as $glob) {
+            $excluded[] = $glob->value();
+        }
+
+        return new self($this->json->with('exclude', Json::items($excluded)));
     }
 
     public function written(): Json

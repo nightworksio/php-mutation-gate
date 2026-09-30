@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 /**
  * The PHP config (ADR-0002): a `mutation-gate.php` returns
@@ -51,13 +52,12 @@ final readonly class Gate
         return $this->set('runner', $runner->written());
     }
 
-    /** `runner.withhold`, where a preset or another layer chooses the runner. */
-    public function withholding(string ...$globs): self
+    /** `runner.withhold`, where a preset or another layer chooses the runner: `Withheld::of('DEPLOY_*')`. */
+    public function withholding(Withheld $withheld): self
     {
-        return $this->merge(Json::object()->with(
-            'runner',
-            Json::object()->with('withhold', $this->each($globs, static fn(string $glob): string => $glob)),
-        ));
+        $withhold = Json::object()->with('withhold', Json::items([...$withheld]));
+
+        return $this->merge(Json::object()->with('runner', $withhold));
     }
 
     public function treeSource(Source $source): self

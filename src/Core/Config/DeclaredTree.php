@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function array_map;
+use function implode;
+
 use NightWorksIO\MutationGate\Core\Config\Definition\Field;
 use NightWorksIO\MutationGate\Core\Config\Definition\Items;
 use NightWorksIO\MutationGate\Core\Config\Definition\Location;
@@ -136,7 +139,17 @@ final readonly class DeclaredTree
 
         return $excluded === []
             ? sprintf('Tree::at(%s)', $arguments)
-            : sprintf('Tree::at(%s, excluding: [%s])', $arguments, PhpCalls::literals($excluded));
+            : sprintf(
+                'Tree::at(%s)->excluding(%s)',
+                $arguments,
+                implode(
+                    ', ',
+                    array_map(
+                        static fn(string $glob): string => sprintf('Glob::of(%s)', PhpCalls::literal($glob)),
+                        $excluded,
+                    ),
+                ),
+            );
     }
 
     /** @param Listed<string>|Absent $exclude */

@@ -28,7 +28,7 @@ final readonly class Glob
     /** A wildcard, or a run of characters that holds none. */
     private const string PIECE = '#\*\*/|\*\*|\*|\?|[^*?]+#u';
 
-    private function __construct(private string $expression)
+    private function __construct(private string $pattern, private string $expression)
     {
     }
 
@@ -45,7 +45,13 @@ final readonly class Glob
             );
         }
 
-        return new self(sprintf('#^%s$#u', $expression));
+        return new self($pattern, sprintf('#^%s$#u', $expression));
+    }
+
+    /** The pattern as it is written: `src/Legacy/**`. */
+    public function value(): string
+    {
+        return $this->pattern;
     }
 
     public function matches(Path $path): bool
