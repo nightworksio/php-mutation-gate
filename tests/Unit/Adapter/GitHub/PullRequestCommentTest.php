@@ -127,3 +127,12 @@ it('asks GitHub itself where no API is named', function () use ($event): void {
         ->and(Decoded::at(is_string($post->getRequestOptions()['body']) ? $post->getRequestOptions()['body'] : '', 'body'))
         ->toContain('[The run](https://github.com/octo/gate/actions/runs/7)');
 });
+
+it('comments where the event does not say which repositories the pull request joins', function () use ($environment): void {
+    $post = new JsonMockResponse(['html_url' => 'u']);
+    $answer = PullRequestComment::inRun($environment, '{"pull_request": {"number": 12}}', new MockHttpClient([new JsonMockResponse([]), $post]), 'gate-bot')
+        ->report(Verdicts::passing());
+
+    expect($answer)->toEqual(Written::to('u'))
+        ->and($post->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/12/comments');
+});
