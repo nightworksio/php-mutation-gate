@@ -108,6 +108,10 @@ one of those values the gate can know or check.
 
    - Each judgement is framed by a line `mutation-gate: judging` before it
      and `mutation-gate: judged` after it, for background matchers.
+   - `<col>` is where the mutant starts, from the file's tokens (decision 9),
+     and the message is SARIF's, with any line break read as a space so each
+     result stays on one line. It is the reporter `problems`, whose option
+     `only: "changed"` is what `--only=changed` sets.
    - The line format is public API (ADR-0011 decision 7).
    - **The first step of the build proves** that PhpStorm's Qodana plugin
      opens a SARIF 2.1.0 log the gate wrote, through *Open Local Report*, and
@@ -128,7 +132,9 @@ one of those values the gate can know or check.
    - A mutant in a failing set is an *error*, and everything else a
      *warning*.
    - Proved and carried survivors are included, marked with the run they came
-     from.
+     from: the message ends with a space and `(proved in run <id>)` or
+     `(carried from run <id>)`, with the run a proof names, and `(proved)` or
+     `(carried)` where no proof names one.
    - `--only=changed` limits the problems output to mutants on changed lines.
 
 9. **Locations are repository-relative everywhere.**
