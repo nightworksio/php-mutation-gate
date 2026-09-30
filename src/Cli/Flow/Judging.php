@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
@@ -197,7 +198,7 @@ final readonly class Judging
         $map = new Handoff($this->adapters->project)->forVerdict();
         $raised = $map instanceof CannotJudge
             ? $shards->with(Warning::that(sprintf(self::NO_MATRIX, $map->why())))
-            : $shards;
+            : $this->hotPathsIn($plan, $map, $shards);
 
         return Verdict::of($verdicts)
             ->withNewCode($newCode)
@@ -283,6 +284,26 @@ final readonly class Judging
                 $tree->value(),
                 $this->settings->floors()->baseline()->value(),
             )));
+        }
+
+        return $warnings;
+    }
+
+    /**
+     * These warnings, and one for each file most of the suite runs through
+     * that no held unit of the plan holds, past `holds.hotPath` of its tests
+     * (ADR-0005, decision 11): each of its mutants runs most of the suite.
+     */
+    private function hotPathsIn(Plan $plan, CoverageMap $map, Warnings $warnings): Warnings
+    {
+        $units = [...$plan->considered()->proved(), ...$plan->considered()->carried()];
+
+        foreach ($plan as $shard) {
+            $units = [...$units, ...$shard->units()];
+        }
+
+        foreach ($this->settings->reach()->hotPaths()->in($map, Units::of(...$units)) as $hot) {
+            $warnings = $warnings->with($hot);
         }
 
         return $warnings;
