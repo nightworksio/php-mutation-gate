@@ -18,10 +18,6 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
-use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Test\Filter;
-use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
@@ -83,11 +79,10 @@ final readonly class Rerunning
 
     public function reproduce(
         Reproducible $mutant,
-        WholeSuite|Group|Filter $judgedBy,
+        MutationRequest $request,
         Seconds $limit,
-        Withheld $withheld,
     ): Reproduction|CannotJudge {
-        $request = MutationRequest::of(Paths::of($mutant->file()), $judgedBy)->withholding($withheld);
+        $request = $request->narrowedTo(Paths::of($mutant->file()), Mutators::named($mutant->mutator()));
         $prepared = $this->prepared($request);
         $shell = Transcribing::over($this->shell);
         $result = $prepared instanceof Prepared

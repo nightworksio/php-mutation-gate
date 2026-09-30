@@ -280,7 +280,7 @@ it('reproduces a survivor on its own, matched back by the gate\'s id, with what 
     $reproduced = [];
 
     foreach ($survivors as $survivor) {
-        $reproduced[] = $library->runner()->reproduce(Reproducible::of($survivor), WholeSuite::tests(), Seconds::of(60.0), Withheld::standard());
+        $reproduced[] = $library->runner()->reproduce(Reproducible::of($survivor), MutationRequest::of(Paths::none(), WholeSuite::tests())->withholding(Withheld::standard()), Seconds::of(60.0));
     }
 
     expect($reproduced)->toHaveCount(1)
@@ -297,12 +297,11 @@ it('reproduces a mutant by the tests that judged its unit, and says the run made
     }
 
     $runner = $library->runner();
-    $held = $survivor instanceof Mutant ? $runner->reproduce(Reproducible::of($survivor), Group::named('holds:src/Held.php'), Seconds::of(60.0), Withheld::standard()) : null;
+    $held = $survivor instanceof Mutant ? $runner->reproduce(Reproducible::of($survivor), MutationRequest::of(Paths::none(), Group::named('holds:src/Held.php'))->withholding(Withheld::standard()), Seconds::of(60.0)) : null;
     $gone = $survivor instanceof Mutant ? $runner->reproduce(
         Reproducible::of(Mutant::of(MutantId::hash(Path::of('src/Money.php'), 'gone', '-a', 0), '', $survivor->location(), $survivor->mutation(), MutantStatus::Survived, $survivor->duration())),
-        WholeSuite::tests(),
+        MutationRequest::of(Paths::none(), WholeSuite::tests()),
         Seconds::of(60.0),
-        Withheld::standard(),
     ) : null;
 
     // The group holds another file, so none of its tests reaches the survivor.

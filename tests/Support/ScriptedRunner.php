@@ -56,7 +56,7 @@ final class ScriptedRunner implements Runner
     /** @var list<array{Mutants, Seconds, WholeSuite|Group|Filter, Withheld, MutationRequest}> */
     private array $retries = [];
 
-    /** @var list<array{Reproducible, WholeSuite|Group|Filter, Seconds, Withheld}> */
+    /** @var list<array{Reproducible, MutationRequest, Seconds}> */
     private array $reproductions = [];
 
     /** @var list<Withheld> */
@@ -374,12 +374,11 @@ final class ScriptedRunner implements Runner
     /** The fake's reproduction, its mutant given the status this runner answers a mutant run again with. */
     public function reproduce(
         Reproducible $mutant,
-        WholeSuite|Group|Filter $judgedBy,
+        MutationRequest $request,
         Seconds $limit,
-        Withheld $withheld,
     ): Reproduction|CannotJudge {
-        $this->reproductions[] = [$mutant, $judgedBy, $limit, $withheld];
-        $again = $this->fake->reproduce($mutant, $judgedBy, $limit, $withheld)->mutant();
+        $this->reproductions[] = [$mutant, $request, $limit];
+        $again = $this->fake->reproduce($mutant, $request, $limit)->mutant();
 
         return $this->retrying instanceof CannotJudge ? $this->retrying : Reproduction::among(
             $mutant->id(),
@@ -396,7 +395,7 @@ final class ScriptedRunner implements Runner
         );
     }
 
-    /** @return list<array{Reproducible, WholeSuite|Group|Filter, Seconds, Withheld}> each mutant reproduced, as it was asked */
+    /** @return list<array{Reproducible, MutationRequest, Seconds}> each mutant reproduced, as it was asked */
     public function reproductions(): array
     {
         return $this->reproductions;

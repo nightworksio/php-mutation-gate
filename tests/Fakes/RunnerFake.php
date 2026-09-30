@@ -184,8 +184,9 @@ final readonly class RunnerFake implements Runner
     }
 
     /** The library's mutant with the id asked for, judged by the tests given, or none where the library has none. */
-    public function reproduce(Reproducible $mutant, WholeSuite|Group|Filter $judgedBy, Seconds $limit, Withheld $withheld): Reproduction
+    public function reproduce(Reproducible $mutant, MutationRequest $request, Seconds $limit): Reproduction
     {
+        $judgedBy = $request->judgedBy();
         $ran = Mutants::none();
 
         foreach ($this->library as $known) {

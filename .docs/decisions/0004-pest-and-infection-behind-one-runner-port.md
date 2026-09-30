@@ -121,7 +121,8 @@ its parser attributes. Both change when the checkout moves.
    | `judges(file, map)` | The test files that can judge a mutant of this file, by the runner's own selection rules (decision 5) |
    | `startUp(file, withheld)` | How long one run of no test takes, started as the runner starts a mutant's own run of the file, whose mutant is an unchanged copy of it, and narrowed by a filter that matches no test (`(?!)`): what every mutant's run pays before its first test (ADR-0006, decision 4). The runner serves the file through the wrapper it serves a mutant through, so the run pays for that too. Pest runs itself with `--no-tia --bail --filter=(?!) --do-not-fail-on-empty-test-suite` in the environment pest-plugin-mutate gives a mutant's run under `--parallel`: `PEST_MUTATION_TESTING` naming the file, `PEST_MUTATION_FILE` naming the copy, `PARATEST`, `TEST_TOKEN`, `UNIQUE_TEST_TOKEN` and `LARAVEL_PARALLEL_TESTING`. It loads every test file, as a mutant's run does. Infection's is the project's PHPUnit with no PHP options, as Infection starts a mutant's, with its extra arguments and the same filter, on a config shaped by the steps of Infection's `MutationConfigBuilder` that change what a run loads. Those steps are: every path absolute from the config's directory, no loggers, coverage reports, colours, printer or default suite, the suites replaced by one holding the covering test files, here none, and the bootstrap replaced by Infection's, which lowers the process's priority, serves the copy through Infection's include interceptor and then loads the config's own bootstrap. So it loads no test file. The steps that only order, stop or report a run (the result cache, the fail-on attributes, stop-on-defect, stderr) are left out. The gate takes those steps itself, since Infection's builder is in the project's vendor, which the gate's process never loads. The run withholds what every child process withholds |
    | `mutate(request)` | Every mutant's normalised result for some files, judged by the whole suite or by a group, under a deadline |
-   | `retry(mutants, limit)` | The same, for a few mutants run again (ADR-0008) |
+   | `retry(request, mutants, limit)` | The same, for a few mutants run again, the invocation's request narrowed to them (ADR-0008) |
+   | `reproduce(mutant, request, limit)` | One mutant run again on its own, the request narrowed to its file and its mutator, with what the runner printed (decision 6) |
    | `markers(files)` | The runner's own ignore markers in those files and in its config, each with the `ignores.entries` entry that replaces it (ADR-0008). Whether a run may go ahead with them is the verdict's to decide |
    | `definitions()` | The files that define how the runner runs, as paths from the project's root. Pest names `tests/Pest.php` and the PHPUnit config in the root; Infection names its config under each of its four names and the PHPUnit config in `phpUnit.configDir`, or in the root where the config sets none. Each PHPUnit config is named by each of the names PHPUnit looks for: `phpunit.xml`, `phpunit.dist.xml` and `phpunit.xml.dist`. A change to one reaches everything (ADR-0005), and every content key reads them (ADR-0007) |
    | `names(tests, withheld)` | Each test by its file and the description the runner gives it, or the data set row that folds into it (ADR-0014, decision 6). Infection names a test from the file that declares its class and its method. Pest lists the suite's tests, running none, and its plugin names each one. That listing withholds what every child process withholds |
@@ -494,9 +495,11 @@ its parser attributes. Both change when the checkout moves.
    with `--mutator=<class name>`, or Infection's positional path with the
    narrowed config of decision 4. It finds the mutant by the gate's id, or a
    unique prefix of six or more, in the newest record the readable ledgers
-   hold, runs it by the tests that judge its unit and allowed the configured
-   cap, and prints the diff, what was recorded, what the run found, the
-   judging tests and the runner's own output for it. It exits 0 where the run
+   hold, and runs it under the conditions of the run it came from: by the
+   tests that judge its unit, allowed the configured time limit, withholding
+   what a run withholds, and under the memory cap of decision 9. It prints
+   the diff, what was recorded, what the run found, the judging tests and the
+   runner's own output for it. It exits 0 where the run
    finds what was recorded, 1 where it finds something else, and 2 where no
    ledger read holds the mutant, the run no longer makes it, or the runner
    cannot judge. A mutant decision 8 judged is re-run through decision 8's
@@ -649,7 +652,7 @@ its parser attributes. Both change when the checkout moves.
 9. **Every PHP process a mutation run starts has a memory cap.**
    - `runner.memory` is the `memory_limit` of each PHP process a mutation
      run starts: the runner's own, its opening run of the suite, and each
-     mutant's process. It is written as PHP writes it, a whole number of
+     mutant's process, and so of each reproduction (decision 6). It is written as PHP writes it, a whole number of
      bytes, `K`, `M` or `G`, such as `512M`. It is `1G` by default, and `-1`
      for none. A mutant that runs away with memory then stops alone, rather
      than taking the machine and every mutant still to run on it with it.

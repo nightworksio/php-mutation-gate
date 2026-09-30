@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Reproduced;
 use NightWorksIO\MutationGate\Cli\Flow\Reproducing;
+use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -16,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Proof\NoRecord;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -71,7 +74,22 @@ it('runs the newest record of a mutant again by the whole suite, allowed the con
     ] : $reproduced)->toBe(['49e02fb39669', 'github:2026-09-29T10:00:00Z', MutantStatus::Survived, 'scripted: 49e02fb39669 run again'])
         ->and($reproduced instanceof Reproduced ? $reproduced->judgedBy : $reproduced)->toEqual(WholeSuite::tests())
         ->and(count($asked))->toBe(1)
-        ->and([$asked[0][2]->seconds(), $asked[0][3]])->toEqual([Flows::settings()->triage()->limit()->seconds(), Withheld::standard()->and(CiPlanFake::withheld())]);
+        ->and([$asked[0][2]->seconds(), $asked[0][1]->withheld(), $asked[0][1]->memory()])->toEqual([
+            Flows::settings()->triage()->limit()->seconds(),
+            Withheld::standard()->and(CiPlanFake::withheld()),
+            MemoryCap::standard(),
+        ])
+        ->and([...$asked[0][1]->files()])->toEqual([$reproduced instanceof Reproduced ? $reproduced->recorded->mutant()->location()->file() : null]);
+});
+
+it('reproduces a mutant under the memory cap the config sets, as a run has it', function () use ($store): void {
+    $runner = ScriptedRunner::fixture();
+    $settings = Flows::settings(ConfiguredRunner::uses('fake')->cappedAt(MemoryCap::of(512, MemoryUnit::Megabytes)));
+
+    new Reproducing(Flows::adapters(Flows::project(), [], $store(), $runner), $settings)->reproduce(Sought::of('49e02f'));
+
+    expect(array_map(static fn(array $asked): MemoryCap => $asked[1]->memory(), $runner->reproductions()))
+        ->toEqual([MemoryCap::of(512, MemoryUnit::Megabytes)]);
 });
 
 it('runs a held unit\'s mutant by the group that holds it', function () use ($store): void {

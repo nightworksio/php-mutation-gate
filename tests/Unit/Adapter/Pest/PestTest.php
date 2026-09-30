@@ -48,6 +48,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
@@ -712,10 +713,21 @@ it('reproduces a mutant in one run of its file with only its mutator, by the tes
         ->withholding(Withheld::of('DEPLOY_*'));
 
     $reproduced = new Pest($at, $shell, Patching::off())
-        ->reproduce(Reproducible::of(adapterMutant()), $holding, Seconds::of(20.0), Withheld::of('DEPLOY_*'));
+        ->reproduce(Reproducible::of(adapterMutant()), MutationRequest::of(Paths::none(), $holding)->withholding(Withheld::of('DEPLOY_*')), Seconds::of(20.0));
 
     expect($reproduced instanceof Reproduction ? [$reproduced->mutant(), $reproduced->printed()] : $reproduced)->toEqual([adapterMutant(), '  Mutations: 1 tested'])
         ->and($shell->commands())->toEqual([adapterInvocation()->mutation($request, $holding, adapterResults($at))]);
+});
+
+it('reproduces a mutant under the cap its request carries, as the run it came from', function (): void {
+    $at = adapterProject();
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+    $request = MutationRequest::of(Paths::none(), WholeSuite::tests())->cappedAt(MemoryCap::of(256, MemoryUnit::Megabytes));
+
+    new Pest($at, $shell, Patching::off())->reproduce(Reproducible::of(adapterMutant()), $request, Seconds::of(20.0));
+
+    expect(array_map(static fn(Command $command): mixed => $command->environment()[MemoryCap::SCAN_DIR] ?? null, $shell->commands()))
+        ->toBe([MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), sprintf('%s/php', dirname(adapterResults($at))))]);
 });
 
 it('says Pest made no mutant with the id where the run no longer makes it', function (): void {
@@ -726,7 +738,7 @@ it('says Pest made no mutant with the id where the run no longer makes it', func
     $gone = Mutant::of(MutantId::hash(Path::of('src/Money.php'), RUN_PLUS, '-gone', 0), 'n9', $place, $change, MutantStatus::Survived, Unmeasured::duration());
 
     $reproduced = new Pest($at, $shell, Patching::off())
-        ->reproduce(Reproducible::of($gone), WholeSuite::tests(), Seconds::of(20.0), Withheld::standard());
+        ->reproduce(Reproducible::of($gone), MutationRequest::of(Paths::none(), WholeSuite::tests())->withholding(Withheld::standard()), Seconds::of(20.0));
 
     expect($reproduced instanceof Reproduction ? $reproduced->mutant() : $reproduced)
         ->toEqual(Unmade::because(Reason::that('Run again alone, Pest made no mutant with this id.')));
@@ -736,7 +748,7 @@ it('cannot judge a reproduction whose run failed', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
 
     $reproduced = new Pest(adapterProject(), $shell, Patching::off())
-        ->reproduce(Reproducible::of(adapterMutant()), WholeSuite::tests(), Seconds::of(20.0), Withheld::standard());
+        ->reproduce(Reproducible::of(adapterMutant()), MutationRequest::of(Paths::none(), WholeSuite::tests())->withholding(Withheld::standard()), Seconds::of(20.0));
 
     expect($reproduced)->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
 });

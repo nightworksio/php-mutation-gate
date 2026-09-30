@@ -578,7 +578,7 @@ it('reproduces a mutant alone with only its mutator, by its unit\'s tests at the
 
     $again = infectionShell($at, infectionKilled($at));
     $reproduced = $timedOut instanceof Mutant ? new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false)
-        ->reproduce(Reproducible::of($timedOut), Group::named('holds:src/Money.php'), Seconds::of(12.0), Withheld::of('DEPLOY_*')) : null;
+        ->reproduce(Reproducible::of($timedOut), MutationRequest::of(Paths::none(), Group::named('holds:src/Money.php'))->withholding(Withheld::of('DEPLOY_*')), Seconds::of(12.0)) : null;
     $generated = json_decode((string) file_get_contents($at->own('infection.json5')), associative: true);
 
     expect($timedOut instanceof Mutant ? $timedOut->status() : $timedOut)->toBe(MutantStatus::TimedOut)
@@ -608,7 +608,7 @@ it('says Infection made no mutant with the id where it no longer makes it, and c
         $shell,
         Seconds::of(6.0),
         nativeMarkersAllowed: false,
-    )->reproduce(Reproducible::of($gone), WholeSuite::tests(), Seconds::of(6.0), Withheld::standard());
+    )->reproduce(Reproducible::of($gone), MutationRequest::of(Paths::none(), WholeSuite::tests())->withholding(Withheld::standard()), Seconds::of(6.0));
     $unjudged = $reproduced($at, infectionShell($at, infectionKilled($at)));
 
     expect($unjudged instanceof Reproduction ? $unjudged->mutant() : $unjudged)
