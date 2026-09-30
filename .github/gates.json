@@ -161,7 +161,7 @@
     },
     "runner-contracts": {
       "check": "runner contracts",
-      "checks": "ADR-0004's Runner contract suite against the real Pest and Infection, and ADR-0020's StaticChecker contract suite against the real Mago and PHPStan, at both ends of the ranges the package supports.",
+      "checks": "ADR-0004's Runner contract suite against the real Pest and Infection, the PHPUnit runner's pieces against a real PHPUnit, and ADR-0020's StaticChecker contract suite against the real Mago and PHPStan, at both ends of the ranges the package supports.",
       "reproduce": "vendor/bin/pest --testsuite=Contract, after installing the fixture libraries as the job does; ANALYSER_CONTRACTS=1 for the analysers",
       "evidence": [
         {"step": "pest-lowest", "tool": "pest", "raw": "evidence/raw/pest-lowest.xml"},
@@ -170,6 +170,8 @@
         {"step": "infection-lowest-13", "tool": "pest", "raw": "evidence/raw/infection-lowest-13.xml"},
         {"step": "infection-highest-12", "tool": "pest", "raw": "evidence/raw/infection-highest-12.xml"},
         {"step": "infection-highest-13", "tool": "pest", "raw": "evidence/raw/infection-highest-13.xml"},
+        {"step": "phpunit-lowest", "tool": "pest", "raw": "evidence/raw/phpunit-lowest.xml"},
+        {"step": "phpunit-highest", "tool": "pest", "raw": "evidence/raw/phpunit-highest.xml"},
         {"step": "analysers-lowest", "tool": "pest", "raw": "evidence/raw/analysers-lowest.xml"},
         {"step": "analysers-highest", "tool": "pest", "raw": "evidence/raw/analysers-highest.xml"}
       ],

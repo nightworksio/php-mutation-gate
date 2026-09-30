@@ -116,6 +116,7 @@ Extension, and every core type their public signatures reach (ADR-0001).
 | **D8** | A closed set of strings is an enum: no `match` over three or more strings, and no constant of three or more strings that `in_array` or `array_key_exists` asks about, outside the files that translate an outside vocabulary | phpstan: own rule, over `src`; review for the rest |
 | **D9** | One value has one home: a value two classes declare as constants is declared once and referred to, unless the two only coincide | phpstan: own rule with a collector, over `src`; arch: every exemption names a file or a constant that is there |
 | **D10** | `mixed` appears only in a decoder of untrusted input, which hands on typed values; the files still to type are listed, and the list only shrinks | phpstan: own rule, over `src` and `tests/Support`; arch: every listed file still holds a `mixed` |
+| **D11** | A public property is readonly, but for one PHP itself writes | phpstan: own rule, with those files named in `phpstan.neon` |
 
 ## H — names, size and layout
 
@@ -123,7 +124,7 @@ Extension, and every core type their public signatures reach (ADR-0001).
 |---|---|---|
 | **H1** | No `Manager`, `Helper`, `Util`, `Service`, `Data` or `Info` suffix | arch |
 | **H2** | No `Interface` suffix and no `Abstract` prefix | arch |
-| **H3** | A class declares at most twenty methods, and nothing is too complex to read | phpstan: own rule + `cognitive_complexity` |
+| **H3** | A class declares at most twenty methods, but for one whose methods a PHP protocol fixes, and nothing is too complex to read | phpstan: own rule, with those files named in `phpstan.neon`, + `cognitive_complexity` |
 | **H4** | A test file mirrors the source file it tests | arch: an orphan test fails, a class without one does not |
 | **H5** | A string with a value in it is built with `sprintf`, and a message is one literal | phpstan: own rule, one per node type |
 | **H6** | An exception is named for what happened, not for being an exception | arch |

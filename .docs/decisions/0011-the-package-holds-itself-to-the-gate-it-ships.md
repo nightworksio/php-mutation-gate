@@ -327,7 +327,7 @@ about Laravel, NativePHP or the project's modules, and does not.
     | PHP | 8.5 and later 8.x | 8.5; each later minor added when it is released and green |
     | Pest | `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0 (`conflict` outside the range the contract suite has passed), on the PHPUnit 13 release each Pest version pins | lowest and highest in range |
     | Infection | `infection/infection` ~0.35.0, with PHPUnit 12 or 13 | 0.35.x lowest and highest, each with PHPUnit 12 and 13 |
-    | Native runners | PHPUnit (ADR-0023); Codeception, PhpSpec and Testo (ADR-0027), each at the versions its contract suite has passed | lowest and highest in range |
+    | Native runners | PHPUnit 13.2.0 and later (ADR-0023); Codeception, PhpSpec and Testo (ADR-0027), each at the versions its contract suite has passed | lowest and highest in range |
     | Coverage driver | pcov or Xdebug | pcov |
     | `symfony/console`, `symfony/process`, `symfony/http-client`, `psr/clock` | ^7.4 \|\| ^8.0 for Symfony, ^1.0 for `psr/clock` | lowest and highest |
     | Optional: `symfony/yaml`, `nette/neon`, `async-aws/s3` | ^7.4 \|\| ^8.0, ^3.4 and ^3 | lowest and highest |
