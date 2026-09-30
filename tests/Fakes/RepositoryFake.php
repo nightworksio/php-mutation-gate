@@ -16,6 +16,7 @@ final readonly class RepositoryFake implements Repository
         private Revision|CannotTell $head,
         private Scope|Detached|CannotTell $branch,
         private Scope|CannotTell $defaultBranch,
+        private bool|CannotTell $clean = true,
     ) {
     }
 
@@ -38,6 +39,28 @@ final readonly class RepositoryFake implements Repository
     public function head(): Revision|CannotTell
     {
         return $this->head;
+    }
+
+    /** This checkout, whose working tree holds something its commit does not. */
+    public function changed(): self
+    {
+        return new self($this->head, $this->branch, $this->defaultBranch, clean: false);
+    }
+
+    /** This checkout, where git cannot say whether its working tree holds anything its commit does not. */
+    public function unsure(): self
+    {
+        return new self(
+            $this->head,
+            $this->branch,
+            $this->defaultBranch,
+            CannotTell::because('git status gave no answer.'),
+        );
+    }
+
+    public function isClean(): bool|CannotTell
+    {
+        return $this->clean;
     }
 
     public function branch(): Scope|Detached|CannotTell

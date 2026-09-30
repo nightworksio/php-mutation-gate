@@ -71,11 +71,13 @@ function exceptionsIgnoringDefinitions(): Exceptions
 }
 
 it('keeps every file that defines the runner, whatever proofs.ignore matches', function (string $path): void {
-    expect(exceptionsIgnoringDefinitions()->leaveOut(Path::of($path)))->toBeFalse();
+    expect(exceptionsIgnoringDefinitions()->leaveOut(Path::of($path)))->toBeFalse()
+        ->and(exceptionsIgnoringDefinitions()->defines(Path::of($path)))->toBeTrue();
 })->with(['tests/Pest.php', 'infection.json5', 'phpunit.xml']);
 
 it('still leaves out what proofs.ignore matches that defines no runner', function (string $path): void {
-    expect(exceptionsIgnoringDefinitions()->leaveOut(Path::of($path)))->toBeTrue();
+    expect(exceptionsIgnoringDefinitions()->leaveOut(Path::of($path)))->toBeTrue()
+        ->and(exceptionsIgnoringDefinitions()->defines(Path::of($path)))->toBeFalse();
 })->with(['docs/index.md', 'phpunit.xml.bak', 'tests/fixtures.json5', 'mutation-gate.json']);
 
 it('warns, naming the glob and the file, for each glob that matches a file defining the runner', function (): void {

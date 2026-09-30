@@ -8,13 +8,21 @@ use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
+use NightWorksIO\MutationGate\Config\Flaky;
+use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -31,6 +39,7 @@ use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
+use NightWorksIO\MutationGate\Tests\Support\TickingClock;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -177,3 +186,35 @@ it('takes no unit a budget ran out before as run, and names every one', function
             [...$results->unjudged()],
         ) : $results)->toBe(['src/Money.php', 'src/Held.php']);
 });
+
+it('says a run was cut short where its budget ran out before a unit or left a mutant unjudged, and not otherwise', function (
+    Settings $settings,
+    int $step,
+    bool $cut,
+): void {
+    $project = Flows::project();
+    $plan = Planned::handedIn($project, Planned::oneShard());
+    $timedOut = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
+        'Plus-1',
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
+        MutantStatus::TimedOut,
+        Seconds::of(5.0),
+    )->withLimit(Seconds::of(5.0));
+    $setup = new Setup(
+        Absent::setting(),
+        Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
+        Digest::sha256Of('installed'),
+        new TickingClock('2026-09-30T12:00:00+00:00', $step),
+    );
+    new Running(Flows::adapters($project, [], ScriptedRunner::fixture()->answering(Mutants::of($timedOut), 0)), $settings, $setup)
+        ->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+
+    expect($results instanceof Results ? $results->wereCutShort() : $results)->toBe($cut);
+})->with([
+    'no budget' => [Flows::settings(Timeouts::seconds(5), Timeouts::retries(2), Flaky::notConfirmingSurvivors()), 1, false],
+    'a timeout it had no time to run again' => [Flows::settings(Timeouts::seconds(5), Timeouts::retries(2), Flaky::notConfirmingSurvivors(), Budget::of('6s')), 1, true],
+    'a budget no unit fits' => [Flows::settings(Budget::of('1s')), 1, true],
+]);

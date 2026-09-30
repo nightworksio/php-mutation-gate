@@ -10,13 +10,21 @@ use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 
 /**
- * Where the checkout stands in version control: the commit it is at, the
- * branch it is on, and the branch the remote calls its default.
+ * Where the checkout stands in version control: the commit it is at, whether
+ * the working tree holds anything that commit does not, the branch it is on,
+ * and the branch the remote calls its default.
  */
 interface Repository
 {
     /** The commit the checkout is at, by its full name. */
     public function head(): Revision|CannotTell;
+
+    /**
+     * Whether the working tree holds nothing the commit it is at does not: no
+     * change, staged or not, no file that is neither tracked nor ignored, and
+     * no file whose changes git is told not to show.
+     */
+    public function isClean(): bool|CannotTell;
 
     /** The branch the checkout is on, as its scope, or none on a detached `HEAD`. */
     public function branch(): Scope|Detached|CannotTell;

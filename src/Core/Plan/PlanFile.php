@@ -20,8 +20,11 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\DigestsRecord;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -39,7 +42,8 @@ use stdClass;
  * A plan as `.mutation-gate/plan.json` holds it, `"format": 1`: the full id of
  * the commit it was made on, the base its keys are built on, every considered
  * unit's key, and the shards, with the units it proved or carried, and the
- * lines a change added or modified with why it reached what it did, and the
+ * lines a change added or modified with why it reached what it did, the
+ * digests of the run's inputs each proof records its share of, and the
  * digest of all of that. Beside it, outside the digest since they judge
  * nothing, `names` holds the names the runner gives the suite's tests, or
  * `unnamed` why it gave none; a plan with neither was made without asking.
@@ -50,6 +54,7 @@ use stdClass;
  *
  * @phpstan-import-type Written from KeysRecord as KeysWritten
  * @phpstan-import-type Written from UnitRecord as UnitWritten
+ * @phpstan-import-type RunWritten from DigestsRecord as RunDigests
  *
  * @phpstan-type RunOnWritten array{ref?: string, defaultBranch?: string}
  * @phpstan-type ShardWritten array<string, int|string|float|list<UnitWritten>>
@@ -67,6 +72,7 @@ use stdClass;
  *     carried?: list<UnitWritten>,
  *     changed?: array<string, list<int>>,
  *     reach?: list<string>,
+ *     digests?: RunDigests,
  * }
  */
 final readonly class PlanFile
@@ -92,6 +98,8 @@ final readonly class PlanFile
     private const string NAMES = 'names';
 
     private const string UNNAMED = 'unnamed';
+
+    private const string DIGESTS = DigestsRecord::FIELD;
 
     public static function encode(Plan $plan): string
     {
@@ -136,7 +144,14 @@ final readonly class PlanFile
             'shards' => array_map(self::shard(...), [...$plan]),
             ...self::considered($plan->considered()),
             ...self::change($plan->considered()),
+            ...self::digests($plan->digests()),
         ];
+    }
+
+    /** @return array{digests?: RunDigests} the digests of the run's inputs, where the plan has them */
+    private static function digests(Digests|Undigested $digests): array
+    {
+        return $digests instanceof Digests ? [self::DIGESTS => DigestsRecord::ofRun($digests)] : [];
     }
 
     /** @return RunOnWritten the ref and the default branch, each where there is one */
@@ -220,6 +235,8 @@ final readonly class PlanFile
                     ->proving(self::unitsIn($file->field(self::PROVED)))
                     ->carrying(self::unitsIn($file->field(self::CARRIED))),
             );
+        $digests = $file->field(self::DIGESTS);
+        $plan = $digests->isPresent() ? $plan->digesting(DigestsRecord::readRun($digests)) : $plan;
         $named = self::namedIn($plan, $file);
 
         return $plan->digest()->value() === $file->field(self::DIGEST)->text()

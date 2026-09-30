@@ -33,6 +33,7 @@ final readonly class Recording
         Mutants $mutants,
         MutantIds $flaky,
         Run $run,
+        Inputs|Undigested $inputs,
     ): Proof|NotRecorded {
         if ($key instanceof Unkeyed) {
             return NotRecorded::because($key->why());
@@ -41,7 +42,7 @@ final readonly class Recording
         $unfinished = self::unfinishedIn($mutants, $flaky);
 
         return $unfinished === 0
-            ? Proof::of($key, $unit, $mutants, $run)
+            ? Proof::of($key, $unit, $mutants, $run)->withInputs($inputs)
             : NotRecorded::because(sprintf(
                 '%s did not run to the end: %d of its mutants are unjudged or flaky.',
                 $unit->value(),

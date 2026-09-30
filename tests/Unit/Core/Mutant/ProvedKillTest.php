@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -26,4 +27,18 @@ it('is a kill a ledger proved: its id, its unit and line, its mutator and its ki
         ->and($kill->reason())->toEqual(Unreported::reason())
         ->and($kill->duration())->toEqual(Unmeasured::duration())
         ->and($kill->limit())->toEqual(Unmeasured::duration());
+});
+
+it('is left unjudged where a time budget ran out before judging it again, saying so, keeping the rest', function (): void {
+    $id = MutantId::hash(Path::of('src/Money.php'), 'Plus', "-+\n+-", 0);
+    $killers = TestIds::of(TestId::of('MoneyTest::adds'));
+    $kill = ProvedKill::of($id, Path::of('src/Money.php'), Line::of(44), 'Plus', $killers);
+    $left = $kill->unjudged(OutOfTime::BeforeMutating);
+
+    expect($left->status())->toBe(MutantStatus::Unjudged)
+        ->and($left->reason())->toEqual(OutOfTime::BeforeMutating->reason())
+        ->and($left->id())->toBe($id)
+        ->and($left->killers())->toBe($killers)
+        ->and($left->mutator())->toBe('Plus')
+        ->and($kill->status())->toBe(MutantStatus::Killed);
 });

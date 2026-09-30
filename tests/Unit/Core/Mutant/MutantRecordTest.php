@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
@@ -87,6 +88,19 @@ it('writes the reason a runner left a mutant unjudged in the full record', funct
     expect(MutantRecord::full($unjudged))->toMatchArray(['status' => 'unjudged', 'reason' => 'No test references the constant it changes.']);
 });
 
+it('writes and reads back what a time budget ran out before, where one left the mutant unjudged', function () use ($timedOut, $unjudged, $read): void {
+    $left = $timedOut->unjudged(OutOfTime::BeforeRetrying);
+
+    expect(MutantRecord::full($left))->toMatchArray([
+        'status' => 'unjudged',
+        'reason' => OutOfTime::BeforeRetrying->reason()->text(),
+        'outOfTime' => 'before-retrying',
+    ])
+        ->and(MutantRecord::full($unjudged))->not->toHaveKey('outOfTime')
+        ->and(MutantRecord::readFull($read(MutantRecord::full($left))))->toEqual($left)
+        ->and(OutOfTime::left(MutantRecord::readFull($read(MutantRecord::full($left)))))->toBeTrue();
+});
+
 it('writes a killed mutant as its id, line, the index of its mutator and those of its killers', function () use ($killed, $id): void {
     $killers = TestIds::of(TestId::of('CartTest::totals'), TestId::of('MoneyTest::adds'));
 
@@ -137,6 +151,7 @@ it('refuses a record that does not hold a mutant, saying where', function (array
     'test seconds that are not a number' => [['testSeconds' => 'long'], NotInShape::at('the file.testSeconds', 'a number')],
     'a native id that is not text' => [['native' => 7], NotInShape::at('the file.native', 'text')],
     'a reason that is not text' => [['reason' => 7], NotInShape::at('the file.reason', 'text')],
+    'a budget that ran out before what there is not' => [['outOfTime' => 'before-lunch'], NotInShape::at('the file.outOfTime', 'what a time budget ran out before')],
 ]);
 
 it('refuses a killed record that does not hold a killed mutant, saying where', function (array $record, NotInShape $refusal) use ($read): void {

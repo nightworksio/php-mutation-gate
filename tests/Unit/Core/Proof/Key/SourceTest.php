@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 $fingerprint = static fn(string $path): Fingerprint => Fingerprint::of(Path::of($path), Digest::of('9c1e'));
 
-it('reads every file outside the tests but the exceptions and the CI definitions it reads as they run', function () use ($fingerprint): void {
+it('reads every file outside the tests but the exceptions and the CI definitions it reads as they run, and keeps every one', function () use ($fingerprint): void {
     $ci = CiDefinitions::of(
         CiDefinition::at(Path::of('.gitlab/mutation-gate.yml'), Contents::of('image: php')),
         CiDefinition::at(Path::of('ci/template.yml'), Contents::of('stages: [test]')),
@@ -31,11 +31,19 @@ it('reads every file outside the tests but the exceptions and the CI definitions
             $fingerprint('composer.json'),
         ),
         $ci,
-        Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate-baseline.json'), Ignored::nothing(), Paths::none()),
+        Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate-baseline.json'), Ignored::nothing(), Paths::of(Path::of('composer.json'))),
     );
 
-    expect($source->files())->toEqual(Fingerprints::of($fingerprint('src/Money.php'), $fingerprint('composer.json')))
-        ->and($source->ci())->toBe($ci);
+    expect($source->definitions())->toEqual(Fingerprints::of($fingerprint('composer.json')))
+        ->and($source->files())->toEqual(Fingerprints::of($fingerprint('src/Money.php'), $fingerprint('composer.json')))
+        ->and($source->ci())->toBe($ci)
+        ->and($source->outside())->toEqual(Fingerprints::of(
+            $fingerprint('src/Money.php'),
+            $fingerprint('mutation-gate.json'),
+            $fingerprint('.gitlab/mutation-gate.yml'),
+            $fingerprint('ci/template.yml'),
+            $fingerprint('composer.json'),
+        ));
 });
 
 it('reads files in time linear in their number', function (): void {

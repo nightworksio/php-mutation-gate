@@ -19,8 +19,10 @@ use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
@@ -349,4 +351,46 @@ it('writes and reads back the units it proved and those it carries, and neither 
         ->and(PlanFile::decode($written))->toEqual($plan)
         ->and($none)->not->toContain('"proved"')
         ->and($none)->not->toContain('"carried"');
+});
+
+it('writes the digests of the run\'s inputs within its digest, and reads them back', function (): void {
+    $digests = Digests::of(Digest::sha256Of('mutation'))
+        ->withSource(Path::of('src/A.php'), Digest::sha256Of('a'))
+        ->withTest(Path::of('tests/ATest.php'), Digest::sha256Of('a test'));
+    $plan = planFileEmpty()->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))->digesting($digests);
+    $written = PlanFile::encode($plan);
+    $read = PlanFile::decode($written);
+
+    expect($read)->toEqual($plan)
+        ->and($read instanceof Plan ? $read->digests() : $read)->toEqual($digests)
+        ->and($plan->digest())->not->toEqual(planFileEmpty()->digest())
+        ->and($written)->toContain(sprintf('"src/A.php": "%s"', Digest::sha256Of('a')->value()))
+        ->and(planFileEmpty()->digests())->toEqual(Undigested::proof())
+        ->and(PlanFile::encode(planFileEmpty()))->not->toContain('"digests"');
+});
+
+it('writes the commit the run\'s digests were taken at, and reads it back', function (): void {
+    $commit = Revision::ref(str_repeat('c0', 20));
+    $plan = planFileEmpty()->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))
+        ->digesting(Digests::of(Digest::sha256Of('mutation'))->takenAt($commit));
+    $read = PlanFile::decode(PlanFile::encode($plan));
+
+    expect($read)->toEqual($plan)
+        ->and($read instanceof Plan ? $read->digests() : $read)->toEqual(Digests::of(Digest::sha256Of('mutation'))->takenAt($commit))
+        ->and(PlanFile::encode($plan))->toContain(sprintf('"commit": "%s"', str_repeat('c0', 20)))
+        ->and(PlanFile::decode(str_replace(str_repeat('c0', 20), 'HEAD', PlanFile::encode($plan))))
+        ->toBeInstanceOf(CannotJudge::class);
+});
+
+it('refuses a plan whose digests are not well formed', function (): void {
+    $plan = planFileEmpty()->digesting(Digests::of(Digest::sha256Of('mutation')));
+    $spoiled = str_replace(Digest::sha256Of('mutation')->value(), 'abc', PlanFile::encode($plan));
+
+    expect(PlanFile::decode($spoiled))->toBeInstanceOf(CannotJudge::class);
+});
+
+it('reads back digests of a run with no unit and no test file', function (): void {
+    $plan = planFileEmpty()->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))->digesting(Digests::of(Digest::sha256Of('mutation')));
+
+    expect(PlanFile::decode(PlanFile::encode($plan)))->toEqual($plan);
 });

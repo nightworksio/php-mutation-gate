@@ -15,8 +15,10 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -106,4 +108,15 @@ it('names the mutants two runs of the same code disagree on, a kill a ledger pro
         ->and($proof->disagreeingWith($other))->toHaveCount(0)
         ->and($proof->disagreeingWith($proof))->toHaveCount(0)
         ->and([...$other->disagreeingWith(Mutants::none())])->toHaveCount(5);
+});
+
+it('records no digests of its inputs until it is given them', function (): void {
+    $run = Run::of('github:5813/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')), Digest::of(str_repeat('b', 64)));
+    $proof = Proof::of(Digest::of('9c1e'), Path::of('src/Money.php'), Mutants::none(), $run);
+    $inputs = Inputs::of(Digest::of(str_repeat('1', 64)), Digest::of(str_repeat('2', 64)));
+
+    expect($proof->inputs())->toEqual(Undigested::proof())
+        ->and(Proof::held(Digest::of('9c1e'), Path::of('src/Money.php'), Mutants::none(), ProvedKills::none(), $run)->inputs())->toEqual(Undigested::proof())
+        ->and($proof->withInputs($inputs)->inputs())->toBe($inputs)
+        ->and($proof->withInputs($inputs)->key())->toBe($proof->key());
 });

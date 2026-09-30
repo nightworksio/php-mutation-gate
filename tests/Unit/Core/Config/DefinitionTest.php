@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Effect;
+use NightWorksIO\MutationGate\Core\Time\Budgets;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 it('ships the JSON Schema config:schema prints', function (): void {
@@ -126,4 +127,16 @@ it('declares every key of the README\'s configuration reference, or the entries 
     ));
 
     expect(array_values($undeclared))->toBe([]);
+});
+
+it('states the default budgets the README gives watch and pre-push', function (): void {
+    $readme = (string) file_get_contents(Tree::at('README.md'));
+    $default = static fn(string $key): string => preg_match(
+        sprintf('/^\\| `%s` \\| [^|]+ \\| `([^`]+)` \\|/m', preg_quote($key, '/')),
+        $readme,
+        $row,
+    ) === 1 ? $row[1] : sprintf('no row for %s', $key);
+
+    expect([$default('local.watchBudget'), $default('local.prePushBudget')])
+        ->toBe([Budgets::standard()->watch()->written(), Budgets::standard()->prePush()->written()]);
 });

@@ -14,10 +14,12 @@ use HashContext;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -26,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 
 use function sort;
 use function sprintf;
@@ -62,8 +65,12 @@ final readonly class ContentKeys
 
     private const string MISSING = 'missing';
 
-    private function __construct(private HashContext $everyKey, private Tests $tests)
-    {
+    private function __construct(
+        private HashContext $everyKey,
+        private Tests $tests,
+        private Digest $mutation,
+        private Fingerprints $code,
+    ) {
     }
 
     /** @param string $config the settings that affect results, as their canonical form writes them (ADR-0007) */
@@ -76,10 +83,39 @@ final readonly class ContentKeys
         Tests $tests,
     ): self {
         $context = Digest::hashing();
-        self::hashEveryKeyReads($context, $gate, $config, $runner, $installed, $source);
+        self::hashMutationReads($context, $gate, $config, $runner, $installed);
+        $mutation = hash_copy($context);
+        hash_update($mutation, self::framed('definitions'));
+        self::hashFingerprintsIn($mutation, $source->definitions());
+        hash_update($mutation, self::testFiles('always', $tests->inEveryKey(), $tests));
+        self::hashCodeIn($context, $source);
         hash_update($context, self::testFiles('always', $tests->inEveryKey(), $tests));
 
-        return new self($context, $tests);
+        return new self($context, $tests, Digest::finished($mutation), $source->outside());
+    }
+
+    /**
+     * The digests of the run's inputs a proof records its share of (ADR-0008,
+     * decision 1): what decides a unit's mutant set besides its source, which
+     * is the first five inputs, the files that define the runner and what of
+     * the test directories every key reads; the source of each of these units;
+     * and each file of test cases, with the support it reads outside what
+     * every key reads.
+     */
+    public function digestsOf(Units $units): Digests
+    {
+        $digests = Digests::of($this->mutation);
+
+        foreach ($units as $unit) {
+            $digests = $digests->withSource($unit->path(), $this->sourceOf($unit));
+        }
+
+        foreach ($this->tests->testCases() as $file) {
+            $read = Paths::of($file, ...$this->tests->readBy(Paths::of($file)));
+            $digests = $digests->withTest($file, Digest::sha256Of(self::testFiles('tests', $read, $this->tests)));
+        }
+
+        return $digests;
     }
 
     /**
@@ -136,19 +172,25 @@ final readonly class ContentKeys
         return Keys::none()->and(...$keys);
     }
 
-    private static function hashEveryKeyReads(
+    /** The first five inputs, which decide a unit's mutant set besides its source. */
+    private static function hashMutationReads(
         HashContext $context,
         Version $gate,
         string $config,
         Identity $runner,
         Digest $installed,
-        Source $source,
     ): void {
         hash_update($context, self::framed(self::FORMAT, 'gate', $gate->package(), $gate->version()));
         hash_update($context, self::framed($gate->reference()));
         hash_update($context, self::framed('config', $config, 'runner', $runner->runner()));
         self::hashVersionsIn($context, $runner);
-        hash_update($context, self::framed($runner->platform()->value(), 'installed', $installed->value(), 'files'));
+        hash_update($context, self::framed($runner->platform()->value(), 'installed', $installed->value()));
+    }
+
+    /** Every file outside the test directories, and every CI definition that runs the gate. */
+    private static function hashCodeIn(HashContext $context, Source $source): void
+    {
+        hash_update($context, self::framed('files'));
         self::hashFingerprintsIn($context, $source->files());
         hash_update($context, self::framed('ci', sprintf('%d', count($source->ci()))));
 
@@ -192,6 +234,24 @@ final readonly class ContentKeys
         foreach ($paths as $path) {
             hash_update($context, self::framed($path, $digests[$path]));
         }
+    }
+
+    /** A unit's source: its file, or every file inside its held path, each by its digest. */
+    private function sourceOf(Unit $unit): Digest
+    {
+        $inside = Fingerprints::none();
+
+        foreach ($unit->isHeld() ? $this->code : [] as $fingerprint) {
+            $inside = $fingerprint->path()->within($unit->path()) ? $inside->with($fingerprint) : $inside;
+        }
+
+        $digest = $this->code->digestOf($unit->path());
+        $inside = $digest instanceof Digest ? $inside->with(Fingerprint::of($unit->path(), $digest)) : $inside;
+        $context = Digest::hashing();
+        hash_update($context, self::framed('source', $unit->path()->value()));
+        self::hashFingerprintsIn($context, $inside);
+
+        return Digest::finished($context);
     }
 
     /**

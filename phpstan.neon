@@ -584,6 +584,7 @@ services:
                     - VALUE # the name of a parameter the mutant's code declares
                 'NightWorksIO\MutationGate\Core\Proof\LedgerFile':
                     - FORMAT # a format version
+                    - UNDIGESTED # a format version
                     - SECONDS # a field of the ledger
                     - RUNNER # a field of the ledger
                     - TESTS # a field of the ledger
@@ -642,6 +643,8 @@ services:
                     - MEASURED # a field of a shard result
                 'NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage':
                     - HALVES # the halves of a limit
+                'NightWorksIO\MutationGate\Core\Time\Budgets':
+                    - PRE_PUSH_MINUTES # a budget, in minutes
                 'NightWorksIO\MutationGate\Cli\Flow\Invoking':
                     - DOUBLED # a retried timeout's cap, doubled
             # Constants still to refer to their value's one home, by the builder whose area holds them.

@@ -18,8 +18,8 @@ $said = static function (string $printed, Paths $asked): array {
     return $said;
 };
 
-it('asks git for the log of HEAD over the paths it reads, each commit its time and its files', function (): void {
-    expect(History::arguments())->toBe(['log', '--stdin', '-z', '--format=%x01%ct', '--name-only', '--no-renames', '--relative'])
+it('asks git for the log of HEAD over the paths it reads, each as it is, each commit its time and its files', function (): void {
+    expect(History::arguments())->toBe(['--literal-pathspecs', 'log', '--stdin', '-z', '--format=%x01%ct', '--name-only', '--no-renames', '--relative'])
         ->and(History::input(Paths::of(Path::of('src/Money.php'), Path::of('src/Held'))))->toBe("HEAD\n--\nsrc/Money.php\nsrc/Held\n");
 });
 

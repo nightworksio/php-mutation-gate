@@ -13,7 +13,9 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * A killed mutant as a ledger proved it: its id, the line it starts on in
  * its unit, its mutator and the tests that killed it. A ledger keeps no more
  * of a killed mutant, so it has no native id, family, diff or duration; what
- * reads one says what it needs of those, rather than read a placeholder.
+ * reads one says what it needs of those, rather than read a placeholder. A
+ * kill carried for a unit a time budget ran out before may no longer stand,
+ * and is then unjudged, saying why (ADR-0008, decision 1).
  */
 final readonly class ProvedKill
 {
@@ -22,12 +24,27 @@ final readonly class ProvedKill
         private Location $location,
         private string $mutator,
         private TestIds $killers,
+        private MutantStatus $status,
+        private Reason|Unreported $reason,
     ) {
     }
 
     public static function of(MutantId $id, Path $unit, Line $line, string $mutator, TestIds $killers): self
     {
-        return new self($id, Location::of($unit, $line, Unreported::line()), $mutator, $killers);
+        return new self(
+            $id,
+            Location::of($unit, $line, Unreported::line()),
+            $mutator,
+            $killers,
+            MutantStatus::Killed,
+            Unreported::reason(),
+        );
+    }
+
+    /** This kill, no longer standing: a time budget ran out before this run judged it again. */
+    public function unjudged(OutOfTime $before): self
+    {
+        return clone($this, ['status' => MutantStatus::Unjudged, 'reason' => $before->reason()]);
     }
 
     public function id(): MutantId
@@ -47,9 +64,10 @@ final readonly class ProvedKill
         return $this->mutator;
     }
 
+    /** Killed, or unjudged where it no longer stands. */
     public function status(): MutantStatus
     {
-        return MutantStatus::Killed;
+        return $this->status;
     }
 
     /** The tests that killed it; none where no test is known to have, as for a kill by a timeout. */
@@ -58,10 +76,10 @@ final readonly class ProvedKill
         return $this->killers;
     }
 
-    /** A kill needs no reason, and the ledger keeps none. */
-    public function reason(): Unreported
+    /** Why it is unjudged; a kill needs no reason, and the ledger keeps none. */
+    public function reason(): Reason|Unreported
     {
-        return Unreported::reason();
+        return $this->reason;
     }
 
     /** The ledger keeps no duration of a kill. */

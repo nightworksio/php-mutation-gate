@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
 use NightWorksIO\MutationGate\Core\Proof\Key\ContentKeys;
@@ -76,6 +77,12 @@ final readonly class Keying
     public function base(): Digest
     {
         return $this->keys->base();
+    }
+
+    /** The digests of the run's inputs a proof of one of these units records its share of. */
+    public function digestsOf(Units $units): Digests
+    {
+        return $this->keys->digestsOf($units);
     }
 
     /** The key of each unit, from the test files the runner says can judge it. */

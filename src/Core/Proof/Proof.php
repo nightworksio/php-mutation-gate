@@ -19,6 +19,9 @@ use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
  * read, with the run that established it. It holds the mutants a runner
  * reported in full, with their statuses before ignores and floors apply, and
  * the kills a ledger proved, which it keeps no more of than a kill needs.
+ * Beside its key it records the digests of its inputs, which say whether its
+ * result can stand for other code (ADR-0008, decision 1); a proof of an
+ * earlier ledger format records none.
  */
 final readonly class Proof
 {
@@ -28,19 +31,32 @@ final readonly class Proof
         private Mutants $reported,
         private ProvedKills $kills,
         private Run $run,
+        private Inputs|Undigested $inputs,
     ) {
     }
 
     /** The proof of a run: every mutant of the unit, as its runner reported them. */
     public static function of(Digest $key, Path $unit, Mutants $reported, Run $run): self
     {
-        return new self($key, $unit, $reported, ProvedKills::none(), $run);
+        return new self($key, $unit, $reported, ProvedKills::none(), $run, Undigested::proof());
     }
 
     /** A proof as a ledger holds it: its killed mutants as kills, and every other in full. */
     public static function held(Digest $key, Path $unit, Mutants $reported, ProvedKills $kills, Run $run): self
     {
-        return new self($key, $unit, $reported, $kills, $run);
+        return new self($key, $unit, $reported, $kills, $run, Undigested::proof());
+    }
+
+    /** This proof, recording these digests of its inputs. */
+    public function withInputs(Inputs|Undigested $inputs): self
+    {
+        return clone($this, ['inputs' => $inputs]);
+    }
+
+    /** The digests of its inputs; none for a proof of an earlier ledger format. */
+    public function inputs(): Inputs|Undigested
+    {
+        return $this->inputs;
     }
 
     public function key(): Digest

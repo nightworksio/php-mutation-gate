@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
 use NightWorksIO\MutationGate\Core\Hint\Hint;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -12,9 +13,10 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use function sprintf;
 
 /**
- * A kill a ledger proved, as a verdict counts it: killed, by definition, and
- * on a changed line or not. It is never a survivor, so nothing that lists
- * survivors meets one.
+ * A kill a ledger proved, as a verdict counts it: killed, or unjudged where it
+ * was carried for a unit a time budget ran out before and no longer stands
+ * (ADR-0008, decision 1), and on a changed line or not. It is never a
+ * survivor, so nothing that lists survivors meets one.
  */
 final readonly class JudgedKill
 {
@@ -40,10 +42,10 @@ final readonly class JudgedKill
         return $this->kill;
     }
 
-    /** Always killed: a ledger keeps a mutant as a kill only when a run killed it. */
+    /** Killed, as a ledger keeps a mutant as a kill only when a run killed it; or unjudged, where it does not stand. */
     public function judgement(): MutantJudgement
     {
-        return MutantJudgement::Killed;
+        return MutantJudgement::reported($this->kill->status());
     }
 
     public function isOnChangedLine(): bool
@@ -57,10 +59,10 @@ final readonly class JudgedKill
         return TestIds::none();
     }
 
-    /** What its tests miss: nothing, since they killed it. */
+    /** What its tests miss: nothing, since they killed it; or that nothing judged it before the run stopped. */
     public function hint(): Hint
     {
-        return Hint::killed();
+        return $this->kill->status() === MutantStatus::Killed ? Hint::killed() : Hint::unjudged();
     }
 
     /** The one command that runs it again, on any machine with the same code. */
