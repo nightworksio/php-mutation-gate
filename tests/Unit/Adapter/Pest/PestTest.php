@@ -661,7 +661,7 @@ it('hands each mutant run again its own result, though the mutants run again are
     ]);
 });
 
-it('hands each of the mutants that share Pest\'s id the one found again on its own line, or else the next', function (int $one, int $two): void {
+it('hands each of the mutants that share Pest\'s id the one found again on its own line, and none found on no line of its own', function (int $one, int $two): void {
     $at = adapterProject();
     $money = sprintf('%s/src/Money.php', $at->root());
     $shell = new ShellFake(static function (Command $command) use ($money, $one, $two): Ran {
@@ -697,7 +697,11 @@ it('hands each of the mutants that share Pest\'s id the one found again on its o
     expect($retried($first, $second))->toBe([
         [$first->id()->value(), $one, MutantStatus::Killed],
         [$second->id()->value(), $two, MutantStatus::Survived],
-    ])->and($retried($second))->toBe([[$second->id()->value(), $two, $one === $two ? MutantStatus::Killed : MutantStatus::Survived]]);
+    ])->and($retried($second))->toBe([[$second->id()->value(), $two, $one === $two ? MutantStatus::Killed : MutantStatus::Survived]])
+        ->and($retried($survivor(60, 2), $first))->toBe([
+            [$survivor(60, 2)->id()->value(), 60, MutantStatus::Unjudged],
+            [$first->id()->value(), $one, MutantStatus::Killed],
+        ]);
 })->with([
     'on two lines' => [35, 40],
     'on one line' => [50, 50],
