@@ -15,13 +15,11 @@ use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
-use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
-use NightWorksIO\MutationGate\Core\Reach\Reasons;
-use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 
 use function sprintf;
 
@@ -37,6 +35,8 @@ use Traversable;
  */
 final readonly class Plan implements Countable, IteratorAggregate
 {
+    private const string UNNAMED = 'The plan names no test.';
+
     /** @param array<int, Shard> $shards by number, in the order they were added */
     private function __construct(
         private Revision $commit,
@@ -44,10 +44,8 @@ final readonly class Plan implements Countable, IteratorAggregate
         private RunOn $runOn,
         private Keys $keys,
         private array $shards,
-        private Changes $changed,
-        private Reasons $reach,
-        private Units $carried,
-        private Units $proved,
+        private Considered $considered,
+        private TestNames|CannotJudge $names,
     ) {
     }
 
@@ -66,10 +64,8 @@ final readonly class Plan implements Countable, IteratorAggregate
             RunOn::detached(CannotTell::because('The plan was made without asking what it runs on.')),
             $keys,
             $numbered,
-            Changes::none(),
-            Reasons::of(),
-            Units::none(),
-            Units::none(),
+            Considered::everything(),
+            CannotJudge::because(self::UNNAMED),
         );
     }
 
@@ -91,49 +87,32 @@ final readonly class Plan implements Countable, IteratorAggregate
         return $this->base;
     }
 
+    /** This plan, having considered this beyond its shards. */
+    public function considering(Considered $considered): self
+    {
+        return clone($this, ['considered' => $considered]);
+    }
+
     /**
-     * This plan, for a change: the lines it added or modified in each source
-     * file, which the new-code floor judges, and why it reached what it did.
+     * This plan, with the names the runner gives the suite's tests, or why
+     * it could not give them. Naming runs once a run, never in a shard, and
+     * judges nothing (ADR-0014, decision 6).
      */
-    public function reaching(Changes $changed, Reasons $reach): self
+    public function naming(TestNames|CannotJudge $names): self
     {
-        return clone($this, ['changed' => $changed, 'reach' => $reach]);
+        return clone($this, ['names' => $names]);
     }
 
-    /** This plan, carrying the newest result of each of these units, which the change does not reach. */
-    public function carrying(Units $carried): self
+    /** The names the runner gives the suite's tests, or why the plan holds none. */
+    public function names(): TestNames|CannotJudge
     {
-        return clone($this, ['carried' => $carried]);
+        return $this->names;
     }
 
-    /** The units whose newest result the verdict carries, because the change does not reach them. */
-    public function carried(): Units
+    /** What the plan considered beyond its shards, and why. */
+    public function considered(): Considered
     {
-        return $this->carried;
-    }
-
-    /** This plan, taking the result of each of these units from the proof its key matches. */
-    public function proving(Units $proved): self
-    {
-        return clone($this, ['proved' => $proved]);
-    }
-
-    /** The units whose result a proof whose key still matches holds, so no shard runs them. */
-    public function proved(): Units
-    {
-        return $this->proved;
-    }
-
-    /** The lines the change added or modified in each source file; none for a full run. */
-    public function changed(): Changes
-    {
-        return $this->changed;
-    }
-
-    /** Why the change reached what it did; none for a full run. */
-    public function reach(): Reasons
-    {
-        return $this->reach;
+        return $this->considered;
     }
 
     /** The run's ref, whether it is a pull request, and the default branch, as the plan was made for them. */

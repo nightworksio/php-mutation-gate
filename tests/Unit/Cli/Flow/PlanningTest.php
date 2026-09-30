@@ -61,6 +61,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
+use NightWorksIO\MutationGate\Tests\Support\NamesAsked;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
@@ -107,11 +108,11 @@ it('plans every unit of a full run into shards, on the commit HEAD is at', funct
         ->toEqual(Paths::of(Path::of('src/Held.php'), Path::of('src/Money.php')))
         ->and($planned instanceof Plan ? $planned->keys()->keyOf(Path::of('src/Money.php')) : $planned)
         ->toBeInstanceOf(Digest::class)
-        ->and($planned instanceof Plan ? $planned->changed() : $planned)->toEqual(Changes::none())
-        ->and($planned instanceof Plan ? $planned->reach() : $planned)
+        ->and($planned instanceof Plan ? $planned->considered()->changed() : $planned)->toEqual(Changes::none())
+        ->and($planned instanceof Plan ? $planned->considered()->reach() : $planned)
         ->toEqual(Reasons::of(Reason::that('A full run considers every unit.')))
-        ->and($planned instanceof Plan ? $planned->proved() : $planned)->toEqual(Units::none())
-        ->and($planned instanceof Plan ? $planned->carried() : $planned)->toEqual(Units::none());
+        ->and($planned instanceof Plan ? $planned->considered()->proved() : $planned)->toEqual(Units::none())
+        ->and($planned instanceof Plan ? $planned->considered()->carried() : $planned)->toEqual(Units::none());
 });
 
 it('hands each shard the map of its own files', function () use ($plan): void {
@@ -151,6 +152,26 @@ it('hands each shard the kill history the ledgers learned, which enters no key a
         ->toEqual($cold instanceof Plan ? $cold->digest() : $cold)
         ->and($learned instanceof Plan ? $learned->keys() : $learned)
         ->toEqual($cold instanceof Plan ? $cold->keys() : $cold);
+});
+
+it('names the coverage map\'s tests once, withholding what every process withholds, outside keys and digest', function () use (
+    $plan,
+): void {
+    $named = NamesAsked::of(RunnerFake::ofTheFixture());
+    $unnamed = NamesAsked::refusing(RunnerFake::ofTheFixture(), 'Pest cannot list its tests.');
+    $withNames = $plan(Flows::project(), Mode::full(), Cut::exactly(2), $named);
+    $withoutNames = $plan(Flows::project(), Mode::full(), Cut::exactly(2), $unnamed);
+    $tests = Flows::map()->tests();
+
+    expect($named->asked())->toEqual([[$tests, Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN'))]])
+        ->and($withNames instanceof Plan ? $withNames->names() : $withNames)
+        ->toEqual(RunnerFake::ofTheFixture()->names($tests, Withheld::nothing()))
+        ->and($withoutNames instanceof Plan ? $withoutNames->names() : $withoutNames)
+        ->toEqual(CannotJudge::because('Pest cannot list its tests.'))
+        ->and($withNames instanceof Plan ? $withNames->digest() : $withNames)
+        ->toEqual($withoutNames instanceof Plan ? $withoutNames->digest() : $withoutNames)
+        ->and($withNames instanceof Plan ? $withNames->keys() : $withNames)
+        ->toEqual($withoutNames instanceof Plan ? $withoutNames->keys() : $withoutNames);
 });
 
 it('asks for coverage withholding what every process that runs the project\'s code withholds', function () use (
@@ -214,9 +235,9 @@ it('drops every unit a proof with a matching key covers, and carries what the ch
     $scoped = $plan($project, Mode::since('base'), Cut::exactly(1), $store, $checkout);
 
     expect($shards($scoped))->toEqual([1 => []])
-        ->and($scoped instanceof Plan ? $scoped->proved() : $scoped)->toEqual(Units::of($money))
-        ->and($scoped instanceof Plan ? $scoped->carried() : $scoped)->toEqual(Units::of($held))
-        ->and($scoped instanceof Plan ? $scoped->changed() : $scoped)
+        ->and($scoped instanceof Plan ? $scoped->considered()->proved() : $scoped)->toEqual(Units::of($money))
+        ->and($scoped instanceof Plan ? $scoped->considered()->carried() : $scoped)->toEqual(Units::of($held))
+        ->and($scoped instanceof Plan ? $scoped->considered()->changed() : $scoped)
         ->toEqual(Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(2)))))
         ->and($scoped instanceof Plan ? $scoped->base() : $scoped)->toEqual($base)
         ->and($scoped instanceof Plan ? $scoped->keys()->units() : $scoped)
@@ -304,7 +325,7 @@ it('hands a full pull request plan the lines changed since the default branch, f
 
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $pullRequest, $checkout);
 
-    expect($planned instanceof Plan ? $planned->changed() : $planned)->toEqual($changed);
+    expect($planned instanceof Plan ? $planned->considered()->changed() : $planned)->toEqual($changed);
 });
 
 it('cannot plan a full pull request run where git cannot tell what changed since the default branch', function () use (

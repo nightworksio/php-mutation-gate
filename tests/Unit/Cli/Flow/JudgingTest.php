@@ -51,6 +51,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
+use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -65,6 +66,9 @@ use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -366,10 +370,10 @@ it('judges a pull request\'s new code against its own floor, and fails a raise n
 ): void {
     $plan = Planned::twoShards()
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->reaching(
+        ->considering(Considered::everything()->reaching(
             Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(16)))),
             Reasons::of(Reason::that('src/Money.php changed.')),
-        );
+        ));
 
     $verdict = judgingVerdictOf($judged(
         $plan,
@@ -473,8 +477,9 @@ it('counts the proofs and the results of its own scope it took, and records how 
     $store = new ProofStoreFake();
     $plan = Planned::of()
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->proving(Units::of(Planned::money()))
-        ->carrying(Units::of(Planned::held()));
+        ->considering(
+            Considered::everything()->proving(Units::of(Planned::money()))->carrying(Units::of(Planned::held())),
+        );
     $run = Run::of('github:1/1', Moment::at('2026-09-29T12:00:00Z'), $plan->base());
     $proofOf = static fn(string $key, string $file): Proof => Proof::of(
         Digest::sha256Of($key),
@@ -509,7 +514,7 @@ it('uses none of its own scope where the default branch proved what it took', fu
     $store = new ProofStoreFake();
     $plan = Planned::of()
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->proving(Units::of(Planned::money()));
+        ->considering(Considered::everything()->proving(Units::of(Planned::money())));
     $run = Run::of('github:1/1', Moment::at('2026-09-29T12:00:00Z'), $plan->base());
     $mutants = Flows::mutantsOf('src/Money.php');
     $store->write(Scope::branch('main'), Ledger::empty()->withProof(
@@ -535,8 +540,9 @@ it('cannot judge where a unit the plan proved or carried has lost its proof', fu
     $store = new ProofStoreFake();
     $plan = Planned::of()
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->proving(Units::of(Planned::money()))
-        ->carrying(Units::of(Planned::held()));
+        ->considering(
+            Considered::everything()->proving(Units::of(Planned::money()))->carrying(Units::of(Planned::held())),
+        );
 
     $judgement = new Judging(
         Flows::adapters($project, [], $store, $tree(Floor::of(100))),
@@ -561,7 +567,7 @@ it('takes a planned proof from the run\'s own scope where it has moved there fro
     $store = new ProofStoreFake();
     $plan = Planned::of()
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->proving(Units::of(Planned::money()));
+        ->considering(Considered::everything()->proving(Units::of(Planned::money())));
     $run = Run::of('github:1/1', Moment::at('2026-09-29T12:00:00Z'), $plan->base());
     $mutants = Flows::mutantsOf('src/Money.php');
     $store->write(Scope::pullRequest(7), Ledger::empty()->withProof(
@@ -675,6 +681,33 @@ it('warns of what a shard warned of, and judges as it would without it', functio
         ->and($said[0] ?? '')->toStartWith('Shard 1 ran its tests without the kill history the plan handed it.')
         ->and($verdict->failures())->toHaveCount(0)
         ->and($verdict->judgement())->toBe(Judgement::Passed);
+});
+
+it('names the tests as the plan names them, and warns once where it names none', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $names = TestNames::none()->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'it adds'));
+    $adapters = static fn(): Adapters => Flows::adapters(Flows::project(), [], $tree(Floor::of(0)));
+    $named = judgingVerdictOf($judged(
+        Planned::twoShards()->naming($names),
+        $adapters(),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+    $unnamed = judgingVerdictOf($judged(
+        Planned::twoShards()->naming(CannotJudge::because('Pest cannot list its tests.')),
+        $adapters(),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect($named->matrix()->names())->toBe($names)
+        ->and(judgingTexts($named->warnings()))->toBe([])
+        ->and($unnamed->matrix()->names())->toEqual(TestNames::none())
+        ->and(judgingTexts($unnamed->warnings()))
+        ->toBe(['The reports name each test by its coverage id. Pest cannot list its tests.']);
 });
 
 it('fails a verdict on a held unit its holding tests miss lines of, and proves nothing of it', function (

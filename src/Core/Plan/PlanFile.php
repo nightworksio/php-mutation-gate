@@ -24,6 +24,8 @@ use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestNamesRecord;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\UnitRecord;
@@ -38,8 +40,11 @@ use stdClass;
  * the commit it was made on, the base its keys are built on, every considered
  * unit's key, and the shards, with the units it proved or carried, and the
  * lines a change added or modified with why it reached what it did, and the
- * digest of all of that. A plan that cannot be read, or whose digest does not
- * match what it holds, is refused: a shard never guesses at its units.
+ * digest of all of that. Beside it, outside the digest since they judge
+ * nothing, `names` holds the names the runner gives the suite's tests, or
+ * `unnamed` why it gave none; a plan with neither was made without asking.
+ * A plan that cannot be read, or whose digest does not match what it holds,
+ * is refused: a shard never guesses at its units.
  *
  * @internal the shape of the plan file
  *
@@ -84,9 +89,21 @@ final readonly class PlanFile
 
     private const string REACH = 'reach';
 
+    private const string NAMES = 'names';
+
+    private const string UNNAMED = 'unnamed';
+
     public static function encode(Plan $plan): string
     {
-        return JsonText::encode([...self::body($plan), self::DIGEST => self::digestOf($plan)->value()]);
+        $names = $plan->names();
+
+        return JsonText::encode([
+            ...self::body($plan),
+            ...$names instanceof TestNames
+                ? [self::NAMES => TestNamesRecord::of($names)]
+                : [self::UNNAMED => $names->why()],
+            self::DIGEST => self::digestOf($plan)->value(),
+        ]);
     }
 
     public static function decode(string $json): Plan|CannotJudge
@@ -101,7 +118,7 @@ final readonly class PlanFile
         }
     }
 
-    /** The digest of everything a plan holds. */
+    /** The digest of everything a plan holds but the test names, which judge nothing. */
     public static function digestOf(Plan $plan): Digest
     {
         return Digest::sha256Of(JsonText::encode(self::body($plan)));
@@ -117,8 +134,8 @@ final readonly class PlanFile
             ...self::runOn($plan->runOn()),
             'keys' => KeysRecord::of($plan->keys()),
             'shards' => array_map(self::shard(...), [...$plan]),
-            ...self::considered($plan),
-            ...self::change($plan),
+            ...self::considered($plan->considered()),
+            ...self::change($plan->considered()),
         ];
     }
 
@@ -135,29 +152,29 @@ final readonly class PlanFile
     }
 
     /** @return ConsideredWritten the units proved and those carried, each where there are any */
-    private static function considered(Plan $plan): array
+    private static function considered(Considered $considered): array
     {
         return [
-            ...count($plan->proved()) > 0 ? [self::PROVED => UnitRecord::all($plan->proved())] : [],
-            ...count($plan->carried()) > 0 ? [self::CARRIED => UnitRecord::all($plan->carried())] : [],
+            ...count($considered->proved()) > 0 ? [self::PROVED => UnitRecord::all($considered->proved())] : [],
+            ...count($considered->carried()) > 0 ? [self::CARRIED => UnitRecord::all($considered->carried())] : [],
         ];
     }
 
     /** @return ChangeWritten the lines a change added or modified, by file, and why it reached what it did */
-    private static function change(Plan $plan): array
+    private static function change(Considered $considered): array
     {
         $changed = [];
 
-        foreach ($plan->changed() as $change) {
+        foreach ($considered->changed() as $change) {
             $changed[$change->path()->value()] = array_map(
                 static fn(Line $line): int => $line->number(),
                 [...$change->lines()],
             );
         }
 
-        return $changed === [] && count($plan->reach()) === 0 ? [] : [
+        return $changed === [] && count($considered->reach()) === 0 ? [] : [
             self::CHANGED => $changed,
-            self::REACH => array_map(static fn(Reason $reason): string => $reason->text(), [...$plan->reach()]),
+            self::REACH => array_map(static fn(Reason $reason): string => $reason->text(), [...$considered->reach()]),
         ];
     }
 
@@ -196,15 +213,37 @@ final readonly class PlanFile
             Shards::of(...$shards),
         )
             ->on(self::runOnIn($file))
-            ->reaching(self::changedIn($file), self::reachIn($file))
-            ->proving(self::unitsIn($file->field(self::PROVED)))
-            ->carrying(self::unitsIn($file->field(self::CARRIED)));
+            ->considering(
+                Considered::everything()
+                    ->reaching(self::changedIn($file), self::reachIn($file))
+                    ->proving(self::unitsIn($file->field(self::PROVED)))
+                    ->carrying(self::unitsIn($file->field(self::CARRIED))),
+            );
+        $named = self::namedIn($plan, $file);
 
         return $plan->digest()->value() === $file->field(self::DIGEST)->text()
-            ? $plan
+            ? $named
             : CannotJudge::because(
                 'The plan does not match its digest, so it was changed after it was made. Plan again.',
             );
+    }
+
+    /**
+     * The plan, with the names it holds, or why the runner gave none; a plan
+     * that holds neither was made without asking.
+     *
+     * @throws NotInShape
+     */
+    private static function namedIn(Plan $plan, Node $file): Plan
+    {
+        $names = $file->field(self::NAMES);
+        $unnamed = $file->field(self::UNNAMED);
+
+        return match (true) {
+            $names->isPresent() => $plan->naming(TestNamesRecord::read($names)),
+            $unnamed->isPresent() => $plan->naming(CannotJudge::because($unnamed->text())),
+            default => $plan,
+        };
     }
 
     /** @throws NotInShape */

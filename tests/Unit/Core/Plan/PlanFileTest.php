@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -24,6 +25,10 @@ use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -124,8 +129,11 @@ it('writes the commit, base, ref and default branch, every key, the shards and t
     $planWith,
     $body,
 ): void {
-    expect(PlanFile::encode($planWith('src, part 2 of 2')))
-        ->toBe(sprintf("%s,\n    \"digest\": \"%s\"\n}", mb_substr($body, 0, -2), hash('sha256', $body)));
+    expect(PlanFile::encode($planWith('src, part 2 of 2')))->toBe(sprintf(
+        "%s,\n    \"unnamed\": \"The plan names no test.\",\n    \"digest\": \"%s\"\n}",
+        mb_substr($body, 0, -2),
+        hash('sha256', $body),
+    ));
 });
 
 it('takes its digest over everything it holds', function () use ($planWith, $body): void {
@@ -145,8 +153,64 @@ it('writes a plan with nothing considered as an empty map of keys and no shards'
         }
         JSON, planFileCommit(), hash('sha256', 'base'));
 
-    expect(PlanFile::encode($plan))
-        ->toBe(sprintf("%s,\n    \"digest\": \"%s\"\n}", mb_substr($empty, 0, -2), hash('sha256', $empty)));
+    expect(PlanFile::encode($plan))->toBe(sprintf(
+        "%s,\n    \"unnamed\": \"The plan names no test.\",\n    \"digest\": \"%s\"\n}",
+        mb_substr($empty, 0, -2),
+        hash('sha256', $empty),
+    ));
+});
+
+it('writes the names the runner gives the tests beside the plan, outside its digest, and reads them back', function () use (
+    $planWith,
+): void {
+    $test = TestName::in(Path::of('tests/MoneyTest.php'), 'it adds');
+    $names = TestNames::none()
+        ->with(TestId::of('MoneyTest::adds'), $test)
+        ->with(TestId::of('MoneyTest::adds#one'), TestRow::of($test, '"one"'));
+    $plan = $planWith('src, part 2 of 2');
+    $named = $plan->naming($names);
+    $written = PlanFile::encode($named);
+    $namesWritten = <<<'JSON'
+            "names": {
+                "MoneyTest::adds": {
+                    "file": "tests/MoneyTest.php",
+                    "description": "it adds"
+                },
+                "MoneyTest::adds#one": {
+                    "file": "tests/MoneyTest.php",
+                    "description": "it adds",
+                    "row": "\"one\""
+                }
+            },
+        JSON;
+
+    expect($written)->toContain($namesWritten)
+        ->and($written)->not->toContain('"unnamed"')
+        ->and(PlanFile::decode($written))->toEqual($named)
+        ->and(PlanFile::digestOf($named))->toEqual(PlanFile::digestOf($plan))
+        ->and(PlanFile::digestOf($plan->naming(CannotJudge::because('Pest cannot list.'))))
+        ->toEqual(PlanFile::digestOf($plan));
+});
+
+it('writes why the runner named no test, and reads it back', function (): void {
+    $plan = planFileEmpty()
+        ->on(RunOn::detached(Scope::branch('main')))
+        ->naming(CannotJudge::because('Pest cannot list its tests.'));
+    $written = PlanFile::encode($plan);
+
+    expect($written)->toContain('"unnamed": "Pest cannot list its tests."')
+        ->and(PlanFile::decode($written))->toEqual($plan);
+});
+
+it('reads a plan that holds no names, nor why, as one made without asking', function (): void {
+    $plan = planFileEmpty()->on(RunOn::detached(Scope::branch('main')));
+    $written = PlanFile::encode($plan);
+    $bare = str_replace("\n    \"unnamed\": \"The plan names no test.\",", '', $written);
+    $read = PlanFile::decode($bare);
+
+    expect($bare)->not->toContain('unnamed')
+        ->and($read)->toEqual($plan)
+        ->and($read instanceof Plan ? $read->names() : $read)->toEqual(CannotJudge::because('The plan names no test.'));
 });
 
 it('reads back the plan it wrote', function () use ($planWith): void {
@@ -173,12 +237,14 @@ it('reads a plan that names no default branch as one that cannot tell it', funct
 });
 
 it('writes and reads back the lines a change added or modified, and why it reached what it did', function (): void {
-    $plan = planFileEmpty()->on(RunOn::detached(Scope::branch('main')))->reaching(
-        Changes::of(
-            Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3), Line::of(4))),
-            Change::modified(Path::of('src/Renamed.php'), Lines::none()),
+    $plan = planFileEmpty()->on(RunOn::detached(Scope::branch('main')))->considering(
+        Considered::everything()->reaching(
+            Changes::of(
+                Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3), Line::of(4))),
+                Change::modified(Path::of('src/Renamed.php'), Lines::none()),
+            ),
+            Reasons::of(Reason::that('`src/Money.php` changed, so its unit is reached.')),
         ),
-        Reasons::of(Reason::that('`src/Money.php` changed, so its unit is reached.')),
     );
     $written = PlanFile::encode($plan);
 
@@ -205,7 +271,7 @@ it('writes neither changed lines nor reasons for a full run', function (): void 
 it('writes the reasons of a change that changed no source line', function (): void {
     $plan = planFileEmpty()
         ->on(RunOn::detached(Scope::branch('main')))
-        ->reaching(Changes::none(), Reasons::of(Reason::that('Nothing reached.')));
+        ->considering(Considered::everything()->reaching(Changes::none(), Reasons::of(Reason::that('Nothing reached.'))));
 
     expect(PlanFile::decode(PlanFile::encode($plan)))->toEqual($plan);
 });
@@ -266,10 +332,8 @@ it('writes and reads back the units it proved and those it carries, and neither 
     $empty = planFileEmpty();
     $plan = $empty
         ->on(RunOn::detached(Scope::branch('main')))
-        ->proving(Units::of(Unit::file(Path::of('src/A.php'))))
-        ->carrying(Units::of(
-            Unit::held(Path::of('src/Kernel'), Group::named('holds:src/Kernel')),
-            Unit::file(Path::of('src/B.php')),
+        ->considering(Considered::everything()->proving(Units::of(Unit::file(Path::of('src/A.php'))))->carrying(
+            Units::of(Unit::held(Path::of('src/Kernel'), Group::named('holds:src/Kernel')), Unit::file(Path::of('src/B.php'))),
         ));
     $written = PlanFile::encode($plan);
     $none = PlanFile::encode($empty);

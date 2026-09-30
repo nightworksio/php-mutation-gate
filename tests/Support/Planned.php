@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -73,7 +74,8 @@ final readonly class Planned
     public static function of(Shard ...$shards): Plan
     {
         return Plan::of(Revision::ref(Flows::HEAD), Digest::sha256Of(self::BASE), self::keys(), Shards::of(...$shards))
-            ->on(RunOn::at(Scope::branch('main'), Scope::branch('main')));
+            ->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))
+            ->naming(TestNames::none());
     }
 
     /** The key each unit has. */

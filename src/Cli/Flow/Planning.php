@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -108,9 +109,13 @@ final readonly class Planning
             default => $this->handed(
                 Plan::of($inventory->standing->head(), $keying->base(), $keys, $shards)
                     ->on($inventory->standing->runOn())
-                    ->reaching($changed, $reached->reach()->reasons())
-                    ->proving($this->unitsOf($proving->proved()))
-                    ->carrying($this->unitsOf($considering->carried())),
+                    ->considering(
+                        Considered::everything()
+                            ->reaching($changed, $reached->reach()->reasons())
+                            ->proving($this->unitsOf($proving->proved()))
+                            ->carrying($this->unitsOf($considering->carried())),
+                    )
+                    ->naming($this->adapters->runner->names($map->tests(), $this->adapters->withheld)),
                 $map,
                 $ledgers->killers(),
             ),

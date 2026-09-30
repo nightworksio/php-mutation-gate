@@ -59,3 +59,19 @@ it('lists a name a project wrote with line breaks, escapes and workflow commands
     expect($names->listed(TestIds::of(TestId::of('MoneyTest::fits'), TestId::of('PriceTest::adds'))))
         ->toBe('tests/Unit/MoneyTest.php::it [31mfits ::error::forged there, PriceTest::adds');
 });
+
+it('gives each id it names with its name, in the order named, a later name replacing an earlier', function (): void {
+    $test = TestName::in(Path::of('tests/Unit/MoneyTest.php'), 'it fits');
+    $row = TestRow::of($test, '"over"');
+    $names = TestNames::none()
+        ->with(TestId::of('MoneyTest::fits'), TestName::in(Path::of('tests/Old.php'), 'it once fit'))
+        ->with(TestId::of('MoneyTest::refuses'), $row)
+        ->with(TestId::of('MoneyTest::fits'), $test);
+    $each = [];
+
+    foreach ($names as $id => $name) {
+        $each[] = [$id, $name];
+    }
+
+    expect($each)->toEqual([[TestId::of('MoneyTest::fits'), $test], [TestId::of('MoneyTest::refuses'), $row]]);
+});
