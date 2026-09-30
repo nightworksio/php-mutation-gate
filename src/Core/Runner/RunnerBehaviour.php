@@ -13,8 +13,9 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
  * `#[Holds]` as its test files load, whether a timeout's limit can be raised
  * for a retry (ADR-0008), which groups' test files every proof key reads
  * (ADR-0007), whether each shard pays a full opening run under coverage
- * (ADR-0006), and whether it can record every test that kills a mutant, for
- * a full kill matrix (ADR-0014). The flows ask the runner, never its name.
+ * (ADR-0006), whether it can record every test that kills a mutant, for
+ * a full kill matrix (ADR-0014), and how many mutants it runs at once. The
+ * flows ask the runner, never its name.
  */
 final readonly class RunnerBehaviour
 {
@@ -24,12 +25,14 @@ final readonly class RunnerBehaviour
         private Groups $readByEveryKey,
         private bool $opensEachShard,
         private NotFull $whyNotFull,
+        private Processes $parallelism,
     ) {
     }
 
     /**
      * A runner that lists `#[Holds]` as groups, can raise a limit, has no
-     * group every key reads, and reuses the map the plan handed each shard.
+     * group every key reads, reuses the map the plan handed each shard, and
+     * runs one mutant at a time.
      */
     public static function standard(): self
     {
@@ -39,6 +42,7 @@ final readonly class RunnerBehaviour
             readByEveryKey: Groups::none(),
             opensEachShard: false,
             whyNotFull: NotFull::FirstKillers,
+            parallelism: Processes::single(),
         );
     }
 
@@ -75,6 +79,12 @@ final readonly class RunnerBehaviour
         return clone($this, ['whyNotFull' => $why]);
     }
 
+    /** This behaviour, where the runner runs this many mutants at once. */
+    public function runningAtOnce(Processes $processes): self
+    {
+        return clone($this, ['parallelism' => $processes]);
+    }
+
     public function holdsAsLoaded(): bool
     {
         return $this->holdsAsLoaded;
@@ -103,5 +113,11 @@ final readonly class RunnerBehaviour
     public function whyNotFull(): NotFull
     {
         return $this->whyNotFull;
+    }
+
+    /** How many mutants the runner runs at once, each in its own process. */
+    public function parallelism(): Processes
+    {
+        return $this->parallelism;
     }
 }

@@ -46,7 +46,7 @@ final readonly class MutationRequest
             Paths::none(),
             Mutators::all(),
             Unlimited::time(),
-            Processes::of(1),
+            Processes::single(),
             Fresh::coverage(),
             Withheld::standard(),
             Ordering::runner(),

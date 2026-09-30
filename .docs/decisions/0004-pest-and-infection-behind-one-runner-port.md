@@ -193,7 +193,10 @@ its parser attributes. Both change when the checkout moves.
      - `--processes` is never passed. pest-plugin-mutate hands it on to each
        mutant's own run, which is not parallel and rejects it, so every
        covered mutant would read as killed. Pest runs one mutant per core,
-       and a request's process count does not apply to it.
+       and a request's process count does not apply to it. The gate counts
+       the cores as pest-plugin-mutate does, with `fidry/cpu-core-counter`,
+       once per run, and the runner's behaviour reports that count as how
+       many mutants it runs at once.
      - `<vendor>` is where Composer installed the project's packages:
        `COMPOSER_VENDOR_DIR`, then `config.vendor-dir`, then `vendor`. The
        gate reads Pest's versions from `<vendor>/composer/installed.json` and
