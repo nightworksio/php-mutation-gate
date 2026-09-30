@@ -383,10 +383,11 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
+          code=0
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
           "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
-            --report=json:.mutation-gate/action/report.json "${arguments[@]}"
-          echo "code=$?" >> "${GITHUB_OUTPUT}"
+            --report=json:.mutation-gate/action/report.json "${arguments[@]}" || code=$?
+          echo "code=${code}" >> "${GITHUB_OUTPUT}"
       - name: Save this scope's ledger
         if: >-
           steps.resolve.outputs.save == 'true' && steps.config.outputs.default_store == 'true'
@@ -405,7 +406,7 @@ jobs:
           PLAN: ''
         run: python3 "${GATE_ACTION}/.github/scripts/gate_action.py" outputs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.outputs.outputs.report_files != '' }}
         with:
           name: mutation-gate-reports
           path: ${{ steps.outputs.outputs.report_files }}
