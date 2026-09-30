@@ -120,3 +120,19 @@ it('records no digests of its inputs until it is given them', function (): void 
         ->and($proof->withInputs($inputs)->inputs())->toBe($inputs)
         ->and($proof->withInputs($inputs)->key())->toBe($proof->key());
 });
+
+it('reads a kill by static analysis and a kill by a test as one answer, and a survivor as another', function (): void {
+    $run = Run::of('github:5813/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')), Digest::of(str_repeat('b', 64)));
+    $of = static fn(MutantStatus $status): Mutant => Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'LessThan', "-a\n+b", 0),
+        '1',
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('LessThan', MutatorFamily::Boundary, "-a\n+b"),
+        $status,
+        Unmeasured::duration(),
+    );
+    $proof = Proof::of(Digest::of('9c1e'), Path::of('src/Money.php'), Mutants::of($of(MutantStatus::KilledByStaticAnalysis)), $run);
+
+    expect($proof->disagreeingWith(Mutants::of($of(MutantStatus::Killed))))->toHaveCount(0)
+        ->and($proof->disagreeingWith(Mutants::of($of(MutantStatus::Survived))))->toHaveCount(1);
+});

@@ -28,7 +28,9 @@ enum MutantStatus: string
      * analysis and a kill by a test as one, since whether the analyser
      * checked a mutant before its tests or after them is the run's placement,
      * not the code (ADR-0020, decision 11). Survivor confirmation reads it,
-     * so a survivor killed either way the second time is flaky.
+     * so a survivor killed either way the second time is flaky, and so does
+     * the agreement check, which compares two runs' answers (ADR-0007,
+     * decision 3).
      */
     public function answer(): self
     {

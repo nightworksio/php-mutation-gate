@@ -18,3 +18,12 @@ it('knows a mutant whose time ran out: timed out, or skipped for taking as long 
     'survived' => [MutantStatus::Survived, false],
     'errored' => [MutantStatus::Errored, false],
 ]);
+
+it('answers as killed where a static analyser killed it, and as itself otherwise', function (MutantStatus $status, MutantStatus $answer): void {
+    expect($status->answer())->toBe($answer);
+})->with([
+    'killed by static analysis' => [MutantStatus::KilledByStaticAnalysis, MutantStatus::Killed],
+    'killed' => [MutantStatus::Killed, MutantStatus::Killed],
+    'survived' => [MutantStatus::Survived, MutantStatus::Survived],
+    'timed out' => [MutantStatus::TimedOut, MutantStatus::TimedOut],
+]);
