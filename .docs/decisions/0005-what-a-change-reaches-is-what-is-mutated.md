@@ -53,6 +53,19 @@ The same repository has two more needs.
      - The package's GitHub action and reusable workflow pass the pull
        request's base on `pull_request`, and `last-passed` on a push to the
        default branch (ADR-0011).
+   - **`--full`** asks for a full run by name. It is accepted wherever
+     `--changed-since` is, and the two together are an error (exit code 2).
+
+   **The run mode in CI.** The action and the reusable workflow take a `mode`
+   input: `auto`, `full` or `changed`, `auto` by default.
+   - `auto` is change-scoped on `pull_request` and on a push, from the base
+     the bullet above names, and full on `schedule`, `workflow_dispatch`,
+     `release` and a pushed tag.
+   - `full` passes `--full` whatever the event.
+   - `changed` is change-scoped whatever the event. On an event with no base it
+     runs from `last-passed`.
+   - The release workflow (ADR-0011) runs the gate with `mode: full` before it
+     moves the major tag, so a release is judged over all its code.
 
    In both modes the proof ledger then decides which considered units actually
    run (ADR-0007). A unit the change does not reach carries its newest result

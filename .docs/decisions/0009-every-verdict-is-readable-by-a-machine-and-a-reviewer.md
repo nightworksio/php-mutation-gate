@@ -32,8 +32,10 @@ sees the same verdict.
    - every unit, and whether its result was run, proved or carried;
    - every mutant's record, with its hint and reproduce command;
    - the reach and its reasons;
-   - warnings: unheld hot paths (ADR-0005), and expired, expiring or stale
-     ignores (ADR-0008).
+   - warnings: unheld hot paths (ADR-0005), and expired or expiring ignores
+     (ADR-0008);
+   - failures that belong to no floor: stale ignores (ADR-0008) and held paths
+     their group does not cover (ADR-0005).
 
    Which reporters run:
    - **The console** always.
@@ -63,7 +65,9 @@ sees the same verdict.
      when the gate fails that tree, and the failure body lists every mutant it
      counts as not killed, with line, mutator, diff, hint and reproduce
      command. A tree at 80% that passes its floor of 80 does not show
-     as a failed test. JUnit failures match gate failures one to one.
+     as a failed test. One more suite, `run`, holds a `<testcase>` for each
+     failure that belongs to no floor. JUnit failures match gate failures one
+     to one.
    - **SARIF 2.1.0** (`sarif`).
      - One run, with the tool named `mutation-gate`.
      - Four rules: `survived`, `uncovered`, `unjudged` and `flaky`. The

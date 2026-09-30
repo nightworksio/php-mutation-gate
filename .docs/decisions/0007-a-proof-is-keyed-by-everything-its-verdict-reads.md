@@ -90,7 +90,7 @@ has to bring its result with it.
         what of it affects results. Each `composer.json` is hashed with its
         `extra.mutation-gate` entry removed, for the same reason.
       - **CI definition files** are left out, except the ones that run the
-        gate (ADR-0005, rule 1). That one is included as its text with comments and action pins
+        gate (ADR-0005, rule 1). Those are included as their text with comments and action pins
         (`uses: owner/repo@<sha>`) removed. A pin move or a comment is not a
         change to how a mutant runs. The seed does the same.
       - **The baseline file** only holds floors.

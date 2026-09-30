@@ -123,6 +123,7 @@ Options:
 | `--runner=<name>` | every command | Set `runner` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--report=<name>:<path>` | every command, repeatable | Add a file report to `reports` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--changed-since=<ref>` | `plan`, `run` without a plan | Mutate only what the change since `<ref>` reaches; `last-passed` is the newest passing commit | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| `--full` | `plan`, `run` without a plan | Mutate everything, whatever the event; an error beside `--changed-since` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `--budget=<duration>` | `run` | Stop after this long, riskiest code first | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `--coverage=<dir>` | `plan`, `run` without a plan | Read the coverage an earlier job wrote instead of running the suite | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--ci=<name>` | `plan`, `run` | Set `ci.plan`: this CI's format instead of the detected one | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
@@ -448,7 +449,8 @@ jobs:
 | `php-version` | `8.5` |
 | `runner` | the config's, or the one installed |
 | `shard` | none: the whole gate runs |
-| `changed-since` | the pull request's base on `pull_request`, `last-passed` on a push to the default branch, a full run otherwise |
+| `mode` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed` |
+| `changed-since` | the pull request's base on `pull_request`, `last-passed` on a push to the default branch; used when the mode is change-scoped |
 | `budget` | none |
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
 | `cache` | `true`: keep the ledger in the Actions cache |
