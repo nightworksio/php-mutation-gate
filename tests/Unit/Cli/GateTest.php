@@ -83,3 +83,26 @@ it('raises its own memory_limit to what its ledgers may need, and doctor says wh
         ->and(str_contains($raised, 'memory-limit-low'))->toBeFalse()
         ->and($doctor('-d', 'memory_limit=64M', '-d', 'disable_functions=ini_set'))->toContain('"slug": "memory-limit-low"');
 });
+
+it('raises a lower memory_limit to what its ledgers may need, and leaves a higher one or none alone', function (
+    string $given,
+    string $ended,
+): void {
+    $watch = Scratch::directory();
+    Scratch::write($watch, 'limit.php', <<<'PHP'
+        <?php register_shutdown_function(static function (): void {
+            fwrite(STDERR, sprintf('memory_limit=%s', ini_get('memory_limit')));
+        });
+        PHP);
+    $process = new Process(
+        [PHP_BINARY, '-d', sprintf('memory_limit=%s', $given), '-d', sprintf('auto_prepend_file=%s/limit.php', $watch), 'bin/mutation-gate', '--version'],
+        Tree::root(),
+    );
+    $process->run();
+
+    expect($process->getErrorOutput())->toEndWith(sprintf('memory_limit=%s', $ended));
+})->with([
+    'a lower limit' => ['64M', '1388217728'],
+    'a higher limit' => ['2G', '2G'],
+    'no limit' => ['-1', '-1'],
+]);

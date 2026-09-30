@@ -55,3 +55,9 @@ it('keeps an empty object an object, and an empty list a list', function () use 
         ->and(Canonical::of(Json::object(Member::of('x', Json::items(Json::object()))), ['x' => $affects]))
         ->toBe('{"x":[{}]}');
 });
+
+it('writes a key that reads as a number as the key it is', function () use ($affects): void {
+    $written = Json::object(Member::of('x', Json::object(Member::of('12', 1), Member::of('a', 2))));
+
+    expect(Canonical::of($written, ['x' => $affects]))->toBe('{"x":{"12":1,"a":2}}');
+});

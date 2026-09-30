@@ -19,9 +19,9 @@ it('finds a memory_limit under what a run over the largest ledgers may need', fu
     expect(MemoryLimit::in($ran(134_217_728)))->toEqual(Findings::of(Finding::of(
         Slug::MemoryLimitLow,
         Severity::WillFail,
-        'The gate\'s own PHP may take 134 MB of memory, and could not be given more.',
-        'A run over ledgers as large as a run reads can take 1046 MB, and PHP stops it past that.',
-        'Set memory_limit to 1046M or more, or to -1, for the PHP that runs the gate.',
+        'The gate\'s own PHP has a memory_limit of 128M, and could not be given more.',
+        'A run over ledgers as large as a run reads can take 1324M, and PHP stops it past that.',
+        'Set memory_limit to 1324M or more, or to -1, for the PHP that runs the gate.',
     )));
 });
 

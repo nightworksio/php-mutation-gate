@@ -34,3 +34,13 @@ it('writes each ranking as index and kills pairs, most kills first, and reads ba
         ->and(JsonText::compact(KillersRecord::of(KillHistory::none(), [])))->toBe('{"mutants":{},"functions":{}}')
         ->and(KillersRecord::read(Node::decode('{}'), []))->toEqual(KillHistory::none());
 });
+
+it('reads back a mutant, a file and a function whose names read as numbers', function (): void {
+    $id = MutantId::parse('123456789012');
+    $numeric = ($id instanceof MutantId ? KillHistory::none()->withMutant($id, Ranking::of(Kills::of(TestId::of('a'), 1))) : KillHistory::none())
+        ->withFunction(Enclosing::named(Path::of('7'), '12'), Ranking::of(Kills::of(TestId::of('a'), 2)));
+
+    expect(KillersRecord::read(Node::decode(JsonText::compact(KillersRecord::of($numeric, ['a' => 0]))), ['a']))
+        ->toEqual($numeric)
+        ->and(iterator_count($numeric->mutants()))->toBe(1);
+});

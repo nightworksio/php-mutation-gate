@@ -37,3 +37,11 @@ it('turns a named mutator on bare where the project gives it no settings', funct
     expect(MutatorSettings::of(Node::decode('{"Plus": {}, "Minus": false, "global-ignore": []}'))->narrowedTo(Mutators::named('Plus', 'Minus')))
         ->toBe(['mutators' => '{"global-ignore":[],"Plus":true,"Minus":true}']);
 });
+
+it('reads a mutator whose name reads as a number as any other', function (): void {
+    $settings = MutatorSettings::of(Node::decode('{"12": {"ignore": ["A"]}, "Plus": true}'));
+
+    expect($settings->patterns())->toEqual([IgnorePattern::overNames('12.ignore', '12', 'A')])
+        ->and($settings->narrowedTo(Mutators::all()))->toBe(['mutators' => '{"12":{"ignore":["A"]},"Plus":true}'])
+        ->and($settings->narrowedTo(Mutators::named('12')))->toBe(['mutators' => '{"12":{"ignore":["A"]}}']);
+});

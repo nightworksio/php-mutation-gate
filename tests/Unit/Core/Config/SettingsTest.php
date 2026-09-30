@@ -1004,3 +1004,11 @@ it('refuses a canary group name with whitespace, and a store endpoint that is no
         'proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'endpoint' => 'http://minio.test:9000']]],
     ]))->toBeInstanceOf(Settings::class);
 });
+
+it('reads a key that reads as a number as any other: unknown where nothing declares it, and a name in a map', function (): void {
+    $colors = Configs::validated('{"runner": "pest", "reports": [{"use": "badge", "path": "b.svg", "with": {"colors": {"12": 50}}}]}');
+
+    expect(Configs::problems(Configs::validated('{"runner": "pest", "12": 1}')))->toBe(['12: unknown key'])
+        ->and(Configs::validated('{"runner": "pest", "costs": {"secondsPerLine": {"12": 2}}}'))->toBeInstanceOf(Settings::class)
+        ->and($colors)->toBeInstanceOf(Settings::class);
+});

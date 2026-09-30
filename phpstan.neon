@@ -557,6 +557,7 @@ services:
                     - PER_MEGABYTE # bytes in a megabyte
                 'NightWorksIO\MutationGate\Core\Proof\LedgerMemory':
                     - PER_BYTE # bytes of memory per byte of ledger
+                    - MEBIBYTE # bytes in PHP's M, not GitHub's summary cap
                 'NightWorksIO\MutationGate\Adapter\Infection\OwnConfig':
                     - FRAMEWORK # Infection's name for PHPUnit
                 'NightWorksIO\MutationGate\Core\Test\TestsDirectory':

@@ -171,7 +171,10 @@ final readonly class Node
     }
 
     /**
-     * @return array<string, self>
+     * Each entry of a map, by its key; a key that reads as a whole number is keyed as that number, as PHP keys
+     * every array, so a reader takes each key as `sprintf('%s', $key)`.
+     *
+     * @return array<array-key, self>
      *
      * @throws NotInShape
      */

@@ -292,7 +292,9 @@ final readonly class Section implements Shape
         $known = array_flip($declared);
         $problems = [];
 
-        foreach ($at->kind() === Kind::Map ? array_keys($at->entries()) : [] as $key) {
+        foreach ($at->kind() === Kind::Map ? array_keys($at->entries()) : [] as $entryKey) {
+            $key = sprintf('%s', $entryKey);
+
             if (! array_key_exists($key, $known)) {
                 $nearest = Nearest::to($key, $declared);
                 $problems[] = Problem::at(

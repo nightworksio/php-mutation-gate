@@ -8,6 +8,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 
+use function sprintf;
+
 /**
  * The names a runner gives its tests, as the plan file writes them: by each
  * coverage id, the test's file and description, and the data set row where
@@ -50,7 +52,10 @@ final readonly class TestNamesRecord
         foreach ($names->entries() as $id => $name) {
             $whole = TestName::in(Path::of($name->field(self::FILE)->text()), $name->field(self::DESCRIPTION)->text());
             $row = $name->field(self::ROW);
-            $read = $read->with(TestId::of($id), $row->isPresent() ? TestRow::of($whole, $row->text()) : $whole);
+            $read = $read->with(
+                TestId::of(sprintf('%s', $id)),
+                $row->isPresent() ? TestRow::of($whole, $row->text()) : $whole,
+            );
         }
 
         return $read;

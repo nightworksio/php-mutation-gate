@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function array_last;
-use function array_map;
 use function implode;
 use function ksort;
 
@@ -195,6 +194,12 @@ final readonly class Platform
      */
     private static function texts(Node $map): array
     {
-        return array_map(static fn(Node $entry): string => $entry->text(), $map->entries());
+        $texts = [];
+
+        foreach ($map->entries() as $key => $entry) {
+            $texts[sprintf('%s', $key)] = $entry->text();
+        }
+
+        return $texts;
     }
 }

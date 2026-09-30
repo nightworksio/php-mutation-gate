@@ -195,7 +195,7 @@ final readonly class OwnConfig
         $members = [];
 
         foreach ($this->entriesOf($this->settings) as $key => $value) {
-            $members = [...$members, ...$this->kept($project, $key, $value, $mutators)];
+            $members = [...$members, ...$this->kept($project, sprintf('%s', $key), $value, $mutators)];
         }
 
         $members[self::PHPUNIT_SECTION] = $this->section($project, self::PHPUNIT_SECTION, [
@@ -282,7 +282,7 @@ final readonly class OwnConfig
         };
     }
 
-    /** @return array<string, Node> */
+    /** @return array<array-key, Node> each entry, by its key, which PHP keys as a number where it reads as one */
     private function entriesOf(Node $node): array
     {
         try {

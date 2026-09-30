@@ -13,6 +13,9 @@ use function implode;
 
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+
+use function sprintf;
+
 use Traversable;
 
 /**
@@ -24,7 +27,7 @@ use Traversable;
  */
 final readonly class TestNames implements Countable, IteratorAggregate
 {
-    /** @param array<string, TestName|TestRow> $names by test id */
+    /** @param array<array-key, TestName|TestRow> $names by test id, which PHP keys as a number where it reads as one */
     private function __construct(private array $names)
     {
     }
@@ -83,7 +86,7 @@ final readonly class TestNames implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         foreach ($this->names as $id => $name) {
-            yield TestId::of($id) => $name;
+            yield TestId::of(sprintf('%s', $id)) => $name;
         }
     }
 }

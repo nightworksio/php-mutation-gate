@@ -87,3 +87,9 @@ it('reads floors at the ends of the range', function (): void {
 
     expect($read)->toEqual(Baseline::of(Entry::of(Path::of('a'), Floor::of(0)), Entry::of(Path::of('b'), Floor::of(100))));
 });
+
+it('reads back a tree whose path reads as a number', function (): void {
+    $numeric = Baseline::of(Entry::of(Path::of('12'), Floor::of(40)));
+
+    expect(BaselineFile::decode(BaselineFile::encode($numeric), Path::of('b.json')))->toEqual($numeric);
+});

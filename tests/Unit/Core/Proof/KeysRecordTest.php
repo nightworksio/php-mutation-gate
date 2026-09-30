@@ -70,3 +70,10 @@ it('reads and writes keys in time linear in their number', function (): void {
         ->and($read(10)()->keyOf(Path::of('src/F10.php')))->toEqual(Digest::of(hash('sha256', '10')))
         ->and(Growth::of(625, $read))->toBeLessThan(Growth::LINEAR);
 });
+
+it('reads back the key of a unit whose path reads as a number', function (): void {
+    $numeric = Keys::none()->with(Path::of('7'), Digest::of('9c1e'));
+
+    expect(KeysRecord::read(Node::decode(JsonText::encode(['keys' => KeysRecord::of($numeric)]))->field('keys')))
+        ->toEqual($numeric);
+});

@@ -18,6 +18,9 @@ use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+
+use function sprintf;
+
 use stdClass;
 
 /**
@@ -114,7 +117,7 @@ final readonly class KillersRecord
         $history = KillHistory::none();
 
         foreach (self::entriesOf($section->field(self::MUTANTS)) as $id => $pairs) {
-            $mutant = MutantId::parse($id);
+            $mutant = MutantId::parse(sprintf('%s', $id));
             $ranking = self::rankingIn($pairs, $tests);
             $history = $mutant instanceof MutantId && count($ranking) > 0
                 ? $history->withMutant($mutant, $ranking)
@@ -129,7 +132,9 @@ final readonly class KillersRecord
     {
         foreach (self::entriesOf($functions) as $file => $named) {
             foreach (self::entriesOf($named) as $name => $pairs) {
-                $function = $file === '' ? Nameless::code() : Enclosing::of(Path::of($file), $name);
+                $function = $file === ''
+                    ? Nameless::code()
+                    : Enclosing::of(Path::of(sprintf('%s', $file)), sprintf('%s', $name));
                 $ranking = self::rankingIn($pairs, $tests);
                 $history = $function instanceof Enclosing && count($ranking) > 0
                     ? $history->withFunction($function, $ranking)
@@ -194,7 +199,7 @@ final readonly class KillersRecord
         }
     }
 
-    /** @return array<string, Node> */
+    /** @return array<array-key, Node> each entry, by its key, which PHP keys as a number where it reads as one */
     private static function entriesOf(Node $map): array
     {
         try {

@@ -126,7 +126,7 @@ final readonly class BaselineFile
         $entries = [];
 
         foreach ($file->field('trees')->entries() as $tree => $entry) {
-            $entries[] = self::entryIn(Path::of($tree), $entry);
+            $entries[] = self::entryIn(Path::of(sprintf('%s', $tree)), $entry);
         }
 
         return Baseline::of(...$entries);

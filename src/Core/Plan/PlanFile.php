@@ -283,7 +283,7 @@ final readonly class PlanFile
                 $lines = $lines->with(self::lineIn($number));
             }
 
-            $changes = $changes->with(Change::modified(Path::of($path), $lines));
+            $changes = $changes->with(Change::modified(Path::of(sprintf('%s', $path)), $lines));
         }
 
         return $changes;

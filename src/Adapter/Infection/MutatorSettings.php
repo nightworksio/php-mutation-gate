@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function array_flip;
 use function array_intersect_key;
+use function array_key_exists;
 use function in_array;
 
 use NightWorksIO\MutationGate\Core\Format\JsonObject;
@@ -60,7 +61,8 @@ final readonly class MutatorSettings
     {
         $patterns = [];
 
-        foreach ($this->entriesOf($this->block) as $name => $settings) {
+        foreach ($this->entriesOf($this->block) as $key => $settings) {
+            $name = sprintf('%s', $key);
             $mutator = str_starts_with($name, '@') ? AnyMutator::of() : $name;
             $patterns = [...$patterns, ...match ($name) {
                 self::GLOBAL_IGNORE => $this->listed($name, AnyMutator::of(), $settings, regex: false),
@@ -92,7 +94,7 @@ final readonly class MutatorSettings
     }
 
     /**
-     * @param array<string, Node> $own
+     * @param array<array-key, Node> $own
      *
      * @return array<string, string>
      */
@@ -100,7 +102,8 @@ final readonly class MutatorSettings
     {
         $kept = [];
 
-        foreach ($own as $name => $settings) {
+        foreach ($own as $key => $settings) {
+            $name = sprintf('%s', $key);
             $kept[$name] = $this->written($name, $settings);
         }
 
@@ -111,7 +114,7 @@ final readonly class MutatorSettings
      * The global ignores, and each named mutator: with the project's settings
      * for it where it has some, and turned on bare where it has none.
      *
-     * @param array<string, Node> $own
+     * @param array<array-key, Node> $own
      *
      * @return array<string, string>
      */
@@ -123,8 +126,10 @@ final readonly class MutatorSettings
             $kept[$mutator] = self::ON;
         }
 
-        foreach (array_intersect_key($own, $kept) as $name => $settings) {
-            if ($this->entriesOf($settings) !== []) {
+        foreach ($own as $key => $settings) {
+            $name = sprintf('%s', $key);
+
+            if (array_key_exists($name, $kept) && $this->entriesOf($settings) !== []) {
                 $kept[$name] = $this->written($name, $settings);
             }
         }
@@ -174,7 +179,7 @@ final readonly class MutatorSettings
             : $json;
     }
 
-    /** @return array<string, Node> */
+    /** @return array<array-key, Node> each entry, by its key, which PHP keys as a number where it reads as one */
     private function entriesOf(Node $node): array
     {
         try {

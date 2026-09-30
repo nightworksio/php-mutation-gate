@@ -43,3 +43,9 @@ it('refuses names that are not a map of names, saying where', function (string $
     'a name with no file' => ['{"MoneyTest::adds": {"description": "it adds"}}', 'file'],
     'a row that is not text' => ['{"MoneyTest::adds": {"file": "a", "description": "b", "row": 1}}', 'row'],
 ]);
+
+it('reads back a test whose id reads as a number', function (): void {
+    $names = TestNames::none()->with(TestId::of('123'), TestName::in(Path::of('tests/NumberTest.php'), 'it counts'));
+
+    expect(testNamesRead((string) json_encode(TestNamesRecord::of($names))))->toEqual($names);
+});

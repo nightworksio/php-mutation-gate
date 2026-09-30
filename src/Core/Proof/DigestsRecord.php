@@ -11,6 +11,9 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+
+use function sprintf;
+
 use stdClass;
 
 /**
@@ -55,11 +58,11 @@ final readonly class DigestsRecord
         $digests = Digests::of(self::digestIn($record->field(DigestKind::Mutation->value)));
 
         foreach ($record->field(self::SOURCES)->entries() as $unit => $digest) {
-            $digests = $digests->withSource(Path::of($unit), self::digestIn($digest));
+            $digests = $digests->withSource(Path::of(sprintf('%s', $unit)), self::digestIn($digest));
         }
 
         foreach ($record->field(DigestKind::Test->value)->entries() as $file => $digest) {
-            $digests = $digests->withTest(Path::of($file), self::digestIn($digest));
+            $digests = $digests->withTest(Path::of(sprintf('%s', $file)), self::digestIn($digest));
         }
 
         $commit = self::commitIn($record);

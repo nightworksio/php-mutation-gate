@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
+use function sprintf;
+
 /**
  * One entry of `trend.json`, as it is written from a verdict, read back from
  * the file, and handed on as the entry a verdict is compared with.
@@ -132,7 +134,7 @@ final readonly class TrendRecord
         $percents = [];
 
         foreach ($trees->entries() as $path => $percent) {
-            $percents[$path] = Percentage::parse($percent->number()) instanceof Percentage
+            $percents[sprintf('%s', $path)] = Percentage::parse($percent->number()) instanceof Percentage
                 ? $percent->number()
                 : throw NotInShape::at($percent->at(), 'a percentage');
         }

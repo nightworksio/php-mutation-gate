@@ -291,16 +291,17 @@ decides are accepted for that release too.
       its proofs, and each proof's entry of the decoded file let go once its
       proof is read. It is written a section at a time, and its proofs one at
       a time. The ledger at the retention cap is held in 151 MB, read at a
-      peak of 179 MB and written in 57 MB more: per byte of its text, 8.0,
-      9.5 and 3.0. A ledger of kills alone is read at a peak of 11.2 per
-      byte and written in 3.9. A run holds at most two ledgers, the default
-      branch's and its own, and writes one. The gate's command gives its own
-      process a `memory_limit` of PHP's default 128 MiB for the rest of a
-      run and 24 bytes for each byte of the largest ledger a run reads, a
-      fifth more than the 19.9 of two held and one written: 1,046,217,728
-      bytes. It raises the limit only where it is lower, never where it is
-      `-1`, and only for itself; library code changes no setting. Where PHP
-      does not let it, `doctor` reports `memory-limit-low`.
+      peak of 179 MB and written in 57 MB more. The heaviest shape measured
+      is a ledger of kills alone, each killed by tests of its own: per byte
+      of its text, it is held in 11.8, read at a peak of 14.3 and written in
+      3.9. A run holds at most two ledgers, the default branch's and its own,
+      and writes one: 27.4 per byte of that shape. The gate's command gives
+      its own process a `memory_limit` of PHP's default 128M for the rest of
+      a run and 33 bytes for each byte of the largest ledger a run reads, a
+      fifth more than 27.4: 1,388,217,728 bytes, which is 1324M. It raises
+      the limit only where it is lower, never where it is `-1`, and only for
+      itself; library code changes no setting. Where PHP does not let it,
+      `doctor` reports `memory-limit-low`.
     - **The bucket policy.** The README gives it: public `GetObject` on
       `<prefix>/refs/heads/<default branch>/*` and nothing else.
     - **Writing.** Writing still needs the credentials only default-branch
