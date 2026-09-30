@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Git;
 
-use NightWorksIO\MutationGate\Core\File\Workspace;
-
-use function sprintf;
-
 /**
  * The command that lists the untracked files that are not ignored, leaving
  * out the gate's own workspace: what the gate writes, or checks out, while it
@@ -23,9 +19,7 @@ final readonly class Untracked
             '--others',
             '--exclude-standard',
             '-z',
-            '--',
-            '.',
-            sprintf(':(exclude)%s', Workspace::root()->value()),
+            ...OutsideTheWorkspace::pathspec(),
         ];
     }
 }
