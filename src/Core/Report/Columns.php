@@ -68,7 +68,7 @@ final readonly class Columns
             $this->tokens,
             static fn(array $token): bool => $token['line'] >= $first && $token['line'] <= $last,
         ));
-        $at = self::find($tokens, $changed);
+        $at = $this->find($tokens, $changed);
 
         if ($at < 0) {
             return [
@@ -91,7 +91,7 @@ final readonly class Columns
      * @param list<array{text: string, line: int, column: int}> $tokens
      * @param list<string>                                        $changed
      */
-    private static function find(array $tokens, array $changed): int
+    private function find(array $tokens, array $changed): int
     {
         $texts = array_map(static fn(array $token): string => $token['text'], $tokens);
 
