@@ -147,16 +147,26 @@ it('lets a mutant survive a test that reads a file\'s lines to its end, touches 
 })->with(['QuirksSpec::readsEveryLineToTheEnd', 'QuirksSpec::touchesAFileAndStatesADanglingLink'])
     ->skip(! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
 
-it('leaves unjudged a mutant whose every test is set aside, however PHPUnit sets it aside', function (string $test): void {
-    expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Money.php', 1, [$test])))
+it('leaves unjudged a mutant whose every test is set aside, however PHPUnit sets it aside', function (string $test, string ...$more): void {
+    expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Money.php', 1, [$test, ...array_values($more)])))
         ->toBe(['unjudged', 'PHPUnit skipped, or marked incomplete, every test that covers it.']);
 })->with([
     'skipped in its body' => ['QuirksSpec::skipsItself'],
     'skipped in setUp' => ['SkippedInSetUpSpec::countsWhereItCan'],
     'marked incomplete in setUp' => ['IncompleteInSetUpSpec::countsWhereItCan'],
-    'skipped with its whole class' => ['SkippedBeforeClassSpec::countsWhereItCan'],
+    'skipped with its whole class' => ['SkippedBeforeClassSpec::countsWhereItCan', 'SkippedBeforeClassSpec::countsAgainWhereItCan'],
     'skipped for a requirement it does not meet' => ['QuirksSpec::needsAnExtensionNoPhpHas'],
 ])->skip(! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+
+it('kills a mutant that breaks a setUpBeforeClass, by the tests of its class', function (): void {
+    expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Money.php', 0, ['AddsBeforeClassSpec::runsOnceTheLibraryAdds'])))
+        ->toBe(['killed', 'Tests\\AddsBeforeClassSpec::runsOnceTheLibraryAdds']);
+})->skip(! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+
+it('lets a mutant survive a setUpBeforeClass it leaves as it was', function (): void {
+    expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Money.php', 1, ['AddsBeforeClassSpec::runsOnceTheLibraryAdds'])))
+        ->toBe(['survived']);
+})->skip(! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
 
 it('lets a mutant survive the tests that run beside one set aside in setUp', function (string $setAside): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Money.php', 1, [$setAside, 'MoneySpec::countsWithoutSayingSo'])))

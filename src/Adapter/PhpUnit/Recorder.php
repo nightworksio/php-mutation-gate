@@ -17,11 +17,12 @@ use PHPUnit\Event\UnknownSubscriberTypeException;
 
 /**
  * Appends to the results file each test that starts, before anything of it
- * runs, each test's outcome as it finishes, and each test skipped or marked
- * incomplete as it is, alone or with its whole suite, since one set aside
- * before it was prepared never finishes. A test that started and ended none of these ways is one whose
- * process died while it ran. The outcome is forgotten as each test starts
- * and finishes, so none is written against another test.
+ * runs; each test's outcome as it finishes; each test skipped or marked
+ * incomplete, alone or with its whole suite, since one set aside before it
+ * was prepared never finishes; and each test class whose `setUpBeforeClass`
+ * failed or errored. A test that started and ended none of these ways is one
+ * whose process died while it ran. The outcome is forgotten as each test
+ * starts and finishes, so none is written against another test.
  */
 final class Recorder
 {
@@ -53,6 +54,8 @@ final class Recorder
                 new OnSkipped($recorder),
                 new OnIncomplete($recorder),
                 new OnSuiteSkipped($recorder),
+                new OnBeforeClassErrored($recorder),
+                new OnBeforeClassFailed($recorder),
                 new OnFinished($recorder),
             );
         } catch (EventFacadeIsSealedException|UnknownSubscriberTypeException) {
@@ -70,6 +73,12 @@ final class Recorder
     public function setAside(string $test): void
     {
         $this->write(Outcome::Neither->line($test));
+    }
+
+    /** Records a test class whose `setUpBeforeClass` failed or errored. */
+    public function classFailed(string $class): void
+    {
+        $this->write(Outcome::ClassFailed->line($class));
     }
 
     public function ended(Outcome $outcome): void

@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\Runner\SearchPath;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
+use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
@@ -94,10 +95,11 @@ final readonly class Command
     }
 
     /**
-     * The variables the gate sets for its plugin and pest-plugin-mutate's own,
-     * each unset whether or not the environment holds it, since a process
-     * also inherits what `$_ENV` holds, which `getenv()` does not show. Only
-     * the command that needs one sets it.
+     * The variables the gate sets for its plugin, pest-plugin-mutate's own,
+     * and those that make a process another run's worker, each unset whether
+     * or not the environment holds it, since a process also inherits what
+     * `$_ENV` holds, which `getenv()` does not show. Only the command that
+     * needs one sets it.
      *
      * @return array<string, false>
      */
@@ -105,6 +107,8 @@ final readonly class Command
     {
         $gate = array_map(static fn(GateVariable $variable): string => $variable->value, GateVariable::cases());
 
-        return array_fill_keys([...$gate, Recorder::MUTANT, Recorder::MUTATED], value: false);
+        $names = [...$gate, Recorder::MUTANT, Recorder::MUTATED, ...WorkerVariable::names()];
+
+        return array_fill_keys($names, value: false);
     }
 }

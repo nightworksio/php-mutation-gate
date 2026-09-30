@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
@@ -179,8 +180,36 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
     'unjudged where every test was set aside, even where PHPUnit fails the run' => [
         records(Outcome::Started->line('T::skips'), Outcome::Neither->line('T::skips')),
         Ran::finished(succeeded: false, output: 'failOnSkipped'),
+        "served\n",
+        [
+            MutantStatus::Unjudged,
+            [],
+            "PHPUnit skipped, or marked incomplete, every test that covers it, and failed the run. PHPUnit said:\nfailOnSkipped",
+        ],
+    ],
+    'timed out at its limit, though every test it recorded was set aside' => [
+        records(Outcome::Started->line('T::skips'), Outcome::Neither->line('T::skips')),
+        Ran::stopped(''),
+        "served\n",
+        [MutantStatus::TimedOut, [], ''],
+    ],
+    'unjudged, where stopped at its limit before the mutated file ran' => [
         '',
-        [MutantStatus::Unjudged, [], 'PHPUnit skipped, or marked incomplete, every test that covers it.'],
+        Ran::stopped(''),
+        '',
+        [MutantStatus::Unjudged, [], 'PHPUnit was stopped at the limit, and the mutated file never ran in its place.'],
+    ],
+    'unjudged, saying PHPUnit said nothing, where it failed before any test started and said nothing' => [
+        '',
+        Ran::finished(succeeded: false, output: "  \n"),
+        '',
+        [MutantStatus::Unjudged, [], 'PHPUnit failed the run, though no test that ran failed. PHPUnit said nothing.'],
+    ],
+    'killed by each selected test of a class whose setUpBeforeClass failed' => [
+        Outcome::ClassFailed->line(TestMethod::classOf(TestId::of('Tests\\MoneySpec::addsTwoAmounts'))),
+        Ran::finished(succeeded: false, output: ''),
+        "served\n",
+        [MutantStatus::Killed, ['Tests\\MoneySpec::addsTwoAmounts'], ''],
     ],
     'unjudged, with what PHPUnit said, where it failed before any test started or the mutated file ran' => [
         '',

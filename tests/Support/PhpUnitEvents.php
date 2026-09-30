@@ -4,13 +4,23 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function array_values;
+use function count;
+
 use Exception;
+use PHPUnit\Event\Code\ClassMethod;
+use PHPUnit\Event\Code\Test;
 use PHPUnit\Event\Code\TestCollection;
+use PHPUnit\Event\Code\TestDox;
+use PHPUnit\Event\Code\TestMethod;
 use PHPUnit\Event\Code\TestMethodBuilder;
 use PHPUnit\Event\Code\ThrowableBuilder;
 use PHPUnit\Event\Emitter;
 use PHPUnit\Event\Facade;
+use PHPUnit\Event\TestData\TestDataCollection;
 use PHPUnit\Event\TestSuite\TestSuiteWithName;
+use PHPUnit\Framework\TestCase;
+use PHPUnit\Metadata\MetadataCollection;
 
 /**
  * PHPUnit's own events, emitted through a facade of their own for the
@@ -43,13 +53,62 @@ final readonly class PhpUnitEvents
         );
     }
 
-    /** Emits that the suite of the test running it was skipped whole. */
-    public static function suiteSkipped(Facade $events): void
+    /** Emits that a suite of these tests was skipped whole. */
+    public static function suiteSkipped(Facade $events, Test ...$tests): void
     {
         $events->seal();
         self::emitterOf($events)->testSuiteSkipped(
-            new TestSuiteWithName('skipped whole', 1, TestCollection::fromArray([TestMethodBuilder::fromCallStack()])),
+            new TestSuiteWithName('skipped whole', count($tests), TestCollection::fromArray(array_values($tests))),
             'skipped',
+        );
+    }
+
+    /**
+     * Emits that a class's `setUpBeforeClass` errored.
+     *
+     * @param class-string<TestCase> $class
+     */
+    public static function beforeClassErrored(Facade $events, string $class): void
+    {
+        $events->seal();
+        self::emitterOf($events)->beforeFirstTestMethodErrored(
+            $class,
+            new ClassMethod($class, 'setUpBeforeClass'),
+            ThrowableBuilder::from(new Exception('before class')),
+        );
+    }
+
+    /**
+     * Emits that a class's `setUpBeforeClass` failed.
+     *
+     * @param class-string<TestCase> $class
+     */
+    public static function beforeClassFailed(Facade $events, string $class): void
+    {
+        $events->seal();
+        self::emitterOf($events)->beforeFirstTestMethodFailed(
+            $class,
+            new ClassMethod($class, 'setUpBeforeClass'),
+            ThrowableBuilder::from(new Exception('before class')),
+        );
+    }
+
+    /**
+     * A test method of a class, by the class's name and the method's.
+     *
+     * @param class-string<TestCase> $class
+     * @param non-empty-string       $method
+     */
+    public static function test(string $class, string $method): TestMethod
+    {
+        return new TestMethod(
+            $class,
+            $method,
+            __FILE__,
+            1,
+            new TestDox($class, $method, $method),
+            MetadataCollection::fromArray([]),
+            TestDataCollection::fromArray([]),
         );
     }
 

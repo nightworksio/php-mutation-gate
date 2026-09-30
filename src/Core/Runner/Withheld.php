@@ -35,7 +35,7 @@ final readonly class Withheld implements IteratorAggregate
     /**
      * What makes a process a worker or a mutant's run of another run, or has
      * a plugin act for the gate: the gate's own variables, Infection's,
-     * pest-plugin-mutate's, and paratest's.
+     * pest-plugin-mutate's, paratest's and Laravel's parallel testing's.
      */
     private const array OTHER_RUNS = [
         'MUTATION_GATE_*',
@@ -44,6 +44,7 @@ final readonly class Withheld implements IteratorAggregate
         'PARATEST*',
         'TEST_TOKEN*',
         'UNIQUE_TEST_TOKEN*',
+        'LARAVEL_PARALLEL_TESTING*',
     ];
 
     /** @param list<string> $globs */

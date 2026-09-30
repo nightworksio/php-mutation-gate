@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Outcome;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Recorded;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -12,12 +13,12 @@ afterEach(function (): void {
 });
 
 /** What a results file with these lines records. */
-function recordedFrom(string $lines): Recorded
+function recordedFrom(string $lines, TestId ...$selected): Recorded
 {
     $results = sprintf('%s/results.txt', Scratch::directory());
     file_put_contents($results, $lines);
 
-    return Recorded::in($results);
+    return Recorded::in($results, TestIds::of(...$selected));
 }
 
 /** @return list<string> */
@@ -47,10 +48,23 @@ it('says every test that ran was skipped only where none passed, failed or died'
 ]);
 
 it('records nothing where there is no file, or no line it reads', function (): void {
-    $none = Recorded::in(sprintf('%s/none.txt', Scratch::directory()));
+    $none = Recorded::in(sprintf('%s/none.txt', Scratch::directory()), TestIds::none());
     $unread = recordedFrom("unknown T%3A%3Aa\nstarted\n\n");
 
     expect([$none->ranAny(), count($none->killers())])->toBe([false, 0])
         ->and(killersIn($unread))->toBe([''])
         ->and($unread->ranAny())->toBeTrue();
+});
+
+it('names each selected test of a class whose setUpBeforeClass failed a killer, and no other', function (): void {
+    $recorded = recordedFrom(
+        Outcome::ClassFailed->line('Tests\\A'),
+        TestId::of('Tests\\A::one'),
+        TestId::of('Tests\\A::two#0'),
+        TestId::of('Tests\\B::three'),
+    );
+
+    expect(killersIn($recorded))->toBe(['Tests\\A::one', 'Tests\\A::two#0'])
+        ->and($recorded->ranAny())->toBeTrue()
+        ->and($recorded->skippedEach())->toBeFalse();
 });

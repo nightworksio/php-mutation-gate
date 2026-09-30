@@ -61,6 +61,7 @@ it('withholds what makes a process another run\'s worker or mutant', function (s
     'paratest\'s' => ['PARATEST', true],
     'a paratest worker\'s token' => ['TEST_TOKEN', true],
     'a paratest worker\'s unique token' => ['UNIQUE_TEST_TOKEN', true],
+    'Laravel\'s parallel testing' => ['LARAVEL_PARALLEL_TESTING', true],
     'a name that only ends in one' => ['MY_TEST_TOKEN', false],
     'the path' => ['PATH', false],
 ]);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
+use function array_fill_keys;
 use function array_filter;
 use function array_key_exists;
 use function is_int;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SearchPath;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
+use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
@@ -81,13 +83,22 @@ final readonly class ProcessShell implements Shell
         return $ran->taking(Seconds::of(($this->clock->nanoseconds() - $started) / Seconds::NANOSECONDS));
     }
 
-    /** @return array<string, string|false> each variable the process must not inherit as false, and its `PATH` */
+    /**
+     * Each variable the process must not inherit as false, those that make a
+     * process another run's worker whether or not the environment shows them,
+     * and its `PATH`.
+     *
+     * @return array<string, string|false>
+     */
     private function environment(Withheld $withheld): array
     {
-        $environment = array_filter(
-            Withholding::of($withheld->and(Withheld::otherRuns()), $this->inherited),
-            static fn(string|false $value): bool => $value === false,
-        );
+        $environment = [
+            ...array_filter(
+                Withholding::of($withheld->and(Withheld::otherRuns()), $this->inherited),
+                static fn(string|false $value): bool => $value === false,
+            ),
+            ...array_fill_keys(WorkerVariable::names(), value: false),
+        ];
         $path = array_key_exists(SearchPath::VARIABLE, $this->inherited) ? $this->inherited[SearchPath::VARIABLE] : '';
         $environment[SearchPath::VARIABLE] = SearchPath::phpFirst($path);
 

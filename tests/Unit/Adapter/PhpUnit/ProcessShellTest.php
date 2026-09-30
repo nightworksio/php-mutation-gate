@@ -73,11 +73,13 @@ it('withholds another run\'s variables and what the command withholds, and tells
 
 it('unsets the variables the gate sets for its extension and wrapper, even where only $_ENV holds one', function (): void {
     $_ENV[Variable::Guard->value] = 'leaked';
-    $prints = 'foreach (["MUTATION_GATE_GUARD", "MUTATION_GATE_MUTANT", "MUTATION_GATE_RESULTS"] as $n) { echo $n, "=", var_export(getenv($n), true), "\n"; }';
+    $_ENV['LARAVEL_PARALLEL_TESTING'] = '1';
+    $prints = 'foreach (["MUTATION_GATE_GUARD", "MUTATION_GATE_MUTANT", "LARAVEL_PARALLEL_TESTING", "MUTATION_GATE_RESULTS"] as $n)'
+        . ' { echo $n, "=", var_export(getenv($n), true), "\n"; }';
     $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', $prints)->telling(Variable::Results, 'told'));
-    unset($_ENV[Variable::Guard->value]);
+    unset($_ENV[Variable::Guard->value], $_ENV['LARAVEL_PARALLEL_TESTING']);
 
-    expect($ran->output())->toBe("MUTATION_GATE_GUARD=false\nMUTATION_GATE_MUTANT=false\nMUTATION_GATE_RESULTS='told'\n");
+    expect($ran->output())->toBe("MUTATION_GATE_GUARD=false\nMUTATION_GATE_MUTANT=false\nLARAVEL_PARALLEL_TESTING=false\nMUTATION_GATE_RESULTS='told'\n");
 });
 
 it('stops a program at its deadline, with every process it started', function (): void {

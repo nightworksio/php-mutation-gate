@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SearchPath;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
+use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
@@ -92,10 +93,11 @@ final readonly class ProcessShell implements Shell
     }
 
     /**
-     * The variables the gate sets for its extension and its wrapper, each
-     * unset whether or not the environment holds it, since a process also
-     * inherits what `$_ENV` holds, which `getenv()` does not show. Only the
-     * command that needs one sets it.
+     * The variables the gate sets for its extension and its wrapper, and
+     * those that make a process another run's worker, each unset whether or
+     * not the environment holds it, since a process also inherits what
+     * `$_ENV` holds, which `getenv()` does not show. Only the command that
+     * needs one sets it.
      *
      * @return array<string, false>
      */
@@ -103,7 +105,7 @@ final readonly class ProcessShell implements Shell
     {
         $names = array_map(static fn(Variable $variable): string => $variable->value, Variable::cases());
 
-        return array_fill_keys($names, value: false);
+        return array_fill_keys([...$names, ...WorkerVariable::names()], value: false);
     }
 
     private function since(int|float $started): Seconds

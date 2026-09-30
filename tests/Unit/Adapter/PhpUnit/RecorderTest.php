@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Recorder;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use PHPUnit\Event\Facade;
+use PHPUnit\Framework\TestCase;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -62,10 +63,24 @@ it('records every test of a suite skipped whole as ended, though none of them st
     $events = new Facade();
     Recorder::listening($results, $events);
 
-    PhpUnitEvents::suiteSkipped($events);
+    PhpUnitEvents::suiteSkipped($events, PhpUnitEvents::test(TestCase::class, 'first'), PhpUnitEvents::test(TestCase::class, 'second'));
 
-    expect(recordedLines($results))->toBe(['neither <test>']);
+    expect(file($results, FILE_IGNORE_NEW_LINES))
+        ->toBe(['neither PHPUnit%5CFramework%5CTestCase%3A%3Afirst', 'neither PHPUnit%5CFramework%5CTestCase%3A%3Asecond']);
 });
+
+it('records a class whose setUpBeforeClass errored or failed', function (Closure $ended): void {
+    $results = sprintf('%s/results.txt', Scratch::directory());
+    $events = new Facade();
+    Recorder::listening($results, $events);
+
+    $ended($events, TestCase::class);
+
+    expect(file($results, FILE_IGNORE_NEW_LINES))->toBe(['class-failed PHPUnit%5CFramework%5CTestCase']);
+})->with([
+    'errored' => [PhpUnitEvents::beforeClassErrored(...)],
+    'failed' => [PhpUnitEvents::beforeClassFailed(...)],
+]);
 
 it('writes no test\'s outcome against the next test to start', function (): void {
     $results = sprintf('%s/results.txt', Scratch::directory());

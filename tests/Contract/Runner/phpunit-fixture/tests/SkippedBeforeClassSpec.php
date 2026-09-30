@@ -23,4 +23,10 @@ final class SkippedBeforeClassSpec extends TestCase
     {
         self::assertTrue(true);
     }
+
+    #[Test]
+    public function countsAgainWhereItCan(): void
+    {
+        self::assertTrue(true);
+    }
 }

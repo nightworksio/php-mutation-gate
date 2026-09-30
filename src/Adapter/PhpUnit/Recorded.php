@@ -12,15 +12,17 @@ use function is_file;
 
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
 
 use function rawurldecode;
 use function str_contains;
 
 /**
  * The tests the extension recorded for one mutant: which started, and how
- * each that ended ended, finished, skipped or marked incomplete. The tests
- * that killed it are those that failed or errored, and each that started and
- * never ended, since its process died as it ran.
+ * each test ended: finished, skipped or marked incomplete. A test the run
+ * selected whose class's `setUpBeforeClass` failed or errored ended so too.
+ * The tests that killed it are those that failed or errored, and each that
+ * started and never ended, since its process died as it ran.
  */
 final readonly class Recorded
 {
@@ -32,8 +34,8 @@ final readonly class Recorded
     ) {
     }
 
-    /** What a results file records; a file that is not there records nothing. */
-    public static function in(string $results): self
+    /** What a results file records of the tests a run selected; a file that is not there records nothing. */
+    public static function in(string $results, TestIds $selected): self
     {
         $lines = is_file($results) ? file($results, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
         $recorded = new self(TestIds::none(), TestIds::none(), TestIds::none(), TestIds::none());
@@ -44,7 +46,11 @@ final readonly class Recorded
                 : [$line, ''];
             $outcome = Outcome::tryFrom($mark);
             $id = TestId::of(rawurldecode($test));
-            $recorded = $outcome instanceof Outcome ? $recorded->with($outcome, $id) : $recorded;
+            $recorded = match (true) {
+                $outcome === Outcome::ClassFailed => $recorded->withClass($id->value(), $selected),
+                $outcome instanceof Outcome => $recorded->with($outcome, $id),
+                default => $recorded,
+            };
         }
 
         return $recorded;
@@ -72,6 +78,18 @@ final readonly class Recorded
     public function skippedEach(): bool
     {
         return $this->ranAny() && count($this->killers()) === 0 && count($this->passed) === 0;
+    }
+
+    /** These, with each selected test of a class whose `setUpBeforeClass` failed or errored ended as errored. */
+    private function withClass(string $class, TestIds $selected): self
+    {
+        $recorded = $this;
+
+        foreach ($selected as $test) {
+            $recorded = TestMethod::classOf($test) === $class ? $recorded->with(Outcome::Errored, $test) : $recorded;
+        }
+
+        return $recorded;
     }
 
     private function with(Outcome $outcome, TestId $test): self

@@ -153,3 +153,11 @@ it('measures how long a script ran on its clock, from its start to its end', fun
     expect($ran->took())->toEqual(Seconds::of(2.5))
         ->and($ran->output())->toBe('ok');
 });
+
+it('unsets the variables that make a process another run\'s worker, even where only $_ENV holds one', function (): void {
+    $_ENV['PARATEST'] = '1';
+    $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'var_export(getenv("PARATEST"));'));
+    unset($_ENV['PARATEST']);
+
+    expect($ran->output())->toBe('false');
+});
