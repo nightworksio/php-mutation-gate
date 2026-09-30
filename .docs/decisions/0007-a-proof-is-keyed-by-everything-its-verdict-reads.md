@@ -84,7 +84,23 @@ has to bring its result with it.
         mutants with (`staticAnalysisTool`). That tool's own config is a file of
         the repository like any runner config, so item 6 holds it;
       - a digest of the PHP it runs on: version, extensions and their versions,
-        ini settings, operating system family and architecture.
+        every ini setting except the inert ones, operating system family and
+        architecture. It is the PHP the runner starts, as that PHP describes
+        itself when started the way the runner starts it: the same binary,
+        php.ini and options, without the variables withheld. For Infection that
+        is how it starts each mutant's run, without `initialTestsPhpOptions`,
+        which the config file item 6 holds. The same description tells `doctor`
+        what the runner's PHP loads. The gate's own PHP is not that PHP, since a
+        `-d` on the gate's command line never reaches a runner. So a memory or
+        time bound is keyed at the value the runner runs with, where it can
+        decide whether a mutant is killed. An inert setting only decides how an
+        error is shown or logged, or how PHP's interactive shell looks
+        (`display_errors`, `display_startup_errors`, `html_errors`,
+        `log_errors`, `error_log`, `error_log_mode`, `docref_root`,
+        `docref_ext`, `cli.pager`, `cli.prompt`). Each is named with its reason,
+        and a test pins the list. Any other setting, including one PHP or an
+        extension adds later, is in the digest, so a setting nobody has judged
+        re-runs a unit rather than reuses its proof.
    5. **What is installed**: the digest of `vendor/composer/installed.json`. It
       catches a dependency installed differently from the lock. The lock itself
       is in the next item.

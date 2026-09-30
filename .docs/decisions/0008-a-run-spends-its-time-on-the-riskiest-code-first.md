@@ -99,7 +99,10 @@ presets for Laravel, Symfony and plain libraries.
 3. **Flaky triage: the same code giving two answers is reported, not averaged.**
    - **Survivor confirmation.** Each survived mutant is run once more, alone,
      before it counts. Killed the second time means **flaky**. Survived again
-     means a confirmed survivor. Survivors are few, so this is cheap.
+     means a confirmed survivor. Survivors are few, so this is cheap. Under
+     Pest the survivors run again in one run of their files with their
+     mutators, each still in a process of its own, so Pest's opening run is
+     paid once rather than once for each file and mutator.
      `flaky.confirmSurvivors` is a boolean, `true` by default. A mutant
      judged by reference (ADR-0004, decision 8) is run again through those
      same steps, against its judging tests. The confirming run takes the

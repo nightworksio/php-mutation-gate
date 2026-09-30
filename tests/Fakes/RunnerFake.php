@@ -97,7 +97,7 @@ final readonly class RunnerFake implements Runner
         );
     }
 
-    public function identity(): Identity|CannotJudge
+    public function identity(Withheld $withheld): Identity|CannotJudge
     {
         return $this->identity;
     }

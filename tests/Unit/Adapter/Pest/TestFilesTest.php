@@ -22,7 +22,7 @@ it('finds every PHP file under the test directories, each directory in name orde
     $tests = Paths::of(Path::of('tests'), Path::of('more'), Path::of('absent'));
     $project = Project::at($root, $tests, Path::of('.mutation-gate'), Path::of('vendor'));
 
-    expect(TestFiles::in($project))->toEqual(Paths::of(
+    expect(new TestFiles($project)->all())->toEqual(Paths::of(
         Path::of('tests/MoneySpec.php'),
         Path::of('tests/Unit/Deep/HeldTest.php'),
         Path::of('tests/dir.php/InsideTest.php'),
@@ -30,22 +30,25 @@ it('finds every PHP file under the test directories, each directory in name orde
     ));
 });
 
-it('selects every file whose class name ends in a class the filter names', function (): void {
-    $files = Paths::of(
-        Path::of('tests/MoneySpec.php'),
-        Path::of('tests/Unit/BigMoneySpec.php'),
-        Path::of('tests/Money-Spec.php'),
-        Path::of('tests/Held%41Spec.php'),
-        Path::of('tests/MoneySpecial.php'),
-        Path::of('tests/LegacySpec.php'),
-    );
+it('selects every file whose class name ends in a class the filter names, answering each set once', function (): void {
+    $root = Scratch::directory();
 
-    expect(TestFiles::naming($files, ['MoneySpec', 'HeldSpec']))->toEqual(Paths::of(
+    foreach (['MoneySpec', 'Unit/BigMoneySpec', 'Money-Spec', 'Held%41Spec', 'MoneySpecial', 'LegacySpec'] as $file) {
+        Scratch::write($root, sprintf('tests/%s.php', $file), '<?php');
+    }
+
+    $files = new TestFiles(Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor')));
+    $named = $files->naming(['MoneySpec', 'HeldSpec', 'MoneySpec']);
+    Scratch::write($root, 'tests/LaterMoneySpec.php', '<?php');
+
+    expect($named)->toEqual(Paths::of(
+        Path::of('tests/Held%41Spec.php'),
+        Path::of('tests/Money-Spec.php'),
         Path::of('tests/MoneySpec.php'),
         Path::of('tests/Unit/BigMoneySpec.php'),
-        Path::of('tests/Money-Spec.php'),
-        Path::of('tests/Held%41Spec.php'),
-    ))->and(TestFiles::naming($files, []))->toEqual(Paths::none());
+    ))->and($files->naming(['HeldSpec', 'MoneySpec']))->toBe($named)
+        ->and($files->naming([]))->toEqual(Paths::none())
+        ->and($files->all())->toHaveCount(6);
 });
 
 it('does not walk into a linked directory, which may lead back up into a loop', function (): void {
@@ -54,5 +57,5 @@ it('does not walk into a linked directory, which may lead back up into a loop', 
     symlink('..', sprintf('%s/tests/loop', $root));
     $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
 
-    expect(TestFiles::in($project))->toEqual(Paths::of(Path::of('tests/MoneyTest.php')));
+    expect(new TestFiles($project)->all())->toEqual(Paths::of(Path::of('tests/MoneyTest.php')));
 });

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Closure;
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\CoverageXml;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
@@ -44,6 +45,7 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\InfectionRun;
 use NightWorksIO\MutationGate\Tests\Support\InfectionShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -67,15 +69,28 @@ function infectionProject(string $config = ''): Project
 }
 
 /**
- * A shell that answers as PHPUnit and Infection would: a coverage run writes
- * MoneyTest covering line 11 of src/Money.php, and a run of Infection writes
- * these lists of its logs.
+ * A shell that answers as PHP, PHPUnit and Infection would: PHP describes
+ * itself, a coverage run writes MoneyTest covering line 11 of src/Money.php,
+ * and a run of Infection writes these lists of its logs.
  *
  * @param array<string, list<array<string, mixed>>> $lists
  */
 function infectionShell(Project $at, array $lists, bool $covers = true, bool $logs = true): InfectionShellFake
 {
-    return new InfectionShellFake(static function (Command $command) use ($at, $lists, $covers, $logs): Ran {
+    $running = infectionRunning($at, $lists, $covers, $logs);
+
+    return new InfectionShellFake(static fn(Command $command): Ran => in_array('-r', $command->arguments(), strict: true)
+        ? Ran::finished(succeeded: true, output: Described::output())
+        : $running($command));
+}
+
+/**
+ * @param  array<string, list<array<string, mixed>>> $lists
+ * @return Closure(Command): Ran
+ */
+function infectionRunning(Project $at, array $lists, bool $covers, bool $logs): Closure
+{
+    return static function (Command $command) use ($at, $lists, $covers, $logs): Ran {
         foreach ($command->arguments() as $argument) {
             if ($covers && str_starts_with($argument, '--log-junit=')) {
                 InfectionRun::coverage(
@@ -94,7 +109,7 @@ function infectionShell(Project $at, array $lists, bool $covers = true, bool $lo
         }
 
         return Ran::finished(succeeded: $covers, output: 'said');
-    });
+    };
 }
 
 /** @return array<string, list<array<string, mixed>>> */
@@ -126,15 +141,32 @@ it('names Infection, the versions it drives, and the PHP it runs on', function (
         ['name' => 'phpunit/phpunit', 'version' => '13.3.4', 'source' => ['reference' => 'p']],
         ['name' => 'phpunit/php-code-coverage', 'version' => '14.3.5', 'source' => ['reference' => 'c']],
     ]]));
-    $adapter = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false);
+    $shell = infectionShell($at, []);
+    $adapter = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false);
+    $withheld = Withheld::of('DEPLOY_*');
 
-    expect($adapter->identity())->toEqual(Identity::of('infection', Versions::of(
+    expect($adapter->identity($withheld))->toEqual(Identity::of('infection', Versions::of(
         Version::of('infection/infection', '0.35.5', 'i'),
         Version::of('phpunit/phpunit', '13.3.4', 'p'),
         Version::of('phpunit/php-code-coverage', '14.3.5', 'c'),
-    ), Platform::current()->digest()))
-        ->and(new Infection(infectionProject(), infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->identity())
+    ), Described::platform()->digest()))
+        ->and($shell->commands())->toEqual([Command::php(...Platform::describing())->withholding($withheld)])
+        ->and(new Infection(infectionProject(), infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)
+            ->identity(Withheld::standard()))
         ->toBeInstanceOf(CannotJudge::class);
+});
+
+it('cannot say which Infection it runs where the PHP it starts does not describe itself', function (): void {
+    $at = infectionProject();
+    Scratch::write($at->root(), 'vendor/composer/installed.json', (string) json_encode(['packages' => [
+        ['name' => 'infection/infection', 'version' => '0.35.5'],
+        ['name' => 'phpunit/phpunit', 'version' => '13.3.4'],
+        ['name' => 'phpunit/php-code-coverage', 'version' => '14.3.5'],
+    ]]));
+    $shell = InfectionShellFake::answering(Ran::finished(succeeded: false, output: 'Segmentation fault'));
+
+    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->identity(Withheld::standard()))
+        ->toEqual(Platform::ofRunner('Segmentation fault'));
 });
 
 it('names the static analysis tool the project has kill mutants among what it drives, and nothing for a config it refuses', function (): void {
@@ -145,11 +177,13 @@ it('names the static analysis tool the project has kill mutants among what it dr
         ['name' => 'phpunit/php-code-coverage', 'version' => '14.3.5'],
         ['name' => 'phpstan/phpstan', 'version' => '2.2.0'],
     ]]));
-    $identity = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->identity();
+    $identity = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)
+        ->identity(Withheld::standard());
     $refused = infectionProject('{"testFramework": "phpspec"}');
 
     expect($identity instanceof Identity ? count($identity->versions()) : 0)->toBe(4)
-        ->and(new Infection($refused, infectionShell($refused, []), Seconds::of(10.0), nativeMarkersAllowed: false)->identity())
+        ->and(new Infection($refused, infectionShell($refused, []), Seconds::of(10.0), nativeMarkersAllowed: false)
+            ->identity(Withheld::standard()))
         ->toBeInstanceOf(CannotJudge::class);
 });
 

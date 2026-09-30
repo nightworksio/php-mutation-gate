@@ -8,7 +8,6 @@ use function array_intersect_key;
 use function array_key_exists;
 use function array_map;
 use function array_sum;
-use function array_unique;
 use function array_values;
 use function file_get_contents;
 use function is_file;
@@ -33,7 +32,7 @@ use function trim;
  * phpunit/php-code-coverage: which tests ran each line of each file, by the
  * file's path on disk, and how long each test took.
  */
-final readonly class CoverageFile
+final readonly class CoverageFile implements Covering
 {
     /** How php-code-coverage ends a map it wrote whole. */
     private const string END = "END_OF_COVERAGE_SERIALIZATION\n);";
@@ -86,15 +85,16 @@ final readonly class CoverageFile
     /** @return list<string> the tests that ran any line from the first to the last of a file, each once */
     public function testsCovering(string $file, int $first, int $last): array
     {
+        $lines = array_key_exists($file, $this->lines) ? $this->lines[$file] : [];
         $tests = [];
 
-        foreach (array_key_exists($file, $this->lines) ? $this->lines[$file] : [] as $line => $covering) {
-            if ($line >= $first && $line <= $last) {
-                $tests = [...$tests, ...$covering];
+        foreach ($lines as $line => $covering) {
+            foreach ($line >= $first && $line <= $last ? $covering : [] as $test) {
+                $tests[$test] = $test;
             }
         }
 
-        return array_values(array_unique($tests));
+        return array_values($tests);
     }
 
     /** How long a test took, or no time where the map does not time it. */

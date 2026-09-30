@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function implode;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -48,17 +47,16 @@ final readonly class Interpretation
     {
     }
 
-    public function of(Ran $ran, string $results): MutationResult|CannotJudge
+    /** A run's records, read with the covering tests of the run's opening map. */
+    public function of(Ran $ran, string $results, Covering|CannotJudge $coverage): MutationResult|CannotJudge
     {
         $records = $this->recordsOf($ran, $results);
 
-        if ($records instanceof CannotJudge) {
-            return $records;
-        }
-
-        $coverage = CoverageFile::at(Recorder::coverageBeside($results));
-
-        return $coverage instanceof CannotJudge ? $coverage : $this->mutants($records, $coverage);
+        return match (true) {
+            $records instanceof CannotJudge => $records,
+            $coverage instanceof CannotJudge => $coverage,
+            default => $this->mutants($records, $coverage),
+        };
     }
 
     /** A mutant the gate made before, now unjudged, saying why. */
@@ -104,28 +102,29 @@ final readonly class Interpretation
         return $records->addUpTo($summary) ? $records : CannotJudge::because(sprintf(self::UNCOUNTED, $ran->output()));
     }
 
-    private function mutants(Records $records, CoverageFile $coverage): MutationResult|CannotJudge
+    private function mutants(Records $records, Covering $coverage): MutationResult|CannotJudge
     {
-        $mutants = Mutants::none();
-        $ids = Identities::of(Root::of($this->project->root()), $records->planned());
+        $mutants = [];
+        $planned = $records->planned();
+        $ids = Identities::of(Root::of($this->project->root()), $planned);
 
-        foreach ($records->planned() as $id => $planned) {
-            $tests = $coverage->testsCovering($planned['file'], $planned['start'], $planned['end']);
+        foreach ($planned as $id => $mutant) {
+            $tests = $coverage->testsCovering($mutant['file'], $mutant['start'], $mutant['end']);
             $selection = Selection::of($tests);
 
             if (! $selection->fits() && ! $this->patching->isOn()) {
                 return CannotJudge::because(sprintf(
                     self::TOO_LONG,
                     $selection->count(),
-                    $this->project->relative($planned['file'])->value(),
-                    $planned['start'],
+                    $this->project->relative($mutant['file'])->value(),
+                    $mutant['start'],
                 ));
             }
 
-            $mutants = $mutants->with($this->mutant($id, $ids[$id], $planned, $records, $selection));
+            $mutants[] = $this->mutant($id, $ids[$id], $mutant, $records, $selection);
         }
 
-        return MutationResult::of($mutants, 0);
+        return MutationResult::of(Mutants::of(...$mutants), 0);
     }
 
     /**

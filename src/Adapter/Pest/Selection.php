@@ -38,15 +38,23 @@ final readonly class Selection
 
     private const string EVALUABLE = '__pest_evaluable_';
 
-    /** @param list<string> $tests */
-    private function __construct(private array $tests)
+    /**
+     * @param list<string> $tests
+     * @param string       $argument the `--filter` argument the tests make, built once
+     */
+    private function __construct(private array $tests, private string $argument)
     {
     }
 
     /** @param list<string> $tests the ids of the tests covering a mutant */
     public static function of(array $tests): self
     {
-        return new self($tests);
+        $pieces = array_unique(array_filter(
+            array_map(self::pieceOf(...), $tests),
+            static fn(string $piece): bool => $piece !== '',
+        ));
+
+        return new self($tests, sprintf('--filter="%s"', implode('|', $pieces)));
     }
 
     public function count(): int
@@ -57,18 +65,13 @@ final readonly class Selection
     /** The `--filter` argument pest-plugin-mutate starts the mutant's process with. */
     public function argument(): string
     {
-        $pieces = array_unique(array_filter(
-            array_map(self::pieceOf(...), $this->tests),
-            static fn(string $piece): bool => $piece !== '',
-        ));
-
-        return sprintf('--filter="%s"', implode('|', $pieces));
+        return $this->argument;
     }
 
     /** Whether the `--filter` argument is short enough to be passed, in bytes, as the patch counts it. */
     public function fits(): bool
     {
-        return Bytes::length($this->argument()) < self::CEILING;
+        return Bytes::length($this->argument) < self::CEILING;
     }
 
     /** @return list<string> the covering tests the filter does not select */

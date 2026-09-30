@@ -70,10 +70,10 @@ $files = static fn(Mutants $mutants): array => array_values(array_unique(array_m
 )));
 
 it('answers the same identity every time it is asked', function (Library $library): void {
-    $identity = $library->runner()->identity();
+    $identity = $library->runner()->identity(Withheld::standard());
 
     expect($identity)->toBeInstanceOf(Identity::class)
-        ->and($library->runner()->identity())->toEqual($identity)
+        ->and($library->runner()->identity(Withheld::standard()))->toEqual($identity)
         ->and($identity instanceof Identity ? $identity->runner() : '')->not->toBe('')
         ->and($identity instanceof Identity ? count($identity->versions()) : 0)->toBeGreaterThan(0);
 })->with($libraries);
@@ -233,11 +233,23 @@ it('names each test by its file and description, and a data set row by the test 
         ->and($folded)->toBe($tests);
 })->with($libraries);
 
+it('keys the PHP it starts, which a setting of the gate\'s own PHP never reaches', function (Library $library): void {
+    $identity = $library->runner()->identity(Withheld::standard());
+    $before = ini_get('memory_limit');
+    ini_set('memory_limit', $before === '-1' ? '1G' : '-1');
+    $fresh = $library->outside()->rootedAt($library->package());
+    $unreached = $fresh instanceof CannotJudge ? $fresh : $fresh->identity(Withheld::standard());
+    ini_set('memory_limit', $before);
+
+    expect($unreached)->toEqual($identity);
+})->with($libraries);
+
 it('answers as the runner built in a package when rooted in it from the directory around it', function (Library $library): void {
     $rooted = $library->outside()->rootedAt($library->package());
     $runner = $library->runner();
 
-    expect($rooted instanceof CannotJudge ? $rooted : $rooted->identity())->toEqual($runner->identity())
+    expect($rooted instanceof CannotJudge ? $rooted : $rooted->identity(Withheld::standard()))
+        ->toEqual($runner->identity(Withheld::standard()))
         ->and($rooted instanceof CannotJudge ? $rooted : $rooted->definitions())->toEqual($runner->definitions())
         ->and($rooted instanceof CannotJudge ? $rooted : $rooted->groups(Withheld::standard()))
         ->toEqual($runner->groups(Withheld::standard()));

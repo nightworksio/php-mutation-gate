@@ -24,7 +24,6 @@ it('holds the extensions a PHP loads and offers, in any case, its settings and t
 it('names the php.ini it loads, or describes it where it loads none', function (): void {
     $php = RunnerPhp::at('/usr/bin/php');
 
-    expect($php->setting(RunnerPhp::LOADED_INI, '/etc/php/8.5/cli/php.ini')->iniFile())->toBe('/etc/php/8.5/cli/php.ini')
-        ->and($php->setting(RunnerPhp::LOADED_INI, '(none)')->iniFile())->toBe('the php.ini this PHP loads')
+    expect($php->loadingIni('/etc/php/8.5/cli/php.ini')->iniFile())->toBe('/etc/php/8.5/cli/php.ini')
         ->and($php->iniFile())->toBe('the php.ini this PHP loads');
 });
