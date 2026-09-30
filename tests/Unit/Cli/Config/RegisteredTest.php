@@ -105,7 +105,7 @@ it('finds the trees from phpunit.xml, or the fallback its options give, and refu
         ->and($phpunit('{"fallback": "lib"}'))
         ->toEqual(Invalid::because(Problem::at('fallback', 'expected a list of paths, got "lib"')))
         ->and($phpunit('{"fallback": [3, "lib"]}'))
-        ->toEqual(Invalid::because(Problem::at('fallback[0]', 'expected text, got 3')))
+        ->toEqual(Invalid::because(Problem::at('fallback[0]', 'expected a path, got 3')))
         ->and($paths($phpunit('"phpunit"')))->toBe(['src']);
 });
 

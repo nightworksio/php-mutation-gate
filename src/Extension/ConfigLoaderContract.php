@@ -11,12 +11,14 @@ use function implode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 
 use function sprintf;
@@ -36,6 +38,8 @@ use function sprintf;
  *   it has its own way to;
  * - `up.<extension>` writes `{"runner": "pest", "trees": [{"path": "../src",
  *   "floor": 100}]}`;
+ * - `adapter.<extension>` writes `{"proofs": {"store": {"use": "Acme\\Store",
+ *   "with": {"path": "../cache"}}}}`, an adapter's own options;
  * - `broken.<extension>` is not in the format, or cannot be read;
  * - `unquoted.<extension>`, only where the format can write a number, and
  *   read only where the loader finds it, writes `{"ignores": {"entries": [{"mutant": 123456789012, "reason":
@@ -44,7 +48,8 @@ use function sprintf;
  * A loader keeps the contract where the valid file reads into that layer,
  * with its path named from the file's directory wherever the project is; a
  * date reads back as `YYYY-MM-DD`; a path that goes up from the file's
- * directory is named from the project; the invalid file, and a mutant id
+ * directory is named from the project, and so is a path among an adapter's
+ * own options, `cache` in a project above the file's; the invalid file, and a mutant id
  * read as a number, read into the problems the gate finds in them; and a
  * file that is broken or not there cannot be judged.
  */
@@ -61,6 +66,9 @@ final readonly class ConfigLoaderContract
         JSON;
 
     private const string UP = '{"runner":"pest","trees":[{"path":"../src","floor":100}]}';
+
+    /** The path `adapter`'s store names, `../cache`, as the gate names it from a project above the fixtures. */
+    private const string ADAPTER_PATH = 'cache';
 
     private const string UNQUOTED = '{"ignores":{"entries":[{"mutant":123456789012,"reason":"Equivalent"}]}}';
 
@@ -86,6 +94,7 @@ final readonly class ConfigLoaderContract
             ...$contract->read('invalid', self::INVALID, $fixtures),
             ...$contract->read('dated', self::DATED, $fixtures),
             ...$contract->read('up', self::UP, $above),
+            ...$contract->adapterPath('adapter', $above),
             ...$contract->unjudged('broken', 'is not in its format, and was read anyway'),
             ...$contract->unjudged('missing', 'is not there, and was read anyway'),
             ...$contract->whereWritten('unquoted', self::UNQUOTED),
@@ -106,6 +115,34 @@ final readonly class ConfigLoaderContract
             $project->value(),
             $this->said($read),
             $this->said($wanted),
+        )];
+    }
+
+    /**
+     * The path an adapter's own options name, as its store reads it from the loader's layer.
+     *
+     * @return list<string>
+     */
+    private function adapterPath(string $name, Path $project): array
+    {
+        $file = $this->file($name, $project);
+        $read = $this->loader->load($file);
+        $path = $read instanceof Layer
+            ? $read->proofs()->store()->options()->path(Key::of('path'))
+            : $this->said($read);
+        $named = match (true) {
+            $path instanceof Path => $path->value(),
+            $path instanceof Problem => $path->message(),
+            $path instanceof NotGiven => 'nothing',
+            default => $path,
+        };
+
+        return $named === self::ADAPTER_PATH ? [] : [sprintf(
+            '%s, in a project at %s: the loader names the store\'s path %s; the gate names it %s',
+            $file->file()->value(),
+            $project->value(),
+            $named,
+            self::ADAPTER_PATH,
         )];
     }
 

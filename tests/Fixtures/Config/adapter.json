@@ -1,0 +1,1 @@
+{"proofs": {"store": {"use": "Acme\\Store", "with": {"path": "../cache"}}}}

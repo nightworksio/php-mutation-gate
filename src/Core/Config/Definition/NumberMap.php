@@ -6,17 +6,22 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use function is_float;
 use function is_int;
+use function json_encode;
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
+use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Table;
 use NightWorksIO\MutationGate\Core\Cost\LineRate;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+
+use function sprintf;
 
 /**
  * An object whose keys are data, such as path prefixes or colour names, and
@@ -51,12 +56,18 @@ final readonly class NumberMap implements Shape
         $readings = [];
 
         foreach ($at->entries() as $key => $entry) {
-            $reading = $this->number->read($at->entry($key));
+            $prefix = $this->keyed($key);
+            $reading = $this->origin instanceof PathOrigin && Path::of($prefix)->escapes()
+                ? Reading::refused(Problem::at(
+                    $at->entry($key)->at(),
+                    sprintf('expected %s, got %s', Location::INSIDE, json_encode($key, JsonText::FLAGS)),
+                ))
+                : $this->number->read($at->entry($key));
             $number = $reading->value();
             $readings[] = $reading;
 
             if (is_int($number) || is_float($number)) {
-                $numbers = $numbers->merged(Table::row($this->keyed($key), $number));
+                $numbers = $numbers->merged(Table::row($prefix, $number));
             }
         }
 

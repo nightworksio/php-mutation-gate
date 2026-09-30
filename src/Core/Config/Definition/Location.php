@@ -13,8 +13,9 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
  * A path, named from where the layer that writes it is: a config file's own
- * directory, or the project. One that goes up out of the project is refused;
- * an absolute path is itself, wherever the project is.
+ * directory, or the project. One that goes up out of the project, or is
+ * absolute, is refused, but for a file the command line names by its
+ * absolute path.
  *
  * @implements Shape<Path>
  */
@@ -39,7 +40,7 @@ final readonly class Location implements Shape
 
         return match (true) {
             $written === '' => Reading::refused($at->mismatch($this->expected())),
-            $path->escapes() && ! $path->isAbsolute() => Reading::refused($at->mismatch(self::INSIDE)),
+            $path->escapes() && ! $this->reachable($path) => Reading::refused($at->mismatch(self::INSIDE)),
             default => Reading::of($path),
         };
     }
@@ -57,5 +58,11 @@ final readonly class Location implements Shape
     public function effects(): array
     {
         return [];
+    }
+
+    /** Whether a path outside the project is one this layer may name: absolute, on the command line. */
+    private function reachable(Path $path): bool
+    {
+        return $path->isAbsolute() && $this->origin->reachesOutside();
     }
 }

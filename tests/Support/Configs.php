@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use RuntimeException;
 
 use function sprintf;
@@ -52,9 +53,9 @@ final readonly class Configs
      *
      * @param array<mixed>|string $config
      */
-    public static function layer(array|string $config, PathOrigin $origin = new ProjectRoot()): Layer|Invalid
+    public static function layer(array|string $config, PathOrigin|NotGiven $origin = new NotGiven()): Layer|Invalid
     {
-        return Definition::layer(Node::config(self::json($config)), $origin);
+        return Definition::layer(Node::config(self::json($config)), $origin instanceof PathOrigin ? $origin : ProjectRoot::origin());
     }
 
     /**
@@ -100,9 +101,9 @@ final readonly class Configs
     }
 
     /** What a layer writes, decoded. */
-    public static function decoded(Layer $layer, PathOrigin $origin = new ProjectRoot()): mixed
+    public static function decoded(Layer $layer, PathOrigin|NotGiven $origin = new NotGiven()): mixed
     {
-        return json_decode($layer->written($origin)->line(), associative: true);
+        return json_decode($layer->written($origin instanceof PathOrigin ? $origin : ProjectRoot::origin())->line(), associative: true);
     }
 
     /** The effective config, as `config:show` prints it as JSON. */

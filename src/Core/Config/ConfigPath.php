@@ -40,18 +40,22 @@ final readonly class ConfigPath
     }
 
     /**
-     * A path from the project, as a file in a directory of it writes it: `src` from `ci` is `../src`.
+     * A path as a directory spells it, both spelt from the same place, the project or the file system's root:
+     * `src` from `ci` is `../src`, and `/project/src` from `/project` is `src`. A path spelt from the other place
+     * is answered as it is.
      *
-     * @param string $directory the file's directory, from the project; '' for the project itself
+     * @param string $directory the directory, spelt as the path is; '' for the place itself
      */
     public static function from(Path $path, string $directory): string
     {
-        if ($directory === '' || $path->isAbsolute()) {
+        $from = Path::of($directory);
+
+        if ($from->isAbsolute() !== $path->isAbsolute()) {
             return $path->value();
         }
 
-        $target = $path->value() === self::CURRENT ? [] : explode('/', $path->value());
-        $base = explode('/', $directory);
+        $target = self::segments($path);
+        $base = self::segments($from);
         $shared = 0;
 
         while ($shared < count($base) && $shared < count($target) && $base[$shared] === $target[$shared]) {
@@ -85,5 +89,11 @@ final readonly class ConfigPath
         }
 
         return Path::of(implode('/', $segments));
+    }
+
+    /** @return list<string> a path's segments, none for the root */
+    private static function segments(Path $path): array
+    {
+        return $path->value() === self::CURRENT ? [] : explode('/', $path->value());
     }
 }

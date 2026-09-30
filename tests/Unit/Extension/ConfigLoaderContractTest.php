@@ -2,8 +2,15 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Definition;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Extension\ConfigLoaderContract;
+use NightWorksIO\MutationGate\Port\ConfigLoader;
 use NightWorksIO\MutationGate\Tests\Fakes\ConfigLoaderFake;
 
 it('says each way a loader breaks the contract', function (): void {
@@ -12,6 +19,7 @@ it('says each way a loader breaks the contract', function (): void {
         '/fixtures/Config/invalid.toml' => '{}',
         '/fixtures/Config/dated.toml' => '{}',
         '/fixtures/Config/up.toml' => '{}',
+        '/fixtures/Config/adapter.toml' => '{}',
         '/fixtures/Config/broken.toml' => '{}',
         '/fixtures/Config/missing.toml' => '{}',
         '/fixtures/Config/unquoted.toml' => '{}',
@@ -29,6 +37,8 @@ it('says each way a loader breaks the contract', function (): void {
         . '"expires":"2027-01-31"}]}}',
         '/fixtures/Config/up.toml, in a project at /fixtures: the loader reads {}; the gate reads '
         . '{"runner":"pest","trees":[{"path":"src","floor":100}]}',
+        '/fixtures/Config/adapter.toml, in a project at /fixtures: the loader names the store\'s path '
+        . '.mutation-gate/ledger; the gate names it cache',
         '/fixtures/Config/broken.toml is not in its format, and was read anyway.',
         '/fixtures/Config/missing.toml is not there, and was read anyway.',
         '/fixtures/Config/unquoted.toml, in a project at /fixtures/Config: the loader reads {}; the gate reads '
@@ -39,10 +49,26 @@ it('says each way a loader breaks the contract', function (): void {
 it('says what a loader could not judge', function (): void {
     $failures = [...ConfigLoaderContract::failures(new ConfigLoaderFake([]), Path::of('/fixtures/Config'), 'toml')];
 
-    expect($failures)->toHaveCount(5)
+    expect($failures)->toHaveCount(6)
         ->and($failures[2])->toBe(
             '/fixtures/Config/invalid.toml, in a project at /fixtures/Config: the loader reads nothing it can judge '
             . '(/fixtures/Config/invalid.toml is not there.); the gate reads '
             . 'newCode.floor: expected a number from 0 to 100, got 120',
         );
+});
+
+it('says a loader that names an adapter\'s paths from anywhere but the file\'s directory', function (): void {
+    $fromTheProject = new class implements ConfigLoader {
+        public function load(ConfigFile $file): Layer|Invalid
+        {
+            $json = '{"proofs": {"store": {"use": "Acme\\\\Store", "with": {"path": "../cache"}}}}';
+
+            return Definition::layer(Node::config($json), ProjectRoot::origin());
+        }
+    };
+
+    expect([...ConfigLoaderContract::failures($fromTheProject, Path::of('/fixtures/Config'), 'toml')])->toContain(
+        '/fixtures/Config/adapter.toml, in a project at /fixtures: the loader names the store\'s path '
+        . 'expected a path inside the project, got "../cache"; the gate names it cache',
+    );
 });

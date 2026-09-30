@@ -47,6 +47,6 @@ it('refuses each option written as something else', function (): void {
     ))->and(PestOptions::read(Configs::options('{"tests": "tests"}')))->toEqual(Invalid::because(
         Problem::at('tests', 'expected a list of paths, got "tests"'),
     ))->and(PestOptions::read(Configs::options('{"tests": [3]}')))->toEqual(Invalid::because(
-        Problem::at('tests[0]', 'expected text, got 3'),
+        Problem::at('tests[0]', 'expected a path, got 3'),
     ));
 });

@@ -121,8 +121,10 @@ final readonly class BadgeDirectory implements Reporter
     {
         $colors = $options->object(Key::of('colors'));
 
-        if ($colors instanceof NotGiven) {
-            return BadgeColors::defaults();
+        if (! $colors instanceof Options) {
+            return $colors instanceof NotGiven
+                ? BadgeColors::defaults()
+                : Invalid::because(Problem::at('colors', self::BANDS));
         }
 
         $lowest = [];
@@ -137,9 +139,7 @@ final readonly class BadgeDirectory implements Reporter
             $lowest[$color->value()] = $score;
         }
 
-        return [...$colors->problems()] === []
-            ? BadgeColors::of($lowest)
-            : Invalid::because(Problem::at('colors', self::BANDS));
+        return BadgeColors::of($lowest);
     }
 
     /** @param array<string, string> $environment */

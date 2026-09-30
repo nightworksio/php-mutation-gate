@@ -316,7 +316,7 @@ it('writes a value given empty, for the config to refuse, rather than leave it o
         ->reporting(Report::writing('acme', ''))
         ->with(Proofs::s3('bucket', region: ''));
 
-    expect(Configs::problems($gate->layer(new ProjectRoot())))->toBe([
+    expect(Configs::problems($gate->layer(ProjectRoot::origin())))->toBe([
         'trees[0].reason: expected a reason, got ""',
         'proofs.store.with.region: expected a region, got ""',
         'ignores.entries[0].expires: expected a date written YYYY-MM-DD, got ""',

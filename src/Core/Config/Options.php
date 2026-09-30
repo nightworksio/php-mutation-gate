@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use Iterator;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Config\Definition\Location;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -19,16 +20,22 @@ use function sprintf;
  * The options a config writes beside an adapter, under `with`, read one key
  * at a time as the type it should hold. Each answers its value, `NotGiven`
  * where the key is left out, or the `Problem` at its path where it holds
- * something else. A built-in adapter's options arrive with every default
- * the definition gives them filled in.
+ * something else. A path is named from where the layer that writes it is, as
+ * every path a config writes is, and one that lands outside the project is
+ * such a problem. A built-in adapter's options arrive with every default the
+ * definition gives them filled in, and their paths named from the project.
  *
  * @implements IteratorAggregate<int, Key>
  */
 final readonly class Options implements IteratorAggregate
 {
     /** @param list<Problem> $problems */
-    private function __construct(private Json $with, private Node $read, private array $problems)
-    {
+    private function __construct(
+        private Json $with,
+        private Node $read,
+        private array $problems,
+        private PathOrigin $origin,
+    ) {
     }
 
     public static function none(): self
@@ -36,10 +43,16 @@ final readonly class Options implements IteratorAggregate
         return self::of(Json::object());
     }
 
-    /** These options, as a JSON object; anything else is a problem of theirs. */
+    /** These options, as a JSON object, their paths named from the project; anything else is a problem of theirs. */
     public static function of(Json $with): self
     {
-        return self::read($with, Node::config($with->line()));
+        return self::at($with, ProjectRoot::origin());
+    }
+
+    /** These options, as a layer at this origin writes them, their paths named from it. */
+    public static function at(Json $with, PathOrigin $origin): self
+    {
+        return self::read($with, Node::config($with->line()), $origin);
     }
 
     public function text(Key $key): string|NotGiven|Problem
@@ -92,7 +105,15 @@ final readonly class Options implements IteratorAggregate
         };
     }
 
-    /** A list of paths, each as text. */
+    /** A path, named from where the layer that writes it is. */
+    public function path(Key $key): Path|NotGiven|Problem
+    {
+        $at = $this->read->field($key->value());
+
+        return $at->isPresent() ? $this->pathAt($at) : NotGiven::value();
+    }
+
+    /** A list of paths, each named from where the layer that writes it is. */
     public function paths(Key $key): Paths|NotGiven|Problem
     {
         $at = $this->read->field($key->value());
@@ -122,11 +143,8 @@ final readonly class Options implements IteratorAggregate
         };
     }
 
-    /**
-     * The options under a key that holds an object. Where it holds something else, the options under it are none,
-     * with that as their problem.
-     */
-    public function object(Key $key): self|NotGiven
+    /** The options under a key that holds an object. */
+    public function object(Key $key): self|NotGiven|Problem
     {
         $at = $this->read->field($key->value());
         $under = Json::object();
@@ -135,7 +153,19 @@ final readonly class Options implements IteratorAggregate
             $under = $written === $key->value() ? $value : $under;
         }
 
-        return $at->isPresent() ? self::read($under, $at) : NotGiven::value();
+        return match ($at->kind()) {
+            Kind::Nothing => NotGiven::value(),
+            Kind::Map, Kind::Empty => self::read($under, $at, $this->origin),
+            Kind::List, Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null => $at->mismatch(
+                'an object',
+            ),
+        };
+    }
+
+    /** These options, with these laid beneath them: each key they leave out takes its value there. */
+    public function over(Json $beneath): self
+    {
+        return self::at($beneath->merged($this->with), $this->origin);
     }
 
     /** @return Listed<Problem> what is wrong with these options as a whole: that they are not an object */
@@ -158,27 +188,35 @@ final readonly class Options implements IteratorAggregate
         }
     }
 
-    private static function read(Json $with, Node $at): self
+    private static function read(Json $with, Node $at, PathOrigin $origin): self
     {
         return match ($at->kind()) {
-            Kind::Map, Kind::Empty, Kind::Nothing => new self($with, $at, []),
+            Kind::Map, Kind::Empty, Kind::Nothing => new self($with, $at, [], $origin),
             Kind::List, Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null
-                => new self(Json::object(), $at, [$at->mismatch('an object')]),
+                => new self(Json::object(), $at, [$at->mismatch('an object')], $origin),
         };
+    }
+
+    private function pathAt(Node $at): Path|Problem
+    {
+        $reading = Location::path($this->origin)->read($at);
+        $path = $reading->value();
+
+        return $path instanceof Path ? $path : $reading->problems()[0];
     }
 
     private function pathsIn(Node $at): Paths|Problem
     {
-        $texts = $this->textsIn($at);
-
-        if ($texts instanceof Problem) {
-            return $texts;
-        }
-
         $paths = Paths::none();
 
-        foreach ($texts as $text) {
-            $paths = $paths->with(Path::of($text));
+        foreach ($at->items() as $item) {
+            $path = $this->pathAt($item);
+
+            if ($path instanceof Problem) {
+                return $path;
+            }
+
+            $paths = $paths->with($path);
         }
 
         return $paths;

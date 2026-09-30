@@ -22,7 +22,7 @@ final readonly class CiKeys
     public static function fields(PathOrigin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
-        $plan = Field::optional('plan', Adapter::choosing(Builtins::ciPlans()), $judges);
+        $plan = Field::optional('plan', Adapter::choosing(Builtins::ciPlans($origin)), $judges);
         $branch = Field::optional('defaultBranch', Text::of('a branch name'), $judges);
         $check = Field::optional('check', Text::of('a check-run name'), $judges);
         $template = Field::optional('template', Location::path($origin), $judges);

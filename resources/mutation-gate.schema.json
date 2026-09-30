@@ -589,7 +589,7 @@
                                         },
                                         "endpoint": {
                                             "type": "string",
-                                            "minLength": 1
+                                            "pattern": "^https?://."
                                         },
                                         "publicUrl": {
                                             "type": "string",
@@ -1106,6 +1106,7 @@
                 "canary": {
                     "type": "string",
                     "minLength": 1,
+                    "pattern": "^\\S+$",
                     "default": "mutation-canary"
                 }
             },

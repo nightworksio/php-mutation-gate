@@ -66,3 +66,23 @@ it('streams a file piece by piece, and says why it could not', function (): void
         ->and(ReportPath::at(sprintf('%s/taken/matrix.csv', $root))->stream(['x']))
         ->toEqual(NotWritten::because(sprintf('%s/taken/matrix.csv could not be written.', $root)));
 });
+
+it('writes a path from the project inside it, and nothing that leads out of it, up or through a link', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'project/composer.json', '{}');
+    Scratch::write($root, 'outside/kept', '');
+    symlink(sprintf('%s/outside', $root), sprintf('%s/project/linked', $root));
+    $directory = (string) getcwd();
+    chdir(sprintf('%s/project', $root));
+    $inside = ReportPath::at('build/mutation.json')->write('{}');
+    $up = ReportPath::at('../escaped.json')->write('{}');
+    $linked = ReportPath::at('linked/escaped.json')->stream(['{}']);
+    chdir($directory);
+
+    expect($inside)->toEqual(Written::to('build/mutation.json'))
+        ->and(file_get_contents(sprintf('%s/project/build/mutation.json', $root)))->toBe('{}')
+        ->and($up)->toEqual(NotWritten::because('../escaped.json leads out of ., so the gate does not read or write it.'))
+        ->and($linked)->toEqual(NotWritten::because('linked/escaped.json leads out of ., so the gate does not read or write it.'))
+        ->and(glob(sprintf('%s/*.json', $root)))->toBe([])
+        ->and(glob(sprintf('%s/outside/*.json', $root)))->toBe([]);
+});

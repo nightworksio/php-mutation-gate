@@ -16,8 +16,8 @@ it('checks the options of every built-in runner, tree source, store and CI plan'
         static fn(BackedEnum $case): bool => $builtins->has(sprintf('%s', $case->value)),
     );
 
-    expect($has(Builtins::runners(), ...BuiltinRunner::cases()))->toBeTrue()
+    expect($has(Builtins::runners($origin), ...BuiltinRunner::cases()))->toBeTrue()
         ->and($has(Builtins::treeSources($origin), ...BuiltinTreeSource::cases()))->toBeTrue()
         ->and($has(Builtins::stores($origin), ...BuiltinStore::cases()))->toBeTrue()
-        ->and($has(Builtins::ciPlans(), ...BuiltinCiPlan::cases()))->toBeTrue();
+        ->and($has(Builtins::ciPlans($origin), ...BuiltinCiPlan::cases()))->toBeTrue();
 });
