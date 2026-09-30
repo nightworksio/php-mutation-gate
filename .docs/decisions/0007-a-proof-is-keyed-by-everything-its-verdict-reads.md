@@ -170,7 +170,9 @@ has to bring its result with it.
      `local:<time of the run>`.
    - A mutant that was not killed keeps its full record, so reports can show a
      proved survivor. A killed one keeps its id, line, mutator and status,
-     which ignores and the stale-ignore check need (ADR-0008). A timed-out or
+     which ignores and the stale-ignore check need (ADR-0008), and `killedBy`,
+     the test that killed it first, or every test that failed under a full
+     kill matrix (ADR-0014). A timed-out or
      skipped mutant also keeps its limit (ADR-0004).
    - The ledger keeps the newest 20,000 proofs, and timings only for units that
      still exist.
@@ -184,6 +186,8 @@ has to bring its result with it.
      unreadable ledger costs a run and never a verdict.
    - When two results for one key agree, the first is kept. When they differ,
      the mutants that differ are flaky and neither result is used (ADR-0008).
+     Results are compared by status. `killedBy` is never compared, because
+     the first killer depends on the order the tests ran in (ADR-0013).
    - `passed` is the newest commit of this scope whose verdict passed. That is
      the `last-passed` base (ADR-0005).
 
@@ -270,3 +274,4 @@ signed, and the README says where the boundary lies for each store.
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): timings, and the verdict that writes the ledger
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): why budget-cut and flaky units are never recorded
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): `tests.order` in the key, the killer history and opening runs in the ledger, and forks reading the S3 store
+- [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): `killedBy` in the proof

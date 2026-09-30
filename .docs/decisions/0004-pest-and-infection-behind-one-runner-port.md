@@ -205,7 +205,9 @@ its parser attributes. Both change when the checkout moves.
      it keeps the mutated file of each mutant Pest leaves uncovered on a line
      that is not executable, and it guards each judging run. In a mutant's
      child process it records the first test that fails, and it orders the
-     child's tests (ADR-0013, decisions 1 and 3).
+     child's tests (ADR-0013, decisions 1 and 3). For a full kill matrix it
+     drops `--bail` there and records every test that fails (ADR-0014,
+     decision 7).
    - **It turns `#[Holds]` into groups** (ADR-0005).
      - In `boot()` it registers itself as a filter on Pest's test repository.
        Pest boots plugins after it loads `tests/Pest.php` and before it loads
@@ -225,9 +227,10 @@ its parser attributes. Both change when the checkout moves.
        carries the data provider.
    - **It reports results.** This part is inert unless the environment variable
      `MUTATION_GATE_RESULTS` names a file, which only the adapter sets. A
-     mutant's child process inherits it, and there the plugin does one thing:
-     it appends the mutated file Pest serves and the id of the first test that
-     fails (ADR-0013, decision 1).
+     mutant's child process inherits it, and there the plugin appends the
+     mutated file Pest serves and the id of the first test that fails
+     (ADR-0013, decision 1), or of every test that fails under a full kill
+     matrix (ADR-0014, decision 7).
      - At `FinishMutationSuite` it walks the suite's mutants and writes one JSON
        line per mutant: native id, file, lines, mutator class, diff, status and
        duration, and one line with the opening run's duration, from which the
@@ -551,3 +554,4 @@ interfaces, so each is added only once the contract suite passes on it.
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): runner identity, and the tests that can judge a unit, in the key
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): timeouts, flaky results and ignores
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the first killer recorded, and the order of a mutant's tests
+- [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): every killer recorded, for a full kill matrix

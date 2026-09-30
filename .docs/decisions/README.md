@@ -30,3 +30,4 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0010](0010-the-gate-runs-while-you-work-and-before-you-push.md) | The gate runs while you work and before you push, with the same verdict CI gives | Accepted |
 | [0011](0011-the-package-holds-itself-to-the-gate-it-ships.md) | The package holds itself to the gate it ships, and to the standards of the in-house project | Accepted |
 | [0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) | A run learns which tests kill and how wide to cut, proves equivalent survivors, and lets a fork read what the default branch proved | Accepted |
+| [0014](0014-every-test-is-judged-by-what-it-kills.md) | Every test is judged by what it kills, the kill matrix is exported, and any mutant can be explained | Accepted |

@@ -36,11 +36,15 @@ that reproduces it and a sentence saying what the tests miss.
 | | A shard count chosen from a target wall time | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | | A fork's pull request reads the default branch's proofs, read-only | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | **Reporting** | JSON, JUnit and SARIF, and line annotations on GitHub | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| | A useless-test report: tests that cover code and kill none of it | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
+| | A redundant-test report: tests whose every kill another test also makes | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
+| | A kill-matrix export, as CSV and in the JSON and HTML reports | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | | Holding tests: Pest `holds:` groups and a `#[Holds]` attribute, a check that a group covers what it holds, and a warning for code every test runs through that nothing holds | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | | Infection as well as Pest | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | **Local use** | Watch mode and a pre-push hook | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 | | One command that reproduces each survivor | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | For each survivor, what the tests miss | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| | `explain`: a mutant's diff, tests, their outcomes and its history, without running it | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | **Run control** | A time budget that runs the riskiest code first, and reports anything unjudged instead of passing it | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | | Triage of timeouts and flaky tests | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | | Ignores for equivalent mutants, each with a reason and an optional expiry | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
@@ -110,6 +114,8 @@ to write one.
 | `verdict --plan=<file> --results=<dir>` | Merge every shard's results, judge the floors, write reports and the ledger |
 | `baseline [--write]` | Show, or write, floors raised to what was measured |
 | `reproduce <id>` | Run one mutant again and show why it survives |
+| `explain <id> [--format=text\|json]` | Show one mutant's diff, hint, covering tests and their outcomes, and its history, from the ledgers, running nothing; the id may be a unique prefix of 6 or more |
+| `tests` | Print the useless-test and redundant-test report from the ledgers, running nothing |
 | `triage <path> [--repeat=<n>] [--order=runner\|killers-first]` | Run a unit n times (5 by default) and list every mutant whose result varied, with each mutant's tests in the order `--order` names (`tests.order` by default) |
 | `watch` | Re-judge what each save reaches |
 | `pre-push` | Judge the commits being pushed, as CI will |
@@ -135,6 +141,7 @@ Options:
 | `--plan=<file>` | `run`, `verdict` | The plan the shards and the verdict follow | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--shard=<id>` | `run` with a plan | The shard to mutate, instead of the one the CI names | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--results=<dir>` | `verdict` | Where every shard's result is | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `--kill-matrix=first\|full` | `run` | `full` records every test that kills each mutant, for the redundant-test report (Pest only) | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | `--publish-dir=<dir>` | `verdict`, `run` without a plan | Where the badge and trend are written, `.mutation-gate/publish` by default | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 
 Exit codes: `0` passed, `1` failed, `2` could not judge. The last means, for
@@ -305,7 +312,7 @@ chooses an adapter takes a registered name or `{"use": <name or class>,
 | `ignores.maxDays` | integer | none | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `ignores.native` | `refuse` or `allow` | `refuse` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `equivalence.static` | boolean | `true` | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
-| `reports` | list of `{use, path, with}`; built-in `json`, `junit`, `sarif`, `html` | `[]` | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `reports` | list of `{use, path, with}`; built-in `json`, `junit`, `sarif`, `html`, `tests`, `kill-matrix` | `[]` | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `badge.colors` | map of shields.io colour to lowest score | `{"brightgreen": 90, "green": 80, "yellow": 70, "orange": 60}`, red below | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `pest.patch` | boolean | `false` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `pest.canary` | group name | `mutation-canary` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |

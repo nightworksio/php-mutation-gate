@@ -31,6 +31,7 @@ sees the same verdict.
    - the new-code set;
    - every unit, and whether its result was run, proved or carried;
    - every mutant's record, with its hint and reproduce command;
+   - every test, with the mutants it covers and those it killed (ADR-0014);
    - the reach and its reasons;
    - warnings: unheld hot paths (ADR-0005); expired or expiring ignores
      (ADR-0008); and a shard target the plan could not meet, an ignore a
@@ -43,8 +44,8 @@ sees the same verdict.
    - **The console** always.
    - **File reports**, listed in `reports` (ADR-0002): each entry is
      `{"use": <name or class>, "path": <file or directory>, "with": <options>}`.
-     The built-in names are `json`, `junit`, `sarif` and `html`, each needing
-     a `path`. `reports` is empty by default, and `--report=<name>:<path>` adds
+     The built-in names are `json`, `junit`, `sarif`, `html`, `tests` and
+     `kill-matrix` (ADR-0014), each needing a `path`. `reports` is empty by default, and `--report=<name>:<path>` adds
      one for a single command.
    - **GitHub annotations and the step summary** (written to
      `GITHUB_STEP_SUMMARY`) whenever `GITHUB_ACTIONS` is set.
@@ -63,7 +64,9 @@ sees the same verdict.
      `resources/report.schema.json`. It carries everything in the verdict, and
      it is public API (ADR-0011). A mutant proven equivalent has the status
      `equivalent`, and each killed mutant names the test that killed it first,
-     where one is known (ADR-0013).
+     where one is known (ADR-0013). It lists the tests once, in a `tests`
+     table, and gives each mutant `coveredBy` and `killedBy` as indices into
+     it (ADR-0014).
    - **JUnit XML** (`junit`). One `<testsuite>` per tree, and one for new code.
      In each suite, one `<testcase>` stands for its floor. It fails exactly
      when the gate fails that tree, and the failure body lists every mutant it
@@ -148,7 +151,10 @@ sees the same verdict.
    | equivalent, proven (ADR-0013) | `Ignored` |
 
    Judging tests, hints and reproduce commands go in each mutant's
-   `description`. The schema requires a column for each location. The gate
+   `description`. Its `coveredBy`, `killedBy` and `testsCompleted`, and the
+   report's `testFiles`, come from the kill matrix, so the viewer's test view
+   shows which tests kill, which only cover and which cover nothing
+   (ADR-0014). The schema requires a column for each location. The gate
    takes it from the file's tokens, and a mutant it cannot place there spans
    its lines from the first column to the end. The viewer's licence
    (Apache-2.0) is shipped with it.
@@ -199,7 +205,9 @@ sees the same verdict.
 
 6. **Every survivor has a one-line reproduce command.** In every report it is
    `vendor/bin/mutation-gate reproduce <id>`. It works on any machine with the
-   same code, because the id holds no absolute path (ADR-0004).
+   same code, because the id holds no absolute path (ADR-0004). The console,
+   HTML and JSON reports also give `vendor/bin/mutation-gate explain <id>`,
+   which explains it without running anything (ADR-0014).
 
 7. **Every survivor says what the tests miss.** Each runner adapter maps its
    native mutator names to a family. Each family has one sentence, filled in
@@ -260,3 +268,4 @@ but data.
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): unjudged, flaky and ignored mutants
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the action and workflow that post and publish
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): *equivalent, proven*, the first killer, and a shard target the plan could not meet
+- [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): test-level data, the `tests` and `kill-matrix` reports, and `explain`
