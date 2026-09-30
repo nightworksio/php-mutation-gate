@@ -178,22 +178,6 @@ final readonly class Mago implements StaticChecker
         ]) : $binary;
     }
 
-    /** The config staticCheck.config names, or else the first Mago finds at the root, or none, for Mago's defaults. */
-    private function config(): Path|Absent
-    {
-        if ($this->config instanceof Path) {
-            return $this->config;
-        }
-
-        foreach (BuiltinAnalyser::Mago->configs() as $candidate) {
-            if (is_file($this->absolute($candidate))) {
-                return $candidate;
-            }
-        }
-
-        return Absent::setting();
-    }
-
     /**
      * A command, run to its end in the project's root without what is withheld.
      *
@@ -208,6 +192,22 @@ final readonly class Mago implements StaticChecker
         } catch (RuntimeException $failure) {
             return ChildProcess::neverStarted($failure->getMessage());
         }
+    }
+
+    /** The config staticCheck.config names, or else the first Mago finds at the root, or none, for Mago's defaults. */
+    private function config(): Path|Absent
+    {
+        if ($this->config instanceof Path) {
+            return $this->config;
+        }
+
+        foreach (BuiltinAnalyser::Mago->configs() as $candidate) {
+            if (is_file($this->absolute($candidate))) {
+                return $candidate;
+            }
+        }
+
+        return Absent::setting();
     }
 
     private function absolute(Path $path): string

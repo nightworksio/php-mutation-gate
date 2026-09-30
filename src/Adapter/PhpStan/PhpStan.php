@@ -142,6 +142,22 @@ final readonly class PhpStan implements StaticChecker
         ]));
     }
 
+    /**
+     * A command, run to its end in the project's root without what is withheld.
+     *
+     * @param list<string> $arguments
+     */
+    private function ran(Withheld $withheld, array $arguments): ChildProcess
+    {
+        $process = new Process($arguments, $this->root->value(), Withholding::of($withheld, getenv()), timeout: null);
+
+        try {
+            return ChildProcess::exited($process->run(), $process->getOutput(), $process->getErrorOutput());
+        } catch (RuntimeException $failure) {
+            return ChildProcess::neverStarted($failure->getMessage());
+        }
+    }
+
     /** The gate's own config, written where it is not there as it should be, including the project's. */
     private function checkConfig(): string|CannotJudge
     {
@@ -173,22 +189,6 @@ final readonly class PhpStan implements StaticChecker
         }
 
         return CannotJudge::because(self::NO_CONFIG);
-    }
-
-    /**
-     * A command, run to its end in the project's root without what is withheld.
-     *
-     * @param list<string> $arguments
-     */
-    private function ran(Withheld $withheld, array $arguments): ChildProcess
-    {
-        $process = new Process($arguments, $this->root->value(), Withholding::of($withheld, getenv()), timeout: null);
-
-        try {
-            return ChildProcess::exited($process->run(), $process->getOutput(), $process->getErrorOutput());
-        } catch (RuntimeException $failure) {
-            return ChildProcess::neverStarted($failure->getMessage());
-        }
     }
 
     private function absolute(Path $path): string
