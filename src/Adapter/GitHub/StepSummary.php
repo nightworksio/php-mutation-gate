@@ -43,12 +43,14 @@ final readonly class StepSummary implements Configurable, Reporter
         $environment = getenv();
         $read = static fn(string $name): string => array_key_exists($name, $environment) ? $environment[$name] : '';
 
-        return new self($read('GITHUB_STEP_SUMMARY'), $read('GITHUB_RUN_ID') === '' ? '' : sprintf(
+        $run = sprintf(
             '%s/%s/actions/runs/%s',
             $read('GITHUB_SERVER_URL') === '' ? 'https://github.com' : $read('GITHUB_SERVER_URL'),
             $read('GITHUB_REPOSITORY'),
             $read('GITHUB_RUN_ID'),
-        ));
+        );
+
+        return new self($read('GITHUB_STEP_SUMMARY'), $read('GITHUB_RUN_ID') === '' ? '' : $run);
     }
 
     public function report(Verdict $verdict): Written|NotWritten

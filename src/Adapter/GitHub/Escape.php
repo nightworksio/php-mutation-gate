@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
-use function array_keys;
 use function array_map;
 use function explode;
 use function htmlspecialchars;
@@ -46,13 +45,13 @@ final readonly class Escape
     /** Prose, whose backticked parts, as a hint writes code, are shown as code. */
     public static function text(string $text): string
     {
-        $parts = explode('`', $text);
+        $escaped = [];
 
-        return implode('', array_map(
-            static fn(int $at, string $part): string => $at % 2 === 1 ? self::code($part) : self::plain($part),
-            array_keys($parts),
-            $parts,
-        ));
+        foreach (explode('`', $text) as $at => $part) {
+            $escaped[] = $at % 2 === 1 ? self::code($part) : self::plain($part);
+        }
+
+        return implode('', $escaped);
     }
 
     /** Text shown as inline code. */

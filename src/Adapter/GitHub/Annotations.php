@@ -63,8 +63,9 @@ final readonly class Annotations implements Configurable, Reporter
             $ranked[] = $mutant;
         }
 
-        usort($ranked, static fn(JudgedMutant $one, JudgedMutant $other): int => self::rank($other, $overview)
-            <=> self::rank($one, $overview));
+        $order = static fn(JudgedMutant $one, JudgedMutant $other): int => self::rank($other, $overview)
+            <=> self::rank($one, $overview);
+        usort($ranked, $order);
         $errors = [];
         $warnings = [];
 
