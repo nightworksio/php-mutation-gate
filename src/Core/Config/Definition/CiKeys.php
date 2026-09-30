@@ -25,9 +25,10 @@ final readonly class CiKeys
         $plan = Field::optional('plan', Adapter::choosing(Builtins::ciPlans($origin)), $judges);
         $branch = Field::optional('defaultBranch', Text::of('a branch name'), $judges);
         $check = Field::optional('check', Text::of('a check-run name'), $judges);
-        $template = Field::optional('template', Location::path($origin), $judges);
+        $results = Effect::AffectsResults;
+        $template = Field::optional('template', Location::path($origin), $results);
         $step = Field::optional('step', StepTemplate::buildkite(), $judges);
-        $definition = Field::optional('definition', Location::path($origin), $judges);
+        $definition = Field::optional('definition', Location::path($origin), $results);
         $gitlab = Field::section(
             'gitlab',
             Section::single(
