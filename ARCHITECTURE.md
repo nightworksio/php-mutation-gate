@@ -96,6 +96,7 @@ every core type their public signatures reach (ADR-0001).
 | **D5** | No bare `true` or `false` at a call site | phpstan: own rule |
 | **D6** | No unnamed number in a method body | phpstan: own rule |
 | **D7** | Every class is final, and every class on the API surface or in the core that is not an exception is readonly | arch: reflection over every class under `src` |
+| **D10** | `mixed` appears only in a decoder of untrusted input, which hands on typed values; the files still to type are listed, and the list only shrinks | phpstan: own rule, over `src` and `tests/Support`; arch: every listed file still holds a `mixed` |
 
 ## H — names, size and layout
 
@@ -110,6 +111,8 @@ every core type their public signatures reach (ADR-0001).
 | **H7** | A test is named for the behaviour it pins, never with an identifier | arch: every test description |
 | **H8** | A method returns from at most three places | phpstan: own rule |
 | **H9** | A list is on one line or fully split, as SonarCloud's S1808 requires | phpstan: own rule, over `src` |
+| **H10** | No line in `src` is longer than 120 characters, as SonarCloud's S103 requires | phpstan: own rule, over `src` |
+| **H11** | A class, interface, trait or enum is named in letters only, starting with a capital, as SonarCloud's S101 requires | phpstan: own rule |
 | **W1** | A file under `src` declares one class, and it is the one its path names | arch |
 
 ## K — comments
