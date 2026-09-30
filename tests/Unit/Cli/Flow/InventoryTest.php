@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -214,4 +215,13 @@ it('cannot find the units under Pest where a #[Holds] stands where no group can 
 
     expect($found instanceof CannotJudge ? $found->why() : $found)
         ->toStartWith("tests/Pest.php:5: #[Holds('src/Held.php')] stands in tests/Pest.php");
+});
+
+it('lists the runner\'s groups withholding what every process running the project\'s code does', function (): void {
+    $runner = ScriptedRunner::fixture();
+    $adapters = Flows::adapters(Flows::project(), [], $runner);
+
+    Inventory::of($adapters, Flows::settings());
+
+    expect($runner->listings())->toEqual([$adapters->withheld]);
 });

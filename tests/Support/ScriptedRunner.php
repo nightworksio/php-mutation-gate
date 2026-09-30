@@ -32,8 +32,8 @@ use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 
 /**
  * The fake runner, as a test scripts it: what it answers when asked to mutate
- * and to run survivors again, and what it names itself; and every request
- * and retry it was handed, in order.
+ * and to run survivors again, and what it names itself; and every request,
+ * retry and listing of its groups it was handed, in order.
  */
 final class ScriptedRunner implements Runner
 {
@@ -42,6 +42,9 @@ final class ScriptedRunner implements Runner
 
     /** @var list<array{Mutants, Seconds, WholeSuite|Group|Filter, Withheld}> */
     private array $retries = [];
+
+    /** @var list<Withheld> */
+    private array $listings = [];
 
     private function __construct(
         private readonly RunnerFake $fake,
@@ -212,7 +215,15 @@ final class ScriptedRunner implements Runner
 
     public function groups(Withheld $withheld): Groups|CannotJudge
     {
+        $this->listings[] = $withheld;
+
         return $this->groups;
+    }
+
+    /** @return list<Withheld> what each listing of its groups withheld, in order */
+    public function listings(): array
+    {
+        return $this->listings;
     }
 
     public function coverage(CoverageRequest $request): CoverageMap|CannotJudge

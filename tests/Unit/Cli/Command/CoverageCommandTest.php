@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -42,6 +43,19 @@ it('writes the map the suite\'s coverage run measured into the directory it is t
         ->and($written->output)->toBe(sprintf("Wrote %s/build/coverage/map.json.gz.\n", $project))
         ->and($written->errors)->toBe('')
         ->and(file_get_contents(sprintf('%s/build/coverage/map.json.gz', $project)))->toBe($measured());
+});
+
+it('measures the suite withholding every CI\'s tokens from its tests', function (): void {
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
+
+    FlowCommands::run(CoverageCommand::command(
+        FlowCommands::composition(FlowCommands::project(), $runner, new ProofStoreFake(), Flows::ci()),
+    ));
+    $withheld = $runner->asked()[0]->withheld();
+
+    expect($runner->asked())->toHaveCount(1)
+        ->and(preg_match($withheld->pattern(), 'CI_JOB_TOKEN'))->toBe(1)
+        ->and(preg_match($withheld->pattern(), 'GITHUB_TOKEN'))->toBe(1);
 });
 
 it('writes the map into the workspace where it is told no directory', function () use ($coverage): void {
