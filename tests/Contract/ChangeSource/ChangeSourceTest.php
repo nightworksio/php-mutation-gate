@@ -32,11 +32,8 @@ $sources = [
     'git, with GitHub proving nothing' => fn(): ChangeSource => PassedPullRequests::over(
         Git::at(Repository::ofTheFixture()->root),
         new MockHttpClient(static fn(): MockResponse => new MockResponse('{"message": "Not Found"}', ['http_code' => 404])),
-        [
-            'GITHUB_REPOSITORY' => 'octo/gate',
-            'GITHUB_SHA' => 'head',
-            'GITHUB_WORKFLOW_REF' => 'octo/gate/.github/workflows/gate.yml@refs/heads/main',
-        ],
+        ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head'],
+        'mutation / verdict',
     ),
 ];
 

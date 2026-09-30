@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\File\ByPath;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -33,7 +34,7 @@ it('is the units every shard mutates, in the order the shards take them', functi
 });
 
 it('counts only the shards that have units to mutate', function (): void {
-    $plan = Plan::of(Revision::ref('5eeca8f'), Keys::none(), Shards::of(
+    $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::of(
         Shard::of(
             ShardId::of(1),
             Package::at(Path::root()),

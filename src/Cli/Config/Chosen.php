@@ -76,6 +76,12 @@ final readonly class Chosen
         );
     }
 
+    /** A reporter the run chooses itself rather than a `reports` entry, its problems named after what chose it. */
+    public function reporterChosenBy(string $chooser, Choice $choice): Reporter|Invalid|CannotJudge
+    {
+        return $this->built($chooser, Reporter::class, $choice, Lookup::in($this->extensions)->reporter(...));
+    }
+
     /**
      * The registry with the extension classes a config names added, each as coming from the config file.
      *

@@ -5,6 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -24,6 +26,22 @@ it('holds the plan it followed, its units and keys, what the runner reported and
 
     expect($result->plan())->toBe($plan)
         ->and($result->shard())->toBe($shard)
+        ->and($result->units())->toBe($units)
+        ->and($result->outcome())->toBe($outcome)
+        ->and($result->measured())->toBe($measured)
+        ->and($result->flaky())->toHaveCount(0);
+});
+
+it('takes the ids of the mutants that gave two answers, keeping everything else', function (): void {
+    $units = Keys::none()->with(Path::of('src/Money.php'), Digest::of('aaa'));
+    $outcome = MutationResult::of(Mutants::none(), 0);
+    $measured = Measurement::of(Seconds::of(42.5), 'pest', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')));
+    $flaky = MutantIds::of(MutantId::hash(Path::of('src/Money.php'), 'Plus', '', 0));
+    $result = ShardResult::of(Digest::of('9c1e'), ShardId::of(2), $units, $outcome, $measured)->withFlaky($flaky);
+
+    expect($result->flaky())->toBe($flaky)
+        ->and($result->plan())->toEqual(Digest::of('9c1e'))
+        ->and($result->shard())->toEqual(ShardId::of(2))
         ->and($result->units())->toBe($units)
         ->and($result->outcome())->toBe($outcome)
         ->and($result->measured())->toBe($measured);

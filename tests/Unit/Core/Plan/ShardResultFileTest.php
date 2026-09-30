@@ -6,9 +6,12 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
@@ -20,8 +23,11 @@ use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Test\Filter;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 
 $measured = Measurement::of(Seconds::of(42.5), 'pest', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')));
 
@@ -110,6 +116,41 @@ it('reads back a finished shard it wrote', function () use ($finished, $survivor
     expect(ShardResultFile::decode(ShardResultFile::encode($result)))->toEqual($result);
 });
 
+it('lists the mutants that gave two answers after the rest, and reads them back', function () use (
+    $finished,
+    $survivor,
+    $measured,
+): void {
+    $other = MutantId::hash(Path::of('src/Money.php'), 'Plus', '', 0);
+    $result = $finished($survivor, $measured)->withFlaky(MutantIds::of($survivor->id(), $other));
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toEndWith(sprintf(
+        "    \"skipped\": 1,\n    \"flaky\": [\n        \"%s\",\n        \"%s\"\n    ]\n}",
+        $survivor->id()->value(),
+        $other->value(),
+    ))
+        ->and(ShardResultFile::decode($written))->toEqual($result)
+        ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"flaky"');
+});
+
+it('lists each held unit its holding tests miss lines of, with why, and reads them back', function () use (
+    $finished,
+    $survivor,
+    $measured,
+): void {
+    $misses = HeldMisses::of(
+        NotCovered::because(Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')), 'Missed 48.'),
+        NotCovered::because(Unit::held(Path::of('src/Http'), Filter::matching('HttpTest')), 'Missed all.'),
+    );
+    $result = $finished($survivor, $measured)->withMisses($misses);
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toContain('"missed": [')
+        ->and(ShardResultFile::decode($written))->toEqual($result)
+        ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"missed"');
+});
+
 it('reads back a shard that could not judge', function () use ($measured): void {
     $stopped = CannotJudge::because('Pest stopped.');
     $result = ShardResult::of(Digest::of('9c1e'), ShardId::of(1), Keys::none(), $stopped, $measured);
@@ -131,6 +172,17 @@ it('refuses what is not a shard result, saying where it went wrong', function (s
     'no count of skipped mutants' => [
         '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "mutants": []}',
         'the file.skipped is missing.',
+    ],
+    'flaky mutants that are not a list' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "mutants": [], "skipped": 0, '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}, "flaky": "none"}',
+        'the file.flaky is not a list.',
+    ],
+    'a flaky mutant that is no id' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "mutants": [], "skipped": 0, '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}, '
+            . '"flaky": ["0123456789ab", "no"]}',
+        'the file.flaky[1] is not a mutant id.',
     ],
     'an instant that is not one' => [
         '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '

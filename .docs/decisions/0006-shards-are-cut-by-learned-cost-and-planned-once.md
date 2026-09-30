@@ -36,9 +36,11 @@ Two parts of that do not carry over to a public package.
    - **`mutation-gate plan`** does the preparation:
      - reads the config and the trees;
      - takes the coverage map, either by running the suite or from
-       `--coverage=<dir>`, where an earlier job wrote the gate's own map
-       (ADR-0004). A PHP coverage map, such as Pest's, is code that reading it
-       runs, so a PHP coverage map is read only when this same job wrote it;
+       `--coverage=<dir>`: the gate's own map, `<dir>/map.json.gz`, which an
+       earlier job wrote with `mutation-gate coverage --into=<dir>`. That
+       command runs the suite under coverage and writes the map. A PHP
+       coverage map, such as Pest's, is code that reading it runs, so a PHP
+       coverage map is read only when this same job wrote it;
      - works out the reach (ADR-0005) and each considered unit's content key
        (ADR-0007), and drops every unit a proof already covers;
      - weighs the rest with the cost model and cuts the shards.
@@ -47,12 +49,17 @@ Two parts of that do not carry over to a public package.
      `.mutation-gate/coverage/`, and prints the plan in the CI's format.
      Coverage leaves the job that read it only as the gate's own map,
      `map.json.gz` in the directory `--coverage=<dir>` names: `"format": 1`,
-     compact JSON, gzipped, data that reading never runs. Each shard's map
-     holds only the lines of the files that shard mutates, with every test
-     and its duration. Where the runner's report states them, as Infection's
-     does, it also holds each of those files' methods some test ran, with the
-     lines the report gives them. A shard's runner writes the map back into
-     its own layout in its own job (ADR-0004).
+     compact JSON, gzipped, data that reading never runs. Each shard's map,
+     `.mutation-gate/coverage/shard-<id>/map.json.gz`, holds only the lines of
+     the files that shard mutates, with every test and its duration. Where the
+     runner's report states them, as Infection's does, it also holds each of
+     those files' methods some test ran, with the lines the report gives them.
+     A shard's runner writes the map back into its own layout in its own job
+     (ADR-0004), and the verdict learns what each shard cost from it. A shard
+     handed no map mutates nothing and its result cannot judge, since its held
+     units' coverage check (ADR-0005, decision 10) and its timeout triage
+     (ADR-0008) read that map; a verdict whose shard map is missing cannot
+     judge, because the jobs were not handed what the plan wrote.
    - **`mutation-gate run --plan=<file>`** mutates one shard's units and writes
      `.mutation-gate/results/<id>.json`. That file holds every mutant's record,
      each unit's content key and what the shard measured.
@@ -150,7 +157,7 @@ Two parts of that do not carry over to a public package.
 
    | CI | How the plan reaches it | Which shard a job is |
    |----|-------------------------|----------------------|
-   | **GitHub Actions** (`github`) | `shards=<JSON array of {id, label}>` in `$GITHUB_OUTPUT`, read by `strategy.matrix.shard: ${{ fromJson(…) }}`. The plan file travels as an artifact. An empty array skips the matrix job, and the verdict still runs. GitHub's limit of 256 jobs per matrix caps `shards.max` there. | The `--shard=<id>` the matrix passes |
+   | **GitHub Actions** (`github`) | `shards=<JSON array of {id, label}>` in `$GITHUB_OUTPUT`, read by `strategy.matrix.shard: ${{ fromJson(…) }}`, and `plan=<the json listing, on one line>` beside it. The plan file travels as an artifact. An empty array skips the matrix job, and the verdict still runs. GitHub's limit of 256 jobs per matrix caps `shards.max` there. | The `--shard=<id>` the matrix passes |
    | **GitLab CI** (`gitlab`) | `parallel:matrix` must be in a pipeline before it starts, so `plan --ci=gitlab` writes a child pipeline, `.mutation-gate/pipeline.yml`. It holds one job with `parallel: matrix: [{SHARD: ["1", "2", …]}]` and a verdict job that needs it and runs `when: always`. Both fetch the plan with `needs: [{pipeline: $PARENT_PIPELINE_ID, job: <plan job>}]`, where the plan job's name is the `CI_JOB_NAME` `plan` ran under. Both extend the hidden job `.mutation-gate`, which the project defines for image and setup in the file `ci.gitlab.template` names (`.gitlab/mutation-gate.yml` by default), and the child pipeline includes that file. The parent triggers it with `trigger: include: - artifact: …` and `strategy: mirror`, so the trigger job takes the child's result. | `SHARD` |
    | **Buildkite** (`buildkite`) | `plan --ci=buildkite` prints steps for `buildkite-agent pipeline upload`: one command step per shard, a `wait` with `continue_on_failure: true`, then the verdict step. Each is built from `ci.buildkite.step`, a map of step keys (agents, plugins, env) merged into every generated step, empty by default. Plan and results travel with `buildkite-agent artifact`. No Buildkite variable names the file a pipeline was uploaded from, so `ci.buildkite.definition` names the one that runs the gate (`.buildkite/pipeline.yml` by default), as `ci.gitlab.template` does for GitLab; reach and the proof key count it as the CI definition (ADR-0005, ADR-0007). | The `--shard=<id>` in each step |
    | **CircleCI** (`circleci`) | Parallelism is fixed in the config. The plan job runs `plan --shards=<N>`, with N equal to the mutation job's `parallelism`, and persists `.mutation-gate` to the workspace. The verdict job requires the mutation job with the status `terminal`, so it runs after a failure too. | `CIRCLE_NODE_INDEX` + 1 (the variable is 0-based). A `CIRCLE_NODE_TOTAL` that differs from the plan's count stops the shard with exit code 2. |

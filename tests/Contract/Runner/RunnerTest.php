@@ -18,7 +18,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -55,6 +56,9 @@ if (Library::isInstalled()) {
 if (Library::isInfectionInstalled()) {
     $libraries['infection'] = fn(): Library => Library::infection(Seconds::of(10.0));
 }
+
+/** The libraries whose runner reads a map from disk: every one but the fake. */
+$onDisk = array_diff_key($libraries, ['the fake' => true]);
 
 /** Money's four mutants, as a library's runner reports them. */
 $money = static fn(Library $library): MutationResult|CannotJudge => $library->mutate(
@@ -179,8 +183,29 @@ it('retries a mutant by the tests that judged its unit', function (Library $libr
     expect($statuses)->toBe([MutantStatus::Uncovered]);
 })->with($libraries);
 
+it('reads back the gate\'s own map of what it ran, and cannot judge a map that is not there', function (
+    Library $library,
+): void {
+    $ran = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+    $written = CoverageMapFile::encode($ran instanceof CoverageMap ? $ran : CoverageMap::empty());
+    $handed = Path::of('.mutation-gate/handed');
+    $file = sprintf('%s/%s', $library->root(), CoverageMapFile::in($handed)->value());
+    if (!is_dir(dirname($file))) {
+        mkdir(dirname($file), recursive: true);
+    }
+    file_put_contents($file, $written);
+    $read = $library->runner()->coverage(CoverageRead::from($handed));
+    $missing = $library->runner()->coverage(CoverageRead::from(Path::of('.mutation-gate/nowhere')));
+    unlink($file);
+
+    expect($ran)->toBeInstanceOf(CoverageMap::class)
+        ->and($read)->toEqual(CoverageMapFile::decode($written))
+        ->and($missing)->toBeInstanceOf(CannotJudge::class);
+})->with($onDisk === [] ? ['none installed' => fn(): Library => Library::fake()] : $onDisk)
+    ->skip($onDisk === [], 'the runner contracts jobs install the libraries whose runner reads from disk');
+
 it('names the test files that judge a covered file, and none for an uncovered one', function (Library $library): void {
-    $request = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+    $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
     $map = $library->runner()->coverage($request);
     $covered = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('src/Money.php'), $map) : $map;
     $uncovered = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('src/Nowhere.php'), $map) : $map;
@@ -288,7 +313,7 @@ it('names the test that killed a mutant, as the coverage map names it, with Infe
 it('judges a mutant on a method\'s signature by the map the planning job handed over as by its own coverage, with Infection', function (): void {
     $library = Library::infection(Seconds::of(10.0));
     $handedOver = Path::of('.mutation-gate/planned');
-    $planned = $library->runner()->coverage(CoverageRequest::running(WholeSuite::tests(), $handedOver));
+    $planned = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), $handedOver));
     file_put_contents(
         Tree::at(sprintf('%s/%s', Library::INFECTION_DIRECTORY, CoverageMapFile::in($handedOver)->value())),
         CoverageMapFile::encode($planned instanceof CoverageMap ? $planned : CoverageMap::empty()),
@@ -382,7 +407,7 @@ it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select
 it('opens a patched shard on the canary group and reads the map the planning job handed over', function (): void {
     $patched = Patch::applyIn(Library::vendor());
     $library = Library::pest(Patching::on(Library::canary()));
-    $planned = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/planned'));
+    $planned = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned'));
     $map = $library->runner()->coverage($planned);
     $handedOver = CoverageMapFile::in(Path::of('.mutation-gate/planned'))->value();
     file_put_contents(

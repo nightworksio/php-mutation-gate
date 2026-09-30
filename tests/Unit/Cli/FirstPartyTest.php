@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
+use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
@@ -90,6 +91,30 @@ it('registers git, and git with GitHub\'s word on its proofs, as change sources 
         ->and($lookup->changeSource(Name::of('github'), Options::none()))->toBeInstanceOf(ChangeSource::class)
         ->and($lookup->repository(Name::of('github'), Options::none()))->toBeInstanceOf(Repository::class);
 });
+
+it('verifies GitHub\'s word by the check-run its check option names, and takes git\'s alone without one', function (
+    string $options,
+    string $source,
+) use ($registry): void {
+    $run = ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head'];
+    $lookup = Lookup::in($registry());
+    $built = Environment::during(
+        $run,
+        static fn(): object => $lookup->changeSource(Name::of('github'), Options::ofJson($options)),
+    );
+    $repository = Environment::during(
+        $run,
+        static fn(): object => $lookup->repository(Name::of('github'), Options::ofJson($options)),
+    );
+
+    expect($built::class)->toBe($source)
+        ->and($repository::class)->toBe($source);
+})->with([
+    'a check' => ['{"check": "mutation / verdict"}', PassedPullRequests::class],
+    'no check' => ['{}', Git::class],
+    'an empty check' => ['{"check": ""}', Git::class],
+    'a check that is not text' => ['{"check": 3}', Git::class],
+]);
 
 it('registers a loader for every config format, the tree sources and the presets', function () use ($registry): void {
     $loader = static fn(string $name): object => Lookup::in($registry())->configLoader(Name::of($name), Options::none());

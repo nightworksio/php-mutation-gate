@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
-use DateTimeImmutable;
 use NightWorksIO\MutationGate\Cli\Console;
 use NightWorksIO\MutationGate\Cli\FirstParty;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
@@ -26,14 +26,20 @@ final readonly class Commands
     ) {
     }
 
-    /** The command line of a project, with this package's own extension, at the instant every test runs at. */
-    public static function console(string $project): Application
+    /**
+     * The command line of a project, with this package's own extension, at the instant every test runs at,
+     * started in these environment variables.
+     *
+     * @param array<string, string> $environment
+     */
+    public static function console(string $project, array $environment = []): Application
     {
         return Console::application(
             new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE))),
             $project,
             sprintf('%s/vendor', $project),
-            new DateTimeImmutable(Configs::NOW),
+            new StoppedClock(Configs::NOW),
+            Variables::of($environment),
         );
     }
 

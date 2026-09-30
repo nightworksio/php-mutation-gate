@@ -13,9 +13,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
-use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
-use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 use function sprintf;
@@ -24,10 +22,6 @@ use function sprintf;
 final readonly class NativeMarkers
 {
     private const string FOUND = '%d native %s: %s.';
-
-    private const string AT = '%s, %s';
-
-    private const string IN = '%s in %s()';
 
     private const string WHY
         = 'A marker hides mutants with no reason and no end, so under ignores.native: refuse a run stops at once.';
@@ -51,7 +45,7 @@ final readonly class NativeMarkers
         $replaced = [];
 
         foreach ($markers as $marker) {
-            $found[] = sprintf(self::AT, self::where($marker), $marker->marker());
+            $found[] = $marker->described();
             $replaced[] = sprintf(self::REPLACED, $marker->where(), $marker->replacement());
         }
 
@@ -62,15 +56,5 @@ final readonly class NativeMarkers
             self::WHY,
             sprintf(self::FIX, implode('; ', $replaced)),
         ));
-    }
-
-    /** Where a marker is, and the function it is in or documents. */
-    private static function where(Marker $marker): string
-    {
-        $enclosing = $marker->enclosing();
-
-        return $enclosing instanceof Enclosing
-            ? sprintf(self::IN, $marker->where(), $enclosing->function())
-            : $marker->where();
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core;
 
+use function sprintf;
+
 /** Something was written, and where it went. */
 final readonly class Written
 {
@@ -19,5 +21,11 @@ final readonly class Written
     public function where(): string
     {
         return $this->where;
+    }
+
+    /** The line a command prints for it. */
+    public function said(): string
+    {
+        return sprintf('Wrote %s.', $this->where);
     }
 }

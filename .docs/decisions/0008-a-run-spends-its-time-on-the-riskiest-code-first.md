@@ -108,6 +108,9 @@ presets for Laravel, Symfony and plain libraries.
      same steps, against its judging tests. The confirming run takes the
      runner's own test order, whatever `tests.order` says, and a survivor
      proven equivalent is not run again (ADR-0013, decisions 4 and 10).
+     Each shard confirms its own survivors, by the tests that judged their
+     unit, and its result file lists the flaky mutants' ids under `flaky`
+     for the verdict.
    - **Proofs that disagree.** When two results for one key differ (the
      default branch's ledger and a pull request's, say, or two verdicts that
      wrote one scope), the mutants that differ are flaky, and neither result

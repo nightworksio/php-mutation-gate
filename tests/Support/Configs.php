@@ -90,6 +90,12 @@ final readonly class Configs
             : throw new RuntimeException(sprintf('The config is invalid: %s', json_encode(self::problems($settings))));
     }
 
+    /** The settings of the config a PHP builder writes. */
+    public static function built(Gate $gate): Settings
+    {
+        return self::settings($gate->written()->line());
+    }
+
     /** The config a PHP builder writes, decoded. */
     public static function written(Gate $gate): mixed
     {

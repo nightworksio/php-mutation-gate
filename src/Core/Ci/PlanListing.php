@@ -22,6 +22,24 @@ final readonly class PlanListing
 {
     public static function of(Plan $plan): string
     {
+        return JsonText::encode(self::listed($plan));
+    }
+
+    /** The same listing on one line, as `$GITHUB_OUTPUT` takes a value. */
+    public static function inline(Plan $plan): string
+    {
+        return JsonText::compact(self::listed($plan));
+    }
+
+    /**
+     * @return array{
+     *     plan: string,
+     *     commit: string,
+     *     shards: list<array{id: int, label: string, seconds: int, units: list<string>}>,
+     * }
+     */
+    private static function listed(Plan $plan): array
+    {
         $shards = [];
 
         foreach ($plan as $shard) {
@@ -33,10 +51,10 @@ final readonly class PlanListing
             ];
         }
 
-        return JsonText::encode([
+        return [
             'plan' => $plan->digest()->value(),
             'commit' => $plan->commit()->name(),
             'shards' => $shards,
-        ]);
+        ];
     }
 }

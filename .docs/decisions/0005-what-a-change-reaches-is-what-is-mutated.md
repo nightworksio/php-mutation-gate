@@ -142,12 +142,22 @@ The same repository has two more needs.
 
 5. **On the default branch, a tree a pull request already proved is not mutated
    again.** On a push, the reach runs from `last-passed`. With the GitHub
-   `ChangeSource`, which reads pull requests and workflow runs through GitHub's
+   `ChangeSource`, which reads pull requests and check-runs through GitHub's
    API with `GITHUB_TOKEN`, a commit whose tree is the tree of a merged pull
-   request's head, and whose run passed, reaches nothing: the branch was up to
-   date, so its run judged exactly the tree that landed. The gate asks at most
-   twenty commits back. A longer range, or one commit it cannot prove, is
-   mutated in full.
+   request's head, and whose verdict passed on that head, reaches nothing: the
+   branch was up to date, so its run judged exactly the tree that landed. The
+   gate asks at most twenty commits back. A longer range, or one commit it
+   cannot prove, is mutated in full.
+   - A pull request's verdict passed where two things say so. The check-run
+     named by `ci.check` (`mutation / verdict` by default, the reusable
+     workflow's verdict job) concluded in success on its head. A workflow's
+     conclusion is not enough, since skipped jobs and path filters conclude in
+     success too. And the pull request's own ledger records that head as
+     `passed` under that check with `ownScopeProofs` of 0 (ADR-0007). A verdict
+     that used a proof of its own scope is not trusted, because the pull
+     request's own code could have written that proof.
+   - Where the run cannot read the pull requests' ledgers, it proves nothing
+     this way, and the range is mutated in full.
 
 6. **A scheduled full run is part of the design, not an extra.** Reach cannot
    see everything:

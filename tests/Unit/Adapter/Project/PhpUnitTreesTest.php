@@ -9,7 +9,6 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
-use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -113,11 +112,8 @@ it('cannot judge a project with no tree at all', function (): void {
 it('cannot judge a phpunit.xml that is not XML', function (): void {
     $project = Scratch::directory();
     Scratch::write($project, 'phpunit.xml', '<phpunit><source>');
-    $source = PhpUnitTrees::in($project, Paths::none());
-    $why = CannotJudge::because('phpunit.xml is not XML, so the trees and tests in it cannot be read.');
-
-    expect($source->trees())->toEqual($why)
-        ->and($source->testDirectories())->toEqual($why);
+    expect(PhpUnitTrees::in($project, Paths::none())->trees())
+        ->toEqual(CannotJudge::because('phpunit.xml is not XML, so the trees in it cannot be read.'));
 });
 
 it('passes on a manifest it cannot read', function () use ($phpunit): void {
@@ -129,35 +125,6 @@ it('passes on a manifest it cannot read', function () use ($phpunit): void {
 
     expect(PhpUnitTrees::in($project, Paths::none())->trees())
         ->toEqual(CannotJudge::because('src/composer.json is not a JSON object.'));
-});
-
-it('finds the test directories of every test suite', function (): void {
-    $project = Scratch::directory();
-    Scratch::write($project, 'phpunit.xml', <<<'XML'
-        <?xml version="1.0"?>
-        <phpunit>
-            <testsuites>
-                <testsuite name="Unit"><directory>tests/Unit</directory></testsuite>
-                <testsuite name="Feature">
-                    <directory suffix=".php"> ./tests/Feature/ </directory>
-                    <file>tests/SmokeTest.php</file>
-                </testsuite>
-                <testsuite name="Again"><directory suffix="">tests/Unit</directory></testsuite>
-                <testsuite name="Phpt"><directory suffix=".phpt">tests/Unit</directory></testsuite>
-            </testsuites>
-        </phpunit>
-        XML);
-
-    expect(PhpUnitTrees::in($project, Paths::none())->testDirectories())->toEqual([
-        SuiteDirectory::of(Path::of('tests/Unit'), 'Test.php'),
-        SuiteDirectory::of(Path::of('tests/Feature'), '.php'),
-        SuiteDirectory::of(Path::of('tests/Unit'), 'Test.php'),
-        SuiteDirectory::of(Path::of('tests/Unit'), '.phpt'),
-    ]);
-});
-
-it('finds no test directory without a phpunit.xml', function (): void {
-    expect(PhpUnitTrees::in(Scratch::directory(), Paths::none())->testDirectories())->toBe([]);
 });
 
 it('reads the floor a tree\'s nearest manifest declares, from the tree up', function () use ($found, $phpunit): void {

@@ -69,6 +69,12 @@ final readonly class Scope
         return $this->ref;
     }
 
+    /** The scope as a reader says it: a branch by its name, anything else as its ref. */
+    public function name(): string
+    {
+        return preg_match(self::BRANCH, $this->ref, $branch) === 1 ? $branch[1] : $this->ref;
+    }
+
     public function equals(self $other): bool
     {
         return $this->ref === $other->ref;

@@ -15,6 +15,7 @@ use function json_encode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -39,8 +40,10 @@ use function sprintf;
 /**
  * The CI plan `github`: `shards=<JSON array of {id, label}>` appended to the
  * file `$GITHUB_OUTPUT` names, which a matrix reads with
- * `fromJson(needs.plan.outputs.shards)`. An empty array skips the matrix job,
- * and the verdict still runs. A matrix holds at most {@see MOST_JOBS} jobs.
+ * `fromJson(needs.plan.outputs.shards)`, and `plan=<the plan listing>`, on
+ * one line, which a workflow or action exposes as its output. An empty array
+ * skips the matrix job, and the verdict still runs. A matrix holds at most
+ * {@see MOST_JOBS} jobs.
  */
 final readonly class GitHubPlan implements CiPlan, Configurable
 {
@@ -92,7 +95,10 @@ final readonly class GitHubPlan implements CiPlan, Configurable
             $output === '' => CannotJudge::because(
                 'GITHUB_OUTPUT is not set, so the plan cannot reach the matrix. Run plan in a GitHub Actions step.',
             ),
-            default => $this->appended($output, sprintf("shards=%s\n", $this->matrixOf($plan))),
+            default => $this->appended(
+                $output,
+                sprintf("shards=%s\nplan=%s\n", $this->matrixOf($plan), PlanListing::inline($plan)),
+            ),
         };
     }
 

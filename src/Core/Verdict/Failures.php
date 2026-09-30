@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use function array_map;
 use function array_values;
 
 use ArrayIterator;
@@ -11,6 +12,9 @@ use ArrayIterator;
 use function count;
 
 use Countable;
+
+use function implode;
+
 use IteratorAggregate;
 use Traversable;
 
@@ -39,6 +43,18 @@ final readonly class Failures implements Countable, IteratorAggregate
     public function with(Failure $failure): self
     {
         return new self([...$this->failures, $failure]);
+    }
+
+    /** These failures, then those. */
+    public function and(self $those): self
+    {
+        return new self([...$this->failures, ...$those->failures]);
+    }
+
+    /** Every failure's sentence, one to a line. */
+    public function text(): string
+    {
+        return implode("\n", array_map(static fn(Failure $failure): string => $failure->text(), $this->failures));
     }
 
     public function count(): int

@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Ci;
 
-use function mb_strlen;
-use function mb_substr;
-
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 
 use function sprintf;
-use function str_starts_with;
 
 /**
  * A CI run as an alert and a trace name it: the repository as owner/name,
@@ -19,8 +16,6 @@ use function str_starts_with;
  */
 final readonly class CiRun
 {
-    private const string HEADS = 'refs/heads/';
-
     private const string UNREAD
         = 'This CI is not GitHub Actions, GitLab CI, Buildkite or CircleCI, so the gate cannot name its run.';
 
@@ -51,9 +46,9 @@ final readonly class CiRun
     public static function read(Variables $variables): self|CannotTell
     {
         return match (true) {
-            $variables->valueOf('GITHUB_ACTIONS') === 'true' => self::github($variables),
-            $variables->valueOf('GITLAB_CI') === 'true' => self::gitlab($variables),
-            $variables->valueOf('BUILDKITE') === 'true' => new self(
+            $variables->onGitHubActions() => self::github($variables),
+            $variables->says(Variables::GITLAB_CI) => self::gitlab($variables),
+            $variables->says(Variables::BUILDKITE) => new self(
                 sprintf(
                     '%s/%s',
                     $variables->valueOf('BUILDKITE_ORGANIZATION_SLUG'),
@@ -64,7 +59,7 @@ final readonly class CiRun
                 $variables->valueOf('BUILDKITE_BUILD_URL'),
                 $variables->valueOf('BUILDKITE_PIPELINE_NAME'),
             ),
-            $variables->valueOf('CIRCLECI') === 'true' => new self(
+            $variables->says(Variables::CIRCLECI) => new self(
                 sprintf(
                     '%s/%s',
                     $variables->valueOf('CIRCLE_PROJECT_USERNAME'),
@@ -94,7 +89,7 @@ final readonly class CiRun
     /** The ref as a reader says it: a branch by its name, anything else as it is. */
     public function refName(): string
     {
-        return str_starts_with($this->ref, self::HEADS) ? mb_substr($this->ref, mb_strlen(self::HEADS)) : $this->ref;
+        return Scope::of($this->ref)->name();
     }
 
     /** The full commit SHA. */
@@ -148,6 +143,6 @@ final readonly class CiRun
 
     private static function branch(string $name): string
     {
-        return sprintf('%s%s', self::HEADS, $name);
+        return Scope::branch($name)->ref();
     }
 }

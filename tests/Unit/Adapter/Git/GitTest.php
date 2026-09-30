@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\FileTexts;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -179,6 +181,19 @@ it('cannot tell what changed where git cannot read what the base held', function
 
     expect($said)->toBeInstanceOf(CannotTell::class)
         ->and($said instanceof CannotTell ? $said->why() : '')->toStartWith('git diff --find-renames --relative --name-status -z ');
+});
+
+it('keeps what a run withholds from git itself', function (): void {
+    $repository = Repository::empty();
+    $elsewhere = ['GIT_DIR' => sprintf('%s/not-a-repository', Scratch::directory())];
+    $plain = Environment::during($elsewhere, static fn(): Git => Git::at($repository->root));
+    $withholding = Environment::during(
+        $elsewhere,
+        static fn(): Git => Git::withholding($repository->root, Withheld::of('GIT_DIR')),
+    );
+
+    expect($plain->fingerprints())->toBeInstanceOf(CannotTell::class)
+        ->and($withholding->fingerprints())->toEqual(Fingerprints::none());
 });
 
 it('cannot tell anything outside a repository', function (): void {

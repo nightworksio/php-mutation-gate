@@ -41,6 +41,9 @@ use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -109,10 +112,10 @@ final readonly class FirstParty implements Extension
                 Name::of('otlp'),
                 static fn(Options $options): Reporter|Invalid => OtlpReporter::configured($options, new SystemClock()),
             )
-            ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Git::at(self::HERE))
-            ->withRepository(Name::of('git'), static fn(): Repository => Git::at(self::HERE))
-            ->withChangeSource(Name::of('github'), static fn(): ChangeSource => self::github())
-            ->withRepository(Name::of('github'), static fn(): Repository => self::github())
+            ->withChangeSource(Name::of('git'), static fn(Options $options): ChangeSource => self::git($options))
+            ->withRepository(Name::of('git'), static fn(Options $options): Repository => self::git($options))
+            ->withChangeSource(Name::of('github'), static fn(Options $options): ChangeSource => self::github($options))
+            ->withRepository(Name::of('github'), static fn(Options $options): Repository => self::github($options))
             ->withRunner(Name::of('infection'), Infection::fromOptions(...));
     }
 
@@ -130,9 +133,39 @@ final readonly class FirstParty implements Extension
         );
     }
 
-    /** Git, with GitHub's word on what the default branch already proved. */
-    private static function github(): ChangeSource&Repository
+    /**
+     * Git, with GitHub's word on what the default branch already proved, by
+     * the verdict's check-run its `check` option names; git's alone where it
+     * names none.
+     */
+    private static function github(Options $options): ChangeSource&Repository
     {
-        return PassedPullRequests::over(Git::at(self::HERE), HttpClient::create(), getenv());
+        try {
+            $check = Node::decode($options->json())->field('check')->text();
+        } catch (NotInShape) {
+            $check = '';
+        }
+
+        return PassedPullRequests::over(self::git($options), HttpClient::create(), getenv(), $check);
+    }
+
+    /**
+     * Git in the project, withholding what every run withholds and the names
+     * and globs its `withhold` option lists, so git's own children never see
+     * a credential the project's code may not.
+     */
+    private static function git(Options $options): Git
+    {
+        $withheld = Withheld::standard();
+
+        try {
+            foreach (Node::decode($options->json())->field('withhold')->items() as $name) {
+                $withheld = $withheld->and(Withheld::of($name->text()));
+            }
+        } catch (NotInShape) {
+            return Git::withholding(self::HERE, Withheld::standard());
+        }
+
+        return Git::withholding(self::HERE, $withheld);
     }
 }

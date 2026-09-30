@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Key\Exceptions;
@@ -53,6 +54,9 @@ it('keeps every other file', function (string $path) use ($exceptions): void {
     '.gitlab/mutation-gate.yml',
     'ci/.gitlab-ci.yml',
     'x.github/workflows/ci.yml',
+    '.gitlab-ci.yml.orig',
+    '.github/workflows-old/ci.yml',
+    '.circleci.md',
 ]);
 
 /** Exceptions whose proofs.ignore matches every file that defines the runner, and docs. */
@@ -90,4 +94,17 @@ it('warns of nothing where no glob matches a file that defines the runner, or no
 
     expect($exceptions->overruled($definitions))->toEqual(Warnings::none())
         ->and(exceptionsIgnoringDefinitions()->overruled(Paths::of(Path::of('docs/index.md'))))->toEqual(Warnings::none());
+});
+
+it('leaves out no config file under zero-config, and everything else as before', function (): void {
+    $baseline = Path::of('mutation-gate-baseline.json');
+    $zero = Exceptions::of(Absent::setting(), $baseline, Ignored::nothing(), Paths::none());
+    $written = $zero->andWritten(Path::of('reports/mutation.json'));
+
+    expect($zero->leaveOut(Path::of('mutation-gate.json')))->toBeFalse()
+        ->and($zero->leaveOut(Path::of('mutation-gate-baseline.json')))->toBeTrue()
+        ->and($zero->leaveOut(Path::of('.mutation-gate/plan.json')))->toBeTrue()
+        ->and($zero->leaveOut(Path::of('src/Money.php')))->toBeFalse()
+        ->and($written->leaveOut(Path::of('reports/mutation.json')))->toBeTrue()
+        ->and($written->leaveOut(Path::of('mutation-gate.json')))->toBeFalse();
 });

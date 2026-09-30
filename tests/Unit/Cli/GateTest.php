@@ -29,8 +29,8 @@ it('hands the command line to the console once the extensions are found', functi
     $output = new BufferedOutput();
     $errors = new BufferedOutput();
 
-    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['command' => 'plan']), $output, $errors))->toBe(2)
-        ->and($output->fetch())->toBe("mutation-gate plan is not built yet, so it cannot judge anything.\n")
+    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['command' => 'triage']), $output, $errors))->toBe(2)
+        ->and($output->fetch())->toBe("mutation-gate triage is not built yet, so it cannot judge anything.\n")
         ->and($errors->fetch())->toBe('');
 });
 
@@ -39,7 +39,7 @@ it('stops before any command when the extensions cannot be loaded', function () 
     $output = new BufferedOutput();
     $errors = new BufferedOutput();
 
-    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['command' => 'plan']), $output, $errors))->toBe(2)
+    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['command' => 'triage']), $output, $errors))->toBe(2)
         ->and($output->fetch())->toBe('')
         ->and($errors->fetch())->toBe("Two packages register a runner named \"fake\": acme/one and acme/two. Remove one of the packages, or run with --no-extensions.\n");
 });
@@ -48,8 +48,8 @@ it('loads this package\'s own extension alone under --no-extensions', function (
     $project = $conflicted();
     $output = new BufferedOutput();
 
-    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['--no-extensions' => true, 'command' => 'plan']), $output, new BufferedOutput()))->toBe(2)
-        ->and($output->fetch())->toBe("mutation-gate plan is not built yet, so it cannot judge anything.\n");
+    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['--no-extensions' => true, 'command' => 'triage']), $output, new BufferedOutput()))->toBe(2)
+        ->and($output->fetch())->toBe("mutation-gate triage is not built yet, so it cannot judge anything.\n");
 });
 
 it('reads --no-extensions as an option only before the end of the options', function () use ($conflicted): void {
@@ -62,9 +62,9 @@ it('reads --no-extensions as an option only before the end of the options', func
 });
 
 it('runs from its binary, with exit code 2 for a command not built', function (): void {
-    $process = new Process([PHP_BINARY, 'bin/mutation-gate', 'verdict', '--plan=.mutation-gate/plan.json'], Tree::root());
+    $process = new Process([PHP_BINARY, 'bin/mutation-gate', 'triage', 'src'], Tree::root());
     $process->run();
 
     expect($process->getExitCode())->toBe(2)
-        ->and($process->getOutput())->toBe("mutation-gate verdict is not built yet, so it cannot judge anything.\n");
+        ->and($process->getOutput())->toBe("mutation-gate triage is not built yet, so it cannot judge anything.\n");
 });

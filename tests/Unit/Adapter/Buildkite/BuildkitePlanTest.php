@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -248,7 +249,8 @@ it('keeps its steps and variables when it is run by another pipeline', function 
 
 it('writes a label as the agent shows it, so a path a pull request names expands no variable', function () use ($stepsIn): void {
     $file = sprintf('%s/steps.json', Scratch::directory());
-    $plan = Plan::of(Revision::ref(ShardedPlan::COMMIT), Keys::none(), Shards::of(Shard::of(
+    $base = Digest::sha256Of('base');
+    $plan = Plan::of(Revision::ref(ShardedPlan::COMMIT), $base, Keys::none(), Shards::of(Shard::of(
         ShardId::of(1),
         Package::at(Path::root()),
         Units::of(Unit::file(Path::of('src/$BUILDKITE_AGENT_ACCESS_TOKEN.php'))),

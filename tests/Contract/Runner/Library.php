@@ -185,6 +185,7 @@ final class Library
         private readonly array $naming,
         private readonly Runner $outside,
         private readonly Path $package,
+        private readonly string $root,
     ) {
     }
 
@@ -201,6 +202,7 @@ final class Library
             naming: self::FAKE_NAMES,
             outside: RunnerFake::ofTheFixture(),
             package: Path::of('fixture'),
+            root: '',
         );
     }
 
@@ -225,6 +227,7 @@ final class Library
             naming: self::INFECTION_NAMES,
             outside: $infection(dirname(Tree::at(self::INFECTION_DIRECTORY))),
             package: Path::of(basename(self::INFECTION_DIRECTORY)),
+            root: Tree::at(self::INFECTION_DIRECTORY),
         );
     }
 
@@ -258,6 +261,7 @@ final class Library
             naming: self::PEST_NAMES,
             outside: $pest(dirname($root)),
             package: Path::of(basename($root)),
+            root: $root,
         );
     }
 
@@ -270,6 +274,12 @@ final class Library
     public static function vendor(): string
     {
         return Tree::at(sprintf('%s/vendor', self::DIRECTORY));
+    }
+
+    /** The directory the library is in; none for the fake, which reads nothing from disk. */
+    public function root(): string
+    {
+        return $this->root;
     }
 
     public function runner(): Runner

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli;
 
+use function getenv;
+
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Discovery\Discovery;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -23,6 +26,7 @@ final readonly class Gate
         private string $project,
         private string $vendor,
         private ClockInterface $clock,
+        private Variables $environment,
     ) {
     }
 
@@ -31,7 +35,7 @@ final readonly class Gate
     {
         $discovery = new Discovery(Directory::at($project), Directory::at($vendor));
 
-        return new self($discovery, $project, $vendor, new SystemClock());
+        return new self($discovery, $project, $vendor, new SystemClock(), Variables::of(getenv()));
     }
 
     public function run(InputInterface $input, OutputInterface $output, OutputInterface $errors): int
@@ -45,7 +49,7 @@ final readonly class Gate
             return ExitCode::CannotJudge->value;
         }
 
-        $console = Console::application($extensions, $this->project, $this->vendor, $this->clock->now());
+        $console = Console::application($extensions, $this->project, $this->vendor, $this->clock, $this->environment);
 
         return $console->run($input, $output);
     }

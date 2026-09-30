@@ -15,10 +15,13 @@ use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 
 use function sprintf;
 
@@ -37,13 +40,19 @@ final readonly class Plan implements Countable, IteratorAggregate
     /** @param array<int, Shard> $shards by number, in the order they were added */
     private function __construct(
         private Revision $commit,
+        private Digest $base,
         private RunOn $runOn,
         private Keys $keys,
         private array $shards,
+        private Changes $changed,
+        private Reasons $reach,
+        private Units $carried,
+        private Units $proved,
     ) {
     }
 
-    public static function of(Revision $commit, Keys $keys, Shards $shards): self
+    /** A plan made on a commit, whose keys are built on this base (ADR-0007). */
+    public static function of(Revision $commit, Digest $base, Keys $keys, Shards $shards): self
     {
         $numbered = [];
 
@@ -53,9 +62,14 @@ final readonly class Plan implements Countable, IteratorAggregate
 
         return new self(
             $commit,
+            $base,
             RunOn::detached(CannotTell::because('The plan was made without asking what it runs on.')),
             $keys,
             $numbered,
+            Changes::none(),
+            Reasons::of(),
+            Units::none(),
+            Units::none(),
         );
     }
 
@@ -69,6 +83,57 @@ final readonly class Plan implements Countable, IteratorAggregate
     public function commit(): Revision
     {
         return $this->commit;
+    }
+
+    /** The base every key of the plan is built on, which every proof its run establishes records. */
+    public function base(): Digest
+    {
+        return $this->base;
+    }
+
+    /**
+     * This plan, for a change: the lines it added or modified in each source
+     * file, which the new-code floor judges, and why it reached what it did.
+     */
+    public function reaching(Changes $changed, Reasons $reach): self
+    {
+        return clone($this, ['changed' => $changed, 'reach' => $reach]);
+    }
+
+    /** This plan, carrying the newest result of each of these units, which the change does not reach. */
+    public function carrying(Units $carried): self
+    {
+        return clone($this, ['carried' => $carried]);
+    }
+
+    /** The units whose newest result the verdict carries, because the change does not reach them. */
+    public function carried(): Units
+    {
+        return $this->carried;
+    }
+
+    /** This plan, taking the result of each of these units from the proof its key matches. */
+    public function proving(Units $proved): self
+    {
+        return clone($this, ['proved' => $proved]);
+    }
+
+    /** The units whose result a proof whose key still matches holds, so no shard runs them. */
+    public function proved(): Units
+    {
+        return $this->proved;
+    }
+
+    /** The lines the change added or modified in each source file; none for a full run. */
+    public function changed(): Changes
+    {
+        return $this->changed;
+    }
+
+    /** Why the change reached what it did; none for a full run. */
+    public function reach(): Reasons
+    {
+        return $this->reach;
     }
 
     /** The run's ref, whether it is a pull request, and the default branch, as the plan was made for them. */

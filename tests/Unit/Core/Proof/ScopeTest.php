@@ -62,3 +62,9 @@ it('is the same scope as another of the same ref', function (): void {
     expect(Scope::branch('main')->equals(Scope::of('refs/heads/main')))->toBeTrue()
         ->and(Scope::branch('main')->equals(Scope::pullRequest(12)))->toBeFalse();
 });
+
+it('is named as a reader says it: a branch by its name, anything else as its ref', function (): void {
+    expect(Scope::branch('release/1.x')->name())->toBe('release/1.x')
+        ->and(Scope::pullRequest(7)->name())->toBe('refs/pull/7')
+        ->and(Scope::of('refs/tags/v1')->name())->toBe('refs/tags/v1');
+});

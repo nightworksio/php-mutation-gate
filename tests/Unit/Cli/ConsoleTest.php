@@ -23,6 +23,7 @@ it('offers every command the README lists', function (string $command) use ($con
     'plan',
     'verdict',
     'baseline',
+    'coverage',
     'reproduce',
     'triage',
     'watch',
@@ -46,12 +47,12 @@ it('says what would fail a run in a project, before a run does', function (): vo
         ->and($slugs)->toContain('two-runners');
 });
 
-it('runs the whole gate when no command is named', function () use ($console): void {
+it('runs the whole gate when no command is named, beginning with the config', function () use ($console): void {
     $tester = new ApplicationTester($console());
 
     expect($tester->run([]))->toBe(2)
         ->and(Printed::by($tester->getOutput()))
-        ->toBe("mutation-gate run is not built yet, so it cannot judge anything.\n");
+        ->toBe("Both pestphp/pest-plugin-mutate and infection/infection are installed. Choose one: set runner in the config, or pass --runner.\n");
 });
 
 it('accepts --no-extensions before any command, as a flag', function () use ($console): void {

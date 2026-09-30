@@ -23,13 +23,13 @@ it('spells each judgement as the reports write it', function (): void {
     ]);
 });
 
-it('takes a reported status as it is, with a timeout a kill until triage says otherwise', function (MutantStatus $status, MutantJudgement $judgement): void {
+it('takes a reported status as it is, with a timeout too slow to judge until triage confirms it a kill', function (MutantStatus $status, MutantJudgement $judgement): void {
     expect(MutantJudgement::reported($status))->toBe($judgement);
 })->with([
     [MutantStatus::Killed, MutantJudgement::Killed],
     [MutantStatus::Survived, MutantJudgement::Survived],
     [MutantStatus::Uncovered, MutantJudgement::Uncovered],
-    [MutantStatus::TimedOut, MutantJudgement::KilledByTimeout],
+    [MutantStatus::TimedOut, MutantJudgement::TooSlowToJudge],
     [MutantStatus::Errored, MutantJudgement::Errored],
     [MutantStatus::Unjudged, MutantJudgement::Unjudged],
     [MutantStatus::IgnoredByMarker, MutantJudgement::IgnoredByMarker],

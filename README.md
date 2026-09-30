@@ -166,7 +166,8 @@ run does.
 | Command | What it does |
 |---------|--------------|
 | `mutation-gate` or `mutation-gate run` | Plan, run and judge in one process. With `--changed-since=<ref>`, only what the change reaches. With `--budget=<duration>`, the riskiest code first, within that time. |
-| `plan` | Work out the reach, drop proved units, cut shards and print the plan for a CI (`--ci=github\|gitlab\|buildkite\|circleci\|json`, or `--shards=<n>` for a fixed count) |
+| `coverage [--into=<dir>]` | Run the suite under coverage and write the gate's own map, `<dir>/map.json.gz` (`.mutation-gate/coverage` by default), for a later `plan --coverage=<dir>` |
+| `plan` | Work out the reach, drop proved units, cut shards and print the plan for a CI (`--ci=github\|gitlab\|buildkite\|circleci\|json`, or `--shards=<n>` for a fixed count; `--coverage=<dir>` reads the map `coverage` wrote instead of running the suite) |
 | `run --plan=<file> [--shard=<id>]` | Mutate one shard: the one `--shard` names, or the one the CI's environment names |
 | `verdict --plan=<file> --results=<dir>` | Merge every shard's results, judge the floors, write reports and the ledger |
 | `baseline [--write]` | Show, or write, floors raised to what was measured |
@@ -340,6 +341,10 @@ extension registers decodes its format into JSON and reads it with
 preset an extension registers is a layer of config, such as
 `Gate::configure()->…->layer(ProjectRoot::origin())` builds
 ([ADR-0002](.docs/decisions/0002-one-typed-config-from-several-formats.md)).
+A runner an extension registers answers `coverage()` for a `CoverageRun`, the
+tests it runs under coverage, and for a `CoverageRead`, the directory of a map
+another job wrote; the runner contract in `tests/Contract/Runner` holds it to
+both ([ADR-0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md)).
 
 ### Reports
 

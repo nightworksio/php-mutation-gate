@@ -13,6 +13,7 @@ use function file_put_contents;
 use function fopen;
 use function fwrite;
 use function is_dir;
+use function is_file;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -97,7 +98,9 @@ final readonly class Directory
     {
         $file = $this->pathTo($path);
 
-        if (is_dir($file) || (! is_dir(dirname($file)) && ! mkdir(dirname($file), recursive: true))) {
+        $parent = dirname($file);
+
+        if (is_dir($file) || is_file($parent) || (! is_dir($parent) && ! mkdir($parent, recursive: true))) {
             return CannotJudge::because(sprintf('%s could not be written.', $file));
         }
 

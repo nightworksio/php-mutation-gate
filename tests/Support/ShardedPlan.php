@@ -8,6 +8,7 @@ use function array_map;
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
@@ -37,7 +38,7 @@ final class ShardedPlan
 
     public static function of(int $shards): Plan
     {
-        return Plan::of(Revision::ref(self::COMMIT), Keys::none(), Shards::of(...array_map(
+        return Plan::of(Revision::ref(self::COMMIT), Digest::sha256Of('base'), Keys::none(), Shards::of(...array_map(
             static fn(int $id): Shard => Shard::of(
                 ShardId::of($id),
                 Package::at(Path::root()),

@@ -11,7 +11,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 /**
  * One mutant as a runner reported it: where it is, what it changed, whether a
  * test caught it, how long it ran where the runner says, and, for a mutant
- * that timed out, the seconds the runner allowed it. The native id is the
+ * that timed out, the seconds the runner allowed it and the seconds its
+ * judging tests take on their own, which timeout triage compares. The native id is the
  * runner's own, and means something only within the run that printed it. A
  * mutant the runner left unjudged can say why, and a killed one names the
  * tests that killed it where the runner does.
@@ -26,6 +27,7 @@ final readonly class Mutant
         private MutantStatus $status,
         private Seconds|Unmeasured $duration,
         private Seconds|Unmeasured $limit,
+        private Seconds|Unmeasured $judgingTime,
         private Reason|Unreported $reason,
         private TestIds $killers,
     ) {
@@ -47,6 +49,7 @@ final readonly class Mutant
             $status,
             $duration,
             Unmeasured::duration(),
+            Unmeasured::duration(),
             Unreported::reason(),
             TestIds::none(),
         );
@@ -56,6 +59,12 @@ final readonly class Mutant
     public function withLimit(Seconds $limit): self
     {
         return clone($this, ['limit' => $limit]);
+    }
+
+    /** This mutant, whose judging tests take these seconds on their own, as the coverage run measured them. */
+    public function withJudgingTime(Seconds $time): self
+    {
+        return clone($this, ['judgingTime' => $time]);
     }
 
     /** This mutant, saying why it has the status it has. */
@@ -107,6 +116,12 @@ final readonly class Mutant
     public function limit(): Seconds|Unmeasured
     {
         return $this->limit;
+    }
+
+    /** The seconds its judging tests take on their own, where the coverage run measured them. */
+    public function judgingTime(): Seconds|Unmeasured
+    {
+        return $this->judgingTime;
     }
 
     public function reason(): Reason|Unreported
