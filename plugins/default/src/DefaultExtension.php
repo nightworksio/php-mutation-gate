@@ -105,6 +105,7 @@ use NightWorksIO\MutationGateDefault\Equality\SmallerOrEqualToSmaller;
 use NightWorksIO\MutationGateDefault\Equality\SmallerToGreaterOrEqual;
 use NightWorksIO\MutationGateDefault\Equality\SmallerToSmallerOrEqual;
 use NightWorksIO\MutationGateDefault\Equality\SpaceshipSwitchSides;
+use NightWorksIO\MutationGateDefault\Exception\RemoveThrow;
 use NightWorksIO\MutationGateDefault\Logical\BooleanAndToBooleanOr;
 use NightWorksIO\MutationGateDefault\Logical\BooleanOrToBooleanAnd;
 use NightWorksIO\MutationGateDefault\Logical\CoalesceRemoveLeft;
@@ -166,8 +167,13 @@ use NightWorksIO\MutationGateDefault\String\UnwrapTrim;
 use NightWorksIO\MutationGateDefault\String\UnwrapUcfirst;
 use NightWorksIO\MutationGateDefault\String\UnwrapUcwords;
 use NightWorksIO\MutationGateDefault\String\UnwrapWordwrap;
+use NightWorksIO\MutationGateDefault\Visibility\PublicToProtected;
 
-/** Registers the `default` set: the mutators of Pest's own default set, written against the gate's SDK. */
+/**
+ * Registers the `default` set: the mutators of Pest's own default set, and one
+ * for each of the Exception and Visibility families it leaves out, written
+ * against the gate's SDK.
+ */
 final readonly class DefaultExtension implements Extension
 {
     public function extend(Extensions $extensions): Extensions
@@ -334,6 +340,8 @@ final readonly class DefaultExtension implements Extension
                 UnwrapUcfirst::class,
                 UnwrapUcwords::class,
                 UnwrapWordwrap::class,
+                RemoveThrow::class,
+                PublicToProtected::class,
             ),
         );
     }

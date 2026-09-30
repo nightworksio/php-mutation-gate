@@ -1,6 +1,6 @@
 {
     "name": "nightworksio/mutation-gate-default",
-    "description": "The default mutator set of NightWorksIO's mutation gate: Pest's default set, written against the gate's mutator SDK.",
+    "description": "The default mutator set of NightWorksIO's mutation gate: Pest's default set and a mutator for each family it leaves out, written against the gate's mutator SDK.",
     "license": "MIT",
     "type": "library",
     "keywords": [

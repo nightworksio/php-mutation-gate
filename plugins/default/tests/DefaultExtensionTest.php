@@ -16,6 +16,6 @@ it('registers every mutator of the set under its name', function (): void {
         ->registered(ExtensionPoint::MutatorSet, DefaultSet::name());
     $mutators = $set instanceof MutatorSet ? iterator_to_array($set, preserve_keys: false) : [];
 
-    expect($mutators)->toHaveCount(159)
+    expect($mutators)->toHaveCount(161)
         ->and($mutators)->toContain(PlusToMinus::class, EmptyStringToNotEmpty::class);
 });
