@@ -143,26 +143,26 @@ jobs:
           INSTALLED="$(composer show nightworksio/mutation-gate --format=json 2>/dev/null | jq -r '.versions[0] // ""' || true)"
           export INSTALLED
           python3 "${GATE_ACTION}/.github/scripts/gate_action.py" resolve
-      - name: Check where the ledger is kept
-        id: store
-        if: inputs.cache
+      - name: Read the effective config
+        id: config
         env:
           GATE: ${{ steps.resolve.outputs.gate }}
           OPTIONS: ${{ steps.resolve.outputs.options }}
+          CACHE: ${{ inputs.cache }}
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
           "${GATE}" config:show --format=json "${arguments[@]}" \
-            | python3 "${GATE_ACTION}/.github/scripts/gate_action.py" store
+            | python3 "${GATE_ACTION}/.github/scripts/gate_action.py" config
       - name: Restore this scope's ledger
-        if: steps.store.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
+        if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.resolve.outputs.own_dir }}
           key: ${{ steps.resolve.outputs.own_prefix }}${{ github.run_id }}
           restore-keys: ${{ steps.resolve.outputs.own_prefix }}
       - name: Restore the default branch's ledger
-        if: steps.store.outputs.default_store == 'true' && steps.resolve.outputs.default_dir != ''
+        if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.default_dir != ''
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.resolve.outputs.default_dir }}
@@ -242,7 +242,9 @@ jobs:
         run: |
           set -euo pipefail
           find .mutation-gate/coverage -mindepth 1 -maxdepth 1 -type d ! -name "shard-${SHARD}" -exec rm -rf {} +
-      - uses: ./.mutation-gate-action
+      # The action as this workflow's own commit holds it, checked out above
+      # into the caller's workspace: `$/` would name the caller's repository.
+      - uses: ./.mutation-gate-action # zizmor: ignore[self-repository]
         with:
           config: ${{ inputs.config }}
           php-version: ${{ inputs.php-version }}
@@ -327,26 +329,26 @@ jobs:
           INSTALLED="$(composer show nightworksio/mutation-gate --format=json 2>/dev/null | jq -r '.versions[0] // ""' || true)"
           export INSTALLED
           python3 "${GATE_ACTION}/.github/scripts/gate_action.py" resolve
-      - name: Check where the ledger is kept
-        id: store
-        if: inputs.cache
+      - name: Read the effective config
+        id: config
         env:
           GATE: ${{ steps.resolve.outputs.gate }}
           OPTIONS: ${{ steps.resolve.outputs.options }}
+          CACHE: ${{ inputs.cache }}
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
           "${GATE}" config:show --format=json "${arguments[@]}" \
-            | python3 "${GATE_ACTION}/.github/scripts/gate_action.py" store
+            | python3 "${GATE_ACTION}/.github/scripts/gate_action.py" config
       - name: Restore this scope's ledger
-        if: steps.store.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
+        if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.resolve.outputs.own_dir }}
           key: ${{ steps.resolve.outputs.own_prefix }}${{ github.run_id }}
           restore-keys: ${{ steps.resolve.outputs.own_prefix }}
       - name: Restore the default branch's ledger
-        if: steps.store.outputs.default_store == 'true' && steps.resolve.outputs.default_dir != ''
+        if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.default_dir != ''
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.resolve.outputs.default_dir }}
@@ -387,7 +389,7 @@ jobs:
           echo "code=$?" >> "${GITHUB_OUTPUT}"
       - name: Save this scope's ledger
         if: >-
-          steps.resolve.outputs.save == 'true' && steps.store.outputs.default_store == 'true'
+          steps.resolve.outputs.save == 'true' && steps.config.outputs.default_store == 'true'
           && steps.verdict.outputs.code != ''
           && hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir)) != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

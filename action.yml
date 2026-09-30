@@ -103,21 +103,31 @@ runs:
 
     # ADR-0007: the Actions cache holds the directory store at its default path
     # and nothing else, so a config that keeps its ledger elsewhere runs uncached.
-    - name: Check where the ledger is kept
-      id: store
-      if: inputs.cache == 'true'
+    - name: Read the effective config
+      id: config
       shell: bash
       env:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.options }}
+        CACHE: ${{ inputs.cache }}
       run: |
         set -euo pipefail
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
         "${GATE}" config:show --format=json "${arguments[@]}" \
-          | python3 "${GITHUB_ACTION_PATH}/.github/scripts/gate_action.py" store
+          | python3 "${GITHUB_ACTION_PATH}/.github/scripts/gate_action.py" config
+
+    # ADR-0004: with pest.patch on, a mutation run refuses an unpatched
+    # pest-plugin-mutate. The action patches the vendor directory this job
+    # installed, so the project's Composer hook is for its runs elsewhere.
+    - name: Apply the optional Pest patches
+      if: steps.config.outputs.pest_patch == 'true'
+      shell: bash
+      env:
+        GATE: ${{ steps.resolve.outputs.gate }}
+      run: '"${GATE}" pest:patch'
 
     - name: Restore this scope's ledger
-      if: steps.store.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
+      if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.resolve.outputs.own_dir }}
@@ -125,7 +135,7 @@ runs:
         restore-keys: ${{ steps.resolve.outputs.own_prefix }}
 
     - name: Restore the default branch's ledger
-      if: steps.store.outputs.default_store == 'true' && steps.resolve.outputs.default_dir != ''
+      if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.default_dir != ''
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.resolve.outputs.default_dir }}
@@ -203,7 +213,7 @@ runs:
     - name: Save this scope's ledger
       if: >-
         inputs.shard == '' && steps.resolve.outputs.save == 'true'
-        && steps.store.outputs.default_store == 'true' && steps.verdict.outputs.code != ''
+        && steps.config.outputs.default_store == 'true' && steps.verdict.outputs.code != ''
         && hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir)) != ''
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:

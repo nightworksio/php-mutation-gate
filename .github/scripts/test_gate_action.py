@@ -130,6 +130,17 @@ class Installed(unittest.TestCase):
         )
 
 
+class PestPatch(unittest.TestCase):
+    def test_patches_where_the_config_runs_pest_with_the_patches_on(self):
+        self.assertTrue(action.patches_pest({"runner": "pest", "pest": {"patch": True, "canary": "mutation-canary"}}))
+
+    def test_leaves_pest_alone_where_the_patches_are_off_or_pest_does_not_run(self):
+        self.assertFalse(action.patches_pest({"runner": "pest", "pest": {"patch": False}}))
+        self.assertFalse(action.patches_pest({"runner": "pest"}))
+        self.assertFalse(action.patches_pest({"runner": "infection", "pest": {"patch": True}}))
+        self.assertFalse(action.patches_pest({}))
+
+
 class Outputs(unittest.TestCase):
     def test_reads_each_score_by_path(self):
         report = {
