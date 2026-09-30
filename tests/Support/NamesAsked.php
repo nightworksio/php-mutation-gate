@@ -89,13 +89,9 @@ final class NamesAsked implements Runner
         return $this->runner->mutate($request);
     }
 
-    public function retry(
-        Mutants $mutants,
-        Seconds $limit,
-        WholeSuite|Group|Filter $judgedBy,
-        Withheld $withheld,
-    ): Mutants|CannotJudge {
-        return $this->runner->retry($mutants, $limit, $judgedBy, $withheld);
+    public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge
+    {
+        return $this->runner->retry($request, $mutants, $limit);
     }
 
     public function reproduce(

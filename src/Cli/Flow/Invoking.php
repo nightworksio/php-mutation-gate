@@ -84,10 +84,9 @@ final readonly class Invoking
         $fitting = $this->fitting(count($taken), $limit);
         $left = $this->unjudged(array_slice($taken, $fitting), OutOfTime::BeforeRetrying);
         $again = $fitting === 0 ? Mutants::none() : $this->adapters->runner->retry(
+            $request,
             Mutants::of(...array_slice($taken, 0, $fitting)),
             $limit,
-            $request->judgedBy(),
-            $request->withheld(),
         );
 
         return $again instanceof CannotJudge ? $again : $this->replaced($mutants, Mutants::of(...$again, ...$left));
@@ -165,10 +164,9 @@ final readonly class Invoking
         $fitting = $this->fitting(count($survivors), $this->settings->triage()->limit());
         $left = $this->unjudged(array_slice($survivors, $fitting), OutOfTime::BeforeConfirming);
         $again = $fitting === 0 ? Mutants::none() : $this->adapters->runner->retry(
+            $request,
             Mutants::of(...array_slice($survivors, 0, $fitting)),
             $this->settings->triage()->limit(),
-            $request->judgedBy(),
-            $request->withheld(),
         );
 
         return $again instanceof CannotJudge

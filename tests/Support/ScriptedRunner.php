@@ -48,7 +48,7 @@ final class ScriptedRunner implements Runner
     /** @var list<MutationRequest> */
     private array $requests = [];
 
-    /** @var list<array{Mutants, Seconds, WholeSuite|Group|Filter, Withheld}> */
+    /** @var list<array{Mutants, Seconds, WholeSuite|Group|Filter, Withheld, MutationRequest}> */
     private array $retries = [];
 
     /** @var list<array{Reproducible, WholeSuite|Group|Filter, Seconds, Withheld}> */
@@ -296,13 +296,9 @@ final class ScriptedRunner implements Runner
         return $this->mutating instanceof RunnerFake ? $this->mutating->mutate($request) : $this->mutating;
     }
 
-    public function retry(
-        Mutants $mutants,
-        Seconds $limit,
-        WholeSuite|Group|Filter $judgedBy,
-        Withheld $withheld,
-    ): Mutants|CannotJudge {
-        $this->retries[] = [$mutants, $limit, $judgedBy, $withheld];
+    public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge
+    {
+        $this->retries[] = [$mutants, $limit, $request->judgedBy(), $request->withheld(), $request];
 
         if ($this->retrying instanceof CannotJudge) {
             return $this->retrying;

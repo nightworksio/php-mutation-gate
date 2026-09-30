@@ -468,7 +468,7 @@ it('cannot open a shard on the canary group without the planning job\'s map', fu
     )));
 });
 
-it('runs the mutants again in one run of their files with their mutators, with no deadline, matched back by id', function (): void {
+it('runs the mutants again in one run of their files with their mutators, naming each to a patched plugin, matched back by id', function (): void {
     $at = adapterProject();
     $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
     $survivor = adapterMutant();
@@ -484,40 +484,67 @@ it('runs the mutants again in one run of their files with their mutators, with n
         MutantStatus::Survived,
         Unmeasured::duration(),
     );
-    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')), WholeSuite::tests())
-        ->onlyMutators(Mutators::named(RUN_PLUS));
+    $invocation = MutationRequest::of(Paths::of(Path::of('src'), Path::of('lib')), WholeSuite::tests())
+        ->leavingOut(Paths::of(Path::of('src/Held')))
+        ->onlyMutators(Mutators::all());
+    $request = $invocation->narrowedTo(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')), Mutators::named(RUN_PLUS));
     $retried = new Pest($at, $shell, Patching::off())
-        ->retry(Mutants::of($survivor, $gone, $elsewhere), Seconds::of(20.0), WholeSuite::tests(), Withheld::standard());
+        ->retry($invocation, Mutants::of($survivor, $gone, $elsewhere), Seconds::of(20.0));
     $notFound = Reason::that('Run again alone, Pest made no mutant with this id.');
 
     expect($retried)->toEqual(Mutants::of(
         $survivor,
         Mutant::of($id, 'n9', $place, $change, MutantStatus::Unjudged, Unmeasured::duration())->because($notFound),
         Interpretation::unjudged($elsewhere, $notFound),
-    ))->and($shell->commands())->toEqual([adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))])
-        ->and(new Pest($at, $shell, Patching::off())->retry(Mutants::none(), Seconds::of(20.0), WholeSuite::tests(), Withheld::standard()))
+    ))->and($shell->commands())->toEqual([
+        adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))->with(['MUTATION_GATE_ONLY' => 'n1,n9,n8']),
+    ])
+        ->and(new Pest($at, $shell, Patching::off())->retry($invocation, Mutants::none(), Seconds::of(20.0)))
         ->toEqual(Mutants::none());
+});
+
+it('runs mutants again on the canary group, reading the map the planning job handed the invocation', function (): void {
+    $at = adapterPatched();
+    $written = sprintf('%s/shared.coverage.php', dirname(adapterResults($at)));
+    $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
+        ? Ran::finished(succeeded: true, output: RUN_LISTING)
+        : adapterKilled($command, $at));
+    $invocation = adapterMoney()->reusingCoverage(Path::of('planned'));
+
+    $retried = new Pest($at, $shell, adapterCanary())->retry($invocation, Mutants::of(adapterMutant()), Seconds::of(20.0));
+
+    expect($retried)->toEqual(Mutants::of(adapterMutant()))
+        ->and($shell->commands()[1] ?? null)->toEqual(adapterInvocation()->mutation(
+            $invocation->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named(RUN_PLUS)),
+            WholeSuite::tests(),
+            adapterResults($at),
+        )->with([
+            'MUTATION_GATE_SHARED_COVERAGE' => $written,
+            'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
+            'MUTATION_GATE_CANARY' => 'mutation-canary',
+            'MUTATION_GATE_ONLY' => 'n1',
+        ]));
 });
 
 it('runs a held unit\'s mutant again by the group that holds it, withholding what it is told to', function (): void {
     $at = adapterProject();
     $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
     $holding = Group::named('holds:src/Money.php');
-    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $holding)
-        ->onlyMutators(Mutators::named(RUN_PLUS))
-        ->withholding(Withheld::of('DEPLOY_*'));
+    $invocation = MutationRequest::of(Paths::of(Path::of('src')), $holding)->withholding(Withheld::of('DEPLOY_*'));
+    $request = $invocation->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named(RUN_PLUS));
 
-    new Pest($at, $shell, Patching::off())
-        ->retry(Mutants::of(adapterMutant()), Seconds::of(20.0), $holding, Withheld::of('DEPLOY_*'));
+    new Pest($at, $shell, Patching::off())->retry($invocation, Mutants::of(adapterMutant()), Seconds::of(20.0));
 
-    expect($shell->commands())->toEqual([adapterInvocation()->mutation($request, $holding, adapterResults($at))]);
+    expect($shell->commands())->toEqual([
+        adapterInvocation()->mutation($request, $holding, adapterResults($at))->with(['MUTATION_GATE_ONLY' => 'n1']),
+    ]);
 });
 
 it('cannot judge a retry whose run failed', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
 
     $retried = new Pest(adapterProject(), $shell, Patching::off())
-        ->retry(Mutants::of(adapterMutant()), Seconds::of(20.0), WholeSuite::tests(), Withheld::standard());
+        ->retry(adapterMoney(), Mutants::of(adapterMutant()), Seconds::of(20.0));
 
     expect($retried)->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
 });

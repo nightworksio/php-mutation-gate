@@ -31,4 +31,7 @@ enum GateVariable: string
 
     /** The directory the plugin reads each mutant's order from. */
     case Order = 'MUTATION_GATE_ORDER';
+
+    /** The native ids of the only mutants a patched run again makes, comma-separated. */
+    case Only = 'MUTATION_GATE_ONLY';
 }

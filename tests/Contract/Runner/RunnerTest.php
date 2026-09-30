@@ -181,7 +181,7 @@ it('runs a survivor again alone and matches it back by the gate\'s id', function
         $survivors = $mutant->status() === MutantStatus::Survived ? $survivors->with($mutant) : $survivors;
     }
 
-    $retried = $library->runner()->retry($survivors, Seconds::of(60.0), WholeSuite::tests(), Withheld::standard());
+    $retried = $library->runner()->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $survivors, Seconds::of(60.0));
 
     expect(count($survivors))->toBe(1)
         ->and($retried instanceof Mutants ? Library::records($retried) : [])->toBe(Library::records($survivors));
@@ -236,7 +236,7 @@ it('retries a mutant by the tests that judged its unit', function (Library $libr
         $survivors = $mutant->status() === MutantStatus::Survived ? $survivors->with($mutant) : $survivors;
     }
 
-    $retried = $library->runner()->retry($survivors, Seconds::of(60.0), Group::named('holds:src/Held.php'), Withheld::standard());
+    $retried = $library->runner()->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Held.php')), $survivors, Seconds::of(60.0));
     $statuses = [];
 
     foreach ($retried instanceof Mutants ? $retried : Mutants::none() as $mutant) {
@@ -424,7 +424,7 @@ it('reports a mutant Infection skips, allowed the cap, and judges it when run ag
         static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0,
         iterator_to_array($skipped, preserve_keys: false),
     );
-    $again = $library->runner()->retry($skipped, Seconds::of(3.0), WholeSuite::tests(), Withheld::standard());
+    $again = $library->runner()->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $skipped, Seconds::of(3.0));
     $statuses = static fn(Mutants $mutants): array => array_map(
         static fn(Mutant $mutant): string => $mutant->status()->value,
         iterator_to_array($mutants, preserve_keys: false),
@@ -445,7 +445,7 @@ it('allows a mutant Infection times out five seconds and five times its tests\' 
         static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0,
         iterator_to_array($timedOut, preserve_keys: false),
     );
-    $again = $library->runner()->retry($timedOut, Seconds::of(20.0), WholeSuite::tests(), Withheld::standard());
+    $again = $library->runner()->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $timedOut, Seconds::of(20.0));
 
     expect(Library::records($timedOut))->toBe($library->expected('drains'))
         ->and($limits[0] ?? 0.0)->toBeGreaterThan(5.0)->toBeLessThan(6.0)
@@ -488,6 +488,36 @@ it('opens a patched shard on the canary group and reads the map the planning job
         ->and($map)->toBeInstanceOf(CoverageMap::class)
         ->and($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
         ->toEqualCanonicalizing($library->expected('adds', 'large'));
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+it('runs again, patched, only the mutants it names, on the map the invocation read', function (): void {
+    Patch::applyIn(Library::vendor());
+    $library = Library::pest(Patching::on(Library::canary()));
+    $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned')));
+    file_put_contents(
+        Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in(Path::of('.mutation-gate/planned'))->value())),
+        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty()),
+    );
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->onlyMutators($library->mutators('adds', 'large'))
+        ->reusingCoverage(Path::of('.mutation-gate/planned'));
+    $result = $library->mutate('shared', $request);
+    $survivors = Mutants::none();
+    $killed = Mutants::none();
+
+    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
+        $survivors = $mutant->status() === MutantStatus::Survived ? $survivors->with($mutant) : $survivors;
+        $killed = $mutant->status() === MutantStatus::Killed ? $killed->with($mutant) : $killed;
+    }
+
+    $again = $library->runner()->retry($request, $survivors, Seconds::of(60.0));
+    // The run again recorded what it made: the survivor, and not the mutant the first run killed.
+    $recorded = (string) file_get_contents(Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl', Library::DIRECTORY)));
+
+    expect([count($survivors), count($killed)])->toBe([1, 1])
+        ->and($again instanceof Mutants ? Library::records($again) : $again)->toBe(Library::records($survivors))
+        ->and(array_map(static fn(Mutant $mutant): bool => str_contains($recorded, $mutant->nativeId()), [...$survivors, ...$killed]))
+        ->toBe([true, false]);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 // composer.json allows pest-plugin-mutate 5.0.2 alone. 5.0.1 reads each line's
