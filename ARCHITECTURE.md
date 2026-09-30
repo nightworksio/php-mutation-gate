@@ -67,7 +67,7 @@ these differently.
 | **A5** | Attribute names nothing but PHP, and nothing else under `src` names it but the Pest plugin's filter, which reads `#[Holds]` from test closures (ADR-0004) | arch: every class name each file under `src` writes |
 | **A6** | Nothing under `src` names a plugin (ADR-0021) | arch: every class name each file under `src` writes |
 | **A7** | A plugin names only PHP, php-parser, the Mutator layer, `Extension\Extension`, `Extension\Extensions` and the core values the public API's signatures reach, and never another plugin (ADR-0021) | arch: every class name each file under `plugins/*/src` and `plugins/*/tests` writes |
-| **A8** | Each plugin's `composer.json` validates and is normalized on its own, names the plugin `nightworksio/mutation-gate-<directory>`, maps its namespaces, lists an extension the root lists too, and requires the gate, php-parser and every package its code names (ADR-0021) | arch: each plugin's manifest and every class name its `src` writes; ci: `composer validate` and `composer normalize` over each plugin's manifest |
+| **A8** | Each plugin's `composer.json` validates and is normalized on its own, names the plugin `nightworksio/mutation-gate-<directory>`, maps its namespaces, lists an extension the root lists too, and requires the gate, php-parser and every package its code names; its package is listed in `Core\Registry\FirstPartyPackage` (ADR-0021, ADR-0023) | arch: each plugin's manifest and every class name its `src` writes; ci: `composer validate` and `composer normalize` over each plugin's manifest |
 
 ## B — input and output
 

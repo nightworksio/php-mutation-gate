@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Registry\FirstPartyPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
@@ -50,7 +51,7 @@ it('registers what the root and every installed package declare', function () us
         ->and($runs($registry, 'pest'))->toBeTrue();
 });
 
-it('registers only this package\'s own extension when asked to', function () use ($discovery, $manifest, $runs): void {
+it('registers only the first-party packages\' extensions when asked to', function () use ($discovery, $manifest, $runs): void {
     $registry = $discovery($manifest(FirstParty::PACKAGE, [FirstParty::class]), [$manifest('acme/one', [ExtensionFake::class])])->extensions(firstPartyOnly: true);
 
     expect($registry)->toBeInstanceOf(Extensions::class)
@@ -64,11 +65,22 @@ it('registers this package\'s own extension when it is installed as a dependency
     expect($runs($registry, 'pest'))->toBeTrue();
 });
 
-it('takes no other class as this package\'s own, whatever package its manifest says it is', function () use ($discovery, $manifest, $runs): void {
-    $registry = $discovery($manifest('acme/app', []), [$manifest(FirstParty::PACKAGE, [ExtensionFake::class])])->extensions(firstPartyOnly: true);
+it('registers every extension a first-party plugin declares when asked for the first party alone', function () use ($discovery, $manifest, $runs): void {
+    $registry = $discovery($manifest('acme/app', []), [
+        $manifest(FirstParty::PACKAGE, [FirstParty::class]),
+        $manifest(FirstPartyPackage::DefaultSet->value, [ExtensionFake::class]),
+    ])->extensions(firstPartyOnly: true);
+
+    expect($runs($registry, 'fake'))->toBeTrue()
+        ->and($runs($registry, 'pest'))->toBeTrue();
+});
+
+it('takes no package as first party by an extension class it names, only by its own name', function () use ($discovery, $manifest, $runs): void {
+    $registry = $discovery($manifest('acme/app', []), [$manifest('acme/one', [FirstParty::class, ExtensionFake::class])])->extensions(firstPartyOnly: true);
 
     expect($registry)->toBeInstanceOf(Extensions::class)
-        ->and($runs($registry, 'fake'))->toBeFalse();
+        ->and($runs($registry, 'fake'))->toBeFalse()
+        ->and($runs($registry, 'pest'))->toBeFalse();
 });
 
 it('registers nothing where there is no manifest', function () use ($runs): void {

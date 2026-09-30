@@ -68,7 +68,7 @@ final readonly class Console
         $definition->addOption(new InputOption(
             'no-extensions',
             mode: InputOption::VALUE_NONE,
-            description: 'Load this package\'s own extension and no other',
+            description: 'Load the extensions of this package and its first-party plugins, and no third-party code',
         ));
         $definition->addOption(new InputOption(
             'config',
