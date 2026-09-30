@@ -184,3 +184,16 @@ it('writes every other setting in one call to with', function () use ($php): voi
                 );
             PHP);
 });
+
+it('writes a report that writes no file with uses, and one that writes a file with writing', function () use ($php): void {
+    expect($php(['runner' => 'pest', 'reports' => [
+        ['use' => 'sarif', 'path' => 'build/m.sarif'],
+        ['use' => 'acme', 'with' => ['channel' => '#ci']],
+        ['use' => 'acme', 'path' => 'build/a.txt', 'with' => ['channel' => '#ci']],
+        ['use' => 'acme', 'path' => 'build/b.txt'],
+    ]]))
+        ->toContain("Report::sarif('build/m.sarif'),")
+        ->toContain("Report::uses('acme', Option::of('channel', '#ci')),")
+        ->toContain("Report::writing('acme', 'build/a.txt', Option::of('channel', '#ci')),")
+        ->toContain("Report::writing('acme', 'build/b.txt'),");
+});
