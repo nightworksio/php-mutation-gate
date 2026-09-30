@@ -111,3 +111,10 @@ it('reads every #[Holds] it writes, on closures as well as on classes and method
         ->with(HoldsAttribute::at(Standing::TestClosure, HeldPath::literal('src/Http'), 7)))
         ->and(PhpFile::read(Contents::of($test))->holdings())->toEqual(Holdings::none());
 });
+
+it('reads no #[Holds] from a file that never spells the name, and reads one written in another case', function (): void {
+    $upper = "<?php\n\nuse NightWorksIO\\MutationGate\\Attribute\\HOLDS;\n\n#[HOLDS('src/Kernel.php')]\nfinal class KernelTest {}\n";
+
+    expect(PhpFile::read(Contents::of("<?php\n\n#[Group('fast')]\nfinal class KernelTest {}\n"))->holds())->toEqual(HoldsAttributes::none())
+        ->and(PhpFile::read(Contents::of($upper))->holds())->not->toEqual(HoldsAttributes::none());
+});

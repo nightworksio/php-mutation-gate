@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-use function array_filter;
+use function array_keys;
 use function array_map;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Hold\HoldsAttributes;
 use PhpToken;
+
+use function strval;
 
 /**
  * What a PHP file declares, the names it mentions, whether loading it runs
@@ -30,10 +31,14 @@ final readonly class PhpFile
 
     public static function read(Contents $contents): self
     {
-        $tokens = array_filter(
-            PhpToken::tokenize($contents->text()),
-            static fn(PhpToken $token): bool => ! $token->isIgnorable() && ! $token->is(T_CLOSE_TAG),
-        );
+        $tokens = [];
+
+        foreach (PhpToken::tokenize($contents->text()) as $token) {
+            if (! $token->isIgnorable() && ! $token->is(T_CLOSE_TAG)) {
+                $tokens[] = $token;
+            }
+        }
+
         $top = TopLevel::of($tokens);
         $scope = $top->scope();
 
@@ -41,7 +46,7 @@ final readonly class PhpFile
             Names::of(...array_map($scope->declared(...), $top->declared())),
             self::mentionedIn($tokens, $scope),
             $top->onlyDeclares(),
-            HoldsReader::in(Tokens::of(array_values($tokens)), $scope),
+            HoldsReader::mayHold($contents) ? HoldsReader::in(Tokens::of($tokens), $scope) : HoldsAttributes::none(),
         );
     }
 
@@ -81,15 +86,25 @@ final readonly class PhpFile
         return $this->holds;
     }
 
-    /** @param array<PhpToken> $tokens */
+    /**
+     * Every name the tokens spell, each spelling resolved once.
+     *
+     * @param list<PhpToken> $tokens
+     */
     private static function mentionedIn(array $tokens, Scope $scope): Names
     {
-        $names = [];
+        $spelt = [];
 
         foreach ($tokens as $token) {
             if ($token->is(Names::TOKENS)) {
-                $names[] = $scope->resolve($token->text);
+                $spelt[$token->text] = true;
             }
+        }
+
+        $names = [];
+
+        foreach (array_keys($spelt) as $name) {
+            $names[] = $scope->resolve(strval($name));
         }
 
         return Names::of()->merge(...$names);

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Hold\HeldPath;
 use NightWorksIO\MutationGate\Core\Hold\HoldsAttribute;
 use NightWorksIO\MutationGate\Core\Hold\HoldsAttributes;
@@ -255,3 +256,11 @@ it('reads a file that ends inside an attribute or a declaration', function () us
         ->and($read('<?php class'))->toEqual(HoldsAttributes::none())
         ->and($read("<?php\nclass Kernel {}"))->toEqual(HoldsAttributes::none());
 });
+
+it('says a file may write a #[Holds] only where it spells the name, in any case', function (string $code, bool $may): void {
+    expect(HoldsReader::mayHold(Contents::of($code)))->toBe($may);
+})->with([
+    'the attribute imported' => ["<?php\nuse NightWorksIO\\MutationGate\\Attribute\\Holds as Kept;\n", true],
+    'the attribute in lower case' => ["<?php\n#[\\nightworksio\\mutationgate\\attribute\\HOLDS('src')]\nfunction f() {}\n", true],
+    'no attribute of that name' => ["<?php\n#[Group('fast')]\nfunction f() {}\n", false],
+]);
