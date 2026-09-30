@@ -360,6 +360,41 @@
                 "additionalProperties": false
             }
         },
+        "matrix": {
+            "enum": [
+                "first-killer",
+                "full"
+            ]
+        },
+        "tests": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "file": {
+                        "type": "string"
+                    },
+                    "row": {
+                        "type": "string"
+                    },
+                    "seconds": {
+                        "type": "number",
+                        "minimum": 0
+                    }
+                },
+                "required": [
+                    "id",
+                    "name"
+                ],
+                "additionalProperties": false
+            }
+        },
         "mutants": {
             "type": "array",
             "items": {
@@ -441,6 +476,20 @@
                             "type": "string"
                         }
                     },
+                    "coveredBy": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    "killedBy": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
                     "hint": {
                         "type": "string"
                     },
@@ -470,6 +519,8 @@
                     "judgement",
                     "changedLine",
                     "tests",
+                    "coveredBy",
+                    "killedBy",
                     "hint",
                     "reproduce",
                     "explain"
@@ -504,6 +555,8 @@
         "counts",
         "trees",
         "newCode",
+        "matrix",
+        "tests",
         "mutants",
         "reach",
         "warnings",

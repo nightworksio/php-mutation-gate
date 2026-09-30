@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 
 use function count;
 
+use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 
 /**
@@ -22,6 +23,7 @@ final readonly class Verdict
         private Warnings $warnings,
         private Failures $failures,
         private bool $cutShort,
+        private KillMatrix $matrix,
     ) {
     }
 
@@ -35,6 +37,7 @@ final readonly class Verdict
             Warnings::none(),
             Failures::none(),
             cutShort: false,
+            matrix: KillMatrix::none(),
         );
     }
 
@@ -58,6 +61,12 @@ final readonly class Verdict
     public function withFailures(Failures $failures): self
     {
         return clone($this, ['failures' => $failures]);
+    }
+
+    /** This verdict, with which tests cover each of its mutants and what each did with it in place (ADR-0014). */
+    public function withMatrix(KillMatrix $matrix): self
+    {
+        return clone($this, ['matrix' => $matrix]);
     }
 
     /** This verdict, from a run a budget or a deadline stopped before it judged every mutant. */
@@ -105,6 +114,12 @@ final readonly class Verdict
     public function reach(): Reasons
     {
         return $this->reach;
+    }
+
+    /** The kill matrix; one of first killers that knows only each record's killers where the run gave none. */
+    public function matrix(): KillMatrix
+    {
+        return $this->matrix;
     }
 
     public function warnings(): Warnings

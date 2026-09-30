@@ -24,7 +24,30 @@ $sources = static fn(): array => ['src/Money.php' => Contents::of(Verdicts::MONE
 
 it('writes a report the mutation-testing-report-schema accepts', function (string $verdict) use ($sources): void {
     expect(Schema::errors(Stryker::json(Verdicts::named($verdict), $sources()), Schema::at('tests/Fixtures/mutation-testing-report-schema.json')))->toBe([]);
-})->with(['failing', 'passing', 'empty']);
+})->with(['failing', 'passing', 'empty', 'with a matrix']);
+
+it('fills the viewer\'s test view: the tests by file, and those that cover, killed and ran for each mutant', function () use ($sources): void {
+    $report = Stryker::json(Verdicts::named('with a matrix'), $sources());
+    $mutant = static fn(int $at): mixed => Decoded::at($report, 'files', 'src/Money.php', 'mutants', $at);
+
+    expect(Decoded::at($report, 'testFiles'))->toBe([
+        'tests/Unit/MoneyTest.php' => ['tests' => [
+            ['id' => 'MoneyTest::fits', 'name' => 'it fits'],
+            ['id' => 'MoneyTest::refuses', 'name' => 'it fits with data set "over"'],
+        ]],
+        'PriceTest' => ['tests' => [['id' => 'PriceTest::adds', 'name' => 'PriceTest::adds']]],
+    ])
+        ->and($mutant(0))->toMatchArray([
+            'coveredBy' => ['MoneyTest::fits', 'MoneyTest::refuses', 'PriceTest::adds'],
+            'killedBy' => [],
+            'testsCompleted' => 3,
+        ])
+        ->and($mutant(1))->toMatchArray(['coveredBy' => ['MoneyTest::fits', 'PriceTest::adds'], 'killedBy' => ['MoneyTest::fits'], 'testsCompleted' => 1]);
+});
+
+it('writes no test file where no mutant names a test', function () use ($sources): void {
+    expect(Stryker::json(Verdicts::passing(), $sources()))->toContain('"testFiles": {}');
+});
 
 it('writes each mutated file with its source and its mutants', function () use ($sources): void {
     $report = Stryker::json(Verdicts::failing(), $sources());
@@ -61,6 +84,9 @@ it('writes a mutant at its columns, with its judgement, and its tests, hint and 
             sprintf('Reproduce: vendor/bin/mutation-gate reproduce %s', $id),
             sprintf('Explain: vendor/bin/mutation-gate explain %s', $id),
         ]),
+        'coveredBy' => [],
+        'killedBy' => [],
+        'testsCompleted' => 0,
     ]);
 });
 

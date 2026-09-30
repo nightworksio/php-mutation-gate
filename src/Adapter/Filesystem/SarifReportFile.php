@@ -45,7 +45,7 @@ final readonly class SarifReportFile implements Configurable, Reporter
     /** From its entry's `path`; in a run with `CI` unset, rooted at the directory the run started in. */
     public static function fromOptions(Options $options): self|Invalid
     {
-        $path = ReportPath::from($options, '', 'The SARIF report is written to a file, whose `path` the entry names.');
+        $path = ReportPath::ofFile($options, 'The SARIF report');
         $here = getenv('CI') === false || getenv('CI') === '' ? getcwd() : false;
 
         return match (true) {

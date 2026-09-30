@@ -48,3 +48,20 @@ it('reads nothing where there is no file, and says why it could not write one', 
     expect(ReportPath::at(sprintf('%s/none.json', $root))->read())->toBe('')
         ->and($blocked->write('<html>'))->toEqual(NotWritten::because(sprintf('%s/taken/index.html could not be written.', $root)));
 });
+
+it('asks an entry for the file a report is written to', function (): void {
+    expect(ReportPath::ofFile(Options::ofJson('{"path": "build/matrix.csv"}'), 'The kill matrix'))->toEqual(ReportPath::at('build/matrix.csv'))
+        ->and(ReportPath::ofFile(Options::none(), 'The kill matrix'))
+        ->toEqual(Invalid::because(Problem::at('path', 'The kill matrix is written to a file, whose `path` the entry names.')));
+});
+
+it('streams a file piece by piece, and says why it could not', function (): void {
+    $root = Scratch::directory();
+    $path = ReportPath::at(sprintf('%s/build/matrix.csv', $root));
+    Scratch::write($root, 'taken/matrix.csv/file', 'a directory in the way');
+
+    expect($path->stream(['a,b', "\r\n"]))->toEqual(Written::to($path->value()))
+        ->and($path->read())->toBe("a,b\r\n")
+        ->and(ReportPath::at(sprintf('%s/taken/matrix.csv', $root))->stream(['x']))
+        ->toEqual(NotWritten::because(sprintf('%s/taken/matrix.csv could not be written.', $root)));
+});

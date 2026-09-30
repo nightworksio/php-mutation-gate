@@ -19,8 +19,6 @@ use NightWorksIO\MutationGate\Port\Reporter;
  */
 final readonly class CodeQualityReportFile implements Configurable, Reporter
 {
-    private const string NO_PATH = 'The GitLab Code Quality report is written to a file, whose `path` the entry names.';
-
     private function __construct(private ReportPath $path)
     {
     }
@@ -32,7 +30,7 @@ final readonly class CodeQualityReportFile implements Configurable, Reporter
 
     public static function fromOptions(Options $options): self|Invalid
     {
-        $path = ReportPath::from($options, '', self::NO_PATH);
+        $path = ReportPath::ofFile($options, 'The GitLab Code Quality report');
 
         return $path instanceof Invalid ? $path : new self($path);
     }

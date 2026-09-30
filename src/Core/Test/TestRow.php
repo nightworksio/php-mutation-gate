@@ -34,9 +34,15 @@ final readonly class TestRow
         return $this->row;
     }
 
+    /** The test's description with the row's, as `it adds with data set "one"`. */
+    public function description(): string
+    {
+        return sprintf('%s with data set %s', $this->test->description(), $this->row);
+    }
+
     /** `tests/Unit/MoneyTest.php::it adds with data set "one"`. */
     public function value(): string
     {
-        return sprintf('%s with data set %s', $this->test->value(), $this->row);
+        return sprintf('%s::%s', $this->test->file()->value(), $this->description());
     }
 }

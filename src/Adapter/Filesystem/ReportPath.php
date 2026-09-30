@@ -29,6 +29,8 @@ final readonly class ReportPath
 {
     private const string KEY = 'path';
 
+    private const string NO_FILE = '%s is written to a file, whose `path` the entry names.';
+
     private function __construct(private string $path)
     {
     }
@@ -36,6 +38,12 @@ final readonly class ReportPath
     public static function at(string $path): self
     {
         return new self($path);
+    }
+
+    /** The file an entry for this report must name; where it names none, why the entry is invalid. */
+    public static function ofFile(Options $options, string $report): self|Invalid
+    {
+        return self::from($options, '', sprintf(self::NO_FILE, $report));
     }
 
     /** The path an entry names, or the path it may leave out; with neither, why the entry is invalid. */
@@ -67,6 +75,18 @@ final readonly class ReportPath
     public function write(string $text): Written|NotWritten
     {
         $written = Directory::at(dirname($this->path))->write(Path::of(basename($this->path)), Contents::of($text));
+
+        return $written instanceof CannotJudge ? NotWritten::because($written->why()) : $written;
+    }
+
+    /**
+     * Write the file at this path piece by piece, creating the directories it needs, saying where or why not.
+     *
+     * @param iterable<string> $pieces
+     */
+    public function stream(iterable $pieces): Written|NotWritten
+    {
+        $written = Directory::at(dirname($this->path))->stream(Path::of(basename($this->path)), $pieces);
 
         return $written instanceof CannotJudge ? NotWritten::because($written->why()) : $written;
     }

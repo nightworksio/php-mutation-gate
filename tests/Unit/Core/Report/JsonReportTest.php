@@ -37,7 +37,29 @@ it('writes everything in the verdict, and what the committed schema describes', 
     $json = JsonReport::encode(Verdicts::named($verdict));
 
     expect(Schema::errors($json, Schema::at('resources/report.schema.json')))->toBe([]);
-})->with(['failing', 'passing', 'empty']);
+})->with(['failing', 'passing', 'empty', 'with a matrix']);
+
+it('lists the tests once, and points each mutant at those that cover and killed it', function (): void {
+    $report = JsonReport::encode(Verdicts::named('with a matrix'));
+
+    expect(Decoded::at($report, 'matrix'))->toBe('first-killer')
+        ->and(Decoded::at($report, 'tests'))->toBe([
+            ['id' => 'MoneyTest::fits', 'name' => 'tests/Unit/MoneyTest.php::it fits', 'file' => 'tests/Unit/MoneyTest.php', 'seconds' => 0.25],
+            ['id' => 'MoneyTest::refuses', 'name' => 'tests/Unit/MoneyTest.php::it fits with data set "over"', 'file' => 'tests/Unit/MoneyTest.php', 'row' => '"over"'],
+            ['id' => 'PriceTest::adds', 'name' => 'PriceTest::adds'],
+        ])
+        ->and(Decoded::at($report, 'mutants', 0))->toMatchArray(['coveredBy' => [0, 1, 2], 'killedBy' => []])
+        ->and(Decoded::at($report, 'mutants', 1))->toMatchArray(['coveredBy' => [0, 2], 'killedBy' => [0]])
+        ->and(Decoded::at($report, 'mutants', 2))->toMatchArray(['coveredBy' => [], 'killedBy' => []]);
+});
+
+it('knows the killers each record names where the run gave no matrix', function (): void {
+    $report = JsonReport::encode(Verdicts::failing());
+
+    expect(Decoded::at($report, 'matrix'))->toBe('first-killer')
+        ->and(Decoded::at($report, 'tests'))->toBe([['id' => 'MoneyTest::fits', 'name' => 'MoneyTest::fits']])
+        ->and(Decoded::at($report, 'mutants', 1))->toMatchArray(['coveredBy' => [0], 'killedBy' => [0]]);
+});
 
 it('writes the verdict, the project and each tree', function (): void {
     $report = JsonReport::encode(Verdicts::failing());
@@ -110,6 +132,8 @@ it('writes every mutant once, with its judgement, tests, hint, and reproduce and
             'judgement' => 'survived',
             'changedLine' => true,
             'tests' => ['MoneyTest::fits', 'MoneyTest::refuses', 'PriceTest::adds', 'CartTest::totals'],
+            'coveredBy' => [],
+            'killedBy' => [],
             'hint' => $survivor->hint()->text(),
             'reproduce' => sprintf('vendor/bin/mutation-gate reproduce %s', $id),
             'explain' => sprintf('vendor/bin/mutation-gate explain %s', $id),

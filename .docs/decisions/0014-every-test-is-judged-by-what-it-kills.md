@@ -129,12 +129,24 @@ running it: why is this mutant here, and has it always been?
      and covering test, streamed:
      `mutant,file,line,mutator,status,source,test,outcome,matrix`. `source`
      is `run`, `proved` or `carried`. `matrix` is `first-killer` or `full`.
+     `status` is the gate's judgement, as the JSON report's `judgement`
+     spells it, and `test` is the test's name, or its coverage id where the
+     runner names it nothing. Records follow RFC 4180, ending in CRLF. A
+     cell a spreadsheet would read as a formula, one starting with `=`, `+`,
+     `-`, `@`, a tab or a carriage return, is written after a `'`.
    - **JSON.** The `json` report lists the tests once, in a `tests` table,
      and gives each mutant `coveredBy` and `killedBy` as indices into it, and
-     the matrix kind at the top.
+     the matrix kind at the top, as `matrix`. Each entry of `tests` has the
+     coverage `id` and the `name`, and, where known, the test's `file`, its
+     data set `row` and the `seconds` the coverage run measured. The table
+     lists the tests in the order the mutants first name them.
    - **HTML.** The `html` report fills Stryker's `coveredBy`, `killedBy`,
      `testsCompleted` and `testFiles`, so the viewer's test view shows which
-     tests kill, which only cover, and which cover nothing.
+     tests kill, which only cover, and which cover nothing. A test's viewer
+     id is its coverage id. `testFiles` groups the tests by file, or by the
+     class the id names where the runner names the test nothing.
+     `testsCompleted` counts the covering tests whose outcome is `killed` or
+     `passed`.
 
 10. **A cell says exactly what is known.** Its outcome is one of these:
     - `killed`: the test failed with the mutant in place;
@@ -144,6 +156,11 @@ running it: why is this mutant here, and has it always been?
       covering test but the first killer under an ordinary run;
     - `unknown`: a timeout's tests, a flaky mutant's tests, and a carried
       unit's tests where the coverage map has moved since its proof.
+
+    A killed mutant whose killer is unknown, such as one an error killed
+    before any test failed, has every cell `unknown`. A mutant the run never
+    ran, one unjudged, skipped or ignored by a native marker, has every cell
+    `not-run`. Every killer a record names is also a covering test.
 
 11. **Every mutant in the verdict is exported, run, proved or carried.**
     `coveredBy` comes from the run's coverage map for run and proved units,
