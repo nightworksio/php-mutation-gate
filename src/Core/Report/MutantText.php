@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_map;
+use function count;
 use function explode;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 
 use function rtrim;
@@ -17,11 +19,13 @@ use function sprintf;
 /**
  * One mutant as plain text, the same in the console and in a JUnit failure:
  * where it is, its mutator, how it was judged and its id; then its diff, why
- * it stands as it does, the tests that judge it, what they miss, the
+ * it stands as it does, the tests that judge it by name, what they miss, the
  * command that reproduces it and the one that explains it.
  */
 final readonly class MutantText
 {
+    /** The line naming the tests that judge a mutant. */
+    public const string JUDGED_BY = 'Judged by: %s';
     private const string INDENT = '    ';
 
     private const string CHANGED = ', on a changed line';
@@ -59,20 +63,19 @@ final readonly class MutantText
         );
     }
 
-    /** The whole block: its heading, then its diff, reason, hint, and reproduce and explain commands, indented. */
-    public static function block(JudgedMutant $judged): string
+    /**
+     * The whole block: its heading, then its diff, reason, judging tests by
+     * the names their runner gave them, hint, and reproduce and explain
+     * commands, indented.
+     */
+    public static function block(JudgedMutant $judged, TestNames $names): string
     {
         $reason = $judged->mutant()->reason();
-        $tests = [];
-
-        foreach ($judged->tests() as $test) {
-            $tests[] = $test->value();
-        }
 
         $lines = [
             ...self::diffOf($judged),
             ...$reason instanceof Reason ? [sprintf('Why: %s', $reason->text())] : [],
-            ...$tests === [] ? [] : [sprintf('Judged by: %s', implode(', ', $tests))],
+            ...count($judged->tests()) === 0 ? [] : [sprintf(self::JUDGED_BY, $names->listed($judged->tests()))],
             $judged->hint()->text(),
             sprintf('Reproduce: %s', $judged->reproduce()),
             sprintf('Explain: %s', $judged->explain()),

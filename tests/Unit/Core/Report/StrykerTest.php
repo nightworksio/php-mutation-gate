@@ -121,3 +121,10 @@ it('ignores an uncovered mutant the score leaves out', function (): void {
 it('writes a report with no mutant as an object of no files', function (): void {
     expect(Stryker::json(Verdicts::empty(), []))->toContain('"files": {}');
 });
+
+it('names the judging tests in a mutant\'s description as the runner named them', function () use ($sources): void {
+    $report = Stryker::json(Verdicts::named('with a matrix'), $sources());
+
+    expect(Decoded::at($report, 'files', 'src/Money.php', 'mutants', 0, 'description'))
+        ->toStartWith('Judged by: tests/Unit/MoneyTest.php::it fits, tests/Unit/MoneyTest.php::it fits with data set "over", PriceTest::adds');
+});

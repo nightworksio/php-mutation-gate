@@ -9,6 +9,10 @@ use function count;
 
 use Countable;
 
+use function implode;
+
+use NightWorksIO\MutationGate\Core\Format\Fit;
+
 /**
  * What a runner names each test of its coverage by: the id a coverage map
  * keys a test by, and the test or data set row its JUnit entry names
@@ -47,6 +51,23 @@ final readonly class TestNames implements Countable
         $name = $this->nameOf($test);
 
         return $name instanceof TestRow ? $name->test() : $name;
+    }
+
+    /**
+     * Each of these tests by the name its runner gave it, or by its id where
+     * it gave none, comma-separated on one plain line: a project's tests
+     * choose their names, so a name can start no workflow command and break
+     * no line.
+     */
+    public function listed(TestIds $tests): string
+    {
+        $named = [];
+
+        foreach ($tests as $test) {
+            $named[] = Fit::plain($this->nameOf($test)->value());
+        }
+
+        return implode(', ', $named);
     }
 
     public function count(): int

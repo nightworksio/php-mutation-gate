@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -21,7 +23,7 @@ it('writes a mutant with its diff, judging tests, hint, and reproduce and explai
     $survivor = Verdicts::survivor();
     $id = $survivor->mutant()->id()->value();
 
-    expect(MutantText::block($survivor))->toBe(implode("\n", [
+    expect(MutantText::block($survivor, TestNames::none()))->toBe(implode("\n", [
         sprintf('src/Money.php:7  LessToLessOrEqual  survived, on a changed line  %s', $id),
         '    --- Original',
         '    +++ New',
@@ -33,6 +35,14 @@ it('writes a mutant with its diff, judging tests, hint, and reproduce and explai
         sprintf('    Reproduce: vendor/bin/mutation-gate reproduce %s', $id),
         sprintf('    Explain: vendor/bin/mutation-gate explain %s', $id),
     ]));
+});
+
+it('names each judging test as its runner named it, and by its id where it named it nothing', function (): void {
+    $names = Verdicts::matrix(MatrixKind::FirstKiller)->names();
+
+    expect(MutantText::block(Verdicts::survivor(), $names))->toContain(
+        "\n    Judged by: tests/Unit/MoneyTest.php::it fits, tests/Unit/MoneyTest.php::it fits with data set \"over\", PriceTest::adds, CartTest::totals\n",
+    );
 });
 
 it('puts a mutant in one line for a tool that lists results', function (): void {
@@ -49,6 +59,6 @@ it('says why a mutant stands as it does, where its record says, and leaves out a
     $unjudged = iterator_to_array(Verdicts::everyJudgement(), preserve_keys: false)[4];
     $bare = JudgedMutant::of(Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::None, ''), MutantJudgement::Uncovered);
 
-    expect(MutantText::block($unjudged))->toContain("\n    Why: The run's budget ran out before it.\n    Nothing judged it")
-        ->and(explode("\n", MutantText::block($bare)))->toHaveCount(4);
+    expect(MutantText::block($unjudged, TestNames::none()))->toContain("\n    Why: The run's budget ran out before it.\n    Nothing judged it")
+        ->and(explode("\n", MutantText::block($bare, TestNames::none())))->toHaveCount(4);
 });

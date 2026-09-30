@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
@@ -36,4 +37,25 @@ it('folds a row into the whole test it is a row of', function (): void {
 
     expect($names->testOf(TestId::of('Tests\MoneyTest::testAdds#0')))->toBe($test)
         ->and($names->testOf(TestId::of('Tests\MoneyTest::testAdds')))->toBe($test);
+});
+
+it('lists tests by the names the runner gave them, and by their ids where it gave none', function (): void {
+    $test = TestName::in(Path::of('tests/Unit/MoneyTest.php'), 'it fits');
+    $names = TestNames::none()
+        ->with(TestId::of('MoneyTest::fits'), $test)
+        ->with(TestId::of('MoneyTest::refuses'), TestRow::of($test, '"over"'));
+
+    expect($names->listed(TestIds::of(TestId::of('MoneyTest::fits'), TestId::of('MoneyTest::refuses'), TestId::of('PriceTest::adds'))))
+        ->toBe('tests/Unit/MoneyTest.php::it fits, tests/Unit/MoneyTest.php::it fits with data set "over", PriceTest::adds')
+        ->and($names->listed(TestIds::of()))->toBe('');
+});
+
+it('lists a name a project wrote with line breaks, escapes and workflow commands as one plain line', function (): void {
+    $names = TestNames::none()->with(
+        TestId::of('MoneyTest::fits'),
+        TestName::in(Path::of('tests/Unit/MoneyTest.php'), "it \e[31mfits\r\n::error::forged\tthere"),
+    );
+
+    expect($names->listed(TestIds::of(TestId::of('MoneyTest::fits'), TestId::of('PriceTest::adds'))))
+        ->toBe('tests/Unit/MoneyTest.php::it [31mfits ::error::forged there, PriceTest::adds');
 });
