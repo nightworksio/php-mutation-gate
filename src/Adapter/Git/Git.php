@@ -40,10 +40,11 @@ use function trim;
  * The repository as git sees it from a directory: what changed from the merge
  * base of a revision and HEAD to what is on disk, every file that is not
  * ignored with its blob id, and a file as it was at a revision. Uncommitted
- * changes and untracked files count. It also says the commit HEAD is at,
- * whether the working tree holds anything it does not, a file marked
- * assume-unchanged or skip-worktree counting as holding more, since what is
- * on disk there is not what git shows, the branch it is on,
+ * changes and untracked files count, but for the gate's own workspace,
+ * `.mutation-gate`. It also says the commit HEAD is at, whether the working
+ * tree holds anything it does not, a file marked assume-unchanged or
+ * skip-worktree counting as holding more, since what is on disk there is not
+ * what git shows, the branch it is on,
  * the branch the remote calls its default, and the URL that remote fetches
  * from.
  *
@@ -107,7 +108,7 @@ final class Git implements ChangeSource, Repository
         $printed = $resolved instanceof CannotTell ? $resolved : $this->printed([
             ['diff', '--find-renames', '--relative', '--name-status', '-z', $resolved],
             ['diff', '--no-ext-diff', '--find-renames', '--relative', '--unified=0', $resolved],
-            ['ls-files', '--others', '--exclude-standard', '-z'],
+            Untracked::command(),
         ]);
 
         if ($printed instanceof CannotTell) {
@@ -129,7 +130,7 @@ final class Git implements ChangeSource, Repository
     public function unstaged(): Paths|CannotTell
     {
         $changed = $this->git->run(['diff', '--name-only', '--no-renames', '-z']);
-        $untracked = $this->git->run(['ls-files', '--others', '--exclude-standard', '-z']);
+        $untracked = $this->git->run(Untracked::command());
 
         return match (true) {
             $changed instanceof CannotTell => $changed,

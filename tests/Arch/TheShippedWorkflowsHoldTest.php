@@ -44,6 +44,12 @@ it('judges whatever the plan did, so a plan that cannot judge never leaves the p
         ->toBe(sprintf('${{ steps.outputs.outputs.verdict || steps.%s.outputs.verdict }}', Lenient::text($first->field('id'))));
 });
 
+it('publishes nothing where the plan did not succeed, since there is then nothing to publish', function (): void {
+    $publish = WorkflowFile::at(REUSABLE)->field('jobs')->field('publish');
+
+    expect(Lenient::text($publish->field('if')))->toContain("!cancelled() && needs.plan.result == 'success' && ");
+});
+
 it('hands each secret only to the step that uses it, never to a whole job or a shard', function (): void {
     $jobs = Lenient::entries(WorkflowFile::at(REUSABLE)->field('jobs'));
     $wholeJobs = [];
