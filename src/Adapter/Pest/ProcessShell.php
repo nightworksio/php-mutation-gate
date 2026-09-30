@@ -27,8 +27,8 @@ use function usleep;
  */
 final readonly class ProcessShell implements Shell
 {
-    /** How long it waits between looks at a running process, in microseconds. */
-    private const int POLL = 50_000;
+    /** How long it waits between looks at a running process, in seconds. */
+    private const float POLL = 0.05;
 
     /** A line of `ps`: a process and its parent. */
     private const string PROCESS = '~^\s*(?<pid>\d+)\s+(?<parent>\d+)\s*$~';
@@ -66,7 +66,7 @@ final readonly class ProcessShell implements Shell
                 return Ran::stopped($this->outputOf($process));
             }
 
-            usleep(self::POLL);
+            usleep(Seconds::of(self::POLL)->microseconds());
         }
 
         return Ran::finished(succeeded: $process->isSuccessful(), output: $this->outputOf($process));

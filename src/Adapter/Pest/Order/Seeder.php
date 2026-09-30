@@ -11,6 +11,7 @@ use function getenv;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Identities;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
@@ -34,9 +35,6 @@ use function sprintf;
  */
 final readonly class Seeder
 {
-    /** The variable the adapter names the order directory in. */
-    public const string ORDER = 'MUTATION_GATE_ORDER';
-
     private function __construct(private string $directory, private string $results, private Root $root)
     {
     }
@@ -45,8 +43,8 @@ final readonly class Seeder
     public static function fromEnvironment(): self|Off
     {
         return self::listening(
-            getenv(self::ORDER),
-            getenv(Recorder::RESULTS),
+            getenv(GateVariable::Order->value),
+            getenv(GateVariable::Results->value),
             getenv(Recorder::MUTANT),
             Facade::instance(),
             Root::of(sprintf('%s', getcwd())),

@@ -129,9 +129,9 @@ final readonly class MutationRun
         $this->remembered->writeOnce($map, fn() => SharedCoverage::write($shared, $this->project, $map));
 
         return $command->with([
-            Patch::COVERAGE => $map,
-            Patch::SECONDS => sprintf('%F', SharedCoverage::seconds($shared)),
-            Patch::CANARY => $this->patching->canary()->name(),
+            GateVariable::SharedCoverage->value => $map,
+            GateVariable::SuiteSeconds->value => sprintf('%F', SharedCoverage::seconds($shared)),
+            GateVariable::Canary->value => $this->patching->canary()->name(),
         ]);
     }
 

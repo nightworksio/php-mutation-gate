@@ -11,6 +11,7 @@ use function file_put_contents;
 use function is_file;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
@@ -56,7 +57,7 @@ final readonly class Plan
 
         self::write($order, $request->ordering()->history());
 
-        return $command->with([Seeder::ORDER => $order]);
+        return $command->with([GateVariable::Order->value => $order]);
     }
 
     public static function write(string $directory, KillHistory $history): void

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -60,11 +61,11 @@ it('names each covering test\'s class by its name within its namespace, once', f
 
 it('fits while the filter argument is shorter than the ceiling, in bytes', function (): void {
     $test = static fn(int $length): string => sprintf('P\A::__pest_evaluable_%s', str_repeat('x', $length));
-    $under = $test(Selection::CEILING - 19);
-    $at = $test(Selection::CEILING - 18);
+    $under = $test(Patch::CEILING - 19);
+    $at = $test(Patch::CEILING - 18);
 
     expect(Selection::of(coveringTests($under, $under, 'LegacySpec::decrements'))->fits())->toBeTrue()
-        ->and(mb_strlen(Selection::of(coveringTests($under))->argument(), '8bit'))->toBe(Selection::CEILING - 1)
+        ->and(mb_strlen(Selection::of(coveringTests($under))->argument(), '8bit'))->toBe(Patch::CEILING - 1)
         ->and(Selection::of(coveringTests($at))->fits())->toBeFalse()
         ->and(Selection::of(coveringTests())->fits())->toBeTrue();
 });

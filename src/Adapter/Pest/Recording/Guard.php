@@ -11,6 +11,7 @@ use function in_array;
 use function is_string;
 use function json_encode;
 
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 
 use function realpath;
@@ -25,9 +26,6 @@ use function realpath;
  */
 final readonly class Guard
 {
-    /** The variable the adapter names the guard's file in. */
-    public const string FILE = 'MUTATION_GATE_GUARD';
-
     private function __construct(private string $file, private string $original, private bool $before)
     {
     }
@@ -35,7 +33,7 @@ final readonly class Guard
     /** Guarding where the adapter named a file and the override an original, by the files loaded so far. */
     public static function fromEnvironment(): self|Off
     {
-        return self::watching(getenv(self::FILE), getenv(Recorder::MUTANT), get_included_files());
+        return self::watching(getenv(GateVariable::Guard->value), getenv(Recorder::MUTANT), get_included_files());
     }
 
     /** @param list<string> $loaded */

@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_fill_keys;
 use function array_keys;
+use function array_map;
 use function array_values;
 use function dirname;
 use function getenv;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Order\Seeder;
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -27,25 +26,11 @@ use function sprintf;
 final readonly class Command
 {
     /**
-     * What a Pest the gate starts never inherits: the variables that make a
-     * process a paratest worker or a mutant's own run, and the ones the gate
-     * sets for its own plugin, each of which only the command that needs it
-     * sets.
+     * What a Pest the gate starts never inherits besides the gate's own
+     * variables: the variables that make a process a paratest worker or a
+     * mutant's own run.
      */
-    private const array INHERITED = [
-        'PARATEST' => false,
-        'TEST_TOKEN' => false,
-        'UNIQUE_TEST_TOKEN' => false,
-        Recorder::MUTANT => false,
-        Recorder::MUTATED => false,
-        Recorder::RESULTS => false,
-        'MUTATION_GATE_SHARED_COVERAGE' => false,
-        'MUTATION_GATE_SUITE_SECONDS' => false,
-        'MUTATION_GATE_CANARY' => false,
-        Guard::FILE => false,
-        Naming::FILE => false,
-        Seeder::ORDER => false,
-    ];
+    private const array PEST_OWN = ['PARATEST', 'TEST_TOKEN', 'UNIQUE_TEST_TOKEN', Recorder::MUTANT, Recorder::MUTATED];
 
     /**
      * @param list<string>                $arguments
@@ -78,7 +63,7 @@ final readonly class Command
     public static function php(Withheld $withheld, string ...$arguments): self
     {
         return self::of(PHP_BINARY, ...$arguments)->with([
-            ...self::INHERITED,
+            ...self::uninherited(),
             ...self::withheldFrom(getenv(), $withheld),
             'PATH' => sprintf('%s%s%s', dirname(PHP_BINARY), PATH_SEPARATOR, getenv('PATH')),
         ]);
@@ -110,6 +95,20 @@ final readonly class Command
     public function deadline(): Seconds|Unlimited
     {
         return $this->deadline;
+    }
+
+    /**
+     * What a Pest the gate starts never inherits: Pest's own variables, and
+     * each the gate sets for its plugin, which only the command that needs it
+     * sets.
+     *
+     * @return array<string, false>
+     */
+    private static function uninherited(): array
+    {
+        $gate = array_map(static fn(GateVariable $variable): string => $variable->value, GateVariable::cases());
+
+        return array_fill_keys([...self::PEST_OWN, ...$gate], value: false);
     }
 
     /**

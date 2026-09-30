@@ -32,14 +32,8 @@ use function sprintf;
  */
 final readonly class Patch
 {
-    /** The variable naming the coverage map a shard reads. */
-    public const string COVERAGE = 'MUTATION_GATE_SHARED_COVERAGE';
-
-    /** The variable holding the seconds the whole suite took, one test after another. */
-    public const string SECONDS = 'MUTATION_GATE_SUITE_SECONDS';
-
-    /** The variable naming the canary group a shard's opening run is. */
-    public const string CANARY = 'MUTATION_GATE_CANARY';
+    /** The longest `--filter` argument, in bytes, the patch starts a mutant's process with. */
+    public const int CEILING = 100000;
 
     private const string SOURCE = '%s/pestphp/pest-plugin-mutate/src/%s';
 
@@ -155,16 +149,16 @@ final readonly class Patch
     private static function hunks(): array
     {
         return [
-            Hunk::in('MutationTest.php', self::FILTER_SHIPS, sprintf(self::FILTER_BECOMES, Selection::CEILING)),
+            Hunk::in('MutationTest.php', self::FILTER_SHIPS, sprintf(self::FILTER_BECOMES, self::CEILING)),
             Hunk::in(
                 'Plugins/Mutate.php',
                 self::CANARY_SHIPS,
-                sprintf(self::CANARY_BECOMES, self::COVERAGE, self::CANARY),
+                sprintf(self::CANARY_BECOMES, GateVariable::SharedCoverage->value, GateVariable::Canary->value),
             ),
             Hunk::in(
                 'Tester/MutationTestRunner.php',
                 self::MAP_SHIPS,
-                sprintf(self::MAP_BECOMES, self::COVERAGE, self::SECONDS),
+                sprintf(self::MAP_BECOMES, GateVariable::SharedCoverage->value, GateVariable::SuiteSeconds->value),
             ),
         ];
     }

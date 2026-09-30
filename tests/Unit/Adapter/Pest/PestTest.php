@@ -5,10 +5,10 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Diff;
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
-use NightWorksIO\MutationGate\Adapter\Pest\Order\Seeder;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
@@ -16,9 +16,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Ran;
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
-use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -296,7 +294,7 @@ it('names the test files a covering test\'s filter selects, or all when it will 
     $at = adapterProject();
     Scratch::write($at->root(), 'tests/MoneySpec.php', '<?php');
     Scratch::write($at->root(), 'tests/HeldSpec.php', '<?php');
-    $long = sprintf('P\Tests\HeldSpec::__pest_evaluable_%s', str_repeat('x', Selection::CEILING));
+    $long = sprintf('P\Tests\HeldSpec::__pest_evaluable_%s', str_repeat('x', Patch::CEILING));
     $map = CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(RUN_ADDS))
         ->covered(Path::of('src/Kernel.php'), Line::of(3), TestId::of($long));
@@ -343,7 +341,7 @@ it('puts the likely killers first where the request asks, handing the plugin the
     new Pest($at, $shell, Patching::off())->mutate($request);
 
     expect($shell->commands())->toEqual([
-        adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))->with([Seeder::ORDER => $order]),
+        adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))->with([GateVariable::Order->value => $order]),
     ])->and(Plan::read($order))->toEqual($history)
         ->and(is_file(sprintf('%s/m1/test-run-history', $order)))->toBeFalse();
 });
@@ -604,7 +602,7 @@ function adapterNames(Project $at): string
 /** A listing run in which the plugin names a Pest test, rows and all, and a PHPUnit test of the same suite. */
 function adapterNamed(Command $command, Project $at): Ran
 {
-    $names = sprintf('%s', $command->environment()[Naming::FILE] ?? '');
+    $names = sprintf('%s', $command->environment()[GateVariable::Names->value] ?? '');
     file_put_contents($names, (string) json_encode([
         ['test' => 'P\\Tests\\MoneySpec::__pest_evaluable_it_adds', 'file' => sprintf('%s/tests/MoneySpec.php', $at->root()), 'description' => 'it adds'],
         ['test' => 'LegacySpec::decrements', 'file' => sprintf('%s/tests/LegacySpec.php', $at->root()), 'description' => 'decrements'],
@@ -664,7 +662,7 @@ it('roots itself in a package that installs Pest, running there with the package
 
     expect($names)->toEqual(TestNames::none())
         ->and($shell->directories())->toBe([$package])
-        ->and($shell->commands()[0]->environment()[Naming::FILE] ?? '')
+        ->and($shell->commands()[0]->environment()[GateVariable::Names->value] ?? '')
         ->toBe(sprintf('%s/.mutation-gate/pest/names.json', $package));
 });
 

@@ -5,12 +5,12 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Diff;
 use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
+use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Ran;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
-use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -62,7 +62,7 @@ function interpretedRun(array $money, array $legacy): array
     $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
     $fresh = $project->freshResults();
     $results = is_string($fresh) ? $fresh : '';
-    $long = sprintf('P\Tests\LongSpec::__pest_evaluable_%s', str_repeat('x', Selection::CEILING));
+    $long = sprintf('P\Tests\LongSpec::__pest_evaluable_%s', str_repeat('x', Patch::CEILING));
     CoverageMaps::write(
         sprintf('%s.coverage.php', $results),
         sprintf('%s/', $root),

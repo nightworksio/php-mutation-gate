@@ -29,9 +29,6 @@ use function str_replace;
  */
 final readonly class Selection
 {
-    /** The longest `--filter` argument, in bytes, a mutant's process is started with once `pest:patch` is applied. */
-    public const int CEILING = 100000;
-
     /** pest-plugin-mutate's own pattern for a covering test's id. */
     private const string TEST = '/\\\\([a-zA-Z0-9]*)::(__pest_evaluable_)?([^#]*)"?/';
 
@@ -74,7 +71,7 @@ final readonly class Selection
     /** Whether the `--filter` argument is short enough to be passed, in bytes, as the patch counts it. */
     public function fits(): bool
     {
-        return Bytes::length($this->argument) < self::CEILING;
+        return Bytes::length($this->argument) < Patch::CEILING;
     }
 
     /** The covering tests the filter does not select. */

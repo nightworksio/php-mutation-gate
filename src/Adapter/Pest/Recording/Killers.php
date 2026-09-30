@@ -8,6 +8,7 @@ use function file_put_contents;
 use function getenv;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade;
 use PHPUnit\Event\UnknownSubscriberTypeException;
@@ -27,7 +28,7 @@ final readonly class Killers
     /** Naming killers where this is a mutant's own process of a run the adapter records. */
     public static function fromEnvironment(): self|Off
     {
-        return self::listening(getenv(Recorder::RESULTS), getenv(Recorder::MUTATED), Facade::instance());
+        return self::listening(getenv(GateVariable::Results->value), getenv(Recorder::MUTATED), Facade::instance());
     }
 
     /**
