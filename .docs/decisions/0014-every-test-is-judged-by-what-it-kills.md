@@ -40,10 +40,13 @@ running it: why is this mutant here, and has it always been?
 
 1. **The first killer travels in the proof.** A killed mutant's record in a
    proof keeps `killedBy`: the first killer's test id, or every failing test's
-   id under a full kill matrix (decision 7). The agreement check of ADR-0007
-   compares statuses only and never `killedBy`, because the first killer
-   depends on the order (ADR-0013). So any run can report on the whole
-   project from the newest proof of each unit, not only on what it ran.
+   id under a full kill matrix (decision 7). A shard's result carries the ids
+   in each mutant's full record. The ledger keeps them as the fourth element
+   of the killed tuple, as indices into its list of tests (ADR-0007, decision
+   3). The agreement check of ADR-0007 compares statuses only and never
+   `killedBy`, because the first killer depends on the order (ADR-0013). So
+   any run can report on the whole project from the newest proof of each
+   unit, not only on what it ran.
 
 2. **The `tests` report names useless tests, in two tiers.**
    - **Kills nothing it covers:** every judged mutant the test covers

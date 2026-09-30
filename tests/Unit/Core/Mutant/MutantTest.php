@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -62,4 +64,22 @@ it('gives no reason until one is said', function (): void {
         ->and($explained->mutation())->toBe($mutation)
         ->and($explained->status())->toBe(MutantStatus::Unjudged)
         ->and($explained->duration())->toEqual(Seconds::of(0.4));
+});
+
+it('names the tests that killed it, none until they are said, keeping the rest of its record', function (): void {
+    $mutant = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-+\n+-", 0),
+        '12',
+        Location::of(Path::of('src/Money.php'), Line::of(4), Unreported::line()),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, "-+\n+-"),
+        MutantStatus::Killed,
+        Seconds::of(0.1),
+    );
+    $killed = $mutant->killedBy(TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('CartTest::totals')));
+
+    expect($mutant->killers())->toEqual(TestIds::none())
+        ->and($killed->killers())->toEqual(TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('CartTest::totals')))
+        ->and($killed->id())->toEqual($mutant->id())
+        ->and($killed->status())->toBe(MutantStatus::Killed)
+        ->and($killed->duration())->toEqual(Seconds::of(0.1));
 });

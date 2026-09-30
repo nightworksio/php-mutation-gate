@@ -102,6 +102,29 @@ final readonly class Node
     }
 
     /**
+     * A list of whole numbers, read at once, for a list too long to read one
+     * place at a time.
+     *
+     * @return list<int>
+     *
+     * @throws NotInShape
+     */
+    public function integers(): array
+    {
+        if (! is_array($this->value) || ! array_is_list($this->value)) {
+            throw $this->refused('a list of whole numbers');
+        }
+
+        $integers = [];
+
+        foreach ($this->value as $item) {
+            $integers[] = is_int($item) ? $item : throw $this->refused('a list of whole numbers');
+        }
+
+        return $integers;
+    }
+
+    /**
      * @return array<string, self>
      *
      * @throws NotInShape
