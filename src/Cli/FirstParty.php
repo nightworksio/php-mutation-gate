@@ -43,7 +43,9 @@ use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
+use NightWorksIO\MutationGate\Cli\Config\KeyedStore;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
@@ -80,7 +82,7 @@ final readonly class FirstParty implements Extension
     {
         return Registered::config($extensions, class_exists(...))
             ->withProofStore(BuiltinStore::Directory->named(), LedgerDirectory::fromOptions(...))
-            ->withProofStore(BuiltinStore::S3->named(), BucketLedger::fromOptions(...))
+            ->withProofStore(BuiltinStore::S3->named(), $this->bucket()->build(...))
             ->withCostModel(BuiltinCostModel::Learned->named(), MeasuredCosts::fromOptions(...))
             ->withCiPlan(
                 BuiltinCiPlan::GitHub->named(),
@@ -183,6 +185,17 @@ final readonly class FirstParty implements Extension
                 BuiltinAnalyser::PhpStan->named(),
                 static fn(Options $options): PhpStan|Invalid => PhpStan::fromOptions($options, self::root()),
             );
+    }
+
+    /** S3, read-only through its public URL in a job without its credentials. */
+    private function bucket(): KeyedStore
+    {
+        return KeyedStore::of(
+            BuiltinStore::S3->credentials(),
+            BucketLedger::fromOptions(...),
+            HttpClient::create(),
+            Variables::of(getenv()),
+        );
     }
 
     /** The project's root, where the gate runs, as an absolute path, which the analysers name files by. */

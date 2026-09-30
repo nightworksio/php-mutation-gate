@@ -254,8 +254,13 @@ decides are accepted for that release too.
 13. **A run without credentials reads the default branch's proofs from a
     public URL.**
     - **The setting.** `proofs.store.with.publicUrl` (`s3`) is an
-      `https://` base from which `<scope>/ledger.json.gz` is fetched with an
-      anonymous GET, whenever the store has no credentials.
+      `https://` base from which `<prefix>/<scope>/ledger.json.gz` is fetched
+      with an anonymous GET, whenever the store has no credentials. For S3
+      those are `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, both set;
+      each store declares its own. A run without them sends the store no
+      request. It follows no redirect, and a 404, any other refusal, a read
+      past a minute or past 256 MiB reads as an empty ledger. Without
+      `publicUrl`, it reads nothing.
     - **The bucket policy.** The README gives it: public `GetObject` on
       `<prefix>/refs/heads/<default branch>/*` and nothing else. A read of
       any other scope is then refused, and reads as an empty ledger. That

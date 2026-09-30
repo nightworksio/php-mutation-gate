@@ -7,21 +7,18 @@ namespace NightWorksIO\MutationGate\Adapter\S3;
 use AsyncAws\Core\Credentials\ConfigurationProvider;
 use AsyncAws\Core\Exception\Exception as AwsFailure;
 use AsyncAws\S3\S3Client;
-
-use function implode;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
+use NightWorksIO\MutationGate\Core\Proof\LedgerObject;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
-use function preg_split;
 use function sprintf;
 
 /**
@@ -36,16 +33,13 @@ use function sprintf;
  */
 final readonly class BucketLedger implements Configurable, ProofStore
 {
-    /** @param list<string> $prefix the prefix's segments, none for the bucket's top */
-    private function __construct(private S3Client $client, private string $bucket, private array $prefix)
+    private function __construct(private S3Client $client, private string $bucket, private LedgerObject $objects)
     {
     }
 
     public static function of(S3Client $client, string $bucket, string $prefix): self
     {
-        $segments = preg_split('#/#', $prefix, flags: PREG_SPLIT_NO_EMPTY);
-
-        return new self($client, $bucket, $segments === false ? [] : $segments);
+        return new self($client, $bucket, LedgerObject::under($prefix));
     }
 
     public static function fromOptions(Options $options): self|Invalid
@@ -61,7 +55,7 @@ final readonly class BucketLedger implements Configurable, ProofStore
 
     public function read(Scope $scope): Ledger
     {
-        $key = $this->keyOf($scope);
+        $key = $this->objects->of($scope);
 
         try {
             return $key instanceof CannotJudge ? Ledger::empty() : LedgerFile::decode($this->fetched($key));
@@ -72,7 +66,7 @@ final readonly class BucketLedger implements Configurable, ProofStore
 
     public function write(Scope $scope, Ledger $ledger): Written|NotWritten
     {
-        $key = $this->keyOf($scope);
+        $key = $this->objects->of($scope);
 
         if ($key instanceof CannotJudge) {
             return NotWritten::because($key->why());
@@ -101,16 +95,5 @@ final readonly class BucketLedger implements Configurable, ProofStore
     private function fetched(string $key): string
     {
         return $this->client->getObject(['Bucket' => $this->bucket, 'Key' => $key])->getBody()->getContentAsString();
-    }
-
-    /** The object a scope's ledger is, for a scope that is a branch's or a pull request's ref and nothing else. */
-    private function keyOf(Scope $scope): string|CannotJudge
-    {
-        $parsed = Scope::parse($scope->ref());
-
-        return match (true) {
-            $parsed instanceof CannotJudge => $parsed,
-            default => implode('/', [...$this->prefix, $parsed->ref(), LedgerFile::NAME]),
-        };
     }
 }

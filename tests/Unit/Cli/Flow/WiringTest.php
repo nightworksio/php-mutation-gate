@@ -94,8 +94,9 @@ it('wires the runner, the store, the learned cost model, the JSON plan and git w
 
 it('keeps a local run\'s proofs on the machine, and a CI run\'s in the store the config names', function (): void {
     $settings = Flows::settings(Proofs::s3('ledgers'));
-    $local = wiredOf($settings, Variables::of([]));
-    $ci = wiredOf($settings, Variables::of(['CI' => 'true']));
+    $keys = ['AWS_ACCESS_KEY_ID' => 'AKIA', 'AWS_SECRET_ACCESS_KEY' => 'secret'];
+    $local = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of([])));
+    $ci = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of(['CI' => 'true'])));
 
     expect($local->proofs)->toEqual(LocalLedgers::over($ci->proofs))
         ->and($ci->proofs)->toBeInstanceOf(BucketLedger::class)
