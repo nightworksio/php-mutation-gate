@@ -73,15 +73,18 @@ final readonly class Shards implements Part
         );
     }
 
-    /** Where a later layer sets `target` or `seconds`, the one it sets replaces the other. */
+    /**
+     * Where a later layer sets one of `target` and `seconds`, it replaces the other. A part that sets both keeps
+     * both, for the definition to refuse.
+     */
     public function over(Part $later): self
     {
         if (! $later instanceof self) {
             return $this;
         }
 
-        $cutByTarget = ! $later->target instanceof Absent;
-        $cutBySeconds = ! $later->seconds instanceof Absent;
+        $cutByTarget = ! $later->target instanceof Absent && $later->seconds instanceof Absent;
+        $cutBySeconds = ! $later->seconds instanceof Absent && $later->target instanceof Absent;
 
         return new self(
             $cutByTarget ? new Absent() : Absent::laid($this->seconds, $later->seconds),

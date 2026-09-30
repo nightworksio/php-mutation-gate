@@ -368,7 +368,7 @@ it('judges a layer a loader or a preset built by hand, as the definition judges 
 
     expect($paths)->toBe(array_map(
         static fn(string $path): string => sprintf($at, $path),
-        ['trees[0].reason', 'shards.max', 'timeouts.seconds', 'timeouts.retries', 'ignores.entries[0].reason'],
+        ['trees[0].reason', 'shards.max', 'shards', 'timeouts.seconds', 'timeouts.retries', 'ignores.entries[0].reason'],
     ));
 })->with([
     'a loader' => ['gate.smuggled', '%s'],
