@@ -84,7 +84,7 @@ it('runs a reporter for each entry of reports, writing where its path says', fun
 
 it('hands a reporter its path beside the options its entry gives', function (): void {
     $directory = sprintf('%s/publish', Scratch::directory());
-    $entry = Report::uses('badge', $directory, Option::nested('colors', Option::of('blue', 50), Option::of('red', 0)));
+    $entry = Report::writing('badge', $directory, Option::nested('colors', Option::of('blue', 50), Option::of('red', 0)));
     $chosen = reportersOf(Flows::settings($entry), Variables::of([]), reportingOnMain());
     $reporter = is_array($chosen) ? $chosen[0] : $chosen;
     $badge = $reporter instanceof BadgeDirectory ? $reporter->report(Verdicts::passing()) : $reporter;
@@ -96,7 +96,7 @@ it('hands a reporter its path beside the options its entry gives', function (): 
 it('says which entry of reports cannot be built', function (): void {
     $settings = Flows::settings(
         Report::uses('console'),
-        Report::uses('badge', 'publish', Option::nested('colors', Option::of('green', 'high'))),
+        Report::writing('badge', 'publish', Option::nested('colors', Option::of('green', 'high'))),
     );
 
     expect(reportersOf($settings, Variables::of([]), reportingOnMain()))->toEqual(Invalid::because(Problem::at(

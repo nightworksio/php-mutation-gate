@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\ConfigLocation;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
+use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -47,12 +48,12 @@ final readonly class Composition
     ) {
     }
 
-    private function setup(Path|Absent $configFile): Setup
+    private function setup(Path|NoConfigFile $configFile): Setup
     {
         $installed = Directory::at($this->vendor)->read(Installed::fileIn(Path::root()));
 
         return new Setup(
-            $configFile instanceof Path ? $configFile->relativeTo(Path::of($this->project)) : $configFile,
+            $configFile instanceof Path ? $configFile->relativeTo(Path::of($this->project)) : Absent::setting(),
             Version::of(
                 FirstParty::PACKAGE,
                 InstalledVersions::getPrettyVersion(FirstParty::PACKAGE) ?? '',
@@ -87,7 +88,7 @@ final readonly class Composition
     private function composed(
         Settings $settings,
         Extensions $registry,
-        Path|Absent $configFile,
+        Path|NoConfigFile $configFile,
     ): Composed|Invalid|CannotJudge {
         $project = Directory::at($this->project);
         $adapters = new Wiring($registry, $this->environment)->adapters($settings, $project);
