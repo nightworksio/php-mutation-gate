@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Config;
 
 use function array_map;
+use function class_exists;
 
 use Closure;
 
@@ -139,10 +140,31 @@ final readonly class Chosen
     {
         $use = $choice->use();
         $built = $use instanceof Name
-            ? $registered($use, $choice->options())
+            ? $this->named($use, $registered($use, $choice->options()))
             : $this->fromClass($use->value(), $port, $choice->options());
 
         return $built instanceof Invalid ? $this->under(sprintf('%s.with', $setting), $built) : $built;
+    }
+
+    /**
+     * What a name built, and where nothing is registered under it but a class in the global namespace has it,
+     * how to choose that class instead.
+     *
+     * @template T of object
+     *
+     * @param  T|Invalid|CannotJudge $built
+     * @return T|Invalid|CannotJudge
+     */
+    private function named(Name $name, object $built): object
+    {
+        return $built instanceof CannotJudge && class_exists($name->value())
+            ? CannotJudge::because(sprintf(
+                '%s A class is written with its namespace, so the class %s is \\%s.',
+                $built->why(),
+                $name->value(),
+                $name->value(),
+            ))
+            : $built;
     }
 
     /**
