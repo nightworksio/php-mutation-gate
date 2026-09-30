@@ -236,6 +236,23 @@ it('reaches a file\'s end only once a read gets nothing, as a loop over its line
         ->and($native[0])->toBe([[ "a\n", "b\n", false], false, ["a\n", "b\n", '']]);
 });
 
+it('says a file is not yet at its end after a read that asked for more than was left, where PHP\'s own wrapper says it is', function (): void {
+    [$native, $served] = nativeThenServed(static function (string $directory): bool {
+        $file = sprintf('%s/short.txt', $directory);
+        file_put_contents($file, "a\nb\n");
+        $handle = fopen($file, 'rb');
+        assert(is_resource($handle));
+        fread($handle, 100);
+        $end = feof($handle);
+        fclose($handle);
+        unlink($file);
+
+        return $end;
+    });
+
+    expect([$native[0], $served[0]])->toBe([true, false]);
+});
+
 it('touches, stats, renames, removes and lists files and directories as PHP\'s own wrapper does', function (): void {
     [$native, $served] = nativeThenServed(static function (string $directory): array {
         $file = sprintf('%s/touched.txt', $directory);

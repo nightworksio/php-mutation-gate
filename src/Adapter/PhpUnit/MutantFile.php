@@ -68,9 +68,11 @@ use function var_export;
  *
  * What still differs from PHP's own wrapper: `stream_get_meta_data()` says
  * `user-space`; a failed open's warning names this class's method, and a
- * file that cannot be made to write it warns twice; and `fread()` reads no
- * further than the first chunk it gets, so a file read whole in one call is
- * at its end only once the next read gets nothing.
+ * file that cannot be made to write it warns twice; and `feof()` after an
+ * `fread()` asked for more than was left says the file is not yet at its
+ * end, where PHP's own wrapper says it is: PHP asks a wrapper for one chunk
+ * whatever a caller asks for, so the wrapper cannot tell that read from the
+ * one a line reader makes, and it answers as a line reader needs.
  */
 final class MutantFile
 {
