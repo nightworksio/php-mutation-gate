@@ -395,7 +395,8 @@
                             "timed-out",
                             "errored",
                             "unjudged",
-                            "ignored-by-marker"
+                            "ignored-by-marker",
+                            "skipped"
                         ]
                     },
                     "judgement": {
