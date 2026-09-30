@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
-use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Change\Commit;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -34,12 +34,12 @@ use function sprintf;
 use stdClass;
 
 /**
- * A plan as `.mutation-gate/plan.json` holds it, `"format": 1`: the commit it
- * was made on, the base its keys are built on, every considered unit's key,
- * and the shards, with the units it proved or carried, and the lines a change
- * added or modified with why it reached what it did, and the digest of all of
- * that. A plan that cannot be read, or whose digest does not match what it
- * holds, is refused: a shard never guesses at its units.
+ * A plan as `.mutation-gate/plan.json` holds it, `"format": 1`: the full id of
+ * the commit it was made on, the base its keys are built on, every considered
+ * unit's key, and the shards, with the units it proved or carried, and the
+ * lines a change added or modified with why it reached what it did, and the
+ * digest of all of that. A plan that cannot be read, or whose digest does not
+ * match what it holds, is refused: a shard never guesses at its units.
  *
  * @internal the shape of the plan file
  *
@@ -186,8 +186,11 @@ final readonly class PlanFile
             $shards[] = self::shardIn($shard);
         }
 
+        $commit = Commit::parse($file->field('commit')->text());
         $plan = Plan::of(
-            Revision::ref($file->field('commit')->text()),
+            $commit instanceof Commit
+                ? $commit->revision()
+                : throw NotInShape::at($file->field('commit')->at(), 'a commit'),
             Digest::of($file->field(self::BASE)->text()),
             KeysRecord::read($file->field('keys')),
             Shards::of(...$shards),

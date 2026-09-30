@@ -57,7 +57,7 @@ it('finds where the run stands, the trees, every file, the suite, and every unit
 ): void {
     $found = $inventory($listing(Groups::of(Group::named('holds:src/Held.php'))));
 
-    expect($found instanceof Inventory ? $found->standing->head() : $found)->toEqual(Revision::ref('head'))
+    expect($found instanceof Inventory ? $found->standing->head() : $found)->toEqual(Revision::ref(Flows::HEAD))
         ->and($found instanceof Inventory ? $found->trees : $found)->toEqual(Flows::trees())
         ->and($found instanceof Inventory ? $found->files : $found)->toEqual(Flows::checkout()->fingerprints())
         ->and($found instanceof Inventory ? $found->suite->directories() : $found)

@@ -29,8 +29,26 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
+/** The full id of the commit every plan here is made on. */
+function planFileCommit(): string
+{
+    return '5eeca8f2d0b1c4e7a9f3b6d8e0c2a4f6b8d0e2c4';
+}
+
+/** A plan on that commit that considered nothing. */
+function planFileEmpty(): Plan
+{
+    return Plan::of(Revision::ref(planFileCommit()), Digest::sha256Of('base'), Keys::none(), Shards::none());
+}
+
+/** A plan file on that commit, the rest of whose fields are these. */
+function planFileWith(string $fields): string
+{
+    return sprintf('{"format": 1, "commit": "%s", %s}', planFileCommit(), $fields);
+}
+
 $planWith = static fn(string $secondLabel): Plan => Plan::of(
-    Revision::ref('5eeca8f'),
+    Revision::ref(planFileCommit()),
     Digest::sha256Of('base'),
     Keys::none()
         ->with(Path::of('src/A.php'), Digest::of('aaa'))
@@ -60,7 +78,7 @@ $planWith = static fn(string $secondLabel): Plan => Plan::of(
 $body = <<<'JSON'
 {
     "format": 1,
-    "commit": "5eeca8f",
+    "commit": "5eeca8f2d0b1c4e7a9f3b6d8e0c2a4f6b8d0e2c4",
     "base": "cae662172fd450bb0cd710a769079c05bfc5d8e35efa6576edc7d0377afdd4a2",
     "ref": "refs/pull/12",
     "defaultBranch": "refs/heads/main",
@@ -102,7 +120,10 @@ $body = <<<'JSON'
 }
 JSON;
 
-it('writes the commit, the base, the ref and the default branch, every key, the shards and the digest of all of them', function () use ($planWith, $body): void {
+it('writes the commit, base, ref and default branch, every key, the shards and their digest', function () use (
+    $planWith,
+    $body,
+): void {
     expect(PlanFile::encode($planWith('src, part 2 of 2')))
         ->toBe(sprintf("%s,\n    \"digest\": \"%s\"\n}", mb_substr($body, 0, -2), hash('sha256', $body)));
 });
@@ -113,11 +134,16 @@ it('takes its digest over everything it holds', function () use ($planWith, $bod
 });
 
 it('writes a plan with nothing considered as an empty map of keys and no shards', function (): void {
-    $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::none());
-    $empty = sprintf(
-        "{\n    \"format\": 1,\n    \"commit\": \"5eeca8f\",\n    \"base\": \"%s\",\n    \"keys\": {},\n    \"shards\": []\n}",
-        hash('sha256', 'base'),
-    );
+    $plan = planFileEmpty();
+    $empty = sprintf(<<<'JSON'
+        {
+            "format": 1,
+            "commit": "%s",
+            "base": "%s",
+            "keys": {},
+            "shards": []
+        }
+        JSON, planFileCommit(), hash('sha256', 'base'));
 
     expect(PlanFile::encode($plan))
         ->toBe(sprintf("%s,\n    \"digest\": \"%s\"\n}", mb_substr($empty, 0, -2), hash('sha256', $empty)));
@@ -130,7 +156,7 @@ it('reads back the plan it wrote', function () use ($planWith): void {
 });
 
 it('reads back a plan for a detached HEAD, with or without a default branch', function (RunOn $runOn): void {
-    $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::none())->on($runOn);
+    $plan = planFileEmpty()->on($runOn);
 
     expect(PlanFile::decode(PlanFile::encode($plan)))->toEqual($plan);
 })->with([
@@ -139,7 +165,7 @@ it('reads back a plan for a detached HEAD, with or without a default branch', fu
 ]);
 
 it('reads a plan that names no default branch as one that cannot tell it', function (): void {
-    $plan = PlanFile::decode(PlanFile::encode(Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::none())));
+    $plan = PlanFile::decode(PlanFile::encode(planFileEmpty()));
 
     expect($plan instanceof Plan ? $plan->runOn()->defaultBranch() : $plan)
         ->toEqual(CannotTell::because('The plan names no default branch.'))
@@ -147,7 +173,7 @@ it('reads a plan that names no default branch as one that cannot tell it', funct
 });
 
 it('writes and reads back the lines a change added or modified, and why it reached what it did', function (): void {
-    $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::none())->on(RunOn::detached(Scope::branch('main')))->reaching(
+    $plan = planFileEmpty()->on(RunOn::detached(Scope::branch('main')))->reaching(
         Changes::of(
             Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3), Line::of(4))),
             Change::modified(Path::of('src/Renamed.php'), Lines::none()),
@@ -156,20 +182,28 @@ it('writes and reads back the lines a change added or modified, and why it reach
     );
     $written = PlanFile::encode($plan);
 
-    expect($written)->toContain("\"changed\": {\n        \"src/Money.php\": [\n            3,\n            4\n        ],")
+    $changed = <<<'JSON'
+        "changed": {
+                "src/Money.php": [
+                    3,
+                    4
+                ],
+        JSON;
+
+    expect($written)->toContain($changed)
         ->and($written)->toContain("\"reach\": [\n        \"`src/Money.php` changed, so its unit is reached.\"\n    ]")
         ->and(PlanFile::decode($written))->toEqual($plan);
 });
 
 it('writes neither changed lines nor reasons for a full run', function (): void {
-    $written = PlanFile::encode(Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::none()));
+    $written = PlanFile::encode(planFileEmpty());
 
     expect($written)->not->toContain('"changed"')
         ->and($written)->not->toContain('"reach"');
 });
 
 it('writes the reasons of a change that changed no source line', function (): void {
-    $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::none())
+    $plan = planFileEmpty()
         ->on(RunOn::detached(Scope::branch('main')))
         ->reaching(Changes::none(), Reasons::of(Reason::that('Nothing reached.')));
 
@@ -202,30 +236,34 @@ it('refuses what is not a plan, saying where it went wrong', function (string $j
     ],
     'no commit' => ['{"format": 1, "shards": []}', 'the file.commit is missing.'],
     'a ref that is not a scope' => [
-        '{"format": 1, "commit": "5eeca8f", "base": "b", "ref": "main", "keys": {}, "shards": []}',
+        planFileWith('"base": "b", "ref": "main", "keys": {}, "shards": []'),
         'the file.ref is not a scope.',
     ],
     'a default branch that is not a scope' => [
-        '{"format": 1, "commit": "5eeca8f", "base": "b", "defaultBranch": "main", "keys": {}, "shards": []}',
+        planFileWith('"base": "b", "defaultBranch": "main", "keys": {}, "shards": []'),
         'the file.defaultBranch is not a scope.',
     ],
     'a changed line before the first' => [
-        '{"format": 1, "commit": "5eeca8f", "base": "b", "keys": {}, "shards": [], "changed": {"a.php": [0]}, "reach": []}',
+        planFileWith('"base": "b", "keys": {}, "shards": [], "changed": {"a.php": [0]}, "reach": []'),
         'the file.changed.a.php[0] is not a line.',
     ],
     'a reason that is not text' => [
-        '{"format": 1, "commit": "5eeca8f", "base": "b", "keys": {}, "shards": [], "changed": {}, "reach": [3]}',
+        planFileWith('"base": "b", "keys": {}, "shards": [], "changed": {}, "reach": [3]'),
         'the file.reach[0] is not text.',
     ],
-    'no base' => ['{"format": 1, "commit": "5eeca8f", "keys": {}, "shards": []}', 'the file.base is missing.'],
-    'no digest' => [
+    'a commit that is not a full id' => [
         '{"format": 1, "commit": "5eeca8f", "base": "b", "keys": {}, "shards": []}',
+        'the file.commit is not a commit.',
+    ],
+    'no base' => [planFileWith('"keys": {}, "shards": []'), 'the file.base is missing.'],
+    'no digest' => [
+        planFileWith('"base": "b", "keys": {}, "shards": []'),
         'the file.digest is missing.',
     ],
 ]);
 
 it('writes and reads back the units it proved and those it carries, and neither where none are', function (): void {
-    $empty = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::none());
+    $empty = planFileEmpty();
     $plan = $empty
         ->on(RunOn::detached(Scope::branch('main')))
         ->proving(Units::of(Unit::file(Path::of('src/A.php'))))

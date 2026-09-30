@@ -91,7 +91,7 @@ it('cannot run a shard of a plan that is not there, or not one it can follow', f
 ) use ($composed): void {
     $project = FlowCommands::project();
     Scratch::write($project, 'elsewhere.json', PlanFile::encode(Plan::of(
-        Revision::ref('other'),
+        Revision::ref('0ddba110c0ffee0ddba110c0ffee0ddba110c0ff'),
         Digest::sha256Of('base'),
         Keys::none(),
         Shards::none(),
@@ -109,7 +109,11 @@ it('cannot run a shard of a plan that is not there, or not one it can follow', f
     ],
     'a plan of another commit' => [
         '--plan=elsewhere.json',
-        'The plan was made on other, and this checkout is head. Run a shard on the commit its plan was made on.',
+        sprintf(
+            'The plan was made on %s, and this checkout is %s. Run a shard on the commit its plan was made on.',
+            '0ddba110c0ffee0ddba110c0ffee0ddba110c0ff',
+            Flows::HEAD,
+        ),
     ],
 ]);
 
