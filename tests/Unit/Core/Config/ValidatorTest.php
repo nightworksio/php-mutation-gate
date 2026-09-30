@@ -9,8 +9,10 @@ use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
 use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
+use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Config\ProofWriting;
 use NightWorksIO\MutationGate\Core\Config\Report;
+use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -52,7 +54,8 @@ const DEFAULTS = <<<'JSON'
         },
         "shards": {
             "seconds": 600,
-            "max": 20
+            "max": 20,
+            "setup": "1m"
         },
         "costs": {
             "secondsPerLine": {
@@ -85,9 +88,15 @@ const DEFAULTS = <<<'JSON'
         "flaky": {
             "confirmSurvivors": true
         },
+        "tests": {
+            "order": "killers-first"
+        },
         "ignores": {
             "entries": [],
             "native": "refuse"
+        },
+        "equivalence": {
+            "static": true
         },
         "reports": [],
         "badge": {
@@ -316,13 +325,14 @@ it('leaves an ignore without an end date open when nothing limits it', function 
 it('serialises the settings that affect results canonically, and only those', function (): void {
     expect(Configs::settings(['runner' => 'pest'])->canonical())->toBe(
         '{"flaky":{"confirmSurvivors":true},"packages":[],"pest":{"canary":"mutation-canary","patch":false},'
-        . '"runner":"pest","timeouts":{"retries":20,"seconds":10},'
+        . '"runner":"pest","tests":{"order":"killers-first"},"timeouts":{"retries":20,"seconds":10},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
     )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
         '{"flaky":{"confirmSurvivors":false},"packages":["packages/*"],"pest":{"canary":"canary","patch":true},'
-        . '"runner":"infection","timeouts":{"retries":0,"seconds":30},'
+        . '"runner":"infection","tests":{"order":"killers-first"},"timeouts":{"retries":0,"seconds":30},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
-        . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},{"path":"app/Generated"},{"path":"app/Legacy"}]}',
+        . '"trees":[{"exclude":[],"path":"app/Domain"},{"exclude":[],"path":"app/Http"},'
+        . '{"exclude":[],"path":"app/Generated"},{"exclude":[],"path":"app/Legacy"}]}',
     );
 });
 
@@ -595,3 +605,126 @@ it('refuses a map whose keys are settings where a map of numbers belongs', funct
         ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'shards' => [600]])))
         ->toBe(['shards: expected an object, got a list']);
 });
+
+it('reads tree excludes, the shard target and setup, the price, the test order and the equivalence check', function (
+): void {
+    $settings = Configs::settings([
+        'runner' => 'pest',
+        'trees' => [['path' => 'src', 'exclude' => ['src/Legacy/**', 'src/Generated/*.php']]],
+        'shards' => ['target' => '20m', 'setup' => '3m'],
+        'costs' => ['perRunnerMinute' => ['amount' => 0.008, 'currency' => 'USD']],
+        'proofs' => ['store' => ['use' => 's3', 'with' => [
+            'bucket' => 'proofs',
+            'publicUrl' => 'https://proofs.example.com',
+        ]]],
+        'tests' => ['order' => 'runner'],
+        'equivalence' => ['static' => false],
+    ]);
+    $trees = $settings->floors()->trees();
+    $price = $settings->shards()->perRunnerMinute();
+
+    expect($trees instanceof Absent ? [] : [...[...$trees][0]->exclude()])
+        ->toBe(['src/Legacy/**', 'src/Generated/*.php'])
+        ->and($settings->shards()->target())->toEqual(Seconds::of(1200))
+        ->and($settings->shards()->setup())->toEqual(Seconds::of(180))
+        ->and($price instanceof Price ? [$price->amount(), $price->currency()] : [])->toBe([0.008, 'USD'])
+        ->and(Configs::shown($settings, 'proofs', 'store', 'with', 'publicUrl'))->toBe('https://proofs.example.com')
+        ->and($settings->triage()->order())->toBe(TestOrder::Runner)
+        ->and($settings->triage()->staticEquivalence())->toBeFalse();
+});
+
+it('excludes nothing, cuts by seconds, prices nothing, puts killers first and checks equivalence by default', function (
+): void {
+    $settings = Configs::settings(['runner' => 'pest', 'trees' => [['path' => 'src']]]);
+    $trees = $settings->floors()->trees();
+
+    expect($trees instanceof Absent ? ['no trees'] : [...[...$trees][0]->exclude()])->toBe([])
+        ->and($settings->shards()->target())->toEqual(Absent::setting())
+        ->and($settings->shards()->setup())->toEqual(Seconds::of(60))
+        ->and($settings->shards()->perRunnerMinute())->toEqual(Absent::setting())
+        ->and($settings->triage()->order())->toBe(TestOrder::KillersFirst)
+        ->and($settings->triage()->staticEquivalence())->toBeTrue();
+});
+
+it('refuses a shard count set two ways, and a price, a public URL, an order or an exclude written wrong', function (
+    array $config,
+    array $problems,
+): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', ...$config])))->toBe($problems);
+})->with([
+    'a shard count set two ways' => [
+        ['shards' => ['seconds' => 600, 'target' => '20m']],
+        ['shards: expected either seconds or target, but not both'],
+    ],
+    'a price without its currency' => [
+        ['costs' => ['perRunnerMinute' => ['amount' => -1]]],
+        [
+            'costs.perRunnerMinute.amount: expected a number of at least 0, got -1',
+            'costs.perRunnerMinute.currency: expected a currency, such as EUR, got nothing',
+        ],
+    ],
+    'a public URL that is not https' => [
+        ['proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'publicUrl' => 'http://proofs']]]],
+        ['proofs.store.with.publicUrl: expected an https:// URL, got "http://proofs"'],
+    ],
+    'a test order the gate does not know' => [
+        ['tests' => ['order' => 'random']],
+        ['tests.order: expected "killers-first" or "runner", got "random"'],
+    ],
+    'an exclude that is not a list of globs' => [
+        ['trees' => [['path' => 'src', 'exclude' => 'src/Legacy']]],
+        ['trees[0].exclude: expected a list, got "src/Legacy"'],
+    ],
+]);
+
+it('reads the file reporters, the chat reporters with their variables, and OpenTelemetry', function (): void {
+    $settings = Configs::settings(['runner' => 'pest', 'reports' => [
+        ['use' => 'tests', 'path' => 'build/tests.json'],
+        ['use' => 'kill-matrix', 'path' => 'build/kills.csv'],
+        ['use' => 'gitlab', 'path' => 'gl-code-quality.json'],
+        ['use' => 'slack'],
+        ['use' => 'discord', 'with' => ['urlEnv' => 'TEAM_DISCORD']],
+        ['use' => 'webhook'],
+        ['use' => 'otlp', 'with' => ['endpoint' => 'https://otel.example.com']],
+    ]]);
+
+    expect(Configs::shown($settings, 'reports'))->toBe([
+        ['use' => 'tests', 'path' => 'build/tests.json'],
+        ['use' => 'kill-matrix', 'path' => 'build/kills.csv'],
+        ['use' => 'gitlab', 'path' => 'gl-code-quality.json'],
+        ['use' => 'slack'],
+        ['use' => 'discord', 'with' => ['urlEnv' => 'TEAM_DISCORD']],
+        ['use' => 'webhook'],
+        ['use' => 'otlp', 'with' => ['endpoint' => 'https://otel.example.com']],
+    ])->and(array_map(static fn(Report $report): string => $report->reporter()->options(), [...$settings->reports()]))
+        ->toBe([
+            '{}',
+            '{}',
+            '{}',
+            '{"urlEnv":"MUTATION_GATE_SLACK_URL"}',
+            '{"urlEnv":"TEAM_DISCORD"}',
+            '{"urlEnv":"MUTATION_GATE_WEBHOOK_URL","secretEnv":"MUTATION_GATE_WEBHOOK_SECRET"}',
+            '{"endpoint":"https://otel.example.com"}',
+        ]);
+});
+
+it('refuses a webhook URL in the config, and a path a reporter cannot take or needs', function (
+    array $report,
+    string $problem,
+): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'reports' => [$report]])))->toBe([$problem]);
+})->with([
+    'a webhook URL in the config' => [
+        ['use' => 'slack', 'with' => ['url' => 'https://hooks.slack.com/x']],
+        'reports[0].with.url: expected no url: a webhook URL is a credential; set MUTATION_GATE_SLACK_URL, '
+        . 'or name another variable in urlEnv',
+    ],
+    'a path for a reporter that writes no file' => [
+        ['use' => 'otlp', 'path' => 'build/otlp.json'],
+        'reports[0].path: expected nothing, as otlp writes no file, got "build/otlp.json"',
+    ],
+    'no path for a reporter that writes a file' => [
+        ['use' => 'kill-matrix'],
+        'reports[0].path: expected a path, got nothing',
+    ],
+]);

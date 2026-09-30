@@ -9,8 +9,13 @@ use function array_filter;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
+use function array_values;
 
 use Closure;
+
+use function count;
+use function implode;
+
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -31,9 +36,14 @@ final readonly class Section implements Node
      * @param Closure(Fields, string): (T|Invalid) $build        the value its settings make, or their problems
      * @param array<string, Field>                 $fields       by key
      * @param list<list<string>>                   $alternatives sets of keys of which exactly one is written
+     * @param list<string>                         $exclusive    keys of which at most one is written
      */
-    private function __construct(private Closure $build, private array $fields, private array $alternatives)
-    {
+    private function __construct(
+        private Closure $build,
+        private array $fields,
+        private array $alternatives,
+        private array $exclusive,
+    ) {
     }
 
     /**
@@ -46,7 +56,7 @@ final readonly class Section implements Node
     {
         $keys = array_map(static fn(Field $field): string => $field->key(), $fields);
 
-        return new self($build, array_combine($keys, $fields), []);
+        return new self($build, array_combine($keys, $fields), [], []);
     }
 
     /** @return self<Fields> an object whose value is its settings */
@@ -63,7 +73,18 @@ final readonly class Section implements Node
      */
     public function oneOf(array $sets): self
     {
-        return new self($this->build, $this->fields, $sets);
+        return new self($this->build, $this->fields, $sets, $this->exclusive);
+    }
+
+    /**
+     * This object, where at most one of these keys is written, as one replaces the other.
+     *
+     * @param  list<string> $keys
+     * @return self<T>
+     */
+    public function atMostOne(array $keys): self
+    {
+        return new self($this->build, $this->fields, $this->alternatives, $keys);
     }
 
     public function read(mixed $value, string $at): Reading
@@ -79,7 +100,7 @@ final readonly class Section implements Node
             $problems = [...$problems, ...$reading->problems()];
         }
 
-        $problems = [...$problems, ...$this->unknown($value, $at)];
+        $problems = [...$problems, ...$this->unknown($value, $at), ...$this->together($value, $at)];
 
         return $problems === [] ? $this->built($readings, $at) : Reading::refused($problems);
     }
@@ -104,6 +125,10 @@ final readonly class Section implements Node
         }
 
         $schema['additionalProperties'] = false;
+
+        if ($this->exclusive !== []) {
+            $schema['not'] = ['required' => $this->exclusive];
+        }
 
         if ($this->alternatives !== []) {
             $schema['oneOf'] = array_map(static fn(array $set): array => ['required' => $set], $this->alternatives);
@@ -158,6 +183,24 @@ final readonly class Section implements Node
             ),
             $results === [] ? Absent::setting() : $results,
         );
+    }
+
+    /**
+     * The keys of which at most one may be written, where more are.
+     *
+     * @param  array<mixed> $object
+     * @return list<Problem>
+     */
+    private function together(array $object, string $at): array
+    {
+        $written = array_values(array_filter(
+            $this->exclusive,
+            static fn(string $key): bool => array_key_exists($key, $object),
+        ));
+
+        return count($written) > 1
+            ? [Problem::at($at, sprintf('expected either %s, but not both', implode(' or ', $written)))]
+            : [];
     }
 
     /**

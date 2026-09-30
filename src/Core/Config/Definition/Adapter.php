@@ -55,7 +55,7 @@ final readonly class Adapter implements Node
 
     public function schema(): array
     {
-        return ['anyOf' => [['type' => 'string', 'minLength' => 1], ...$this->builtins->schemas([], [])]];
+        return ['anyOf' => [['type' => 'string', 'minLength' => 1], ...$this->builtins->schemas([], [], [])]];
     }
 
     public function effects(): array

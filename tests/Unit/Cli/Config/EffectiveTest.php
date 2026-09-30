@@ -69,7 +69,7 @@ it('lays the config file over its presets, and the command line over both', func
         'preset' => 'symfony',
         'runner' => 'pest',
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['src']]],
-        'trees' => [['path' => 'src/Domain', 'floor' => 100]],
+        'trees' => [['path' => 'src/Domain', 'floor' => 100, 'exclude' => []]],
         'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**']],
         'budget' => '5m',
         'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'retries' => 20],

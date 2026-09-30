@@ -22,10 +22,14 @@ use NightWorksIO\MutationGate\Core\Config\Definition\NumberMap;
 use NightWorksIO\MutationGate\Core\Config\Definition\OpenObject;
 use NightWorksIO\MutationGate\Core\Config\Definition\Percent;
 use NightWorksIO\MutationGate\Core\Config\Definition\Presets;
+use NightWorksIO\MutationGate\Core\Config\Definition\Refused;
 use NightWorksIO\MutationGate\Core\Config\Definition\ReportEntry;
 use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Config\Definition\Text;
 use NightWorksIO\MutationGate\Core\Config\Definition\Unchecked;
+use NightWorksIO\MutationGate\Core\Config\Definition\Url;
+
+use function sprintf;
 
 /**
  * Every setting of the config, with its type, its default and what it can
@@ -35,6 +39,13 @@ use NightWorksIO\MutationGate\Core\Config\Definition\Unchecked;
 final readonly class Definition
 {
     private const string SCHEMA = 'https://json-schema.org/draft/2020-12/schema';
+
+    /** The built-in reporters that send rather than write a file, so take no `path` (ADR-0016). */
+    private const array WRITING_NO_FILE = ['slack', 'discord', 'webhook', 'otlp'];
+
+    /** Why a chat reporter's options never hold its URL, and where it comes from instead (ADR-0016). */
+    private const string CREDENTIAL
+        = 'expected no url: a webhook URL is a credential; set %s, or name another variable in urlEnv';
 
     /** What the `$schema` key of a config file is for. */
     private const string SCHEMA_KEY = 'The JSON Schema an editor checks this file by.';
@@ -87,6 +98,7 @@ final readonly class Definition
                         Field::required('path', Location::path(), $results),
                         Field::optional('floor', Percent::floor(), $judges),
                         Field::optional('reason', Text::of('a reason'), $judges),
+                        Field::setting('exclude', Items::of(Text::of('a glob')), $results, []),
                     ),
                 ),
             ),
@@ -122,7 +134,9 @@ final readonly class Definition
                 Section::fields(
                     Field::setting('seconds', Integer::atLeast(1), $judges, self::SHARD_SECONDS),
                     Field::setting('max', Integer::atLeast(1), $judges, self::MOST_SHARDS),
-                ),
+                    Field::optional('target', Duration::written(), $judges),
+                    Field::setting('setup', Duration::written(), $judges, '1m'),
+                )->atMostOne(['seconds', 'target']),
             ),
             Field::section(
                 'costs',
@@ -132,6 +146,15 @@ final readonly class Definition
                         NumberMap::of(Number::atLeast(0)),
                         $judges,
                         ['' => self::SECONDS_PER_LINE],
+                    ),
+                    Field::optional(
+                        'perRunnerMinute',
+                        Section::of(
+                            Price::read(...),
+                            Field::required('amount', Number::atLeast(0), $judges),
+                            Field::required('currency', Text::of('a currency, such as EUR'), $judges),
+                        ),
+                        $judges,
                     ),
                 ),
             ),
@@ -159,8 +182,23 @@ final readonly class Definition
                     Field::setting('confirmSurvivors', Flag::boolean(), $results, default: true),
                 ),
             ),
+            Field::section(
+                'tests',
+                Section::fields(
+                    Field::setting('order', Enumerated::of(TestOrder::cases()), $results, 'killers-first'),
+                ),
+            ),
             Field::section('ignores', self::ignores()),
-            Field::setting('reports', Items::of(ReportEntry::choosing(self::reporters())), $judges, []),
+            Field::section(
+                'equivalence',
+                Section::fields(Field::setting('static', Flag::boolean(), $judges, default: true)),
+            ),
+            Field::setting(
+                'reports',
+                Items::of(ReportEntry::choosing(self::reporters(), self::WRITING_NO_FILE)),
+                $judges,
+                [],
+            ),
             Field::section(
                 'badge',
                 Section::fields(
@@ -271,6 +309,7 @@ final readonly class Definition
                 Field::setting('prefix', Text::of('a key prefix'), $judges, 'mutation-gate'),
                 Field::setting('region', Text::of('a region'), $judges, 'us-east-1'),
                 Field::optional('endpoint', Text::of('a URL'), $judges),
+                Field::optional('publicUrl', Url::https(), $judges),
             ),
         ]);
     }
@@ -282,11 +321,39 @@ final readonly class Definition
 
     private static function reporters(): Builtins
     {
-        return self::none('json', 'junit', 'sarif', 'html');
+        $judges = Effect::JudgesOrReportsOnly;
+        $files = self::bare('json', 'junit', 'sarif', 'html', 'tests', 'kill-matrix', 'gitlab');
+        $chat = static fn(string $variable, Field ...$more): Section => Section::fields(
+            Field::setting('urlEnv', Text::of('an environment variable name'), $judges, $variable),
+            Field::optional('url', Refused::because(sprintf(self::CREDENTIAL, $variable)), $judges),
+            ...$more,
+        );
+
+        return Builtins::of([
+            ...$files,
+            'slack' => $chat('MUTATION_GATE_SLACK_URL'),
+            'discord' => $chat('MUTATION_GATE_DISCORD_URL'),
+            'webhook' => $chat(
+                'MUTATION_GATE_WEBHOOK_URL',
+                Field::setting(
+                    'secretEnv',
+                    Text::of('an environment variable name'),
+                    $judges,
+                    'MUTATION_GATE_WEBHOOK_SECRET',
+                ),
+            ),
+            'otlp' => Section::fields(Field::optional('endpoint', Url::https(), $judges)),
+        ]);
     }
 
     /** Built-in adapters that take no options. */
     private static function none(string ...$names): Builtins
+    {
+        return Builtins::of(self::bare(...$names));
+    }
+
+    /** @return array<string, Section<Fields>> the options of adapters that take none, by name */
+    private static function bare(string ...$names): array
     {
         $options = [];
 
@@ -294,6 +361,6 @@ final readonly class Definition
             $options[$name] = Section::fields();
         }
 
-        return Builtins::of($options);
+        return $options;
     }
 }
