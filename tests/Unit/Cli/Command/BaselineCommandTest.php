@@ -157,6 +157,27 @@ it('writes nothing with --write where no floor rose', function () use ($baseline
         ->and(is_file(sprintf('%s/mutation-gate.baseline.json', $project)))->toBeFalse();
 });
 
+it('cannot write with --write a baseline whose directory is a file', function () use (
+    $baseline,
+    $ledgers,
+    $trees,
+): void {
+    $project = FlowCommands::project('"baseline": {"path": "floors/baseline.json"}');
+    Scratch::write($project, 'floors', 'a file where the baseline\'s directory should be');
+
+    $written = $baseline(
+        $project,
+        $trees(30),
+        $ledgers('src/Money.php', 'src/Held.php'),
+        '--write',
+        ScriptedRunner::fixture(),
+    );
+
+    expect($written->code)->toBe(2)
+        ->and($written->output)->toBe('')
+        ->and($written->errors)->toBe(sprintf("%s/floors/baseline.json could not be written.\n", $project));
+});
+
 it('cannot show a baseline it cannot read', function () use ($baseline, $ledgers, $trees): void {
     $project = FlowCommands::project();
     Scratch::write($project, 'mutation-gate.baseline.json', 'not a baseline');

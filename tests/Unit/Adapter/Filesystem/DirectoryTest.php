@@ -80,12 +80,10 @@ it('cannot judge a file it could not write', function (): void {
     expect($written)->toEqual(CannotJudge::because(sprintf('%s/plan.json could not be written.', $root)));
 });
 
-it('cannot judge a file whose directory it could not make', function (): void {
+it('cannot judge a file whose directory is a file, and warns of nothing', function (): void {
     $root = Scratch::directory();
     Scratch::write($root, 'report', 'a file where a directory should be');
-    set_error_handler(static fn(): bool => true);
     $written = Directory::at($root)->write(Path::of('report/index.html'), Contents::of('<html>'));
-    restore_error_handler();
 
     expect($written)->toEqual(CannotJudge::because(sprintf('%s/report/index.html could not be written.', $root)));
 });
