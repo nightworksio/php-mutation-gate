@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -83,8 +84,8 @@ it('holds presets, config fragments with a name', function (): void {
     $fragment = Document::ofJson('{"trees": [{"path": "app"}]}');
     $registry = $fragment instanceof Document ? new Extensions(Origin::of('acme/a'))->withPreset(Name::of('laravel'), $fragment) : new Extensions(Origin::of('acme/a'));
 
-    expect($registry->preset(Name::of('laravel')))->toBe($fragment)
-        ->and($registry->preset(Name::of('symfony')))->toEqual(CannotJudge::because('No preset is registered as "symfony".'));
+    expect(Lookup::in($registry)->preset(Name::of('laravel')))->toBe($fragment)
+        ->and(Lookup::in($registry)->preset(Name::of('symfony')))->toEqual(CannotJudge::because('No preset is registered as "symfony".'));
 });
 
 it('takes in the presets another package registered, and refuses one registered twice', function (): void {
@@ -92,7 +93,7 @@ it('takes in the presets another package registered, and refuses one registered 
     $preset = static fn(string $package): Extensions => $fragment instanceof Document ? new Extensions(Origin::of($package))->withPreset(Name::of('laravel'), $fragment) : new Extensions(Origin::of($package));
     $merged = new Extensions(Origin::of('acme/a'))->merge($preset('acme/b'));
 
-    expect($merged instanceof Extensions ? $merged->preset(Name::of('laravel')) : $merged)->toBe($fragment)
+    expect($merged instanceof Extensions ? Lookup::in($merged)->preset(Name::of('laravel')) : $merged)->toBe($fragment)
         ->and($preset('acme/a')->merge($preset('acme/b')))->toEqual(CannotJudge::because(
             'Two packages register a preset named "laravel": acme/a and acme/b. Remove one of the packages, or run with --no-extensions.',
         ));

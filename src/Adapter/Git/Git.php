@@ -13,11 +13,15 @@ use function file_get_contents;
 use function implode;
 use function is_file;
 use function is_string;
+use function mb_strlen;
+use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\Detached;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
@@ -25,7 +29,9 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Port\ChangeSource;
+use NightWorksIO\MutationGate\Port\Repository;
 
 use function sprintf;
 use function str_contains;
@@ -35,13 +41,25 @@ use function trim;
  * The repository as git sees it from a directory: what changed from the merge
  * base of a revision and HEAD to what is on disk, every file that is not
  * ignored with its blob id, and a file as it was at a revision. Uncommitted
- * changes and untracked files count.
+ * changes and untracked files count. It also says the commit HEAD is at, the
+ * branch it is on, and the branch the remote calls its default.
  *
  * A revision is resolved to its commit once, the first time a file is read
  * at it, so every file read at it is read at the same commit.
  */
-final class Git implements ChangeSource
+final class Git implements ChangeSource, Repository
 {
+    /** What git names the branch of a detached `HEAD`. */
+    private const string DETACHED = 'HEAD';
+
+    /** The ref that names the remote's default branch. */
+    private const string ORIGIN_HEAD = 'refs/remotes/origin/HEAD';
+
+    /** How the remote's branches are spelt. */
+    private const string ORIGIN = 'refs/remotes/origin/';
+
+    private const string NO_ORIGIN_HEAD = '%s points at no branch, so git cannot name the default branch.';
+
     /** Why a revision cannot be read from. */
     private const string UNKNOWN = '%s is not a revision this repository has.';
 
@@ -89,6 +107,33 @@ final class Git implements ChangeSource
         $blob = $this->git->run(['cat-file', 'blob', sprintf('%s:./%s', $commit, $path->value())]);
 
         return is_string($blob) ? Contents::of($blob) : Missing::at($path);
+    }
+
+    public function head(): Revision|CannotTell
+    {
+        $head = $this->git->run(['rev-parse', '--verify', '--quiet', 'HEAD^{commit}']);
+
+        return $head instanceof CannotTell ? $head : Revision::ref(trim($head));
+    }
+
+    public function branch(): Scope|Detached|CannotTell
+    {
+        $name = $this->git->run(['rev-parse', '--abbrev-ref', 'HEAD']);
+
+        return match (true) {
+            $name instanceof CannotTell => $name,
+            trim($name) === self::DETACHED => Detached::head(),
+            default => RunOn::branchNamed(trim($name)),
+        };
+    }
+
+    public function defaultBranch(): Scope|CannotTell
+    {
+        $target = $this->git->run(['symbolic-ref', '--quiet', self::ORIGIN_HEAD]);
+
+        return $target instanceof CannotTell
+            ? CannotTell::because(sprintf(self::NO_ORIGIN_HEAD, self::ORIGIN_HEAD))
+            : RunOn::branchNamed(mb_substr(trim($target), mb_strlen(self::ORIGIN)));
     }
 
     /** The commit a revision names, resolved the first time it is asked for. */

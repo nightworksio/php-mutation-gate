@@ -10,6 +10,7 @@ use Closure;
 use Nette\Neon\Neon;
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
+use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -55,7 +56,7 @@ final readonly class Formats
     public static function loader(Extensions $extensions, Path $file): ConfigLoader|CannotJudge
     {
         $format = self::of($file);
-        $loader = $extensions->configLoader(Name::of($format), Options::none());
+        $loader = Lookup::in($extensions)->configLoader(Name::of($format), Options::none());
 
         return match (true) {
             $loader instanceof ConfigLoader => $loader,

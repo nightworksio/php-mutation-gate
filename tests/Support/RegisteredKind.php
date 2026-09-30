@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use Closure;
+use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -17,6 +19,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ConfigLoaderFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 
@@ -33,6 +36,7 @@ enum RegisteredKind: string
     case CiPlan = 'CI plan';
     case Reporter = 'reporter';
     case ChangeSource = 'change source';
+    case Repository = 'repository';
     case ConfigLoader = 'config loader';
 
     public function register(Extensions $registry, Closure $build): Extensions
@@ -45,6 +49,7 @@ enum RegisteredKind: string
             self::CiPlan => $registry->withCiPlan(Name::of('it'), $build),
             self::Reporter => $registry->withReporter(Name::of('it'), $build),
             self::ChangeSource => $registry->withChangeSource(Name::of('it'), $build),
+            self::Repository => $registry->withRepository(Name::of('it'), $build),
             self::ConfigLoader => $registry->withConfigLoader(Name::of('it'), $build),
         };
     }
@@ -60,21 +65,25 @@ enum RegisteredKind: string
             self::CiPlan => new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')),
             self::Reporter => new ReporterFake(),
             self::ChangeSource => ChangeSourceFake::ofTheFixture(),
+            self::Repository => RepositoryFake::onMain(Revision::ref('5eeca8f')),
             self::ConfigLoader => ConfigLoaderFake::ofTheFixture(),
         };
     }
 
     public function lookUp(Extensions $registry, Options $options): object
     {
+        $lookup = Lookup::in($registry);
+
         return match ($this) {
-            self::Runner => $registry->runner(Name::of('it'), $options),
-            self::TreeSource => $registry->treeSource(Name::of('it'), $options),
-            self::CostModel => $registry->costModel(Name::of('it'), $options),
-            self::ProofStore => $registry->proofStore(Name::of('it'), $options),
-            self::CiPlan => $registry->ciPlan(Name::of('it'), $options),
-            self::Reporter => $registry->reporter(Name::of('it'), $options),
-            self::ChangeSource => $registry->changeSource(Name::of('it'), $options),
-            self::ConfigLoader => $registry->configLoader(Name::of('it'), $options),
+            self::Runner => $lookup->runner(Name::of('it'), $options),
+            self::TreeSource => $lookup->treeSource(Name::of('it'), $options),
+            self::CostModel => $lookup->costModel(Name::of('it'), $options),
+            self::ProofStore => $lookup->proofStore(Name::of('it'), $options),
+            self::CiPlan => $lookup->ciPlan(Name::of('it'), $options),
+            self::Reporter => $lookup->reporter(Name::of('it'), $options),
+            self::ChangeSource => $lookup->changeSource(Name::of('it'), $options),
+            self::Repository => $lookup->repository(Name::of('it'), $options),
+            self::ConfigLoader => $lookup->configLoader(Name::of('it'), $options),
         };
     }
 }

@@ -1,4 +1,4 @@
-# ADR-0001: A framework-free core behind eight ports, with adapters found through Composer
+# ADR-0001: A framework-free core behind nine ports, with adapters found through Composer
 
 **Status:** Accepted
 **Date:** 2026-09-29
@@ -46,7 +46,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    - **`Attribute`** holds `#[Holds]` (ADR-0005). It names nothing. The gate
      reads it from tokens, and only the Pest adapter's plugin names it, to turn
      it into a group (ADR-0004). It is public API.
-   - **`Port`** holds the eight interfaces through which the gate asks the
+   - **`Port`** holds the nine interfaces through which the gate asks the
      outside world, and nothing else. They are public API.
    - **`Config`** is the PHP builder of ADR-0002. It is public API.
    - **`Extension`** holds the `Extension` interface, the `Extensions` registry
@@ -62,7 +62,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
      constructed and wired, and it uses `symfony/console` for the command line.
      Its flows ask the ports in order and hand their answers to the core.
 
-2. **The eight ports, and what each one answers.** Every method returns a value
+2. **The nine ports, and what each one answers.** Every method returns a value
    or an outcome. None throws across the port (see decision 6).
 
    | Port | Answers | First adapters |
@@ -74,10 +74,11 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    | `CiPlan` | A plan in a CI's own format; which shard this job is; and the run's ref, whether it is a pull request, and the default branch | GitHub, GitLab, Buildkite, CircleCI, JSON (ADR-0006) |
    | `Reporter` | Writing a verdict for one audience | Console, JSON, JUnit, SARIF, HTML, GitHub annotations and step summary, PR comment, badge and trend (ADR-0009) |
    | `ChangeSource` | The repository as version control sees it: what changed since a base and on which lines, every file with a digest of its content and the time it last changed, and a file as it was at the base | git, with GitHub as a source for the base (ADR-0005) |
+   | `Repository` | Where the checkout stands: the commit it is at, the branch it is on or that its `HEAD` is detached, and the branch the remote calls its default | git (ADR-0006) |
    | `ConfigLoader` | One config file read into the untyped tree that ADR-0002 validates | PHP, JSON, YAML, NEON (ADR-0002) |
 
    Time is read through PSR-20's `Psr\Clock\ClockInterface`, a standard
-   interface rather than a ninth port. `Psr\Clock` is the only package outside
+   interface rather than a tenth port. `Psr\Clock` is the only package outside
    PHP that `Core`, `Attribute`, `Port`, `Config` and `Extension` may name.
 
 3. **The seed's seams map onto the ports, and do not survive as names.**
@@ -121,8 +122,11 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    `Extensions` is an immutable registry. An extension returns it with adapters
    added under a name: `withRunner('pest', …)`, `withReporter('sarif', …)`,
    `withProofStore('s3', …)`, `withCiPlan('gitlab', …)`,
-   `withConfigLoader('yaml', …)`, `withPreset('laravel', …)` and so on for every
-   port. The package's own adapters register through a first-party extension
+   `withConfigLoader('yaml', …)`, `withRepository('git', …)`,
+   `withPreset('laravel', …)` and so on for every port. Extensions only
+   register: `Extensions` offers no lookup to them. The composition root in
+   `Cli` looks up what was registered, by name, and refuses what a
+   registration builds that is not the kind it was registered as. The package's own adapters register through a first-party extension
    named in the package's own `extra`. The discovery path is therefore the path
    every built-in takes, and it cannot rot unnoticed. Discovery runs no Composer
    plugin and needs no `allow-plugins` entry.
@@ -171,7 +175,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
 | **Pest and Infection adapters as separate packages** (`mutation-gate-pest`, `mutation-gate-infection`) | The approved scope ships both in v1, and a user would install two packages to use one. Splitting adds a version matrix between core and adapters before anyone needs it. They ship in the package, registered through the same discovery a third-party adapter uses, so splitting them changes no interface. |
 | **A Composer plugin that writes a generated registry at install time** (the approach of `phpstan/extension-installer`) | Needs an `allow-plugins` entry in every consuming project, and the registry goes stale when the plugin is not allowed to run. Reading `installed.json` at startup costs one JSON decode. |
 | **Discovery by scanning for classes that implement `Extension`** | Loads every class in `vendor` to find a handful, and an extension is enabled merely by being autoloadable, where naming it in `composer.json` is a declaration. |
-| **A ninth port for the clock** | Time is needed for ignore expiry and the time budget, and PSR-20 already is that interface. A port of our own would add a type every adapter author has to learn. |
+| **A tenth port for the clock** | Time is needed for ignore expiry and the time budget, and PSR-20 already is that interface. A port of our own would add a type every adapter author has to learn. |
 | **Deptrac for the layer rules** | Pest arch tests and PHPStan already run in the suite, and the Guards suite proves each of their rules refuses a violation (ADR-0011). A third tool would hold the same rules in a second place. |
 
 ## Consequences
@@ -187,8 +191,9 @@ adapter is proved against the same contract its fake is.
 registered, configured and reported exactly like Pest.
 
 **Extension classes are public API** (ADR-0011): the `Extension` interface,
-the `Extensions` registry, the ports and the `Core` value types they use. Moving
-any of them is a major release.
+the `Extensions` registry, the nine ports and the `Core` value types they use.
+Moving any of them is a major release. What `Cli` looks up is not: an
+extension registers, and never reads the registry back.
 
 ## Related
 

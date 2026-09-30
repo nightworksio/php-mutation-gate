@@ -11,6 +11,7 @@ use Closure;
 
 use function is_a;
 
+use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
@@ -46,28 +47,33 @@ final readonly class Chosen
 
     public function runner(Choice $choice): Runner|Invalid|CannotJudge
     {
-        return $this->built('runner', Runner::class, $choice, $this->extensions->runner(...));
+        return $this->built('runner', Runner::class, $choice, Lookup::in($this->extensions)->runner(...));
     }
 
     public function treeSource(Choice $choice): TreeSource|Invalid|CannotJudge
     {
-        return $this->built('treeSource', TreeSource::class, $choice, $this->extensions->treeSource(...));
+        return $this->built('treeSource', TreeSource::class, $choice, Lookup::in($this->extensions)->treeSource(...));
     }
 
     public function proofStore(Choice $choice): ProofStore|Invalid|CannotJudge
     {
-        return $this->built('proofs.store', ProofStore::class, $choice, $this->extensions->proofStore(...));
+        return $this->built('proofs.store', ProofStore::class, $choice, Lookup::in($this->extensions)->proofStore(...));
     }
 
     public function ciPlan(Choice $choice): CiPlan|Invalid|CannotJudge
     {
-        return $this->built('ci.plan', CiPlan::class, $choice, $this->extensions->ciPlan(...));
+        return $this->built('ci.plan', CiPlan::class, $choice, Lookup::in($this->extensions)->ciPlan(...));
     }
 
     /** The reporter of the `reports` entry at this index. */
     public function reporter(Choice $choice, int $index): Reporter|Invalid|CannotJudge
     {
-        return $this->built(sprintf('reports[%d]', $index), Reporter::class, $choice, $this->extensions->reporter(...));
+        return $this->built(
+            sprintf('reports[%d]', $index),
+            Reporter::class,
+            $choice,
+            Lookup::in($this->extensions)->reporter(...),
+        );
     }
 
     /**

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
+use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Choice;
@@ -111,7 +112,7 @@ it('loads the extensions a config names, as coming from the config file', functi
     $registry = new Chosen(new Extensions(Origin::of('nightworksio/mutation-gate')))
         ->withExtensions([ExtensionFake::class], 'mutation-gate.json');
 
-    expect($registry instanceof Extensions ? $registry->runner(Name::of('fake'), Options::none()) : $registry)
+    expect($registry instanceof Extensions ? Lookup::in($registry)->runner(Name::of('fake'), Options::none()) : $registry)
         ->toEqual(RunnerFake::ofTheFixture());
 });
 

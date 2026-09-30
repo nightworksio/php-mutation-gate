@@ -239,7 +239,7 @@ gate's own.
 
 ## Related
 
-- [ADR-0001](0001-a-framework-free-core-behind-eight-ports.md): the ConfigLoader port and extension discovery
+- [ADR-0001](0001-a-framework-free-core-behind-nine-ports.md): the ConfigLoader port and extension discovery
 - [ADR-0003](0003-a-floor-only-rises.md): the baseline that zero-config floors come from
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): monorepo tree sources
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): presets

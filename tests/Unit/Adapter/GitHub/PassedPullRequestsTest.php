@@ -10,8 +10,9 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
+use NightWorksIO\MutationGate\Tests\Support\Checkout;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\JsonMockResponse;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -32,10 +33,14 @@ const PULL_REQUESTS_RUN = [
 
 $uncommitted = static fn(): Changes => Changes::of(Change::modified(Path::of('src/Money.php'), Lines::none()));
 
-$source = static fn(): ChangeSource => new ChangeSourceFake(Revision::ref('head'), Changes::of(Change::modified(Path::of('src/Money.php'), Lines::none())), [
-    'base' => ['src/Money.php' => 'base'],
-    Revision::workingTree()->name() => ['src/Money.php' => 'disk'],
-]);
+$source = static fn(): Checkout => Checkout::of(
+    new ChangeSourceFake(
+        Revision::ref('head'),
+        Changes::of(Change::modified(Path::of('src/Money.php'), Lines::none())),
+        ['base' => ['src/Money.php' => 'base'], Revision::workingTree()->name() => ['src/Money.php' => 'disk']],
+    ),
+    RepositoryFake::onMain(Revision::ref('head')),
+);
 
 /**
  * GitHub, answering these paths of the repository's API with these bodies,
@@ -195,4 +200,13 @@ it('reads files and fingerprints from the source underneath', function () use ($
 
     expect($proved->fileAt(Path::of('src/Money.php'), Revision::ref('base')))->toEqual(Contents::of('base'))
         ->and($proved->fingerprints())->toEqual($source()->fingerprints());
+});
+
+it('says where the checkout stands as the source underneath says', function (): void {
+    $underneath = Checkout::of(ChangeSourceFake::ofTheFixture(), RepositoryFake::detachedAt(Revision::ref('5eeca8f')));
+    $proved = PassedPullRequests::over($underneath, answering([]), PULL_REQUESTS_RUN);
+
+    expect($proved->head())->toEqual(Revision::ref('5eeca8f'))
+        ->and($proved->branch())->toEqual($underneath->branch())
+        ->and($proved->defaultBranch())->toEqual($underneath->defaultBranch());
 });

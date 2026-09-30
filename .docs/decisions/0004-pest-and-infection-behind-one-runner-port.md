@@ -548,7 +548,7 @@ interfaces, so each is added only once the contract suite passes on it.
 
 ## Related
 
-- [ADR-0001](0001-a-framework-free-core-behind-eight-ports.md): the port and its outcomes
+- [ADR-0001](0001-a-framework-free-core-behind-nine-ports.md): the port and its outcomes
 - [ADR-0003](0003-a-floor-only-rises.md): how statuses become a score
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): holding groups and `#[Holds]`
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): runner identity, and the tests that can judge a unit, in the key
