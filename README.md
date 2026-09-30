@@ -484,7 +484,7 @@ Files the gate reads and writes:
 | `mutation-gate.baseline.json` | The committed floors | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `.mutation-gate/plan.json`, `.mutation-gate/coverage/`, `.mutation-gate/results/<id>.json` | The plan, its coverage and each shard's result | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `.mutation-gate/pipeline.yml` | GitLab's child pipeline | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
-| `.mutation-gate/ledger/<scope>/ledger.json.gz` | The proof ledger of one ref | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `.mutation-gate/ledger/<scope>/ledger.json.gz` | The proof ledger of one ref; outside CI, the one a run writes whatever store the config names | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md), [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 | `.mutation-gate/mutants/<native id>.php` | The mutated file of a mutant judged by reference (Pest) | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `infection.json5`, `infection.json`, `infection.json5.dist` or `infection.json.dist` | The project's own Infection config, the first found, whose mutators, `bootstrap`, `phpUnit`, `initialTestsPhpOptions`, `testFrameworkExtraArgs` and static analysis the gate keeps | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `.mutation-gate/infection/` | The config the gate writes for each run of Infection, Infection's logs, its temporary files, and the coverage the adapter runs PHPUnit for | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |

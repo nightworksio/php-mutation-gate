@@ -85,11 +85,17 @@ The pieces already exist in the design:
 
 4. **Local runs share CI's code paths.** `watch` and `pre-push` are the same
    plan, run and verdict steps (ADR-0006), in one process, with the console
-   reporter and the directory proof store: at `proofs.store`'s path when the
-   config's store is `directory`, and at `.mutation-gate/ledger` otherwise. The
-   one local-only blocking rule is pre-push's: it also blocks on an unjudged
-   mutant, which CI counts as not killed, so a push the hook lets through has
-   had every mutant the change reaches judged.
+   reporter. The one local-only blocking rule is pre-push's: it also blocks on
+   an unjudged mutant, which CI counts as not killed, so a push the hook lets
+   through has had every mutant the change reaches judged.
+   - **The local ledger.** Every run outside CI (`CI` unset), `run` included,
+     writes its proofs only to a directory on the machine: at
+     `proofs.store`'s path when the config's store is `directory`, and at
+     `.mutation-gate/ledger` otherwise. Where the config names another store,
+     each ledger the run reads is the local one together with that store's
+     ledger of the same scope, which the run never writes. So what a machine
+     judged stays on it, and what CI proved on the default branch still
+     completes each tree (ADR-0015, decision 11).
 
 ## Alternatives considered
 

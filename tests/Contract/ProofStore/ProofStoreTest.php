@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -30,6 +31,7 @@ $stores = [
     'the fake' => fn(): ProofStore => new ProofStoreFake(),
     'the directory' => fn(): ProofStore => LedgerDirectory::at(Scratch::directory()),
     'the bucket' => fn(): ProofStore => BucketLedger::of(new Bucket()->client(), 'ledgers', 'mutation-gate'),
+    'the local ledgers' => fn(): ProofStore => LocalLedgers::of(LedgerDirectory::at(Scratch::directory()), new ProofStoreFake()),
 ];
 
 it('reads an empty ledger for a scope nothing wrote', function (ProofStore $store): void {

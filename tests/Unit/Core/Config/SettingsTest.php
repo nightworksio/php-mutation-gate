@@ -694,6 +694,15 @@ it('leaves the options of a class or another extension\'s adapter to it', functi
         ->and(Configs::shown($settings, 'runner'))->toBe(['use' => 'Acme\\Gate\\Runner', 'with' => ['workers' => 4]]);
 });
 
+it('says whether the store keeps its ledgers on this machine', function (string|array $store, bool $kept): void {
+    expect(Configs::settings(['runner' => 'pest', 'proofs' => ['store' => $store]])->proofs()->keptOnDisk())->toBe($kept);
+})->with([
+    'the directory' => ['directory', true],
+    'the directory at a path' => [['use' => 'directory', 'with' => ['path' => 'cache']], true],
+    'a bucket' => [['use' => 's3', 'with' => ['bucket' => 'ledgers']], false],
+    'a class' => ['Acme\\Gate\\Store', false],
+]);
+
 it('reads a path as the repository spells it', function (): void {
     $settings = Configs::settings(['runner' => 'pest', 'baseline' => ['path' => './build//baseline.json']]);
 

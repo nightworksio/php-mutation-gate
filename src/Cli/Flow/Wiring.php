@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function array_values;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
@@ -32,7 +33,8 @@ use NightWorksIO\MutationGate\Port\TreeSource;
 
 /**
  * The adapters the settings choose, built from the registry: the runner, the
- * tree source and the proof store the config names; the learned cost model;
+ * tree source and the proof store the config names, which outside CI is read
+ * beneath the local ledgers and never written; the learned cost model;
  * the CI plan the config names or the environment shows; the version
  * control source, GitHub's where GitHub Actions runs, and git's otherwise;
  * and what no process that runs the project's code may see: every run's
@@ -66,7 +68,7 @@ final readonly class Wiring
         $source = $this->environment->onGitHubActions() ? self::GITHUB : self::GIT;
         $runner = $chosen->runner($settings->runner()->choice());
         $trees = $chosen->treeSource($settings->treeSource());
-        $proofs = $chosen->proofStore($settings->proofs()->store());
+        $proofs = $this->kept($settings, $chosen->proofStore($settings->proofs()->store()));
         $costs = $lookup->costModel(Name::of(self::COSTS), $this->costOptions($settings));
         $ci = $chosen->ciPlan($this->ciOf($settings));
         $withheld = $this->withheld($settings, $chosen, $ci);
@@ -94,6 +96,20 @@ final readonly class Wiring
                 $withheld,
             ),
         };
+    }
+
+    /**
+     * Where a run keeps its proofs (ADR-0010, decision 4): in CI, and in a
+     * directory store the config names, there; elsewhere, in the local
+     * ledgers over the store the config names.
+     */
+    private function kept(
+        Settings $settings,
+        ProofStore|Invalid|CannotJudge $configured,
+    ): ProofStore|Invalid|CannotJudge {
+        $local = ! $this->environment->inCi() && ! $settings->proofs()->keptOnDisk();
+
+        return $configured instanceof ProofStore && $local ? LocalLedgers::over($configured) : $configured;
     }
 
     /**
