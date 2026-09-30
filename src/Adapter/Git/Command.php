@@ -4,16 +4,26 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Git;
 
+use function file_get_contents;
+use function file_put_contents;
 use function implode;
+use function is_dir;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 
+use function proc_close;
+use function proc_open;
 use function sprintf;
+use function stream_get_contents;
 
 use Symfony\Component\Process\Exception\RuntimeException;
 use Symfony\Component\Process\Process;
 
+use function sys_get_temp_dir;
+use function tempnam;
 use function trim;
+use function unlink;
 
 /** Git, run in one directory, answering with what it printed or why it could not. */
 final readonly class Command
@@ -35,6 +45,18 @@ final readonly class Command
     /** Why git gave no answer. */
     private const string FAILED = 'git %s gave no answer: %s';
 
+    /** Why git cannot run where the directory it is to run in is not there. */
+    private const string NO_DIRECTORY = 'The provided cwd "%s" does not exist.';
+
+    /** Why git cannot be handed its input. */
+    private const string NO_SCRATCH = 'there is no temporary file to hand it its input in.';
+
+    /** Why git did not run. */
+    private const string NOT_STARTED = 'it could not be started.';
+
+    /** How the files git reads its input from and writes its errors to are named. */
+    private const string SCRATCH = 'mutation-gate-git-';
+
     private function __construct(private string $directory)
     {
     }
@@ -54,16 +76,28 @@ final readonly class Command
     }
 
     /**
-     * Git, reading its standard input from this text.
+     * Git, reading its standard input from this text. The text reaches git as
+     * a file rather than a pipe, so git that stops before it has read all of
+     * it, as it does when it cannot start, leaves nothing half written, and
+     * its exit code says why.
      *
      * @param list<string> $arguments
      */
     public function feed(array $arguments, string $input): string|CannotTell
     {
-        return $this->finish(
-            new Process(['git', ...self::SETTINGS, ...$arguments], $this->directory, input: $input, timeout: null),
-            $arguments,
-        );
+        $in = tempnam(sys_get_temp_dir(), self::SCRATCH);
+        $errors = tempnam(sys_get_temp_dir(), self::SCRATCH);
+        $handed = is_string($in) && is_string($errors) && file_put_contents($in, $input) !== false;
+
+        try {
+            return match (true) {
+                ! is_dir($this->directory) => $this->refused($arguments, sprintf(self::NO_DIRECTORY, $this->directory)),
+                ! $handed => $this->refused($arguments, self::NO_SCRATCH),
+                default => $this->fedFrom($arguments, $in, $errors),
+            };
+        } finally {
+            $this->cleared($in, $errors);
+        }
     }
 
     /** @param list<string> $arguments */
@@ -72,11 +106,48 @@ final readonly class Command
         try {
             $process->run();
         } catch (RuntimeException $refused) {
-            return CannotTell::because(sprintf(self::FAILED, implode(' ', $arguments), $refused->getMessage()));
+            return $this->refused($arguments, $refused->getMessage());
         }
 
         return $process->isSuccessful()
             ? $process->getOutput()
-            : CannotTell::because(sprintf(self::FAILED, implode(' ', $arguments), trim($process->getErrorOutput())));
+            : $this->refused($arguments, trim($process->getErrorOutput()));
+    }
+
+    /**
+     * What git printed, reading its input from one file and writing what went
+     * wrong to another, or why it gave no answer.
+     *
+     * @param list<string> $arguments
+     */
+    private function fedFrom(array $arguments, string $in, string $errors): string|CannotTell
+    {
+        $git = proc_open(
+            ['git', ...self::SETTINGS, ...$arguments],
+            [0 => ['file', $in, 'r'], 1 => ['pipe', 'w'], 2 => ['file', $errors, 'w']],
+            $pipes,
+            $this->directory,
+        );
+        $printed = $git === false ? false : stream_get_contents($pipes[1]);
+        $succeeded = $git !== false && proc_close($git) === 0;
+        $said = $git === false ? self::NOT_STARTED : trim(sprintf('%s', file_get_contents($errors)));
+
+        return $succeeded && is_string($printed) ? $printed : $this->refused($arguments, $said);
+    }
+
+    /** Removes the files git read from and wrote to, where they were made. */
+    private function cleared(string|false ...$files): void
+    {
+        foreach ($files as $file) {
+            if (is_string($file)) {
+                unlink($file);
+            }
+        }
+    }
+
+    /** @param list<string> $arguments */
+    private function refused(array $arguments, string $why): CannotTell
+    {
+        return CannotTell::because(sprintf(self::FAILED, implode(' ', $arguments), $why));
     }
 }

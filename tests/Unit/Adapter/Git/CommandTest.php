@@ -42,3 +42,31 @@ it('cannot tell where git cannot run in the directory', function (): void {
     expect($answer)->toBeInstanceOf(CannotTell::class)
         ->and($answer instanceof CannotTell ? $answer->why() : '')->toBe(sprintf('git status gave no answer: The provided cwd "%s" does not exist.', $missing));
 });
+
+it('cannot tell where git stops before it reads its input, and writes nowhere it has closed', function (): void {
+    $answer = Command::in(Scratch::directory())->feed(['cat-file', '--batch'], str_repeat("HEAD:./src/Money.php\n", 800_000));
+
+    expect($answer)->toBeInstanceOf(CannotTell::class)
+        ->and($answer instanceof CannotTell ? $answer->why() : '')->toStartWith('git cat-file --batch gave no answer: fatal: not a git repository');
+});
+
+it('cannot tell where git cannot be fed in the directory', function (): void {
+    $missing = sprintf('%s/missing', Scratch::directory());
+
+    expect(Command::in($missing)->feed(['hash-object', '--stdin'], "hello\n"))
+        ->toEqual(CannotTell::because(sprintf('git hash-object --stdin gave no answer: The provided cwd "%s" does not exist.', $missing)));
+});
+
+it('leaves none of the files it hands git its input through', function (): void {
+    $scratch = static function (): array {
+        $found = glob(sprintf('%s/mutation-gate-git-*', sys_get_temp_dir()));
+
+        return is_array($found) ? $found : [];
+    };
+    $before = $scratch();
+
+    Command::in(Repository::empty()->root)->feed(['hash-object', '--stdin'], "hello\n");
+    Command::in(Scratch::directory())->feed(['cat-file', '--batch'], "HEAD:./src/Money.php\n");
+
+    expect($scratch())->toBe($before);
+});
