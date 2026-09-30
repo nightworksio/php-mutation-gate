@@ -278,6 +278,26 @@ verdict reaches and how.
     - `Core` computes clusters over the verdict's mutants, their spans
       (columns from tokens, ADR-0009 decision 4), the enclosing function
       and the judging tests. It is always on, and reports only.
+    - **As built.**
+      - A cluster holds survived and uncovered mutants that the score
+        counts, since those are what `stub` writes a test for. It holds two
+        at least, and a survivor is in one at most.
+      - One expression is applied first, and one gap among the rest, so a
+        survivor that both rules take is in its expression.
+      - A span is the tokens the mutant's diff changed, found on its lines.
+        It lies within one statement when no `;`, `{` or `}` is among them,
+        but for a `;` that ends them. A mutant with no such span, such as a
+        change that only adds, is in no expression. Overlap is read through:
+        where a overlaps b and b overlaps c, all three are one cluster.
+      - A gap also needs one judgement. Its function is the innermost named
+        one, told apart from another of the same name by the line it begins
+        on. A closure is part of the function around it. Code in no
+        function, and a mutator of no family, is in no gap.
+      - The verdict flow clusters once, after it judges the trees. It reads
+        from the project the file of each survivor that asks for a test. A
+        file it cannot read clusters nothing. `TreeVerdicts::clustered()` marks each member,
+        which `JudgedMutant::cluster()` answers, and every report reads
+        `TreeVerdicts::clusters()`.
 
 16. **A cluster offers one test.**
     - `stub` for a cluster (ADR-0015 decision 1) writes one test for the
@@ -285,6 +305,9 @@ verdict reaches and how.
       member's diff, and it carries one assertion scaffold per family
       present.
     - The stub fails until it is filled in (ADR-0015 decision 4).
+    - **As built.** The `stub` command does not exist yet, so a cluster
+      has no stub to write. Every report prints its `stub` and `explain`
+      commands, and `ClusterId::parse` reads its id and refuses a mutant id.
 
 17. **Clusters change what is shown, never the score.**
     - Every mutant still counts.
@@ -299,6 +322,21 @@ verdict reaches and how.
     - A cluster's id is `c` followed by 11 hex characters of a SHA-256 over
       its sorted member ids. `stub` and `explain` accept it. The `c` keeps it
       from reading as a mutant id, which is always 12 hex characters.
+    - **As built.**
+      - A cluster with any member on a changed line is listed among the
+        survivors on changed lines, with every member. The section's
+        heading still counts the mutants.
+      - A cluster's hint says why one test may kill them all, then gives
+        its representative's hint.
+      - The step summary's last column is `Command`: a mutant's reproduce
+        command, or a cluster's stub command.
+      - A cluster's annotation is titled like `Mutant cluster: 3 survivors,
+        one expression`. It is an error where any member is in a set that
+        failed, and it ranks as a changed line where any member is on one.
+      - The JSON report always has `clusters`, which is empty where there
+        are none. A mutant has `cluster` only where it is a member.
+      - The id's SHA-256 is taken over the sorted member ids, one to a
+        line.
 
 ## Alternatives considered
 

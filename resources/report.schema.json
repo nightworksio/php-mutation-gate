@@ -509,6 +509,10 @@
                     "limit": {
                         "type": "number",
                         "minimum": 0
+                    },
+                    "cluster": {
+                        "type": "string",
+                        "pattern": "^c[0-9a-f]{11}$"
                     }
                 },
                 "required": [
@@ -525,6 +529,42 @@
                     "hint",
                     "reproduce",
                     "explain"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "clusters": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^c[0-9a-f]{11}$"
+                    },
+                    "kind": {
+                        "enum": [
+                            "expression",
+                            "gap"
+                        ]
+                    },
+                    "members": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{12}$"
+                        }
+                    },
+                    "representative": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{12}$"
+                    }
+                },
+                "required": [
+                    "id",
+                    "kind",
+                    "members",
+                    "representative"
                 ],
                 "additionalProperties": false
             }
@@ -909,6 +949,7 @@
         "matrix",
         "tests",
         "mutants",
+        "clusters",
         "reach",
         "warnings",
         "failures",

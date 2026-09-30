@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Cluster\Span;
+use NightWorksIO\MutationGate\Core\Cluster\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -66,4 +68,25 @@ it('spans a mutant it cannot place from the first column of its lines to past th
     'a change that only adds' => [Verdicts::diff('return true;', 'return ! true;'), 8, Line::of(9), ['line' => 9, 'column' => 10]],
     'no diff' => ['', 3, Unreported::line(), ['line' => 3, 'column' => 18]],
     'a line past the end of the file' => ['', 40, Unreported::line(), ['line' => 40, 'column' => 1]],
+]);
+
+it('spans the tokens a mutant changed by where they stand among the file\'s', function (string $diff, int $line, Line|Unreported $end, int $first, int $last) use ($mutant): void {
+    $span = Columns::in(Contents::of(Verdicts::MONEY))->span($mutant($line, $end, $diff));
+
+    expect($span)->toBeInstanceOf(Span::class)
+        ->and($span instanceof Span ? [$span->first(), $span->last()] : [])->toBe([$first, $last]);
+})->with([
+    // From 0: `final class Money { public function fits ( int $amount , int $limit ) : bool { if ( $amount < $limit ) { return true ;`
+    'one token' => [Verdicts::BOUNDARY, 7, Line::of(7), 20, 20],
+    'an expression' => [Verdicts::diff('if ($amount < $limit) {', 'if (! ($amount < $limit)) {'), 7, Line::of(7), 19, 21],
+    'a statement, up to the semicolon that ends it' => [Verdicts::diff('return true;', ''), 8, Unreported::line(), 24, 26],
+]);
+
+it('places no mutant whose change runs past one statement, or cannot be found', function (string $diff, int $line, Line|Unreported $end) use ($mutant): void {
+    expect(Columns::in(Contents::of(Verdicts::MONEY))->span($mutant($line, $end, $diff)))->toEqual(Unplaced::mutant());
+})->with([
+    'a block' => ["@@ @@\n-        if (\$amount < \$limit) {\n-            return true;\n-        }\n", 7, Line::of(9)],
+    'two statements' => ["@@ @@\n-            return true;\n-        }\n", 8, Line::of(9)],
+    'tokens that are not on its line' => [Verdicts::diff('return 42;', 'return 43;'), 8, Line::of(8)],
+    'a change that only adds' => [Verdicts::diff('return true;', 'return ! true;'), 8, Line::of(8)],
 ]);

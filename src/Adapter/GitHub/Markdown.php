@@ -15,11 +15,9 @@ use function iterator_to_array;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
-use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Report\CostText;
 use NightWorksIO\MutationGate\Core\Report\Escape;
-use NightWorksIO\MutationGate\Core\Report\Label;
-use NightWorksIO\MutationGate\Core\Report\Mutator;
+use NightWorksIO\MutationGate\Core\Report\Folded;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Percent;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
@@ -37,7 +35,6 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
-use function rtrim;
 use function sprintf;
 
 /**
@@ -48,7 +45,8 @@ use function sprintf;
  * floors that can rise, and a link to the run. The comment holds up to 20
  * survivors on changed lines, each with its diff, hint and reproduce
  * command; the summary lists every mutant counted as not killed in a table
- * (ADR-0009, decision 3).
+ * (ADR-0009, decision 3). A cluster of survivors is one item of either, with
+ * its members' diffs, one hint and its stub command (ADR-0022, decision 17).
  */
 final readonly class Markdown
 {
@@ -64,13 +62,12 @@ final readonly class Markdown
     private const string RAISE
         = 'Raise them with `vendor/bin/mutation-gate baseline --write`, and commit the baseline.';
 
-    private const string MORE = 'And %d more; the JSON report lists every one.';
-
     private const string RUN = '[The run](%s) keeps the HTML report among its artifacts.';
 
     public static function comment(Verdict $verdict, string $run): string
     {
         $overview = Overview::of($verdict);
+        $clusters = $verdict->trees()->clusters();
         $changed = [];
         $other = [];
 
@@ -84,16 +81,18 @@ final readonly class Markdown
             $changed = $mutant->isOnChangedLine() ? [...$changed, $mutant] : $changed;
         }
 
+        $shown = Folded::of($changed, $clusters);
+
         return self::document([
             self::MARKER,
             ...self::head($verdict, $overview, NoHistory::yet()),
             ...self::section(
                 sprintf('Survivors on changed lines (%d)', count($changed)),
-                self::details(array_slice($changed, 0, self::COMMENTED), count($changed)),
+                MarkdownItems::details(array_slice($shown, 0, self::COMMENTED), count($shown)),
             ),
             ...self::section(
                 sprintf('Unjudged and flaky (%d)', count($other)),
-                self::table(array_slice($other, 0, self::COMMENTED), count($other)),
+                MarkdownItems::table(array_slice($other, 0, self::COMMENTED), count($other)),
             ),
             ...self::tail($verdict, $run),
             CostText::of($verdict),
@@ -104,17 +103,17 @@ final readonly class Markdown
     public static function summary(Verdict $verdict, string $run, Instant $since): string
     {
         $overview = Overview::of($verdict);
-        $survivors = iterator_to_array($overview->survivors(), preserve_keys: false);
+        $items = Folded::of($overview->survivors(), $verdict->trees()->clusters());
         $head = self::head($verdict, $overview, $verdict->account()->savedSince($since));
         $tail = self::tail($verdict, $run);
-        $shown = count($survivors);
+        $shown = count($items);
 
         do {
             $summary = self::document([
                 ...$head,
                 ...self::section(
-                    sprintf('Not killed (%d)', count($survivors)),
-                    self::table(array_slice($survivors, 0, $shown), count($survivors)),
+                    sprintf('Not killed (%d)', count($overview->survivors())),
+                    MarkdownItems::table(array_slice($items, 0, $shown), count($items)),
                 ),
                 ...$tail,
             ]);
@@ -213,73 +212,6 @@ final readonly class Markdown
         return $blocks === [] ? [] : [sprintf('### %s', $heading), ...$blocks];
     }
 
-    /**
-     * Each mutant as a folded block with its diff, hint and reproduce command.
-     *
-     * @param  list<JudgedMutant> $mutants
-     * @return list<string>
-     */
-    private static function details(array $mutants, int $of): array
-    {
-        $blocks = [];
-
-        foreach ($mutants as $judged) {
-            $mutant = $judged->mutant();
-            $blocks[] = implode("\n\n", [
-                sprintf(
-                    '<details><summary>%s %s, %s</summary>',
-                    self::place($judged),
-                    Escape::text(Mutator::short($mutant->mutator())),
-                    Label::of($judged->judgement()),
-                ),
-                Escape::block(rtrim($mutant->mutation()->diff(), "\n"), 'diff'),
-                Escape::text($judged->hint()->text()),
-                Escape::code($judged->reproduce()),
-                '</details>',
-            ]);
-        }
-
-        return [...$blocks, ...self::more($of - count($mutants))];
-    }
-
-    /**
-     * Mutants as a table: where, mutator, judgement, why and how to reproduce.
-     *
-     * @param  list<JudgedMutant> $mutants
-     * @return list<string>
-     */
-    private static function table(array $mutants, int $of): array
-    {
-        if ($mutants === []) {
-            return [];
-        }
-
-        $rows = ['| Mutant | Mutator | Judgement | What the tests miss | Reproduce |', '|---|---|---|---|---|'];
-
-        foreach ($mutants as $judged) {
-            $mutant = $judged->mutant();
-            $reason = $mutant->reason();
-            $rows[] = sprintf(
-                '| %s | %s | %s | %s | %s |',
-                self::place($judged),
-                Escape::text(Mutator::short($mutant->mutator())),
-                Label::of($judged->judgement()),
-                Escape::text($reason instanceof Reason
-                    ? sprintf('%s %s', $reason->text(), $judged->hint()->text())
-                    : $judged->hint()->text()),
-                Escape::code($judged->reproduce()),
-            );
-        }
-
-        return [implode("\n", $rows), ...self::more($of - count($mutants))];
-    }
-
-    /** @return list<string> */
-    private static function more(int $left): array
-    {
-        return $left > 0 ? [sprintf(self::MORE, $left)] : [];
-    }
-
     /** @return list<string> */
     private static function bullets(Failures|Warnings $items): array
     {
@@ -305,14 +237,6 @@ final readonly class Markdown
         );
 
         return array_filter([implode("\n", $reasons)], static fn(string $list): bool => $list !== '');
-    }
-
-    /** Where a mutant is, as code: its file and line. */
-    private static function place(JudgedMutant $judged): string
-    {
-        $location = $judged->mutant()->location();
-
-        return Escape::code(sprintf('%s:%d', $location->file()->value(), $location->start()->number()));
     }
 
     /** Whether a mutant is unjudged or flaky, which the comment lists apart from the survivors. */

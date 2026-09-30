@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
+use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -10,15 +11,19 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
+use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\CostText;
+use NightWorksIO\MutationGate\Core\Report\Escape;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\Trend;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 $run = 'https://github.com/octo/gate/actions/runs/7';
@@ -49,7 +54,7 @@ it('writes the sticky comment: the verdict, trees, new code, survivors on change
         ]),
         '### Unjudged and flaky (2)',
         implode("\n", [
-            '| Mutant | Mutator | Judgement | What the tests miss | Reproduce |',
+            '| Mutant | Mutator | Judgement | What the tests miss | Command |',
             '|---|---|---|---|---|',
             sprintf('| <code>src/Order.php:3</code> | MethodCallRemoval | flaky | Its tests killed it on one run and let it survive on another, so they are the suspects. It is judged by <code>OrderTest::saves</code>. | <code>vendor/bin/mutation-gate reproduce %s</code> |', $id(3)),
             sprintf('| <code>src/Order.php:5</code> | DecrementInteger | unjudged | The run&apos;s budget ran out before it. Nothing judged it before the run stopped, so it counts as not killed. | <code>vendor/bin/mutation-gate reproduce %s</code> |', $id(4)),
@@ -110,7 +115,7 @@ it('writes the step summary with every mutant counted as not killed in one table
 
     expect($summary)->toStartWith("## mutation-gate: failed\n\nThe project scores 37.50%.")
         ->and($summary)->not->toContain(Markdown::MARKER)
-        ->and($summary)->toContain("### Not killed (5)\n\n| Mutant | Mutator | Judgement | What the tests miss | Reproduce |")
+        ->and($summary)->toContain("### Not killed (5)\n\n| Mutant | Mutator | Judgement | What the tests miss | Command |")
         ->and(substr_count($summary, '| <code>vendor/bin/mutation-gate reproduce '))->toBe(5)
         ->and($summary)->not->toContain('<details>')
         ->and($summary)->toEndWith(sprintf("[The run](%s) keeps the HTML report among its artifacts.\n", $run));
@@ -175,4 +180,84 @@ it('adds to the step summary what the default branch saved lately', function () 
     ))
         ->and(Markdown::summary(Verdicts::named('accounted'), $run, Verdicts::monthAgo()))->not->toContain('In the last 30 days')
         ->and(Markdown::summary(Verdicts::named('accounted'), $run, Verdicts::monthAgo()))->not->toContain('What this run cost');
+});
+
+/**
+ * The clusters of the clustered verdict, its expression then its gap.
+ *
+ * @return list<Cluster>
+ */
+function commentedClusters(): array
+{
+    return iterator_to_array(Clustered::verdict()->trees()->clusters(), preserve_keys: false);
+}
+
+/** A cluster as the comment folds it: where it is, its size, each member's diff, one hint and its stub. */
+function clusterDetails(Cluster $cluster): string
+{
+    $diffs = [];
+
+    foreach ($cluster->members() as $member) {
+        $diffs[] = sprintf("~~~diff\n%s\n~~~", rtrim($member->mutant()->mutation()->diff(), "\n"));
+    }
+
+    $at = $cluster->representative()->mutant()->location()->start()->number();
+
+    return implode("\n\n", [
+        sprintf('<details><summary><code>src/Cart.php:%d</code> %s</summary>', $at, ClusterText::size($cluster)),
+        ...$diffs,
+        Escape::text(ClusterText::hint($cluster)),
+        sprintf('<code>vendor/bin/mutation-gate stub %s</code>', $cluster->id()->value()),
+        '</details>',
+    ]);
+}
+
+it('comments on a cluster as one item, with its members\' diffs, one hint and its stub command', function (): void {
+    [$expression, $gap] = commentedClusters();
+
+    expect(Markdown::comment(Clustered::verdict(), ''))->toContain(implode("\n\n", [
+        '### Survivors on changed lines (6)',
+        clusterDetails($expression),
+        clusterDetails($gap),
+    ]));
+});
+
+it('counts a cluster as one item toward the comment\'s 20, and the survivors in the heading one by one', function (): void {
+    $lines = Lines::of(...array_map(Line::of(...), range(1, 20)));
+    $reach = Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/Price.php'), $lines);
+    $mutants = Clustered::listed(Clustered::survivors()->clustered(Uncovered::Count, Clustered::sources()));
+
+    foreach (range(1, 20) as $line) {
+        $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Price.php:%d', $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived)->within($reach);
+    }
+
+    $comment = Markdown::comment(Verdicts::of(Floor::of(80), ...$mutants), '');
+
+    expect($comment)->toContain('### Survivors on changed lines (26)')
+        ->and(substr_count($comment, '<details>'))->toBe(20)
+        ->and(substr_count($comment, '3 survivors, one'))->toBe(2)
+        ->and($comment)->toContain('And 2 more; the JSON report lists every one.');
+});
+
+it('writes a cluster as one row of the step summary, with its size and its stub command', function (): void {
+    [$expression, $gap] = commentedClusters();
+    $row = static fn(Cluster $cluster): string => sprintf(
+        '| <code>src/Cart.php:%d</code> | %s | survived | %s | <code>vendor/bin/mutation-gate stub %s</code> |',
+        $cluster->representative()->mutant()->location()->start()->number(),
+        ClusterText::size($cluster),
+        Escape::text(ClusterText::hint($cluster)),
+        $cluster->id()->value(),
+    );
+    $summary = Markdown::summary(Clustered::verdict(), '', Verdicts::monthAgo());
+
+    expect($summary)->toContain(implode("\n", [
+        '### Not killed (7)',
+        '',
+        '| Mutant | Mutator | Judgement | What the tests miss | Command |',
+        '|---|---|---|---|---|',
+        $row($expression),
+        $row($gap),
+    ]))
+        ->and($summary)->toContain('| <code>src/Cart.php:11</code> | FalseValue | survived | ')
+        ->and(substr_count($summary, '| <code>src/Cart.php:'))->toBe(3);
 });

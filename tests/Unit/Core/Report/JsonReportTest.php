@@ -33,9 +33,11 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
+use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -44,7 +46,7 @@ it('writes everything in the verdict, and what the committed schema describes', 
     $json = JsonReport::encode(Verdicts::named($verdict));
 
     expect(Schema::errors($json, Schema::at('resources/report.schema.json')))->toBe([]);
-})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge', 'proved']);
+})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge', 'proved', 'clustered']);
 
 it('says the run cannot judge, and why', function (): void {
     $report = JsonReport::encode(Verdicts::named('cannot judge'));
@@ -271,4 +273,20 @@ it('writes a kill a ledger proved with no family or diff, which the ledger does 
         ->and(Decoded::at($report, 'mutants', 1))->not->toHaveKeys(['family', 'diff', 'end', 'seconds', 'limit', 'reason'])
         ->and(Decoded::at($report, 'mutants', 1, 'killedBy'))->toBe([0])
         ->and(Decoded::at($report, 'tests', 0, 'id'))->toBe('MoneyTest::fits');
+});
+
+it('lists each cluster with its kind, members and representative, and names the cluster each member is in', function (): void {
+    $verdict = Clustered::verdict();
+    [$expression, $gap] = iterator_to_array($verdict->trees()->clusters(), preserve_keys: false);
+    $ids = static fn(Survivors $mutants): array => array_map(static fn(JudgedMutant $judged): string => $judged->mutant()->id()->value(), [...$mutants]);
+    $report = JsonReport::encode($verdict);
+
+    expect(Decoded::at($report, 'clusters'))->toBe([
+        ['id' => $expression->id()->value(), 'kind' => 'expression', 'members' => $ids($expression->members()), 'representative' => $expression->representative()->mutant()->id()->value()],
+        ['id' => $gap->id()->value(), 'kind' => 'gap', 'members' => $ids($gap->members()), 'representative' => $gap->representative()->mutant()->id()->value()],
+    ])
+        ->and(Decoded::at($report, 'mutants', 0, 'cluster'))->toBe($expression->id()->value())
+        ->and(Decoded::at($report, 'mutants', 6, 'cluster'))->toBe($gap->id()->value())
+        ->and(Decoded::at($report, 'mutants', 3))->not->toHaveKey('cluster')
+        ->and(Decoded::at(JsonReport::encode(Verdicts::failing()), 'clusters'))->toBe([]);
 });

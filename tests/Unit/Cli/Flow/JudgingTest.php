@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -48,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
@@ -90,6 +92,7 @@ use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -740,4 +743,39 @@ it('judges flaky what a fresh result and a proof under its key disagree on, and 
         ->toBe(['flaky'])
         ->and($ledger->proofs()->has(Digest::sha256Of('money')))->toBeFalse()
         ->and($ledger->proofs()->has(Digest::sha256Of('held')))->toBeTrue();
+});
+
+it('clusters the survivors of one cause from the project\'s source before it reports', function () use ($tree, $reporting): void {
+    $project = Flows::project();
+    Scratch::write($project, 'src/Money.php', Verdicts::MONEY);
+    $comparison = static fn(string $mutator, string $added): Mutant => Verdicts::mutant(
+        'src/Money.php:7',
+        $mutator,
+        MutatorFamily::Boundary,
+        Verdicts::diff('if ($amount < $limit) {', $added),
+    );
+    $plan = Planned::of(
+        Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(1.0), 'money'),
+    );
+    $adapters = Flows::adapters(
+        $project,
+        [],
+        $tree(Floor::of(0)),
+        ScriptedRunner::fixture()->answering(Mutants::of(
+            $comparison('LessThan', 'if ($amount <= $limit) {'),
+            $comparison('LessThanNegotiation', 'if ($amount > $limit) {'),
+        ), 0),
+    );
+    $recorded = new ReporterFake();
+    new Handoff($adapters->project)->write($plan, Flows::map(), KillHistory::none());
+    new Running($adapters, judgingSettings(), Flows::setup())->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), $adapters->project);
+    $judging = new Judging($adapters, judgingSettings(), Flows::setup(), $reporting($recorded));
+    $verdict = judgingVerdictOf($results instanceof Results ? $judging->verdict($plan, $results) : $results);
+    $clusters = iterator_to_array($verdict->trees()->clusters(), preserve_keys: false);
+
+    expect($clusters)->toHaveCount(1)
+        ->and($clusters[0]->kind())->toBe(ClusterKind::Expression)
+        ->and($clusters[0]->members())->toHaveCount(2)
+        ->and($recorded->reported)->toBe([$verdict]);
 });

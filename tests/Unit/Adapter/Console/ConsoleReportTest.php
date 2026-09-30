@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -137,4 +139,18 @@ it('ends with what the run took and saved, for a timed run', function () use ($p
 
 it('names the judging tests as the runner named them', function () use ($printed): void {
     expect($printed(Verdicts::named('with a matrix')))->toContain('Judged by: tests/Unit/MoneyTest.php::it fits, ');
+});
+
+it('prints each cluster once, in the place of its first member, among what was not killed', function () use ($printed, $indented): void {
+    $verdict = Clustered::verdict();
+    [$expression, $gap] = iterator_to_array($verdict->trees()->clusters(), preserve_keys: false);
+
+    expect($printed($verdict))->toContain(implode("\n", [
+        'Not killed (7)',
+        $indented(implode("\n\n", [
+            ClusterText::block($expression),
+            ClusterText::block($gap),
+            MutantText::block(Clustered::listed($verdict->trees()->mutants())[3], TestNames::none()),
+        ])),
+    ]));
 });

@@ -57,15 +57,31 @@ final readonly class Functions
     /** The innermost named function a line is in, or nothing where it is in none. */
     public function around(Line $line): string|Nameless
     {
-        $name = Nameless::code();
+        $at = $this->innermost($line);
+
+        return $at < 0 ? Nameless::code() : $this->spans[$at][0];
+    }
+
+    /** The line the innermost named function a line is in begins on, which tells it from any other of its file. */
+    public function startAround(Line $line): Line|Nameless
+    {
+        $at = $this->innermost($line);
+
+        return $at < 0 ? Nameless::code() : Line::of($this->spans[$at][1]);
+    }
+
+    /** Where among the spans the innermost function a line is in stands; -1 where it is in none. */
+    private function innermost(Line $line): int
+    {
+        $found = -1;
         $first = 0;
 
-        foreach ($this->spans as [$function, $from, $to]) {
+        foreach ($this->spans as $at => [, $from, $to]) {
             $inside = $from <= $line->number() && $line->number() <= $to && $from >= $first;
-            [$name, $first] = $inside ? [$function, $from] : [$name, $first];
+            [$found, $first] = $inside ? [$at, $from] : [$found, $first];
         }
 
-        return $name;
+        return $found;
     }
 
     /**

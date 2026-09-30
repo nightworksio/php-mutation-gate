@@ -52,6 +52,27 @@ enum MutantJudgement: string
         };
     }
 
+    /**
+     * Whether a test is what a mutant so judged asks for: a survivor, or an
+     * uncovered mutant, which `stub` writes one for and a cluster holds
+     * (ADR-0015, decision 1).
+     */
+    public function asksForATest(): bool
+    {
+        return match ($this) {
+            self::Survived, self::Uncovered => true,
+            self::Killed,
+            self::Errored,
+            self::KilledByTimeout,
+            self::Unjudged,
+            self::Flaky,
+            self::TooSlowToJudge,
+            self::Ignored,
+            self::IgnoredByMarker,
+            self::Equivalent => false,
+        };
+    }
+
     /** How a mutant judged so enters the score, with uncovered mutants counted or excluded. */
     public function scoring(Uncovered $uncovered): Scoring
     {

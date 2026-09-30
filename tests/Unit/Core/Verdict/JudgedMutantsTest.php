@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Cluster\Membership;
+use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -18,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
@@ -130,4 +134,42 @@ it('holds the kills a ledger proved after the mutants reported in full, marks an
         ->and($mutants->counts()->number(MutantJudgement::Killed))->toBe(4)
         ->and(Judged::natives($mutants->survivors(Uncovered::Count)))->toBe(['0'])
         ->and($mutants->provenEquivalent(MutantIds::of($kill(3)->mutant()->id())))->toEqual($mutants);
+});
+
+it('marks the survivors of one cause with their cluster, keeping every mutant and its order', function (): void {
+    $clustered = Clustered::survivors()->clustered(Uncovered::Count, Clustered::sources());
+    $kinds = array_map(
+        static fn(JudgedMutant $judged): string => $judged->cluster() instanceof Membership ? $judged->cluster()->kind()->value : 'none',
+        Clustered::listed($clustered),
+    );
+
+    expect(Judged::natives($clustered))->toBe(Judged::natives(Clustered::survivors()))
+        ->and($kinds)->toBe(['expression', 'expression', 'expression', 'none', 'gap', 'gap', 'gap']);
+});
+
+it('clusters only survivors and uncovered mutants the score counts', function (MutantJudgement $judgement, Uncovered $uncovered, bool $clustered): void {
+    $mutants = [];
+
+    foreach (Clustered::listed(Clustered::removedCalls()) as $call) {
+        $mutants[] = JudgedMutant::of($call->mutant(), $judgement)->judgedBy($call->tests());
+    }
+
+    $first = Clustered::listed(JudgedMutants::of(...$mutants)->clustered($uncovered, Clustered::sources()))[0];
+
+    expect($first->cluster() instanceof Membership)->toBe($clustered);
+})->with([
+    'survived' => [MutantJudgement::Survived, Uncovered::Count, true],
+    'uncovered, counted' => [MutantJudgement::Uncovered, Uncovered::Count, true],
+    'uncovered, left out of the score' => [MutantJudgement::Uncovered, Uncovered::Exclude, false],
+    'killed' => [MutantJudgement::Killed, Uncovered::Count, false],
+    'flaky' => [MutantJudgement::Flaky, Uncovered::Count, false],
+    'unjudged' => [MutantJudgement::Unjudged, Uncovered::Count, false],
+    'too slow to judge' => [MutantJudgement::TooSlowToJudge, Uncovered::Count, false],
+    'equivalent' => [MutantJudgement::Equivalent, Uncovered::Count, false],
+]);
+
+it('clusters nothing without the sources', function (): void {
+    foreach (Clustered::listed(Clustered::survivors()->clustered(Uncovered::Count, ByPath::none())) as $judged) {
+        expect($judged->cluster())->toEqual(Unclustered::mutant());
+    }
 });

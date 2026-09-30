@@ -13,6 +13,7 @@ use function in_array;
 
 use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
 use NightWorksIO\MutationGate\Core\Alert\WebhookPayload;
+use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\Standing;
@@ -84,6 +85,8 @@ final readonly class ReportSchema
 
     private const array ID_SPELLING = ['type' => 'string', 'pattern' => '^[0-9a-f]{12}$'];
 
+    private const array CLUSTER_ID = ['type' => 'string', 'pattern' => '^c[0-9a-f]{11}$'];
+
     public static function json(): string
     {
         $timed = self::object(['start' => self::INSTANT, 'seconds' => self::SECONDS], []);
@@ -137,6 +140,12 @@ final readonly class ReportSchema
                     'seconds' => self::SECONDS,
                 ], ['file', 'row', 'seconds'])),
                 'mutants' => self::listOfObjects(self::mutant()),
+                'clusters' => self::listOfObjects(self::object([
+                    'id' => self::CLUSTER_ID,
+                    'kind' => self::oneOf(...ClusterKind::cases()),
+                    'members' => self::listOf(self::ID_SPELLING),
+                    'representative' => self::ID_SPELLING,
+                ], [])),
                 'reach' => self::listOf(self::TEXT),
                 'warnings' => self::listOf(self::TEXT),
                 'failures' => self::listOf(self::TEXT),
@@ -308,7 +317,8 @@ final readonly class ReportSchema
             'explain' => self::TEXT,
             'seconds' => self::SECONDS,
             'limit' => self::SECONDS,
-        ], ['end', 'family', 'diff', 'reason', 'seconds', 'limit']);
+            'cluster' => self::CLUSTER_ID,
+        ], ['end', 'family', 'diff', 'reason', 'seconds', 'limit', 'cluster']);
     }
 
     /** @return Flat */

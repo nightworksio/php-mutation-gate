@@ -6,13 +6,15 @@ namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_filter;
 use function array_key_exists;
+use function array_keys;
 use function array_map;
 use function array_slice;
-use function array_values;
 use function count;
 use function explode;
 use function mb_strlen;
 
+use NightWorksIO\MutationGate\Core\Cluster\Span;
+use NightWorksIO\MutationGate\Core\Cluster\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Hint\Change;
@@ -29,9 +31,14 @@ use PhpToken;
  */
 final readonly class Columns
 {
+    /** What ends or opens a statement, which a span of one statement holds none of. */
+    private const array STATEMENT_BOUNDS = [';', '{', '}'];
+
     /**
-     * @param list<array{text: string, line: int, column: int}> $tokens every significant token, where it begins
-     * @param list<string>                                        $lines  the file's lines
+     * @param list<array{text: string, line: int, column: int, bound: bool}> $tokens every significant token,
+     *                                                                             where it begins and whether it
+     *                                                                             ends or opens a statement
+     * @param list<string>                                                     $lines  the file's lines
      */
     private function __construct(private array $tokens, private array $lines)
     {
@@ -45,7 +52,12 @@ final readonly class Columns
 
         foreach (PhpToken::tokenize($source->text()) as $token) {
             if (! $token->isIgnorable()) {
-                $tokens[] = ['text' => $token->text, 'line' => $line, 'column' => $column];
+                $tokens[] = [
+                    'text' => $token->text,
+                    'line' => $line,
+                    'column' => $column,
+                    'bound' => $token->is(self::STATEMENT_BOUNDS),
+                ];
             }
 
             $pieces = explode("\n", $token->text);
@@ -66,15 +78,8 @@ final readonly class Columns
      */
     public function of(Mutant|ProvedKill $mutant): array
     {
-        $first = $mutant->location()->start()->number();
-        $end = $mutant->location()->end();
-        $last = $end instanceof Line ? $end->number() : $first;
-        $changed = $mutant instanceof Mutant ? Change::of($mutant->mutation()->diff())->changed() : [];
-        $tokens = array_values(array_filter(
-            $this->tokens,
-            static fn(array $token): bool => $token['line'] >= $first && $token['line'] <= $last,
-        ));
-        $at = $this->find($tokens, $changed);
+        [$first, $last] = $this->linesOf($mutant);
+        [$at, $length] = $this->placed($mutant);
 
         if ($at < 0) {
             return [
@@ -83,25 +88,73 @@ final readonly class Columns
             ];
         }
 
-        $final = $tokens[$at + count($changed) - 1];
+        $final = $this->tokens[$at + $length - 1];
 
         return [
-            'start' => ['line' => $tokens[$at]['line'], 'column' => $tokens[$at]['column']],
+            'start' => ['line' => $this->tokens[$at]['line'], 'column' => $this->tokens[$at]['column']],
             'end' => ['line' => $final['line'], 'column' => $final['column'] + mb_strlen($final['text'])],
         ];
     }
 
     /**
-     * Where the first run of these tokens spelt as the changed ones are begins; -1 where none is.
-     *
-     * @param list<array{text: string, line: int, column: int}> $tokens
-     * @param list<string>                                        $changed
+     * The file's tokens a mutant changed, from the first to the last, where
+     * they lie within one statement: no `;`, `{` or `}` among them but a `;`
+     * that ends them. Nothing where the mutant cannot be placed, or where
+     * its change runs past a statement.
      */
-    private function find(array $tokens, array $changed): int
+    public function span(Mutant $mutant): Span|Unplaced
     {
-        $texts = array_map(static fn(array $token): string => $token['text'], $tokens);
+        [$at, $length] = $this->placed($mutant);
+        $inner = $at < 0 ? [] : array_slice($this->tokens, $at, $length);
+        $inner = $inner !== [] && $inner[count($inner) - 1]['text'] === ';' ? array_slice($inner, 0, -1) : $inner;
 
-        for ($at = 0; $changed !== [] && $at + count($changed) <= count($tokens); ++$at) {
+        foreach ($inner as $token) {
+            if ($token['bound']) {
+                return Unplaced::mutant();
+            }
+        }
+
+        return $at < 0 ? Unplaced::mutant() : Span::of($at, $at + $length - 1);
+    }
+
+    /**
+     * Where among the file's tokens those a mutant changed begin, -1 where
+     * they are not found on its lines or it is a kill that keeps no diff,
+     * and how many there are.
+     *
+     * @return array{int, int}
+     */
+    private function placed(Mutant|ProvedKill $mutant): array
+    {
+        [$first, $last] = $this->linesOf($mutant);
+        $changed = $mutant instanceof Mutant ? Change::of($mutant->mutation()->diff())->changed() : [];
+        $window = array_keys(array_filter(
+            $this->tokens,
+            static fn(array $token): bool => $token['line'] >= $first && $token['line'] <= $last,
+        ));
+        $found = $this->find(array_map(fn(int $at): string => $this->tokens[$at]['text'], $window), $changed);
+
+        return [$found < 0 ? -1 : $window[$found], count($changed)];
+    }
+
+    /** @return array{int, int} the line a mutant starts on and the line it ends on, which is its first where unsaid */
+    private function linesOf(Mutant|ProvedKill $mutant): array
+    {
+        $first = $mutant->location()->start()->number();
+        $end = $mutant->location()->end();
+
+        return [$first, $end instanceof Line ? $end->number() : $first];
+    }
+
+    /**
+     * Where the first run of these texts spelt as the changed ones are begins; -1 where none is.
+     *
+     * @param list<string> $texts
+     * @param list<string> $changed
+     */
+    private function find(array $texts, array $changed): int
+    {
+        for ($at = 0; $changed !== [] && $at + count($changed) <= count($texts); ++$at) {
             if (array_slice($texts, $at, count($changed)) === $changed) {
                 return $at;
             }

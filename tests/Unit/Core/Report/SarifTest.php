@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Report\Sarif;
 use NightWorksIO\MutationGate\Core\Report\SourceRoot;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -14,7 +15,7 @@ it('writes SARIF 2.1.0 as its schema describes it', function (string $verdict): 
 
     expect(Schema::errors(Sarif::json(Verdicts::named($verdict)), $schema))->toBe([])
         ->and(Schema::errors(Sarif::rootedAt(Verdicts::named($verdict), SourceRoot::at('/work/gate')), $schema))->toBe([]);
-})->with(['failing', 'passing', 'empty']);
+})->with(['failing', 'passing', 'empty', 'clustered']);
 
 it('names the root its paths are relative to only for an editor on this machine', function (): void {
     $root = static fn(string $sarif): mixed => Decoded::at($sarif, 'runs', 0, 'originalUriBaseIds', '%SRCROOT%');
@@ -70,4 +71,15 @@ it('warns of a mutant in a set that passed', function (): void {
     $verdict = Verdicts::of(Floor::of(0), Verdicts::survivor());
 
     expect(Decoded::at(Sarif::json($verdict), 'runs', 0, 'results', 0, 'level'))->toBe('warning');
+});
+
+it('keeps every member of a cluster a result of its own, naming its cluster', function (): void {
+    $verdict = Clustered::verdict();
+    [$expression] = iterator_to_array($verdict->trees()->clusters(), preserve_keys: false);
+    $sarif = Sarif::json($verdict);
+
+    expect(Decoded::at($sarif, 'runs', 0, 'results'))->toHaveCount(7)
+        ->and(Decoded::at($sarif, 'runs', 0, 'results', 0, 'properties', 'cluster'))->toBe($expression->id()->value())
+        ->and(Decoded::at($sarif, 'runs', 0, 'results', 6, 'locations', 0, 'physicalLocation', 'region', 'startLine'))->toBe(11)
+        ->and(Decoded::at($sarif, 'runs', 0, 'results', 6, 'properties'))->not->toHaveKey('cluster');
 });

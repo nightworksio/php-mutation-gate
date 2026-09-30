@@ -49,7 +49,8 @@ use function sprintf;
  * `verdict --plan --results`: every shard's result merged with the proved and
  * carried ones, every tree judged whole against its floor, and in a pull
  * request the new code against its own floor, a raise that must be committed
- * and a floor lowered without its reason. Then the reports, and the ledger.
+ * and a floor lowered without its reason, and the survivors that share a
+ * cause clustered. Then the reports, and the ledger.
  * A tree held to no floor stops a run in CI, and is warned of elsewhere.
  */
 final readonly class Judging
@@ -117,7 +118,8 @@ final readonly class Judging
             $ledgers->defaultBranch()->proofs(),
             $ledgers->own()->proofs(),
         );
-        $verdicts = $judge->trees($fresh->and($proving->proved())->and($carrying->carried()));
+        $unclustered = $judge->trees($fresh->and($proving->proved())->and($carrying->carried()));
+        $verdicts = $unclustered->clustered(Sources::ofSurvivors($unclustered, $this->adapters->project));
         $unfloored = Ratchet::unfloored($verdicts);
         $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));
 

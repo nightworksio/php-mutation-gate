@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use function array_key_exists;
 use function array_merge;
 use function array_values;
 
@@ -13,6 +14,9 @@ use function count;
 
 use Countable;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Cluster\Clustering;
+use NightWorksIO\MutationGate\Core\File\ByPath;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -96,6 +100,36 @@ final readonly class JudgedMutants implements Countable, IteratorAggregate
         }
 
         return new self($judged, $this->kills);
+    }
+
+    /**
+     * Every mutant, the survivors and uncovered mutants the score counts
+     * that share one cause marked with their cluster, read from each file's
+     * source (ADR-0022, decision 15).
+     *
+     * @param ByPath<Contents> $sources each mutated file that can be read, by its path
+     */
+    public function clustered(Uncovered $uncovered, ByPath $sources): self
+    {
+        $candidates = [];
+
+        foreach ($this->mutants as $mutant) {
+            $judgement = $mutant->judgement();
+
+            if ($judgement->asksForATest() && $judgement->scoring($uncovered) === Scoring::NotKilled) {
+                $candidates[] = $mutant;
+            }
+        }
+
+        $memberships = Clustering::of($candidates, $sources);
+        $marked = [];
+
+        foreach ($this->mutants as $mutant) {
+            $id = $mutant->mutant()->id()->value();
+            $marked[] = array_key_exists($id, $memberships) ? $mutant->inCluster($memberships[$id]) : $mutant;
+        }
+
+        return new self($marked, $this->kills);
     }
 
     /** The mutants and kills on lines the change added or modified, in order. */

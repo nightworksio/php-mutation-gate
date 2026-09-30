@@ -12,18 +12,25 @@ use function count;
 
 use Countable;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Cluster\Clusters;
+use NightWorksIO\MutationGate\Core\File\ByPath;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use Traversable;
 
 /**
- * Every judged tree, in the order it was judged.
+ * Every judged tree, in the order it was judged, and the clusters its
+ * survivors are in.
  *
  * @implements IteratorAggregate<int, TreeVerdict>
  */
 final readonly class TreeVerdicts implements Countable, IteratorAggregate
 {
+    private Clusters $clusters;
+
     /** @param list<TreeVerdict> $verdicts */
     private function __construct(private array $verdicts)
     {
+        $this->clusters = Clusters::of($this->mutants());
     }
 
     public static function none(): self
@@ -39,6 +46,29 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
     public function with(TreeVerdict $verdict): self
     {
         return new self([...$this->verdicts, $verdict]);
+    }
+
+    /**
+     * These trees, with the survivors of one cause marked with their cluster,
+     * read from each file's source (ADR-0022, decision 15).
+     *
+     * @param ByPath<Contents> $sources each file of their survivors that can be read, by its path
+     */
+    public function clustered(ByPath $sources): self
+    {
+        $clustered = [];
+
+        foreach ($this->verdicts as $tree) {
+            $clustered[] = $tree->clustered($sources);
+        }
+
+        return new self($clustered);
+    }
+
+    /** The clusters the survivors of these trees are in; none before they are clustered. */
+    public function clusters(): Clusters
+    {
+        return $this->clusters;
     }
 
     /** Every unit of every tree, tree by tree. */

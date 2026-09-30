@@ -354,6 +354,7 @@ final class Verdicts
             'with a matrix' => self::failing()->withMatrix(self::matrix(MatrixKind::FirstKiller)),
             'cannot judge' => self::failing()->withCannotJudge(CannotJudge::because(self::UNJUDGED)),
             'proved' => self::proved(),
+            'clustered' => Clustered::verdict(),
             default => self::empty(),
         };
     }

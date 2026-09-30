@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cluster\Cluster;
+use NightWorksIO\MutationGate\Core\Cluster\Membership;
+use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
@@ -83,7 +86,9 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     explain: string,
  *     seconds?: float,
  *     limit?: float,
+ *     cluster?: string,
  * }
+ * @phpstan-type ClusterEntry array{id: string, kind: string, members: list<string>, representative: string}
  */
 final readonly class JsonReport
 {
@@ -110,6 +115,7 @@ final readonly class JsonReport
                 $verdict->trees()->mutants(),
                 static fn(JudgedMutant|JudgedKill $judged): array => self::mutant($judged, $verdict->matrix(), $table),
             ),
+            'clusters' => self::each($verdict->trees()->clusters(), self::cluster(...)),
             'reach' => self::texts($verdict->reach(), static fn(Cause $reason): string => $reason->text()),
             'warnings' => self::texts($verdict->warnings(), static fn(Warning $warning): string => $warning->text()),
             'failures' => self::texts($verdict->failures(), static fn(Failure $failure): string => $failure->text()),
@@ -178,6 +184,7 @@ final readonly class JsonReport
         $duration = $mutant->duration();
         $limit = $mutant->limit();
         $reason = $mutant->reason();
+        $cluster = $judged instanceof JudgedMutant ? $judged->cluster() : Unclustered::mutant();
         $tests = [];
 
         foreach ($judged->tests() as $test) {
@@ -205,6 +212,18 @@ final readonly class JsonReport
             'explain' => $judged->explain(),
             ...$duration instanceof Seconds ? ['seconds' => $duration->seconds()] : [],
             ...$limit instanceof Seconds ? ['limit' => $limit->seconds()] : [],
+            ...$cluster instanceof Membership ? ['cluster' => $cluster->id()->value()] : [],
+        ];
+    }
+
+    /** @return ClusterEntry */
+    private static function cluster(Cluster $cluster): array
+    {
+        return [
+            'id' => $cluster->id()->value(),
+            'kind' => $cluster->kind()->value,
+            'members' => self::ids(JudgedMutants::of(...$cluster->members())),
+            'representative' => $cluster->representative()->mutant()->id()->value(),
         ];
     }
 
