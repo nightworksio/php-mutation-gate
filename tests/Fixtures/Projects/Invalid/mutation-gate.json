@@ -1,0 +1,7 @@
+{
+    "runner": "pest",
+    "newcode": { "floor": 100 },
+    "trees": [
+        { "path": "src", "floor": "80" }
+    ]
+}

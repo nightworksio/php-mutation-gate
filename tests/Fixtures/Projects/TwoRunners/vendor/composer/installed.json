@@ -1,0 +1,6 @@
+{
+    "packages": [
+        { "name": "pestphp/pest-plugin-mutate" },
+        { "name": "infection/infection" }
+    ]
+}

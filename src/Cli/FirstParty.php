@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli;
 
+use function class_exists;
 use function getenv;
 
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
@@ -16,6 +17,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
+use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -37,7 +39,7 @@ final readonly class FirstParty implements Extension
 
     public function extend(Extensions $extensions): Extensions
     {
-        return $extensions
+        return Registered::config($extensions, class_exists(...))
             ->withProofStore(Name::of('directory'), LedgerDirectory::fromOptions(...))
             ->withProofStore(Name::of('s3'), BucketLedger::fromOptions(...))
             ->withCostModel(Name::of('learned'), MeasuredCosts::fromOptions(...))

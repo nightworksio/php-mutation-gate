@@ -1,0 +1,8 @@
+{
+    "extra": {
+        "mutation-gate": {
+            "floor": 0,
+            "floorReason": "Generated on every build"
+        }
+    }
+}

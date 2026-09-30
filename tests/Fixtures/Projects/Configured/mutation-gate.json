@@ -1,0 +1,13 @@
+{
+    "$schema": "vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json",
+    "preset": "symfony",
+    "runner": "infection",
+    "trees": [
+        { "path": "src/Domain", "floor": 100 }
+    ],
+    "budget": "15m",
+    "reach": { "everything": ["config/**", "migrations/**"] },
+    "reports": [
+        { "use": "sarif", "path": "build/mutation.sarif" }
+    ]
+}

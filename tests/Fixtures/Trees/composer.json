@@ -1,0 +1,15 @@
+{
+    "name": "acme/trees",
+    "autoload": {
+        "psr-4": {
+            "Acme\\Domain\\": "src/Domain/",
+            "Acme\\Http\\": "src/Http/",
+            "Acme\\Generated\\": "src/Generated/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Acme\\Tests\\": "tests/"
+        }
+    }
+}
