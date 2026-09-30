@@ -31,6 +31,7 @@ parameters:
         analyseAndScan:
             - tests/Contract/Runner/fixture
             - tests/Contract/Runner/infection-fixture
+            - tests/Contract/Runner/phpunit-fixture
             - tests/Contract/StaticChecker/fixture
 
     # Pest's own annotation, corrected. See the stub.
@@ -86,6 +87,11 @@ parameters:
             # An option read that the command does not define is a mistake in the
             # code that reads it, never something a caller can answer.
             - Symfony\Component\Console\Exception\InvalidArgumentException
+
+    # D11 is this repository's own rule, which scopes its one exemption with allowIn.
+    shipmonkRules:
+        enforceReadonlyPublicProperty:
+            enabled: false
 
     ergebnis:
         # C4 is ergebnis's NoErrorSuppressionRule and the `switch` half of C5 is
@@ -452,6 +458,7 @@ services:
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoMixedOutsideDecodersRule
         arguments:
             decoders:
+                - src/Adapter/PhpUnit/MutantFile.php # PHP hands a stream wrapper resources, which have no native type
                 - src/Core/Format/Node.php
                 - src/Core/Format/Json.php
                 - src/Core/Format/JsonText.php
@@ -562,6 +569,10 @@ services:
                     - INDENT # a NEON indent
                 'NightWorksIO\MutationGate\Adapter\Pest\Diff':
                     - INDENT # a line of Pest's diff
+                'NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFile':
+                    - PROTOCOL # the file:// stream protocol
+                'NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell':
+                    - NAP # microseconds between looks at a process
                 'NightWorksIO\MutationGateDefault\Literals':
                     - 'TRUE' # PHP's constant, not Infection's setting
                 'NightWorksIO\MutationGate\Core\Proof\LedgerFile':
@@ -636,6 +647,8 @@ services:
                     - NAME # owner: flows (ThisPackage::NAME)
                 'NightWorksIO\MutationGate\Cli\FirstParty':
                     - PACKAGE # owner: flows (ThisPackage::COMPOSER)
+                'NightWorksIO\MutationGate\Adapter\PhpUnit\Project':
+                    - OWN # owner: phpunit runner (BuiltinRunner::PhpUnit, once runner: phpunit is registered)
         tags:
             - phpstan.rules.rule
     # D6
@@ -643,9 +656,21 @@ services:
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoMagicNumberRule
         tags:
             - phpstan.rules.rule
-    # H3
+    # H3, with the classes whose methods a PHP protocol fixes.
     -
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoManyMethodsRule
+        arguments:
+            allowIn:
+                - src/Adapter/PhpUnit/MutantFile.php # PHP's streamWrapper protocol
+        tags:
+            - phpstan.rules.rule
+    # D11, in place of shipmonk's enforceReadonlyPublicProperty, with the files
+    # whose public property PHP itself writes.
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\ReadonlyPublicPropertyRule
+        arguments:
+            allowIn:
+                - src/Adapter/PhpUnit/MutantFile.php # PHP writes $context from global scope
         tags:
             - phpstan.rules.rule
     # H5, one class per node type

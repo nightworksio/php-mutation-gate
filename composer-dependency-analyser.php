@@ -27,6 +27,7 @@ return (new Configuration())
     // dependencies.
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/fixture')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/infection-fixture')
+    ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/phpunit-fixture')
     ->addPathToExclude(__DIR__ . '/tests/Contract/StaticChecker/fixture')
     ->ignoreErrorsOnPackages(
         [

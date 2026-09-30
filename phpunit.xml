@@ -41,6 +41,7 @@
             <directory>tests/Contract</directory>
             <exclude>tests/Contract/Runner/fixture</exclude>
             <exclude>tests/Contract/Runner/infection-fixture</exclude>
+            <exclude>tests/Contract/Runner/phpunit-fixture</exclude>
             <exclude>tests/Contract/StaticChecker/fixture</exclude>
         </testsuite>
 

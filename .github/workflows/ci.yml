@@ -462,6 +462,27 @@ jobs:
         run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-highest-13.xml
         env:
           RUNNER_CONTRACTS: infection
+      # The PHPUnit runner's library is a project of its own, installed at the
+      # lowest and the highest PHPUnit the runner supports, 13.2.0 and later
+      # (ADR-0023). The filter runs its contracts alone.
+      - name: install the lowest supported PHPUnit into the PHPUnit runner's library
+        working-directory: tests/Contract/Runner/phpunit-fixture
+        run: |
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
+          composer show | grep -E '^phpunit/phpunit '
+      - id: phpunit-lowest
+        run: vendor/bin/pest --testsuite=Contract --filter='PhpUnit' --log-junit=evidence/raw/phpunit-lowest.xml
+        env:
+          RUNNER_CONTRACTS: phpunit
+      - name: install the highest supported PHPUnit into the PHPUnit runner's library
+        working-directory: tests/Contract/Runner/phpunit-fixture
+        run: |
+          composer update --no-interaction --no-progress
+          composer show | grep -E '^phpunit/phpunit '
+      - id: phpunit-highest
+        run: vendor/bin/pest --testsuite=Contract --filter='PhpUnit' --log-junit=evidence/raw/phpunit-highest.xml
+        env:
+          RUNNER_CONTRACTS: phpunit
       # The analysers the static checkers drive are a project of their own
       # too, installed at the lowest and the highest Mago and PHPStan the
       # adapters support. Mago's package downloads its binary the first time

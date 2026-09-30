@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\PHPStan\Rules;
 
+use function array_any;
 use function count;
 
 use PhpParser\Node;
@@ -18,6 +19,7 @@ use PHPStan\Rules\RuleErrorBuilder;
 
 use function sprintf;
 use function str_contains;
+use function str_ends_with;
 
 /**
  * H3 — a class answers at most twenty questions.
@@ -29,10 +31,15 @@ use function str_contains;
  *
  * @implements Rule<ClassLike>
  */
-final class NoManyMethodsRule implements Rule
+final readonly class NoManyMethodsRule implements Rule
 {
     /** How many methods a class may declare; public so the fixture proving this rule can build one more. */
     public const int THE_MOST_METHODS = 20;
+
+    /** @param list<string> $allowIn files, relative to the repository, of a class whose methods a PHP protocol fixes */
+    public function __construct(private array $allowIn = [])
+    {
+    }
 
     public function getNodeType(): string
     {
@@ -42,7 +49,7 @@ final class NoManyMethodsRule implements Rule
     /** @return list<IdentifierRuleError> */
     public function processNode(Node $node, Scope $scope): array
     {
-        if (str_contains($scope->getFile(), '/tests/')) {
+        if (str_contains($scope->getFile(), '/tests/') || $this->isAllowed($scope->getFile())) {
             return [];
         }
 
@@ -63,6 +70,11 @@ final class NoManyMethodsRule implements Rule
                 ->line($node->getStartLine())
                 ->build(),
         ];
+    }
+
+    private function isAllowed(string $file): bool
+    {
+        return array_any($this->allowIn, static fn(string $allowed): bool => str_ends_with($file, sprintf('/%s', $allowed)));
     }
 
     private function what(ClassLike $node): string

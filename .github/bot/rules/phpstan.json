@@ -155,6 +155,9 @@
     "mutationGate.mixedOutsideDecoders": {
       "architecture": "D10"
     },
+    "mutationGate.publicPropertyNotReadonly": {
+      "architecture": "D11"
+    },
     "mutationGate.nestedTernary": {
       "architecture": "C9"
     },

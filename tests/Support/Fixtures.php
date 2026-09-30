@@ -316,6 +316,18 @@ final readonly class Fixtures
                 }
                 PHP, 'D9 — NightWorksIO\MutationGate\Core\PlantedTwins::SUFFIX holds'),
             self::inTheCore('D10', 'PlantedMixed', 'return 1;', 'mixed', 'D10 — this type says mixed'),
+            Fixture::analyser('D11', 'src/Adapter/Pest/PlantedOpenProperty.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                namespace NightWorksIO\MutationGate\Adapter\Pest;
+
+                final class PlantedOpenProperty
+                {
+                    public int $count = 0;
+                }
+                PHP, 'D11 — $count is public and not readonly'),
             Fixture::suite('D7', 'src/Core/PlantedOpen.php', <<<'PHP'
                 <?php
 

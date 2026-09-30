@@ -39,6 +39,7 @@ return RectorConfig::configure()
         // The runner contract suite's fixture is a project of its own, written as a user's library is.
         __DIR__ . '/tests/Contract/Runner/fixture',
         __DIR__ . '/tests/Contract/Runner/infection-fixture',
+        __DIR__ . '/tests/Contract/Runner/phpunit-fixture',
         // The static checker contract suite's fixture holds mutants, which are wrong on purpose.
         __DIR__ . '/tests/Contract/StaticChecker/fixture',
     ])
