@@ -53,16 +53,17 @@ final readonly class Report
     /** This entry as the builder's `Report` writes it. */
     public function php(Origin $origin): string
     {
-        $path = $this->path instanceof Path ? $origin->written($this->path) : '';
         $named = PhpCalls::chosen($this->reporter, 'Report', ...self::NAMED);
+        $path = $this->path instanceof Path ? [PhpCalls::literal($origin->written($this->path))] : [];
 
-        return $path !== '' && $named === sprintf('Report::%s()', $this->reporter->use())
-            ? sprintf('Report::%s(%s)', $this->reporter->use(), PhpCalls::literal($path))
+        return $path !== [] && $named === sprintf('Report::%s()', $this->reporter->use())
+            ? sprintf('Report::%s(%s)', $this->reporter->use(), $path[0])
             : sprintf(
-                'Report::uses(%s)',
+                'Report::%s(%s)',
+                $path === [] ? 'uses' : 'writing',
                 implode(', ', [
                     PhpCalls::literal($this->reporter->use()),
-                    PhpCalls::literal($path),
+                    ...$path,
                     ...PhpOptions::of($this->reporter->options()),
                 ]),
             );

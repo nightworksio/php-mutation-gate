@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use Symfony\Component\Console\Input\InputInterface;
 
 /**
@@ -27,12 +28,12 @@ use Symfony\Component\Console\Input\InputInterface;
 final readonly class CommandLine
 {
     /** @param list<string> $reports each as `--report` writes it, `<name>:<path>` */
-    public function __construct(
-        public string $config,
-        public string $runner,
+    private function __construct(
+        public string|NotGiven $config,
+        public string|NotGiven $runner,
         public array $reports,
-        public string $budget,
-        public string $ci,
+        public string|NotGiven $budget,
+        public string|NotGiven $ci,
         public bool $firstPartyOnly,
     ) {
     }
@@ -50,10 +51,54 @@ final readonly class CommandLine
         );
     }
 
+    /** A command line that says nothing, with every extension. */
+    public static function nothing(): self
+    {
+        $none = NotGiven::value();
+
+        return new self($none, $none, [], $none, $none, firstPartyOnly: false);
+    }
+
+    /** What the command line says, and `--config` naming a file. */
+    public function withConfig(string $file): self
+    {
+        return clone($this, ['config' => $file]);
+    }
+
+    /** What the command line says, and `--runner`. */
+    public function withRunner(string $runner): self
+    {
+        return clone($this, ['runner' => $runner]);
+    }
+
+    /** What the command line says, and one `--report` more, `<name>:<path>`. */
+    public function withReport(string $report): self
+    {
+        return clone($this, ['reports' => [...$this->reports, $report]]);
+    }
+
+    /** What the command line says, and `--budget`. */
+    public function withBudget(string $budget): self
+    {
+        return clone($this, ['budget' => $budget]);
+    }
+
+    /** What the command line says, and `--ci`. */
+    public function withCi(string $plan): self
+    {
+        return clone($this, ['ci' => $plan]);
+    }
+
+    /** What the command line says, and `--no-extensions`: this package's own extension and no other. */
+    public function firstPartyOnly(): self
+    {
+        return clone($this, ['firstPartyOnly' => true]);
+    }
+
     /** What the command line says, but for a config file to read. */
     public function withoutConfig(): self
     {
-        return new self('', $this->runner, $this->reports, $this->budget, $this->ci, $this->firstPartyOnly);
+        return clone($this, ['config' => NotGiven::value()]);
     }
 
     /** The settings the command line sets, as the last layer of the config, its paths named from the project. */
@@ -66,13 +111,15 @@ final readonly class CommandLine
     public function written(): Json
     {
         $layer = Json::object();
-        $layer = $this->runner === '' ? $layer : $layer->with(Member::of('runner', $this->runner));
+        $layer = $this->runner instanceof NotGiven ? $layer : $layer->with(Member::of('runner', $this->runner));
         $layer = $this->reports === []
             ? $layer
             : $layer->with(Member::of('reports', Json::items(...array_map($this->report(...), $this->reports))));
-        $layer = $this->budget === '' ? $layer : $layer->with(Member::of('budget', $this->budget));
+        $layer = $this->budget instanceof NotGiven ? $layer : $layer->with(Member::of('budget', $this->budget));
 
-        return $this->ci === '' ? $layer : $layer->with(Member::of('ci', Json::object(Member::of('plan', $this->ci))));
+        return $this->ci instanceof NotGiven
+            ? $layer
+            : $layer->with(Member::of('ci', Json::object(Member::of('plan', $this->ci))));
     }
 
     private function report(string $report): Json
@@ -85,7 +132,7 @@ final readonly class CommandLine
 
     private static function option(InputInterface $input, string $name): mixed
     {
-        return $input->hasOption($name) ? $input->getOption($name) : '';
+        return $input->hasOption($name) ? $input->getOption($name) : NotGiven::value();
     }
 
     /** @return list<string> */
@@ -102,8 +149,9 @@ final readonly class CommandLine
         return $texts;
     }
 
-    private static function text(mixed $value): string
+    /** An option's text, or nothing given where the command does not take it or it is left off. */
+    private static function text(mixed $value): string|NotGiven
     {
-        return is_string($value) ? $value : '';
+        return is_string($value) ? $value : NotGiven::value();
     }
 }

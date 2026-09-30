@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
-use function array_filter;
-use function array_keys;
-use function array_map;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /** Where proofs are kept, and what they leave out (ADR-0007): `proofs`. */
 final readonly class Proofs implements Setting
@@ -19,18 +18,18 @@ final readonly class Proofs implements Setting
     }
 
     /** A directory; `.mutation-gate/ledger` when no path is given. */
-    public static function directory(string $path = ''): self
+    public static function directory(string|NotGiven $path = new NotGiven()): self
     {
         return self::store('directory', ['path' => $path]);
     }
 
-    /** An S3-compatible bucket, such as AWS S3, Cloudflare R2 or MinIO; an option left empty takes its default. */
+    /** An S3-compatible bucket, such as AWS S3, Cloudflare R2 or MinIO; an option left out takes its default. */
     public static function s3(
         string $bucket,
-        string $prefix = '',
-        string $region = '',
-        string $endpoint = '',
-        string $publicUrl = '',
+        string|NotGiven $prefix = new NotGiven(),
+        string|NotGiven $region = new NotGiven(),
+        string|NotGiven $endpoint = new NotGiven(),
+        string|NotGiven $publicUrl = new NotGiven(),
     ): self {
         return self::store('s3', [
             'bucket' => $bucket,
@@ -75,11 +74,17 @@ final readonly class Proofs implements Setting
         return $this->json;
     }
 
-    /** @param array<string, string> $options the options, each left out when it is empty */
+    /** @param array<string, string|NotGiven> $options the options, each left out where it is not given */
     private static function store(string $store, array $options): self
     {
-        $given = array_filter($options, static fn(string $value): bool => $value !== '');
+        $given = [];
 
-        return self::uses($store, ...array_map(Option::of(...), array_keys($given), $given));
+        foreach ($options as $name => $value) {
+            if (is_string($value)) {
+                $given[] = Option::of($name, $value);
+            }
+        }
+
+        return self::uses($store, ...$given);
     }
 }

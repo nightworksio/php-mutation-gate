@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Config\Source;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\Tree;
 use NightWorksIO\MutationGate\Config\Uncovered;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('writes nothing for a config with no settings', function (): void {
@@ -90,8 +91,8 @@ it('writes every setting of the configuration reference', function (): void {
                 Report::junit('b.xml'),
                 Report::sarif('c.sarif'),
                 Report::html('d'),
-                Report::uses('Acme\\Slack', '', Option::of('channel', '#ci')),
-                Report::uses('acme', 'e.txt'),
+                Report::uses('Acme\\Slack', Option::of('channel', '#ci')),
+                Report::writing('acme', 'e.txt'),
             )
             ->with(
                 Uncovered::excluded(),
@@ -306,4 +307,19 @@ it('keeps a number as it was written, for the validator to judge', function (): 
     ])->and(Floor::of(12)->percent())->toBe(12)
         ->and(Preset::named('acme')->name())->toBe('acme')
         ->and(Load::extension('Acme\\A')->class())->toBe('Acme\\A');
+});
+
+it('writes a value given empty, for the config to refuse, rather than leave it out', function (): void {
+    $gate = Gate::configure()
+        ->trees(Tree::at('gen', floor: 0, because: ''))
+        ->ignoring(Ignore::mutant('3f9a1c2b7d04', because: 'Same', until: ''))
+        ->reporting(Report::writing('acme', ''))
+        ->with(Proofs::s3('bucket', region: ''));
+
+    expect(Configs::problems($gate->layer(new ProjectRoot())))->toBe([
+        'trees[0].reason: expected a reason, got ""',
+        'proofs.store.with.region: expected a region, got ""',
+        'ignores.entries[0].expires: expected a date written YYYY-MM-DD, got ""',
+        'reports[0].path: expected a path, got ""',
+    ]);
 });

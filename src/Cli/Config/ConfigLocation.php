@@ -9,12 +9,13 @@ use function array_values;
 use function count;
 use function implode;
 use function is_file;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
 
@@ -38,11 +39,11 @@ final readonly class ConfigLocation
      * The config file of the project, as the command line spells the project
      * (owner: config).
      *
-     * @param string $given the file `--config` names, relative to the project; '' when it names none
+     * @param string|NotGiven $given the file `--config` names, relative to the project
      */
-    public static function in(string $project, string $given): Path|Absent|CannotJudge
+    public static function in(string $project, string|NotGiven $given): Path|NoConfigFile|CannotJudge
     {
-        if ($given !== '') {
+        if (is_string($given)) {
             return self::named($project, $given);
         }
 
@@ -52,7 +53,7 @@ final readonly class ConfigLocation
         ));
 
         return match (count($present)) {
-            0 => Absent::setting(),
+            0 => NoConfigFile::there(),
             1 => Path::of(Root::of($project)->at(Path::of($present[0]))->value()),
             default => CannotJudge::because(sprintf(
                 'More than one config file is here: %s. Keep one, or name one with --config.',

@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
 use function sprintf;
@@ -75,12 +76,12 @@ final readonly class Effective
     }
 
     /** The config file read, or a layer that sets nothing for zero-config. */
-    private function file(string $given): Layer|Invalid|CannotJudge
+    private function file(string|NotGiven $given): Layer|Invalid|CannotJudge
     {
         $path = ConfigLocation::in($this->project, $given);
 
         if (! $path instanceof Path) {
-            return $path instanceof Absent ? Layer::none() : $path;
+            return $path instanceof NoConfigFile ? Layer::none() : $path;
         }
 
         $file = ConfigFile::at($path, Path::of($this->project));

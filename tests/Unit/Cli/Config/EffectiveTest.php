@@ -51,7 +51,7 @@ $effective = static fn(string $project, bool $installed = true): Effective => ne
 );
 
 /** Nothing said on the command line. */
-$nothing = static fn(): CommandLine => new CommandLine('', '', [], '', '', firstPartyOnly: false);
+$nothing = static fn(): CommandLine => CommandLine::nothing();
 
 /** @return array<mixed> */
 $shown = static fn(Settings|Invalid|CannotJudge $settings): array => $settings instanceof Settings
@@ -79,7 +79,7 @@ it('lays the config file over its presets, and the command line over both', func
     $shown,
 ): void {
     $settings = $effective(Tree::at('tests/Fixtures/Projects/Configured'))
-        ->settings(new CommandLine('', 'pest', ['json:build/mutation.json'], '5m', 'github', firstPartyOnly: false));
+        ->settings(CommandLine::nothing()->withRunner('pest')->withReport('json:build/mutation.json')->withBudget('5m')->withCi('github'));
 
     expect($shown($settings))->toMatchArray([
         'preset' => 'symfony',
@@ -117,7 +117,7 @@ it('finds the runner of a config that only says what it withholds', function () 
 it('keeps what the config withholds where the command line chooses the runner', function () use ($effective): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
     Scratch::write($project, 'mutation-gate.json', '{"runner": {"use": "pest", "withhold": ["DEPLOY_*"]}}');
-    $settings = $effective($project)->settings(new CommandLine('', 'infection', [], '', '', firstPartyOnly: false));
+    $settings = $effective($project)->settings(CommandLine::nothing()->withRunner('infection'));
     $runner = $settings instanceof Settings ? $settings->runner() : $settings;
 
     expect($runner instanceof ChosenRunner ? [$runner->choice(), $runner->withhold()] : $runner)
@@ -154,7 +154,7 @@ it('gives a library listed after a framework its own timeout and floor', functio
     $project = Scratch::directory();
     Scratch::write($project, 'mutation-gate.json', '{"preset": ["laravel", "library"], "runner": "pest"}');
     Scratch::write($project, 'framework.json', '{"preset": ["library", "laravel"], "runner": "pest"}');
-    $framework = new CommandLine('framework.json', '', [], '', '', firstPartyOnly: false);
+    $framework = CommandLine::nothing()->withConfig('framework.json');
 
     expect($shown($effective($project)->settings($nothing())))->toMatchArray([
         'newCode' => ['floor' => 100],
@@ -197,19 +197,19 @@ it('cannot judge what the project leaves undecided', function (string $project, 
 })->with([
     'two config files' => [
         'TwoConfigs',
-        new CommandLine('', '', [], '', '', firstPartyOnly: false),
+        CommandLine::nothing(),
         'More than one config file is here: mutation-gate.json, mutation-gate.yaml. '
         . 'Keep one, or name one with --config.',
     ],
     'two runners' => [
         'TwoRunners',
-        new CommandLine('', '', [], '', '', firstPartyOnly: false),
+        CommandLine::nothing(),
         'Both pestphp/pest-plugin-mutate and infection/infection are installed. '
         . 'Choose one: set runner in the config, or pass --runner.',
     ],
     'a YAML config without its library' => [
         'TwoConfigs',
-        new CommandLine('mutation-gate.yaml', '', [], '', '', firstPartyOnly: false),
+        CommandLine::nothing()->withConfig('mutation-gate.yaml'),
         '%s/mutation-gate.yaml is YAML, which needs symfony/yaml to be read. '
         . 'Install it: composer require --dev symfony/yaml',
     ],
@@ -217,7 +217,7 @@ it('cannot judge what the project leaves undecided', function (string $project, 
 
 it('lets the command line choose the runner where two are installed', function () use ($effective): void {
     $settings = $effective(Tree::at('tests/Fixtures/Projects/TwoRunners'))
-        ->settings(new CommandLine('', 'infection', [], '', '', firstPartyOnly: false));
+        ->settings(CommandLine::nothing()->withRunner('infection'));
 
     expect($settings instanceof Settings ? $settings->runner()->choice() : $settings)
         ->toEqual(Choice::of('infection', Configs::options('{}')));
@@ -253,7 +253,7 @@ it('reports what is wrong in a layer before what the presets or every layer toge
 
     expect(Configs::problems($effective($project)->settings($nothing())))
         ->toBe(['budget: expected a duration such as 90s, 15m or 1h30m, got "soon"'])
-        ->and(Configs::problems($effective($project)->settings(new CommandLine('', 'pest', [], 'soon', '', firstPartyOnly: false))))
+        ->and(Configs::problems($effective($project)->settings(CommandLine::nothing()->withRunner('pest')->withBudget('soon'))))
         ->toBe(['budget: expected a duration such as 90s, 15m or 1h30m, got "soon"']);
 });
 
@@ -296,9 +296,9 @@ it('loads the extensions the config file names, unless told to load none', funct
         'runner' => 'pest',
     ]));
 
-    expect($effective($project)->settings(new CommandLine('', '', [], '', '', firstPartyOnly: true)))
+    expect($effective($project)->settings(CommandLine::nothing()->firstPartyOnly()))
         ->toBeInstanceOf(Settings::class)
-        ->and($effective($project)->settings(new CommandLine('', '', [], '', '', firstPartyOnly: false)))
+        ->and($effective($project)->settings(CommandLine::nothing()))
         ->toEqual(CannotJudge::because(
             'the config file names Acme\\Missing\\Extension in extensions, and it is not a class that implements '
             . 'NightWorksIO\\MutationGate\\Extension\\Extension.',
@@ -309,7 +309,7 @@ it('reads the config file --config names', function () use ($effective, $shown):
     $project = Scratch::directory();
     Scratch::write($project, 'ci/gate.neon', "runner: pest\nbudget: 90s\n");
 
-    expect($shown($effective($project)->settings(new CommandLine('ci/gate.neon', '', [], '', '', firstPartyOnly: false))))
+    expect($shown($effective($project)->settings(CommandLine::nothing()->withConfig('ci/gate.neon'))))
         ->toMatchArray(['runner' => 'pest', 'budget' => '1m30s']);
 });
 
@@ -360,7 +360,7 @@ it('judges a layer a loader or a preset built by hand, as the definition judges 
         new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
         new DateTimeImmutable(Configs::NOW),
     );
-    $settings = $effective->settings(new CommandLine($config, '', [], '', '', firstPartyOnly: true));
+    $settings = $effective->settings(CommandLine::nothing()->withConfig($config)->firstPartyOnly());
     $paths = array_map(static fn(string $problem): string => explode(': expected ', $problem)[0], Configs::problems($settings));
 
     expect($paths)->toBe(array_map(
