@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Proof\Writing;
 
 use function sprintf;
 
@@ -27,7 +28,7 @@ final readonly class Proofs implements Part
     private function __construct(
         private Choice|Absent $store,
         private Listed|Absent $ignore,
-        private ProofWriting|Absent $write,
+        private Writing|Absent $write,
     ) {
     }
 
@@ -35,7 +36,7 @@ final readonly class Proofs implements Part
     public static function of(
         Choice|Absent $store = new Absent(),
         Listed|Absent $ignore = new Absent(),
-        ProofWriting|Absent $write = new Absent(),
+        Writing|Absent $write = new Absent(),
     ): self {
         return new self($store, $ignore, $write);
     }
@@ -87,9 +88,9 @@ final readonly class Proofs implements Part
         return $this->ignore instanceof Listed ? $this->ignore : Listed::of();
     }
 
-    public function write(): ProofWriting
+    public function write(): Writing
     {
-        return $this->write instanceof ProofWriting ? $this->write : ProofWriting::Auto;
+        return $this->write instanceof Writing ? $this->write : Writing::Auto;
     }
 
     public function written(PathOrigin $origin): Json
@@ -107,7 +108,7 @@ final readonly class Proofs implements Part
                         ? Json::items(...WrittenPaths::globs($origin, $this->ignore))
                         : $this->ignore,
                 ),
-                Member::of('write', $this->write instanceof ProofWriting ? $this->write->value : $this->write),
+                Member::of('write', $this->write instanceof Writing ? $this->write->value : $this->write),
             ),
         ));
     }
@@ -119,9 +120,9 @@ final readonly class Proofs implements Part
             ...$this->ignore instanceof Listed
                 ? [sprintf('Proofs::ignore(%s)', PhpCalls::literals(...WrittenPaths::globs($origin, $this->ignore)))]
                 : [],
-            ...$this->write instanceof ProofWriting ? [match ($this->write) {
-                ProofWriting::Auto => 'Proofs::writing()',
-                ProofWriting::Never => 'Proofs::readOnly()',
+            ...$this->write instanceof Writing ? [match ($this->write) {
+                Writing::Auto => 'Proofs::writing()',
+                Writing::Never => 'Proofs::readOnly()',
             }] : [],
         ]);
     }

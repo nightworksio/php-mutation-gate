@@ -13,16 +13,16 @@ use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
-use NightWorksIO\MutationGate\Core\Config\ProofWriting;
 use NightWorksIO\MutationGate\Core\Config\Report;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
-use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -225,7 +225,7 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":[]}')))
         ->and($floors->trees())->toEqual(Absent::setting())
         ->and($floors->newCode())->toEqual(Floor::of(100))
-        ->and($floors->uncovered())->toBe(UncoveredMutants::Count)
+        ->and($floors->uncovered())->toBe(Uncovered::Count)
         ->and($floors->baseline())->toEqual(Path::of('mutation-gate.baseline.json'))
         ->and($floors->improvement())->toBe(Improvement::Require)
         ->and([...$settings->reach()->packages()])->toBe([])
@@ -243,7 +243,7 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->runner()->withhold())->toEqual(Withheld::nothing())
         ->and($settings->proofs()->store())->toEqual(Choice::of('directory', Configs::options('{"path":".mutation-gate/ledger"}')))
         ->and([...$settings->proofs()->ignore()])->toBe([])
-        ->and($settings->proofs()->write())->toBe(ProofWriting::Auto)
+        ->and($settings->proofs()->write())->toBe(Writing::Auto)
         ->and($settings->triage()->budget())->toEqual(Unlimited::time())
         ->and($settings->triage()->timeouts())->toBe(TimeoutMode::Confirm)
         ->and($settings->triage()->limit())->toEqual(Seconds::of(10))
@@ -286,7 +286,7 @@ it('reads every setting a config writes into its type', function (): void {
             ['app/Legacy', Undeclared::floor()],
         ])
         ->and($floors->newCode())->toEqual(Floor::of(90))
-        ->and($floors->uncovered())->toBe(UncoveredMutants::Exclude)
+        ->and($floors->uncovered())->toBe(Uncovered::Exclude)
         ->and($floors->baseline())->toEqual(Path::of('build/baseline.json'))
         ->and($floors->improvement())->toBe(Improvement::Report)
         ->and([...$settings->reach()->packages()])->toEqual([Glob::of('packages/*')])
@@ -307,7 +307,7 @@ it('reads every setting a config writes into its type', function (): void {
             Configs::options('{"bucket":"proofs","prefix":"mutation-gate","region":"us-east-1","endpoint":"https://r2.example.com"}'),
         ))
         ->and([...$proofs->ignore()])->toEqual([Glob::of('docs/**')])
-        ->and($proofs->write())->toBe(ProofWriting::Never)
+        ->and($proofs->write())->toBe(Writing::Never)
         ->and($settings->triage()->budget())->toEqual(Seconds::of(5400))
         ->and($triage->timeouts())->toBe(TimeoutMode::Unjudged)
         ->and($triage->limit())->toEqual(Seconds::of(30))
