@@ -103,7 +103,7 @@ it('lists every holds: group among the suite\'s groups, one only #[Holds] on a c
 it('runs every test that holds a path, and no other, in a mutant\'s own process', function (): void {
     $trace = sprintf('%s/trace', Scratch::directory());
     $request = MutationRequest::of(Paths::of(Path::of('src/Shapes.php')), Group::named('holds:src/Shapes.php'))
-        ->onlyMutators(Mutators::named(TrueToFalse::class));
+        ->narrowedTo(Paths::of(Path::of('src/Shapes.php')), Mutators::named(TrueToFalse::class));
 
     // Symfony's Process passes on only the variables PHP also has in $_SERVER.
     putenv(sprintf('LIBRARY_TRACE=%s', $trace));

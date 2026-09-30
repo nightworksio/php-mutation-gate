@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -81,6 +83,38 @@ it('judges each uncovered mutant on a line that is not executable by the tests t
         'internal' => 'killed',
         'other' => 'uncovered',
     ])->and($judged instanceof MutationResult ? $judged->skipped() : -1)->toBe(2);
+});
+
+it('runs every judging of a mutant by reference under the run\'s memory cap', function () use ($money): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, ['internal']);
+    $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php']));
+    $scan = MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), sprintf('%s/php', dirname($results)));
+
+    new Judging($at, $shell)->of(
+        judgingResult('internal'),
+        $money->cappedAt(MemoryCap::of(256, MemoryUnit::Megabytes)),
+        $results,
+        judgingCoverage($results),
+    );
+
+    expect($shell->commands())->not->toBeEmpty()
+        ->and(array_map(static fn(Command $command): mixed => $command->environment()[MemoryCap::SCAN_DIR] ?? null, $shell->commands()))
+        ->each->toBe($scan)
+        ->and(file_get_contents(sprintf('%s/php/%s', dirname($results), MemoryCap::FILE)))->toBe("memory_limit=256M\n");
+});
+
+it('cannot judge a mutant by reference where the memory cap cannot be written', function () use ($money): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, ['internal']);
+    mkdir(sprintf('%s/php/%s', dirname($results), MemoryCap::FILE), recursive: true);
+
+    expect(new Judging($at, new ShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: '')))->of(
+        judgingResult('internal'),
+        $money->cappedAt(MemoryCap::standard()),
+        $results,
+        judgingCoverage($results),
+    ))->toBeInstanceOf(CannotJudge::class);
 });
 
 it('runs the tests that read the value, then the fallback\'s others where the mutant came through', function () use (

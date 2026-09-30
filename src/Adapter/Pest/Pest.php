@@ -263,7 +263,7 @@ final readonly class Pest implements Runner
     ): Reproduction|CannotJudge {
         $shell = Transcribing::over($this->shell);
         $request = MutationRequest::of(Paths::of($mutant->file()), $judgedBy)
-            ->onlyMutators(Mutators::named($mutant->mutator()))
+            ->narrowedTo(Paths::of($mutant->file()), Mutators::named($mutant->mutator()))
             ->withholding($withheld);
         $result = $this->run($shell)->of($request);
 

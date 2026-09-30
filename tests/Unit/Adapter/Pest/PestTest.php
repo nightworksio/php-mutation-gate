@@ -554,7 +554,6 @@ it('runs the mutants again in one run of their files with their mutators, naming
     );
     $invocation = MutationRequest::of(Paths::of(Path::of('src'), Path::of('lib')), WholeSuite::tests())
         ->leavingOut(Paths::of(Path::of('src/Held')))
-        ->onlyMutators(Mutators::all())
         ->within(Seconds::of(42.0));
     $request = $invocation->narrowedTo(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')), Mutators::named(RUN_PLUS));
     $retried = new Pest($at, $shell, Patching::off())
@@ -709,7 +708,7 @@ it('reproduces a mutant in one run of its file with only its mutator, by the tes
     $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
     $holding = Group::named('holds:src/Money.php');
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $holding)
-        ->onlyMutators(Mutators::named(RUN_PLUS))
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named(RUN_PLUS))
         ->withholding(Withheld::of('DEPLOY_*'));
 
     $reproduced = new Pest($at, $shell, Patching::off())

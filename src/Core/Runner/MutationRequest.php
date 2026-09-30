@@ -63,17 +63,13 @@ final readonly class MutationRequest
 
     /**
      * This request over these files alone, with only these mutators, and
-     * nothing left out: how a run again makes some of its mutants once more,
-     * judged, covered, withheld, timed and ordered as this request is.
+     * nothing left out: how a request asks for some mutators only, and how a
+     * run again makes some of its mutants once more, judged, covered,
+     * withheld, capped, timed and ordered as this request is.
      */
     public function narrowedTo(Paths $files, Mutators $mutators): self
     {
         return clone($this, ['files' => $files, 'mutators' => $mutators, 'leftOut' => Paths::none()]);
-    }
-
-    public function onlyMutators(Mutators $mutators): self
-    {
-        return clone($this, ['mutators' => $mutators]);
     }
 
     /** This request, stopped when this much time has passed. */

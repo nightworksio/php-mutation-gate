@@ -12,6 +12,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
+use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Records;
@@ -63,9 +64,10 @@ final readonly class Judging
         }
 
         $records = Records::in($results);
+        $scan = MemoryScan::beside($this->project, $results, $request->memory());
 
-        if ($records instanceof CannotJudge) {
-            return $records;
+        if ($records instanceof CannotJudge || $scan instanceof CannotJudge) {
+            return $records instanceof CannotJudge ? $records : $scan;
         }
 
         $selector = Selector::over($this->project, $coverage, $request->files());
@@ -79,6 +81,7 @@ final readonly class Judging
             $request->withheld(),
             $records->limit(),
             $guard,
+            $scan,
         );
         $mutants = Mutants::none();
 

@@ -126,11 +126,11 @@ it('mutates some files against the whole suite, over the project\'s own config, 
 
 it('mutates a tree less its held paths, by a group and some mutators, by a deadline', function (): void {
     $request = MutationRequest::of(Paths::of(Path::of('src')), Group::named('holds:src'))
-        ->leavingOut(Paths::of(Path::of('src/Kernel.php'), Path::of('src/Boot')))
-        ->onlyMutators(Mutators::named(
+        ->narrowedTo(Paths::of(Path::of('src')), Mutators::named(
             PlusToMinus::class,
             TrueToFalse::class,
         ))
+        ->leavingOut(Paths::of(Path::of('src/Kernel.php'), Path::of('src/Boot')))
         ->across(Processes::of(8))
         ->within(Seconds::of(600.0));
     $command = invocation()->mutation($request, Group::named('holds:src'), '/p/results.jsonl');

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
+use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Outcome;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Trial;
@@ -11,6 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -57,6 +59,7 @@ function trialOf(Project $at, ShellFake $shell, WholeSuite|Group $judgedBy = new
         Withheld::standard(),
         Seconds::of(6.0),
         sprintf('%s/guard.json', $at->root()),
+        uncappedScan($at),
     );
 }
 
@@ -137,6 +140,7 @@ it('lays no limit on a run where Pest measured none', function (): void {
         Withheld::standard(),
         Unmeasured::duration(),
         '/g',
+        uncappedScan($at),
     );
     $tests = Paths::of(Path::of('tests/A.php'));
 
@@ -147,3 +151,10 @@ it('lays no limit on a run where Pest measured none', function (): void {
             Invocation::installedIn(Path::of('vendor'))->judging($tests, WholeSuite::tests(), Withheld::standard())->within(Unlimited::time()),
         ]);
 });
+
+function uncappedScan(Project $at): MemoryScan
+{
+    $scan = MemoryScan::beside($at, sprintf('%s/results.jsonl', $at->root()), MemoryCap::none());
+
+    return $scan instanceof MemoryScan ? $scan : throw new LogicException('An uncapped scan writes nothing.');
+}

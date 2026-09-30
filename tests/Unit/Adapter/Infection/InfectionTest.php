@@ -366,7 +366,7 @@ it('writes the map another job handed on in its own layout for a run judged by t
     $shell = infectionShell($at, infectionKilled($at));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->reusingCoverage(Path::of('planned'))
-        ->onlyMutators(Mutators::named('Plus'));
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('Plus'));
     $result = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->mutate($request);
     $own = sprintf('%s/.gate/infection/coverage', $at->root());
 

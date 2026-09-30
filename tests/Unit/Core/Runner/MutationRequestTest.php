@@ -35,8 +35,8 @@ it('asks for some files judged by some tests, and by default nothing more', func
 
 it('takes each setting on its own, leaving the rest as they were', function (): void {
     $request = MutationRequest::of(Paths::of(Path::of('src')), Group::named('slow'))
+        ->narrowedTo(Paths::of(Path::of('src')), Mutators::named('LessThan'))
         ->leavingOut(Paths::of(Path::of('src/Kernel.php')))
-        ->onlyMutators(Mutators::named('LessThan'))
         ->within(Seconds::of(600.0))
         ->across(Processes::of(8))
         ->reusingCoverage(Path::of('.mutation-gate/coverage'))
@@ -57,7 +57,7 @@ it('takes each setting on its own, leaving the rest as they were', function (): 
 it('leaves the request it came from as it was', function (): void {
     $request = MutationRequest::of(Paths::none(), Filter::matching('KernelTest'));
     $request->leavingOut(Paths::of(Path::of('a')));
-    $request->onlyMutators(Mutators::named('LessThan'));
+    $request->narrowedTo(Paths::none(), Mutators::named('LessThan'));
     $request->within(Seconds::of(1.0));
     $request->across(Processes::of(2));
     $request->reusingCoverage(Path::of('c'));
@@ -87,4 +87,21 @@ it('never tells a runner how uncovered mutants score, which the gate applies whe
     );
 
     expect(array_filter($typed, static fn(string $types): bool => str_contains($types, 'Uncovered')))->toBe([]);
+});
+
+it('narrows to some files and mutators with nothing left out, keeping how it runs, the cap included', function (): void {
+    $request = MutationRequest::of(Paths::of(Path::of('src')), Group::named('slow'))
+        ->leavingOut(Paths::of(Path::of('src/Kernel.php')))
+        ->withholding(Withheld::of('DEPLOY_*'))
+        ->cappedAt(MemoryCap::standard())
+        ->within(Seconds::of(600.0));
+    $narrowed = $request->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('LessThan'));
+
+    expect([...$narrowed->files()])->toEqual([Path::of('src/Money.php')])
+        ->and($narrowed->mutators())->toEqual(Mutators::named('LessThan'))
+        ->and($narrowed->leftOut())->toEqual(Paths::none())
+        ->and($narrowed->judgedBy())->toEqual(Group::named('slow'))
+        ->and($narrowed->withheld())->toEqual($request->withheld())
+        ->and($narrowed->memory())->toEqual(MemoryCap::standard())
+        ->and($narrowed->deadline())->toEqual(Seconds::of(600.0));
 });

@@ -10,9 +10,6 @@ use Closure;
 
 use function count;
 use function dirname;
-use function file_put_contents;
-use function getenv;
-use function is_dir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -21,7 +18,6 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -53,9 +49,6 @@ final readonly class MutationRun
 
     /** Where the map another job handed over is written again for this job's Pest, beside the results. */
     private const string SHARED_MAP = '%s/shared.coverage.php';
-
-    /** The directory of the ini file that caps each mutant's memory, beside the results. */
-    private const string MEMORY = '%s/php';
 
     /**
      * @param Closure(Withheld): (Groups|CannotJudge) $groups the suite's groups, as the runner lists them
@@ -105,12 +98,13 @@ final readonly class MutationRun
         CoverageMap|Unshared $shared,
     ): MutationResult|CannotJudge {
         $command = Plan::handedOver($this->project, $request, $this->commandFor($request, $results, $shared));
-        $command = $command instanceof CannotJudge ? $command : $this->capped($command, $request->memory(), $results);
+        $scan = MemoryScan::beside($this->project, $results, $request->memory());
 
-        if ($command instanceof CannotJudge) {
-            return $command;
+        if ($command instanceof CannotJudge || $scan instanceof CannotJudge) {
+            return $command instanceof CannotJudge ? $command : $scan;
         }
 
+        $command = $scan->onto($command);
         $ran = $this->shell->run($this->only === [] ? $command : $command->with([
             GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only),
         ]));
@@ -150,20 +144,6 @@ final readonly class MutationRun
      * The command with every PHP process it starts, each mutant's own among
      * them, kept to the request's memory cap; or why the cap cannot be set.
      */
-    private function capped(Command $command, MemoryCap $memory, string $results): Command|CannotJudge
-    {
-        if (! $memory->caps()) {
-            return $command;
-        }
-
-        $directory = $this->project->directory($this->project->relative(sprintf(self::MEMORY, dirname($results))));
-        $ini = sprintf('%s/%s', $directory, MemoryCap::FILE);
-
-        return is_dir($ini) || file_put_contents($ini, $memory->ini()) === false
-            ? CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, $ini))
-            : $command->with([MemoryCap::SCAN_DIR => MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $directory)]);
-    }
-
     /** A run that opens on the canary group with the map another job handed over, where it has one. */
     private function opened(Command $command, string $results, CoverageMap|Unshared $shared): Command
     {
