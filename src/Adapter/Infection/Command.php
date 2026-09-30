@@ -6,10 +6,14 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function array_values;
 
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
-/** A PHP program to run: its arguments, the environment it sets, and how long it may take. */
+/**
+ * A PHP program to run: its arguments, the environment it sets, the
+ * variables it never inherits, and how long it may take.
+ */
 final readonly class Command
 {
     /**
@@ -19,25 +23,37 @@ final readonly class Command
     private function __construct(
         private array $arguments,
         private array $environment,
+        private Withheld $withheld,
         private Seconds|Unlimited $deadline,
     ) {
     }
 
-    /** A script, run on the PHP that runs the gate. */
+    /** A script, run on the PHP that runs the gate, withholding what every run withholds. */
     public static function php(string ...$arguments): self
     {
-        return new self([PHP_BINARY, ...array_values($arguments)], [], Unlimited::time());
+        return new self([PHP_BINARY, ...array_values($arguments)], [], Withheld::standard(), Unlimited::time());
     }
 
     /** @param array<string, string> $environment */
     public function with(array $environment): self
     {
-        return new self($this->arguments, [...$this->environment, ...$environment], $this->deadline);
+        return new self(
+            $this->arguments,
+            [...$this->environment, ...$environment],
+            $this->withheld,
+            $this->deadline,
+        );
+    }
+
+    /** This command, withholding these variables as well as those it already withholds. */
+    public function withholding(Withheld $withheld): self
+    {
+        return new self($this->arguments, $this->environment, $this->withheld->and($withheld), $this->deadline);
     }
 
     public function within(Seconds|Unlimited $deadline): self
     {
-        return new self($this->arguments, $this->environment, $deadline);
+        return new self($this->arguments, $this->environment, $this->withheld, $deadline);
     }
 
     /** @return list<string> */
@@ -50,6 +66,11 @@ final readonly class Command
     public function environment(): array
     {
         return $this->environment;
+    }
+
+    public function withheld(): Withheld
+    {
+        return $this->withheld;
     }
 
     public function deadline(): Seconds|Unlimited

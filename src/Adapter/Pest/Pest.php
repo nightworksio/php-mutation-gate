@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -159,13 +160,18 @@ final readonly class Pest implements Runner
      * that judged their unit, and matched back by the gate's id. Pest allows
      * each mutant its own time, so no limit is laid on the run.
      */
-    public function retry(Mutants $mutants, Seconds $limit, WholeSuite|Group|Filter $judgedBy): Mutants|CannotJudge
-    {
+    public function retry(
+        Mutants $mutants,
+        Seconds $limit,
+        WholeSuite|Group|Filter $judgedBy,
+        Withheld $withheld,
+    ): Mutants|CannotJudge {
         $retried = Mutants::none();
 
         foreach ($this->batches($mutants) as $batch) {
             $request = MutationRequest::of(Paths::of($batch[0]->location()->file()), $judgedBy)
-                ->onlyMutators(Mutators::named($batch[0]->mutation()->mutator()));
+                ->onlyMutators(Mutators::named($batch[0]->mutation()->mutator()))
+                ->withholding($withheld);
             $result = $this->mutate($request);
 
             if ($result instanceof CannotJudge) {

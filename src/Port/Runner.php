@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -50,9 +51,15 @@ interface Runner
 
     /**
      * These mutants run again, each allowed this long and judged by the tests
-     * that judged their unit, matched back by the gate's id.
+     * that judged their unit, matched back by the gate's id. The tests never
+     * see the variables withheld.
      */
-    public function retry(Mutants $mutants, Seconds $limit, WholeSuite|Group|Filter $judgedBy): Mutants|CannotJudge;
+    public function retry(
+        Mutants $mutants,
+        Seconds $limit,
+        WholeSuite|Group|Filter $judgedBy,
+        Withheld $withheld,
+    ): Mutants|CannotJudge;
 
     /**
      * The runner's own ignore markers in these files and in its config, each

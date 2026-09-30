@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -25,12 +26,12 @@ function invocation(): Invocation
 
 it('lists the groups without colour', function (): void {
     expect(invocation()->listingGroups())
-        ->toEqual(Command::pest('vendor/pestphp/pest/bin/pest', '--list-groups', '--colors=never'));
+        ->toEqual(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups', '--colors=never'));
 });
 
 it('runs Pest\'s own script in the vendor directory the project installs into', function (): void {
     expect(Invocation::installedIn(Path::of('lib/vendor'))->listingGroups())
-        ->toEqual(Command::pest('lib/vendor/pestphp/pest/bin/pest', '--list-groups', '--colors=never'));
+        ->toEqual(Command::pest('lib/vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups', '--colors=never'));
 });
 
 it('runs the whole suite under coverage into a directory, as --coverage expects to find it', function (): void {
@@ -39,6 +40,7 @@ it('runs the whole suite under coverage into a directory, as --coverage expects 
 
     expect(invocation()->coverage($request, '/p/.mutation-gate/coverage'))->toEqual(Command::pest(
         'vendor/pestphp/pest/bin/pest',
+        Withheld::standard(),
         '--parallel',
         '--processes=4',
         '--no-tia',
@@ -67,6 +69,7 @@ it('mutates some files against the whole suite, over the project\'s own config, 
 
     expect(invocation()->mutation($request, WholeSuite::tests(), '/p/results.jsonl'))->toEqual(Command::pest(
         'vendor/pestphp/pest/bin/pest',
+        Withheld::standard(),
         '--mutate',
         '--no-cache',
         '--parallel',
@@ -120,4 +123,29 @@ it('leaves out one held path by name', function (): void {
 
     expect($command->arguments())->toContain('--ignore=src/Kernel.php')
         ->and($command->deadline())->toEqual(Unlimited::time());
+});
+
+it('withholds from the coverage run and the mutation run what their requests withhold', function (): void {
+    $before = getenv('CI_JOB_TOKEN');
+    putenv('CI_JOB_TOKEN=secret');
+
+    try {
+        $coverage = invocation()->coverage(
+            CoverageRequest::running(WholeSuite::tests(), Path::of('c'))->withholding(Withheld::of('CI_JOB_TOKEN')),
+            '/p/c',
+        );
+        $mutation = invocation()->mutation(
+            MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
+                ->withholding(Withheld::of('CI_JOB_TOKEN')),
+            WholeSuite::tests(),
+            '/p/results.jsonl',
+        );
+        $listing = invocation()->listingGroups();
+    } finally {
+        putenv(is_string($before) ? sprintf('CI_JOB_TOKEN=%s', $before) : 'CI_JOB_TOKEN');
+    }
+
+    expect($coverage->environment())->toMatchArray(['CI_JOB_TOKEN' => false])
+        ->and($mutation->environment())->toMatchArray(['CI_JOB_TOKEN' => false])
+        ->and($listing->environment())->not->toHaveKey('CI_JOB_TOKEN');
 });

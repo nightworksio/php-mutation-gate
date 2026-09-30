@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -386,7 +387,7 @@ it('runs the mutants again once per file and mutator, with no deadline, matched 
     $held = MutationRequest::of(Paths::of(Path::of('src/Held.php')), WholeSuite::tests())
         ->onlyMutators(Mutators::named(RUN_PLUS));
     $retried = new Pest($at, $shell, Patching::off())
-        ->retry(Mutants::of($survivor, $gone, $elsewhere), Seconds::of(20.0), WholeSuite::tests());
+        ->retry(Mutants::of($survivor, $gone, $elsewhere), Seconds::of(20.0), WholeSuite::tests(), Withheld::standard());
     $notFound = Reason::that('Run again alone, Pest made no mutant with this id.');
 
     expect($retried)->toEqual(Mutants::of(
@@ -399,14 +400,16 @@ it('runs the mutants again once per file and mutator, with no deadline, matched 
     ]);
 });
 
-it('runs a held unit\'s mutant again by the group that holds it', function (): void {
+it('runs a held unit\'s mutant again by the group that holds it, withholding what it is told to', function (): void {
     $at = adapterProject();
     $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
     $holding = Group::named('holds:src/Money.php');
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $holding)
-        ->onlyMutators(Mutators::named(RUN_PLUS));
+        ->onlyMutators(Mutators::named(RUN_PLUS))
+        ->withholding(Withheld::of('DEPLOY_*'));
 
-    new Pest($at, $shell, Patching::off())->retry(Mutants::of(adapterMutant()), Seconds::of(20.0), $holding);
+    new Pest($at, $shell, Patching::off())
+        ->retry(Mutants::of(adapterMutant()), Seconds::of(20.0), $holding, Withheld::of('DEPLOY_*'));
 
     expect($shell->commands())->toEqual([adapterInvocation()->mutation($request, $holding, adapterResults($at))]);
 });
@@ -415,7 +418,7 @@ it('cannot judge a retry whose run failed', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
 
     $retried = new Pest(adapterProject(), $shell, Patching::off())
-        ->retry(Mutants::of(adapterMutant()), Seconds::of(20.0), WholeSuite::tests());
+        ->retry(Mutants::of(adapterMutant()), Seconds::of(20.0), WholeSuite::tests(), Withheld::standard());
 
     expect($retried)->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
 });

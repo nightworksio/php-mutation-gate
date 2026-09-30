@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -296,7 +297,7 @@ it('runs each mutant again by its unit\'s tests at the higher cap and with no de
         'escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')],
     ]);
     $retried = new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false)
-        ->retry($mutants, Seconds::of(12.0), Group::named('holds:src/Money.php'));
+        ->retry($mutants, Seconds::of(12.0), Group::named('holds:src/Money.php'), Withheld::of('DEPLOY_*'));
     $generated = json_decode((string) file_get_contents($at->own('infection.json5')), associative: true);
 
     expect(infectionStatuses($mutants))->toBe([MutantStatus::TimedOut, MutantStatus::Survived, MutantStatus::TimedOut])
@@ -305,6 +306,8 @@ it('runs each mutant again by its unit\'s tests at the higher cap and with no de
         ->and(infectionRan($again)[0])->toContain('--group=holds:src/Money.php')
         ->and(infectionRan($again)[1])->toContain('--test-framework-extra-args=--group="holds:src/Money.php"')
         ->and($again->commands()[1]->deadline())->toEqual(Unlimited::time())
+        ->and(array_map(static fn(Command $command): Withheld => $command->withheld(), $again->commands()))
+        ->each->toEqual(Withheld::standard()->and(Withheld::of('DEPLOY_*')))
         ->and(is_array($generated) ? [$generated['timeout'], $generated['mutators']] : [])->toBe([12.0, ['Minus' => true]]);
 });
 
@@ -317,13 +320,20 @@ it('runs nothing again where the formula decided every timeout, and cannot judge
     $idle = infectionShell($at, []);
     $refused = infectionProject('{"testFramework": "phpspec"}');
 
-    expect(new Infection($at, $idle, Seconds::of(10.0), nativeMarkersAllowed: false)->retry($mutants, Seconds::of(20.0), WholeSuite::tests()))->toEqual($mutants)
+    $retried = static fn(Project $project, InfectionShellFake $shell, float $cap): Mutants|CannotJudge => new Infection(
+        $project,
+        $shell,
+        Seconds::of($cap),
+        nativeMarkersAllowed: false,
+    )->retry($mutants, Seconds::of($cap * 2), WholeSuite::tests(), Withheld::standard());
+
+    expect($retried($at, $idle, 10.0))->toEqual($mutants)
         ->and($idle->commands())->toBe([])
-        ->and(new Infection($at, infectionShell($at, [], covers: false), Seconds::of(4.0), nativeMarkersAllowed: false)->retry($mutants, Seconds::of(8.0), WholeSuite::tests()))
+        ->and($retried($at, infectionShell($at, [], covers: false), 4.0))
         ->toEqual(CannotJudge::because("PHPUnit's coverage run failed. PHPUnit said:\nsaid"))
-        ->and(new Infection($at, infectionShell($at, [], logs: false), Seconds::of(4.0), nativeMarkersAllowed: false)->retry($mutants, Seconds::of(8.0), WholeSuite::tests()))
+        ->and($retried($at, infectionShell($at, [], logs: false), 4.0))
         ->toEqual(CannotJudge::because("Infection wrote no log, so no mutant it ran has a result. Infection said:\nsaid"))
-        ->and(new Infection($refused, infectionShell($refused, []), Seconds::of(4.0), nativeMarkersAllowed: false)->retry($mutants, Seconds::of(8.0), WholeSuite::tests()))
+        ->and($retried($refused, infectionShell($refused, []), 4.0))
         ->toBeInstanceOf(CannotJudge::class);
 });
 
@@ -381,4 +391,23 @@ it('cannot judge a run whose earlier reports or logs cannot be removed, or whose
         '%s/nowhere/coverage-xml/index.xml is not there or is not PHPUnit XML coverage, so the gate cannot say which tests run which line.',
         $at->root(),
     )));
+});
+
+it('withholds from the coverage run and every mutant\'s tests what the request withholds', function (): void {
+    $at = infectionProject();
+    $shell = infectionShell($at, [
+        'killed' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
+    ]);
+    new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false)->mutate(
+        MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'))
+            ->withholding(Withheld::of('CI_JOB_TOKEN')),
+    );
+    new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false)->coverage(
+        CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))
+            ->withholding(Withheld::of('CI_JOB_TOKEN')),
+    );
+
+    expect(count($shell->commands()))->toBe(3)
+        ->and(array_map(static fn(Command $command): Withheld => $command->withheld(), $shell->commands()))
+        ->each->toEqual(Withheld::standard()->and(Withheld::of('CI_JOB_TOKEN')));
 });

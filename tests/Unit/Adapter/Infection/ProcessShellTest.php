@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Infection\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -55,6 +56,16 @@ it('withholds another run\'s variables and every credential, unless the command 
         'ACTIONS_RUNTIME_TOKEN=false',
         "KEPT_PROBE='inherited'",
     ]));
+});
+
+it('withholds every variable the command withholds', function (): void {
+    putenv('KEPT_PROBE=inherited');
+    $_SERVER['KEPT_PROBE'] = 'inherited';
+
+    $ran = new ProcessShell(Scratch::directory(), getenv())
+        ->run(Command::php('-r', SHELL_PRINTS)->withholding(Withheld::of('KEPT_*')));
+
+    expect($ran->output())->toContain("\nKEPT_PROBE=false\n");
 });
 
 it('says a script that exits with a failure did not succeed', function (): void {

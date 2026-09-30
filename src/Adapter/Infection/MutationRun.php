@@ -58,7 +58,7 @@ final readonly class MutationRun
             $coverage,
             $request->processes(),
             $targets->paths(),
-        )->within($request->deadline()));
+        )->withholding($request->withheld())->within($request->deadline()));
 
         return $ran->wasStopped()
             ? CannotJudge::because(self::STOPPED)
