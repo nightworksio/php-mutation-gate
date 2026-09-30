@@ -15,9 +15,9 @@ use function explode;
 use function implode;
 use function is_int;
 use function mb_strcut;
-use function mb_strlen;
 use function mb_substr;
 
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use PhpToken;
 
 use function sprintf;
@@ -45,9 +45,6 @@ final readonly class Change
         T_AND_EQUAL, T_OR_EQUAL, T_XOR_EQUAL, T_SL_EQUAL, T_SR_EQUAL, T_COALESCE_EQUAL,
         T_RETURN, T_IF, T_ELSEIF, T_WHILE, T_FOR, T_FOREACH, T_MATCH, T_ECHO, T_PRINT, T_THROW, T_YIELD, T_NEW,
     ];
-
-    /** How a length in bytes is asked for. */
-    private const string BYTES = '8bit';
 
     /** What opens a bracket. */
     private const array OPENS = ['(', '['];
@@ -204,7 +201,7 @@ final readonly class Change
         $first = $this->before[$from];
         $last = $this->before[$to - 1];
 
-        return mb_strcut($this->code, $first->pos, $last->pos + mb_strlen($last->text, self::BYTES) - $first->pos);
+        return mb_strcut($this->code, $first->pos, $last->pos + Bytes::length($last->text) - $first->pos);
     }
 
     private function lastSegmentOf(string $name): string

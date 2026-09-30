@@ -12,8 +12,8 @@ use function array_last;
 use function array_pop;
 use function array_slice;
 use function count;
-use function mb_strlen;
 
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use PhpToken;
 
 use function sprintf;
@@ -134,7 +134,7 @@ final readonly class Tokens
 
         foreach (array_slice($this->tokens, $from, $to - $from) as $token) {
             $spelt = sprintf('%s%s%s', $spelt, $token->pos > $end ? ' ' : '', $token->text);
-            $end = $token->pos + mb_strlen($token->text, '8bit');
+            $end = $token->pos + Bytes::length($token->text);
         }
 
         return $spelt;
