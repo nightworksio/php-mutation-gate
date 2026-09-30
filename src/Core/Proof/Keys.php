@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_column;
 use function array_key_exists;
-use function array_replace;
 use function count;
 
 use Countable;
@@ -46,7 +45,9 @@ final readonly class Keys implements Countable
         $keys = $this->keys;
 
         foreach ($others as $other) {
-            $keys = array_replace($keys, $other->keys);
+            foreach ($other->keys as $unit => $key) {
+                $keys[$unit] = $key;
+            }
         }
 
         return new self($keys);

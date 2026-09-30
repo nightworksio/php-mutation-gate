@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 $map = static fn(): CoverageMap => CoverageMap::empty()
     ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('MoneyTest::adds'))
@@ -115,22 +115,22 @@ it('reads tests and files that are not a list and a map as none', function () us
         ));
 });
 
-it('writes and reads a map of hundreds of thousands of entries in linear time', function (): void {
-    $covered = [];
+it('writes and reads a map in time linear in its entries', function (): void {
+    $read = static function (int $size): Closure {
+        $covered = [];
 
-    foreach (range(1, 1250) as $file) {
-        foreach (range(1, 40) as $line) {
-            $covered[] = CoveredLine::of(Path::of(sprintf('src/F%d.php', $file)), $line, sprintf('T%d::t', ($file + $line) % 3000), sprintf('T%d::t', ($file * $line) % 3000));
+        foreach (range(1, $size) as $file) {
+            foreach (range(1, 40) as $line) {
+                $covered[] = CoveredLine::of(Path::of(sprintf('src/F%d.php', $file)), $line, sprintf('T%d::t', ($file + $line) % 3000), sprintf('T%d::t', ($file * $line) % 3000));
+            }
         }
-    }
 
-    $map = CoverageMap::of(...$covered)->timedEach(...array_map(static fn(int $test): TimedTest => TimedTest::of(sprintf('T%d::t', $test), 0.5), range(0, 2999)));
-    $read = CoverageMap::empty();
+        $map = CoverageMap::of(...$covered)->timedEach(...array_map(static fn(int $test): TimedTest => TimedTest::of(sprintf('T%d::t', $test), 0.5), range(0, $size - 1)));
 
-    $seconds = Stopwatch::seconds(static function () use ($map, &$read): void {
-        $read = CoverageMapFile::decode(CoverageMapFile::encode($map));
-    });
+        return static fn(): CoverageMap|CannotJudge => CoverageMapFile::decode(CoverageMapFile::encode($map));
+    };
+    $few = $read(10)();
 
-    expect($read instanceof CoverageMap ? $read->files() : [])->toHaveCount(1250)
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+    expect($few instanceof CoverageMap ? $few->files() : [])->toHaveCount(10)
+        ->and(Growth::of(300, $read))->toBeLessThan(Growth::LINEAR);
 });

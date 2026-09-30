@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 $map = static function (string ...$lines): CoverageMap {
     $map = CoverageMap::empty();
@@ -72,22 +72,21 @@ it('names a #[Holds] by the attribute', function () use ($map): void {
     ));
 });
 
-it('checks a held file of thousands of lines in linear time', function () use ($kernel): void {
+it('checks a held file in time linear in its lines', function () use ($kernel): void {
     $lines = static fn(int $last): CoverageMap => CoverageMap::of(...array_map(
         static fn(int $line): CoveredLine => CoveredLine::of(Path::of('src/Kernel.php'), $line, 'KernelTest::boots'),
         range(1, $last),
     ));
-    $suite = $lines(5000);
-    $group = $lines(4999);
-    $checked = Covered::by($kernel());
+    $checked = static function (int $size) use ($kernel, $lines): Closure {
+        $suite = $lines($size);
+        $group = $lines($size - 1);
 
-    $seconds = Stopwatch::seconds(static function () use ($kernel, $suite, $group, &$checked): void {
-        $checked = GroupCoverage::of($kernel(), $suite, $group);
-    });
+        return static fn(): Covered|NotCovered => GroupCoverage::of($kernel(), $suite, $group);
+    };
 
-    expect($checked)->toEqual(NotCovered::because(
+    expect($checked(10)())->toEqual(NotCovered::because(
         $kernel(),
-        "holds:src/Kernel.php does not cover src/Kernel.php, so its mutants cannot be judged by it.\nNot reached: src/Kernel.php:5000\nAdd the test that runs them to the group.",
+        "holds:src/Kernel.php does not cover src/Kernel.php, so its mutants cannot be judged by it.\nNot reached: src/Kernel.php:10\nAdd the test that runs them to the group.",
     ))
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+        ->and(Growth::of(1250, $checked))->toBeLessThan(Growth::LINEAR);
 });

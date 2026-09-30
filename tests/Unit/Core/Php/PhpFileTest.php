@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Hold\HoldsAttributes;
 use NightWorksIO\MutationGate\Core\Hold\Standing;
 use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 $support = <<<'PHP'
     <?php
@@ -59,16 +59,15 @@ it('lists every name it mentions', function (): void {
         ->toBe(['app\\app', 'app', 'app\\money', 'money', 'clock']);
 });
 
-it('reads a file that mentions tens of thousands of names in linear time', function (): void {
-    $source = sprintf("<?php\nnamespace App;\nfunction f() {\n%s}\n", implode('', array_map(static fn(int $at): string => sprintf("new C%d();\n", $at), range(1, 20_000))));
-    $file = PhpFile::read(Contents::of(''));
+it('reads a file in time linear in the names it mentions', function (): void {
+    $read = static function (int $size): Closure {
+        $source = Contents::of(sprintf("<?php\nnamespace App;\nfunction f() {\n%s}\n", implode('', array_map(static fn(int $at): string => sprintf("new C%d();\n", $at), range(1, $size)))));
 
-    $seconds = Stopwatch::seconds(static function () use ($source, &$file): void {
-        $file = PhpFile::read(Contents::of($source));
-    });
+        return static fn(): PhpFile => PhpFile::read($source);
+    };
 
-    expect($file->mentioned()->all())->toHaveCount(40_004)
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+    expect($read(10)()->mentioned()->all())->toHaveCount(24)
+        ->and(Growth::of(5000, $read))->toBeLessThan(Growth::LINEAR);
 });
 
 it('only declares when loading it runs nothing, a closing tag at its end among it', function () use ($support): void {

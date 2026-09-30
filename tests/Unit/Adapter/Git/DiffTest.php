@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 it('reads every entry of a NUL-separated name-status with the lines each gained', function (): void {
     $status = "M\0src/A.php\0R100\0src/C.php\0src/D.php\0A\0src/G.php\0D\0src/B.php\0T\0src/L.php\0R087\0src/E.php\0src/F.php\0";
@@ -85,19 +85,17 @@ it('reads every line of a new file as gained', function (string $text, int $coun
     'an empty line' => ["\n", 1],
 ]);
 
-it('reads a new file and a hunk of tens of thousands of lines in linear time', function (): void {
-    $text = str_repeat("line\n", 20_000);
-    $patch = sprintf("diff --git a/src/A.php b/src/A.php\n--- a/src/A.php\n+++ b/src/A.php\n@@ -0,0 +1,20000 @@\n%s", str_repeat("+line\n", 20_000));
-    $whole = Lines::none();
-    $gained = [];
+it('reads a new file and a hunk in time linear in their lines', function (): void {
+    $read = static function (int $size): Closure {
+        $text = str_repeat("line\n", $size);
+        $patch = sprintf("diff --git a/src/A.php b/src/A.php\n--- a/src/A.php\n+++ b/src/A.php\n@@ -0,0 +1,%d @@\n%s", $size, str_repeat("+line\n", $size));
 
-    $seconds = Stopwatch::seconds(static function () use ($text, $patch, &$whole, &$gained): void {
-        $whole = Diff::whole($text);
-        $gained = Diff::lines($patch);
-    });
+        return static fn(): array => [Diff::whole($text), Diff::lines($patch)];
+    };
+    [$whole, $gained] = $read(10)();
 
-    expect($whole)->toHaveCount(20_000)
-        ->and($gained['src/A.php'])->toHaveCount(20_000)
-        ->and($gained['src/A.php']->has(Line::of(20_000)))->toBeTrue()
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+    expect($whole)->toHaveCount(10)
+        ->and($gained['src/A.php'])->toHaveCount(10)
+        ->and($gained['src/A.php']->has(Line::of(10)))->toBeTrue()
+        ->and(Growth::of(5000, $read))->toBeLessThan(Growth::LINEAR);
 });

@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Unproved;
 use NightWorksIO\MutationGate\Core\Time\Instant;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 $proof = static fn(string $key, string $unit): Proof => Proof::of(
     Digest::of($key),
@@ -71,16 +71,16 @@ it('drops the proof under a key, leaving the others and the proofs it came from'
         ->and($proofs)->toHaveCount(2);
 });
 
-it('collects tens of thousands of proofs in linear time, keeping the first of a key', function () use ($proof): void {
-    $first = array_map(static fn(int $at): Proof => $proof(hash('sha256', sprintf('%d', $at)), 'src/First.php'), range(1, 20_000));
-    $later = array_map(static fn(int $at): Proof => $proof(hash('sha256', sprintf('%d', $at)), 'src/Later.php'), range(1, 20_000));
-    $proofs = Proofs::none();
+it('collects proofs in time linear in their number, keeping the first of a key', function () use ($proof): void {
+    $made = static fn(int $size, string $unit): array => array_map(static fn(int $at): Proof => $proof(hash('sha256', sprintf('%d', $at)), $unit), range(1, $size));
+    $proofs = static function (int $size) use ($made): Closure {
+        $first = $made($size, 'src/First.php');
+        $later = $made($size, 'src/Later.php');
 
-    $seconds = Stopwatch::seconds(static function () use ($first, $later, &$proofs): void {
-        $proofs = Proofs::of(...$first, ...$later);
-    });
+        return static fn(): Proofs => Proofs::of(...$first, ...$later);
+    };
 
-    expect($proofs)->toHaveCount(20_000)
-        ->and($proofs->proofFor(Digest::of(hash('sha256', '1'))))->toBe($first[0])
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+    expect($proofs(10)())->toHaveCount(10)
+        ->and($proofs(10)()->proofFor(Digest::of(hash('sha256', '1'))))->toEqual($made(1, 'src/First.php')[0])
+        ->and(Growth::of(5000, $proofs))->toBeLessThan(Growth::LINEAR);
 });

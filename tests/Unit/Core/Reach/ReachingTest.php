@@ -14,7 +14,6 @@ use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Reach\Layout;
-use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Reach\Reaching;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
@@ -24,7 +23,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 $root = Package::at(Path::root());
 $core = Package::at(Path::of('packages/core'));
@@ -267,41 +266,39 @@ it('reaches nothing with anything else', function () use ($reaching, $judges, $s
         ->and($said($reach))->toBe(['`README.md` reaches nothing by itself.', '`src/views/money.json` reaches nothing by itself.']);
 });
 
-it('reaches what changed support reaches through thousands of files and tests in linear time', function () use ($reaching): void {
-    $sources = Sources::none()
-        ->withNow(Path::of('tests/Support/Helper.php'), Contents::of("<?php\nnamespace Tests\\Support;\nfinal class Helper {}\n"))
-        ->withNow(Path::of('tests/Support/Other.php'), Contents::of("<?php\nnamespace Tests\\Support;\nfinal class Other {}\n"));
-    $judges = Judges::none();
-
-    foreach (range(0, 1999) as $at) {
-        $sources = $sources->withNow(
-            Path::of(sprintf('src/F%d.php', $at)),
-            Contents::of(sprintf("<?php\nnamespace App;\nfinal class F%d { public function a(): B { return new B(); } }\n", $at)),
-        );
-        $helper = $at % 10 === 0 ? 'Helper' : 'Other';
-        $sources = $sources->withNow(
-            Path::of(sprintf('tests/Unit/T%dTest.php', $at)),
-            Contents::of(sprintf("<?php\nuse Tests\\Support\\%s;\nit('works', fn() => new %s());\n", $helper, $helper)),
-        );
-        $judges = $judges->judging(
-            Path::of(sprintf('src/F%d.php', $at)),
-            Paths::of(...array_map(static fn(int $test): Path => Path::of(sprintf('tests/Unit/T%dTest.php', $test)), range($at % 1990, $at % 1990 + 9))),
-        );
-    }
-
+it('reaches what changed support reaches in time linear in the files and tests', function () use ($reaching): void {
     $changes = Changes::of(
         Change::modified(Path::of('tests/Support/Helper.php'), Lines::none()),
         Change::modified(Path::of('tests/Support/Other.php'), Lines::none()),
     );
-    $reach = Reach::nothing(Packages::of(Trees::none()));
+    $reach = static function (int $size) use ($reaching, $changes): Closure {
+        $sources = Sources::none()
+            ->withNow(Path::of('tests/Support/Helper.php'), Contents::of("<?php\nnamespace Tests\\Support;\nfinal class Helper {}\n"))
+            ->withNow(Path::of('tests/Support/Other.php'), Contents::of("<?php\nnamespace Tests\\Support;\nfinal class Other {}\n"));
+        $judges = Judges::none();
 
-    $seconds = Stopwatch::seconds(static function () use ($reaching, $changes, $judges, $sources, &$reach): void {
-        $reach = $reaching()->of($changes, $judges, $sources);
-    });
+        foreach (range(0, $size - 1) as $at) {
+            $sources = $sources->withNow(
+                Path::of(sprintf('src/F%d.php', $at)),
+                Contents::of(sprintf("<?php\nnamespace App;\nfinal class F%d { public function a(): B { return new B(); } }\n", $at)),
+            );
+            $helper = $at % 10 === 0 ? 'Helper' : 'Other';
+            $sources = $sources->withNow(
+                Path::of(sprintf('tests/Unit/T%dTest.php', $at)),
+                Contents::of(sprintf("<?php\nuse Tests\\Support\\%s;\nit('works', fn() => new %s());\n", $helper, $helper)),
+            );
+            $judges = $judges->judging(
+                Path::of(sprintf('src/F%d.php', $at)),
+                Paths::of(...array_map(static fn(int $test): Path => Path::of(sprintf('tests/Unit/T%dTest.php', $test)), range($at % ($size - 10), $at % ($size - 10) + 9))),
+            );
+        }
 
-    expect(array_map(static fn(Reason $reason): string => $reason->text(), [...$reach->reasons()]))->toBe([
-        '`tests/Support/Helper.php` is test support 200 tests use, so the 2000 files they run are reached.',
-        '`tests/Support/Other.php` is test support 1800 tests use, so the 2000 files they run are reached.',
+        return static fn(): Reach => $reaching()->of($changes, $judges, $sources);
+    };
+
+    expect(array_map(static fn(Reason $reason): string => $reason->text(), [...$reach(100)()->reasons()]))->toBe([
+        '`tests/Support/Helper.php` is test support 10 tests use, so the 100 files they run are reached.',
+        '`tests/Support/Other.php` is test support 90 tests use, so the 100 files they run are reached.',
     ])
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+        ->and(Growth::of(500, $reach))->toBeLessThan(Growth::LINEAR);
 });

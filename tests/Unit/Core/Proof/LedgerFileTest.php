@@ -30,8 +30,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 $keyA = str_repeat('a', 64);
 $keyB = str_repeat('b', 64);
@@ -265,21 +265,23 @@ it('reads back a passing verdict that used proofs of its own scope', function ()
     expect(LedgerFile::decode(LedgerFile::encode($ledger->withPassed($passed)))->lastPassed())->toEqual($passed);
 });
 
-it('reads a full ledger and joins it to another in linear time', function () use ($run, $killed, $base): void {
-    $proofs = [];
+it('reads a full ledger and joins it to another in time linear in its proofs', function () use ($run, $killed, $base): void {
+    $read = static function (int $size) use ($run, $killed, $base): Closure {
+        $proofs = [];
 
-    for ($made = 1; $made <= 20_000; $made++) {
-        $proofs[] = Proof::of(Digest::of(hash('sha256', sprintf('%d', $made))), Path::of(sprintf('src/F%d.php', $made)), Mutants::of($killed), $run('new', '2026-09-29T20:00:00Z'));
-    }
+        for ($made = 1; $made <= $size; $made++) {
+            $proofs[] = Proof::of(Digest::of(hash('sha256', sprintf('%d', $made))), Path::of(sprintf('src/F%d.php', $made)), Mutants::of($killed), $run('new', '2026-09-29T20:00:00Z'));
+        }
 
-    $written = LedgerFile::encode(Ledger::empty()->withProofs(Proofs::of(...$proofs))->atBase(Digest::of($base)));
-    $read = Ledger::empty();
+        $written = LedgerFile::encode(Ledger::empty()->withProofs(Proofs::of(...$proofs))->atBase(Digest::of($base)));
 
-    $seconds = Stopwatch::seconds(static function () use ($written, &$read): void {
-        $read = LedgerFile::decode($written);
-        $read = $read->and($read);
-    });
+        return static function () use ($written): Ledger {
+            $read = LedgerFile::decode($written);
 
-    expect($read->proofs())->toHaveCount(20_000)
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+            return $read->and($read);
+        };
+    };
+
+    expect($read(10)()->proofs())->toHaveCount(10)
+        ->and(Growth::of(1250, $read))->toBeLessThan(Growth::LINEAR);
 });

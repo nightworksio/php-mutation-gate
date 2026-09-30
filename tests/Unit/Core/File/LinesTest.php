@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 it('holds nothing to begin with', function (): void {
     expect(Lines::none())->toHaveCount(0);
@@ -31,15 +31,14 @@ it('says whether it holds a line', function (): void {
         ->and($lines->has(Line::of(4)))->toBeFalse();
 });
 
-it('collects tens of thousands of lines in linear time, sorting once', function (): void {
-    $each = array_map(Line::of(...), range(20_000, 1, -1));
-    $lines = Lines::none();
+it('collects lines in time linear in their number, sorting once', function (): void {
+    $lines = static function (int $size): Closure {
+        $each = array_map(Line::of(...), range($size, 1, -1));
 
-    $seconds = Stopwatch::seconds(static function () use ($each, &$lines): void {
-        $lines = Lines::of(...$each, ...$each);
-    });
+        return static fn(): Lines => Lines::of(...$each, ...$each);
+    };
 
-    expect($lines)->toHaveCount(20_000)
-        ->and([...$lines][0])->toEqual(Line::of(1))
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+    expect($lines(10)())->toHaveCount(10)
+        ->and([...$lines(10)()][0])->toEqual(Line::of(1))
+        ->and(Growth::of(5000, $lines))->toBeLessThan(Growth::LINEAR);
 });
