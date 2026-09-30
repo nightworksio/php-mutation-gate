@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -184,6 +185,17 @@ it('reports a preset nothing registered at its path, with every other problem', 
         'budget: expected a duration such as 90s, 15m or 1h30m, got "soon"',
     ]],
 ]);
+
+it('reports a preset nothing registered where the rest of the config is valid', function () use (
+    $effective,
+    $nothing,
+): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', '{"preset": ["library", "acme"], "runner": "pest"}');
+
+    expect($effective($project)->settings($nothing()))
+        ->toEqual(Invalid::because(Problem::at('preset[1]', 'No preset is registered as "acme".')));
+});
 
 it('reports a preset nothing registered where it cannot judge the rest', function () use ($effective, $nothing): void {
     $project = Scratch::copy('tests/Fixtures/Projects/TwoRunners');
