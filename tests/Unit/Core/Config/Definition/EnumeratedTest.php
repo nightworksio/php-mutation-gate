@@ -4,13 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Definition\Enumerated;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-
-enum ThreeWords: string
-{
-    case One = 'one';
-    case Two = 'two';
-    case Three = 'three';
-}
+use NightWorksIO\MutationGate\Tests\Support\ThreeWords;
 
 it('names every word it takes, the last after "or"', function (): void {
     expect(Enumerated::of(ThreeWords::cases())->expected())->toBe('"one", "two" or "three"');

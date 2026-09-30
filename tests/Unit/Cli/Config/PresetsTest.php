@@ -8,9 +8,11 @@ use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
-$json = static fn(Document|CannotJudge $preset): string => $preset instanceof Document
-    ? $preset->json()
-    : $preset->why();
+$json = static fn(mixed $preset): string => match (true) {
+    $preset instanceof Document => $preset->json(),
+    $preset instanceof CannotJudge => $preset->why(),
+    default => get_debug_type($preset),
+};
 
 it('is a config fragment, as data', function (Closure $preset, string $expected) use ($json): void {
     expect($json($preset()))->toBe($expected);
