@@ -30,7 +30,11 @@ final readonly class Api
         return new self($client, $url === '' ? self::GITHUB : $url, $token);
     }
 
-    /** What GitHub answers at a path of its API, or why it did not. */
+    /**
+     * What GitHub answers at a path of its API, or why it did not. Without a
+     * token the request goes unauthenticated, as a public repository allows,
+     * rather than with an empty one, which GitHub refuses.
+     */
     public function get(string $path): Answer|CannotTell
     {
         return $this->ask('GET', $path, []);
@@ -55,8 +59,8 @@ final readonly class Api
                 ...$options,
                 'headers' => [
                     'Accept' => 'application/vnd.github+json',
-                    'Authorization' => sprintf('Bearer %s', $this->token),
                     'X-GitHub-Api-Version' => self::VERSION,
+                    ...$this->token === '' ? [] : ['Authorization' => sprintf('Bearer %s', $this->token)],
                 ],
             ])->toArray());
         } catch (ExceptionInterface $unanswered) {

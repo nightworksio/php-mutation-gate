@@ -98,8 +98,9 @@ The same repository has two more needs.
         (`infection.json5`) and the PHPUnit config in its `phpUnit.configDir`;
       - the paths a preset lists, such as Laravel's `bootstrap/**`, `config/**`
         and `routes/**` (ADR-0008);
-      - the paths matched by `reach.everything`, a list of globs, empty by
-        default.
+      - the paths matched by `reach.everything`, a list of globs spelt from
+        the repository's root, empty by default. Each of the files above is
+        spelt from its package's directory instead.
 
       A root file reaches every package. The CI definition that runs the gate
       is one of these files: under GitHub Actions the workflow
@@ -119,15 +120,18 @@ The same repository has two more needs.
         every tree of that module.
       - A test that asserts less changes no line of the code it judged. The map
         is the only way to find that code again.
-      - A deleted test, or no map to read, reaches everything.
+      - A deleted test, or no map to read, reaches everything in its package.
+        A package's units are judged by its own suite alone (decision 7), so
+        no other package's verdict reads that test.
    4. **Changed test support reaches the tests that use it.** Test support is a
       file under a test directory that is not a file of test cases, such as a
       fake or a helper.
       - The gate finds the tests that name a class or function it declares,
         through any other support that names it in turn. Those tests reach what
         they execute, as in rule 3.
-      - Support that runs code when it is loaded reaches everything, and so does
-        support named by anything other than a test or support.
+      - Support that runs code when it is loaded reaches everything in its
+        package, and so does support named by anything other than a test or
+        support, and support none of whose versions can be read.
    5. **Anything else reaches nothing by itself**: documentation, templates,
       translations, the lock file, other CI files. The content key still covers
       these files (ADR-0007). A unit reached for another reason is therefore

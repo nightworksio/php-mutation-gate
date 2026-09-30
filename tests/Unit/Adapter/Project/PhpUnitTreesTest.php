@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
+use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -138,23 +139,25 @@ it('finds the test directories of every test suite', function (): void {
             <testsuites>
                 <testsuite name="Unit"><directory>tests/Unit</directory></testsuite>
                 <testsuite name="Feature">
-                    <directory> ./tests/Feature/ </directory>
+                    <directory suffix=".php"> ./tests/Feature/ </directory>
                     <file>tests/SmokeTest.php</file>
                 </testsuite>
-                <testsuite name="Again"><directory>tests/Unit</directory></testsuite>
+                <testsuite name="Again"><directory suffix="">tests/Unit</directory></testsuite>
+                <testsuite name="Phpt"><directory suffix=".phpt">tests/Unit</directory></testsuite>
             </testsuites>
         </phpunit>
         XML);
-    $directories = PhpUnitTrees::in($project, Paths::none())->testDirectories();
 
-    expect($directories instanceof Paths
-        ? array_map(static fn(Path $path): string => $path->value(), [...$directories])
-        : [])
-        ->toBe(['tests/Unit', 'tests/Feature']);
+    expect(PhpUnitTrees::in($project, Paths::none())->testDirectories())->toEqual([
+        SuiteDirectory::of(Path::of('tests/Unit'), 'Test.php'),
+        SuiteDirectory::of(Path::of('tests/Feature'), '.php'),
+        SuiteDirectory::of(Path::of('tests/Unit'), 'Test.php'),
+        SuiteDirectory::of(Path::of('tests/Unit'), '.phpt'),
+    ]);
 });
 
 it('finds no test directory without a phpunit.xml', function (): void {
-    expect(PhpUnitTrees::in(Scratch::directory(), Paths::none())->testDirectories())->toEqual(Paths::none());
+    expect(PhpUnitTrees::in(Scratch::directory(), Paths::none())->testDirectories())->toBe([]);
 });
 
 it('reads the floor a tree\'s nearest manifest declares, from the tree up', function () use ($found, $phpunit): void {

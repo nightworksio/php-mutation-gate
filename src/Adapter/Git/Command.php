@@ -50,6 +50,8 @@ final readonly class Command
         'diff.relative=false',
         '-c',
         'color.ui=false',
+        '-c',
+        'diff.renames=true',
     ];
 
     /** Why git gave no answer. */

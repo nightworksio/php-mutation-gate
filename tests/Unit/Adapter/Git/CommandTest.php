@@ -24,6 +24,7 @@ it('runs git with settings that keep what it prints the same', function (string 
     ['diff.mnemonicPrefix', 'false'],
     ['diff.relative', 'false'],
     ['color.ui', 'false'],
+    ['diff.renames', 'true'],
 ]);
 
 it('hands git what it reads from its input', function (): void {

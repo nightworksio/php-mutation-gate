@@ -32,6 +32,22 @@ it('reads every entry of a NUL-separated name-status with the lines each gained'
     ));
 });
 
+it('reads a copy as the file it added, whatever path it was copied from', function (): void {
+    $status = "C075\0src/A.php\0src/Copy.php\0M\0src/B.php\0";
+
+    expect(Diff::changes($status, ByPath::none()))->toEqual(Changes::of(
+        Change::added(Path::of('src/Copy.php'), Lines::none()),
+        Change::modified(Path::of('src/B.php'), Lines::none()),
+    ));
+});
+
+it('reads a path that looks like an entry of its own as the path it is', function (): void {
+    expect(Diff::changes("M\0A\0M\0R1\0", ByPath::none()))->toEqual(Changes::of(
+        Change::modified(Path::of('A'), Lines::none()),
+        Change::modified(Path::of('R1'), Lines::none()),
+    ));
+});
+
 it('reads nothing from a name-status that lists nothing', function (): void {
     expect(Diff::changes('', ByPath::none()))->toEqual(Changes::none());
 });
