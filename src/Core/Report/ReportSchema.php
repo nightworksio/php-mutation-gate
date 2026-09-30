@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_map;
+use function array_values;
 
 use BackedEnum;
 
@@ -21,6 +22,29 @@ use NightWorksIO\MutationGate\Core\Verdict\Origin;
 /**
  * The JSON Schema of the gate's own report, built from the same enums the
  * report is written from, and committed at `resources/report.schema.json`.
+ *
+ * @phpstan-type Leaf array{
+ *     type?: string,
+ *     minimum?: int,
+ *     maximum?: int,
+ *     pattern?: string,
+ *     const?: int,
+ *     enum?: list<int|string>,
+ * }
+ * @phpstan-type Flat array{
+ *     type: string,
+ *     properties: array<string, Leaf>,
+ *     required: list<string>,
+ *     additionalProperties: bool,
+ * }
+ * @phpstan-type Listed array{type: string, items: Leaf}
+ * @phpstan-type Shallow array{
+ *     type: string,
+ *     properties: array<string, Leaf|Flat|Listed>,
+ *     required: list<string>,
+ *     additionalProperties: bool,
+ * }
+ * @phpstan-type Nested array{type: string, items: Shallow}
  */
 final readonly class ReportSchema
 {
@@ -57,9 +81,9 @@ final readonly class ReportSchema
                 'uncovered' => self::oneOf(...Uncovered::cases()),
                 'score' => self::PERCENT,
                 'counts' => self::counts(),
-                'trees' => self::listOf(self::tree()),
-                'newCode' => self::listOf(self::newCode()),
-                'mutants' => self::listOf(self::mutant()),
+                'trees' => self::listOfObjects(self::tree()),
+                'newCode' => self::listOfObjects(self::newCode()),
+                'mutants' => self::listOfObjects(self::mutant()),
                 'reach' => self::listOf(self::TEXT),
                 'warnings' => self::listOf(self::TEXT),
                 'failures' => self::listOf(self::TEXT),
@@ -67,7 +91,7 @@ final readonly class ReportSchema
         ]);
     }
 
-    /** @return array<string, mixed> */
+    /** @return Shallow */
     private static function tree(): array
     {
         return self::object([
@@ -92,7 +116,7 @@ final readonly class ReportSchema
         ], ['declared', 'exempt', 'baseline', 'floor', 'score', 'base', 'raised']);
     }
 
-    /** @return array<string, mixed> */
+    /** @return Shallow */
     private static function newCode(): array
     {
         return self::object([
@@ -105,7 +129,7 @@ final readonly class ReportSchema
         ], ['score']);
     }
 
-    /** @return array<string, mixed> */
+    /** @return Shallow */
     private static function mutant(): array
     {
         return self::object([
@@ -128,7 +152,7 @@ final readonly class ReportSchema
         ], ['end', 'reason', 'seconds', 'limit']);
     }
 
-    /** @return array<string, mixed> */
+    /** @return Flat */
     private static function counts(): array
     {
         $numbers = [];
@@ -143,9 +167,11 @@ final readonly class ReportSchema
     /**
      * An object with exactly these properties, all required but the optional ones.
      *
-     * @param  array<string, mixed> $properties
-     * @param  list<string>         $optional
-     * @return array<string, mixed>
+     * @template P
+     *
+     * @param  array<string, P> $properties
+     * @param  list<string>     $optional
+     * @return array{type: string, properties: array<string, P>, required: list<string>, additionalProperties: bool}
      */
     private static function object(array $properties, array $optional): array
     {
@@ -164,17 +190,30 @@ final readonly class ReportSchema
     }
 
     /**
-     * @param  array<string, mixed> $items
-     * @return array<string, mixed>
+     * A list of values, or of objects with no object inside.
+     *
+     * @param  Leaf $items
+     * @return Listed
      */
     private static function listOf(array $items): array
     {
         return ['type' => 'array', 'items' => $items];
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * A list of objects.
+     *
+     * @param  Shallow $items
+     * @return Nested
+     */
+    private static function listOfObjects(array $items): array
+    {
+        return ['type' => 'array', 'items' => $items];
+    }
+
+    /** @return array{enum: list<int|string>} */
     private static function oneOf(BackedEnum ...$cases): array
     {
-        return ['enum' => array_map(static fn(BackedEnum $case): int|string => $case->value, $cases)];
+        return ['enum' => array_values(array_map(static fn(BackedEnum $case): int|string => $case->value, $cases))];
     }
 }

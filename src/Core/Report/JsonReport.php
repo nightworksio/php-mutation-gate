@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -29,6 +30,50 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  * The gate's own report, `"format": 1`: everything in the verdict, as JSON a
  * program reads. `resources/report.schema.json` describes it, and it is
  * public API (ADR-0009, decision 2).
+ *
+ * @phpstan-type Numbers array<string, int>
+ * @phpstan-type UnitEntry array{path: string, group?: string, filter?: string, origin: string}
+ * @phpstan-type TreeEntry array{
+ *     path: string,
+ *     package: string,
+ *     declared?: float,
+ *     exempt?: string,
+ *     baseline?: float,
+ *     floor?: float,
+ *     score?: float,
+ *     base?: float,
+ *     raised?: float,
+ *     judgement: string,
+ *     counts: Numbers,
+ *     units: list<UnitEntry>,
+ *     mutants: list<string>,
+ * }
+ * @phpstan-type NewCodeEntry array{
+ *     package: string,
+ *     floor: float,
+ *     score?: float,
+ *     judgement: string,
+ *     counts: Numbers,
+ *     mutants: list<string>,
+ * }
+ * @phpstan-type MutantEntry array{
+ *     id: string,
+ *     file: string,
+ *     line: int,
+ *     end?: int,
+ *     mutator: string,
+ *     family: string,
+ *     diff: string,
+ *     status: string,
+ *     judgement: string,
+ *     reason?: string,
+ *     changedLine: bool,
+ *     tests: list<string>,
+ *     hint: string,
+ *     reproduce: string,
+ *     seconds?: float,
+ *     limit?: float,
+ * }
  */
 final readonly class JsonReport
 {
@@ -46,7 +91,7 @@ final readonly class JsonReport
             'judgement' => $verdict->judgement()->value,
             'cutShort' => $verdict->wasCutShort(),
             'uncovered' => $overview->uncovered()->value,
-            ...self::percent('score', $overview->score()),
+            ...self::scored($overview->score()),
             'counts' => self::counts($verdict->mutants()->counts()),
             'trees' => self::each($verdict->trees(), self::tree(...)),
             'newCode' => self::each($verdict->newCode(), self::newCode(...)),
@@ -57,22 +102,25 @@ final readonly class JsonReport
         ]);
     }
 
-    /** @return array<string, mixed> */
+    /** @return TreeEntry */
     private static function tree(TreeVerdict $tree): array
     {
         $declared = $tree->tree()->declared();
         $baseline = $tree->baseline();
+        $floor = $tree->floor();
+        $base = $tree->base();
+        $raised = $tree->raised();
 
         return [
             'path' => $tree->tree()->path()->value(),
             'package' => $tree->tree()->package()->path()->value(),
-            ...$declared instanceof Floor ? ['declared' => $declared->percent()] : [],
+            ...$declared instanceof Floor ? ['declared' => self::percent($declared)] : [],
             ...$declared instanceof Exempt ? ['exempt' => $declared->reason()] : [],
-            ...$baseline instanceof Floor ? ['baseline' => $baseline->percent()] : [],
-            ...self::percent('floor', $tree->floor()),
-            ...self::percent('score', $tree->score()),
-            ...self::percent('base', $tree->base()),
-            ...self::percent('raised', $tree->raised()),
+            ...$baseline instanceof Floor ? ['baseline' => self::percent($baseline)] : [],
+            ...$floor instanceof Floor ? ['floor' => self::percent($floor)] : [],
+            ...self::scored($tree->score()),
+            ...$base instanceof Score ? ['base' => self::percent($base)] : [],
+            ...$raised instanceof Floor ? ['raised' => self::percent($raised)] : [],
             'judgement' => $tree->judgement()->value,
             'counts' => self::counts($tree->counts()),
             'units' => self::each($tree->units(), self::unit(...)),
@@ -80,20 +128,20 @@ final readonly class JsonReport
         ];
     }
 
-    /** @return array<string, mixed> */
+    /** @return NewCodeEntry */
     private static function newCode(NewCodeVerdict $set): array
     {
         return [
             'package' => $set->package()->path()->value(),
-            'floor' => $set->floor()->percent(),
-            ...self::percent('score', $set->score()),
+            'floor' => self::percent($set->floor()),
+            ...self::scored($set->score()),
             'judgement' => $set->judgement()->value,
             'counts' => self::counts($set->counts()),
             'mutants' => self::ids($set->mutants()),
         ];
     }
 
-    /** @return array<string, mixed> */
+    /** @return UnitEntry */
     private static function unit(JudgedUnit $unit): array
     {
         $judgedBy = $unit->unit()->judgedBy();
@@ -106,7 +154,7 @@ final readonly class JsonReport
         ];
     }
 
-    /** @return array<string, mixed> */
+    /** @return MutantEntry */
     private static function mutant(JudgedMutant $judged): array
     {
         $mutant = $judged->mutant();
@@ -140,7 +188,7 @@ final readonly class JsonReport
         ];
     }
 
-    /** @return array<string, int> */
+    /** @return Numbers */
     private static function counts(Counts $counts): array
     {
         $numbers = [];
@@ -152,12 +200,15 @@ final readonly class JsonReport
         return $numbers;
     }
 
-    /** @return array<string, float> a percentage under a key, or nothing where there is none */
-    private static function percent(string $key, object $value): array
+    /** @return array{score?: float} the score, where there is one */
+    private static function scored(Score|NothingToMutate $score): array
     {
-        return $value instanceof Score || $value instanceof Floor
-            ? [$key => $value->hundredths() / self::HUNDREDTHS]
-            : [];
+        return $score instanceof Score ? ['score' => self::percent($score)] : [];
+    }
+
+    private static function percent(Score|Floor $value): float
+    {
+        return $value->hundredths() / self::HUNDREDTHS;
     }
 
     /** @return list<string> */
@@ -174,10 +225,11 @@ final readonly class JsonReport
 
     /**
      * @template T
+     * @template E
      *
-     * @param  iterable<T>                        $items
-     * @param  callable(T): array<string, mixed>  $encode
-     * @return list<array<string, mixed>>
+     * @param  iterable<T>      $items
+     * @param  callable(T): E   $encode
+     * @return list<E>
      */
     private static function each(iterable $items, callable $encode): array
     {

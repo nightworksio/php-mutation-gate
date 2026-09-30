@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
-use function array_keys;
-use function array_search;
-
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -22,6 +19,20 @@ use function sprintf;
  * failed, and a warning otherwise. The gate's id is its partial fingerprint,
  * so a result is matched across commits when code above it moves
  * (ADR-0009, decision 2).
+ *
+ * @phpstan-type Rule 'survived'|'uncovered'|'unjudged'|'flaky'
+ * @phpstan-type Result array{
+ *     ruleId: Rule,
+ *     ruleIndex: int,
+ *     level: string,
+ *     message: array{text: string},
+ *     locations: list<array{physicalLocation: array{
+ *         artifactLocation: array{uri: string, uriBaseId: string},
+ *         region: array{startLine: int, endLine?: int},
+ *     }}>,
+ *     partialFingerprints: array{primaryLocationLineHash: string},
+ *     properties: array{id: string, mutator: string, judgement: string, diff: string, reproduce: string},
+ * }
  */
 final readonly class Sarif
 {
@@ -42,6 +53,9 @@ final readonly class Sarif
         'unjudged' => 'A mutant the run did not judge, or could not judge in its time limit.',
         'flaky' => 'A mutant its tests killed on one run and not on another.',
     ];
+
+    /** Where each rule is among the run's rules, which a result names it by as well. */
+    private const array INDEX = ['survived' => 0, 'uncovered' => 1, 'unjudged' => 2, 'flaky' => 3];
 
     public static function json(Verdict $verdict): string
     {
@@ -68,7 +82,7 @@ final readonly class Sarif
         ]);
     }
 
-    /** @return array<string, mixed> */
+    /** @return Result */
     private static function result(JudgedMutant $judged, bool $failing): array
     {
         $mutant = $judged->mutant();
@@ -78,7 +92,7 @@ final readonly class Sarif
 
         return [
             'ruleId' => $rule,
-            'ruleIndex' => array_search($rule, array_keys(self::RULES), strict: true),
+            'ruleIndex' => self::INDEX[$rule],
             'level' => $failing ? 'error' : 'warning',
             'message' => ['text' => sprintf(
                 self::MESSAGE,
@@ -107,7 +121,11 @@ final readonly class Sarif
         ];
     }
 
-    /** The rule a mutant counted as not killed is reported under; unjudged covers those too slow to judge. */
+    /**
+     * The rule a mutant counted as not killed is reported under; unjudged covers those too slow to judge.
+     *
+     * @return Rule
+     */
     private static function ruleOf(MutantJudgement $judgement): string
     {
         return match ($judgement) {

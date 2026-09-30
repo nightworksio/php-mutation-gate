@@ -27,6 +27,17 @@ use stdClass;
  * given the viewer status the gate's score treats the same way, and the page
  * shows the gate's score; the gate's own judgement goes in `statusReason`
  * (ADR-0009, decision 4).
+ *
+ * @phpstan-type Place array{line: int, column: int}
+ * @phpstan-type MutantEntry array{
+ *     id: string,
+ *     mutatorName: string,
+ *     replacement: string,
+ *     location: array{start: Place, end: Place},
+ *     status: string,
+ *     statusReason: string,
+ *     description: string,
+ * }
  */
 final readonly class Stryker
 {
@@ -66,7 +77,7 @@ final readonly class Stryker
         ]);
     }
 
-    /** @return array<string, mixed> */
+    /** @return MutantEntry */
     private static function mutant(JudgedMutant $judged, Columns $columns, Uncovered $uncovered): array
     {
         $mutant = $judged->mutant();
