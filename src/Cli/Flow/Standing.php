@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function mb_strlen;
-use function mb_substr;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -29,8 +26,6 @@ use function sprintf;
 final readonly class Standing
 {
     private const string MAIN = 'main';
-
-    private const string BRANCH = 'refs/heads/';
 
     private const string FETCHED = 'refs/remotes/origin/%s';
 
@@ -89,7 +84,7 @@ final readonly class Standing
     /** A branch as a checkout that fetched it from `origin` holds it. */
     public static function fetched(Scope $branch): Revision
     {
-        return Revision::ref(sprintf(self::FETCHED, mb_substr($branch->ref(), mb_strlen(self::BRANCH))));
+        return Revision::ref(sprintf(self::FETCHED, $branch->name()));
     }
 
     private static function runOf(RunOn|CannotTell $said, Repository $repository): RunOn

@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Ci;
 
-use function mb_strlen;
-use function mb_substr;
-
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 
 use function sprintf;
-use function str_starts_with;
 
 /**
  * A CI run as an alert and a trace name it: the repository as owner/name,
@@ -19,8 +16,6 @@ use function str_starts_with;
  */
 final readonly class CiRun
 {
-    private const string HEADS = 'refs/heads/';
-
     private const string UNREAD
         = 'This CI is not GitHub Actions, GitLab CI, Buildkite or CircleCI, so the gate cannot name its run.';
 
@@ -94,7 +89,7 @@ final readonly class CiRun
     /** The ref as a reader says it: a branch by its name, anything else as it is. */
     public function refName(): string
     {
-        return str_starts_with($this->ref, self::HEADS) ? mb_substr($this->ref, mb_strlen(self::HEADS)) : $this->ref;
+        return Scope::of($this->ref)->name();
     }
 
     /** The full commit SHA. */
@@ -148,6 +143,6 @@ final readonly class CiRun
 
     private static function branch(string $name): string
     {
-        return sprintf('%s%s', self::HEADS, $name);
+        return Scope::branch($name)->ref();
     }
 }
