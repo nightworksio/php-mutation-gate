@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Infection\Import\Floor;
-use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor as TreeFloor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Tests\Support\Imports;
@@ -20,7 +20,7 @@ it('takes minCoveredMsi as the floor where minMsi is not set, and leaves uncover
     $covered = Floor::imported(Node::decode('{"minCoveredMsi": 90}'));
 
     expect(Floor::of(Node::decode('{"minCoveredMsi": 90}')))->toEqual(TreeFloor::ofHundredths(9000))
-        ->and($covered->layer()->floors()->uncovered())->toBe(UncoveredMutants::Exclude)
+        ->and($covered->layer()->floors()->uncovered())->toBe(Uncovered::Exclude)
         ->and($said('{"minCoveredMsi": 90}'))->toBe(['  minCoveredMsi: imported as uncovered: exclude, and the floor of every tree, 90.00'])
         ->and($said('{"minMsi": 80, "minCoveredMsi": 90}'))->toBe([
             '  minMsi: imported as the floor of every tree, 80.00',

@@ -9,6 +9,7 @@ use function array_map;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 
 use function sprintf;
@@ -25,7 +26,7 @@ final readonly class Floors implements Part
     private function __construct(
         private Listed|Absent $trees,
         private Floor|Absent $newCode,
-        private UncoveredMutants|Absent $uncovered,
+        private Uncovered|Absent $uncovered,
         private Path|Absent $baseline,
         private Improvement|Absent $improvement,
     ) {
@@ -35,7 +36,7 @@ final readonly class Floors implements Part
     public static function of(
         Listed|Absent $trees = new Absent(),
         Floor|Absent $newCode = new Absent(),
-        UncoveredMutants|Absent $uncovered = new Absent(),
+        Uncovered|Absent $uncovered = new Absent(),
         Path|Absent $baseline = new Absent(),
         Improvement|Absent $improvement = new Absent(),
     ): self {
@@ -65,7 +66,7 @@ final readonly class Floors implements Part
             ? new self(
                 $later->trees instanceof Listed ? $later->trees : $this->trees,
                 $later->newCode instanceof Floor ? $later->newCode : $this->newCode,
-                $later->uncovered instanceof UncoveredMutants ? $later->uncovered : $this->uncovered,
+                $later->uncovered instanceof Uncovered ? $later->uncovered : $this->uncovered,
                 $later->baseline instanceof Path ? $later->baseline : $this->baseline,
                 $later->improvement instanceof Improvement ? $later->improvement : $this->improvement,
             )
@@ -84,9 +85,9 @@ final readonly class Floors implements Part
         return $this->newCode instanceof Floor ? $this->newCode : Floor::whole();
     }
 
-    public function uncovered(): UncoveredMutants
+    public function uncovered(): Uncovered
     {
-        return $this->uncovered instanceof UncoveredMutants ? $this->uncovered : UncoveredMutants::Count;
+        return $this->uncovered instanceof Uncovered ? $this->uncovered : Uncovered::Count;
     }
 
     /** `baseline.path` */
@@ -118,7 +119,7 @@ final readonly class Floors implements Part
             ),
             Member::of(
                 'uncovered',
-                $this->uncovered instanceof UncoveredMutants ? $this->uncovered->value : $this->uncovered,
+                $this->uncovered instanceof Uncovered ? $this->uncovered->value : $this->uncovered,
             ),
             Member::unlessEmpty(
                 'baseline',
@@ -159,9 +160,9 @@ final readonly class Floors implements Part
     /** @return list<string> the settings `with()` takes for what this part sets */
     private function settings(PathOrigin $origin): array
     {
-        $uncovered = $this->uncovered instanceof UncoveredMutants ? [match ($this->uncovered) {
-            UncoveredMutants::Count => 'Uncovered::counted()',
-            UncoveredMutants::Exclude => 'Uncovered::excluded()',
+        $uncovered = $this->uncovered instanceof Uncovered ? [match ($this->uncovered) {
+            Uncovered::Count => 'Uncovered::counted()',
+            Uncovered::Exclude => 'Uncovered::excluded()',
         }] : [];
         $baseline = $this->baseline instanceof Path
             ? [sprintf('Baseline::at(%s)', PhpCalls::literal($origin->written($this->baseline)))]

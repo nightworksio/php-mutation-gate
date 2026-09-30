@@ -14,12 +14,12 @@ use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -53,8 +53,8 @@ final readonly class FloorsKeys
             Field::optional(
                 'uncovered',
                 Into::of(
-                    Enumerated::of(UncoveredMutants::cases()),
-                    static fn(UncoveredMutants $uncovered): Layer => Layer::of(Floors::of(uncovered: $uncovered)),
+                    Enumerated::of(Uncovered::cases()),
+                    static fn(Uncovered $uncovered): Layer => Layer::of(Floors::of(uncovered: $uncovered)),
                 ),
                 $judges,
             ),

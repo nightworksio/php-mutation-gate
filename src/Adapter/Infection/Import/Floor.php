@@ -6,11 +6,11 @@ namespace NightWorksIO\MutationGate\Adapter\Infection\Import;
 
 use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Layer;
-use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Import\Carried;
 use NightWorksIO\MutationGate\Core\Import\Import;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor as TreeFloor;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -60,7 +60,7 @@ final readonly class Floor
             ? Carried::imported(Mapped::MinCoveredMsi->value, self::UNCOVERED)
             : Carried::imported(Mapped::MinCoveredMsi->value, sprintf(self::UNCOVERED_AND_FLOOR, self::points($floor)));
 
-        return $import->and(Import::of(Layer::of(Floors::of(uncovered: UncoveredMutants::Exclude)), $carried));
+        return $import->and(Import::of(Layer::of(Floors::of(uncovered: Uncovered::Exclude)), $carried));
     }
 
     /** What became of a key that sets a floor: imported as the floor, or dropped where it holds none. */
