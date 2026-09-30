@@ -54,6 +54,9 @@ it('keeps every other file', function (string $path) use ($exceptions): void {
     '.gitlab/mutation-gate.yml',
     'ci/.gitlab-ci.yml',
     'x.github/workflows/ci.yml',
+    '.gitlab-ci.yml.orig',
+    '.github/workflows-old/ci.yml',
+    '.circleci.md',
 ]);
 
 /** Exceptions whose proofs.ignore matches every file that defines the runner, and docs. */

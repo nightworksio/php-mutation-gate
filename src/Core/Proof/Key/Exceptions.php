@@ -12,8 +12,6 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
-use function str_starts_with;
-
 /**
  * The files outside the test directories that no key holds: the gate's config
  * file, whose settings that affect results are in the key already; the
@@ -99,7 +97,7 @@ final readonly class Exceptions
     {
         return array_any(
             Definitions::PLACES,
-            static fn(string $where): bool => $path->value() === $where || str_starts_with($path->value(), $where),
+            static fn(string $where): bool => $path->within(Path::of($where)),
         );
     }
 }
