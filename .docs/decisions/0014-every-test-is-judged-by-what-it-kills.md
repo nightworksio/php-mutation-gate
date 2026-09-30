@@ -85,6 +85,13 @@ running it: why is this mutant here, and has it always been?
    in.** It is useless only when every row is. The JSON lists each row. A
    test is named by the file and description its JUnit entry gives, such as
    `tests/Unit/MoneyTest.php::it adds`, not by Pest's internal id.
+   - **The runner names its tests.** A coverage id's shape is the runner's,
+     such as `P\Tests\Unit\MoneyTest::__pest_evaluable_it_adds` or
+     `Tests\MoneyTest::testAdds#one`. So the Runner port answers
+     `names(TestIds): TestNames`: for each id, the whole test (file and
+     description) or the data set row its JUnit entry names. A row knows the
+     test it folds into. An id the runner names nothing is reported as it
+     is.
 
 7. **`run --kill-matrix=full` records every killer, under Pest.**
    - In each mutant's child the plugin drops `--bail`, so every covering test
