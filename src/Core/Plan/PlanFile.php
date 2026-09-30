@@ -24,6 +24,8 @@ use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestNamesRecord;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\UnitRecord;
@@ -38,8 +40,11 @@ use stdClass;
  * the commit it was made on, the base its keys are built on, every considered
  * unit's key, and the shards, with the units it proved or carried, and the
  * lines a change added or modified with why it reached what it did, and the
- * digest of all of that. A plan that cannot be read, or whose digest does not
- * match what it holds, is refused: a shard never guesses at its units.
+ * digest of all of that. Beside it, outside the digest since they judge
+ * nothing, `names` holds the names the runner gives the suite's tests, or
+ * `unnamed` why it gave none; a plan with neither was made without asking.
+ * A plan that cannot be read, or whose digest does not match what it holds,
+ * is refused: a shard never guesses at its units.
  *
  * @internal the shape of the plan file
  *
@@ -84,9 +89,21 @@ final readonly class PlanFile
 
     private const string REACH = 'reach';
 
+    private const string NAMES = 'names';
+
+    private const string UNNAMED = 'unnamed';
+
     public static function encode(Plan $plan): string
     {
-        return JsonText::encode([...self::body($plan), self::DIGEST => self::digestOf($plan)->value()]);
+        $names = $plan->names();
+
+        return JsonText::encode([
+            ...self::body($plan),
+            ...$names instanceof TestNames
+                ? [self::NAMES => TestNamesRecord::of($names)]
+                : [self::UNNAMED => $names->why()],
+            self::DIGEST => self::digestOf($plan)->value(),
+        ]);
     }
 
     public static function decode(string $json): Plan|CannotJudge
@@ -101,7 +118,7 @@ final readonly class PlanFile
         }
     }
 
-    /** The digest of everything a plan holds. */
+    /** The digest of everything a plan holds but the test names, which judge nothing. */
     public static function digestOf(Plan $plan): Digest
     {
         return Digest::sha256Of(JsonText::encode(self::body($plan)));
@@ -202,12 +219,31 @@ final readonly class PlanFile
                     ->proving(self::unitsIn($file->field(self::PROVED)))
                     ->carrying(self::unitsIn($file->field(self::CARRIED))),
             );
+        $named = self::namedIn($plan, $file);
 
         return $plan->digest()->value() === $file->field(self::DIGEST)->text()
-            ? $plan
+            ? $named
             : CannotJudge::because(
                 'The plan does not match its digest, so it was changed after it was made. Plan again.',
             );
+    }
+
+    /**
+     * The plan, with the names it holds, or why the runner gave none; a plan
+     * that holds neither was made without asking.
+     *
+     * @throws NotInShape
+     */
+    private static function namedIn(Plan $plan, Node $file): Plan
+    {
+        $names = $file->field(self::NAMES);
+        $unnamed = $file->field(self::UNNAMED);
+
+        return match (true) {
+            $names->isPresent() => $plan->naming(TestNamesRecord::read($names)),
+            $unnamed->isPresent() => $plan->naming(CannotJudge::because($unnamed->text())),
+            default => $plan,
+        };
     }
 
     /** @throws NotInShape */

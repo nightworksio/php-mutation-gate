@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -28,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
@@ -54,6 +56,8 @@ use function sprintf;
  */
 final readonly class Judging
 {
+    private const string UNNAMED = 'The reports name each test by its coverage id. %s';
+
     private const string UNFLOORED = '%s has no floor yet. Run mutation-gate baseline --write and commit %s.';
 
     private const string MEASURED = "The baseline this run measured, ready to commit as %s:\n%s";
@@ -188,6 +192,7 @@ final readonly class Judging
         return Verdict::of($verdicts)
             ->withNewCode($newCode)
             ->withReach($plan->considered()->reach())
+            ->withMatrix($this->matrixOf($plan))
             ->withWarnings($this->warnings($plan, $verdicts, $shards))
             ->withFailures($failures);
     }
@@ -247,11 +252,16 @@ final readonly class Judging
 
     /**
      * Each tree held to no floor, the runner's own ignore markers the config
-     * lets through, and what the shards warn of.
+     * lets through, why the tests go by their ids where the plan holds no
+     * names for them, and what the shards warn of.
      */
     private function warnings(Plan $plan, TreeVerdicts $verdicts, Warnings $shards): Warnings
     {
         $warnings = new RunnerMarkers($this->adapters, $this->settings)->allowed($plan);
+        $names = $plan->names();
+        $warnings = $names instanceof CannotJudge
+            ? $warnings->with(Warning::that(sprintf(self::UNNAMED, $names->why())))
+            : $warnings;
 
         foreach ($shards as $warning) {
             $warnings = $warnings->with($warning);
@@ -266,6 +276,14 @@ final readonly class Judging
         }
 
         return $warnings;
+    }
+
+    /** The kill matrix, with the names the plan holds for the tests. */
+    private function matrixOf(Plan $plan): KillMatrix
+    {
+        $names = $plan->names();
+
+        return $names instanceof TestNames ? KillMatrix::none()->named($names) : KillMatrix::none();
     }
 
     /** The lines each change added or modified, which the new-code floor judges. */

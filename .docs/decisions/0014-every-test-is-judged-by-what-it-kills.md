@@ -122,8 +122,11 @@ running it: why is this mutant here, and has it always been?
        description is its method.
      - Listing loads the project's code, so it withholds what every child
        process withholds.
-   - **Naming runs at most once a run, never in a shard.** The names travel
-     with the plan.
+   - **Naming runs at most once a run, never in a shard.** The plan asks
+     for the names of the coverage map's tests, and they travel with it:
+     `plan.json` holds them as `names`, or why the runner gave none as
+     `unnamed`, both outside its digest, since naming judges nothing. A plan
+     that holds neither was made without asking.
    - **Naming never blocks a verdict.** A runner that cannot name its tests
      answers *cannot judge* for the names alone. The reports then name each
      test by its id, with a warning.

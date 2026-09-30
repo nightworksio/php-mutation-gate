@@ -592,6 +592,8 @@ services:
                     - REQUIRE # a key of a manifest
                 'NightWorksIO\MutationGate\Core\Baseline\BaselineFile':
                     - FLOOR # a field of the baseline
+                'NightWorksIO\MutationGate\Core\Test\TestNamesRecord':
+                    - FILE # a field of the plan's test names
                 'NightWorksIO\MutationGate\Cli\Console':
                     - DEFAULT # the default command
                 'NightWorksIO\MutationGate\Core\Report\Stryker':

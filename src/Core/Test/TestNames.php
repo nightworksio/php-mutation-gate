@@ -11,14 +11,18 @@ use Countable;
 
 use function implode;
 
+use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use Traversable;
 
 /**
  * What a runner names each test of its coverage by: the id a coverage map
  * keys a test by, and the test or data set row its JUnit entry names
  * (ADR-0014, decision 6).
+ *
+ * @implements IteratorAggregate<TestId, TestName|TestRow>
  */
-final readonly class TestNames implements Countable
+final readonly class TestNames implements Countable, IteratorAggregate
 {
     /** @param array<string, TestName|TestRow> $names by test id */
     private function __construct(private array $names)
@@ -73,5 +77,13 @@ final readonly class TestNames implements Countable
     public function count(): int
     {
         return count($this->names);
+    }
+
+    /** @return Traversable<TestId, TestName|TestRow> each id the runner named, with its name, in the order named */
+    public function getIterator(): Traversable
+    {
+        foreach ($this->names as $id => $name) {
+            yield TestId::of($id) => $name;
+        }
     }
 }

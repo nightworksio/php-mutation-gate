@@ -66,6 +66,9 @@ use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -678,6 +681,33 @@ it('warns of what a shard warned of, and judges as it would without it', functio
         ->and($said[0] ?? '')->toStartWith('Shard 1 ran its tests without the kill history the plan handed it.')
         ->and($verdict->failures())->toHaveCount(0)
         ->and($verdict->judgement())->toBe(Judgement::Passed);
+});
+
+it('names the tests as the plan names them, and warns once where it names none', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $names = TestNames::none()->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'it adds'));
+    $adapters = static fn(): Adapters => Flows::adapters(Flows::project(), [], $tree(Floor::of(0)));
+    $named = judgingVerdictOf($judged(
+        Planned::twoShards()->naming($names),
+        $adapters(),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+    $unnamed = judgingVerdictOf($judged(
+        Planned::twoShards()->naming(CannotJudge::because('Pest cannot list its tests.')),
+        $adapters(),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect($named->matrix()->names())->toBe($names)
+        ->and(judgingTexts($named->warnings()))->toBe([])
+        ->and($unnamed->matrix()->names())->toEqual(TestNames::none())
+        ->and(judgingTexts($unnamed->warnings()))
+        ->toBe(['The reports name each test by its coverage id. Pest cannot list its tests.']);
 });
 
 it('fails a verdict on a held unit its holding tests miss lines of, and proves nothing of it', function (

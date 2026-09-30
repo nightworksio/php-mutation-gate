@@ -114,7 +114,8 @@ final readonly class Planning
                             ->reaching($changed, $reached->reach()->reasons())
                             ->proving($this->unitsOf($proving->proved()))
                             ->carrying($this->unitsOf($considering->carried())),
-                    ),
+                    )
+                    ->naming($this->adapters->runner->names($map->tests(), $this->adapters->withheld)),
                 $map,
                 $ledgers->killers(),
             ),

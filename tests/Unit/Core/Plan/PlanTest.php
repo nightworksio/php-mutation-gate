@@ -16,6 +16,9 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -91,6 +94,22 @@ it('considers nothing beyond its shards until told what, keeping everything else
         ->and($considering->runOn())->toBe($plan->runOn())
         ->and($considering->keys())->toBe($plan->keys())
         ->and($considering)->toHaveCount(1);
+});
+
+it('names no test until told the names the runner gives them, keeping everything else', function () use (
+    $shard,
+    $planOf,
+): void {
+    $plan = $planOf($shard(1));
+    $names = TestNames::none()->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'it adds'));
+    $named = $plan->naming($names);
+
+    expect($plan->names())->toEqual(CannotJudge::because('The plan names no test.'))
+        ->and($named->names())->toBe($names)
+        ->and($named->considered())->toBe($plan->considered())
+        ->and($named->keys())->toBe($plan->keys())
+        ->and($named->digest())->toEqual($plan->digest())
+        ->and($named)->toHaveCount(1);
 });
 
 it('is made for a detached run that cannot tell its default branch, until told what it runs on', function () use ($shard, $planOf): void {

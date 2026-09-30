@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 
 use function sprintf;
 
@@ -34,6 +35,8 @@ use Traversable;
  */
 final readonly class Plan implements Countable, IteratorAggregate
 {
+    private const string UNNAMED = 'The plan names no test.';
+
     /** @param array<int, Shard> $shards by number, in the order they were added */
     private function __construct(
         private Revision $commit,
@@ -42,6 +45,7 @@ final readonly class Plan implements Countable, IteratorAggregate
         private Keys $keys,
         private array $shards,
         private Considered $considered,
+        private TestNames|CannotJudge $names,
     ) {
     }
 
@@ -61,6 +65,7 @@ final readonly class Plan implements Countable, IteratorAggregate
             $keys,
             $numbered,
             Considered::everything(),
+            CannotJudge::because(self::UNNAMED),
         );
     }
 
@@ -86,6 +91,22 @@ final readonly class Plan implements Countable, IteratorAggregate
     public function considering(Considered $considered): self
     {
         return clone($this, ['considered' => $considered]);
+    }
+
+    /**
+     * This plan, with the names the runner gives the suite's tests, or why
+     * it could not give them. Naming runs once a run, never in a shard, and
+     * judges nothing (ADR-0014, decision 6).
+     */
+    public function naming(TestNames|CannotJudge $names): self
+    {
+        return clone($this, ['names' => $names]);
+    }
+
+    /** The names the runner gives the suite's tests, or why the plan holds none. */
+    public function names(): TestNames|CannotJudge
+    {
+        return $this->names;
     }
 
     /** What the plan considered beyond its shards, and why. */
