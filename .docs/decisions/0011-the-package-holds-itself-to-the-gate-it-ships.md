@@ -244,12 +244,15 @@ about Laravel, NativePHP or the project's modules, and does not.
      `workflow_call`, for sharded runs.
      - **Inputs** are the action's less `shard`, with the same types and
        defaults.
-     - **Secrets**, all optional: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
-       and `AWS_SESSION_TOKEN`, passed to every job that reads or writes an S3
-       proof store; `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`,
-       `MUTATION_GATE_WEBHOOK_URL` and `MUTATION_GATE_WEBHOOK_SECRET`, passed
-       to the `verdict` job; and `OTEL_EXPORTER_OTLP_ENDPOINT` and
-       `OTEL_EXPORTER_OTLP_HEADERS`, passed to every job (ADR-0016).
+     - **Secrets**, all optional, each passed only to the step that uses it,
+       never to a whole job, so none reaches Composer's scripts, the config or
+       the project's tests: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and
+       `AWS_SESSION_TOKEN` to the steps that run `plan` and `verdict`, which
+       read and write an S3 proof store; `MUTATION_GATE_SLACK_URL`,
+       `MUTATION_GATE_DISCORD_URL`, `MUTATION_GATE_WEBHOOK_URL`,
+       `MUTATION_GATE_WEBHOOK_SECRET`, `OTEL_EXPORTER_OTLP_ENDPOINT` and
+       `OTEL_EXPORTER_OTLP_HEADERS` to the step that runs `verdict`, which
+       alerts and traces (ADR-0016).
      - **Outputs** are `verdict`, `scores` and `plan`, as the action's. The
        reports are uploaded as the artifact `mutation-gate-reports`, and a
        baseline measured for trees with no floor as `mutation-gate-baseline`

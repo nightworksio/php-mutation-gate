@@ -81,8 +81,9 @@ permissions: {}
 
 env:
   # The directory each job checks this workflow's own repository out into, at
-  # the commit it was called at.
-  GATE_ACTION: .mutation-gate-action
+  # the commit it was called at: under .mutation-gate, which the gate leaves
+  # out of every change and every proof key.
+  GATE_ACTION: .mutation-gate/workflow
 
 jobs:
   plan:
@@ -98,12 +99,6 @@ jobs:
     outputs:
       shards: ${{ steps.plan.outputs.shards }}
       plan: ${{ steps.plan.outputs.plan }}
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
-      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -168,12 +163,18 @@ jobs:
           path: ${{ steps.resolve.outputs.default_dir }}
           key: ${{ steps.resolve.outputs.default_prefix }}${{ github.run_id }}
           restore-keys: ${{ steps.resolve.outputs.default_prefix }}
+      # Each secret reaches only the step that uses it, never Composer's
+      # scripts, the config or the project's tests: the plan and the verdict
+      # read the proof store, and the verdict alone traces and alerts.
       - name: Plan
         id: plan
         env:
           GATE: ${{ steps.resolve.outputs.gate }}
           OPTIONS: ${{ steps.resolve.outputs.plan_options }}
           GITHUB_TOKEN: ${{ github.token }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
@@ -211,12 +212,6 @@ jobs:
       fail-fast: false
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.shards) }}
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
-      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -244,7 +239,7 @@ jobs:
           find .mutation-gate/coverage -mindepth 1 -maxdepth 1 -type d ! -name "shard-${SHARD}" -exec rm -rf {} +
       # The action as this workflow's own commit holds it, checked out above
       # into the caller's workspace: `$/` would name the caller's repository.
-      - uses: ./.mutation-gate-action # zizmor: ignore[self-repository]
+      - uses: ./.mutation-gate/workflow # zizmor: ignore[self-repository]
         with:
           config: ${{ inputs.config }}
           php-version: ${{ inputs.php-version }}
@@ -264,13 +259,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 1
 
-  # The check a branch protects, shown as `<calling job> / verdict`. It judges
-  # whenever the run was not cancelled, even after a failed shard: a shard that
-  # left no result makes the verdict cannot-judge.
+  # The check a branch protects, shown as `<calling job> / verdict`. It runs
+  # whenever the run was not cancelled, whatever the plan and the shards did:
+  # GitHub passes a required check that was skipped. A plan that could not
+  # judge makes it cannot-judge, and so does a shard that left no result.
   verdict:
     name: verdict
     needs: [plan, shard]
-    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -278,19 +274,18 @@ jobs:
       actions: read
       pull-requests: write
     outputs:
-      verdict: ${{ steps.outputs.outputs.verdict }}
+      verdict: ${{ steps.outputs.outputs.verdict || steps.unplanned.outputs.verdict }}
       scores: ${{ steps.outputs.outputs.scores }}
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-      MUTATION_GATE_SLACK_URL: ${{ secrets.MUTATION_GATE_SLACK_URL }}
-      MUTATION_GATE_DISCORD_URL: ${{ secrets.MUTATION_GATE_DISCORD_URL }}
-      MUTATION_GATE_WEBHOOK_URL: ${{ secrets.MUTATION_GATE_WEBHOOK_URL }}
-      MUTATION_GATE_WEBHOOK_SECRET: ${{ secrets.MUTATION_GATE_WEBHOOK_SECRET }}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
-      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
     steps:
+      - name: Refuse a run whose plan could not judge
+        id: unplanned
+        if: needs.plan.result != 'success'
+        env:
+          PLAN: ${{ needs.plan.result }}
+        run: |
+          echo "verdict=cannot-judge" >> "${GITHUB_OUTPUT}"
+          echo "::error::The plan job ended ${PLAN}, so there is nothing to judge: the gate cannot judge this run. See the plan job."
+          exit 2
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -381,6 +376,15 @@ jobs:
           GATE: ${{ steps.resolve.outputs.gate }}
           OPTIONS: ${{ steps.resolve.outputs.options }}
           GITHUB_TOKEN: ${{ github.token }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          MUTATION_GATE_SLACK_URL: ${{ secrets.MUTATION_GATE_SLACK_URL }}
+          MUTATION_GATE_DISCORD_URL: ${{ secrets.MUTATION_GATE_DISCORD_URL }}
+          MUTATION_GATE_WEBHOOK_URL: ${{ secrets.MUTATION_GATE_WEBHOOK_URL }}
+          MUTATION_GATE_WEBHOOK_SECRET: ${{ secrets.MUTATION_GATE_WEBHOOK_SECRET }}
+          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
         run: |
           set -uo pipefail
           code=0
