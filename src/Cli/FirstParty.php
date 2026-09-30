@@ -5,8 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli;
 
 use function class_exists;
+
+use Closure;
+
 use function getenv;
 
+use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
+use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
@@ -96,11 +101,28 @@ final readonly class FirstParty implements Extension
             ->withReporter(Name::of('kill-matrix'), KillMatrixFile::fromOptions(...))
             ->withReporter(Name::of('tests'), TestsReportFile::fromOptions(...))
             ->withReporter(Name::of('problems'), ProblemsReport::fromOptions(...))
+            ->withReporter(Name::of('slack'), $this->alerting(Channel::Slack))
+            ->withReporter(Name::of('discord'), $this->alerting(Channel::Discord))
+            ->withReporter(Name::of('webhook'), $this->alerting(Channel::Webhook))
             ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Git::at(self::HERE))
             ->withRepository(Name::of('git'), static fn(): Repository => Git::at(self::HERE))
             ->withChangeSource(Name::of('github'), static fn(): ChangeSource => self::github())
             ->withRepository(Name::of('github'), static fn(): Repository => self::github())
             ->withRunner(Name::of('infection'), Infection::fromOptions(...));
+    }
+
+    /**
+     * The reporter that sends alerts to this channel, reading the system's clock.
+     *
+     * @return Closure(Options): (Reporter|Invalid)
+     */
+    private function alerting(Channel $channel): Closure
+    {
+        return static fn(Options $options): Reporter|Invalid => AlertReporter::configured(
+            $channel,
+            $options,
+            new SystemClock(),
+        );
     }
 
     /** Git, with GitHub's word on what the default branch already proved. */

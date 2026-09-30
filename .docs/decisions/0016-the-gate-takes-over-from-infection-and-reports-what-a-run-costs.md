@@ -275,6 +275,17 @@ Operating the gate raises four needs its reports do not yet meet.
       seconds.
     - After that the reporter says *not written*, with the status and the
       body.
+    - A `Retry-After` given as a date is read against the clock. One the
+      gate cannot read is not waited for.
+    - A redirect is not followed, so the body and the webhook's signature
+      reach only the URL given. A failure never repeats that URL, which holds
+      the chat's credential.
+    - A reporter with nothing to send says *not written* and why. That is
+      when its URL is unset, outside CI, off the default branch, for a run
+      cut short, or when the state did not change.
+    - The run an alert names is read from the environment of GitHub
+      Actions, GitLab CI, Buildkite or CircleCI. In any other CI the reporter
+      says it cannot name the run.
 
 14. **`otlp` exports traces and metrics as OTLP/HTTP JSON, without the SDK.**
     - It is a built-in `Reporter` adapter. It POSTs to `/v1/traces` and

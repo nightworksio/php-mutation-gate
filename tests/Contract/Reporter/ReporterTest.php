@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
+use NightWorksIO\MutationGate\Adapter\Alert\Channel;
+use NightWorksIO\MutationGate\Adapter\Alert\Delivery;
+use NightWorksIO\MutationGate\Adapter\Alert\Pause;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Adapter\Console\ProblemsReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
@@ -15,12 +19,14 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
+use NightWorksIO\MutationGate\Tests\Support\Previous;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
@@ -28,6 +34,7 @@ use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\JsonMockResponse;
+use Symfony\Component\HttpClient\Response\MockResponse;
 
 // What every reporter answers for a failing, a passing and an empty verdict,
 // and for one a budget cut short: that it wrote, or why it did not, and never
@@ -42,6 +49,22 @@ $pullRequest = static fn(): string => (string) json_encode(['pull_request' => [
     'head' => ['repo' => ['full_name' => 'octo/gate']],
     'base' => ['repo' => ['full_name' => 'octo/gate']],
 ]]);
+
+$alerting = static fn(Channel $channel): Reporter => AlertReporter::to(
+    $channel,
+    Variables::of([
+        'CI' => 'true',
+        'GITHUB_ACTIONS' => 'true',
+        'GITHUB_REPOSITORY' => 'octo/gate',
+        'GITHUB_REF' => 'refs/heads/main',
+        'GITHUB_SHA' => '5eeca8f',
+        'GITHUB_RUN_ID' => '7',
+        $channel->urlEnv() => 'https://hooks.example/alert',
+    ]),
+    Delivery::over(new MockHttpClient([new MockResponse('ok')]), new StoppedClock('2026-09-30T12:00:00Z'), Pause::for(...)),
+    $channel->urlEnv(),
+    AlertReporter::SECRET_ENV,
+);
 
 $reporters = [
     'the fake' => fn(): Reporter => new ReporterFake(),
@@ -67,6 +90,9 @@ $reporters = [
         new MockHttpClient([new JsonMockResponse([]), new JsonMockResponse(['html_url' => 'https://github.com/octo/gate/pull/12'])]),
         'gate-bot',
     ),
+    'Slack' => fn(): Reporter => $alerting(Channel::Slack),
+    'Discord' => fn(): Reporter => $alerting(Channel::Discord),
+    'the webhook' => fn(): Reporter => $alerting(Channel::Webhook),
     'the badge' => fn(): Reporter => BadgeDirectory::at(
         sprintf('%s/publish', Scratch::directory()),
         BadgeColors::defaults(),
@@ -87,7 +113,7 @@ it('reports a verdict of each kind, saying where it wrote or why it could not', 
 ]);
 
 it('writes a failing verdict, and leaves a file it wrote where it says', function (Reporter $reporter): void {
-    $answer = $reporter->report(Verdicts::failing());
+    $answer = $reporter->report(Verdicts::failing()->withAccount(Previous::run('passed')));
     $where = $answer instanceof Written ? $answer->where() : '';
 
     expect($answer)->toBeInstanceOf(Written::class)

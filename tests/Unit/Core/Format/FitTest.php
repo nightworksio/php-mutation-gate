@@ -27,3 +27,9 @@ it('cuts one line to its limit, ending where it was cut', function (): void {
 it('says how many it left out', function (): void {
     expect(Fit::more(3))->toBe('And 3 more.');
 });
+
+it('makes text from outside one plain line, with no control character and valid UTF-8', function (): void {
+    expect(Fit::plain("  one\n\ntwo\r\n\tthree  "))->toBe('one two three')
+        ->and(Fit::plain("\e[31mred\e[0m\x07"))->toBe('[31mred[0m')
+        ->and(Fit::plain("ok\xC3(\u{85}"))->toBe('ok?(');
+});
