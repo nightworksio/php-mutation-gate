@@ -56,10 +56,8 @@ final readonly class Mutant
     }
 
     /**
-     * This mutant under another of the gate's ids: a run again that makes
-     * only some of a file's mutants numbers those that share a change among
-     * themselves, so it hands each back under the id the run that first made
-     * it gave.
+     * This mutant under another of the gate's ids, as a runner hands a mutant
+     * found again back under the id its first run gave it.
      */
     public function identifiedAs(MutantId $id): self
     {

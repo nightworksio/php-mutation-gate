@@ -74,8 +74,8 @@ interface Runner
      * These mutants run again, as the invocation that made them asked: over
      * their files alone with only their mutators, judged, covered, withheld,
      * timed and ordered as the request says, each allowed this long where the
-     * runner lays a limit, and matched back by the gate's id. One the run
-     * made no mutant for again is unjudged.
+     * runner lays a limit, and each handed back under its gate id. One the
+     * run made no mutant for again is unjudged.
      */
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge;
 

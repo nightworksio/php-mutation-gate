@@ -583,6 +583,48 @@ it('hands each mutant run again its own result, though the mutants run again are
     ]);
 });
 
+it('hands each of the mutants that share Pest\'s id the one found again on its own line, or else the next', function (int $one, int $two): void {
+    $at = adapterProject();
+    $money = sprintf('%s/src/Money.php', $at->root());
+    $shell = new ShellFake(static function (Command $command) use ($money, $one, $two): Ran {
+        $results = sprintf('%s', $command->environment()[GateVariable::Results->value] ?? '');
+        CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', dirname($money, 2)), ['src/Money.php' => [max(1, $one) => [0], max(1, $two) => [0]]], [RUN_ADDS], []);
+        PestRun::write($results, [
+            PestRun::planned('pD', $money, $one, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+            PestRun::planned('pD', $money, $two, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+            PestRun::made(2),
+            PestRun::finished('pD', PestStatus::Tested, 0.25),
+            PestRun::finished('pD', PestStatus::Untested, 0.5),
+            PestRun::end(),
+        ]);
+
+        return Ran::finished(succeeded: true, output: '  Mutations: 1 untested, 1 tested');
+    });
+    $diff = Diff::fromPest(PestRun::diff('return $a + $b;', 'return $a - $b;'));
+    $survivor = static fn(int $line, int $occurrence): Mutant => Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), RUN_PLUS, $diff, $occurrence),
+        'pD',
+        Location::of(Path::of('src/Money.php'), Line::of($line), Line::of($line)),
+        Mutation::of(RUN_PLUS, MutatorFamily::Arithmetic, $diff),
+        MutantStatus::Survived,
+        Seconds::of(0.1),
+    );
+    $retried = static fn(Mutant ...$asked): array => array_map(
+        static fn(Mutant $mutant): array => [$mutant->id()->value(), $mutant->location()->start()->number(), $mutant->status()],
+        [...(($again = new Pest($at, $shell, Patching::off())->retry(adapterMoney(), Mutants::of(...$asked), Seconds::of(20.0))) instanceof Mutants ? $again : Mutants::none())],
+    );
+    $first = $survivor($one, 0);
+    $second = $survivor($two, 1);
+
+    expect($retried($first, $second))->toBe([
+        [$first->id()->value(), $one, MutantStatus::Killed],
+        [$second->id()->value(), $two, MutantStatus::Survived],
+    ])->and($retried($second))->toBe([[$second->id()->value(), $two, $one === $two ? MutantStatus::Killed : MutantStatus::Survived]]);
+})->with([
+    'on two lines' => [35, 40],
+    'on one line' => [50, 50],
+]);
+
 it('cannot judge a retry whose run failed', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
 

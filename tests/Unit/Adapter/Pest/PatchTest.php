@@ -122,22 +122,41 @@ it('writes nothing where a line it rewrites is there twice', function () use ($v
         ->and($source($at, 'MutationTest.php'))->toBe($source($vendor(), 'MutationTest.php'));
 });
 
-it('writes nothing where another version of the gate patched a file, and says to reinstall first', function () use ($vendor, $source): void {
+it('writes nothing where another version of the gate patched a file, and says to reinstall first', function (
+    string $file,
+    bool $patchedFirst,
+) use ($vendor, $source): void {
     $at = $vendor();
-    $runner = sprintf('%s/pestphp/pest-plugin-mutate/src/Tester/MutationTestRunner.php', $at);
-    // An earlier gate read the mutants to run again from one environment string.
-    file_put_contents($runner, str_replace(
-        '$mutationSuite->repository->add($mutation);',
-        "// mutation-gate pest:patch: a run again makes only the mutants it names.\n"
-        . "                \$only = (string) getenv('MUTATION_GATE_ONLY');\n\n"
-        . '                $mutationSuite->repository->add($mutation);',
-        $source($at, 'Tester/MutationTestRunner.php'),
+    if ($patchedFirst) {
+        Patch::applyIn($at);
+    }
+    $marked = sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $at, $file);
+    // Another version's hunk, as each hunk begins: a comment with the patch's mark.
+    file_put_contents($marked, sprintf(
+        "%s\n// mutation-gate pest:patch: a run again makes only the mutants it names.\n",
+        is_file($marked) ? (string) file_get_contents($marked) : '<?php',
     ));
     $before = $source($at, 'MutationTest.php');
 
     expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
-        'Another gate version patched %s: run composer reinstall pestphp/pest-plugin-mutate, then pest:patch.',
-        $runner,
+        "pest:patch patched nothing: %s holds another gate's patch. Run composer reinstall pestphp/pest-plugin-mutate.",
+        $marked,
     )))->and(Patch::isAppliedIn($at))->toBeFalse()
         ->and($source($at, 'MutationTest.php'))->toBe($before);
+})->with([
+    'in a file it patches, not yet patched' => ['Tester/MutationTestRunner.php', false],
+    'in a file it patches, already patched' => ['Tester/MutationTestRunner.php', true],
+    'in a file it leaves alone' => ['Plugins/Other.php', true],
+]);
+
+it('marks every hunk it writes, one mark to a hunk, so another version\'s are found', function () use ($vendor, $source): void {
+    $at = $vendor();
+    Patch::applyIn($at);
+
+    $marks = array_sum(array_map(
+        static fn(string $file): int => substr_count($source($at, $file), '// mutation-gate pest:patch:'),
+        MutatePlugin::FILES,
+    ));
+
+    expect($marks)->toBe(5);
 });
