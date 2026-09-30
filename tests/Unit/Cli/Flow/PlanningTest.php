@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -522,4 +523,14 @@ it('lists a unit whose lines the change touched first, before one never mutated'
 
     expect($shards($plan(Flows::project(), Mode::since('base'), Cut::exactly(1), new ProofStoreFake(), $checkout)))
         ->toEqual([1 => [$money, $held]]);
+});
+
+it('hands the plan the digests of the run\'s inputs, with each unit it runs', function () use ($plan): void {
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1));
+    $digests = $planned instanceof Plan ? $planned->digests() : $planned;
+
+    expect($digests)->toBeInstanceOf(Digests::class)
+        ->and($digests instanceof Digests ? $digests->sources()->paths() : $digests)
+        ->toEqual(Paths::of(Path::of('src/Held.php'), Path::of('src/Money.php')))
+        ->and($digests instanceof Digests ? count($digests->tests()) : $digests)->toBeGreaterThan(0);
 });

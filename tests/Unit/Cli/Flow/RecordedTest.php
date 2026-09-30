@@ -39,6 +39,8 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
@@ -48,11 +50,14 @@ use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -405,4 +410,63 @@ it('learns each killed mutant\'s first killer in its function, and forgets funct
         ->toEqual(TestIds::of(TestId::of('MoneyTest::adds')))
         ->and($killers->likelyKillers($unseen, $add))->toEqual(TestIds::of(TestId::of('MoneyTest::adds')))
         ->and($killers->likelyKillers($unseen, $gone))->toEqual(TestIds::none());
+});
+
+it('records with each proof its share of the plan\'s digests, with each test file that killed a mutant of it', function () use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $digests = Digests::of(Digest::sha256Of('mutation'))
+        ->withSource(Path::of('src/Money.php'), Digest::sha256Of('money source'))
+        ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test'))
+        ->withTest(Path::of('tests/TaxTest.php'), Digest::sha256Of('tax test'));
+    $plan = Planned::twoShards()
+        ->digesting($digests)
+        ->naming(TestNames::none()
+            ->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'adds'))
+            ->with(TestId::of('TaxTest::rounds'), TestName::in(Path::of('tests/TaxTest.php'), 'rounds')));
+    $killed = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
+        'Plus-1',
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
+        MutantStatus::Killed,
+        Seconds::of(0.1),
+    )->killedBy(TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('UnnamedTest::runs')));
+    $timedOut = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Minus', '@@ @@', 0),
+        'Minus-2',
+        Location::of(Path::of('src/Money.php'), Line::of(2), Line::of(2)),
+        Mutation::of('Minus', MutatorFamily::Arithmetic, '@@ @@'),
+        MutantStatus::TimedOut,
+        Seconds::of(0.1),
+    )->killedBy(TestIds::of(TestId::of('TaxTest::rounds')));
+    $results = recordedRanOf($plan, $project, ScriptedRunner::fixture()->answering(Mutants::of($killed, $timedOut), 0), $map());
+
+    new Recorded(Flows::adapters($project, [], $store))
+        ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'));
+    $ledger = $store->read(Scope::branch('main'));
+    $money = $ledger->proofs()->proofFor(Digest::sha256Of('money'));
+    $held = $ledger->proofs()->proofFor(Digest::sha256Of('held'));
+
+    expect($money instanceof Proof ? $money->inputs() : $money)->toEqual(
+        Inputs::of(Digest::sha256Of('money source'), Digest::sha256Of('mutation'))
+            ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test')),
+    )
+        ->and($held instanceof Proof ? $held->inputs() : $held)->toEqual(Undigested::proof());
+});
+
+it('records no digests where the plan has none', function () use ($map, $run, $ledgers): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards();
+
+    new Recorded(Flows::adapters($project, [], $store))
+        ->write($plan, recordedRan($project, ScriptedRunner::fixture(), $map()), $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'));
+    $money = $store->read(Scope::branch('main'))->proofs()->proofFor(Digest::sha256Of('money'));
+
+    expect($money instanceof Proof ? $money->inputs() : $money)->toEqual(Undigested::proof());
 });

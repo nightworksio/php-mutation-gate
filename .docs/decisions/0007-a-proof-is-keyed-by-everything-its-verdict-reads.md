@@ -174,7 +174,7 @@ has to bring its result with it.
 
    ```json
    {
-       "format": 2,
+       "format": 3,
        "bases": ["5be0…64 hex…", "a7c2…64 hex…"],
        "mutators": ["Plus", "LessThan"],
        "tests": ["Tests\\MoneyTest::testAdds", "Tests\\CartTest::testTotal"],
@@ -187,7 +187,12 @@ has to bring its result with it.
                "mutants": [
                    { "id": "3f9a1c2b7d04", "line": 42, "status": "survived", "mutator": "LessThan", "diff": "…" },
                    ["81d0c9e2aa17", 44, 0, [0]]
-               ]
+               ],
+               "digests": {
+                   "source": "…64 hex…",
+                   "mutation": "…64 hex…",
+                   "tests": { "tests/MoneyTest.php": "…64 hex…" }
+               }
            }
        },
        "timings": {
@@ -216,6 +221,17 @@ has to bring its result with it.
    - Each proof also keeps the digest of each item of its content key, so
      that `doctor` can name the file whose change invalidated most proofs
      (ADR-0017). The digests are read for that alone, never to match a key.
+   - `digests` records the digests of the inputs a result came from, so a
+     unit a time budget never started can count by it where they are
+     unchanged (ADR-0008, decision 1): `source`, the unit's file, or every
+     file inside its held path; `mutation`, what decides its mutant set
+     besides the source: the key's first five inputs (the format, the gate,
+     the config, the runner and what is installed), the files that define the
+     runner, and what of the test directories every key reads; and `tests`,
+     each test
+     file that killed one of its mutants, by the digest of that file with the
+     support it reads outside what every key reads. The plan carries the same
+     digests of the run it was made for, which the verdict compares against.
    - A mutant that was not killed keeps its full record, so reports can show a
      proved survivor. A timed-out or skipped mutant also keeps its limit
      (ADR-0004).
@@ -252,11 +268,13 @@ has to bring its result with it.
    - `openings` keeps each package's newest opening-run time per runner.
      `killers` and `openings` only order and cut work (ADR-0013, decisions 2
      and 7), so losing them costs speed, never a verdict. The `killers`
-     section is part of format 2.
+     section is part of formats 2 and 3.
    - Reading keeps each well-formed entry and drops anything else. An
-     unreadable ledger costs a run and never a verdict. A ledger of format 1,
-     or one that is not a whole gzip stream, reads as empty: a miss, never an
-     error. Where any mutator name or test id in those lists is not text,
+     unreadable ledger costs a run and never a verdict. A ledger of format 2
+     reads as it is, its proofs recording no digests, so none of them counts
+     for a unit a budget never started. A ledger of format 1, or one that is
+     not a whole gzip stream, reads as empty: a miss, never an error. A proof
+     whose digests are not well formed is dropped. Where any mutator name or test id in those lists is not text,
      every proof whose killed mutants point into that list is dropped, since
      an index past it would point at the wrong one, and where any test id is
      not text, so is all of `killers`. A `killers` pair whose index is past

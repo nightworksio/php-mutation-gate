@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Cli\Flow\Judging;
+use NightWorksIO\MutationGate\Cli\Flow\Mode;
+use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Reporting;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
@@ -48,19 +50,28 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
+use NightWorksIO\MutationGate\Core\Mutant\Reason as MutantReason;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
+use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -69,12 +80,14 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unraised;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -906,35 +919,195 @@ it('clusters the survivors of one cause from the project\'s source before it rep
         ->and($recorded->reported)->toBe([$verdict]);
 });
 
-it('counts each unit a budget ran out before by its newest result, unjudged, and fails one no ledger holds', function () use (
+/** A budgeted run's plan: the two-shard plan, with its digests and the name of the test that kills in src/Money.php. */
+function judgingDigested(string $moneySource, string $moneyTest): Plan
+{
+    return Planned::twoShards()
+        ->digesting(Digests::of(Digest::sha256Of('mutation'))
+            ->withSource(Path::of('src/Money.php'), Digest::sha256Of($moneySource))
+            ->withSource(Path::of('src/Held.php'), Digest::sha256Of('held'))
+            ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of($moneyTest)))
+        ->naming(TestNames::none()->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'adds')));
+}
+
+/**
+ * A store whose default branch proves both units at the plan's base, with
+ * these digests: src/Money.php with a survivor and a kill by MoneyTest::adds.
+ */
+function judgingProven(string $moneySource, string $moneyTest): ProofStoreFake
+{
+    $run = Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of(Planned::BASE));
+    $mutants = Flows::mutantsOf('src/Money.php');
+    $survivor = [...array_filter([...$mutants], static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Survived)][0];
+    $kill = ProvedKill::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', 'carried kill', 0),
+        Path::of('src/Money.php'),
+        Line::of(3),
+        'Plus',
+        TestIds::of(TestId::of('MoneyTest::adds')),
+    );
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()
+        ->withProof(Proof::held(Digest::sha256Of('money before'), Path::of('src/Money.php'), Mutants::of($survivor), ProvedKills::of($kill), $run)
+            ->withInputs(Inputs::of(Digest::sha256Of($moneySource), Digest::sha256Of('mutation'))
+                ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of($moneyTest))))
+        ->withProof(Proof::of(Digest::sha256Of('held before'), Path::of('src/Held.php'), Mutants::none(), $run)
+            ->withInputs(Inputs::of(Digest::sha256Of('held'), Digest::sha256Of('mutation')))));
+
+    return $store;
+}
+
+it('never passes new code in a unit the budget never started, whose newest result is of the code before', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $store = judgingProven('money before', 'money test');
+    $plan = judgingDigested('money now', 'money test')
+        ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
+        ->considering(Considered::everything()->reaching(
+            Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(20), Line::of(21)))),
+            Reasons::of(Reason::that('src/Money.php changed.')),
+        ));
+
+    $verdict = judgingVerdictOf($judged(
+        $plan,
+        Flows::adapters(Flows::project(), [], $store, $tree(Floor::of(0))),
+        judgingSettings(Budget::of('1s')),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect($verdict->judgement())->toBe(Judgement::Failed)
+        ->and(judgingTexts($verdict->failures()))->toBe([
+            "src/Money.php is unjudged: the time budget ran out before this run mutated it.\n"
+            . 'Its newest result is of other source, so its mutants are not this code\'s. '
+            . 'More time judges it: vendor/bin/mutation-gate run --budget=<duration>',
+        ])
+        ->and($verdict->wasCutShort())->toBeTrue()
+        ->and($store->read(Scope::pullRequest(7))->lastPassed())->toBeInstanceOf(CannotTell::class);
+});
+
+it('never records a pass for a run whose budget left a mutant unjudged', function () use ($tree, $reporting, $judged): void {
+    $store = judgingProven('money', 'money test before');
+
+    $judgement = $judged(
+        judgingDigested('money', 'money test now'),
+        Flows::adapters(Flows::project(), [], $store, $tree(Floor::of(0))),
+        judgingSettings(Budget::of('1s')),
+        $reporting(new ReporterFake()),
+    );
+    $verdict = judgingVerdictOf($judgement);
+    $trees = [...$verdict->trees()];
+
+    expect($verdict->judgement())->toBe(Judgement::Failed)
+        ->and(judgingTexts($verdict->failures()))->toBe([
+            "The time budget left 1 of the mutants of src/Money.php unjudged, so this run cannot pass it.\n"
+            . 'More time judges them: vendor/bin/mutation-gate run --budget=<duration>',
+        ])
+        ->and($trees[0]->counts()->number(MutantJudgement::Unjudged))->toBe(1)
+        ->and($trees[0]->raised())->toEqual(Unraised::floor())
+        ->and($store->read(Scope::branch('main'))->lastPassed())->toBeInstanceOf(CannotTell::class)
+        ->and(count($store->read(Scope::branch('main'))->proofs()))->toBe(2);
+});
+
+it('passes a run whose budget left units whose newest results all stand, and records it', function () use ($tree, $reporting, $judged): void {
+    $store = judgingProven('money', 'money test');
+
+    $verdict = judgingVerdictOf($judged(
+        judgingDigested('money', 'money test'),
+        Flows::adapters(Flows::project(), [], $store, $tree(Floor::of(0))),
+        judgingSettings(Budget::of('1s')),
+        $reporting(new ReporterFake()),
+    ));
+    $trees = [...$verdict->trees()];
+
+    expect($verdict->judgement())->toBe(Judgement::Passed)
+        ->and($verdict->wasCutShort())->toBeTrue()
+        ->and($trees[0]->counts()->number(MutantJudgement::Killed))->toBe(1)
+        ->and($trees[0]->counts()->number(MutantJudgement::Survived))->toBe(1)
+        ->and($store->read(Scope::branch('main'))->lastPassed())->toBeInstanceOf(Passed::class);
+});
+
+it('counts no unit the budget never started by a result of an earlier ledger format, nor one no ledger holds', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()->withProof(Proof::of(
+        Digest::sha256Of('money before'),
+        Path::of('src/Money.php'),
+        Flows::mutantsOf('src/Money.php'),
+        Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of(Planned::BASE)),
+    )));
+
+    $verdict = judgingVerdictOf($judged(
+        judgingDigested('money', 'money test'),
+        Flows::adapters(Flows::project(), [], $store, $tree(Floor::of(0))),
+        judgingSettings(Budget::of('1s')),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect($verdict->judgement())->toBe(Judgement::Failed)
+        ->and(judgingTexts($verdict->failures()))->toBe([
+            "src/Money.php is unjudged: the time budget ran out before this run mutated it.\n"
+            . 'Its newest result records no digests of its inputs to say it is this code\'s. '
+            . 'More time judges it: vendor/bin/mutation-gate run --budget=<duration>',
+            "src/Held.php is unjudged: the time budget ran out before this run mutated it.\n"
+            . 'No ledger holds a result of it to count. More time judges it: vendor/bin/mutation-gate run --budget=<duration>',
+        ])
+        ->and([...$verdict->trees()][0]->mutants())->toHaveCount(0)
+        ->and(count($store->read(Scope::branch('main'))->proofs()))->toBe(1);
+});
+
+it('records no pass for a verdict that passed with a mutant the runner left unjudged', function () use ($tree, $reporting, $judged): void {
+    $store = new ProofStoreFake();
+    $unjudged = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', 'unjudged', 0),
+        'Plus-9',
+        Location::of(Path::of('src/Money.php'), Line::of(9), Line::of(9)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, ''),
+        MutantStatus::Unjudged,
+        Seconds::of(0.1),
+    )->because(MutantReason::that('No test could be named.'));
+
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $store, $tree(Floor::of(0)), ScriptedRunner::fixture()->answering(Mutants::of($unjudged), 0)),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect($verdict->judgement())->toBe(Judgement::Passed)
+        ->and($store->read(Scope::branch('main'))->lastPassed())->toBeInstanceOf(CannotTell::class);
+});
+
+it('leaves a unit the budget never started for the next run from the last commit that passed to judge', function () use (
     $tree,
     $reporting,
     $judged,
 ): void {
     $project = Flows::project();
     $store = new ProofStoreFake();
-    $store->write(Scope::branch('main'), Ledger::empty()->withProof(Proof::of(
-        Digest::sha256Of('money before'),
-        Path::of('src/Money.php'),
-        Flows::mutantsOf('src/Money.php'),
-        Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('main')),
-    )));
+    $adapters = Flows::adapters($project, [], $store, $tree(Floor::of(0)));
 
-    $verdict = judgingVerdictOf($judged(
-        Planned::twoShards(),
-        Flows::adapters($project, [], $store, $tree(Floor::of(10))),
-        judgingSettings(Budget::of('1s')),
-        $reporting(new ReporterFake()),
-    ));
-    $trees = [...$verdict->trees()];
+    $first = judgingVerdictOf($judged(Planned::twoShards(), $adapters, judgingSettings(Budget::of('1s')), $reporting(new ReporterFake())));
+    $next = new Planning($adapters, Flows::settings(), Flows::setup())
+        ->plan(Mode::since(Mode::LAST_PASSED), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1));
+    $planned = [];
 
-    expect(judgingTexts($verdict->failures()))->toBe([
-        "src/Held.php is unjudged: the time budget ran out before this run mutated it.\n"
-        . 'No ledger holds a result of it to count as not killed. More time judges it: vendor/bin/mutation-gate run --budget=<duration>',
-    ])
-        ->and($trees[0]->counts()->number(MutantJudgement::Unjudged))->toBe(count(Flows::mutantsOf('src/Money.php')))
-        ->and($trees[0]->raised())->toEqual(Unraised::floor())
-        ->and(count($store->read(Scope::branch('main'))->proofs()))->toBe(1);
+    foreach ($next instanceof Plan ? $next : [] as $shard) {
+        foreach ($shard->units() as $unit) {
+            $planned[] = $unit->path()->value();
+        }
+    }
+
+    sort($planned);
+
+    expect($first->judgement())->toBe(Judgement::Failed)
+        ->and($store->read(Scope::branch('main'))->lastPassed())->toBeInstanceOf(CannotTell::class)
+        ->and(count($store->read(Scope::branch('main'))->proofs()))->toBe(0)
+        ->and($planned)->toBe(['src/Held.php', 'src/Money.php']);
 });
 
 it('finds the weak tests that let a survivor through from the test files the plan names, before it reports', function () use ($tree, $reporting, $judged): void {

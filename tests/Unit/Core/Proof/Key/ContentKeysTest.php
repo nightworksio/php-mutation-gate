@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
 use NightWorksIO\MutationGate\Core\Proof\Key\ContentKeys;
@@ -30,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 const CONTENT_KEY_SOURCE = [
@@ -497,4 +499,108 @@ it('names the base every key of a run is built on: the digest of what every key 
     ))
         ->and($keys->keyOf(Unit::file(Path::of('src/A.php')), Paths::none(), CoverageMap::empty()))
         ->toEqual($bare()->keyOf(Unit::file(Path::of('src/A.php')), Paths::none(), CoverageMap::empty()));
+});
+
+/**
+ * The digests of a run's inputs, as keys built from this config and these
+ * files outside the tests give them, of these units.
+ *
+ * @param array<string, string> $source each file outside the tests, by its digest
+ */
+function contentDigestsOf(
+    Units $units,
+    string $config = '{"runner":"pëst"}',
+    array $source = [...CONTENT_KEY_SOURCE, 'phpunit.xml' => 'x9'],
+): Digests {
+    $files = [];
+
+    foreach (CONTENT_KEY_CASES as $path => $case) {
+        $files[] = TestFile::testCase(Fingerprint::of(Path::of($path), Digest::of($case[0])), Contents::of($case[1]));
+    }
+
+    foreach (CONTENT_KEY_OTHERS as $path => $other) {
+        $files[] = TestFile::other(Fingerprint::of(Path::of($path), Digest::of($other[0])), Contents::of($other[1]));
+    }
+
+    $outside = Fingerprints::none();
+
+    foreach ($source as $path => $digest) {
+        $outside = $outside->with(Fingerprint::of(Path::of($path), Digest::of($digest)));
+    }
+
+    return ContentKeys::of(
+        Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
+        $config,
+        Identity::of('pest', Versions::none(), Digest::of('platform')),
+        Digest::of('installed'),
+        Source::of(
+            $outside,
+            CiDefinitions::none(),
+            Exceptions::of(
+                Path::of('mutation-gate.json'),
+                Path::of('mutation-gate-baseline.json'),
+                Ignored::globs('docs/**'),
+                Paths::of(Path::of('phpunit.xml')),
+            ),
+        ),
+        Tests::of(TestFiles::of(...$files), contentKeyPaths(['tests/Unit/MoneyTest.php', 'tests/Unit/OtherTest.php']), Paths::none()),
+    )->digestsOf($units);
+}
+
+it('digests what decides a mutant set, each unit\'s source, and each test file with the support it reads', function () use ($framed): void {
+    $digests = contentDigestsOf(Units::of(Unit::file(Path::of('src/A.php')), Unit::held(Path::of('src'), Group::named('holds:src'))));
+
+    expect($digests->mutation())->toEqual($framed(
+        'mutation-gate proof 2',
+        'gate',
+        'nightworksio/mutation-gate',
+        '1.0.0',
+        'abc123',
+        'config',
+        '{"runner":"pëst"}',
+        'runner',
+        'pest',
+        '0',
+        'platform',
+        'installed',
+        'installed',
+        'definitions',
+        '1',
+        'phpunit.xml',
+        'x9',
+        'always',
+        '4',
+        'tests/Pest.php',
+        'p1',
+        'tests/Support/Base.php',
+        'b2',
+        'tests/Unit/CanaryTest.php',
+        'k1',
+        'tests/Unit/UnknownTest.php',
+        'u1',
+    ))
+        ->and($digests->sourceOf(Path::of('src/A.php')))->toEqual($framed('source', 'src/A.php', '1', 'src/A.php', 'a1'))
+        ->and($digests->sourceOf(Path::of('src')))->toEqual($framed('source', 'src', '2', 'src/A.php', 'a1', 'src/B.php', 'b1'))
+        ->and($digests->testOf(Path::of('tests/Unit/MoneyTest.php')))
+        ->toEqual($framed('tests', '2', 'tests/Support/Helper.php', 'h1', 'tests/Unit/MoneyTest.php', 'm1'))
+        ->and($digests->testOf(Path::of('tests/Unit/OtherTest.php')))
+        ->toEqual($framed('tests', '2', 'tests/Support/Unused.php', 'x1', 'tests/Unit/OtherTest.php', 'o1'))
+        ->and($digests->tests()->paths())->toEqual(contentKeyPaths(array_keys(CONTENT_KEY_CASES)));
+});
+
+it('digests a unit\'s own source even where every key leaves its file out', function () use ($framed): void {
+    expect(contentDigestsOf(Units::of(Unit::file(Path::of('docs/index.md'))))->sourceOf(Path::of('docs/index.md')))
+        ->toEqual($framed('source', 'docs/index.md', '1', 'docs/index.md', 'd1'));
+});
+
+it('keeps what decides a mutant set when a source changes, and changes it with the config or the runner\'s definitions', function (): void {
+    $units = Units::of(Unit::file(Path::of('src/A.php')));
+    $digests = contentDigestsOf($units);
+    $edited = contentDigestsOf($units, source: [...CONTENT_KEY_SOURCE, 'phpunit.xml' => 'x9', 'src/B.php' => 'b2']);
+
+    expect($edited->mutation())->toEqual($digests->mutation())
+        ->and($edited->sourceOf(Path::of('src/A.php')))->toEqual($digests->sourceOf(Path::of('src/A.php')))
+        ->and(contentDigestsOf($units, '{"runner":"infection"}')->mutation())->not->toEqual($digests->mutation())
+        ->and(contentDigestsOf($units, source: [...CONTENT_KEY_SOURCE, 'phpunit.xml' => 'x8'])->mutation())
+        ->not->toEqual($digests->mutation());
 });

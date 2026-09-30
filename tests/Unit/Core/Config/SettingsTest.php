@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Time\Budgets;
 use NightWorksIO\MutationGate\Core\Time\Day;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -263,8 +264,8 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->pest()->canary())->toEqual(Group::named('mutation-canary'))
         ->and($settings->staticCheck()->tool())->toEqual(Choice::of('auto', Configs::options('{}')))
         ->and($settings->staticCheck()->config())->toEqual(Absent::setting())
-        ->and($settings->local()->watchBudget())->toEqual(Seconds::of(60))
-        ->and($settings->local()->prePushBudget())->toEqual(Seconds::of(300));
+        ->and($settings->local()->watchBudget())->toEqual(Budgets::standard()->watch())
+        ->and($settings->local()->prePushBudget())->toEqual(Budgets::standard()->prePush());
 });
 
 it('reads every setting a config writes into its type', function (): void {

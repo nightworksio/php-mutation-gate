@@ -36,14 +36,17 @@ use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Carrying;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\LeftUnjudged;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Ratchet;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\Unfinished;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -64,6 +67,11 @@ use function sprintf;
 final readonly class Judging
 {
     private const string NO_MATRIX = 'The kill matrix holds each mutant\'s killers alone. %s';
+
+    private const string FAILED = 'The verdict failed, so the commit did not pass.';
+
+    /** Why a passing verdict's commit is not recorded as passed: a run from it must still reach what it left. */
+    private const string UNJUDGED = 'The run left mutants unjudged, so its commit is not recorded as passed.';
 
     private const string UNNAMED = 'The reports name each test by its coverage id. %s';
 
@@ -130,8 +138,12 @@ final readonly class Judging
             $ledgers->defaultBranch()->proofs(),
             $ledgers->own()->proofs(),
         );
-        $unjudged = LeftUnjudged::of($results->unjudged(), $ledgers->newest());
         $map = new Handoff($this->adapters->project)->forVerdict();
+        $unjudged = LeftUnjudged::of(
+            $results->unjudged(),
+            $ledgers->newest(),
+            Carrying::against($plan->digests(), $plan->base(), $plan->names(), $map),
+        );
         $matrix = $this->matrixOf($plan, $map);
         $verdicts = $this->read(
             $matrix,
@@ -150,6 +162,7 @@ final readonly class Judging
             Lowering::against($committed, $baseline, $trees),
             $this->missed($results->misses())
                 ->and($unjudged->failures())
+                ->and(Unfinished::failures($fresh->and($unjudged->results())))
                 ->and($refused ? $this->unfloored($baseline, $verdicts) : Failures::none()),
             $judge,
             $verdicts,
@@ -157,6 +170,7 @@ final readonly class Judging
             $map,
             $matrix,
         );
+        $verdict = $results->wereCutShort() ? $verdict->cutShort() : $verdict;
         $ownScopeProofs = $proving->ownScopeProofs() + $carrying->ownScopeProofs();
         $recorded = $this->recorded($plan, $results, $ledgers, $verdict, $ownScopeProofs);
 
@@ -203,8 +217,8 @@ final readonly class Judging
 
     /**
      * @param Failures $lowered each floor the run lowers from the default branch's without its reason
-     * @param Failures $missed  each held unit its holding tests miss lines of, and each unit
-     *                          the budget ran out before that no ledger holds a result of
+     * @param Failures $missed  each held unit its holding tests miss lines of, and each unit a
+     *                          time budget left unjudged
      * @param Warnings $shards  what the shards warn of
      */
     private function verdictOf(
@@ -389,9 +403,12 @@ final readonly class Judging
         int $ownScopeProofs,
     ): string|CannotJudge {
         $run = RunName::of($this->adapters->environment, Instant::at($this->setup->clock->now()), $plan->base());
-        $passed = $verdict->judgement() === Judgement::Passed
-            ? Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)
-            : CannotTell::because('The verdict failed, so the commit did not pass.');
+        $unjudged = $verdict->trees()->mutants()->counts()->number(MutantJudgement::Unjudged);
+        $passed = match (true) {
+            $verdict->judgement() !== Judgement::Passed => CannotTell::because(self::FAILED),
+            $unjudged > 0 => CannotTell::because(self::UNJUDGED),
+            default => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs),
+        };
         $written = new Recorded($this->adapters)->write($plan, $results, $ledgers, $run, $passed);
 
         return match (true) {

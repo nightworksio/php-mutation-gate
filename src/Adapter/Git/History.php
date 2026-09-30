@@ -38,13 +38,15 @@ final readonly class History
 
     /**
      * The log of HEAD for these paths, newest first, each commit its time and
-     * the files it changed, reading the paths from its input.
+     * the files it changed, reading the paths from its input, each as the
+     * path it is and never as pathspec magic.
      *
      * @return list<string>
      */
     public static function arguments(): array
     {
         return [
+            '--literal-pathspecs',
             'log',
             '--stdin',
             '-z',

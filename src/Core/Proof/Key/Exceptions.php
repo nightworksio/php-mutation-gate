@@ -53,10 +53,16 @@ final readonly class Exceptions
         return new self($this->config, $this->baseline, $this->ignored, $this->definitions, $this->own->with($path));
     }
 
+    /** Whether a file defines the runner, which every key reads, whatever `proofs.ignore` says. */
+    public function defines(Path $path): bool
+    {
+        return $this->definitions->has($path);
+    }
+
     /** Whether a key leaves a file out; never one that defines the runner, whatever `proofs.ignore` says. */
     public function leaveOut(Path $path): bool
     {
-        return ! $this->definitions->has($path)
+        return ! $this->defines($path)
             && (
                 $this->config instanceof Path && $path->equals($this->config)
                 || $path->equals($this->baseline)

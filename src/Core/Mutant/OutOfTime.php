@@ -32,6 +32,20 @@ enum OutOfTime
         return Reason::that(sprintf(self::SAID, $this->before(), self::MORE_TIME));
     }
 
+    /** Whether a time budget left this mutant unjudged, as its reason says. */
+    public static function left(Mutant|ProvedKill $mutant): bool
+    {
+        $reason = $mutant->reason();
+        $said = $reason instanceof Reason && $mutant->status() === MutantStatus::Unjudged ? $reason->text() : '';
+        $left = false;
+
+        foreach (self::cases() as $before) {
+            $left = $left || $before->reason()->text() === $said;
+        }
+
+        return $left;
+    }
+
     /** What the budget ran out before. */
     private function before(): string
     {

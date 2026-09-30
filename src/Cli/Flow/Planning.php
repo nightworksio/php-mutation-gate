@@ -119,6 +119,7 @@ final readonly class Planning
             default => $this->handed(
                 Plan::of($inventory->standing->head(), $keying->base(), $keys, $shards)
                     ->on($inventory->standing->runOn())
+                    ->digesting($keying->digestsOf($proving->toRun()))
                     ->considering(
                         Considered::everything()
                             ->reaching($changed, $reached->reach()->reasons())

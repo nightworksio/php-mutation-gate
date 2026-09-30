@@ -59,16 +59,51 @@ presets for Laravel, Symfony and plain libraries.
    - **Unjudged mutants.** Every mutant the budget left without a result is
      *unjudged*. Such a mutant:
      - counts as not killed (ADR-0003);
-     - is listed by unit in every report, with the command that judges it;
+     - is listed by unit in every report, with the command that judges it
+       (`vendor/bin/mutation-gate run --budget=<duration>`);
      - keeps its unit out of the ledger (ADR-0007);
-     - means its tree's floor is never raised by this run.
+     - means its tree's floor is never raised by this run;
+     - fails the verdict, naming its unit.
 
-     A unit the budget never started counts by its newest result in the
-     ledgers the run reads, with every mutant of it unjudged. A unit with no
-     result in any ledger has no mutants to count, so it fails the verdict,
-     named with the command that judges it. Why a mutant is unjudged is one of
-     three: the budget ran out before its unit was mutated, before its timeout
-     could run again, or before its survival could be confirmed.
+     Why a mutant is unjudged is one of three: the budget ran out before its
+     unit was mutated, before its timeout could run again, or before its
+     survival could be confirmed.
+   - **Units the budget never started.** Each proof records, beside its key,
+     the digests of its inputs (ADR-0007, decision 3): the unit's source,
+     what decides its mutant set besides the source (the gate, the config,
+     the runner, what is installed, the files that define the runner and the
+     test bootstrap every key reads), and each test file that killed one of
+     its mutants, with the support that file reads. A unit the budget never
+     started counts by its newest result in the ledgers the run reads only
+     where that result's source and mutant-set digests equal this run's. It
+     fails the verdict, named with why and the command that judges it, where
+     no ledger holds a result of it, where its newest result records no
+     digests (a ledger of format 2), or where either digest differs. New code
+     in such a unit is therefore never judged by a result of the code before.
+
+     Where the result counts, each of its mutants stands or is unjudged:
+     - a mutant the score counts as not killed, such as a survivor, stands,
+       which can only make the verdict stricter. An uncovered one stands only
+       where the run's coverage map shows no test covering its line now;
+     - a kill stands only where the result was established at this run's
+       base, every test that killed it is known, and each of their files, with
+       the support it reads, has the digest it had then. A mutated run can
+       reach code the unmutated run never did, so no narrower set of files
+       than the base bounds what a kill depended on. A kill whose base
+       differs, whose killer is unknown or whose killer changed or is gone is
+       unjudged;
+     - a timeout or a crash, which can count as a kill but names no test that
+       caused it, is unjudged.
+
+     The one assumption left is ADR-0007's: a test's outcome depends on the
+     files it reads, not on state another test in the same process leaves
+     behind.
+   - **Passing.** No run records `passed` for its commit while any mutant is
+     unjudged, whatever left it so, so a later run from the last commit that
+     passed still reaches what this one did not judge. A budgeted run passes,
+     and records it, only where everything it did not run stood from a result
+     of the same inputs. Its verdict still says the budget stopped it before
+     every mutant was judged.
 
      A budgeted run can fail for lack of time. It can never pass a mutant it did
      not judge.

@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function count;
+
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -123,6 +126,21 @@ final readonly class Results
         return $unjudged;
     }
 
+    /**
+     * Whether a shard's time budget stopped it before it judged everything:
+     * it ran out before a unit, or left a mutant unjudged (ADR-0008, decision 1).
+     */
+    public function wereCutShort(): bool
+    {
+        foreach ($this->read as [, $result, $mutated]) {
+            if (count($result->unjudged()) > 0 || $this->leftAny($mutated->mutants())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** What every shard warns of, shard by shard. */
     public function warnings(): Warnings
     {
@@ -166,6 +184,18 @@ final readonly class Results
             ),
             default => [$result, $outcome],
         };
+    }
+
+    /** Whether a time budget left one of these mutants unjudged. */
+    private function leftAny(Mutants $mutants): bool
+    {
+        foreach ($mutants as $mutant) {
+            if (OutOfTime::left($mutant)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** The mutants of a unit: those of its file, or of the files inside its held path. */

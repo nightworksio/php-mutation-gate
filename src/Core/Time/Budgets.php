@@ -11,8 +11,11 @@ namespace NightWorksIO\MutationGate\Core\Time;
  */
 final readonly class Budgets
 {
-    /** A pre-push run's budget, in seconds. */
-    private const int PRE_PUSH = 300;
+    /** A watch cycle's budget, in minutes. */
+    private const int WATCH_MINUTES = 1;
+
+    /** A pre-push run's budget, in minutes. */
+    private const int PRE_PUSH_MINUTES = 5;
 
     private function __construct(private Seconds|Unlimited $run, private Seconds $watch, private Seconds $prePush)
     {
@@ -21,7 +24,11 @@ final readonly class Budgets
     /** The one set of budgets the gate falls back on. */
     public static function standard(): self
     {
-        return new self(Unlimited::time(), Seconds::minutes(1), Seconds::of(self::PRE_PUSH));
+        return new self(
+            Unlimited::time(),
+            Seconds::minutes(self::WATCH_MINUTES),
+            Seconds::minutes(self::PRE_PUSH_MINUTES),
+        );
     }
 
     /** A run's, which has none: it judges everything it takes. */

@@ -21,10 +21,13 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 
 /**
  * A proof as a ledger holds it, under its key: its unit, the base, the time
- * and the id of the run that established it, and its mutants, each killed one
- * as a killed record and every other in full.
+ * and the id of the run that established it, its mutants, each killed one as
+ * a killed record and every other in full, and the digests of its inputs,
+ * where it records them.
  *
  * @internal the shape of a proof in the ledger file
+ *
+ * @phpstan-import-type ProofWritten from DigestsRecord as ProofDigests
  *
  * @phpstan-type Written array{
  *     unit: string,
@@ -32,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  *     at: string,
  *     run: string,
  *     mutants: list<array{string, int, int, list<int>}|array<string, int|float|string|list<string>>>,
+ *     digests?: ProofDigests,
  * }
  */
 final readonly class ProofRecord
@@ -64,6 +68,7 @@ final readonly class ProofRecord
                     [...$proof->kills()],
                 ),
             ],
+            ...self::digests($proof->inputs()),
         ];
     }
 
@@ -89,13 +94,21 @@ final readonly class ProofRecord
             $kills[] = MutantRecord::readKilled($record, $unit, $mutators, $tests);
         }
 
+        $digests = $entry->field(DigestsRecord::FIELD);
+
         return Proof::held(
             $key,
             $unit,
             Mutants::of(...$reported),
             ProvedKills::of(...$kills),
             Run::of($entry->field('run')->text(), self::instantIn($entry), self::baseIn($entry)),
-        );
+        )->withInputs($digests->isPresent() ? DigestsRecord::readProof($digests) : Undigested::proof());
+    }
+
+    /** @return array{digests?: ProofDigests} the digests of the proof's inputs, where it records them */
+    private static function digests(Inputs|Undigested $inputs): array
+    {
+        return $inputs instanceof Inputs ? [DigestsRecord::FIELD => DigestsRecord::ofProof($inputs)] : [];
     }
 
     /**

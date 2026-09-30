@@ -18,7 +18,9 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 
 use function sprintf;
@@ -46,6 +48,7 @@ final readonly class Plan implements Countable, IteratorAggregate
         private array $shards,
         private Considered $considered,
         private TestNames|CannotJudge $names,
+        private Digests|Undigested $digests,
     ) {
     }
 
@@ -66,6 +69,7 @@ final readonly class Plan implements Countable, IteratorAggregate
             $numbered,
             Considered::everything(),
             CannotJudge::because(self::UNNAMED),
+            Undigested::proof(),
         );
     }
 
@@ -85,6 +89,18 @@ final readonly class Plan implements Countable, IteratorAggregate
     public function base(): Digest
     {
         return $this->base;
+    }
+
+    /** This plan, with the digests of the run's inputs, each proof recording its share (ADR-0008, decision 1). */
+    public function digesting(Digests $digests): self
+    {
+        return clone($this, ['digests' => $digests]);
+    }
+
+    /** The digests of the run's inputs; none for a plan made without them. */
+    public function digests(): Digests|Undigested
+    {
+        return $this->digests;
     }
 
     /** This plan, having considered this beyond its shards. */

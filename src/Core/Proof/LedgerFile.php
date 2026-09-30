@@ -29,7 +29,9 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use stdClass;
 
 /**
- * A ledger as its file holds it: `"format": 2`, compact JSON, gzipped.
+ * A ledger as its file holds it: `"format": 3`, compact JSON, gzipped. A
+ * ledger of format 2 reads as it is: its proofs record no digests of their
+ * inputs, so none of them carries for a unit a budget ran out before.
  *
  * Writing keeps what {@see LedgerRetention::standard()} keeps: the bases its
  * runs saw most recently, the proofs established at them, and the kill
@@ -55,7 +57,10 @@ final readonly class LedgerFile
     /** The list a ledger's killed mutants and its kill history point into by index. */
     public const string TESTS = 'tests';
 
-    private const int FORMAT = 2;
+    private const int FORMAT = 3;
+
+    /** The format before proofs recorded the digests of their inputs, which reads without them. */
+    private const int UNDIGESTED = 2;
 
     /** What a message calls the file. */
     private const string NAMED = 'The ledger';
@@ -118,7 +123,7 @@ final readonly class LedgerFile
         $json = Gzip::unpack($bytes, self::NAMED);
         $file = Node::decode($json instanceof CannotJudge ? '' : $json);
 
-        if (! self::isThisFormat($file)) {
+        if (! self::isReadable($file)) {
             return Ledger::empty();
         }
 
@@ -205,10 +210,12 @@ final readonly class LedgerFile
         return $written;
     }
 
-    private static function isThisFormat(Node $file): bool
+    private static function isReadable(Node $file): bool
     {
         try {
-            return $file->field('format')->integer() === self::FORMAT;
+            $format = $file->field('format')->integer();
+
+            return $format === self::FORMAT || $format === self::UNDIGESTED;
         } catch (NotInShape) {
             return false;
         }

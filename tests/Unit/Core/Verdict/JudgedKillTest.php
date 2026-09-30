@@ -7,10 +7,12 @@ use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -36,4 +38,12 @@ it('is on a changed line where the reach holds its line for its file, and nowher
         ->and($judged->within($reach('src/Money.php', 8))->isOnChangedLine())->toBeFalse()
         ->and($judged->within($reach('src/Order.php', 9))->isOnChangedLine())->toBeFalse()
         ->and($judged->within($reach('src/Money.php', 9))->mutant())->toBe($judged->mutant());
+});
+
+it('is unjudged, with nothing judging it before the run stopped, where its kill no longer stands', function (): void {
+    $judged = JudgedKill::of(Verdicts::provedKill()->mutant()->unjudged(OutOfTime::BeforeMutating));
+
+    expect($judged->judgement())->toBe(MutantJudgement::Unjudged)
+        ->and($judged->hint())->toEqual(Hint::unjudged())
+        ->and($judged->hint())->toEqual(Hint::for(Verdicts::killed(), MutantJudgement::Unjudged, TestIds::none(), Missing::at(Path::of('src/Money.php')), NoFinding::survivor()));
 });

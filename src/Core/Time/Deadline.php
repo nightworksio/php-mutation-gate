@@ -32,13 +32,16 @@ final readonly class Deadline
 
     /**
      * Of this many runs, each of which may take this long, how many fit in
-     * the time left at this moment: every one, where each takes no time.
+     * the time left at this moment: none once the deadline has passed, and
+     * otherwise every one where each takes no time.
      */
     public function fitting(int $wanted, Seconds $each, DateTimeImmutable $now): int
     {
-        return $each->seconds() <= 0.0
-            ? $wanted
-            : min($wanted, (int) floor($this->left($now)->seconds() / $each->seconds()));
+        return match (true) {
+            $this->hasPassed($now) => 0,
+            $each->seconds() <= 0.0 => $wanted,
+            default => min($wanted, (int) floor($this->left($now)->seconds() / $each->seconds())),
+        };
     }
 
     /** Whether the deadline has passed at this moment. */

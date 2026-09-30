@@ -131,6 +131,12 @@ final readonly class Hint
         return new self(self::KILLED);
     }
 
+    /** The hint for a mutant nothing judged before the run stopped. */
+    public static function unjudged(): self
+    {
+        return new self(self::UNJUDGED);
+    }
+
     /** The hint for a mutant as the gate judged it, the tests that judge it and its file, where there is one. */
     public static function for(
         Mutant $mutant,

@@ -8,9 +8,12 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -18,6 +21,11 @@ use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Recording;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 use NightWorksIO\MutationGate\Core\Written;
 
@@ -84,7 +92,8 @@ final readonly class Recorded
         foreach ($fresh as $result) {
             $path = $result->unit()->path();
             $key = $plan->keys()->keyOf($path);
-            $proof = Recording::of($key, $path, $result->mutants(), $result->flaky(), $run);
+            $inputs = $this->inputsOf($plan, $result);
+            $proof = Recording::of($key, $path, $result->mutants(), $result->flaky(), $run, $inputs);
             $ledger = match (true) {
                 $proof instanceof Proof => $ledger->withProof($proof),
                 $key instanceof Digest => $ledger->withoutProof($key),
@@ -93,6 +102,38 @@ final readonly class Recorded
         }
 
         return $ledger;
+    }
+
+    /**
+     * What a proof of a unit records of its inputs: its share of the plan's
+     * digests, with each test file that killed one of its mutants, where the
+     * plan names the test.
+     */
+    private function inputsOf(Plan $plan, UnitResult $result): Inputs|Undigested
+    {
+        $digests = $plan->digests();
+        $killers = [];
+
+        foreach ($result->mutants() as $mutant) {
+            $killers = $mutant->status() === MutantStatus::Killed ? [...$killers, ...$mutant->killers()] : $killers;
+        }
+
+        $files = $this->filesOf(TestIds::of(...$killers), $plan->names());
+
+        return $digests instanceof Digests ? $digests->inputsOf($result->unit()->path(), $files) : $digests;
+    }
+
+    /** The test files these tests are in, where their names say. */
+    private function filesOf(TestIds $tests, TestNames|CannotJudge $names): Paths
+    {
+        $files = Paths::none();
+
+        foreach ($tests as $test) {
+            $named = $names instanceof TestNames ? $names->testOf($test) : $test;
+            $files = $named instanceof TestName ? $files->with($named->file()) : $files;
+        }
+
+        return $files;
     }
 
     /**
