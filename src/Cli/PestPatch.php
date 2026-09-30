@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
+use NightWorksIO\MutationGate\Cli\Command\Aside;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -28,8 +28,7 @@ final readonly class PestPatch
                 $patched = Patch::applyIn($vendor);
 
                 if ($patched instanceof CannotJudge) {
-                    $errors = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
-                    $errors->writeln($patched->why(), OutputInterface::OUTPUT_RAW);
+                    Aside::of($output)->writeln($patched->why(), OutputInterface::OUTPUT_RAW);
 
                     return ExitCode::CannotJudge->value;
                 }

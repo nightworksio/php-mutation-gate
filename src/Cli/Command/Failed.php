@@ -10,7 +10,6 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 
 use function sprintf;
 
-use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -22,7 +21,7 @@ final readonly class Failed
 {
     public static function because(OutputInterface $output, Invalid|CannotJudge $why): int
     {
-        $errors = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
+        $errors = Aside::of($output);
 
         if ($why instanceof CannotJudge) {
             $errors->writeln($why->why(), OutputInterface::OUTPUT_RAW);

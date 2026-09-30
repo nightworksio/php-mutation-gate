@@ -28,6 +28,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `mutation-gate plan`: works out the reach, drops proved units, cuts the
  * shards, writes `.mutation-gate/plan.json` and hands the plan to the CI.
+ * What it wrote it says on standard error, since a CI may read the plan's
+ * own document from standard output.
  */
 final readonly class PlanCommand
 {
@@ -79,8 +81,8 @@ final readonly class PlanCommand
             return Failed::because($output, $published);
         }
 
-        $output->writeln(sprintf('Wrote %s, with %d shards.', Workspace::plan()->value(), count($plan)));
-        self::saidIfUnpatched($composed, count($plan), $output);
+        Aside::of($output)->writeln(sprintf('Wrote %s, with %d shards.', Workspace::plan()->value(), count($plan)));
+        self::saidIfUnpatched($composed, count($plan), Aside::of($output));
 
         return ExitCode::Passed->value;
     }
