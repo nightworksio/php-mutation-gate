@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
+use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\Config\KeyedStore;
 use NightWorksIO\MutationGate\Cli\Config\PublicBucket;
@@ -126,6 +127,7 @@ final readonly class FirstParty implements Extension
                 static fn(Options $options): Pest|Invalid => Pest::fromOptions(
                     $options,
                     ComposerVendor::of(self::HERE),
+                    new CapDirectory(),
                 ),
             )
             ->withReporter(BuiltinReporter::Console->named(), ConsoleReport::fromOptions(...))
@@ -173,7 +175,10 @@ final readonly class FirstParty implements Extension
                 BuiltinVersionControl::GitHub->named(),
                 static fn(Options $options): Repository => self::github($options),
             )
-            ->withRunner(BuiltinRunner::Infection->named(), Infection::fromOptions(...))
+            ->withRunner(
+                BuiltinRunner::Infection->named(),
+                static fn(Options $options): Infection|Invalid => Infection::fromOptions($options, new CapDirectory()),
+            )
             ->withStaticChecker(
                 BuiltinAnalyser::Mago->named(),
                 static fn(Options $options): Mago|Invalid => Mago::fromOptions(

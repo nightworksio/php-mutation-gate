@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Outcome;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Trial;
+use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -154,7 +155,7 @@ it('lays no limit on a run where Pest measured none', function (): void {
 
 function uncappedScan(Project $at): MemoryScan
 {
-    $scan = MemoryScan::beside($at, sprintf('%s/results.jsonl', $at->root()), MemoryCap::none());
+    $scan = MemoryScan::beside($at, sprintf('%s/results.jsonl', $at->root()), MemoryCap::none(), new CapDirectory());
 
     return $scan instanceof MemoryScan ? $scan : throw new LogicException('An uncapped scan writes nothing.');
 }

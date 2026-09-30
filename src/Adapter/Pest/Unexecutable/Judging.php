@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Php\Executable;
 use NightWorksIO\MutationGate\Core\Php\Source;
+use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -46,7 +47,7 @@ final readonly class Judging
     /** Where a judging run writes its guard, in the directory of the results file. */
     private const string GUARD = '%s/guard.json';
 
-    public function __construct(private Project $project, private Shell $shell)
+    public function __construct(private Project $project, private Shell $shell, private CapFiles $files)
     {
     }
 
@@ -64,7 +65,7 @@ final readonly class Judging
         }
 
         $records = Records::in($results);
-        $scan = MemoryScan::beside($this->project, $results, $request->memory());
+        $scan = MemoryScan::beside($this->project, $results, $request->memory(), $this->files);
 
         if ($records instanceof CannotJudge || $scan instanceof CannotJudge) {
             return $records instanceof CannotJudge ? $records : $scan;

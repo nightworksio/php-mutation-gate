@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
+use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
@@ -172,7 +173,7 @@ it('names Infection, the versions it drives, and the PHP it runs on', function (
         ['name' => 'phpunit/php-code-coverage', 'version' => '14.3.5', 'source' => ['reference' => 'c']],
     ]]));
     $shell = infectionShell($at, []);
-    $adapter = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false);
+    $adapter = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory());
     $withheld = Withheld::of('DEPLOY_*');
 
     expect($adapter->identity($withheld))->toEqual(Identity::of('infection', Versions::of(
@@ -181,7 +182,7 @@ it('names Infection, the versions it drives, and the PHP it runs on', function (
         Version::of('phpunit/php-code-coverage', '14.3.5', 'c'),
     ), Described::platform()->digest()))
         ->and($shell->commands())->toEqual([Command::php(...Platform::describing())->withholding($withheld)])
-        ->and(new Infection(infectionProject(), infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)
+        ->and(new Infection(infectionProject(), infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())
             ->identity(Withheld::standard()))
         ->toBeInstanceOf(CannotJudge::class);
 });
@@ -195,7 +196,7 @@ it('cannot say which Infection it runs where the PHP it starts does not describe
     ]]));
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: false, output: 'Segmentation fault'));
 
-    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->identity(Withheld::standard()))
+    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->identity(Withheld::standard()))
         ->toEqual(Platform::ofRunner('Segmentation fault'));
 });
 
@@ -207,12 +208,12 @@ it('names the static analysis tool the project has kill mutants among what it dr
         ['name' => 'phpunit/php-code-coverage', 'version' => '14.3.5'],
         ['name' => 'phpstan/phpstan', 'version' => '2.2.0'],
     ]]));
-    $identity = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)
+    $identity = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())
         ->identity(Withheld::standard());
     $refused = infectionProject('{"testFramework": "phpspec"}');
 
     expect($identity instanceof Identity ? count($identity->versions()) : 0)->toBe(4)
-        ->and(new Infection($refused, infectionShell($refused, []), Seconds::of(10.0), nativeMarkersAllowed: false)
+        ->and(new Infection($refused, infectionShell($refused, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())
             ->identity(Withheld::standard()))
         ->toBeInstanceOf(CannotJudge::class);
 });
@@ -223,12 +224,12 @@ it('lists the groups PHPUnit lists, and none in a project whose config it refuse
     $refused = infectionProject('{"testFramework": "codeception"}');
     $untouched = infectionShell($refused, []);
 
-    $infection = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false);
+    $infection = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory());
 
     expect($infection->groups(Withheld::of('CI_JOB_TOKEN')))->toEqual(Groups::of(Group::named('slow')))
         ->and(infectionRan($shell))->toBe([[sprintf('%s/vendor/bin/phpunit', $at->root()), sprintf('--configuration=%s', $at->root()), '--list-groups', '--colors=never']])
         ->and($shell->commands()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('CI_JOB_TOKEN')))
-        ->and(new Infection($refused, $untouched, Seconds::of(10.0), nativeMarkersAllowed: false)->groups(Withheld::standard()))
+        ->and(new Infection($refused, $untouched, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->groups(Withheld::standard()))
         ->toBeInstanceOf(CannotJudge::class)
         ->and($untouched->commands())->toBe([]);
 });
@@ -236,7 +237,7 @@ it('lists the groups PHPUnit lists, and none in a project whose config it refuse
 it('runs the suite or a group under coverage into a directory and reads the map it wrote', function (): void {
     $at = infectionProject();
     $shell = infectionShell($at, []);
-    $map = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)
+    $map = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())
         ->coverage(CoverageRun::of(Group::named('slow'), Path::of('.gate/planned')));
 
     expect($map)->toEqual(CoverageMap::empty()
@@ -260,11 +261,11 @@ function infectionHandedOn(Project $at, string $directory): CoverageMap
 
 it('reads the map another job handed on without running anything, and never a runner\'s own report', function (): void {
     $at = infectionProject();
-    $measured = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)
+    $measured = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())
         ->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.gate/planned')));
     $handed = infectionHandedOn($at, '.gate/planned');
     $shell = infectionShell($at, []);
-    $adapter = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false);
+    $adapter = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory());
 
     expect($measured)->toBeInstanceOf(CoverageMap::class)
         ->and($adapter->coverage(CoverageRead::from(Path::of('.gate/planned'))))->toEqual($handed)
@@ -281,7 +282,7 @@ it('times a run of no test, started as a mutant\'s run, withholding what it is t
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: 'No tests executed!')->took(Seconds::of(1.2)));
     $withheld = Withheld::of('DEPLOY_*');
 
-    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp(Path::of('src/Money.php'), $withheld))
+    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->startUp(Path::of('src/Money.php'), $withheld))
         ->toEqual(Seconds::of(1.2))
         ->and(array_map(static fn(Command $command): Withheld => $command->withheld(), $shell->commands()))
         ->toEqual([Withheld::standard()->and($withheld)])
@@ -297,9 +298,9 @@ it('cannot judge a run of no test that fails, with what PHPUnit said, or one ove
 
     Scratch::write($at->root(), 'phpunit.xml', '<phpunit/>');
 
-    expect(new Infection($at, $failed, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp(Path::of('src/Money.php'), Withheld::standard()))
+    expect(new Infection($at, $failed, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->startUp(Path::of('src/Money.php'), Withheld::standard()))
         ->toEqual(CannotJudge::because("PHPUnit's run of no test, timing a mutant's start-up, failed. It said:\nFatal error"))
-        ->and(new Infection($refused, $untouched, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp(Path::of('src/Money.php'), Withheld::standard()))
+        ->and(new Infection($refused, $untouched, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->startUp(Path::of('src/Money.php'), Withheld::standard()))
         ->toEqual(CannotJudge::because(
             'infection.json5 points phpUnit.customPath at vendor/bin/pest. Infection cannot run Pest tests: use the Pest runner.',
         ))
@@ -310,7 +311,7 @@ it('cannot time a run of no test in a project with no PHPUnit config, running no
     $at = infectionProject();
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
-    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp(Path::of('src/Money.php'), Withheld::standard()))
+    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->startUp(Path::of('src/Money.php'), Withheld::standard()))
         ->toEqual(CannotJudge::because(sprintf('The run of no test needs PHPUnit\'s config, and there is none in %s.', $at->root())))
         ->and($shell->commands())->toBe([]);
 });
@@ -322,9 +323,9 @@ it('cannot judge a coverage run that fails, with what PHPUnit said, or one over 
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('.gate/planned'));
     $untouched = infectionShell($refused, []);
 
-    expect(new Infection($at, $failed, Seconds::of(10.0), nativeMarkersAllowed: false)->coverage($request))
+    expect(new Infection($at, $failed, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->coverage($request))
         ->toEqual(CannotJudge::because("PHPUnit's coverage run failed. PHPUnit said:\nTests: 1 failed"))
-        ->and(new Infection($refused, $untouched, Seconds::of(10.0), nativeMarkersAllowed: false)->coverage($request))
+        ->and(new Infection($refused, $untouched, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->coverage($request))
         ->toEqual(CannotJudge::because(
             'infection.json5 points phpUnit.customPath at vendor/bin/pest. Infection cannot run Pest tests: use the Pest runner.',
         ))
@@ -336,7 +337,7 @@ it('names the files of the test classes whose tests cover a file, and none for a
     $map = CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('Tests\MoneyTest::adds with data set #1'));
-    $adapter = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false);
+    $adapter = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory());
 
     expect($adapter->judges(Path::of('src/Money.php'), $map))->toEqual(Paths::of(Path::of('tests/MoneyTest.php')))
         ->and($adapter->judges(Path::of('src/Nowhere.php'), $map))->toEqual(Paths::none());
@@ -347,7 +348,7 @@ it('mutates after running the tests under coverage, and reads every mutant with 
     $shell = infectionShell($at, [
         'timeouted' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
     ]);
-    $result = new Infection($at, $shell, Seconds::of(4.0), nativeMarkersAllowed: false)
+    $result = new Infection($at, $shell, Seconds::of(4.0), nativeMarkersAllowed: false, files: new CapDirectory())
         ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     $generated = json_decode((string) file_get_contents($at->own('infection.json5')), associative: true);
     $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
@@ -368,7 +369,7 @@ it('writes the map another job handed on in its own layout for a run judged by t
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->reusingCoverage(Path::of('planned'))
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('Plus'));
-    $result = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->mutate($request);
+    $result = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request);
     $own = sprintf('%s/.gate/infection/coverage', $at->root());
 
     expect(infectionStatuses($result))->toBe([MutantStatus::Killed])
@@ -384,7 +385,7 @@ it('cannot judge a handed-on map whose test class no test file declares', functi
     ));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->reusingCoverage(Path::of('planned'));
 
-    expect(new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->mutate($request))
+    expect(new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request))
         ->toEqual(CannotJudge::because(
             'The coverage map names the test class Tests\GoneTest, and no test file declares it, so Infection cannot run its tests.',
         ));
@@ -396,7 +397,7 @@ it('never judges a held path with a map of the whole suite, but runs its own tes
     $shell = infectionShell($at, infectionKilled($at));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Filter::matching('MoneyTest'))
         ->reusingCoverage(Path::of('planned'));
-    new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->mutate($request);
+    new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request);
 
     expect(infectionRan($shell)[0])->toContain('--filter=MoneyTest')
         ->and(infectionRan($shell)[1])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()))
@@ -405,11 +406,11 @@ it('never judges a held path with a map of the whole suite, but runs its own tes
 
 it('never reads the logs an earlier run left', function (): void {
     $at = infectionProject();
-    new Infection($at, infectionShell($at, infectionKilled($at)), Seconds::of(10.0), nativeMarkersAllowed: false)
+    new Infection($at, infectionShell($at, infectionKilled($at)), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())
         ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     $silent = infectionShell($at, [], logs: false);
 
-    expect(new Infection($at, $silent, Seconds::of(10.0), nativeMarkersAllowed: false)
+    expect(new Infection($at, $silent, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())
         ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())))
         ->toEqual(CannotJudge::because("Infection wrote no log, so no mutant it ran has a result. Infection said:\nsaid"));
 });
@@ -422,14 +423,14 @@ it('cannot judge a run stopped at its deadline, a failed coverage run, or a conf
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->within(Seconds::of(60.0));
     $refused = infectionProject('{"phpUnit": {"customPath": "vendor/bin/pest"}}');
 
-    expect(new Infection($at, $stopping, Seconds::of(10.0), nativeMarkersAllowed: false)->mutate($request))
+    expect(new Infection($at, $stopping, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request))
         ->toEqual(CannotJudge::because(
             'Infection was stopped at its deadline, before it wrote its log, so no mutant of this run has a result.',
         ))
         ->and($stopping->commands()[1]->deadline())->toEqual(Seconds::of(60.0))
-        ->and(new Infection($at, infectionShell($at, [], covers: false), Seconds::of(10.0), nativeMarkersAllowed: false)->mutate($request))
+        ->and(new Infection($at, infectionShell($at, [], covers: false), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request))
         ->toEqual(CannotJudge::because("PHPUnit's coverage run failed. PHPUnit said:\nsaid"))
-        ->and(new Infection($refused, infectionShell($refused, []), Seconds::of(10.0), nativeMarkersAllowed: false)->mutate($request))
+        ->and(new Infection($refused, infectionShell($refused, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request))
         ->toEqual(CannotJudge::because(
             'infection.json5 points phpUnit.customPath at vendor/bin/pest. Infection cannot run Pest tests: use the Pest runner.',
         ));
@@ -445,14 +446,14 @@ it('runs each mutant again by its unit\'s tests at the higher cap and with no de
         ],
         'escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')],
     ]);
-    $result = new Infection($at, $first, Seconds::of(6.0), nativeMarkersAllowed: false)
+    $result = new Infection($at, $first, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())
         ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     $mutants = $result instanceof MutationResult ? $result->mutants() : Mutants::none();
     $again = infectionShell($at, [
         'killed' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')],
         'escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')],
     ]);
-    $retried = new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false)
+    $retried = new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())
         ->retry(
             MutationRequest::of(Paths::of(Path::of('src')), Group::named('holds:src/Money.php'))->withholding(Withheld::of('DEPLOY_*')),
             $mutants,
@@ -476,12 +477,12 @@ it('runs mutants again on the map the planning job handed the invocation, and ru
     $money = sprintf('%s/src/Money.php', $at->root());
     $first = new Infection($at, infectionShell($at, [
         'timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')],
-    ]), Seconds::of(6.0), nativeMarkersAllowed: false)->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
+    ]), Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     infectionHandedOn($at, 'planned');
     $again = infectionShell($at, infectionKilled($at));
     $invocation = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->reusingCoverage(Path::of('planned'));
 
-    $retried = new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false)
+    $retried = new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())
         ->retry($invocation, $first instanceof MutationResult ? $first->mutants() : Mutants::none(), Seconds::of(12.0));
 
     expect(infectionStatuses($retried))->toBe([MutantStatus::Killed])
@@ -493,7 +494,7 @@ it('runs a retry on the coverage its mutation run left, and collects it again fo
     $at = infectionProject();
     $money = sprintf('%s/src/Money.php', $at->root());
     $shell = infectionShell($at, ['timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')]]);
-    $infection = new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false);
+    $infection = new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory());
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'));
     $coverageRuns = static fn(): int => count(array_filter(
         infectionRan($shell),
@@ -521,7 +522,7 @@ it('ends the runs of a retry, one after another, by the deadline its request set
     $result = new Infection($at, infectionShell($at, [
         'timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')],
         'escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')],
-    ]), Seconds::of(6.0), nativeMarkersAllowed: false)->mutate($request);
+    ]), Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request);
     $again = infectionShell($at, infectionKilled($at));
     $clock = new class implements Clock {
         private int $read = 0;
@@ -532,7 +533,7 @@ it('ends the runs of a retry, one after another, by the deadline its request set
         }
     };
 
-    new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false, clock: $clock)
+    new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory(), clock: $clock)
         ->retry($request, $result instanceof MutationResult ? $result->mutants() : Mutants::none(), Seconds::of(12.0));
     $runs = array_values(array_filter($again->commands(), static fn(Command $command): bool => $command->deadline() instanceof Seconds));
 
@@ -544,7 +545,7 @@ it('runs nothing again where the formula decided every timeout, and cannot judge
     $at = infectionProject();
     $result = new Infection($at, infectionShell($at, [
         'timeouted' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
-    ]), Seconds::of(4.0), nativeMarkersAllowed: false)->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
+    ]), Seconds::of(4.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     $mutants = $result instanceof MutationResult ? $result->mutants() : Mutants::none();
     $idle = infectionShell($at, []);
     $refused = infectionProject('{"testFramework": "phpspec"}');
@@ -554,6 +555,7 @@ it('runs nothing again where the formula decided every timeout, and cannot judge
         $shell,
         Seconds::of($cap),
         nativeMarkersAllowed: false,
+        files: new CapDirectory(),
     )->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $mutants, Seconds::of($cap * 2));
 
     expect($retried($at, $idle, 10.0))->toEqual($mutants)
@@ -569,7 +571,7 @@ it('runs nothing again where the formula decided every timeout, and cannot judge
 it('reproduces a mutant alone with only its mutator, by its unit\'s tests at the limit, whatever its first limit was', function (): void {
     $at = infectionProject();
     $money = sprintf('%s/src/Money.php', $at->root());
-    $result = new Infection($at, infectionShell($at, ['timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')]]), Seconds::of(6.0), nativeMarkersAllowed: false)
+    $result = new Infection($at, infectionShell($at, ['timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')]]), Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())
         ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     $timedOut = null;
 
@@ -578,7 +580,7 @@ it('reproduces a mutant alone with only its mutator, by its unit\'s tests at the
     }
 
     $again = infectionShell($at, infectionKilled($at));
-    $reproduced = $timedOut instanceof Mutant ? new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false)
+    $reproduced = $timedOut instanceof Mutant ? new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())
         ->reproduce(Reproducible::of($timedOut), MutationRequest::of(Paths::none(), Group::named('holds:src/Money.php'))->withholding(Withheld::of('DEPLOY_*')), Seconds::of(12.0)) : null;
     $generated = json_decode((string) file_get_contents($at->own('infection.json5')), associative: true);
 
@@ -609,6 +611,7 @@ it('says Infection made no mutant with the id where it no longer makes it, and c
         $shell,
         Seconds::of(6.0),
         nativeMarkersAllowed: false,
+        files: new CapDirectory(),
     )->reproduce(Reproducible::of($gone), MutationRequest::of(Paths::none(), WholeSuite::tests())->withholding(Withheld::standard()), Seconds::of(6.0));
     $unjudged = $reproduced($at, infectionShell($at, infectionKilled($at)));
 
@@ -627,27 +630,27 @@ it('records a mutant a pattern of its config ignored only where native markers a
     $ignored = ['ignored' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')]];
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
 
-    expect(infectionStatuses(new Infection($at, infectionShell($at, $ignored), Seconds::of(10.0), nativeMarkersAllowed: true)->mutate($request)))
+    expect(infectionStatuses(new Infection($at, infectionShell($at, $ignored), Seconds::of(10.0), nativeMarkersAllowed: true, files: new CapDirectory())->mutate($request)))
         ->toBe([MutantStatus::IgnoredByMarker])
-        ->and(new Infection($at, infectionShell($at, $ignored), Seconds::of(10.0), nativeMarkersAllowed: false)->mutate($request))
+        ->and(new Infection($at, infectionShell($at, $ignored), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request))
         ->toBeInstanceOf(CannotJudge::class);
 });
 
 it('finds the native markers in the files asked for and in the project\'s config', function (): void {
     $at = infectionProject('{"mutators": {"Plus": {"ignore": ["App\\\\Money"]}}}');
     Scratch::write($at->root(), 'src/Held.php', "<?php\n// @infection-ignore-all\n");
-    $markers = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->markers(Paths::of(Path::of('src/Held.php')));
+    $markers = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->markers(Paths::of(Path::of('src/Held.php')));
     $refused = infectionProject('{"testFramework": "phpspec"}');
 
     expect($markers instanceof Markers ? array_map(static fn(Marker $marker): string => $marker->where(), iterator_to_array($markers, preserve_keys: false)) : [])
         ->toBe(['src/Held.php:2', 'infection.json5 mutators.Plus.ignore'])
-        ->and(new Infection($refused, infectionShell($refused, []), Seconds::of(10.0), nativeMarkersAllowed: false)->markers(Paths::none()))
+        ->and(new Infection($refused, infectionShell($refused, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->markers(Paths::none()))
         ->toBeInstanceOf(CannotJudge::class);
 });
 
 it('is defined by its config, by any of its names, and the PHPUnit config in phpUnit.configDir or the root', function (string $config, string $directory): void {
     $at = infectionProject($config);
-    $definitions = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->definitions();
+    $definitions = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->definitions();
     $phpunit = array_map(
         static fn(string $name): string => $directory === '' ? $name : sprintf('%s/%s', $directory, $name),
         ['phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist'],
@@ -664,7 +667,7 @@ it('is defined by its config, by any of its names, and the PHPUnit config in php
 
 it('is defined by no PHPUnit config where phpUnit.configDir is outside the project', function (string $directory): void {
     $at = infectionProject(sprintf('{"phpUnit": {"configDir": "%s"}}', $directory));
-    $definitions = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->definitions();
+    $definitions = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->definitions();
 
     expect(array_map(static fn(Path $path): string => $path->value(), [...$definitions]))
         ->toBe(['infection.json5', 'infection.json', 'infection.json5.dist', 'infection.json.dist']);
@@ -681,7 +684,7 @@ it('names each test by the file that declares its class and its method, running 
     );
     $adds = TestName::in(Path::of('tests/MoneyTest.php'), 'adds');
 
-    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->names($asked, Withheld::standard()))
+    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->names($asked, Withheld::standard()))
         ->toEqual(TestNames::none()
             ->with(TestId::of('Tests\\MoneyTest::adds'), $adds)
             ->with(TestId::of('Tests\\MoneyTest::adds#2'), TestRow::of($adds, '#2')))
@@ -693,7 +696,7 @@ it('roots itself in a package that installs Infection, with the package\'s own t
     Scratch::write($at->root(), 'packages/billing/vendor/bin/infection', '<?php');
     Scratch::write($at->root(), 'packages/billing/tests/LedgerTest.php', "<?php\nnamespace Tests;\nfinal class LedgerTest {}");
     $shell = infectionShell($at, []);
-    $rooted = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->rootedAt(Path::of('packages/billing'));
+    $rooted = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->rootedAt(Path::of('packages/billing'));
     $asked = TestIds::of(TestId::of('Tests\\LedgerTest::books'), TestId::of('Tests\\MoneyTest::adds'));
 
     expect($rooted instanceof Infection ? $rooted->names($asked, Withheld::standard()) : $rooted)
@@ -705,21 +708,21 @@ it('cannot root itself in a directory that installs no Infection', function (): 
     $at = infectionProject();
     $shell = infectionShell($at, []);
 
-    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->rootedAt(Path::of('packages/billing')))
+    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->rootedAt(Path::of('packages/billing')))
         ->toEqual(CannotJudge::because('packages/billing holds no project Infection can run: Infection is not installed there.'))
         ->and($shell->directories())->toBe([]);
 });
 
 it('is built from the options the flows write, or is invalid', function (): void {
-    expect(Infection::fromOptions(Configs::options('{"timeout": 30, "nativeMarkers": "allow"}')))->toBeInstanceOf(Infection::class)
-        ->and(Infection::fromOptions(Configs::options('{"nativeMarkers": "sometimes"}')))
+    expect(Infection::fromOptions(Configs::options('{"timeout": 30, "nativeMarkers": "allow"}'), new CapDirectory()))->toBeInstanceOf(Infection::class)
+        ->and(Infection::fromOptions(Configs::options('{"nativeMarkers": "sometimes"}'), new CapDirectory()))
         ->toEqual(Invalid::because(Problem::at('nativeMarkers', 'expected "refuse" or "allow", got "sometimes"')));
 });
 
 it('cannot judge a run whose earlier reports or logs cannot be removed, or whose reused coverage is not there', function (): void {
     $at = infectionProject();
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
-    new Infection($at, infectionShell($at, infectionKilled($at)), Seconds::of(10.0), nativeMarkersAllowed: false)->mutate($request);
+    new Infection($at, infectionShell($at, infectionKilled($at)), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request);
     $locked = static function (string $directory, Closure $run): mixed {
         chmod($directory, 0o555);
         $answer = $run();
@@ -727,7 +730,7 @@ it('cannot judge a run whose earlier reports or logs cannot be removed, or whose
 
         return $answer;
     };
-    $adapter = new Infection($at, infectionShell($at, infectionKilled($at)), Seconds::of(10.0), nativeMarkersAllowed: false);
+    $adapter = new Infection($at, infectionShell($at, infectionKilled($at)), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory());
     $coverage = sprintf('%s/.gate/infection/coverage', $at->root());
     $logs = sprintf('%s/.gate/infection/logs', $at->root());
 
@@ -748,7 +751,7 @@ it('cannot judge a run whose coverage run wrote no report', function (): void {
     $silent = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
 
-    expect(new Infection($at, $silent, Seconds::of(10.0), nativeMarkersAllowed: false)->mutate($request))
+    expect(new Infection($at, $silent, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request))
         ->toEqual(CannotJudge::because(sprintf(
             '%s/.gate/infection/coverage/coverage-xml/index.xml is not there or is not PHPUnit XML coverage, '
             . 'so the gate cannot say which tests run which line.',
@@ -762,11 +765,11 @@ it('withholds from the coverage run and every mutant\'s tests what the request w
     $shell = infectionShell($at, [
         'killed' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
     ]);
-    new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false)->mutate(
+    new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate(
         MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'))
             ->withholding(Withheld::of('CI_JOB_TOKEN')),
     );
-    new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false)->coverage(
+    new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())->coverage(
         CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))
             ->withholding(Withheld::of('CI_JOB_TOKEN')),
     );
@@ -781,7 +784,7 @@ it('keeps every PHP process of a capped run to the cap, and not its coverage run
     $shell = infectionShell($at, [
         'killed' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
     ]);
-    new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false)->mutate(
+    new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate(
         MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->cappedAt(MemoryCap::standard()),
     );
     $directory = dirname(sprintf('%s/%s', MemoryScan::directoryIn($at), MemoryCap::FILE));
@@ -798,7 +801,7 @@ it('cannot judge a capped run whose cap cannot be written', function (): void {
     $shell = infectionShell($at, ['killed' => []]);
     mkdir(sprintf('%s/%s', MemoryScan::directoryIn($at), MemoryCap::FILE), recursive: true);
 
-    expect(new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false)->mutate(
+    expect(new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate(
         MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->cappedAt(MemoryCap::standard()),
     ))->toEqual(CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, sprintf('%s/%s', MemoryScan::directoryIn($at), MemoryCap::FILE))));
 });
@@ -812,7 +815,7 @@ it('runs a shard of the flows on the map the plan handed it, in its own layout',
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5)), KillHistory::none());
     $shell = infectionShell($at, infectionKilled($at));
-    $infection = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false);
+    $infection = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory());
 
     new Running(Flows::adapters($at->root(), [], $infection), Flows::settings(), Flows::setup())
         ->run($plan, ShardId::of(1), Workspace::results());
@@ -828,7 +831,7 @@ it('runs a shard of the flows on the map the plan handed it, in its own layout',
 it('behaves as the port expects of a runner, but stops each mutant at its first killer and runs one per core', function (): void {
     $at = infectionProject();
 
-    expect(new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->behaviour())
+    expect(new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->behaviour())
         ->toEqual(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->runningPerCore());
 });
 
@@ -843,7 +846,7 @@ it('gives a mutant as an analyser checks it: its diff put onto the file as writt
         MutantStatus::Survived,
         Seconds::of(0.1),
     );
-    $infection = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false);
+    $infection = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory());
     $answer = static fn(Checkable|CannotJudge $checkable): string => $checkable instanceof Checkable
         ? sprintf('%s|%s', $checkable->original()::class, $checkable->mutant()->text())
         : $checkable->why();
@@ -860,7 +863,7 @@ it('leaves static analysis to the gate where it checks the survivors itself, in 
     $at = infectionProject('{"staticAnalysisTool": "phpstan", "staticAnalysisToolOptions": "--level=9"}');
     $money = sprintf('%s/src/Money.php', $at->root());
     $shell = infectionShell($at, ['escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')]]);
-    $gate = new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false, analysis: StaticAnalysis::Gate);
+    $gate = new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory(), analysis: StaticAnalysis::Gate);
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
     $generated = static fn(): string => (string) file_get_contents($at->own('infection.json5'));
 
@@ -878,8 +881,9 @@ it('leaves static analysis to the gate where it checks the survivors itself, in 
             $shell->in(sprintf('%s/packages/billing', $at->root())),
             Seconds::of(6.0),
             nativeMarkersAllowed: false,
+            files: new CapDirectory(),
             analysis: StaticAnalysis::Gate,
         ))
-        ->and(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate"}')))
-        ->not->toEqual(Infection::fromOptions(Configs::options('{}')));
+        ->and(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate"}'), new CapDirectory()))
+        ->not->toEqual(Infection::fromOptions(Configs::options('{}'), new CapDirectory()));
 });

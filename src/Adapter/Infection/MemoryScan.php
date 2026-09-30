@@ -4,26 +4,16 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
-use function dirname;
-use function fclose;
-use function fopen;
-use function fwrite;
 use function getenv;
 use function getmypid;
-use function is_dir;
-use function is_file;
-use function is_link;
-use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Uncapped;
 
-use function rename;
-use function rmdir;
-use function scandir;
 use function sprintf;
-use function unlink;
 
 /**
  * The directory of the ini file that caps a run's memory (ADR-0004, decision
@@ -31,15 +21,14 @@ use function unlink;
  * mutant's PHPUnit, all of which inherit the environment. It is in
  * Infection's own directory of the gate's workspace, one for each process of
  * the gate, so two runs in one checkout never share it, and it is removed
- * when the run is done. Its writing is the Pest adapter's too, which no
- * adapter may share.
+ * when the run is done.
  */
 final readonly class MemoryScan
 {
     /** In Infection's own directory, by the id of the gate's process. */
     private const string DIRECTORY = 'php/%d';
 
-    private function __construct(private string|Uncapped $directory)
+    private function __construct(private DiskPath|Uncapped $directory, private CapFiles $files)
     {
     }
 
@@ -50,18 +39,17 @@ final readonly class MemoryScan
     }
 
     /** The cap written into Infection's own directory, or none where it caps nothing; or why it cannot be written. */
-    public static function in(Project $project, MemoryCap $memory): self|CannotJudge
+    public static function in(Project $project, MemoryCap $memory, CapFiles $files): self|CannotJudge
     {
         if (! $memory->caps()) {
-            return new self(Uncapped::Memory);
+            return new self(Uncapped::Memory, $files);
         }
 
-        $directory = self::directoryIn($project);
-        $ini = sprintf('%s/%s', $directory, MemoryCap::FILE);
+        $directory = DiskPath::of(self::directoryIn($project));
 
-        return self::fresh($project->workspace(), $directory) && self::written($directory, $ini, $memory)
-            ? new self($directory)
-            : CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, $ini));
+        return $files->written(DiskPath::of($project->workspace()), $directory, $memory)
+            ? new self($directory, $files)
+            : CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, $directory->child(MemoryCap::FILE)->value()));
     }
 
     /** A command whose PHP processes scan the cap's directory too, after those they scan already. */
@@ -70,108 +58,15 @@ final readonly class MemoryScan
         return $this->directory instanceof Uncapped
             ? $command
             : $command->with([
-                MemoryCap::SCAN_DIR => MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $this->directory),
+                MemoryCap::SCAN_DIR => MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $this->directory->value()),
             ]);
     }
 
-    /**
-     * Removes the cap's directory once the run that scans it is done; a run
-     * with no cap has none. A directory something made inside it is left,
-     * with the cap's directory, for the next run of the process to refuse.
-     */
+    /** Removes the cap's directory once the run that scans it is done; a run with no cap has none. */
     public function remove(): void
     {
-        if ($this->directory instanceof Uncapped || ! is_dir($this->directory) || is_link($this->directory)) {
-            return;
+        if ($this->directory instanceof DiskPath) {
+            $this->files->removed($this->directory);
         }
-
-        $kept = false;
-
-        foreach (self::entries($this->directory) as $entry) {
-            $file = is_link($entry) || is_file($entry);
-            $kept = $kept || ! $file;
-
-            if ($file) {
-                unlink($entry);
-            }
-        }
-
-        if (! $kept) {
-            rmdir($this->directory);
-        }
-    }
-
-    /**
-     * Whether the cap's directory is there and holds nothing but files it
-     * may clear: made where it is not, emptied of what an earlier process of
-     * the same id left. A link at any level from the gate's directory down to
-     * it, or anything but a file in it, is refused: making it would follow a
-     * link, and clearing it would reach beyond it.
-     */
-    private static function fresh(string $workspace, string $directory): bool
-    {
-        return match (true) {
-            self::linkedBetween($workspace, $directory) => false,
-            is_dir($directory) => self::cleared($directory),
-            default => mkdir($directory, recursive: true),
-        };
-    }
-
-    /** Whether a directory from the gate's directory down to this one, both included, is a link. */
-    private static function linkedBetween(string $workspace, string $directory): bool
-    {
-        $level = $directory;
-
-        while (! is_link($level) && $level !== $workspace && dirname($level) !== $level) {
-            $level = dirname($level);
-        }
-
-        return is_link($level);
-    }
-
-    /** Whether the directory is emptied: it holds nothing but files, which it clears. */
-    private static function cleared(string $directory): bool
-    {
-        $entries = self::entries($directory);
-
-        foreach ($entries as $entry) {
-            if (is_link($entry) || ! is_file($entry)) {
-                return false;
-            }
-        }
-
-        foreach ($entries as $entry) {
-            unlink($entry);
-        }
-
-        return true;
-    }
-
-    /**
-     * Whether the cap is written into its fresh directory, whole: staged
-     * beside it, then moved into place, so a PHP that starts meanwhile reads
-     * no half of one. Opening the staged file refuses one that is there.
-     */
-    private static function written(string $directory, string $ini, MemoryCap $memory): bool
-    {
-        $handle = fopen(sprintf('%s/%s', $directory, MemoryCap::STAGED), 'x');
-
-        return $handle !== false
-            && fwrite($handle, $memory->ini()) !== false
-            && fclose($handle)
-            && rename(sprintf('%s/%s', $directory, MemoryCap::STAGED), $ini);
-    }
-
-    /** @return list<string> the paths of what the directory holds */
-    private static function entries(string $directory): array
-    {
-        $names = scandir($directory);
-        $entries = [];
-
-        foreach ($names === false ? [] : $names as $name) {
-            $entries = $name === '.' || $name === '..' ? $entries : [...$entries, sprintf('%s/%s', $directory, $name)];
-        }
-
-        return $entries;
     }
 }

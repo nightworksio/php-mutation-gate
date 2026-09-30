@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -78,17 +79,22 @@ final readonly class Pest implements Runner
     /** What the runner learns once for every run it starts. */
     private Remembered $remembered;
 
-    public function __construct(private Project $project, private Shell $shell, private Patching $patching)
-    {
+    public function __construct(
+        private Project $project,
+        private Shell $shell,
+        private Patching $patching,
+        private CapFiles $files,
+    ) {
         $this->tests = new TestFiles($project);
         $this->remembered = new Remembered();
     }
 
     /**
      * Pest in the project the gate runs in, installed in this vendor
-     * directory, as the `pest` runner's options configure it.
+     * directory, as the `pest` runner's options configure it, writing its
+     * memory cap with these files.
      */
-    public static function fromOptions(Options $options, Path $vendor): self|Invalid
+    public static function fromOptions(Options $options, Path $vendor, CapFiles $files): self|Invalid
     {
         $read = PestOptions::read($options);
 
@@ -98,7 +104,7 @@ final readonly class Pest implements Runner
 
         $project = Project::at(self::ROOT, $read->tests(), Workspace::root(), $vendor);
 
-        return new self($project, new ProcessShell($project->root()), $read->patching());
+        return new self($project, new ProcessShell($project->root()), $read->patching(), $files);
     }
 
     public function identity(Withheld $withheld): Identity|CannotJudge
@@ -298,7 +304,7 @@ final readonly class Pest implements Runner
         $project = $this->project->in($package);
 
         return Invocation::installedIn($project->vendor())->isIn($project)
-            ? new self($project, $this->shell->in($project->root()), $this->patching)
+            ? new self($project, $this->shell->in($project->root()), $this->patching, $this->files)
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
     }
 
@@ -335,6 +341,13 @@ final readonly class Pest implements Runner
     /** A mutation run of this project, through this shell. */
     private function run(Shell $shell): MutationRun
     {
-        return new MutationRun($this->project, $shell, $this->patching, $this->remembered, $this->groups(...));
+        return new MutationRun(
+            $this->project,
+            $shell,
+            $this->files,
+            $this->patching,
+            $this->remembered,
+            $this->groups(...),
+        );
     }
 }

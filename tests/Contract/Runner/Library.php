@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -215,7 +216,7 @@ final class Library
         $infection = static function (string $root) use ($cap): Infection {
             $project = InfectionProject::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
 
-            return new Infection($project, new InfectionShell($root, getenv()), $cap, nativeMarkersAllowed: false);
+            return new Infection($project, new InfectionShell($root, getenv()), $cap, nativeMarkersAllowed: false, files: new CapDirectory());
         };
 
         return new self(
@@ -249,7 +250,7 @@ final class Library
             $tests = Paths::of(Path::of('tests'));
             $project = Project::at($root, $tests, Path::of('.mutation-gate'), Path::of('vendor'));
 
-            return new Pest($project, new ProcessShell($root), $patching);
+            return new Pest($project, new ProcessShell($root), $patching, new CapDirectory());
         };
 
         return new self(

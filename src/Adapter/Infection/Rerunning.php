@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
@@ -37,6 +38,7 @@ final readonly class Rerunning
     public function __construct(
         private Project $project,
         private Shell $shell,
+        private CapFiles $files,
         private bool $nativeMarkersAllowed,
         private StaticAnalysis $analysis,
         private Closure $covered,
@@ -132,7 +134,14 @@ final readonly class Rerunning
         Seconds $limit,
         Shell $shell,
     ): Mutants|CannotJudge {
-        $run = new MutationRun($this->project, $shell, $prepared->config, $this->nativeMarkersAllowed, $this->analysis);
+        $run = new MutationRun(
+            $this->project,
+            $shell,
+            $this->files,
+            $prepared->config,
+            $this->nativeMarkersAllowed,
+            $this->analysis,
+        );
         $result = $run
             ->of($request->narrowedTo(Paths::of($file), Mutators::named($mutator)), $prepared->coverage, $limit);
 
