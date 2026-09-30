@@ -56,7 +56,7 @@ it('seals every class, and keeps every value readonly', function (): void {
         }
 
         $immutable = array_any(
-            [Layer::Core, Layer::Attribute, Layer::Config, Layer::Extension],
+            [Layer::Core, Layer::Attribute, Layer::Mutator, Layer::Config, Layer::Extension],
             static fn(Layer $layer): bool => $layer->holds($class->getName()),
         );
 

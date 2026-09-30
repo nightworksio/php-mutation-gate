@@ -45,12 +45,13 @@ use function sprintf;
  */
 final class Registering
 {
-    /** @return list<ExtensionPoint> every point but presets, which are data rather than adapters */
+    /** @return list<ExtensionPoint> every point but presets and mutator sets, which are data rather than adapters */
     public static function adapterPoints(): array
     {
         return array_filter(
             ExtensionPoint::cases(),
-            static fn(ExtensionPoint $point): bool => $point !== ExtensionPoint::Preset,
+            static fn(ExtensionPoint $point): bool => $point !== ExtensionPoint::Preset
+                && $point !== ExtensionPoint::MutatorSet,
         );
     }
 
@@ -101,6 +102,7 @@ final class Registering
                 static fn(Options $options): ConfigLoader|Invalid => self::built($build($options), ConfigLoader::class),
             ),
             ExtensionPoint::Preset => throw new LogicException('A preset is registered as a document.'),
+            ExtensionPoint::MutatorSet => throw new LogicException('A mutator set is registered as a list of classes.'),
         };
     }
 
@@ -125,6 +127,7 @@ final class Registering
             ExtensionPoint::Repository => $registry->withRepository($name, $build),
             ExtensionPoint::ConfigLoader => $registry->withConfigLoader($name, $build),
             ExtensionPoint::Preset => throw new LogicException('A preset is registered as a document.'),
+            ExtensionPoint::MutatorSet => throw new LogicException('A mutator set is registered as a list of classes.'),
         };
     }
 
@@ -142,6 +145,7 @@ final class Registering
             ExtensionPoint::Repository => RepositoryFake::onMain(Revision::ref('5eeca8f')),
             ExtensionPoint::ConfigLoader => ConfigLoaderFake::ofTheFixture(),
             ExtensionPoint::Preset => throw new LogicException('A preset is no adapter.'),
+            ExtensionPoint::MutatorSet => throw new LogicException('A mutator set is no adapter.'),
         };
     }
 
@@ -160,6 +164,7 @@ final class Registering
             ExtensionPoint::Repository => $lookup->repository(Name::of('it'), $options),
             ExtensionPoint::ConfigLoader => $lookup->configLoader(Name::of('it'), $options),
             ExtensionPoint::Preset => $lookup->preset(Name::of('it')),
+            ExtensionPoint::MutatorSet => $lookup->mutatorSet(Name::of('it')),
         };
     }
 

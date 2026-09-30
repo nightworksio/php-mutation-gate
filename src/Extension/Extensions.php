@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Registry\Entries;
 use NightWorksIO\MutationGate\Core\Registry\Entry;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
@@ -29,9 +30,9 @@ use NightWorksIO\MutationGate\Port\TreeSource;
 use function sprintf;
 
 /**
- * Every adapter and preset the extensions offer, by name. An adapter is
- * registered as the function that builds it from its options, so a config
- * can choose it by name and configure it. Extensions only register; the
+ * Every adapter, preset and set of mutators the extensions offer, by name. An
+ * adapter is registered as the function that builds it from its options, so a
+ * config can choose it by name and configure it. Extensions only register; the
  * command line looks up what they registered.
  */
 final readonly class Extensions
@@ -66,6 +67,9 @@ final readonly class Extensions
     /** @var Entries<Layer> */
     private Entries $presets;
 
+    /** @var Entries<MutatorSet> */
+    private Entries $mutatorSets;
+
     /** An empty registry, whose additions come from this package. */
     public function __construct(private Origin $origin)
     {
@@ -79,6 +83,7 @@ final readonly class Extensions
         $this->repositories = new Entries(ExtensionPoint::Repository);
         $this->configLoaders = new Entries(ExtensionPoint::ConfigLoader);
         $this->presets = new Entries(ExtensionPoint::Preset);
+        $this->mutatorSets = new Entries(ExtensionPoint::MutatorSet);
     }
 
     /** @param Closure(Options): (Runner|Invalid) $build */
@@ -162,6 +167,17 @@ final readonly class Extensions
     }
 
     /**
+     * A set of mutators, which a config turns on by its name in
+     * `mutators.sets`; installing it changes nothing by itself (ADR-0021).
+     */
+    public function withMutators(Name $set, MutatorSet $mutators): self
+    {
+        return clone($this, [
+            'mutatorSets' => $this->mutatorSets->with(Entry::of($set, $this->origin, $mutators)),
+        ]);
+    }
+
+    /**
      * This registry and another's. Two packages that register the same name
      * at the same extension point cannot both be meant, so that is refused,
      * naming both.
@@ -179,6 +195,7 @@ final readonly class Extensions
             ...$this->repositories->conflictsWith($other->repositories),
             ...$this->configLoaders->conflictsWith($other->configLoaders),
             ...$this->presets->conflictsWith($other->presets),
+            ...$this->mutatorSets->conflictsWith($other->mutatorSets),
         ];
 
         if ($conflicts !== []) {
@@ -199,16 +216,17 @@ final readonly class Extensions
             'repositories' => $this->repositories->merge($other->repositories),
             'configLoaders' => $this->configLoaders->merge($other->configLoaders),
             'presets' => $this->presets->merge($other->presets),
+            'mutatorSets' => $this->mutatorSets->merge($other->mutatorSets),
         ]);
     }
 
     /**
      * What is registered at this extension point under this name: the function that
-     * builds an adapter from its options, or a preset's fragment.
+     * builds an adapter from its options, a preset's fragment, or a set of mutators.
      *
      * @internal extensions register; only the command line looks up
      */
-    public function registered(ExtensionPoint $point, Name $name): Closure|Layer|CannotJudge
+    public function registered(ExtensionPoint $point, Name $name): Closure|Layer|MutatorSet|CannotJudge
     {
         $entries = match ($point) {
             ExtensionPoint::Runner => $this->runners,
@@ -221,6 +239,7 @@ final readonly class Extensions
             ExtensionPoint::Repository => $this->repositories,
             ExtensionPoint::ConfigLoader => $this->configLoaders,
             ExtensionPoint::Preset => $this->presets,
+            ExtensionPoint::MutatorSet => $this->mutatorSets,
         };
 
         return $entries->find($name);

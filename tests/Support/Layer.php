@@ -16,6 +16,7 @@ enum Layer: string
     case Core = 'Core';
     case Attribute = 'Attribute';
     case Port = 'Port';
+    case Mutator = 'Mutator';
     case Config = 'Config';
     case Extension = 'Extension';
     case Adapter = 'Adapter';
@@ -33,7 +34,7 @@ enum Layer: string
     public function isPublic(): bool
     {
         return match ($this) {
-            self::Attribute, self::Port, self::Config, self::Extension => true,
+            self::Attribute, self::Port, self::Mutator, self::Config, self::Extension => true,
             self::Core, self::Adapter, self::Cli => false,
         };
     }

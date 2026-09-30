@@ -37,19 +37,20 @@ function isPhpItself(string $name): bool
     return ! str_contains($name, '\\');
 }
 
-it('keeps the core, the ports, the config and the extension API free of every framework', function (): void {
-    $inner = [Layer::Core, Layer::Port, Layer::Config, Layer::Extension];
+it('keeps the core, the ports, the config and the extension API free of every framework, and the mutator SDK of all but php-parser', function (): void {
+    $inner = [Layer::Core, Layer::Port, Layer::Mutator, Layer::Config, Layer::Extension];
     $offenders = [];
 
     foreach ($inner as $layer) {
         $offenders = [...$offenders, ...namesRefusedIn($layer, static fn(Source $source, string $name): bool => ! isPhpItself($name)
             && ! str_starts_with($name, sprintf('%s\\', Layer::ROOT))
-            && ! str_starts_with($name, 'Psr\\Clock\\'))];
+            && ! str_starts_with($name, 'Psr\\Clock\\')
+            && ($layer !== Layer::Mutator || !str_starts_with($name, 'PhpParser\\')))];
     }
 
     // A1
     expect($offenders)->toBe([], sprintf(
-        "These name something outside the package, PHP and Psr\\Clock:\n  %s\n\nThe core decides, and a decision that names a framework cannot be tested without it. Name a port and let an adapter reach the library (A1).",
+        "These name something outside the package, PHP and Psr\\Clock, or, in the mutator SDK, php-parser:\n  %s\n\nThe core decides, and a decision that names a framework cannot be tested without it. Name a port and let an adapter reach the library; only the SDK a mutator is written against names php-parser (A1).",
         implode("\n  ", $offenders),
     ));
 });
@@ -102,7 +103,7 @@ it('lets a layer name only itself and the layers before it', function (): void {
 
     // A4
     expect($offenders)->toBe([], sprintf(
-        "These name a layer that comes after their own:\n  %s\n\nThe layers are Core, Attribute, Port, Config, Extension, Adapter and Cli, in that order, so only the CLI wires adapters to the core (A4).",
+        "These name a layer that comes after their own:\n  %s\n\nThe layers are Core, Attribute, Port, Mutator, Config, Extension, Adapter and Cli, in that order, so only the CLI wires adapters to the core (A4).",
         implode("\n  ", $offenders),
     ));
 });
