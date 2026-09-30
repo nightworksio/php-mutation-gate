@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Hold\PestHolds;
-use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\TreeUnits;
@@ -77,8 +75,7 @@ final readonly class Inventory
     /** What the groups the runner lists and the `#[Holds]` in the suite declare. */
     private static function holdingsOf(Adapters $adapters, Suite $suite, Groups $groups): Holdings|CannotJudge
     {
-        $identity = $adapters->runner->identity($adapters->withheld);
-        $holds = $identity instanceof Identity && $identity->runner() === Pest::RUNNER
+        $holds = $adapters->runner->behaviour()->holdsAsLoaded()
             ? $suite->pestHolds($adapters->runner->definitions())
             : Holdings::inGroups($groups)->merge($suite->holdings());
 

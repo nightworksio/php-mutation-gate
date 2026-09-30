@@ -13,6 +13,9 @@ use function sprintf;
 /** The optional Pest patches, and the tests that show they work (ADR-0004): `pest`. */
 final readonly class Pest implements Part
 {
+    /** The runner these settings are the options of. */
+    public const string RUNNER = 'pest';
+
     private const string CANARY = 'mutation-canary';
 
     private function __construct(private bool|Absent $patch, private Group|Absent $canary)
@@ -53,6 +56,20 @@ final readonly class Pest implements Part
     public function canary(): Group
     {
         return $this->canary instanceof Group ? $this->canary : Group::named(self::CANARY);
+    }
+
+    /**
+     * The runner a config chooses, with these settings beneath the options
+     * it gives the Pest runner, so `pest.patch` reaches the runner it is
+     * for; any other runner as it is.
+     */
+    public function beneath(Choice $runner): Choice
+    {
+        $options = Json::object(Member::of('patch', $this->patch()), Member::of('canary', $this->canary()->name()));
+
+        return $runner->use() === self::RUNNER
+            ? Choice::of($runner->use(), $options->merged($runner->options()))
+            : $runner;
     }
 
     public function written(Origin $origin): Json

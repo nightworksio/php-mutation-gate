@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -154,7 +155,7 @@ $underPest = static function (
         Paths::of(Path::of('tests/Pest.php')),
         TestNames::none(),
         Paths::none(),
-    );
+    )->behaving(RunnerBehaviour::standard()->holdingAsLoaded());
     $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [
         Revision::workingTree()->name() => $files,
     ]);
@@ -218,12 +219,11 @@ it('cannot find the units under Pest where a #[Holds] stands where no group can 
         ->toStartWith("tests/Pest.php:5: #[Holds('src/Held.php')] stands in tests/Pest.php");
 });
 
-it('lists the groups and asks who the runner is withholding what the project\'s code may not see', function (): void {
+it('lists the runner\'s groups withholding what every process running the project\'s code does', function (): void {
     $runner = ScriptedRunner::fixture();
     $adapters = Flows::adapters(Flows::project(), [], $runner);
 
     Inventory::of($adapters, Flows::settings());
 
-    expect($runner->listings())->toEqual([$adapters->withheld])
-        ->and($runner->identified())->toEqual([$adapters->withheld]);
+    expect($runner->listings())->toEqual([$adapters->withheld]);
 });

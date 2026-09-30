@@ -82,6 +82,20 @@ it('answers the same identity every time it is asked', function (Library $librar
         ->and($identity instanceof Identity ? count($identity->versions()) : 0)->toBeGreaterThan(0);
 })->with($libraries);
 
+it('behaves consistently: every key reads only groups of its suite', function (Library $library): void {
+    $groups = $library->runner()->groups(Withheld::standard());
+    $behaviour = $library->runner()->behaviour();
+
+    foreach ($behaviour->readByEveryKey() as $group) {
+        expect($groups instanceof Groups && $groups->has($group))->toBeTrue();
+    }
+
+    expect($behaviour->readByEveryKey()->count() === 0 || ! $behaviour->opensEachShard())->toBeTrue();
+})->with([
+    ...$libraries,
+    ...Library::isInstalled() ? ['pest patched' => fn(): Library => Library::pest(Patching::on(Library::canary()))] : [],
+]);
+
 it('lists the group that holds a path, and the canary, among the suite\'s groups', function (Library $library): void {
     $groups = $library->runner()->groups(Withheld::standard());
 

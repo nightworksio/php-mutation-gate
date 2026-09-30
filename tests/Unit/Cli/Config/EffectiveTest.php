@@ -111,7 +111,10 @@ it('finds the runner of a config that only says what it withholds', function () 
     $runner = $settings instanceof Settings ? $settings->runner() : $settings;
 
     expect($runner instanceof ChosenRunner ? [$runner->choice(), $runner->withhold()] : $runner)
-        ->toEqual([Choice::of('pest', Configs::options('{}')), Withheld::of('DEPLOY_*')]);
+        ->toEqual([
+            Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary"}')),
+            Withheld::of('DEPLOY_*'),
+        ]);
 });
 
 it('keeps what the config withholds where the command line chooses the runner', function () use ($effective): void {

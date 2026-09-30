@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -107,6 +108,12 @@ final readonly class Infection implements Runner
         return $platform instanceof Platform
             ? Identity::of(self::RUNNER, $versions, $platform->digest())
             : $platform;
+    }
+
+    /** Infection lists `#[Holds]` as groups, raises its limit, and reuses the map the plan handed each shard. */
+    public function behaviour(): RunnerBehaviour
+    {
+        return RunnerBehaviour::standard();
     }
 
     public function groups(Withheld $withheld): Groups|CannotJudge

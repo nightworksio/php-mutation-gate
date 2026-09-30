@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -609,4 +610,11 @@ it('runs a shard of the flows on the map the plan handed it, in its own layout',
     expect(infectionStatuses($outcome))->toBe([MutantStatus::Killed])
         ->and(count($shell->commands()))->toBe(1)
         ->and(infectionRan($shell)[0])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()));
+});
+
+it('behaves as the port expects of a runner unless told otherwise', function (): void {
+    $at = infectionProject();
+
+    expect(new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->behaviour())
+        ->toEqual(RunnerBehaviour::standard());
 });

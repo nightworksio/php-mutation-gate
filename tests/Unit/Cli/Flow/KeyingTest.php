@@ -8,7 +8,6 @@ use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Config\Baseline;
 use NightWorksIO\MutationGate\Config\Option;
-use NightWorksIO\MutationGate\Config\Pest;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -23,6 +22,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -131,25 +131,19 @@ it('reads the test file that judges a unit into its key alone', function (): voi
         ->toEqual($before->keysOf($units)->keyOf(Path::of('src/Other.php')));
 });
 
-it('reads the canary group\'s test files into every key where Pest runs with the patch', function (): void {
-    $patched = Flows::settings(Pest::patched());
+it('reads the test files of a group into every key where the runner says every shard opens on it', function (): void {
+    $canary = keyingRunner('fake')->behaving(RunnerBehaviour::standard()->readingInEveryKey(Group::named('mutation-canary')));
 
-    expect(keyingOf(keyingRunner('pest'), $patched, keyingSuite('2'), Flows::setup())->base())
-        ->not->toEqual(keyingOf(keyingRunner('pest'), $patched, keyingSuite('1'), Flows::setup())->base());
+    expect(keyingOf($canary, Flows::settings(), keyingSuite('2'), Flows::setup())->base())
+        ->not->toEqual(keyingOf($canary, Flows::settings(), keyingSuite('1'), Flows::setup())->base());
 });
 
-it('reads no canary into every key where Pest runs without the patch, or another runner runs', function (
-    string $name,
-    Pest $patch,
-): void {
-    $settings = Flows::settings($patch);
+it('reads no group\'s test files into every key where the runner names none', function (): void {
+    $runner = keyingRunner('fake');
 
-    expect(keyingOf(keyingRunner($name), $settings, keyingSuite('2'), Flows::setup())->base())
-        ->toEqual(keyingOf(keyingRunner($name), $settings, keyingSuite('1'), Flows::setup())->base());
-})->with([
-    'Pest without the patch' => ['pest', Pest::unpatched()],
-    'another runner with it' => ['fake', Pest::patched()],
-]);
+    expect(keyingOf($runner, Flows::settings(), keyingSuite('2'), Flows::setup())->base())
+        ->toEqual(keyingOf($runner, Flows::settings(), keyingSuite('1'), Flows::setup())->base());
+});
 
 it('reads each CI definition into every key, as it is on disk', function (): void {
     expect(keyedBase('on: push'))->not->toEqual(keyedBase('on: pull_request'));

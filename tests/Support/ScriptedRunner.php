@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -142,6 +143,37 @@ final class ScriptedRunner implements Runner
             $this->covering,
             $this->marking,
         );
+    }
+
+    /** This runner, behaving so. */
+    public function behaving(RunnerBehaviour $behaviour): self
+    {
+        return new self(
+            $this->fake->behaving($behaviour),
+            $this->identity,
+            $this->mutating,
+            $this->retrying,
+            $this->groups,
+            $this->covering,
+            $this->marking,
+        );
+    }
+
+    /** This runner, behaving as Pest does without the gate's patch. */
+    public function likePest(): self
+    {
+        return $this->behaving(RunnerBehaviour::standard()->holdingAsLoaded()->raisingNoLimit()->openingEachShard());
+    }
+
+    /** This runner, behaving as Pest does with the gate's patch, every shard opening on this canary group. */
+    public function likePatchedPest(Group $canary): self
+    {
+        return $this->behaving(RunnerBehaviour::standard()->holdingAsLoaded()->raisingNoLimit()->readingInEveryKey($canary));
+    }
+
+    public function behaviour(): RunnerBehaviour
+    {
+        return $this->fake->behaviour();
     }
 
     /** This runner, which cannot name itself. */
