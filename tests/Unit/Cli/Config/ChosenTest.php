@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
+use NightWorksIO\MutationGate\Tests\Fakes\ExtensionThatCannotStart;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
@@ -145,6 +146,15 @@ it('loads the extensions a config names, as coming from the config file', functi
 
     expect($registry instanceof Extensions ? Lookup::in($registry)->runner(Name::of('fake'), Options::none()) : $registry)
         ->toEqual(RunnerFake::ofTheFixture());
+});
+
+it('refuses an extension a config names that fails as it starts', function () use ($classes): void {
+    expect($classes()->withExtensions([ExtensionThatCannotStart::class, ExtensionFake::class], 'mutation-gate.json'))
+        ->toEqual(CannotJudge::because(sprintf(
+            'mutation-gate.json names %s in extensions, and it failed as it started: %s',
+            ExtensionThatCannotStart::class,
+            'the settings file of this extension is missing',
+        )));
 });
 
 it('refuses an extension a config names that is not one', function () use ($classes): void {

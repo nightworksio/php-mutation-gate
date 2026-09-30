@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
+use NightWorksIO\MutationGate\Tests\Fakes\ExtensionThatCannotStart;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -45,14 +46,16 @@ it('registers what the root and every installed package declare', function () us
     $registry = $discovery($manifest(FirstParty::PACKAGE, [FirstParty::class]), [$manifest('acme/one', [ExtensionFake::class])])->extensions(firstPartyOnly: false);
 
     expect($registry)->toBeInstanceOf(Extensions::class)
-        ->and($runs($registry, 'fake'))->toBeTrue();
+        ->and($runs($registry, 'fake'))->toBeTrue()
+        ->and($runs($registry, 'pest'))->toBeTrue();
 });
 
 it('registers only this package\'s own extension when asked to', function () use ($discovery, $manifest, $runs): void {
     $registry = $discovery($manifest(FirstParty::PACKAGE, [FirstParty::class]), [$manifest('acme/one', [ExtensionFake::class])])->extensions(firstPartyOnly: true);
 
     expect($registry)->toBeInstanceOf(Extensions::class)
-        ->and($runs($registry, 'fake'))->toBeFalse();
+        ->and($runs($registry, 'fake'))->toBeFalse()
+        ->and($runs($registry, 'pest'))->toBeTrue();
 });
 
 it('registers this package\'s own extension when it is installed as a dependency', function () use ($discovery, $manifest, $runs): void {
@@ -73,7 +76,8 @@ it('registers nothing where there is no manifest', function () use ($runs): void
     $registry = new Discovery(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)))->extensions(firstPartyOnly: false);
 
     expect($registry)->toBeInstanceOf(Extensions::class)
-        ->and($runs($registry, 'fake'))->toBeFalse();
+        ->and($runs($registry, 'fake'))->toBeFalse()
+        ->and($runs($registry, 'pest'))->toBeFalse();
 });
 
 it('cannot judge two packages that register the same name', function () use ($discovery, $manifest): void {
@@ -85,6 +89,14 @@ it('cannot judge a declared class that is not an extension, and loads nothing af
     expect($discovery($manifest('acme/app', [$class, ExtensionFake::class]), [])->extensions(firstPartyOnly: false))
         ->toEqual(CannotJudge::because(sprintf('acme/app names %s as a mutation-gate extension, and it is not a class that implements NightWorksIO\\MutationGate\\Extension\\Extension.', $class)));
 })->with(['stdClass', 'Acme\\Nowhere\\Extension']);
+
+it('cannot judge an extension that fails as it starts, and loads nothing after it', function () use ($discovery, $manifest): void {
+    expect($discovery($manifest('acme/app', [ExtensionThatCannotStart::class, ExtensionFake::class]), [])->extensions(firstPartyOnly: false))
+        ->toEqual(CannotJudge::because(sprintf(
+            'acme/app names %s as a mutation-gate extension, and it failed as it started: the settings file of this extension is missing',
+            ExtensionThatCannotStart::class,
+        )));
+});
 
 it('cannot judge a manifest it cannot read, the root before the installed packages', function () use ($discovery): void {
     expect($discovery('not json', 'not json either')->extensions(firstPartyOnly: false))

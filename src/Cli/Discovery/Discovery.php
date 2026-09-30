@@ -7,9 +7,11 @@ namespace NightWorksIO\MutationGate\Cli\Discovery;
 use function array_filter;
 
 use Closure;
+use Error;
 
 use function is_a;
 
+use LogicException;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -20,6 +22,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
+use RuntimeException;
 
 use function sprintf;
 
@@ -104,6 +107,15 @@ final readonly class Discovery
             ));
         }
 
-        return $registry->merge(new ($one->class)()->extend(new Extensions(Origin::of($one->origin))));
+        try {
+            return $registry->merge(new ($one->class)()->extend(new Extensions(Origin::of($one->origin))));
+        } catch (Error|LogicException|RuntimeException $failed) {
+            return CannotJudge::because(sprintf(
+                '%s names %s as a mutation-gate extension, and it failed as it started: %s',
+                $one->origin,
+                $one->class,
+                $failed->getMessage(),
+            ));
+        }
     }
 }
