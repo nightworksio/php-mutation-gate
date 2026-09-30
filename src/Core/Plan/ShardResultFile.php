@@ -24,15 +24,18 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\UnitRecord;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 use function sprintf;
 
 /**
  * A shard's result as `.mutation-gate/results/<id>.json` holds it,
  * `"format": 1`, with `flaky` listing the ids of the mutants that gave two
- * answers where there are any, and `missed` each held unit whose holding
- * tests miss lines of it, with why, where there are any. A result that cannot be read is refused, and the verdict
- * reads that shard as having left no result.
+ * answers where there are any, `missed` each held unit whose holding tests
+ * miss lines of it, with why, where there are any, and `warnings` what the
+ * shard warns of, where it warns of anything. A result that cannot be read is
+ * refused, and the verdict reads that shard as having left no result.
  *
  * @internal the shape of the shard result file
  */
@@ -51,6 +54,8 @@ final readonly class ShardResultFile
     private const string MISSED_UNIT = 'unit';
 
     private const string MISSED_WHY = 'why';
+
+    private const string WARNINGS = 'warnings';
 
     public static function encode(ShardResult $result): string
     {
@@ -84,6 +89,10 @@ final readonly class ShardResultFile
                 ],
                 [...$result->misses()],
             )] : [],
+            ...count($result->warnings()) > 0 ? [self::WARNINGS => array_map(
+                static fn(Warning $warning): string => $warning->text(),
+                [...$result->warnings()],
+            )] : [],
         ]);
     }
 
@@ -113,7 +122,20 @@ final readonly class ShardResultFile
             self::measuredIn($file->field(self::MEASURED)),
         )
             ->withFlaky(self::flakyIn($file->field(self::FLAKY)))
-            ->withMisses(self::missesIn($file->field(self::MISSED)));
+            ->withMisses(self::missesIn($file->field(self::MISSED)))
+            ->withWarnings(self::warningsIn($file->field(self::WARNINGS)));
+    }
+
+    /** @throws NotInShape */
+    private static function warningsIn(Node $warnings): Warnings
+    {
+        $read = Warnings::none();
+
+        foreach ($warnings->isPresent() ? $warnings->items() : [] as $warning) {
+            $read = $read->with(Warning::that($warning->text()));
+        }
+
+        return $read;
     }
 
     /** @throws NotInShape */

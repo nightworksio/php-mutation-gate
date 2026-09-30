@@ -27,6 +27,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -42,6 +44,8 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
@@ -54,11 +58,17 @@ use function sprintf;
  * or the runner's cannot judge, for the verdict. Each mutant whose time ran
  * out and whose limit the configured cap decided runs once more with the cap
  * doubled, where the runner can raise it, and each keeps the time its judging
- * tests take on their own, from the handed map, for timeout triage.
+ * tests take on their own, from the handed map, for timeout triage. Under
+ * `tests.order: killers-first` each mutant's likely killers run first, by the
+ * kill history the plan handed the shard beside its map: a shard handed none
+ * orders its tests as though no test had killed anything yet, and one whose
+ * history cannot be read does too, and warns of it.
  */
 final readonly class Running
 {
     private const string NO_HEAD = 'The commit HEAD is at cannot be read, so the plan cannot be checked against it. %s';
+
+    private const string UNREAD_HISTORY = 'Shard %d ran its tests without the kill history the plan handed it. %s';
 
     /** A retried timeout's cap is the configured one doubled. */
     private const int DOUBLED = 2;
@@ -109,7 +119,12 @@ final readonly class Running
 
         $started = $this->setup->clock->now();
         $map = new Handoff($this->adapters->project)->read($id);
-        $outcome = $map instanceof CoverageMap ? $this->mutated($shard, $map) : $map;
+        $history = new Handoff($this->adapters->project)->history($id);
+        $ordering = Ordering::of(
+            $this->settings->triage()->order(),
+            $history instanceof KillHistory ? $history : KillHistory::none(),
+        );
+        $outcome = $map instanceof CoverageMap ? $this->mutated($shard, $map, $ordering) : $map;
         $ended = $this->setup->clock->now();
         $spent = Seconds::of((float) $ended->format('U.u') - (float) $started->format('U.u'));
         $identity = $this->adapters->runner->identity($this->adapters->withheld);
@@ -121,7 +136,10 @@ final readonly class Running
             Measurement::of($spent, $identity instanceof CannotJudge ? '' : $identity->runner(), Instant::at($ended)),
         )
             ->withFlaky($outcome instanceof CannotJudge ? MutantIds::none() : $outcome->flaky)
-            ->withMisses($outcome instanceof CannotJudge ? HeldMisses::none() : $outcome->misses);
+            ->withMisses($outcome instanceof CannotJudge ? HeldMisses::none() : $outcome->misses)
+            ->withWarnings($history instanceof CannotJudge ? Warnings::of(
+                Warning::that(sprintf(self::UNREAD_HISTORY, $id->number(), $history->why())),
+            ) : Warnings::none());
 
         return $this->adapters->project->write(
             Workspace::result($results, $id),
@@ -135,7 +153,7 @@ final readonly class Running
      * unit but the held ones whose holding tests miss lines of them; or the
      * first cannot judge. A shard handed no map cannot judge at all.
      */
-    private function mutated(Shard $shard, CoverageMap $map): Mutated|CannotJudge
+    private function mutated(Shard $shard, CoverageMap $map, Ordering $ordering): Mutated|CannotJudge
     {
         $misses = new HeldCoverage($this->adapters)->misses($shard, $map);
 
@@ -149,7 +167,7 @@ final readonly class Running
         $retries = $this->settings->triage()->retries();
 
         foreach (HeldCoverage::kept($shard, $misses)->invocations() as $units) {
-            $invoked = $this->invoked($this->requestFor($units, $shard->id()), $retries);
+            $invoked = $this->invoked($this->requestFor($units, $shard->id(), $ordering), $retries);
 
             if ($invoked instanceof CannotJudge) {
                 return $invoked;
@@ -272,9 +290,10 @@ final readonly class Running
 
     /**
      * One invocation: a held unit alone by the tests that hold it, or files
-     * by the whole suite, reading the map the plan handed the shard.
+     * by the whole suite, reading the map the plan handed the shard, its
+     * tests in the order asked.
      */
-    private function requestFor(Units $units, ShardId $shard): MutationRequest
+    private function requestFor(Units $units, ShardId $shard, Ordering $ordering): MutationRequest
     {
         $files = Paths::none();
         $judgedBy = WholeSuite::tests();
@@ -286,7 +305,8 @@ final readonly class Running
 
         return MutationRequest::of($files, $judgedBy)
             ->reusingCoverage(Workspace::shardCoverage($shard))
-            ->withholding($this->adapters->withheld);
+            ->withholding($this->adapters->withheld)
+            ->orderedBy($ordering);
     }
 
     private function keysOf(Units $units, Keys $planned): Keys

@@ -654,6 +654,28 @@ it('says how many of the runner\'s own ignore markers ignores.native allows in w
     ],
 ]);
 
+it('warns of what a shard warned of, and judges as it would without it', function () use (
+    $tree,
+    $reporting,
+): void {
+    $project = Flows::project();
+    $plan = Planned::oneShard();
+    $adapters = Flows::adapters($project, [], $tree(Floor::of(0)));
+    new Handoff($adapters->project)->write($plan, Flows::map(), KillHistory::none());
+    Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json', 'garbled');
+    new Running($adapters, judgingSettings(), Flows::setup())->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), $adapters->project);
+    $judging = new Judging($adapters, judgingSettings(), Flows::setup(), $reporting(new ReporterFake()));
+
+    $verdict = judgingVerdictOf($results instanceof Results ? $judging->verdict($plan, $results) : $results);
+    $said = judgingTexts($verdict->warnings());
+
+    expect($said)->toHaveCount(1)
+        ->and($said[0] ?? '')->toStartWith('Shard 1 ran its tests without the kill history the plan handed it.')
+        ->and($verdict->failures())->toHaveCount(0)
+        ->and($verdict->judgement())->toBe(Judgement::Passed);
+});
+
 it('fails a verdict on a held unit its holding tests miss lines of, and proves nothing of it', function (
     Setting $uncovered,
 ) use ($tree, $reporting): void {

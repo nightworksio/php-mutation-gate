@@ -28,6 +28,8 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 $measured = Measurement::of(Seconds::of(42.5), 'pest', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')));
 
@@ -149,6 +151,16 @@ it('lists each held unit its holding tests miss lines of, with why, and reads th
     expect($written)->toContain('"missed": [')
         ->and(ShardResultFile::decode($written))->toEqual($result)
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"missed"');
+});
+
+it('lists what the shard warns of, and reads it back', function () use ($finished, $survivor, $measured): void {
+    $result = $finished($survivor, $measured)
+        ->withWarnings(Warnings::of(Warning::that('One.'), Warning::that('Two.')));
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toEndWith("    \"warnings\": [\n        \"One.\",\n        \"Two.\"\n    ]\n}")
+        ->and(ShardResultFile::decode($written))->toEqual($result)
+        ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"warnings"');
 });
 
 it('reads back a shard that could not judge', function () use ($measured): void {

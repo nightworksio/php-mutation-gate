@@ -11,12 +11,13 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 /**
  * What one shard left for the verdict: the plan it followed, its units with
  * their keys, every mutant's record or the runner's cannot judge, what it
- * measured, the mutants that gave two answers, and the held units whose
- * holding tests miss lines of them, which it did not mutate.
+ * measured, the mutants that gave two answers, the held units whose holding
+ * tests miss lines of them, which it did not mutate, and what it warns of.
  */
 final readonly class ShardResult
 {
@@ -28,6 +29,7 @@ final readonly class ShardResult
         private Measurement $measured,
         private MutantIds $flaky,
         private HeldMisses $misses,
+        private Warnings $warnings,
     ) {
     }
 
@@ -38,7 +40,16 @@ final readonly class ShardResult
         MutationResult|CannotJudge $outcome,
         Measurement $measured,
     ): self {
-        return new self($plan, $shard, $units, $outcome, $measured, MutantIds::none(), HeldMisses::none());
+        return new self(
+            $plan,
+            $shard,
+            $units,
+            $outcome,
+            $measured,
+            MutantIds::none(),
+            HeldMisses::none(),
+            Warnings::none(),
+        );
     }
 
     /** This result, with the survivors a second run killed, which are flaky (ADR-0008). */
@@ -51,6 +62,12 @@ final readonly class ShardResult
     public function withMisses(HeldMisses $misses): self
     {
         return clone($this, ['misses' => $misses]);
+    }
+
+    /** This result, with what the shard warns of, which judges nothing. */
+    public function withWarnings(Warnings $warnings): self
+    {
+        return clone($this, ['warnings' => $warnings]);
     }
 
     /** The digest of the plan the shard followed. */
@@ -91,5 +108,11 @@ final readonly class ShardResult
     public function misses(): HeldMisses
     {
         return $this->misses;
+    }
+
+    /** What the shard warns of. */
+    public function warnings(): Warnings
+    {
+        return $this->warnings;
     }
 }

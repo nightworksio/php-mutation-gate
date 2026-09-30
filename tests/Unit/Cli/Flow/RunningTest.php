@@ -9,15 +9,18 @@ use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Setting;
+use NightWorksIO\MutationGate\Config\Tests;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -27,7 +30,11 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\Kills;
+use NightWorksIO\MutationGate\Core\Order\Ordering;
+use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -43,10 +50,13 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
@@ -90,6 +100,12 @@ $statuses = static fn(ShardResult|CannotJudge $result): array => $result instanc
 $flaky = static fn(ShardResult|CannotJudge $result): array => $result instanceof ShardResult
     ? array_map(static fn(MutantId $id): string => $id->value(), [...$result->flaky()])
     : [];
+
+/** @return list<Ordering> the order each invocation asked its tests in */
+$orderings = static fn(ScriptedRunner $runner): array => array_map(
+    static fn(MutationRequest $request): Ordering => $request->ordering(),
+    $runner->requests(),
+);
 
 it('runs the shard it is named, on the commit its plan was made on, and leaves its result', function () use (
     $ticking,
@@ -528,4 +544,80 @@ it('spends one timeouts.retries across every invocation of a shard', function ()
 
     expect($scripted->requests())->toHaveCount(2)
         ->and($scripted->retries())->toHaveCount(1);
+});
+
+it('runs each mutant\'s likely killers first, by the kill history the plan handed the shard', function () use (
+    $orderings,
+): void {
+    $project = Flows::project();
+    $ranked = Ranking::of(Kills::of(TestId::of('MoneyTest::adds'), 2));
+    $history = KillHistory::none()->withFunction(Enclosing::named(Path::of('src/Money.php'), 'add'), $ranked);
+    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map(), $history);
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
+    $handed = $history->onlyIn(Paths::of(Path::of('src/Money.php')));
+
+    $ordered = Ordering::of(TestOrder::KillersFirst, $handed);
+
+    expect($orderings($runner))->toEqual([$ordered, $ordered])
+        ->and($handed)->not->toEqual(KillHistory::none());
+});
+
+it('runs the tests in the runner\'s own order where tests.order says so', function () use ($orderings): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Tests::inRunnerOrder()), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    $own = Ordering::of(TestOrder::Runner, KillHistory::none());
+
+    expect($orderings($runner))->toEqual([$own, $own]);
+});
+
+it('orders a shard handed no kill history as though nothing was killed yet, and warns of nothing', function () use (
+    $resultIn,
+    $orderings,
+): void {
+    $project = Flows::project();
+    $plan = Planned::handedIn($project, Planned::oneShard());
+    unlink(sprintf('%s/.mutation-gate/coverage/shard-1/killers.json', $project));
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run($plan, ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+
+    $cold = Ordering::of(TestOrder::KillersFirst, KillHistory::none());
+
+    expect($orderings($runner))->toEqual([$cold, $cold])
+        ->and($result instanceof ShardResult ? $result->warnings() : $result)->toEqual(Warnings::none())
+        ->and($result instanceof ShardResult ? $result->outcome() : $result)->toBeInstanceOf(MutationResult::class);
+});
+
+it('judges a shard whose kill history cannot be read without it, and warns of it', function () use (
+    $resultIn,
+    $statuses,
+    $orderings,
+): void {
+    $project = Flows::project();
+    $plan = Planned::handedIn($project, Planned::oneShard());
+    Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json', '{"format": 1, "tests": 3}');
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run($plan, ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $warnings = $result instanceof ShardResult ? [...$result->warnings()] : [];
+
+    $cold = Ordering::of(TestOrder::KillersFirst, KillHistory::none());
+
+    expect($orderings($runner))->toEqual([$cold, $cold])
+        ->and($statuses($result))->not->toBeEmpty()
+        ->and($warnings)->toHaveCount(1)
+        ->and($warnings[0] ?? null)->toBeInstanceOf(Warning::class)
+        ->and(($warnings[0] ?? null)?->text())
+        ->toStartWith('Shard 1 ran its tests without the kill history the plan handed it. A kill history cannot be read: ');
 });

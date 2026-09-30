@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -129,6 +130,20 @@ it('reads the results from the directory it is handed', function (): void {
 
     expect(Results::read($plan, Path::of('elsewhere'), Directory::at($project)))->toBeInstanceOf(Results::class)
         ->and(Results::read($plan, Workspace::results(), Directory::at($project)))->toBeInstanceOf(CannotJudge::class);
+});
+
+it('gathers what every shard warns of, shard by shard', function (): void {
+    $project = Flows::project();
+    $plan = Planned::handedIn($project, Planned::twoShards());
+    Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json', 'one');
+    Scratch::write($project, '.mutation-gate/coverage/shard-2/killers.json', 'two');
+    new Running(Flows::adapters($project), Flows::settings(), Flows::setup())->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+
+    expect($results instanceof Results ? array_map(
+        static fn(Warning $warning): string => substr($warning->text(), 0, 7),
+        [...$results->warnings()],
+    ) : $results)->toBe(['Shard 1', 'Shard 2']);
 });
 
 it('keeps each shard\'s result as it was read', function () use ($ran): void {

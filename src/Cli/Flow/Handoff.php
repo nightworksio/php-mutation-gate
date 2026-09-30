@@ -61,14 +61,18 @@ final readonly class Handoff
     }
 
     /**
-     * The kill history a shard was handed; missing where it was handed none,
-     * which orders its tests as though no test had killed anything yet.
+     * The kill history a shard was handed; none where it was handed none, as
+     * though no test had killed anything yet.
      */
-    public function history(ShardId $shard): KillHistory|Missing|CannotJudge
+    public function history(ShardId $shard): KillHistory|CannotJudge
     {
         $contents = $this->project->read($this->killersOf($shard));
 
-        return $contents instanceof Contents ? KillHistoryFile::decode($contents->text()) : $contents;
+        return match (true) {
+            $contents instanceof Contents => KillHistoryFile::decode($contents->text()),
+            $contents instanceof Missing => KillHistory::none(),
+            default => $contents,
+        };
     }
 
     /** The map a shard was handed. */

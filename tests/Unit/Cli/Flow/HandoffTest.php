@@ -12,12 +12,17 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\Kills;
+use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\KillHistoryFile;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -91,9 +96,10 @@ it('cannot hand a shard a map it cannot write', function () use ($plan, $map): v
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/coverage/shard-2/map.json.gz/blocked', '');
 
-    expect(new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none()))->toEqual(CannotJudge::because(
-        sprintf('%s/.mutation-gate/coverage/shard-2/map.json.gz could not be written.', $project),
-    ));
+    expect(new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none()))
+        ->toEqual(CannotJudge::because(
+            sprintf('%s/.mutation-gate/coverage/shard-2/map.json.gz could not be written.', $project),
+        ));
 });
 
 it('says a shard was handed no map where there is none', function (): void {
@@ -113,4 +119,53 @@ it('cannot read a map that is not a file, or not a map', function (): void {
         sprintf('%s/.mutation-gate/coverage/shard-1/map.json.gz could not be read.', $project),
     ))
         ->and($handoff->read(ShardId::of(2)))->toBeInstanceOf(CannotJudge::class);
+});
+
+it('hands each shard the kill history of its own files\' functions, beside its map', function () use (
+    $plan,
+    $map,
+): void {
+    $project = Scratch::directory();
+    $mutant = MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0);
+    $ranked = Ranking::of(Kills::of(TestId::of('MoneyTest::adds'), 2));
+    $history = KillHistory::none()
+        ->withMutant($mutant, $ranked)
+        ->withFunction(Enclosing::named(Path::of('src/Money.php'), 'add'), $ranked)
+        ->withFunction(Enclosing::named(Path::of('src/Held/A.php'), 'a'), $ranked)
+        ->withFunction(Enclosing::named(Path::of('src/Other.php'), 'd'), $ranked);
+    $handoff = new Handoff(Directory::at($project));
+    $handoff->write($plan, $map, $history);
+
+    expect($handoff->history(ShardId::of(1)))
+        ->toEqual($history->onlyIn(Paths::of(Path::of('src/Money.php'))))
+        ->and($handoff->history(ShardId::of(2)))
+        ->toEqual($history->onlyIn(Paths::of(Path::of('src/Held/A.php'), Path::of('src/Held/B.php'))))
+        ->and(file_get_contents(sprintf('%s/.mutation-gate/coverage/shard-1/killers.json', $project)))
+        ->toBe(KillHistoryFile::encode($history->onlyIn(Paths::of(Path::of('src/Money.php')))));
+});
+
+it('reads a shard handed no kill history as one no test has killed anything in', function (): void {
+    expect(new Handoff(Directory::at(Scratch::directory()))->history(ShardId::of(1)))->toEqual(KillHistory::none());
+});
+
+it('cannot read a kill history that is not one, or not a file', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json', 'not a history');
+    Scratch::write($project, '.mutation-gate/coverage/shard-2/killers.json/blocked', '');
+    $handoff = new Handoff(Directory::at($project));
+
+    expect($handoff->history(ShardId::of(1)))->toBeInstanceOf(CannotJudge::class)
+        ->and($handoff->history(ShardId::of(2)))->toEqual(CannotJudge::because(
+            sprintf('%s/.mutation-gate/coverage/shard-2/killers.json could not be read.', $project),
+        ));
+});
+
+it('cannot hand a shard a kill history it cannot write', function () use ($plan, $map): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json/blocked', '');
+
+    expect(new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none()))
+        ->toEqual(CannotJudge::because(
+            sprintf('%s/.mutation-gate/coverage/shard-1/killers.json could not be written.', $project),
+        ));
 });
