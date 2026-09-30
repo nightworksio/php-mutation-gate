@@ -26,32 +26,41 @@ $mutant = static fn(int $line, Line|Unreported $end, string $diff): Mutant => Mu
 );
 
 it('places a mutant at the tokens its diff changed, the end past the last', function () use ($mutant): void {
-    $columns = Columns::of($mutant(7, Line::of(7), Verdicts::BOUNDARY), Contents::of(Verdicts::MONEY));
-
-    expect($columns->start())->toBe(['line' => 7, 'column' => 21])
-        ->and($columns->end())->toBe(['line' => 7, 'column' => 22]);
+    expect(Columns::in(Contents::of(Verdicts::MONEY))->of($mutant(7, Line::of(7), Verdicts::BOUNDARY)))->toBe([
+        'start' => ['line' => 7, 'column' => 21],
+        'end' => ['line' => 7, 'column' => 22],
+    ]);
 });
 
 it('places a removed statement from its first token to its last', function () use ($mutant): void {
-    $columns = Columns::of($mutant(8, Unreported::line(), Verdicts::diff('return true;', '')), Contents::of(Verdicts::MONEY));
+    expect(Columns::in(Contents::of(Verdicts::MONEY))->of($mutant(8, Unreported::line(), Verdicts::diff('return true;', ''))))->toBe([
+        'start' => ['line' => 8, 'column' => 13],
+        'end' => ['line' => 8, 'column' => 25],
+    ]);
+});
 
-    expect($columns->start())->toBe(['line' => 8, 'column' => 13])
-        ->and($columns->end())->toBe(['line' => 8, 'column' => 25]);
+it('places every mutant of a file from one reading of it', function () use ($mutant): void {
+    $columns = Columns::in(Contents::of(Verdicts::MONEY));
+
+    expect($columns->of($mutant(7, Line::of(7), Verdicts::BOUNDARY))['start'])->toBe(['line' => 7, 'column' => 21])
+        ->and($columns->of($mutant(11, Line::of(11), Verdicts::diff('return false;', 'return true;')))['start'])->toBe(['line' => 11, 'column' => 16]);
 });
 
 it('counts characters, not bytes', function () use ($mutant): void {
     $source = "<?php\n\$naïve = 'é' . \$a + \$b;\n";
-    $columns = Columns::of($mutant(2, Line::of(2), "@@ @@\n-\$naïve = 'é' . \$a + \$b;\n+\$naïve = 'é' . \$a - \$b;\n"), Contents::of($source));
+    $diff = "@@ @@\n-\$naïve = 'é' . \$a + \$b;\n+\$naïve = 'é' . \$a - \$b;\n";
 
-    expect($columns->start())->toBe(['line' => 2, 'column' => 19])
-        ->and($columns->end())->toBe(['line' => 2, 'column' => 20]);
+    expect(Columns::in(Contents::of($source))->of($mutant(2, Line::of(2), $diff)))->toBe([
+        'start' => ['line' => 2, 'column' => 19],
+        'end' => ['line' => 2, 'column' => 20],
+    ]);
 });
 
 it('spans a mutant it cannot place from the first column of its lines to past the end', function (string $diff, int $line, Line|Unreported $end, array $to) use ($mutant): void {
-    $columns = Columns::of($mutant($line, $end, $diff), Contents::of(Verdicts::MONEY));
-
-    expect($columns->start())->toBe(['line' => $line, 'column' => 1])
-        ->and($columns->end())->toBe($to);
+    expect(Columns::in(Contents::of(Verdicts::MONEY))->of($mutant($line, $end, $diff)))->toBe([
+        'start' => ['line' => $line, 'column' => 1],
+        'end' => $to,
+    ]);
 })->with([
     'tokens that are not on its line' => [Verdicts::diff('return 42;', 'return 43;'), 8, Line::of(8), ['line' => 8, 'column' => 25]],
     'a change that only adds' => [Verdicts::diff('return true;', 'return ! true;'), 8, Line::of(9), ['line' => 9, 'column' => 10]],

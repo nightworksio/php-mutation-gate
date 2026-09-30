@@ -44,14 +44,16 @@ final readonly class Stryker
     {
         $uncovered = Overview::of($verdict)->uncovered();
         $files = [];
+        $columns = [];
 
         foreach ($verdict->mutants() as $judged) {
             $path = $judged->mutant()->location()->file()->value();
             $source = array_key_exists($path, $sources) ? $sources[$path] : Contents::of('');
+            $columns[$path] = array_key_exists($path, $columns) ? $columns[$path] : Columns::in($source);
             $file = array_key_exists($path, $files)
                 ? $files[$path]
                 : ['language' => self::LANGUAGE, 'source' => $source->text(), 'mutants' => []];
-            $file['mutants'][] = self::mutant($judged, $source, $uncovered);
+            $file['mutants'][] = self::mutant($judged, $columns[$path], $uncovered);
             $files[$path] = $file;
         }
 
@@ -65,10 +67,9 @@ final readonly class Stryker
     }
 
     /** @return array<string, mixed> */
-    private static function mutant(JudgedMutant $judged, Contents $source, Uncovered $uncovered): array
+    private static function mutant(JudgedMutant $judged, Columns $columns, Uncovered $uncovered): array
     {
         $mutant = $judged->mutant();
-        $columns = Columns::of($mutant, $source);
         $reason = $mutant->reason();
         $change = Change::of($mutant->mutation()->diff());
 
@@ -76,7 +77,7 @@ final readonly class Stryker
             'id' => $mutant->id()->value(),
             'mutatorName' => Mutator::short($mutant->mutation()->mutator()),
             'replacement' => $change->added(),
-            'location' => ['start' => $columns->start(), 'end' => $columns->end()],
+            'location' => $columns->of($mutant),
             'status' => self::statusOf($judged->judgement(), $uncovered),
             'statusReason' => $reason instanceof Reason
                 ? sprintf('%s: %s', Label::of($judged->judgement()), $reason->text())

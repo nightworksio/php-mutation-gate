@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
+use function array_key_exists;
 use function dirname;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Stryker;
 use NightWorksIO\MutationGate\Core\Report\StrykerPage;
@@ -88,7 +90,7 @@ final readonly class HtmlReportDirectory implements Configurable, Reporter
 
         foreach ($verdict->mutants() as $judged) {
             $file = $judged->mutant()->location()->file();
-            $contents = $this->project->read($file);
+            $contents = array_key_exists($file->value(), $sources) ? Missing::at($file) : $this->project->read($file);
 
             if ($contents instanceof Contents) {
                 $sources[$file->value()] = $contents;
