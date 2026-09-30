@@ -8,6 +8,7 @@ use function count;
 use function implode;
 use function is_file;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Workspace;
@@ -121,6 +122,32 @@ final readonly class Invocation
             ...$this->narrowedTo($judgedBy),
             ...$this->applying($request->mutators()),
         )->with([GateVariable::Results->value => $results])->within($request->deadline());
+    }
+
+    /**
+     * A run of no test, started as pest-plugin-mutate starts a mutant's own
+     * run (MutationTest::start): Pest with `--bail` and a filter, which loads
+     * every test file and then runs none, in the environment it gives a
+     * mutant under `--parallel`, naming a file and the copy it serves in the
+     * file's place.
+     */
+    public function startingUp(Withheld $withheld, string $original, string $copy): Command
+    {
+        return Command::pest(
+            $this->script,
+            $withheld,
+            '--no-tia',
+            '--bail',
+            '--colors=never',
+            ...$this->narrowedTo(Filter::nothing()),
+        )->with([
+            Recorder::MUTANT => $original,
+            Recorder::MUTATED => $copy,
+            'PARATEST' => '1',
+            'TEST_TOKEN' => '0',
+            'UNIQUE_TEST_TOKEN' => '0_start-up',
+            'LARAVEL_PARALLEL_TESTING' => '1',
+        ]);
     }
 
     /**

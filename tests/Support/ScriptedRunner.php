@@ -60,6 +60,12 @@ final class ScriptedRunner implements Runner
     /** @var list<Withheld> */
     private array $identified = [];
 
+    /** @var list<array{Path, Withheld}> */
+    private array $startedUp = [];
+
+    /** How long its run of no test takes, or why it cannot start. */
+    private Seconds|CannotJudge $startingUp;
+
     private function __construct(
         private readonly RunnerFake $fake,
         private readonly Identity|CannotJudge $identity,
@@ -69,6 +75,7 @@ final class ScriptedRunner implements Runner
         private readonly CannotJudge|RunnerFake $covering,
         private readonly CannotJudge|Markers|RunnerFake $marking,
     ) {
+        $this->startingUp = $fake->startUp(Path::of('src/Money.php'), Withheld::nothing());
     }
 
     /** The fake runner over the fixture library, whose survivors survive again. */
@@ -166,6 +173,15 @@ final class ScriptedRunner implements Runner
             $this->covering,
             $this->marking,
         );
+    }
+
+    /** This runner, whose run of no test takes this long, or cannot start. */
+    public function startingUpIn(Seconds|CannotJudge $startUp): self
+    {
+        $scripted = clone $this;
+        $scripted->startingUp = $startUp;
+
+        return $scripted;
     }
 
     /** This runner, behaving as Pest does without the gate's patch. */
@@ -287,6 +303,23 @@ final class ScriptedRunner implements Runner
     public function judges(Path $file, CoverageMap $map): Paths
     {
         return $this->fake->judges($file, $map);
+    }
+
+    public function startUp(Path $file, Withheld $withheld): Seconds|CannotJudge
+    {
+        $this->startedUp[] = [$file, $withheld];
+
+        return $this->startingUp;
+    }
+
+    /**
+     * The file and what was withheld of each run of no test it was asked for.
+     *
+     * @return list<array{Path, Withheld}>
+     */
+    public function startedUp(): array
+    {
+        return $this->startedUp;
     }
 
     public function mutate(MutationRequest $request): MutationResult|CannotJudge

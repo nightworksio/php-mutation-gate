@@ -14,6 +14,7 @@ use function implode;
 
 use Iterator;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 
 use function preg_quote;
 use function sprintf;
@@ -91,6 +92,8 @@ final readonly class Withheld implements IteratorAggregate
             $this->globs,
         );
 
-        return $alternatives === [] ? '~(?!)~' : sprintf('~^(?:%s)$~', implode('|', $alternatives));
+        return $alternatives === []
+            ? sprintf('~%s~', Filter::nothing()->pattern())
+            : sprintf('~^(?:%s)$~', implode('|', $alternatives));
     }
 }

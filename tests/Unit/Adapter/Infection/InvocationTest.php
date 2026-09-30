@@ -61,6 +61,20 @@ it('runs only the tests that judge a held path under coverage', function (): voi
         ->and(array_slice($filter->arguments(), -1))->toBe(['--filter=KernelTest']);
 });
 
+it('starts a run of no test on the config that loads none, with the project\'s arguments and none of its opening run\'s PHP options', function (): void {
+    $config = invoked('{"initialTestsPhpOptions": "-d pcov.directory=app", "testFrameworkExtraArgs": "--testsuite=unit"}');
+
+    expect(Invocation::startingUp(invokedIn(), $config, '/project/.gate/infection/start-up/phpunit.xml')->arguments())->toBe([
+        PHP_BINARY,
+        '/project/vendor/bin/phpunit',
+        '--configuration=/project/.gate/infection/start-up/phpunit.xml',
+        '--colors=never',
+        '--testsuite=unit',
+        '--filter=(?!)',
+        '--do-not-fail-on-empty-test-suite',
+    ]);
+});
+
 it('runs Infection on the generated config over the coverage the gate chose, reporting every mutant and nothing of its own', function (): void {
     $command = Invocation::mutation(
         invokedIn(),

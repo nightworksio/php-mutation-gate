@@ -56,7 +56,7 @@ final readonly class Infection implements Runner
 {
     private const string NO_PROJECT = '%s holds no project Infection can run: Infection is not installed there.';
 
-    private const string COVERAGE_FAILED = "PHPUnit's coverage run failed. PHPUnit said:\n%s";
+    private const string NOT_STARTED = "PHPUnit's run of no test, timing a mutant's start-up, failed. It said:\n%s";
 
     public function __construct(
         private Project $project,
@@ -146,11 +146,9 @@ final readonly class Infection implements Runner
 
         $config = OwnConfig::in($this->project);
         $directory = $this->project->directory($request->directory());
-        $covered = $config instanceof CannotJudge ? $config : $this->covered(
-            Invocation::coverage($this->project, $config, $request->tests(), $directory)
-                ->withholding($request->withheld()),
-            $directory,
-        );
+        $covered = $config instanceof CannotJudge
+            ? $config
+            : $this->covering()->run($config, $request->tests(), $request->withheld(), $directory);
 
         return $covered instanceof CannotJudge ? $covered : CoverageXml::read($this->project, $directory);
     }
@@ -167,6 +165,31 @@ final readonly class Infection implements Runner
         return $classes === [] ? Paths::none() : TestFiles::declaring($this->project, array_keys($classes));
     }
 
+    /**
+     * A run of no test, timed from its start to its end, started as Infection
+     * starts PHPUnit for a mutant of this file, the mutant an unchanged copy,
+     * on a config that loads no test file.
+     */
+    public function startUp(Path $file, Withheld $withheld): Seconds|CannotJudge
+    {
+        $config = OwnConfig::in($this->project);
+        $shaped = $config instanceof CannotJudge ? $config : StartUpConfig::written($this->project, $config, $file);
+        $ran = match (true) {
+            $config instanceof CannotJudge => $config,
+            $shaped instanceof CannotJudge => $shaped,
+            default => $this->shell->run(
+                Invocation::startingUp($this->project, $config, $shaped)->withholding($withheld),
+            ),
+        };
+
+        return match (true) {
+            $ran instanceof CannotJudge => $ran,
+            $ran->succeeded() => $ran->took(),
+            default => CannotJudge::because(sprintf(self::NOT_STARTED, $ran->output())),
+        };
+    }
+
+    /** Every mutant of the requested files. */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
         $config = OwnConfig::in($this->project);
@@ -176,7 +199,7 @@ final readonly class Infection implements Runner
         }
 
         $this->held->forget();
-        $coverage = $this->coverageFor($config, $request);
+        $coverage = $this->covering()->of($config, $request);
 
         return $coverage instanceof CannotJudge
             ? $coverage
@@ -251,68 +274,19 @@ final readonly class Infection implements Runner
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value()));
     }
 
-    /**
-     * The coverage directory a run reads, which the adapter writes unless the
-     * mutation run a run again follows left the same there: for a run judged by
-     * the whole suite that reuses the map another job handed on, that map in
-     * Infection's layout; otherwise PHPUnit's run of the tests that judge it.
-     * A held path never reads a map of the whole suite.
-     */
-    private function coverageFor(OwnConfig $config, MutationRequest $request): DiskPath|CannotJudge
-    {
-        $reused = $request->coverage();
-        $own = $this->ownCoverage();
-
-        if ($reused instanceof Path && $request->judgedBy() instanceof WholeSuite) {
-            return $this->held->handedOn($reused, fn(): DiskPath|CannotJudge => $this->handedOn($reused));
-        }
-
-        $run = Invocation::coverage($this->project, $config, $request->judgedBy(), $own)
-            ->withholding($request->withheld());
-
-        return $this->held->ranBy($run, fn(): DiskPath|CannotJudge => $this->covered($run, $own));
-    }
-
-    /** The map another job handed on in a directory, written into Infection's layout. */
-    private function handedOn(Path $directory): DiskPath|CannotJudge
-    {
-        $map = HandedMap::in($this->project, $directory);
-
-        return $map instanceof CannotJudge ? $map : CoverageLayout::write($this->project, $map, $this->ownCoverage());
-    }
-
-    /**
-     * The directory, once PHPUnit has run under coverage into it, with no
-     * earlier run's reports left.
-     */
-    private function covered(Command $run, DiskPath $directory): DiskPath|CannotJudge
-    {
-        foreach ([CoverageXml::indexIn($directory), $directory->child(Invocation::JUNIT)] as $report) {
-            $fresh = $this->project->fresh($report->value());
-
-            if ($fresh instanceof CannotJudge) {
-                return $fresh;
-            }
-        }
-
-        $ran = $this->shell->run($run);
-
-        return $ran->succeeded() ? $directory : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
-    }
-
     /** Mutants run again, reading the coverage their request would have read. */
     private function rerunning(): Rerunning
     {
         $covered = fn(OwnConfig $config, MutationRequest $request): DiskPath|CannotJudge
-            => $this->coverageFor($config, $request);
+            => $this->covering()->of($config, $request);
 
         return new Rerunning($this->project, $this->shell, $this->nativeMarkersAllowed, $covered, $this->clock);
     }
 
-    /** The directory the adapter runs PHPUnit under coverage into, for a run of its own. */
-    private function ownCoverage(): DiskPath
+    /** The coverage each run reads, which the adapter writes. */
+    private function covering(): Covering
     {
-        return $this->project->directory(Path::of($this->project->own(Invocation::COVERAGE)));
+        return new Covering($this->project, $this->shell, $this->held);
     }
 
     private function run(OwnConfig $config): MutationRun

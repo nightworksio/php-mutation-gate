@@ -65,6 +65,14 @@ interface Runner
     public function judges(Path $file, CoverageMap $map): Paths|CannotJudge;
 
     /**
+     * How long one run of no test takes, started as the runner starts a
+     * mutant's own run of this file, whose mutant is the file unchanged, and
+     * narrowed by `Filter::nothing()`: what every mutant's run pays before
+     * its first test. The tests never see the variables withheld.
+     */
+    public function startUp(Path $file, Withheld $withheld): Seconds|CannotJudge;
+
+    /**
      * Every mutant's result for the requested files, judged by the tests the
      * request names, and how many were skipped with no record.
      */

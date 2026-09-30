@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Ran;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 it('is a program that finished, and whether it succeeded', function (): void {
     $passed = Ran::finished(succeeded: true, output: 'OK');
@@ -22,4 +23,11 @@ it('is a program stopped at its deadline, which did not succeed', function (): v
     expect($stopped->wasStopped())->toBeTrue()
         ->and($stopped->succeeded())->toBeFalse()
         ->and($stopped->output())->toBe('half');
+});
+
+it('ran no time at all until it is told how long it ran', function (): void {
+    expect(Ran::finished(succeeded: true, output: '')->took())->toEqual(Seconds::of(0.0))
+        ->and(Ran::stopped('')->took())->toEqual(Seconds::of(0.0))
+        ->and(Ran::stopped('half')->taking(Seconds::of(2.0))->took())->toEqual(Seconds::of(2.0))
+        ->and(Ran::stopped('half')->taking(Seconds::of(2.0))->wasStopped())->toBeTrue();
 });

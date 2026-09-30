@@ -86,6 +86,8 @@ final readonly class ProcessShell implements Shell
             timeout: null,
         );
 
+        $started = $this->clock->nanoseconds();
+
         try {
             $process->start();
             $stopped = $this->stoppedAt($process, $command->deadline());
@@ -94,8 +96,9 @@ final readonly class ProcessShell implements Shell
         }
 
         $output = sprintf('%s%s', $process->getOutput(), $process->getErrorOutput());
+        $ran = $stopped ? Ran::stopped($output) : Ran::finished(succeeded: $process->isSuccessful(), output: $output);
 
-        return $stopped ? Ran::stopped($output) : Ran::finished(succeeded: $process->isSuccessful(), output: $output);
+        return $ran->taking(Seconds::of(($this->clock->nanoseconds() - $started) / Seconds::NANOSECONDS));
     }
 
     /** @return array<string, string|false> each variable the process gets, or false for one it must not inherit */
