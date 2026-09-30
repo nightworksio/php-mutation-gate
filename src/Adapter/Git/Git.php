@@ -70,7 +70,7 @@ final class Git implements ChangeSource, Repository
     {
     }
 
-    /** The repository from a directory, as the registration spells it (owner: flows). */
+    /** The repository from a directory, git itself never seeing what every run withholds. */
     public static function at(string $directory): self
     {
         $root = Root::of($directory);
