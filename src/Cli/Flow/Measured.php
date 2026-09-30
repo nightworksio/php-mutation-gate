@@ -56,6 +56,7 @@ final readonly class Measured
             $baseline,
             Reach::nothing(Packages::of($inventory->trees)),
             Uncovered::from($settings->floors()->uncovered()->value),
+            $settings->triage()->timeouts(),
         );
 
         return new self($judge->trees($newest->carried()), $unmeasured);

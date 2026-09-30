@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
+use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -26,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -67,7 +69,9 @@ $results = UnitResults::of(
     )),
     UnitResult::of(Unit::file(Path::of('app/Http/Controller.php')), Origin::Run, Mutants::of(
         $mutant('app/Http/Controller.php', 3, MutantStatus::Survived),
-        $mutant('app/Http/Controller.php', 4, MutantStatus::TimedOut),
+        $mutant('app/Http/Controller.php', 4, MutantStatus::TimedOut)
+            ->withLimit(Seconds::of(10.0))
+            ->withJudgingTime(Seconds::of(1.0)),
     )),
     UnitResult::of(Unit::held(Path::of('app/Http/Middleware'), Group::named('holds:app/Http/Middleware')), Origin::Carried, Mutants::of(
         $mutant('app/Http/Middleware/Auth.php', 5, MutantStatus::Uncovered),
@@ -76,7 +80,13 @@ $results = UnitResults::of(
         $mutant('lib/Loose.php', 1, MutantStatus::Survived),
     )),
 );
-$judge = Judge::of($trees, Baseline::of(Entry::of(Path::of('app/Http'), Floor::of(40))), $reach, Uncovered::Count);
+$judge = Judge::of(
+    $trees,
+    Baseline::of(Entry::of(Path::of('app/Http'), Floor::of(40))),
+    $reach,
+    Uncovered::Count,
+    TimeoutMode::Confirm,
+);
 
 it('judges each tree over the units it holds most closely, with their origins', function () use ($judge, $results): void {
     $verdicts = [...$judge->trees($results)];
@@ -112,14 +122,15 @@ it('judges each mutant as reported, marks those on changed lines, and scores the
 it('carries the reason a baseline gives for lowering a tree\'s floor', function () use ($trees, $reach, $results): void {
     $lowered = Lowered::from(Floor::of(60), 'The HTTP layer moved to integration tests');
     $baseline = Baseline::of(Entry::of(Path::of('app/Http'), Floor::of(40))->lowered($lowered), Entry::of(Path::of('app'), Floor::of(10)));
-    [$app, $http] = [...Judge::of($trees, $baseline, $reach, Uncovered::Count)->trees($results)];
+    $judge = Judge::of($trees, $baseline, $reach, Uncovered::Count, TimeoutMode::Confirm);
+    [$app, $http] = [...$judge->trees($results)];
 
     expect($http->lowering())->toBe($lowered)
         ->and($app->lowering())->toEqual(Unlowered::floor());
 });
 
 it('holds the mutants on changed lines to the floor for new code, per package and floor', function () use ($trees, $reach, $results, $mutant): void {
-    $judge = Judge::of($trees, Baseline::none(), $reach, Uncovered::Count);
+    $judge = Judge::of($trees, Baseline::none(), $reach, Uncovered::Count, TimeoutMode::Confirm);
     $billing = UnitResult::of(Unit::file(Path::of('packages/billing/src/Invoice.php')), Origin::Run, Mutants::of(
         $mutant('packages/billing/src/Invoice.php', 9, MutantStatus::Killed),
     ));
@@ -135,7 +146,13 @@ it('holds the mutants on changed lines to the floor for new code, per package an
 });
 
 it('judges one empty new-code set, which passes and says so, when no changed line holds a mutant', function () use ($trees): void {
-    $judge = Judge::of($trees, Baseline::none(), Reach::nothing(Packages::of($trees)), Uncovered::Count);
+    $judge = Judge::of(
+        $trees,
+        Baseline::none(),
+        Reach::nothing(Packages::of($trees)),
+        Uncovered::Count,
+        TimeoutMode::Confirm,
+    );
     $sets = [...$judge->newCode($judge->trees(UnitResults::none()), Floor::of(90))];
 
     expect($sets)->toHaveCount(1)
@@ -162,7 +179,8 @@ it('judges a mutant flaky where its unit\'s result names it so, and every other 
     $mutants = Mutants::of($flaky, $killed, $survived);
     $result = UnitResult::of(Unit::file(Path::of('app/Kernel.php')), Origin::Run, $mutants)
         ->withFlaky(MutantIds::of($flaky->id()));
-    [$app] = [...Judge::of($trees, Baseline::none(), $reach, Uncovered::Count)->trees(UnitResults::of($result))];
+    $judge = Judge::of($trees, Baseline::none(), $reach, Uncovered::Count, TimeoutMode::Confirm);
+    [$app] = [...$judge->trees(UnitResults::of($result))];
 
     expect(array_map(static fn(JudgedMutant $judged): MutantJudgement => $judged->judgement(), [...$app->mutants()]))
         ->toBe([MutantJudgement::Flaky, MutantJudgement::Killed, MutantJudgement::Survived]);

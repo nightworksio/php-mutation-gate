@@ -34,9 +34,9 @@ enum MutantJudgement: string
     case Equivalent = 'equivalent';
 
     /**
-     * The judgement a status comes to before any triage: a timeout is a kill
-     * until triage says otherwise, and a mutant skipped as too slow to run is
-     * too slow to judge until a retry runs it.
+     * The judgement a status comes to before any triage: a timeout, or a
+     * mutant skipped as too slow to run, is too slow to judge until timeout
+     * triage confirms it a kill.
      */
     public static function reported(MutantStatus $status): self
     {
@@ -44,7 +44,7 @@ enum MutantJudgement: string
             MutantStatus::Killed => self::Killed,
             MutantStatus::Survived => self::Survived,
             MutantStatus::Uncovered => self::Uncovered,
-            MutantStatus::TimedOut => self::KilledByTimeout,
+            MutantStatus::TimedOut => self::TooSlowToJudge,
             MutantStatus::Errored => self::Errored,
             MutantStatus::Unjudged => self::Unjudged,
             MutantStatus::IgnoredByMarker => self::IgnoredByMarker,

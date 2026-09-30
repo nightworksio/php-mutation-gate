@@ -30,7 +30,7 @@ $timedOut = Mutant::of(
     Mutation::of('LessThan', MutatorFamily::Boundary, "-<\n+<="),
     MutantStatus::TimedOut,
     Seconds::of(0.4),
-)->withLimit(Seconds::of(5.0));
+)->withLimit(Seconds::of(5.0))->withJudgingTime(Seconds::of(1.5));
 
 $killed = Mutant::of(
     $id,
@@ -65,6 +65,7 @@ it('writes everything a runner reported of a mutant in the full record', functio
         'status' => 'timed-out',
         'seconds' => 0.4,
         'limit' => 5.0,
+        'testSeconds' => 1.5,
     ]);
 });
 
@@ -140,6 +141,7 @@ it('refuses a record that does not hold a mutant, saying where', function (array
     'a status there is not' => [['status' => 'nope'], NotInShape::at('the file.status', 'a status')],
     'seconds that are not a number' => [['seconds' => 'long'], NotInShape::at('the file.seconds', 'a number')],
     'a limit that is not a number' => [['limit' => 'long'], NotInShape::at('the file.limit', 'a number')],
+    'test seconds that are not a number' => [['testSeconds' => 'long'], NotInShape::at('the file.testSeconds', 'a number')],
     'a native id that is not text' => [['native' => 7], NotInShape::at('the file.native', 'text')],
     'a reason that is not text' => [['reason' => 7], NotInShape::at('the file.reason', 'text')],
 ]);

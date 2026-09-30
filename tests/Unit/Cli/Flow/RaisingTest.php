@@ -8,15 +8,13 @@ use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
-use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -26,7 +24,6 @@ use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
-use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -44,15 +41,14 @@ $judged = static function (Floor|Undeclared $money, Baseline $baseline): TreeVer
         Tree::at(Path::of('src/Money.php'), $money, $root),
         Tree::at(Path::of('src/Held.php'), Floor::of(0.5), $root),
     );
-    $fake = RunnerFake::ofTheFixture();
     $results = UnitResults::none();
 
     foreach (['src/Money.php', 'src/Held.php'] as $file) {
-        $mutants = $fake->mutate(MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests()))->mutants();
-        $results = $results->with(UnitResult::of(Unit::file(Path::of($file)), Origin::Run, $mutants));
+        $results = $results->with(UnitResult::of(Unit::file(Path::of($file)), Origin::Run, Flows::mutantsOf($file)));
     }
 
-    return Judge::of($trees, $baseline, Reach::nothing(Packages::of($trees)), Uncovered::Count)->trees($results);
+    return Judge::of($trees, $baseline, Reach::nothing(Packages::of($trees)), Uncovered::Count, TimeoutMode::Confirm)
+        ->trees($results);
 };
 
 $baselines = static fn(string $project): Baselines => new Baselines(Flows::adapters($project), Path::of('floors.json'));

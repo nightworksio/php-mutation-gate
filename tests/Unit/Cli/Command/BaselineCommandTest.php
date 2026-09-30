@@ -10,20 +10,16 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
-use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Score\Floor;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
-use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -38,11 +34,7 @@ afterEach(function (): void {
 $proofOf = static fn(string $file, bool $mutants): Proof => Proof::of(
     Digest::sha256Of($file),
     Path::of($file),
-    $mutants
-        ? RunnerFake::ofTheFixture()
-            ->mutate(MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests()))
-            ->mutants()
-        : Mutants::none(),
+    $mutants ? Flows::mutantsOf($file) : Mutants::none(),
     Run::of('local', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base')),
 );
 

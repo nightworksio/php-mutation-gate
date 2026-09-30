@@ -98,7 +98,13 @@ final readonly class Judging
             $ledgers->own()->proofs(),
         );
         $uncovered = Uncovered::from($this->settings->floors()->uncovered()->value);
-        $judge = Judge::of($trees, $baseline, $this->reachOf($plan, $trees), $uncovered);
+        $judge = Judge::of(
+            $trees,
+            $baseline,
+            $this->reachOf($plan, $trees),
+            $uncovered,
+            $this->settings->triage()->timeouts(),
+        );
         $verdicts = $judge->trees($results->units()->and($proving->proved())->and($carrying->carried()));
         $unfloored = Ratchet::unfloored($verdicts);
         $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));

@@ -81,6 +81,7 @@ final readonly class RunnerFake implements Runner
             Groups::of(Group::named('holds:src/Held.php'), Group::named(Library::CANARY)),
             CoverageMap::empty()
                 ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
+                ->covered(Path::of('src/Money.php'), Line::of(27), TestId::of('MoneyTest::adds'))
                 ->covered(Path::of('src/Held.php'), Line::of(11), TestId::of('HeldTest::doubles'))
                 ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.2)),
             $mutants,

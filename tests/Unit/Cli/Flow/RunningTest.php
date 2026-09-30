@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Flaky;
+use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -347,4 +350,71 @@ it('names no flaky mutant it did not run again', function () use ($resultIn): vo
     $result = $resultIn($project, 2);
 
     expect($result instanceof ShardResult ? $result->flaky() : $result)->toEqual(MutantIds::none());
+});
+
+it('keeps with each timed-out mutant the time its covering tests take, from the map it was handed', function () use (
+    $resultIn,
+): void {
+    $project = Flows::project();
+    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map());
+
+    new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(), Flows::setup())
+        ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
+    $times = array_map(
+        static fn(Mutant $mutant): string => sprintf('%s %s', $mutant->nativeId(), $mutant->judgingTime()::class),
+        array_values(array_filter(
+            $outcome instanceof MutationResult ? [...$outcome->mutants()] : [],
+            static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::TimedOut,
+        )),
+    );
+    $timed = array_values(array_filter(
+        $outcome instanceof MutationResult ? [...$outcome->mutants()] : [],
+        static fn(Mutant $mutant): bool => $mutant->judgingTime() instanceof Seconds,
+    ));
+
+    expect($times)->toBe([sprintf('Decrement-27 %s', Seconds::class)])
+        ->and($timed[0]->judgingTime())->toEqual(Seconds::of(0.2));
+});
+
+it('runs each timeout its cap decided once more with the cap doubled, up to timeouts.retries', function (
+    Setting $retries,
+    string $runner,
+    array $retried,
+) use ($statuses, $resultIn): void {
+    $project = Flows::project();
+    $scripted = ScriptedRunner::fixture()->named($runner);
+
+    new Running(
+        Flows::adapters($project, [], $scripted),
+        Flows::settings(Timeouts::seconds(5), $retries, Flaky::notConfirmingSurvivors()),
+        Flows::setup(),
+    )->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
+
+    expect(array_map(
+        static fn(array $retry): array => [
+            array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$retry[0]]),
+            $retry[1],
+        ],
+        $scripted->retries(),
+    ))->toEqual($retried)
+        ->and($statuses($resultIn($project, 1)))
+        ->toContain($retried === [] ? 'Decrement-27 timed-out' : 'Decrement-27 survived');
+})->with([
+    'a runner whose cap can be raised' => [Timeouts::retries(20), 'fake', [[['Decrement-27'], Seconds::of(10.0)]]],
+    'no retries left' => [Timeouts::retries(0), 'fake', []],
+    'Pest, whose limit cannot be raised' => [Timeouts::retries(20), 'pest', []],
+]);
+
+it('runs no timeout again whose limit its runner\'s own formula decided', function (): void {
+    $project = Flows::project();
+    $scripted = ScriptedRunner::fixture();
+
+    $settings = Flows::settings(Flaky::notConfirmingSurvivors());
+
+    new Running(Flows::adapters($project, [], $scripted), $settings, Flows::setup())
+        ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
+
+    expect($scripted->retries())->toBe([]);
 });

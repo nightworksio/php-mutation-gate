@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
+use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -37,12 +38,18 @@ final readonly class Judge
         private Baseline $baseline,
         private Reach $reach,
         private Uncovered $uncovered,
+        private TimeoutTriage $triage,
     ) {
     }
 
-    public static function of(Trees $trees, Baseline $baseline, Reach $reach, Uncovered $uncovered): self
-    {
-        return new self($trees, $baseline, $reach, $uncovered);
+    public static function of(
+        Trees $trees,
+        Baseline $baseline,
+        Reach $reach,
+        Uncovered $uncovered,
+        TimeoutMode $timeouts,
+    ): self {
+        return new self($trees, $baseline, $reach, $uncovered, TimeoutTriage::under($timeouts));
     }
 
     /** Each tree, over every unit result it holds; a result no tree holds is judged in none. */
@@ -107,7 +114,7 @@ final readonly class Judge
         return $lowering instanceof Lowered ? $verdict->withLowering($lowering) : $verdict;
     }
 
-    /** Each mutant as its status reports it, or flaky where it gave two answers. */
+    /** Each mutant as its status reports it after timeout triage, or flaky where it gave two answers. */
     private function judged(Mutants $mutants, MutantIds $flaky): JudgedMutants
     {
         $judged = [];
@@ -115,7 +122,7 @@ final readonly class Judge
         foreach ($mutants as $mutant) {
             $judged[] = JudgedMutant::of(
                 $mutant,
-                $flaky->has($mutant->id()) ? MutantJudgement::Flaky : MutantJudgement::reported($mutant->status()),
+                $flaky->has($mutant->id()) ? MutantJudgement::Flaky : $this->triage->judged($mutant),
             );
         }
 

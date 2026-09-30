@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Config\Setting;
+use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
@@ -39,8 +40,12 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -53,6 +58,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -73,6 +79,7 @@ use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -105,7 +112,7 @@ $judged = static function (
     Settings $settings,
     Reporting $reporting,
 ): Judged|Invalid|CannotJudge {
-    new Handoff($adapters->project)->write($plan, CoverageMap::empty());
+    new Handoff($adapters->project)->write($plan, Flows::map());
     new Running($adapters, $settings, Flows::setup())->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), $adapters->project);
 
@@ -440,11 +447,10 @@ it('counts the proofs and the results of its own scope it took, and records how 
         ->proving(Units::of(Planned::money()))
         ->carrying(Units::of(Planned::held()));
     $run = Run::of('github:1/1', Moment::at('2026-09-29T12:00:00Z'), $plan->base());
-    $fixture = RunnerFake::ofTheFixture();
     $proofOf = static fn(string $key, string $file): Proof => Proof::of(
         Digest::sha256Of($key),
         Path::of($file),
-        $fixture->mutate(MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests()))->mutants(),
+        Flows::mutantsOf($file),
         $run,
     );
     $store->write(
@@ -476,9 +482,7 @@ it('uses none of its own scope where the default branch proved what it took', fu
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
         ->proving(Units::of(Planned::money()));
     $run = Run::of('github:1/1', Moment::at('2026-09-29T12:00:00Z'), $plan->base());
-    $mutants = RunnerFake::ofTheFixture()
-        ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()))
-        ->mutants();
+    $mutants = Flows::mutantsOf('src/Money.php');
     $store->write(Scope::branch('main'), Ledger::empty()->withProof(
         Proof::of(Digest::sha256Of('money'), Path::of('src/Money.php'), $mutants, $run),
     ));
@@ -530,9 +534,7 @@ it('takes a planned proof from the run\'s own scope where it has moved there fro
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
         ->proving(Units::of(Planned::money()));
     $run = Run::of('github:1/1', Moment::at('2026-09-29T12:00:00Z'), $plan->base());
-    $mutants = RunnerFake::ofTheFixture()
-        ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()))
-        ->mutants();
+    $mutants = Flows::mutantsOf('src/Money.php');
     $store->write(Scope::pullRequest(7), Ledger::empty()->withProof(
         Proof::of(Digest::sha256Of('money'), Path::of('src/Money.php'), $mutants, $run),
     ));
@@ -548,3 +550,39 @@ it('takes a planned proof from the run\'s own scope where it has moved there fro
         ->and($store->read(Scope::pullRequest(7))->lastPassed())
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1));
 });
+
+it('kills a timeout only where triage confirms it, so a tree at 100 fails on one it cannot', function (
+    CoverageMap $map,
+    Setting $timeouts,
+    Judgement $judgement,
+) use ($tree, $reporting): void {
+    $project = Flows::project();
+    $timedOut = array_values(array_filter(
+        [...RunnerFake::ofTheFixture()
+            ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()))
+            ->mutants()],
+        static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::TimedOut,
+    ));
+    $plan = Planned::of(
+        Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(1.0), 'money'),
+    );
+    $adapters = Flows::adapters(
+        $project,
+        [],
+        $tree(Floor::of(100)),
+        ScriptedRunner::fixture()->answering(Mutants::of(...$timedOut), 0),
+    );
+    new Handoff($adapters->project)->write($plan, $map);
+    new Running($adapters, judgingSettings($timeouts), Flows::setup())->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), $adapters->project);
+
+    $judging = new Judging($adapters, judgingSettings($timeouts), Flows::setup(), $reporting(new ReporterFake()));
+    $verdict = judgingVerdictOf($results instanceof Results ? $judging->verdict($plan, $results) : $results);
+
+    expect(count($timedOut))->toBe(1)
+        ->and($verdict->judgement())->toBe($judgement);
+})->with([
+    'tests that take under half its limit' => [Flows::map(), Timeouts::confirmed(), Judgement::Passed],
+    'tests whose time the map does not hold' => [CoverageMap::empty(), Timeouts::confirmed(), Judgement::Failed],
+    'timeouts.mode unjudged' => [Flows::map(), Timeouts::unjudged(), Judgement::Failed],
+]);

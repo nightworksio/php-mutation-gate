@@ -43,6 +43,7 @@ use function sprintf;
  *     status: string,
  *     seconds?: float,
  *     limit?: float,
+ *     testSeconds?: float,
  *     reason?: string,
  *     killedBy?: list<string>,
  * }
@@ -65,6 +66,8 @@ final readonly class MutantRecord
 
     private const string LIMIT = 'limit';
 
+    private const string TEST_SECONDS = 'testSeconds';
+
     private const string REASON = 'reason';
 
     /** How many fields a killed record holds: its id, its line, its mutator and its killers. */
@@ -78,6 +81,7 @@ final readonly class MutantRecord
         $end = $mutant->location()->end();
         $duration = $mutant->duration();
         $limit = $mutant->limit();
+        $judging = $mutant->judgingTime();
         $reason = $mutant->reason();
 
         return [
@@ -92,6 +96,7 @@ final readonly class MutantRecord
             self::STATUS => $mutant->status()->value,
             ...$duration instanceof Seconds ? [self::SECONDS => $duration->seconds()] : [],
             ...$limit instanceof Seconds ? [self::LIMIT => $limit->seconds()] : [],
+            ...$judging instanceof Seconds ? [self::TEST_SECONDS => $judging->seconds()] : [],
             ...$reason instanceof Reason ? [self::REASON => $reason->text()] : [],
             ...count($mutant->killers()) > 0 ? [self::KILLED_BY => self::idsOf($mutant->killers())] : [],
         ];
@@ -135,9 +140,11 @@ final readonly class MutantRecord
             self::secondsIn($record->field(self::SECONDS)),
         );
         $limit = self::secondsIn($record->field(self::LIMIT));
+        $judging = self::secondsIn($record->field(self::TEST_SECONDS));
         $reason = $record->field(self::REASON);
         $killers = $record->field(self::KILLED_BY);
         $limited = $limit instanceof Seconds ? $mutant->withLimit($limit) : $mutant;
+        $limited = $judging instanceof Seconds ? $limited->withJudgingTime($judging) : $limited;
         $said = $reason->isPresent() ? $limited->because(Reason::that($reason->text())) : $limited;
 
         return $killers->isPresent() ? $said->killedBy(self::testsIn($killers)) : $said;

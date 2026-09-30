@@ -5,13 +5,19 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_filter;
+use function array_key_exists;
 use function array_map;
+use function array_slice;
+use function array_values;
 use function count;
+use function max;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -27,12 +33,14 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
+use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
@@ -42,11 +50,17 @@ use function sprintf;
  * held unit runs alone against the tests that hold it, then the shard's other
  * units against the whole suite, reading the coverage map the plan handed it. The
  * shard leaves every mutant's record, each unit's key and what it measured,
- * or the runner's cannot judge, for the verdict.
+ * or the runner's cannot judge, for the verdict. Each mutant whose time ran
+ * out and whose limit the configured cap decided runs once more with the cap
+ * doubled, where the runner can raise it, and each keeps the time its judging
+ * tests take on their own, from the handed map, for timeout triage.
  */
 final readonly class Running
 {
     private const string NO_HEAD = 'The commit HEAD is at cannot be read, so the plan cannot be checked against it. %s';
+
+    /** A retried timeout's cap is the configured one doubled. */
+    private const int DOUBLED = 2;
 
     public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
     {
@@ -93,7 +107,7 @@ final readonly class Running
         }
 
         $started = $this->setup->clock->now();
-        $outcome = $this->mutated($shard);
+        $outcome = $this->mutated($shard, new Handoff($this->adapters->project)->read($id));
         $ended = $this->setup->clock->now();
         $mutated = $outcome instanceof CannotJudge ? $outcome : $outcome[0];
         $spent = Seconds::of((float) $ended->format('U.u') - (float) $started->format('U.u'));
@@ -113,37 +127,111 @@ final readonly class Running
     }
 
     /**
-     * Every invocation's mutants, with the survivors a second run killed; or
-     * the first cannot judge.
+     * Every invocation's mutants, timeouts retried and timed, with the
+     * survivors a second run killed; or the first cannot judge.
      *
      * @return array{MutationResult, MutantIds}|CannotJudge
      */
-    private function mutated(Shard $shard): array|CannotJudge
+    private function mutated(Shard $shard, CoverageMap|CannotJudge $map): array|CannotJudge
     {
         $mutants = Mutants::none();
         $flaky = MutantIds::none();
         $skipped = 0;
+        $retries = $this->settings->triage()->retries();
 
         foreach ($shard->invocations() as $units) {
-            $request = $this->requestFor($units, $shard->id());
-            $result = $this->adapters->runner->mutate($request);
+            $invoked = $this->invoked($this->requestFor($units, $shard->id()), $retries);
 
-            if ($result instanceof CannotJudge) {
-                return $result;
+            if ($invoked instanceof CannotJudge) {
+                return $invoked;
             }
 
-            $again = $this->killedAgain($result->mutants(), $request);
-
-            if ($again instanceof CannotJudge) {
-                return $again;
-            }
-
-            $mutants = Mutants::of(...$mutants, ...$result->mutants());
-            $flaky = $flaky->and($again);
-            $skipped += $result->skipped();
+            $retries -= $invoked->outOfTime;
+            $mutants = Mutants::of(...$mutants, ...$invoked->result->mutants());
+            $flaky = $flaky->and($invoked->flaky);
+            $skipped += $invoked->result->skipped();
         }
 
-        return [MutationResult::of($mutants, $skipped), $flaky];
+        $timed = $map instanceof CoverageMap ? TimeoutTriage::timed($mutants, $map) : $mutants;
+
+        return [MutationResult::of($timed, $skipped), $flaky];
+    }
+
+    /** One invocation, its timeouts retried and its survivors run once more; or the first cannot judge. */
+    private function invoked(MutationRequest $request, int $retries): Invoked|CannotJudge
+    {
+        $result = $this->adapters->runner->mutate($request);
+        $retried = $result instanceof CannotJudge ? $result : $this->retried($result->mutants(), $request, $retries);
+        $again = $retried instanceof Mutants ? $this->killedAgain($retried, $request) : $retried;
+
+        return match (true) {
+            $result instanceof CannotJudge => $result,
+            $retried instanceof CannotJudge => $retried,
+            $again instanceof CannotJudge => $again,
+            default => new Invoked(
+                MutationResult::of($retried, $result->skipped()),
+                $again,
+                count($this->capped($result->mutants())),
+            ),
+        };
+    }
+
+    /**
+     * Timeout retry (ADR-0008): each mutant whose time ran out at the cap, up
+     * to the retries left, run once more with the cap doubled, and the rest as
+     * they were. Pest's limit cannot be raised, so Pest has no retry.
+     */
+    private function retried(Mutants $mutants, MutationRequest $request, int $retries): Mutants|CannotJudge
+    {
+        $identity = $this->adapters->runner->identity();
+        $taken = array_slice($this->capped($mutants), 0, max(0, $retries));
+
+        if ($taken === [] || ($identity instanceof Identity && $identity->runner() === Pest::RUNNER)) {
+            return $mutants;
+        }
+
+        $again = $this->adapters->runner->retry(
+            Mutants::of(...$taken),
+            Seconds::of($this->settings->triage()->limit()->seconds() * self::DOUBLED),
+            $request->judgedBy(),
+            $request->withheld(),
+        );
+
+        return $again instanceof CannotJudge ? $again : $this->replaced($mutants, $again);
+    }
+
+    /**
+     * The mutants whose time ran out at the configured cap: those whose
+     * limit came from the runner's own formula would not change with it.
+     *
+     * @return list<Mutant>
+     */
+    private function capped(Mutants $mutants): array
+    {
+        $cap = $this->settings->triage()->limit()->seconds();
+
+        return array_values(array_filter([...$mutants], static function (Mutant $mutant) use ($cap): bool {
+            $limit = $mutant->limit();
+
+            return $mutant->status()->ranOutOfTime() && $limit instanceof Seconds && $limit->seconds() >= $cap;
+        }));
+    }
+
+    /** The mutants, each one run again replaced by what that run reported of it. */
+    private function replaced(Mutants $mutants, Mutants $again): Mutants
+    {
+        $by = [];
+
+        foreach ($again as $mutant) {
+            $by[$mutant->id()->value()] = $mutant;
+        }
+
+        return Mutants::of(...array_map(
+            static fn(Mutant $mutant): Mutant => array_key_exists($mutant->id()->value(), $by)
+                ? $by[$mutant->id()->value()]
+                : $mutant,
+            [...$mutants],
+        ));
     }
 
     /**
