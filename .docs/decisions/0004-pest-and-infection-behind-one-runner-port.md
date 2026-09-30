@@ -668,7 +668,8 @@ its parser attributes. Both change when the checkout moves.
      in its PHPUnit config, or with `ini_set()` in a bootstrap file. doctor
      finds the first; the second shows only when the tests run.
    - Coverage runs, listing the tests, and the gate's own process run
-     uncapped.
+     without the cap; the gate's own process takes the `memory_limit` its
+     ledgers need (ADR-0013, decision 13).
    - The plan weighs the suite against the cap in force: `runner.memory`,
      or the `memory_limit` of the PHPUnit config the runner reads (the
      project root's for Pest; for Infection, the one in `phpUnit.configDir`,
