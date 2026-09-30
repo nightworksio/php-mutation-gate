@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -387,11 +388,11 @@ it('keeps with each timed-out mutant the time its covering tests take, from the 
 
 it('runs each timeout its cap decided once more with the cap doubled, up to timeouts.retries', function (
     Setting $retries,
-    string $runner,
+    RunnerBehaviour $behaviour,
     array $retried,
 ) use ($statuses, $resultIn): void {
     $project = Flows::project();
-    $scripted = ScriptedRunner::fixture()->named($runner);
+    $scripted = ScriptedRunner::fixture()->behaving($behaviour);
     $adapters = Flows::adapters($project, [], $scripted);
 
     new Running(
@@ -412,9 +413,13 @@ it('runs each timeout its cap decided once more with the cap doubled, up to time
         ->and($statuses($resultIn($project, 1)))
         ->toContain($retried === [] ? 'Decrement-27 timed-out' : 'Decrement-27 survived');
 })->with([
-    'a runner whose cap can be raised' => [Timeouts::retries(20), 'fake', [[['Decrement-27'], Seconds::of(10.0)]]],
-    'no retries left' => [Timeouts::retries(0), 'fake', []],
-    'Pest, whose limit cannot be raised' => [Timeouts::retries(20), 'pest', []],
+    'a runner whose cap can be raised' => [
+        Timeouts::retries(20),
+        RunnerBehaviour::standard(),
+        [[['Decrement-27'], Seconds::of(10.0)]],
+    ],
+    'no retries left' => [Timeouts::retries(0), RunnerBehaviour::standard(), []],
+    'a runner whose limit cannot be raised' => [Timeouts::retries(20), RunnerBehaviour::standard()->raisingNoLimit(), []],
 ]);
 
 it('runs no timeout again whose limit its runner\'s own formula decided', function (): void {

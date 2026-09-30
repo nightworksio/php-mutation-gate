@@ -115,6 +115,7 @@ its parser attributes. Both change when the checkout moves.
    | Method | Returns |
    |--------|---------|
    | `identity()` | The runner's name, the exact installed version of every package it drives, and a digest of the PHP it runs on, as that PHP describes itself when started the way the runner starts it, without the variables withheld: version, extensions and their versions, every ini setting except the inert ones (ADR-0007), operating system family and architecture. All of these go into the content key (ADR-0007). |
+   | `behaviour()` | How the runner behaves where the flows must know it, as a `RunnerBehaviour`: whether it reads `#[Holds]` as its test files load, whether a timeout's limit can be raised, the groups every proof key reads, and whether each shard pays its own opening run. `RunnerBehaviour::standard()` where it does none of these differently; Pest reads holds as they load and raises no limit, and patched, every key reads its canary, while unpatched, each shard opens on its own run |
    | `groups()` | The suite's groups, as the runner itself lists them |
    | `coverage(CoverageRun\|CoverageRead)` | A per-test line map of the whole suite, one group or the tests a filter names, plus each test's duration: by running them for a `CoverageRun`, or by reading the gate's own map another job wrote for a `CoverageRead` |
    | `judges(file, map)` | The test files that can judge a mutant of this file, by the runner's own selection rules (decision 5) |

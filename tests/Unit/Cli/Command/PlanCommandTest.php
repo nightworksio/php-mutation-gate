@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
@@ -135,34 +136,31 @@ it('says each shard pays a full opening run where Pest runs sharded without the 
     $plan,
     $unpatched,
 ): void {
-    $planned = $plan(FlowCommands::project(), '--shards=2', ScriptedRunner::fixture()->named('pest'), Flows::ci());
+    $planned = $plan(FlowCommands::project(), '--shards=2', ScriptedRunner::fixture()->likePest(), Flows::ci());
 
     expect($planned->code)->toBe(0)
         ->and($planned->errors)->toBe(sprintf("Wrote .mutation-gate/plan.json, with 2 shards.\n%s", $unpatched(2)));
 });
 
-it('says nothing of the patch where it is on, the plan has one shard, or the runner is not Pest', function (
-    string $config,
+it('says nothing of the patch where the plan has one shard, or no shard pays its own opening run', function (
     string $shards,
     ScriptedRunner $runner,
 ) use ($plan): void {
-    $planned = $plan(FlowCommands::project($config), sprintf('--shards=%s', $shards), $runner, Flows::ci());
+    $planned = $plan(FlowCommands::project(), sprintf('--shards=%s', $shards), $runner, Flows::ci());
 
     expect($planned->errors)->toBe(sprintf("Wrote .mutation-gate/plan.json, with %s shards.\n", $shards));
 })->with([
-    'the patch on' => ['"pest": {"patch": true}', '2', ScriptedRunner::fixture()->named('pest')],
-    'one shard' => ['', '1', ScriptedRunner::fixture()->named('pest')],
-    'another runner' => ['', '2', ScriptedRunner::fixture()->named('infection')],
+    'Pest with the patch' => ['2', ScriptedRunner::fixture()->likePatchedPest(Group::named('mutation-canary'))],
+    'one shard' => ['1', ScriptedRunner::fixture()->likePest()],
+    'another runner' => ['2', ScriptedRunner::fixture()],
 ]);
 
-it('asks the runner who it is withholding every CI\'s tokens, for the patch notice too', function () use (
-    $plan,
-): void {
-    $runner = ScriptedRunner::fixture()->named('pest');
+it('asks the runner who it is withholding every CI\'s tokens', function () use ($plan): void {
+    $runner = ScriptedRunner::fixture()->likePest();
     $plan(FlowCommands::project(), '--shards=2', $runner, Flows::ci());
     $identified = $runner->identified();
 
-    expect($identified)->toHaveCount(3)
+    expect($identified)->not->toBeEmpty()
         ->and($identified)->each->toEqual($identified[0])
         ->and(preg_match($identified[0]->pattern(), 'CI_JOB_TOKEN'))->toBe(1);
 });

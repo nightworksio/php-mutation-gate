@@ -12,7 +12,6 @@ use function array_values;
 use function count;
 use function max;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -34,7 +33,6 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
-use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -186,14 +184,13 @@ final readonly class Running
     /**
      * Timeout retry (ADR-0008): each mutant whose time ran out at the cap, up
      * to the retries left, run once more with the cap doubled, and the rest as
-     * they were. Pest's limit cannot be raised, so Pest has no retry.
+     * they were. A runner whose limit cannot be raised retries nothing.
      */
     private function retried(Mutants $mutants, MutationRequest $request, int $retries): Mutants|CannotJudge
     {
-        $identity = $this->adapters->runner->identity($this->adapters->withheld);
         $taken = array_slice($this->capped($mutants), 0, max(0, $retries));
 
-        if ($taken === [] || ($identity instanceof Identity && $identity->runner() === Pest::RUNNER)) {
+        if ($taken === [] || ! $this->adapters->runner->behaviour()->raisesLimits()) {
             return $mutants;
         }
 

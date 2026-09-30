@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Wiring;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Option;
+use NightWorksIO\MutationGate\Config\Pest;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -28,6 +29,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
@@ -212,4 +215,13 @@ it('cannot wire a runner the registry does not have, or one that refuses its opt
         ->and($wired($picky, 'picky'))->toEqual(
             Invalid::because(Problem::at('runner.with.level', 'The level is a number.')),
         );
+});
+
+it('hands the Pest runner pest.patch and its canary, so it says every key reads the canary', function (): void {
+    $patched = wiredOf(Flows::settings(Runner::pest(), Pest::patched()), Variables::of([]))->runner->behaviour();
+    $unpatched = wiredOf(Flows::settings(Runner::pest()), Variables::of([]))->runner->behaviour();
+
+    expect($patched->readByEveryKey())->toEqual(Groups::of(Group::named('mutation-canary')))
+        ->and($unpatched->readByEveryKey())->toEqual(Groups::none())
+        ->and($unpatched->opensEachShard())->toBeTrue();
 });

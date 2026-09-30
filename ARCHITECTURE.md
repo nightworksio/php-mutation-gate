@@ -44,6 +44,14 @@ and the CLI can name an adapter, and the CLI is the only place adapters are
 wired. Attribute names nothing but PHP and nothing else names it, because the
 gate reads `#[Holds]` from a test's tokens without loading it.
 
+The CLI never decides anything by an adapter's name. Where the flows must know
+how a runner behaves, they ask the port: `Runner::behaviour()` answers a
+`RunnerBehaviour`, which says whether the runner reads `#[Holds]` as it loads
+its test files, whether a timeout's limit can be raised, which groups every
+proof key reads, and whether each shard pays its own opening run.
+`RunnerBehaviour::standard()` is the answer of a runner that does none of
+these differently.
+
 ## A — layers
 
 | Rule | Says | Enforced by |

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -65,7 +64,7 @@ final readonly class Keying
                     Tests::of(
                         $suite->files(),
                         self::known($adapters, $map),
-                        self::canaries($settings, $identity, $suite),
+                        self::canaries($adapters, $suite),
                     ),
                 ),
                 $adapters,
@@ -145,15 +144,16 @@ final readonly class Keying
         }
     }
 
-    /**
-     * The canary group's test files, which every key reads where Pest runs
-     * with the gate's patch, since each shard opens on them; none otherwise.
-     */
-    private static function canaries(Settings $settings, Identity $runner, Suite $suite): Paths
+    /** The test files of the groups every key reads, as the runner says, since each shard opens on them. */
+    private static function canaries(Adapters $adapters, Suite $suite): Paths
     {
-        $pest = $settings->pest();
+        $files = Paths::none();
 
-        return $runner->runner() === Pest::RUNNER && $pest->patch() ? $suite->naming($pest->canary()) : Paths::none();
+        foreach ($adapters->runner->behaviour()->readByEveryKey() as $group) {
+            $files = Paths::of(...$files, ...$suite->naming($group));
+        }
+
+        return $files;
     }
 
     /** Every test file the coverage map knows, as the runner names the files that judge each covered file. */

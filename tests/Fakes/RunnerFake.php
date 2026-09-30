@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -55,6 +56,8 @@ use function str_starts_with;
  */
 final readonly class RunnerFake implements Runner
 {
+    private RunnerBehaviour $behaviour;
+
     public function __construct(
         private Identity|CannotJudge $identity,
         private Groups|CannotJudge $groups,
@@ -65,6 +68,18 @@ final readonly class RunnerFake implements Runner
         private TestNames $names,
         private Paths $packages,
     ) {
+        $this->behaviour = RunnerBehaviour::standard();
+    }
+
+    /** This runner, behaving so. */
+    public function behaving(RunnerBehaviour $behaviour): self
+    {
+        return clone($this, ['behaviour' => $behaviour]);
+    }
+
+    public function behaviour(): RunnerBehaviour
+    {
+        return $this->behaviour;
     }
 
     /** The runner over the contract suite's fixture library, which knows each change's mutant. */

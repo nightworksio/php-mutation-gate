@@ -49,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -691,4 +692,15 @@ it('is defined by tests/Pest.php and the PHPUnit config in the project\'s root, 
 
     expect(array_map(static fn(Path $path): string => $path->value(), [...$definitions]))
         ->toBe(['tests/Pest.php', 'phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist']);
+});
+
+it('reads holds as it loads them and raises no limit, and patched, has every key read its canary', function (): void {
+    $canary = Group::named('mutation-canary');
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $patched = new Pest(adapterProject(), $shell, Patching::on($canary));
+    $unpatched = new Pest(adapterProject(), $shell, Patching::off());
+    $pest = RunnerBehaviour::standard()->holdingAsLoaded()->raisingNoLimit();
+
+    expect($patched->behaviour())->toEqual($pest->readingInEveryKey($canary))
+        ->and($unpatched->behaviour())->toEqual($pest->openingEachShard());
 });

@@ -10,6 +10,7 @@ use function array_values;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Pest as ConfigPest;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -25,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -45,7 +47,7 @@ use function sprintf;
  */
 final readonly class Pest implements Runner
 {
-    public const string RUNNER = 'pest';
+    public const string RUNNER = ConfigPest::RUNNER;
 
     /** Where the gate runs Pest: the project's root, which the gate runs in. */
     private const string ROOT = '.';
@@ -105,6 +107,20 @@ final readonly class Pest implements Runner
         return $platform instanceof Platform
             ? Identity::of(self::RUNNER, $versions, $platform->digest())
             : $platform;
+    }
+
+    /**
+     * Pest's plugin reads each `#[Holds]` as its test files load, and Pest's
+     * limit cannot be raised. Patched, every shard opens on the canary group,
+     * whose test files every key then reads; unpatched, each shard pays a full
+     * opening run under coverage.
+     */
+    public function behaviour(): RunnerBehaviour
+    {
+        $canary = $this->patching->canary();
+        $pest = RunnerBehaviour::standard()->holdingAsLoaded()->raisingNoLimit();
+
+        return $canary instanceof Group ? $pest->readingInEveryKey($canary) : $pest->openingEachShard();
     }
 
     /** The groups the suite lists, listed once for each set of variables withheld. */

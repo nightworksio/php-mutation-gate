@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -54,6 +55,11 @@ final class CoverageAsked implements Runner
             $this->asked,
             static fn(CoverageRun|CoverageRead $asked): bool => $asked instanceof CoverageRun,
         ));
+    }
+
+    public function behaviour(): RunnerBehaviour
+    {
+        return $this->runner->behaviour();
     }
 
     public function identity(Withheld $withheld): Identity|CannotJudge

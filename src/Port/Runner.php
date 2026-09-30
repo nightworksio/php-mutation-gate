@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -37,6 +38,14 @@ interface Runner
      * the way the runner starts it, never seeing the variables withheld.
      */
     public function identity(Withheld $withheld): Identity|CannotJudge;
+
+    /**
+     * How the runner behaves where the flows must know it: how it reads
+     * `#[Holds]`, whether a limit can be raised, what every key reads, and
+     * whether each shard opens on its own run. `RunnerBehaviour::standard()`
+     * unless the runner behaves otherwise.
+     */
+    public function behaviour(): RunnerBehaviour;
 
     /**
      * The suite's groups, as the runner itself lists them. Listing loads the

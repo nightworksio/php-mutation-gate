@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function count;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
@@ -16,7 +15,6 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
-use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
@@ -87,13 +85,10 @@ final readonly class PlanCommand
         return ExitCode::Passed->value;
     }
 
-    /** One line where a sharded plan runs Pest without the patch, since each shard then pays a full opening run. */
+    /** One line where a sharded plan's runner has each shard pay a full opening run, as Pest without the patch does. */
     private static function saidIfUnpatched(Composed $composed, int $shards, OutputInterface $output): void
     {
-        $identity = $composed->adapters->runner->identity($composed->adapters->withheld);
-        $pest = $identity instanceof Identity && $identity->runner() === Pest::RUNNER;
-
-        if ($pest && $shards > 1 && ! $composed->settings->pest()->patch()) {
+        if ($shards > 1 && $composed->adapters->runner->behaviour()->opensEachShard()) {
             $output->writeln(sprintf(self::UNPATCHED, $shards));
         }
     }
