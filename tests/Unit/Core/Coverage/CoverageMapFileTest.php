@@ -6,6 +6,8 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
+use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
+use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -22,7 +24,8 @@ $map = static fn(): CoverageMap => CoverageMap::empty()
     ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'))
     ->covered(Path::of('123'), Line::of(1), TestId::of('7'))
     ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.25))
-    ->timed(TestId::of('IdleTest::waits'), Seconds::of(1.5));
+    ->timed(TestId::of('IdleTest::waits'), Seconds::of(1.5))
+    ->executing(Path::of('src/Money.php'), ExecutedMethod::of('add', 10, 13), ExecutedMethod::of('list', 15, 15));
 
 $unreadable = CannotJudge::because('The coverage map is not one this gate writes, so no line of it can be read.');
 
@@ -44,6 +47,7 @@ it('writes compact JSON, gzipped: each test once with its seconds, and each line
             ['id' => 'IdleTest::waits', 'seconds' => 1.5],
         ],
         'files' => ['src/Money.php' => ['12' => [0, 1], '3' => [0]], '123' => ['1' => [2]]],
+        'methods' => ['src/Money.php' => [['name' => 'add', 'start' => 10, 'end' => 13], ['name' => 'list', 'start' => 15, 'end' => 15]]],
     ]));
 });
 
@@ -133,4 +137,40 @@ it('writes and reads a map in time linear in its entries', function (): void {
 
     expect($few instanceof CoverageMap ? $few->files() : [])->toHaveCount(10)
         ->and(Growth::of(300, $read))->toBeLessThan(Growth::LINEAR);
+});
+
+it('is found in the directory a job hands on', function (): void {
+    expect(CoverageMapFile::in(Path::of('.mutation-gate/coverage')))->toEqual(Path::of('.mutation-gate/coverage/map.json.gz'));
+});
+
+it('keeps a shard\'s files\' executed methods, and reads a map without methods as one with none', function () use ($map, $file, $written): void {
+    $shard = CoverageMapFile::decode(CoverageMapFile::encode($map()->onlyFor(Paths::of(Path::of('123')))));
+    $whole = CoverageMapFile::decode($written($file()));
+
+    expect($shard instanceof CoverageMap ? $shard->methods()->paths() : $shard)->toEqual(Paths::none())
+        ->and($whole instanceof CoverageMap ? $whole->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $whole)->toEqual(ExecutedMethods::none());
+});
+
+it('drops a method that is not well formed and keeps the rest', function (mixed $method) use ($file, $written): void {
+    $kept = ['name' => 'add', 'start' => 10, 'end' => 13];
+    $map = CoverageMapFile::decode($written([...$file(), 'methods' => ['src/Money.php' => [$method, $kept], 'src/Other.php' => 'none']]));
+
+    expect($map instanceof CoverageMap ? $map->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $map)
+        ->toEqual(ExecutedMethods::of(ExecutedMethod::of('add', 10, 13)))
+        ->and($map instanceof CoverageMap ? $map->methods()->at(Path::of('src/Other.php'), ExecutedMethods::none()) : $map)->toEqual(ExecutedMethods::none());
+})->with([
+    'no name' => [['start' => 1, 'end' => 2]],
+    'an empty name' => [['name' => '', 'start' => 1, 'end' => 2]],
+    'a start before the file' => [['name' => 'x', 'start' => 0, 'end' => 2]],
+    'an end before its start' => [['name' => 'x', 'start' => 3, 'end' => 2]],
+    'a start that is text' => [['name' => 'x', 'start' => '1', 'end' => 2]],
+    'no end' => [['name' => 'x', 'start' => 1]],
+    'not a method' => ['add'],
+]);
+
+it('reads a method of one line', function () use ($file, $written): void {
+    $map = CoverageMapFile::decode($written([...$file(), 'methods' => ['src/Money.php' => [['name' => 'one', 'start' => 1, 'end' => 1]]]]));
+
+    expect($map instanceof CoverageMap ? $map->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $map)
+        ->toEqual(ExecutedMethods::of(ExecutedMethod::of('one', 1, 1)));
 });

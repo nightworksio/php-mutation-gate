@@ -11,11 +11,12 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-it('reads each test class\'s seconds from its first suite, and each test\'s by its id', function (): void {
+it('reads each test class\'s seconds from its first suite, and each test\'s by its coverage id', function (): void {
     $root = Scratch::directory();
     InfectionRun::coverage($root, '/p/src', [], ['Tests\MoneyTest' => 0.25, 'Tests\DrainTest' => 1.5], [
         'Tests\MoneyTest::adds' => 0.125,
         'Tests\MoneyTest::adds with data set #0' => 0.0625,
+        'Tests\MoneyTest::adds with data set "small amounts"' => 0.03125,
         'Tests\DrainTest::drains' => 1.5,
     ]);
     $junit = JUnit::at(sprintf('%s/junit.xml', $root));
@@ -26,7 +27,8 @@ it('reads each test class\'s seconds from its first suite, and each test\'s by i
         ->and($junit instanceof JUnit ? $junit->classSeconds('Tests\Nowhere') : -1.0)->toBe(0.0)
         ->and($junit instanceof JUnit ? $junit->tests() : [])->toBe([
             'Tests\MoneyTest::adds' => 0.125,
-            'Tests\MoneyTest::adds with data set #0' => 0.0625,
+            'Tests\MoneyTest::adds#0' => 0.0625,
+            'Tests\MoneyTest::adds#small amounts' => 0.03125,
             'Tests\DrainTest::drains' => 1.5,
         ]);
 });

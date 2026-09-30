@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
+use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
+use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -89,6 +91,29 @@ it('builds a map at once as it would one entry after another', function () use (
     expect($built)->toEqual($map())
         ->and($built->testsCovering(Path::of('src/Money.php'), Line::of(12)))->toEqual($map()->testsCovering(Path::of('src/Money.php'), Line::of(12)))
         ->and($built->durationOf(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.25));
+});
+
+it('holds each file\'s executed methods, in the order given, and keeps them as it grows', function () use ($map): void {
+    $add = ExecutedMethod::of('add', 10, 13);
+    $book = ExecutedMethod::of('book', 20, 24);
+    $held = $map()->executing(Path::of('src/Money.php'), $add)->executing(Path::of('src/Money.php'), $book)
+        ->covered(Path::of('src/Money.php'), Line::of(21), TestId::of('LedgerTest::books'))
+        ->timed(TestId::of('LedgerTest::books'), Seconds::of(0.5));
+
+    expect($held->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()))->toEqual(ExecutedMethods::of($add, $book))
+        ->and($held->methods()->at(Path::of('123'), ExecutedMethods::none()))->toEqual(ExecutedMethods::none())
+        ->and($held->methods()->paths())->toEqual(Paths::of(Path::of('src/Money.php')))
+        ->and($map()->methods()->paths())->toEqual(Paths::none())
+        ->and($held->onlyFor(Paths::of(Path::of('src/Money.php')))->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()))->toEqual(ExecutedMethods::of($add, $book))
+        ->and($held->onlyFor(Paths::of(Path::of('123')))->methods()->paths())->toEqual(Paths::none());
+});
+
+it('names an executed method and the lines it spans', function (): void {
+    $method = ExecutedMethod::of('add', 10, 13);
+
+    expect([$method->name(), $method->first(), $method->last()])->toEqual(['add', Line::of(10), Line::of(13)])
+        ->and(count(ExecutedMethods::of($method, $method)))->toBe(2)
+        ->and([...ExecutedMethods::of(...['a' => $method])])->toBe([$method]);
 });
 
 it('knows a test whose id is only digits by that id', function (): void {

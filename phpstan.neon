@@ -631,8 +631,6 @@ services:
                     - HUNDREDTHS_PER_PERCENT # owner: config (Floor wraps Percentage)
                     - NOISE # owner: config (Floor wraps Percentage)
                     - WHOLE # owner: config (Floor wraps Percentage)
-                'NightWorksIO\MutationGate\Adapter\Infection\TestFiles':
-                    - SUFFIX # owner: rc3 (Path::stem())
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':
                     - OWN # owner: flows (Workspace::root())
                 'NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests':

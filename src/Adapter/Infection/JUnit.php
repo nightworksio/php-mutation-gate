@@ -10,6 +10,7 @@ use DOMDocument;
 use DOMElement;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 
+use function preg_match;
 use function sprintf;
 
 /**
@@ -19,6 +20,9 @@ use function sprintf;
  */
 final readonly class JUnit
 {
+    /** How PHPUnit logs the name of a data set's test. */
+    private const string DATA_SET = '/^(?<method>\S+) with data set (?:#(?<number>\d+)|"(?<name>.*)")$/sD';
+
     private const string MISSING
         = '%s is not there or is not a JUnit log, so the gate cannot say how long the tests took.';
 
@@ -75,11 +79,30 @@ final readonly class JUnit
         $tests = [];
 
         foreach ($document->getElementsByTagName('testcase') as $case) {
-            $test = sprintf('%s::%s', $case->getAttribute('class'), $case->getAttribute('name'));
+            $test = sprintf('%s::%s', $case->getAttribute('class'), self::idOf($case->getAttribute('name')));
             $tests[$test] = self::secondsOf($case);
         }
 
         return $tests;
+    }
+
+    /**
+     * A test's name as its coverage id spells it: PHPUnit logs a data set's
+     * test as `<method> with data set #<n>` or `… "<name>"`, and covers it as
+     * `<method>#<n>` or `<method>#<name>`.
+     */
+    private static function idOf(string $name): string
+    {
+        if (preg_match(self::DATA_SET, $name, $named) !== 1) {
+            return $name;
+        }
+
+        return sprintf(
+            '%s#%s%s',
+            $named['method'],
+            array_key_exists('number', $named) ? $named['number'] : '',
+            array_key_exists('name', $named) ? $named['name'] : '',
+        );
     }
 
     private static function secondsOf(DOMElement $element): float
