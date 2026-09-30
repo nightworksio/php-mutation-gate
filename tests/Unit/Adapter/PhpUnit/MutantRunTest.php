@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Invocation;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Outcome;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\TestFiles;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -42,7 +43,7 @@ function phpUnitProject(): Project
     $root = Scratch::directory();
     Scratch::write($root, 'src/Money.php', "<?php\n\nfunction add(\$a, \$b)\n{\n    return \$a + \$b;\n}\n");
 
-    return Project::at($root, Path::of('vendor'), Path::of('.mutation-gate'));
+    return Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
 }
 
 function moneyMutant(Project $project): MadeMutant
@@ -93,7 +94,7 @@ $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite:
 
 $judged = static function (PhpUnitShellFake $shell, TestIds $covering) use ($request): Mutant|CannotJudge {
     $project = phpUnitProject();
-    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'));
+    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project));
 
     return $run->judged(moneyMutant($project), $covering, $request, Seconds::of(3.0));
 };
@@ -117,7 +118,14 @@ it('starts PHPUnit with opcache off, the override, the extension and the coverin
         Extension::class,
     ])
         ->and($arguments[8])->toStartWith('--test-id-filter-file=')
-        ->and(array_slice($arguments, 9))->toBe(['--stop-on-error', '--stop-on-failure', '--no-progress'])
+        ->and(array_slice($arguments, 9))->toBe([
+            '--stop-on-error',
+            '--stop-on-failure',
+            '--no-coverage',
+            '--no-logging',
+            '--do-not-cache-result',
+            '--no-progress',
+        ])
         ->and($ids)->toBe("Tests\\MoneySpec::addsTwoAmounts\n")
         ->and($told[Variable::Mutant->value])->toEndWith('/src/Money.php')
         ->and((string) file_get_contents($told[Variable::Mutated->value]))->toContain('return $a - $b;')
@@ -130,19 +138,19 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
     expect(judgedAs($judged(recording($lines, $ran, $guard), TestIds::of($adds))))->toBe($verdict);
 })->with([
     'killed by the tests that failed or errored' => [
-        records(Outcome::Started->line('T::fine'), Outcome::Passed->line('T::fine'), Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails'), Outcome::Started->line('T::errs'), Outcome::Errored->line('T::errs')),
+        records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails'), Outcome::Started->line('T::errs'), Outcome::Errored->line('T::errs')),
         Ran::finished(succeeded: false, output: ''),
         "served\n",
         [MutantStatus::Killed, ['T::fails', 'T::errs'], ''],
     ],
     'killed by a test whose process died as it ran' => [
-        records(Outcome::Started->line('T::fine'), Outcome::Passed->line('T::fine'), Outcome::Started->line('T::dies')),
+        records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('T::dies')),
         Ran::finished(succeeded: false, output: 'Fatal error'),
         "served\n",
         [MutantStatus::Killed, ['T::dies'], ''],
     ],
     'survived every test passing' => [
-        records(Outcome::Started->line('T::fine'), Outcome::Passed->line('T::fine')),
+        records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value())),
         Ran::finished(succeeded: true, output: ''),
         "served\n",
         [MutantStatus::Survived, [], ''],
@@ -160,7 +168,7 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
         [MutantStatus::Errored, [], ''],
     ],
     'unjudged where PHPUnit failed a run with no test failing' => [
-        records(Outcome::Started->line('T::warns'), Outcome::Passed->line('T::warns')),
+        records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value())),
         Ran::finished(succeeded: false, output: 'There was 1 warning'),
         "served\n",
         [MutantStatus::Unjudged, [], "PHPUnit failed the run, though no test that ran failed. PHPUnit said:\nThere was 1 warning"],
@@ -169,7 +177,7 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
         '',
         Ran::finished(succeeded: true, output: ''),
         '',
-        [MutantStatus::Unjudged, [], 'PHPUnit ran none of the 1 tests that cover it: no id matched a test.'],
+        [MutantStatus::Unjudged, [], 'PHPUnit ran none of the 1 tests that cover it: the selection matched no test.'],
     ],
     'unjudged where every test was skipped' => [
         records(Outcome::Started->line('T::skips'), Outcome::Neither->line('T::skips')),
@@ -236,43 +244,72 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
 ]);
 
 it('says how long the run took, and the limit of one that timed out', function () use ($adds, $judged): void {
-    $done = $judged(recording(Outcome::Passed->line('T::fine'), Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.5))), TestIds::of($adds));
+    $done = $judged(recording(Outcome::Passed->line($adds->value()), Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.5))), TestIds::of($adds));
     $stopped = $judged(recording('', Ran::stopped('')->took(Seconds::of(3.0))), TestIds::of($adds));
 
     expect($done instanceof Mutant ? $done->duration() : null)->toEqual(Seconds::of(0.5))
         ->and($stopped instanceof Mutant ? [$stopped->duration(), $stopped->limit()] : [])->toEqual([Seconds::of(3.0), Seconds::of(3.0)]);
 });
 
-it('leaves unjudged, without a run, a mutant whose every covering test has a line break in its name', function () use ($judged): void {
-    $shell = recording('', Ran::finished(succeeded: true, output: ''));
-    $unlistable = $judged($shell, TestIds::of(TestId::of("Tests\\MoneySpec::adds#with\nbreak")));
+it('selects the covering tests by their files where an id has a line break or ends in a carriage return', function (string $id) use ($adds): void {
+    $project = phpUnitProject();
+    Scratch::write($project->root(), 'tests/MoneySpec.php', "<?php\nnamespace Tests;\nfinal class MoneySpec {}\n");
+    Scratch::write($project->root(), 'tests/PriceSpec.php', "<?php\nnamespace Tests;\nfinal class PriceSpec {}\n");
+    $shell = recording(Outcome::Failed->line($adds->value()), Ran::finished(succeeded: false, output: ''));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+    $mutant = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project))
+        ->judged(moneyMutant($project), TestIds::of($adds, TestId::of($id)), $request, Seconds::of(3.0));
+    $selection = $shell->commands()[0]->arguments()[8];
 
-    expect(judgedAs($unlistable))
-        ->toBe([MutantStatus::Unjudged, [], 'Every test that covers it has a line break in its name, which PHPUnit cannot select by id.'])
-        ->and($shell->commands())->toBe([]);
+    expect($selection)->toStartWith('--test-files-file=')
+        ->and((string) file_get_contents(substr($selection, strlen('--test-files-file='))))
+        ->toBe(sprintf("%s/tests/MoneySpec.php\n", $project->root()))
+        ->and($mutant instanceof Mutant ? $mutant->status() : null)->toBe(MutantStatus::Killed);
+})->with([
+    'a line break' => ["Tests\\MoneySpec::adds#with\nbreak"],
+    'a carriage return at the end' => ["Tests\\MoneySpec::adds#ends\r"],
+]);
+
+it('selects the covering tests by their ids where a carriage return is inside one', function () use ($adds): void {
+    $project = phpUnitProject();
+    $shell = recording('', Ran::finished(succeeded: true, output: ''));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+    new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project))
+        ->judged(moneyMutant($project), TestIds::of($adds, TestId::of("Tests\\MoneySpec::adds#a\rb")), $request, Seconds::of(3.0));
+
+    expect($shell->commands()[0]->arguments()[8])->toStartWith('--test-id-filter-file=');
 });
 
-it('lists only the covering tests it can, and keeps the run to the unit\'s group', function () use ($adds): void {
+it('leaves unjudged, without a run, a mutant whose tests go by their files and one is in no file found', function () use ($adds, $judged): void {
+    $shell = recording('', Ran::finished(succeeded: true, output: ''));
+    $mutant = $judged($shell, TestIds::of($adds, TestId::of("Tests\\MoneySpec::adds#with\nbreak")));
+
+    expect(judgedAs($mutant))->toBe([
+        MutantStatus::Unjudged,
+        [],
+        'A test that covers it has a line break in its name, and no test file found holds every test that covers it.',
+    ])->and($shell->commands())->toBe([]);
+});
+
+it('keeps the run to the unit\'s group', function () use ($adds): void {
     $project = phpUnitProject();
     $shell = recording('', Ran::finished(succeeded: true, output: ''));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'));
-    new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'))
-        ->judged(moneyMutant($project), TestIds::of($adds, TestId::of("Tests\\X::y#a\nb")), $request, Seconds::of(3.0));
-    $arguments = $shell->commands()[0]->arguments();
+    new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project))
+        ->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0));
 
-    expect((string) file_get_contents(substr($arguments[8], strlen('--test-id-filter-file='))))->toBe("Tests\\MoneySpec::addsTwoAmounts\n")
-        ->and(array_slice($arguments, -2))->toBe(['--group', 'holds:src/Money.php']);
+    expect(array_slice($shell->commands()[0]->arguments(), -2))->toBe(['--group', 'holds:src/Money.php']);
 });
 
 it('starts each run with no earlier run\'s records or guard', function () use ($adds): void {
     $project = phpUnitProject();
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
-    $run = new MutantRun($project, recording(Outcome::Failed->line('T::fails'), Ran::finished(succeeded: false, output: '')), new Invocation($project, '/gate/override.php'));
+    $run = new MutantRun($project, recording(Outcome::Failed->line('T::fails'), Ran::finished(succeeded: false, output: '')), new Invocation($project, '/gate/override.php'), new TestFiles($project));
     $run->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0));
-    $again = new MutantRun($project, new PhpUnitShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: '')), new Invocation($project, '/gate/override.php'))
+    $again = new MutantRun($project, new PhpUnitShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: '')), new Invocation($project, '/gate/override.php'), new TestFiles($project))
         ->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0));
 
-    expect(judgedAs($again))->toBe([MutantStatus::Unjudged, [], 'PHPUnit ran none of the 1 tests that cover it: no id matched a test.']);
+    expect(judgedAs($again))->toBe([MutantStatus::Unjudged, [], 'PHPUnit ran none of the 1 tests that cover it: the selection matched no test.']);
 });
 
 it('cannot judge a mutant whose files it cannot write', function () use ($adds, $request): void {
@@ -280,7 +317,7 @@ it('cannot judge a mutant whose files it cannot write', function () use ($adds, 
     Scratch::write($project->root(), '.mutation-gate/phpunit', 'a file where the directory goes');
     $shell = recording('', Ran::finished(succeeded: true, output: ''));
     set_error_handler(static fn(): bool => true);
-    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'));
+    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project));
     $judged = $run->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0));
     restore_error_handler();
 

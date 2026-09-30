@@ -14,6 +14,7 @@ use function is_file;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
+use NightWorksIO\MutationGate\Core\Coverage\PhpReport;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -27,8 +28,6 @@ use SebastianBergmann\CodeCoverage\Exception as CoverageFailure;
 use SebastianBergmann\CodeCoverage\Serialization\Unserializer;
 
 use function sprintf;
-use function str_ends_with;
-use function trim;
 
 /**
  * A coverage map as `--coverage-php` writes it, read with
@@ -37,11 +36,6 @@ use function trim;
  */
 final readonly class CoverageFile implements Covering
 {
-    /** How php-code-coverage ends a map it wrote whole. */
-    private const string END = "END_OF_COVERAGE_SERIALIZATION\n);";
-
-    private const string CUT_OFF = '%s cannot be read as a coverage map: it ends before the map does.';
-
     /**
      * @param array<string, array<int, array<int, string>>> $lines     the tests on each line, by file and line
      * @param array<string, float>                    $durations each test's seconds, by id
@@ -54,11 +48,11 @@ final readonly class CoverageFile implements Covering
     public static function at(string $file): self|CannotJudge
     {
         if (! is_file($file)) {
-            return CannotJudge::because(sprintf('There is no coverage map at %s, so no test runs any line.', $file));
+            return PhpReport::missingAt($file);
         }
 
-        if (! str_ends_with(trim(sprintf('%s', file_get_contents($file))), self::END)) {
-            return CannotJudge::because(sprintf(self::CUT_OFF, $file));
+        if (! PhpReport::isWhole(sprintf('%s', file_get_contents($file)))) {
+            return PhpReport::cutOffAt($file);
         }
 
         return self::unserialized($file);
@@ -123,9 +117,7 @@ final readonly class CoverageFile implements Covering
         try {
             $coverage = new Unserializer()->unserialize($file);
         } catch (CoverageFailure $failure) {
-            $why = $failure->getMessage();
-
-            return CannotJudge::because(sprintf('%s cannot be read as a coverage map: %s', $file, $why));
+            return PhpReport::unreadableAt($file, $failure->getMessage());
         }
 
         return new self(

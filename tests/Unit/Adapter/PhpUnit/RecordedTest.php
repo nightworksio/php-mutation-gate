@@ -38,7 +38,7 @@ it('names the tests that failed or errored, and each that started and never fini
 });
 
 it('says every test that ran was skipped only where none passed, failed or died', function (string $lines, bool $skipped): void {
-    expect(recordedFrom($lines)->skippedEach())->toBe($skipped);
+    expect(recordedFrom($lines, TestId::of('T::a'), TestId::of('T::b'))->skippedEach())->toBe($skipped);
 })->with([
     'every one skipped' => [implode('', [Outcome::Started->line('T::a'), Outcome::Neither->line('T::a')]), true],
     'one passed' => [implode('', [Outcome::Neither->line('T::a'), Outcome::Passed->line('T::b')]), false],
@@ -46,6 +46,16 @@ it('says every test that ran was skipped only where none passed, failed or died'
     'one died' => [implode('', [Outcome::Neither->line('T::a'), Outcome::Started->line('T::b')]), false],
     'none ran' => ['', false],
 ]);
+
+it('lets a test the run did not select kill, and not pass', function (): void {
+    $passed = recordedFrom(implode('', [Outcome::Neither->line('T::a'), Outcome::Passed->line('U::b')]), TestId::of('T::a'));
+    $failed = recordedFrom(implode('', [Outcome::Neither->line('T::a'), Outcome::Failed->line('U::b')]), TestId::of('T::a'));
+
+    expect($passed->skippedEach())->toBeTrue()
+        ->and(killersIn($passed))->toBe([])
+        ->and($failed->skippedEach())->toBeFalse()
+        ->and(killersIn($failed))->toBe(['U::b']);
+});
 
 it('records nothing where there is no file, or no line it reads', function (): void {
     $none = Recorded::in(sprintf('%s/none.txt', Scratch::directory()), TestIds::none());

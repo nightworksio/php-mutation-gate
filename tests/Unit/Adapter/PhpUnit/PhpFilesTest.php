@@ -19,7 +19,7 @@ it('lists a PHP file itself and every PHP file a directory holds, once each, in 
     Scratch::write($root, 'src/a/notes.md', '# notes');
     Scratch::write($root, 'src/Legacy/Old.php', '<?php');
     Scratch::write($root, 'bin/tool', '#!/usr/bin/env php');
-    $project = Project::at($root, Path::of('vendor'), Path::of('.mutation-gate'));
+    $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
 
     $files = PhpFiles::in(
         $project,

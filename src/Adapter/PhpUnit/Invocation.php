@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -13,15 +15,27 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use function sprintf;
 
 /**
- * PHPUnit, started for one mutant (ADR-0023 decision 9): opcache off, so no
- * cached original runs in the mutated file's place and no mutated file is
- * cached for a later run; the override prepended; the extension recording
- * each test; only the covering tests selected by their ids; and stopped at
- * the first test that fails or errors, and not at one that is only risky or
- * warns.
+ * PHPUnit, as the gate starts it.
+ *
+ * - For one mutant (ADR-0023 decision 9): opcache off, so no cached original
+ *   runs in the mutated file's place and no mutated file is cached for a
+ *   later run; the override prepended; the extension recording each test;
+ *   only the covering tests selected; and stopped at the first test that
+ *   fails or errors, and not at one that is only risky or warns. It collects
+ *   no coverage, writes none of the project's logs and leaves PHPUnit's
+ *   result cache as it was, whatever the project's config asks.
+ * - For a coverage map: the tests the run asks for, with their map written as
+ *   `--coverage-php` writes it, and neither the project's logs nor the result
+ *   cache written.
  */
 final readonly class Invocation
 {
+    /** Leaves out the logs the project's config writes. */
+    private const string NO_LOGGING = '--no-logging';
+
+    /** Shows no progress, so what PHPUnit prints is what went wrong. */
+    private const string NO_PROGRESS = '--no-progress';
+
     public function __construct(private Project $project, private string $override)
     {
     }
@@ -40,10 +54,13 @@ final readonly class Invocation
             $this->project->phpunit(),
             '--extension',
             Extension::class,
-            sprintf('--test-id-filter-file=%s', $files->ids()),
+            $files->selection(),
             '--stop-on-error',
             '--stop-on-failure',
-            '--no-progress',
+            '--no-coverage',
+            self::NO_LOGGING,
+            PhpUnitOption::DoNotCacheResult->value,
+            self::NO_PROGRESS,
             ...$this->judgedBy($judgedBy),
         )
             ->telling(Variable::Results, $files->results())
@@ -52,6 +69,20 @@ final readonly class Invocation
             ->telling(Variable::Mutated, $files->mutated())
             ->withholding($withheld)
             ->within($limit);
+    }
+
+    /** The tests a coverage run asks for, under coverage, with their map written to a file. */
+    public function coverage(CoverageRun $request, string $map): Command
+    {
+        return Command::php(
+            $this->project->phpunit(),
+            sprintf('%s=%s', PhpUnitOption::CoveragePhp->value, $map),
+            self::NO_LOGGING,
+            PhpUnitOption::DoNotCacheResult->value,
+            self::NO_PROGRESS,
+            ...$this->judgedBy($request->tests()),
+        )
+            ->withholding($request->withheld());
     }
 
     /** @return list<string> the options that keep a run to the tests that judge the unit */

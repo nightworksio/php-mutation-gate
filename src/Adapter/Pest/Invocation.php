@@ -9,12 +9,14 @@ use function implode;
 use function is_file;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Core\Coverage\PhpReport;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -32,7 +34,7 @@ use function sprintf;
 final readonly class Invocation
 {
     /** The coverage map's name in a coverage directory. */
-    public const string MAP = 'coverage.php';
+    public const string MAP = PhpReport::NAME;
 
     /** JUnit's log of a coverage run, in the same directory. */
     public const string JUNIT = JUnitLog::NAME;
@@ -83,7 +85,7 @@ final readonly class Invocation
             '--parallel',
             sprintf('--processes=%d', $request->processes()->count()),
             '--no-tia',
-            sprintf('--coverage-php=%s/%s', $directory, self::MAP),
+            sprintf('%s=%s/%s', PhpUnitOption::CoveragePhp->value, $directory, self::MAP),
             sprintf('--log-junit=%s/%s', $directory, self::JUNIT),
             ...$this->narrowedTo($request->tests()),
         );

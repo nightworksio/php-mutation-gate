@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Invocation;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\MutationRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\TestFiles;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -50,7 +51,7 @@ function library(): string
  */
 function killingRun(string $root): array
 {
-    $project = Project::at($root, Path::of('vendor'), Path::of('.mutation-gate'));
+    $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
     $shell = new PhpUnitShellFake(static function (Command $command): Ran {
         file_put_contents($command->environment()[Variable::Results->value], "failed Tests%5CMoneySpec%3A%3Aadds\n");
         file_put_contents($command->environment()[Variable::Guard->value], "served\n");
@@ -60,7 +61,7 @@ function killingRun(string $root): array
     $run = new MutationRun(
         $project,
         Engine::with(new PlusToMinus(), new RemoveEcho()),
-        new MutantRun($project, $shell, new Invocation($project, '/gate/override.php')),
+        new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project)),
     );
 
     return [$run, $shell];

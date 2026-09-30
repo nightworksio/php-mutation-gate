@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
-use function array_keys;
+use function count;
 use function file_get_contents;
 use function getenv;
 use function is_file;
@@ -42,7 +42,6 @@ use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
-use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\Runner;
@@ -166,13 +165,9 @@ final readonly class Infection implements Runner
     /** The files of the test classes whose tests cover the file: the classes Infection runs for its mutants. */
     public function judges(Path $file, CoverageMap $map): Paths
     {
-        $classes = [];
+        $tests = $map->testsCoveringFile($file);
 
-        foreach ($map->testsCoveringFile($file) as $test) {
-            $classes[TestMethod::classOf($test)] = true;
-        }
-
-        return $classes === [] ? Paths::none() : TestFiles::declaring($this->project, array_keys($classes));
+        return count($tests) === 0 ? Paths::none() : TestFiles::declaring($this->project, $tests)->files();
     }
 
     /**
@@ -283,7 +278,7 @@ final readonly class Infection implements Runner
      */
     public function names(TestIds $tests, Withheld $withheld): TestNames
     {
-        return Names::of($this->project, $tests);
+        return TestFiles::declaring($this->project, $tests)->names($tests);
     }
 
     /** Infection in a package's directory, where Composer installed it there. */

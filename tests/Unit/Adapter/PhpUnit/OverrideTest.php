@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Override;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -14,7 +15,7 @@ afterEach(function (): void {
 });
 
 it('writes the script that registers the wrapper, reading the variables the gate sets, in the adapter\'s own directory', function (): void {
-    $project = Project::at(Scratch::directory(), Path::of('vendor'), Path::of('.mutation-gate'));
+    $project = Project::at(Scratch::directory(), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
     $script = Override::writtenFor($project);
 
     expect($script)->toBe($project->own('override.php'))
@@ -27,7 +28,7 @@ it('writes the script that registers the wrapper, reading the variables the gate
 it('cannot judge where PHP\'s command line would read the script\'s path as ini syntax', function (string $directory): void {
     $root = sprintf('%s/%s', Scratch::directory(), $directory);
     mkdir($root);
-    $project = Project::at($root, Path::of('vendor'), Path::of('.mutation-gate'));
+    $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
 
     expect(Override::writtenFor($project))->toEqual(CannotJudge::because(sprintf(
         'PHP cannot prepend %s: its command line reads a ", a ${ or a \\\\ in a setting as ini syntax.',
@@ -43,7 +44,7 @@ it('writes the script where the path holds what PHP\'s command line reads as it 
     $root = sprintf('%s/%s', Scratch::directory(), $directory);
     mkdir($root);
 
-    expect(Override::writtenFor(Project::at($root, Path::of('vendor'), Path::of('.mutation-gate'))))->toBeString();
+    expect(Override::writtenFor(Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'))))->toBeString();
 })->with([
     'one backslash' => ['a\\b'],
     'a dollar' => ['a$b'],

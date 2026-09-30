@@ -34,7 +34,12 @@ final readonly class Recorded
     ) {
     }
 
-    /** What a results file records of the tests a run selected; a file that is not there records nothing. */
+    /**
+     * What a results file records of the tests a run selected; a file that is
+     * not there records nothing. A test the run did not select, which ran as
+     * it shares a file with one it did, kills where it fails, and ends as
+     * neither where it passes: its pass says nothing of the mutant.
+     */
     public static function in(string $results, TestIds $selected): self
     {
         $lines = is_file($results) ? file($results, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
@@ -48,6 +53,7 @@ final readonly class Recorded
             $id = TestId::of(rawurldecode($test));
             $recorded = match (true) {
                 $outcome === Outcome::ClassFailed => $recorded->withClass($id->value(), $selected),
+                $outcome === Outcome::Passed && ! $selected->has($id) => $recorded->with(Outcome::Neither, $id),
                 $outcome instanceof Outcome => $recorded->with($outcome, $id),
                 default => $recorded,
             };
