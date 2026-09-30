@@ -300,11 +300,11 @@ decides are accepted for that release too.
 | **Keeping `shards.seconds` while most of the cost is estimated** | Two rules active in one project, depending on what the ledger holds. |
 | **A per-shard budget of the target less overhead** | Every misestimate becomes unjudged mutants and a failed run, which ties verdicts to cost estimates. ADR-0006 decision 4 rules that out. |
 | **A table of AST patterns known to be equivalent** | Each pattern is a proof somebody has to write, test and keep true. |
-| **PHPStan type facts** | Brings PHPStan and the project's own PHPStan config into the verdict. |
+| **PHPStan type facts** | Brings PHPStan and the project's own PHPStan config into the verdict. This row is about proving equivalence. ADR-0020 does bring a static analyser and its config into the verdict, keyed, to *kill* a mutant the analyser rejects, and departs from this reasoning there. |
 | **Skipping proven mutants in later Infection runs** through generated `ignore` lines | Infection's `ignore` matches by class, method and line, so it can drop another mutant of the same mutator on that line, which would then never be judged. |
-| **Generating mutants in the gate, to prove them before a run** | The gate would need a mutator engine matching each runner's exactly. ADR-0001 leaves mutating to the runner. |
+| **Generating mutants in the gate, to prove them before a run** | The gate would need a mutator engine matching each runner's exactly. ADR-0001 leaves mutating to the runner. For Pest and Infection this stands. ADR-0023 supersedes it for native runners, whose mutants the gate makes itself. |
 | **Counting a proven mutant as survived and only marking it** | A floor of 100 would stay out of reach for code with a genuine equivalent. |
-| **A port for equivalence provers** | A public interface for a feature with one known implementation. |
+| **A port for equivalence provers** | A public interface for a feature with one known implementation. ADR-0020's `StaticChecker` port answers whether a mutant is invalid, not whether it is equivalent, and this check stays outside it. |
 | **Recording *equivalent* in the proof** | Puts a gate judgement into the raw record, which ADR-0007 decision 1 keeps free of judgement. |
 | **`equivalence.static` off by default** | Nothing has shipped, so no one has a score an upgrade could surprise. |
 | **Treating a redundant ignore as stale** | Couples CI to opcache's optimizer: a PHP upgrade could fail a clean run. |
@@ -345,3 +345,6 @@ like timings: losing them costs speed, never a verdict.
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): survivor confirmation, `triage` and stale ignores
 - [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): how reports show *equivalent, proven*
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the release rule, which names the README's list
+- [ADR-0020](0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md): a static analyser that kills, beside the equivalence check here
+- [ADR-0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): the gate's own mutants for native runners
+- [ADR-0028](0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md): public read for forks on Google Cloud Storage and Azure Blob

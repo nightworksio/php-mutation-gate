@@ -34,6 +34,7 @@ itself, and goes up with the tests.
    | Status | In the score |
    |--------|--------------|
    | killed, errored (the mutant crashed the tests) | killed |
+   | killed by static analysis: a static analyser rejects the mutant (ADR-0020) | killed |
    | timed out, and judged a kill by timeout triage (ADR-0008) | killed |
    | survived, uncovered, unjudged, flaky; timed out or skipped and too slow to judge (ADR-0008) | not killed |
    | ignored, with a reason or by a native marker (ADR-0008) | left out |
@@ -120,8 +121,15 @@ itself, and goes up with the tests.
    A unit with none of these is treated as reached and is mutated. So every
    tree the gate judges is judged over all its code, and sharding (ADR-0006)
    decides only where a mutant runs, never how a tree's score is added up. The
-   one exception is a run cut short by a time budget (ADR-0008). Its unjudged
-   mutants count as not killed, and it never raises a floor.
+   two exceptions never raise a floor:
+   - a run cut short by a time budget (ADR-0008), whose unjudged mutants
+     count as not killed;
+   - a sampled run (ADR-0020), which estimates a tree from a sample of its
+     units with a confidence interval, and judges its floor on that interval.
+     ADR-0020 supersedes this decision's "judged whole" for sampled runs.
+
+   A carried result may also stand for a single mutator's mutants in a unit
+   whose content is unchanged, when that mutator is pruned (ADR-0025).
 
 5. **A score below the effective floor fails the run** (exit code 1). The
    message names:
@@ -169,6 +177,11 @@ itself, and goes up with the tests.
    - The tree floor and the new-code floor must both hold. A tree at 62% then
      cannot take in new code at 62%.
    - A change with no mutable lines has an empty set, which passes and says so.
+
+   Two more sets are judged against floors of their own: the security set,
+   ratcheted in the baseline's `security` entry (ADR-0021), and each code
+   owner's units, against the declared minimum `owners.floors` sets
+   (ADR-0022).
 
 9. **A tree with no floor anywhere is not quietly held to none.** With no
    declared floor and no baseline entry, a CI run (the `CI` environment
@@ -219,3 +232,8 @@ failure message gives the command that writes it.
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): mutants proven equivalent
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): `trees[].exclude`
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the first CI run measures before it refuses
+- [ADR-0020](0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md): *killed by static analysis*, and sampled runs
+- [ADR-0021](0021-mutators-are-written-once-and-first-party-sets-can-leave.md): the security set and its baseline entry
+- [ADR-0022](0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md): floors per code owner
+- [ADR-0025](0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md): results carried for a pruned mutator
+- [ADR-0026](0026-configs-and-baselines-move-forward-with-one-command.md): moving a baseline to a newer format

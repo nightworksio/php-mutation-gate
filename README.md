@@ -20,7 +20,8 @@ decides:
 - whether the result may merge.
 
 The mutating itself is done by the tool you already use: Pest's `--mutate`, or
-Infection.
+Infection. For PHPUnit, Codeception, PhpSpec and Testo on their own, the gate
+makes the mutants itself.
 
 Each tree of your code has a floor, the lowest score it may have. The floor
 only rises. New code has a floor of its own, 100 by default. A pull request
@@ -40,18 +41,37 @@ that reproduces it and a sentence saying what the tests miss.
 | | Floors that only rise: a committed baseline, which fails on regression and rises on improvement | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | | Pull-request mode: changed lines and what the change reaches, with a stricter floor for new code | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | | Monorepos: a floor per package and module, with reach that follows the dependencies | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| | `migrate`: a config and a baseline moved to the current format, in any of the four formats | [0026](.docs/decisions/0026-configs-and-baselines-move-forward-with-one-command.md) |
+| | A signed PHAR and a multi-arch container image beside the Composer package | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
+| | `composer mutate`, and recipes for CaptainHook, GrumPHP and the pre-commit framework | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | **CI and speed** | A cost model that learns how long each file takes from earlier shards | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | | Sharding on any CI: GitHub Actions, GitLab, Buildkite, CircleCI, or a JSON plan | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | | A proof cache keyed by content, stored in the GitHub cache, a directory or S3/R2 | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | | Likely killers first: each mutant's tests ordered by which of them killed it before | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | | A shard count chosen from a target wall time | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | | A fork's pull request reads the default branch's proofs, read-only | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
+| | `affected`: the tests a change can reach, for plain test runs | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
+| | A static analyser (Mago, PHPStan or Psalm) kills the mutants it rejects, before their tests where that saves time | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
+| | A new push re-checks the previous survivors first, for a signal within minutes | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
+| | A sampled mode for huge repositories: each tree estimated with a confidence interval, judged on its bounds | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
+| | Coverage re-measured only for the tests whose inputs moved | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
+| | Every core of a shard's runner busy, and one warm worker per core for native runners | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
+| | Mutators that never let a mutant through are pruned on unchanged code, and audited weekly | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
+| | Merge queues: a `merge_group` run judges what will land, trusting no pull request's own proofs | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
+| | Sharding on Bitbucket Pipelines, Azure DevOps and Jenkins | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
+| | Proofs in Google Cloud Storage or Azure Blob, with OIDC and a public read path for forks | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
 | **Reporting** | JSON, JUnit and SARIF, and line annotations on GitHub | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | A useless-test report: tests that cover code and kill none of it | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | | A redundant-test report: tests whose every kill another test also makes | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | | A kill-matrix export, as CSV and in the JSON and HTML reports | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | | Holding tests: Pest `holds:` groups and a `#[Holds]` attribute, a check that a group covers what it holds, and a warning for code every test runs through that nothing holds | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | | Infection as well as Pest | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| | Native runners for PHPUnit, Codeception, PhpSpec and Testo, on the gate's own mutants | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md), [0027](.docs/decisions/0027-codeception-phpspec-and-testo-get-native-runners.md) |
+| | Weak assertions, found and paired with the survivors they let through | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
+| | A score per test suite | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
+| | Survivors grouped by code owner, with owners mentioned and floors per owner | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
+| | Survivors with one cause clustered into one item with one suggested test | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
+| | A SonarQube report of survivors, in Sonar's generic external-issues format | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
 | **Local use** | Watch mode and a pre-push hook | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 | | A score change before each commit, from a hook that runs nothing and never blocks | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | | Survivors inline in VS Code and PhpStorm | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
@@ -64,6 +84,10 @@ that reproduces it and a sentence saying what the tests miss.
 | | Ignores for equivalent mutants, each with a reason and an optional expiry | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | | Survivors the compiler proves equivalent, left out of the score | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | | Presets for Laravel, Symfony and plain libraries | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| | Custom mutators, written once for Pest and Infection against a typed SDK | [0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
+| | Laravel and Symfony mutator sets, turned on by their presets | [0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
+| | Security mode: mutators for authorisation, CSRF, escaping and constant-time comparisons, held to a floor of their own | [0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
+| | A hint that a surviving removal may be dead code | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
 | **Visibility** | An HTML report | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | A sticky comment on the pull request, posted when the plan is made with the units it mutates, the time it should take and the changed lines no test covers, then updated with the verdict | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md), [0019](.docs/decisions/0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md) |
 | | A cost estimate in the PR comment: time planned, measured and spared, and money at the team's rate | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
@@ -73,6 +97,8 @@ that reproduces it and a sentence saying what the tests miss.
 | | Every run says what it saved against a full run in one job: reach and proofs, and what sharding saved in waiting and cost in runner time | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | Progress and an ETA during a run | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | A benchmark against plain Pest and Infection on four open-source projects: cold, warm and per pull request, losses included | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| | The sticky comment and its planned state on GitLab merge requests and Bitbucket pull requests, with survivors in GitLab's Code Quality report and Bitbucket's Code Insights | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
+| | An organisation dashboard: a static site of every repository's trends, floors and savings | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 
 ## Install
 
@@ -823,7 +849,7 @@ and `init` adds it there.
 
 The design is recorded as [decisions](.docs/decisions/README.md):
 
-- a framework-free core behind nine ports;
+- a framework-free core behind its ports;
 - Pest and Infection as adapters;
 - a content-keyed proof ledger;
 - the toolchain the package holds itself to.
