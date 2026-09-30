@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -77,15 +78,17 @@ final readonly class LedgerFile
         $retention = LedgerRetention::standard();
         $kept = $retention->proofsOf($ledger);
         $killers = $retention->killersOf($ledger);
-        $mutators = self::namesOf($kept, static fn(Mutant $killed): array => [$killed->mutation()->mutator()]);
+        $mutators = self::namesOf($kept, static fn(Mutant|ProvedKill $killed): array => [$killed->mutator()]);
         $tests = array_values(array_unique([
-            ...self::namesOf($kept, static fn(Mutant $killed): array => self::idsOf($killed->killers())),
+            ...self::namesOf($kept, static fn(Mutant|ProvedKill $killed): array => self::idsOf($killed->killers())),
             ...KillersRecord::testsOf($killers),
         ]));
+        $mutatorIndex = array_flip($mutators);
+        $testIndex = array_flip($tests);
         $proofs = [];
 
         foreach ($kept as $proof) {
-            $proofs[$proof->key()->value()] = ProofRecord::of($proof, array_flip($mutators), array_flip($tests));
+            $proofs[$proof->key()->value()] = ProofRecord::of($proof, $mutatorIndex, $testIndex);
         }
 
         $timings = self::timings($ledger->timings());
@@ -101,7 +104,7 @@ final readonly class LedgerFile
             self::TESTS => $tests,
             'proofs' => $proofs === [] ? new stdClass() : $proofs,
             'timings' => $timings === [] ? new stdClass() : $timings,
-            KillersRecord::SECTION => KillersRecord::of($killers, array_flip($tests)),
+            KillersRecord::SECTION => KillersRecord::of($killers, $testIndex),
             ...$passed instanceof Passed ? [self::PASSED => [
                 'commit' => $passed->commit()->name(),
                 'check' => $passed->check(),
@@ -143,8 +146,8 @@ final readonly class LedgerFile
      * What the killed mutants of these proofs name, each once, in the order
      * they first name it: their mutators, or the tests that killed them.
      *
-     * @param  list<Proof>                   $proofs
-     * @param  Closure(Mutant): list<string> $named
+     * @param  list<Proof>                              $proofs
+     * @param  Closure(Mutant|ProvedKill): list<string> $named
      * @return list<string>
      */
     private static function namesOf(array $proofs, Closure $named): array
@@ -152,12 +155,31 @@ final readonly class LedgerFile
         $names = [];
 
         foreach ($proofs as $proof) {
-            foreach ($proof->mutants() as $mutant) {
-                $names[] = $mutant->status() === MutantStatus::Killed ? $named($mutant) : [];
-            }
+            $names[] = self::killedNamesIn($proof, $named);
         }
 
         return array_values(array_unique(array_merge(...$names)));
+    }
+
+    /**
+     * What the killed mutants of one proof name, reported or proved.
+     *
+     * @param  Closure(Mutant|ProvedKill): list<string> $named
+     * @return list<string>
+     */
+    private static function killedNamesIn(Proof $proof, Closure $named): array
+    {
+        $names = [];
+
+        foreach ($proof->reported() as $mutant) {
+            $names[] = $mutant->status() === MutantStatus::Killed ? $named($mutant) : [];
+        }
+
+        foreach ($proof->kills() as $kill) {
+            $names[] = $named($kill);
+        }
+
+        return array_merge(...$names);
     }
 
     /** @return list<string> */

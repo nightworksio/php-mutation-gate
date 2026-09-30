@@ -280,7 +280,12 @@ final readonly class ReportSchema
         ], ['score']);
     }
 
-    /** @return Shallow */
+    /**
+     * A mutant; a kill a ledger proved keeps no family or diff, so it leaves
+     * both out.
+     *
+     * @return Shallow
+     */
     private static function mutant(): array
     {
         return self::object([
@@ -303,7 +308,7 @@ final readonly class ReportSchema
             'explain' => self::TEXT,
             'seconds' => self::SECONDS,
             'limit' => self::SECONDS,
-        ], ['end', 'reason', 'seconds', 'limit']);
+        ], ['end', 'family', 'diff', 'reason', 'seconds', 'limit']);
     }
 
     /** @return Flat */

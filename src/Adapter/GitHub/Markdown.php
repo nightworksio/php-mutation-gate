@@ -229,7 +229,7 @@ final readonly class Markdown
                 sprintf(
                     '<details><summary>%s %s, %s</summary>',
                     self::place($judged),
-                    Escape::text(Mutator::short($mutant->mutation()->mutator())),
+                    Escape::text(Mutator::short($mutant->mutator())),
                     Label::of($judged->judgement()),
                 ),
                 Escape::block(rtrim($mutant->mutation()->diff(), "\n"), 'diff'),
@@ -262,7 +262,7 @@ final readonly class Markdown
             $rows[] = sprintf(
                 '| %s | %s | %s | %s | %s |',
                 self::place($judged),
-                Escape::text(Mutator::short($mutant->mutation()->mutator())),
+                Escape::text(Mutator::short($mutant->mutator())),
                 Label::of($judged->judgement()),
                 Escape::text($reason instanceof Reason
                     ? sprintf('%s %s', $reason->text(), $judged->hint()->text())

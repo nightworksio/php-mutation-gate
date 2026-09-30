@@ -102,6 +102,12 @@ final readonly class Mutant
         return $this->mutation;
     }
 
+    /** The full name of its mutator, which a kill a ledger proved names too. */
+    public function mutator(): string
+    {
+        return $this->mutation->mutator();
+    }
+
     public function status(): MutantStatus
     {
         return $this->status;

@@ -11,9 +11,9 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
-use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -77,5 +77,5 @@ it('knows a mutant in new code that failed is failing though its tree passed', f
 });
 
 it('reads no mutant of an empty set as failing', function (): void {
-    expect(Overview::of(Verdict::of(TreeVerdicts::none()))->survivors())->toEqual(JudgedMutants::none());
+    expect(Overview::of(Verdict::of(TreeVerdicts::none()))->survivors())->toEqual(Survivors::of());
 });

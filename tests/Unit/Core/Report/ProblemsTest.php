@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 $sources = static fn(): array => ['src/Money.php' => Contents::of(Verdicts::MONEY)];
@@ -42,7 +43,7 @@ $line = static fn(JudgedMutant $judged, string $place, string $level, string $ma
 );
 
 it('prints a line per result, at its column, with the run a proved or carried one came from', function () use ($sources, $line): void {
-    $mutants = iterator_to_array(Verdicts::everyJudgement(), preserve_keys: false);
+    $mutants = Judged::listed(Verdicts::everyJudgement());
 
     expect(Problems::text(Verdicts::failing(), $sources(), ProblemsShown::All))->toBe(implode('', [
         $line($mutants[0], 'src/Money.php:7:21', 'error', '', 'survived'),
@@ -68,7 +69,7 @@ it('names the run whose proof a proved or carried result came from, and warns of
         JudgedUnit::of(Unit::file(Path::of('src/Log.php')), Origin::Carried)->withRun($run),
     );
     $tree = TreeVerdict::judged(Tree::at(Path::of('src'), Floor::of(0), Package::at(Path::root())), Unrecorded::floor(), $units, $mutants, Uncovered::Count);
-    $all = iterator_to_array($mutants, preserve_keys: false);
+    $all = Judged::listed($mutants);
 
     expect(Problems::text(Verdict::of(TreeVerdicts::of($tree)), [], ProblemsShown::All))->toBe(implode('', [
         $line($all[0], 'src/Order.php:3:1', 'warning', ' (proved in run github:12345/1)', 'survived'),

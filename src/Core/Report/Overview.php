@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
+use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
 /**
@@ -56,7 +57,7 @@ final readonly class Overview
     }
 
     /** Every mutant the score counts as not killed, those on changed lines first. */
-    public function survivors(): JudgedMutants
+    public function survivors(): Survivors
     {
         return $this->verdict->trees()->mutants()->survivors($this->uncovered);
     }

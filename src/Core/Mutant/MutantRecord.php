@@ -110,13 +110,13 @@ final readonly class MutantRecord
      * @param  array<string, int>                 $tests    each killing test's index in the ledger, by its id
      * @return array{string, int, int, list<int>}
      */
-    public static function killed(Mutant $mutant, array $mutators, array $tests): array
+    public static function killed(Mutant|ProvedKill $killed, array $mutators, array $tests): array
     {
         return [
-            $mutant->id()->value(),
-            $mutant->location()->start()->number(),
-            $mutators[$mutant->mutation()->mutator()],
-            array_map(static fn(string $test): int => $tests[$test], self::idsOf($mutant->killers())),
+            $killed->id()->value(),
+            $killed->location()->start()->number(),
+            $mutators[$killed->mutator()],
+            array_map(static fn(string $test): int => $tests[$test], self::idsOf($killed->killers())),
         ];
     }
 
@@ -151,15 +151,14 @@ final readonly class MutantRecord
     }
 
     /**
-     * A killed record, read as a mutant of the unit it was proved in, with no
-     * family, diff or duration.
+     * A killed record, read as the kill it proves in the unit it was proved in.
      *
      * @param list<string> $mutators the ledger's mutator names, each at its index
      * @param list<string> $tests    the ledger's test ids, each at its index
      *
      * @throws NotInShape
      */
-    public static function readKilled(Node $record, Path $unit, array $mutators, array $tests): Mutant
+    public static function readKilled(Node $record, Path $unit, array $mutators, array $tests): ProvedKill
     {
         $fields = $record->items();
 
@@ -169,14 +168,13 @@ final readonly class MutantRecord
 
         [$id, $line, $mutator, $killers] = $fields;
 
-        return Mutant::of(
+        return ProvedKill::of(
             self::idOf($id),
-            '',
-            Location::of($unit, self::lineIn($line), Unreported::line()),
-            Mutation::of(self::mutatorOf($mutator, $mutators), MutatorFamily::Unrecorded, ''),
-            MutantStatus::Killed,
-            Unmeasured::duration(),
-        )->killedBy(self::killersOf($killers, $tests));
+            $unit,
+            self::lineIn($line),
+            self::mutatorOf($mutator, $mutators),
+            self::killersOf($killers, $tests),
+        );
     }
 
     /** Whether a record is a full one, rather than the killed one a ledger keeps of a killed mutant. */

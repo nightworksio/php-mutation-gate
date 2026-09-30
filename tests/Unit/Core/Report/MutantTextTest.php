@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('heads a mutant with where it is, its mutator, its judgement and its id', function (): void {
@@ -56,7 +57,7 @@ it('puts a mutant in one line for a tool that lists results', function (): void 
 });
 
 it('says why a mutant stands as it does, where its record says, and leaves out a diff it has none of', function (): void {
-    $unjudged = iterator_to_array(Verdicts::everyJudgement(), preserve_keys: false)[4];
+    $unjudged = Judged::listed(Verdicts::everyJudgement())[4];
     $bare = JudgedMutant::of(Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::None, ''), MutantJudgement::Uncovered);
 
     expect(MutantText::block($unjudged, TestNames::none()))->toContain("\n    Why: The run's budget ran out before it.\n    Nothing judged it")

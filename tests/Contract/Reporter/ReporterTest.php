@@ -118,6 +118,7 @@ it('reports a verdict of each kind, saying where it wrote or why it could not', 
     'passed' => ['passing'],
     'nothing to mutate' => ['empty'],
     'cut short' => ['cut short'],
+    'a unit a ledger proved' => ['proved'],
 ]);
 
 it('writes a failing verdict, and leaves a file it wrote where it says', function (Reporter $reporter): void {

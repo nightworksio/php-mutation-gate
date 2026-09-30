@@ -114,6 +114,12 @@ final readonly class Hint
         return new self($text);
     }
 
+    /** The hint for a kill a ledger proved: nothing is missing. */
+    public static function killed(): self
+    {
+        return new self(self::KILLED);
+    }
+
     /** The hint for a mutant as the gate judged it, the tests that judge it and its file, where there is one. */
     public static function for(
         Mutant $mutant,
@@ -170,7 +176,7 @@ final readonly class Hint
             MutatorFamily::Exception => self::EXCEPTION,
             MutatorFamily::Unwrap => self::about($change->call(), self::UNWRAP, self::UNWRAP_HERE),
             MutatorFamily::Visibility => self::about($function, self::VISIBLE, self::VISIBLE_HERE),
-            MutatorFamily::None, MutatorFamily::Unknown, MutatorFamily::Unrecorded => $change->added() === ''
+            MutatorFamily::None, MutatorFamily::Unknown => $change->added() === ''
                 ? sprintf(self::GOES, $line->number())
                 : sprintf(self::BECOMES, $line->number(), $change->added()),
         };

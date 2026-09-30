@@ -61,7 +61,7 @@ final readonly class NewCodeVerdict
     }
 
     /** The mutants the score counts as not killed, in reported order. */
-    public function survivors(): JudgedMutants
+    public function survivors(): Survivors
     {
         return $this->mutants->survivors($this->uncovered);
     }

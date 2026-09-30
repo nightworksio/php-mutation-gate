@@ -10,9 +10,9 @@ use function count;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Test\TestNames;
-use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
@@ -169,7 +169,7 @@ final readonly class JUnit
         string $class,
         Judgement $judgement,
         string $said,
-        JudgedMutants $survivors,
+        Survivors $survivors,
         TestNames $names,
     ): array {
         [$body, $failed] = match ($judgement) {
@@ -185,7 +185,7 @@ final readonly class JUnit
     }
 
     /** What a failed floor says, then every mutant it counts as not killed. */
-    private static function listing(string $said, JudgedMutants $survivors, TestNames $names): string
+    private static function listing(string $said, Survivors $survivors, TestNames $names): string
     {
         $blocks = [$said];
 

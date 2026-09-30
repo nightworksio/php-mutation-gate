@@ -16,7 +16,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
-use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
@@ -34,7 +35,6 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 
@@ -45,14 +45,22 @@ $killedId = MutantId::hash(Path::of('src/Money.php'), 'Plus', "-+\n+-", 0);
 $minusId = MutantId::hash(Path::of('src/Money.php'), 'Minus', "-+\n+-", 0);
 $survivedId = MutantId::hash(Path::of('src/Money.php'), 'LessThan', "-<\n+<=", 0);
 
-// A killed mutant as a ledger reads it back: only its id, line and mutator, its family unrecorded.
+// A killed mutant as a run reports it, in full.
 $killedBy = static fn(MutantId $id, string $mutator, int $line): Mutant => Mutant::of(
     $id,
-    '',
-    Location::of(Path::of('src/Money.php'), Line::of($line), Unreported::line()),
-    Mutation::of($mutator, MutatorFamily::Unrecorded, ''),
+    sprintf('native-%d', $line),
+    Location::of(Path::of('src/Money.php'), Line::of($line), Line::of($line)),
+    Mutation::of($mutator, MutatorFamily::Arithmetic, "-+\n+-"),
     MutantStatus::Killed,
-    Unmeasured::duration(),
+    Seconds::of(0.2),
+);
+// A killed mutant as a ledger reads it back: only its id, line, mutator and killers.
+$proved = static fn(MutantId $id, string $mutator, int $line, TestIds $killers): ProvedKill => ProvedKill::of(
+    $id,
+    Path::of('src/Money.php'),
+    Line::of($line),
+    $mutator,
+    $killers,
 );
 $killed = $killedBy($killedId, 'Plus', 44);
 $survived = Mutant::of(
@@ -66,13 +74,8 @@ $survived = Mutant::of(
 $at = static fn(string $instant): Instant => Moment::at($instant);
 $run = static fn(string $id, string $instant, string $at = ''): Run => Run::of($id, Moment::at($instant), Digest::of($at === '' ? $base : $at));
 
-$ledger = Ledger::empty()
-    ->withProof(Proof::of(Digest::of($keyA), Path::of('src/Money.php'), Mutants::of(
-        $killed->killedBy(TestIds::of(TestId::of('MoneyTest::adds'))),
-        $survived,
-        $killedBy($minusId, 'Minus', 45)->killedBy(TestIds::of(TestId::of('CartTest::totals'), TestId::of('MoneyTest::adds'))),
-        $killed,
-    ), $run('github:1/1', '2026-09-29T20:48:17Z')))
+$ledgerOf = static fn(Proof $money): Ledger => Ledger::empty()
+    ->withProof($money)
     ->withProof(Proof::of(Digest::of($keyB), Path::of('src/B.php'), Mutants::none(), $run('github:2/1', '2026-09-29T21:00:00Z')))
     ->withTiming(Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'infection', $at('2026-09-29T20:48:17Z')))
     ->atBase(Digest::of($base))
@@ -86,6 +89,27 @@ $ledger = Ledger::empty()
             Enclosing::named(Path::of('src/Money.php'), 'add'),
             Ranking::of(Kills::of(TestId::of('TaxTest::rounds'), 2)),
         ));
+$adds = TestIds::of(TestId::of('MoneyTest::adds'));
+$both = TestIds::of(TestId::of('CartTest::totals'), TestId::of('MoneyTest::adds'));
+// The ledger as a run leaves it: every mutant in full.
+$ledger = $ledgerOf(Proof::of(Digest::of($keyA), Path::of('src/Money.php'), Mutants::of(
+    $killed->killedBy($adds),
+    $survived,
+    $killedBy($minusId, 'Minus', 45)->killedBy($both),
+    $killed,
+), $run('github:1/1', '2026-09-29T20:48:17Z')));
+// The same ledger read back: the survivor in full, and each kill as the ledger proved it.
+$readBack = $ledgerOf(Proof::held(
+    Digest::of($keyA),
+    Path::of('src/Money.php'),
+    Mutants::of($survived),
+    ProvedKills::of(
+        $proved($killedId, 'Plus', 44, $adds),
+        $proved($minusId, 'Minus', 45, $both),
+        $proved($killedId, 'Plus', 44, TestIds::none()),
+    ),
+    $run('github:1/1', '2026-09-29T20:48:17Z'),
+));
 
 // The ledger's file as data, to change one entry of and write back.
 $data = static function () use ($ledger): array {
@@ -142,8 +166,9 @@ it('writes an empty ledger as empty lists and maps and no passing commit', funct
         ->toBe('{"format":2,"bases":[],"mutators":[],"tests":[],"proofs":{},"timings":{},"killers":{"mutants":{},"functions":{}}}');
 });
 
-it('reads back the ledger it wrote', function () use ($ledger): void {
-    expect(LedgerFile::decode(LedgerFile::encode($ledger)))->toEqual($ledger);
+it('reads back the ledger it wrote, each killed mutant as the kill it proves', function () use ($ledger, $readBack): void {
+    expect(LedgerFile::decode(LedgerFile::encode($ledger)))->toEqual($readBack)
+        ->and(LedgerFile::decode(LedgerFile::encode($readBack)))->toEqual($readBack);
 });
 
 it('keeps two proofs as new as each other in the order it held them', function () use ($run, $base): void {
@@ -301,12 +326,12 @@ it('writes the kill history of the mutants its kept proofs hold, and of every fu
         ->toBe([$killedId->value()]);
 });
 
-it('reads a passing record that is not well formed as none', function (array|int|string $passed) use ($data, $written, $ledger): void {
+it('reads a passing record that is not well formed as none', function (array|int|string $passed) use ($data, $written, $readBack): void {
     $file = [...$data(), 'passed' => $passed];
     $read = LedgerFile::decode($written($file));
 
     expect($read->lastPassed())->toEqual(Ledger::empty()->lastPassed())
-        ->and($read->proofs())->toEqual($ledger->proofs());
+        ->and($read->proofs())->toEqual($readBack->proofs());
 })->with([
     'a bare commit' => ['206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'],
     'a number' => [7],
@@ -344,4 +369,33 @@ it('reads a full ledger and joins it to another in time linear in its proofs', f
 
     expect($read(10)()->proofs())->toHaveCount(10)
         ->and(Growth::of(1250, $read))->toBeLessThan(Growth::LINEAR);
+});
+
+it('writes a full ledger of proved kills in time linear in its proofs', function () use ($run, $killedId, $base): void {
+    $write = static function (int $size) use ($run, $killedId, $base): Closure {
+        $proofs = [];
+
+        for ($made = 1; $made <= $size; $made++) {
+            $proofs[] = Proof::held(
+                Digest::of(hash('sha256', sprintf('%d', $made))),
+                Path::of(sprintf('src/F%d.php', $made)),
+                Mutants::none(),
+                ProvedKills::of(ProvedKill::of(
+                    $killedId,
+                    Path::of(sprintf('src/F%d.php', $made)),
+                    Line::of(1),
+                    sprintf('M%d', $made),
+                    TestIds::of(TestId::of(sprintf('F%dTest::kills', $made)), TestId::of('MoneyTest::adds')),
+                )),
+                $run('new', '2026-09-29T20:00:00Z'),
+            );
+        }
+
+        $ledger = Ledger::empty()->withProofs(Proofs::of(...$proofs))->atBase(Digest::of($base));
+
+        return static fn(): string => LedgerFile::encode($ledger);
+    };
+
+    expect(LedgerFile::decode($write(10)())->proofs())->toHaveCount(10)
+        ->and(Growth::of(5000, $write))->toBeLessThan(Growth::LINEAR);
 });

@@ -43,7 +43,7 @@ final readonly class Proving
             $proof = self::proofOf($keys->keyOf($unit->path()), $defaultBranch, $own);
 
             if ($proof instanceof Proof) {
-                $proved[] = UnitResult::of($unit, Origin::Proved, $proof->mutants());
+                $proved[] = UnitResult::held($unit, Origin::Proved, $proof->reported(), $proof->kills());
                 $ownScope += $defaultBranch->has($proof->key()) ? 0 : 1;
 
                 continue;
@@ -87,7 +87,7 @@ final readonly class Proving
 
         return match (true) {
             $trusted instanceof Proof && $owned instanceof Proof
-                && count($trusted->mutants()->disagreeingWith($owned->mutants())) > 0 => Unproved::key($key),
+                && count($trusted->disagreeingWith($owned)) > 0 => Unproved::key($key),
             $trusted instanceof Proof => $trusted,
             default => $owned,
         };

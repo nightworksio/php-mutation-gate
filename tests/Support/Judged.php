@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function array_map;
+use function iterator_to_array;
+
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -16,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 
 /** Judged mutants a test names by their native id, judgement, file and line. */
 final class Judged
@@ -50,15 +54,26 @@ final class Judged
         return $mutants;
     }
 
-    /** @return list<string> the native ids, in order */
-    public static function natives(JudgedMutants $mutants): array
+    /** @return list<string> the native ids of the mutants reported in full, in order */
+    public static function natives(Survivors|JudgedMutants $mutants): array
     {
-        $natives = [];
+        return array_map(
+            static fn(JudgedMutant $mutant): string => $mutant->mutant()->nativeId(),
+            $mutants instanceof JudgedMutants ? self::listed($mutants) : iterator_to_array($mutants, preserve_keys: false),
+        );
+    }
+
+    /** @return list<JudgedMutant> the mutants reported in full, in order, leaving out any kill a ledger proved */
+    public static function listed(JudgedMutants $mutants): array
+    {
+        $listed = [];
 
         foreach ($mutants as $mutant) {
-            $natives[] = $mutant->mutant()->nativeId();
+            if ($mutant instanceof JudgedMutant) {
+                $listed[] = $mutant;
+            }
         }
 
-        return $natives;
+        return $listed;
     }
 }

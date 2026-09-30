@@ -434,8 +434,7 @@
                             "unwrap",
                             "visibility",
                             "none",
-                            "unknown",
-                            "unrecorded"
+                            "unknown"
                         ]
                     },
                     "diff": {
@@ -517,8 +516,6 @@
                     "file",
                     "line",
                     "mutator",
-                    "family",
-                    "diff",
                     "status",
                     "judgement",
                     "changedLine",

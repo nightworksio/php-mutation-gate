@@ -37,23 +37,3 @@ it('adds a mutant without changing the mutants it came from', function () use ($
     expect($natives($mutants->with($mutant('b'))))->toBe(['a', 'b'])
         ->and($mutants)->toHaveCount(1);
 });
-
-it('names the mutants two runs of the same code disagree on: a status that differs, or a mutant one lacks', function (): void {
-    $of = static fn(string $diff, MutantStatus $status): Mutant => Mutant::of(
-        MutantId::hash(Path::of('src/Money.php'), 'LessThan', $diff, 0),
-        $diff,
-        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
-        Mutation::of('LessThan', MutatorFamily::Boundary, $diff),
-        $status,
-        Unmeasured::duration(),
-    );
-    $here = Mutants::of($of("-a\n+b", MutantStatus::Killed), $of("-c\n+d", MutantStatus::Survived), $of("-e\n+f", MutantStatus::Killed));
-    $there = Mutants::of($of("-a\n+b", MutantStatus::Killed), $of("-c\n+d", MutantStatus::Killed), $of("-g\n+h", MutantStatus::Killed));
-
-    expect([...$here->disagreeingWith($there)])->toEqual([
-        $of("-c\n+d", MutantStatus::Killed)->id(),
-        $of("-e\n+f", MutantStatus::Killed)->id(),
-        $of("-g\n+h", MutantStatus::Killed)->id(),
-    ])
-        ->and($here->disagreeingWith($here))->toHaveCount(0);
-});

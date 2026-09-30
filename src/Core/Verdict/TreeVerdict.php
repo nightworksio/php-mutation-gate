@@ -128,7 +128,7 @@ final readonly class TreeVerdict
     }
 
     /** The mutants the score counts as not killed, those on changed lines first. */
-    public function survivors(): JudgedMutants
+    public function survivors(): Survivors
     {
         return $this->mutants->survivors($this->uncovered);
     }

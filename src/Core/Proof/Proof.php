@@ -4,24 +4,43 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
+use function array_key_exists;
+
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 
 /**
  * A unit's result, stored under the content key of everything its verdict
- * read, with the run that established it. Its mutants carry their statuses
- * before ignores and floors apply.
+ * read, with the run that established it. It holds the mutants a runner
+ * reported in full, with their statuses before ignores and floors apply, and
+ * the kills a ledger proved, which it keeps no more of than a kill needs.
  */
 final readonly class Proof
 {
-    private function __construct(private Digest $key, private Path $unit, private Mutants $mutants, private Run $run)
-    {
+    private function __construct(
+        private Digest $key,
+        private Path $unit,
+        private Mutants $reported,
+        private ProvedKills $kills,
+        private Run $run,
+    ) {
     }
 
-    public static function of(Digest $key, Path $unit, Mutants $mutants, Run $run): self
+    /** The proof of a run: every mutant of the unit, as its runner reported them. */
+    public static function of(Digest $key, Path $unit, Mutants $reported, Run $run): self
     {
-        return new self($key, $unit, $mutants, $run);
+        return new self($key, $unit, $reported, ProvedKills::none(), $run);
+    }
+
+    /** A proof as a ledger holds it: its killed mutants as kills, and every other in full. */
+    public static function held(Digest $key, Path $unit, Mutants $reported, ProvedKills $kills, Run $run): self
+    {
+        return new self($key, $unit, $reported, $kills, $run);
     }
 
     public function key(): Digest
@@ -34,13 +53,85 @@ final readonly class Proof
         return $this->unit;
     }
 
-    public function mutants(): Mutants
+    /** The mutants a runner reported in full. */
+    public function reported(): Mutants
     {
-        return $this->mutants;
+        return $this->reported;
+    }
+
+    /** The kills a ledger proved. */
+    public function kills(): ProvedKills
+    {
+        return $this->kills;
+    }
+
+    /** The ids of every mutant it holds, in full or as a kill. */
+    public function ids(): MutantIds
+    {
+        $ids = [];
+
+        foreach ($this->reported as $mutant) {
+            $ids[] = $mutant->id();
+        }
+
+        foreach ($this->kills as $kill) {
+            $ids[] = $kill->id();
+        }
+
+        return MutantIds::of(...$ids);
     }
 
     public function run(): Run
     {
         return $this->run;
+    }
+
+    /**
+     * The mutants whose status here differs from theirs in those, or that only
+     * one of the two holds: the answers two runs of the same code do not agree
+     * on. A kill a ledger proved is killed.
+     */
+    public function disagreeingWith(Mutants|self $those): MutantIds
+    {
+        $theirs = $those instanceof self ? $those->answers() : $this->answersOf($those);
+        $differ = [];
+
+        foreach ($this->answers() as $key => [$id, $status]) {
+            if (! array_key_exists($key, $theirs) || $theirs[$key][1] !== $status) {
+                $differ[] = $id;
+            }
+
+            unset($theirs[$key]);
+        }
+
+        foreach ($theirs as [$id]) {
+            $differ[] = $id;
+        }
+
+        return MutantIds::of(...$differ);
+    }
+
+    /** @return array<string, array{MutantId, MutantStatus}> each mutant's id and status, by its id */
+    private function answers(): array
+    {
+        $answers = $this->answersOf($this->reported);
+
+        foreach ($this->kills as $kill) {
+            $answers[$kill->id()->value()] = [$kill->id(), MutantStatus::Killed];
+        }
+
+        return $answers;
+    }
+
+    /** @return array<string, array{MutantId, MutantStatus}> each mutant's id and status, by its id */
+    private function answersOf(Mutants $mutants): array
+    {
+        $answers = [];
+
+        foreach ($mutants as $mutant) {
+            $answers[$mutant->id()->value()] = [$mutant->id(), $mutant->status()];
+        }
+
+        return $answers;
     }
 }

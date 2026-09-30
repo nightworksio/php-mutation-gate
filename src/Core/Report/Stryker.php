@@ -13,12 +13,14 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Hint\Change;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -38,7 +40,7 @@ use stdClass;
  * @phpstan-type MutantEntry array{
  *     id: string,
  *     mutatorName: string,
- *     replacement: string,
+ *     replacement?: string,
  *     location: array{start: Place, end: Place},
  *     status: string,
  *     statusReason: string,
@@ -112,7 +114,7 @@ final readonly class Stryker
 
     /** @return MutantEntry */
     private static function mutant(
-        JudgedMutant $judged,
+        JudgedMutant|JudgedKill $judged,
         Columns $columns,
         Uncovered $uncovered,
         KillMatrix $matrix,
@@ -126,12 +128,11 @@ final readonly class Stryker
 
         $mutant = $judged->mutant();
         $reason = $mutant->reason();
-        $change = Change::of($mutant->mutation()->diff());
 
         return [
             'id' => $mutant->id()->value(),
-            'mutatorName' => Mutator::short($mutant->mutation()->mutator()),
-            'replacement' => $change->added(),
+            'mutatorName' => Mutator::short($mutant->mutator()),
+            ...$mutant instanceof Mutant ? ['replacement' => Change::of($mutant->mutation()->diff())->added()] : [],
             'location' => $columns->of($mutant),
             'status' => self::statusOf($judged->judgement(), $uncovered),
             'statusReason' => $reason instanceof Reason
@@ -145,7 +146,7 @@ final readonly class Stryker
     }
 
     /** Judging tests by name, the hint, and the reproduce and explain commands, one to a line. */
-    private static function description(JudgedMutant $judged, TestNames $names): string
+    private static function description(JudgedMutant|JudgedKill $judged, TestNames $names): string
     {
         return implode("\n", [
             ...count($judged->tests()) > 0 ? [sprintf(MutantText::JUDGED_BY, $names->listed($judged->tests()))] : [],

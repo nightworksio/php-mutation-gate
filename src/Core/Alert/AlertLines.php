@@ -142,7 +142,7 @@ final readonly class AlertLines
                 sprintf('%s:%d', $location->file()->value(), $location->start()->number()),
                 self::LONGEST,
             )),
-            $chat->text(Fit::line(Mutator::short($mutant->mutation()->mutator()), self::LONGEST)),
+            $chat->text(Fit::line(Mutator::short($mutant->mutator()), self::LONGEST)),
             Label::of($judged->judgement()),
         );
     }

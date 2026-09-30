@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
@@ -21,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Counts;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
@@ -67,8 +69,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     line: int,
  *     end?: int,
  *     mutator: string,
- *     family: string,
- *     diff: string,
+ *     family?: string,
+ *     diff?: string,
  *     status: string,
  *     judgement: string,
  *     reason?: string,
@@ -106,7 +108,7 @@ final readonly class JsonReport
             'tests' => self::tests($verdict, $table),
             'mutants' => self::each(
                 $verdict->trees()->mutants(),
-                static fn(JudgedMutant $judged): array => self::mutant($judged, $verdict->matrix(), $table),
+                static fn(JudgedMutant|JudgedKill $judged): array => self::mutant($judged, $verdict->matrix(), $table),
             ),
             'reach' => self::texts($verdict->reach(), static fn(Cause $reason): string => $reason->text()),
             'warnings' => self::texts($verdict->warnings(), static fn(Warning $warning): string => $warning->text()),
@@ -169,7 +171,7 @@ final readonly class JsonReport
     }
 
     /** @return MutantEntry */
-    private static function mutant(JudgedMutant $judged, KillMatrix $matrix, TestTable $table): array
+    private static function mutant(JudgedMutant|JudgedKill $judged, KillMatrix $matrix, TestTable $table): array
     {
         $mutant = $judged->mutant();
         $end = $mutant->location()->end();
@@ -187,9 +189,10 @@ final readonly class JsonReport
             'file' => $mutant->location()->file()->value(),
             'line' => $mutant->location()->start()->number(),
             ...$end instanceof Line ? ['end' => $end->number()] : [],
-            'mutator' => $mutant->mutation()->mutator(),
-            'family' => $mutant->mutation()->family()->value,
-            'diff' => $mutant->mutation()->diff(),
+            'mutator' => $mutant->mutator(),
+            ...$mutant instanceof Mutant
+                ? ['family' => $mutant->mutation()->family()->value, 'diff' => $mutant->mutation()->diff()]
+                : [],
             'status' => $mutant->status()->value,
             'judgement' => $judged->judgement()->value,
             ...$reason instanceof Reason ? ['reason' => $reason->text()] : [],

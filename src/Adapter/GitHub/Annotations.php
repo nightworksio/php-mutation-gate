@@ -120,7 +120,7 @@ final readonly class Annotations implements Configurable, Reporter
             'title' => sprintf(
                 'Mutant %s: %s',
                 Label::of($judged->judgement()),
-                Mutator::short($mutant->mutation()->mutator()),
+                Mutator::short($mutant->mutator()),
             ),
         ], sprintf(self::MESSAGE, $judged->hint()->text(), $judged->reproduce()));
     }

@@ -8,6 +8,7 @@ use function array_key_exists;
 
 use Generator;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -45,8 +46,12 @@ final readonly class KillMatrixCsv
         }
     }
 
-    private static function record(Verdict $verdict, JudgedMutant $judged, Origin $origin, TestId $test): string
-    {
+    private static function record(
+        Verdict $verdict,
+        JudgedMutant|JudgedKill $judged,
+        Origin $origin,
+        TestId $test,
+    ): string {
         $mutant = $judged->mutant();
         $matrix = $verdict->matrix();
 
@@ -54,7 +59,7 @@ final readonly class KillMatrixCsv
             $mutant->id()->value(),
             $mutant->location()->file()->value(),
             sprintf('%d', $mutant->location()->start()->number()),
-            $mutant->mutation()->mutator(),
+            $mutant->mutator(),
             $judged->judgement()->value,
             $origin->value,
             $matrix->names()->nameOf($test)->value(),
