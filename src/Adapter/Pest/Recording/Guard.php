@@ -10,6 +10,9 @@ use function getenv;
 use function in_array;
 use function is_string;
 use function json_encode;
+
+use NightWorksIO\MutationGate\Core\Runner\Opcache;
+
 use function realpath;
 
 /**

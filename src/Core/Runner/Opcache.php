@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
+namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function in_array;
-use function ini_get;
 use function is_string;
 use function mb_strtolower;
 
@@ -23,12 +22,7 @@ final readonly class Opcache
     {
     }
 
-    /** As this PHP is set: `opcache.enable_cli` and `opcache.file_cache`, each false where opcache is not loaded. */
-    public static function current(): self
-    {
-        return self::of(ini_get('opcache.enable_cli'), ini_get('opcache.file_cache'));
-    }
-
+    /** As a PHP sets `opcache.enable_cli` and `opcache.file_cache`, each false where opcache is not loaded. */
     public static function of(string|false $cli, string|false $fileCache): self
     {
         $cached = is_string($cli) && in_array(mb_strtolower($cli), self::ON, strict: true)

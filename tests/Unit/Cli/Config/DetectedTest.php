@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -111,4 +112,14 @@ it('cannot judge an installed.json it cannot read', function (): void {
 
     expect(new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)))->runner())
         ->toEqual(CannotJudge::because(sprintf('%s/vendor/composer/installed.json could not be read.', $project)));
+});
+
+it('reads what Composer installed, or says it lists nothing', function () use ($detected): void {
+    $installed = $detected('', ['infection/infection'])->installed();
+    $project = Scratch::directory();
+    $bare = new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)))->installed();
+
+    expect($installed instanceof Installed && $installed->has(Detected::INFECTION))->toBeTrue()
+        ->and($installed instanceof Installed && $installed->has(Detected::PEST))->toBeFalse()
+        ->and($bare instanceof Installed && $bare->has(Detected::INFECTION))->toBeFalse();
 });

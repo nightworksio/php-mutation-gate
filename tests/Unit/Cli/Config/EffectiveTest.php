@@ -371,3 +371,22 @@ it('judges a layer a loader or a preset built by hand, as the definition judges 
     'a loader' => ['gate.smuggled', '%s'],
     'a preset' => ['preset.json', 'preset: smuggled sets %s'],
 ]);
+
+it('says whether the config file or the command line chooses the runner, rather than zero-config', function () use (
+    $effective,
+    $nothing,
+): void {
+    $withholding = Scratch::directory();
+    Scratch::write($withholding, 'mutation-gate.json', '{"runner": {"withhold": ["DEPLOY_*"]}}');
+    $choosing = Scratch::directory();
+    Scratch::write($choosing, 'mutation-gate.json', '{"runner": "pest"}');
+    $unreadable = Scratch::directory();
+    Scratch::write($unreadable, 'mutation-gate.json', '{');
+
+    expect($effective(Tree::at('tests/Fixtures/Projects/TwoRunners'))->choosesRunner($nothing()))->toBeFalse()
+        ->and($effective(Tree::at('tests/Fixtures/Projects/TwoRunners'))
+            ->choosesRunner(new CommandLine('', 'pest', [], '', '', firstPartyOnly: false)))->toBeTrue()
+        ->and($effective($withholding)->choosesRunner($nothing()))->toBeFalse()
+        ->and($effective($choosing)->choosesRunner($nothing()))->toBeTrue()
+        ->and($effective($unreadable)->choosesRunner($nothing()))->toBeFalse();
+});

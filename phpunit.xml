@@ -44,6 +44,11 @@
             <directory>tests/PHPStan</directory>
         </testsuite>
 
+        <!-- The documentation, held to the code it describes (ADR-0018). -->
+        <testsuite name="Docs">
+            <directory>tests/Docs</directory>
+        </testsuite>
+
         <!-- R2, on its own: plants a violation of every rule in a throwaway copy
              of the tree and runs the analyser and the suite over it. -->
         <testsuite name="Guards">

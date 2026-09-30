@@ -63,6 +63,17 @@ final readonly class Effective
         return $registry instanceof CannotJudge ? $registry : $this->layered($file->over($line), $registry);
     }
 
+    /** Whether the config file or the command line chooses the runner, rather than leave it to zero-config. */
+    public function choosesRunner(CommandLine $given): bool
+    {
+        $file = $this->file($given->config);
+        $line = $given->layer();
+
+        return $file instanceof Layer
+            && $line instanceof Layer
+            && $file->over($line)->setup()->runner() instanceof Choice;
+    }
+
     /** The config file read, or a layer that sets nothing for zero-config. */
     private function file(string $given): Layer|Invalid|CannotJudge
     {
