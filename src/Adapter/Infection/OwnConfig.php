@@ -97,7 +97,7 @@ final readonly class OwnConfig
     /** A config file's text, refused where the gate cannot run Infection over it. */
     public static function read(string $name, string $text): self|CannotJudge
     {
-        $settings = Json5::decode($name, $text);
+        $settings = RelaxedJson::decode($name, $text);
 
         return $settings instanceof CannotJudge ? $settings : self::refusing(new self($name, $settings));
     }

@@ -177,8 +177,11 @@ final readonly class Results
      */
     private static function mutants(Project $project, array $found, TextLog $text, Limits $limits): Mutants
     {
-        usort($found, static fn(array $one, array $other): int => [$one['file'], $one['line']]
-            <=> [$other['file'], $other['line']]);
+        usort(
+            $found,
+            static fn(array $one, array $other): int
+                => [$one['file'], $one['line']] <=> [$other['file'], $other['line']],
+        );
         $mutants = Mutants::none();
         $seen = [];
 

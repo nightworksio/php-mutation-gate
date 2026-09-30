@@ -20,7 +20,7 @@ use stdClass;
  * An Infection config file's JSON5 text, read as the object it must hold. The
  * JSON5 library's untyped result stops here: every reader gets a Node.
  */
-final readonly class Json5
+final readonly class RelaxedJson
 {
     private const int FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         | JSON_PRESERVE_ZERO_FRACTION;

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function addcslashes;
-use function array_map;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -134,11 +133,14 @@ final readonly class Invocation
      */
     private static function quoted(array $arguments): string
     {
-        return implode(' ', array_map(
-            static fn(string $argument): string => preg_match(self::OPTION, $argument, $option) === 1
+        $quoted = [];
+
+        foreach ($arguments as $argument) {
+            $quoted[] = preg_match(self::OPTION, $argument, $option) === 1
                 ? sprintf('%s="%s"', $option['name'], addcslashes($option['value'], '"\\'))
-                : sprintf('"%s"', addcslashes($argument, '"\\')),
-            $arguments,
-        ));
+                : sprintf('"%s"', addcslashes($argument, '"\\'));
+        }
+
+        return implode(' ', $quoted);
     }
 }

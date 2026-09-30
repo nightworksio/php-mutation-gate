@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Pest\Platform;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Runner\Platform;
 
 it('reads its facts one to a line, extensions and settings in name order', function (): void {
     $platform = Platform::of(
