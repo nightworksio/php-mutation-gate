@@ -73,6 +73,7 @@ it('reads no list with an entry that is not well formed, and every other as it i
     'a mutation digest that is not a SHA-256' => ['mutation', ['abc'], static fn(InputsTable $read): Digest => $read->mutationAt(Node::config('0'))],
     'a test file with no digest' => ['tests', [['tests/MoneyTest.php']], static fn(InputsTable $read): array => $read->testAt(Node::config('0'))],
     'a test file whose digest is not text' => ['tests', [['tests/MoneyTest.php', 7]], static fn(InputsTable $read): array => $read->testAt(Node::config('0'))],
+    'a test file with more than its digest' => ['tests', [['tests/MoneyTest.php', str_repeat('3', 64), 'more']], static fn(InputsTable $read): array => $read->testAt(Node::config('0'))],
     'a commit that is not a full commit id' => ['commits', ['HEAD'], static fn(InputsTable $read): Revision => $read->commitAt(Node::config('0'))],
 ]);
 

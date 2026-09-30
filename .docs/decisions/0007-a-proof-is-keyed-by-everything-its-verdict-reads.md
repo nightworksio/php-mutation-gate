@@ -234,8 +234,10 @@ has to bring its result with it.
      support it reads outside what every key reads. `commit` is the commit
      HEAD was at when the plan took the digests, recorded only where the
      working tree then held nothing that commit does not: no change, staged
-     or not, and no file git neither tracks nor ignores. Digests taken from
-     any other working tree record no commit. The plan carries the same
+     or not, no file git neither tracks nor ignores, and no file marked
+     assume-unchanged or skip-worktree, whose changes git does not show.
+     Digests taken from any other working tree, or while a commit moved
+     HEAD, record no commit. The plan carries the same
      digests of the run it was made for, which the verdict compares against.
    - Every digest a proof shares with others is written once, in the
      ledger's `inputs`: each mutation digest, each killing test file with its

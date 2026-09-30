@@ -56,6 +56,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
@@ -549,3 +550,36 @@ it('takes the digests at no commit where the working tree holds what HEAD does n
     'a changed working tree' => fn(): RepositoryFake => RepositoryFake::onMain(Revision::ref(Flows::HEAD))->changed(),
     'git cannot say' => fn(): RepositoryFake => RepositoryFake::onMain(Revision::ref(Flows::HEAD))->unsure(),
 ]);
+
+it('takes the digests at no commit where HEAD moved while the plan was made', function () use ($plan): void {
+    $moving = new class implements Repository {
+        private int $asked = 0;
+
+        public function head(): Revision
+        {
+            $this->asked++;
+
+            return Revision::ref($this->asked === 1 ? Flows::HEAD : str_repeat('c1', 20));
+        }
+
+        public function isClean(): bool
+        {
+            return true;
+        }
+
+        public function branch(): Scope
+        {
+            return Scope::branch('main');
+        }
+
+        public function defaultBranch(): Scope
+        {
+            return Scope::branch('main');
+        }
+    };
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $moving);
+    $digests = $planned instanceof Plan ? $planned->digests() : $planned;
+
+    expect($planned instanceof Plan ? $planned->commit() : $planned)->toEqual(Revision::ref(Flows::HEAD))
+        ->and($digests instanceof Digests ? $digests->commit() : $digests)->toEqual(Uncommitted::tree());
+});

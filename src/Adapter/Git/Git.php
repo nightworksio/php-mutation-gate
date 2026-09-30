@@ -43,7 +43,9 @@ use function trim;
  * base of a revision and HEAD to what is on disk, every file that is not
  * ignored with its blob id, and a file as it was at a revision. Uncommitted
  * changes and untracked files count. It also says the commit HEAD is at,
- * whether the working tree holds anything it does not, the branch it is on,
+ * whether the working tree holds anything it does not, a file marked
+ * assume-unchanged or skip-worktree counting as holding more, since what is
+ * on disk there is not what git shows, the branch it is on,
  * the branch the remote calls its default, and the URL that remote fetches
  * from.
  *
@@ -159,8 +161,13 @@ final class Git implements ChangeSource, Repository
     public function isClean(): bool|CannotTell
     {
         $status = $this->git->run(['--no-optional-locks', 'status', '--porcelain', '-z', '--untracked-files=all']);
+        $flagged = $this->git->run(['ls-files', '-v', '-z']);
 
-        return $status instanceof CannotTell ? $status : $status === '';
+        return match (true) {
+            $status instanceof CannotTell => $status,
+            $flagged instanceof CannotTell => $flagged,
+            default => $status === '' && ! Diff::hidesChanges($flagged),
+        };
     }
 
     public function branch(): Scope|Detached|CannotTell

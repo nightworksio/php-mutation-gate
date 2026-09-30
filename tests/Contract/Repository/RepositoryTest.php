@@ -119,6 +119,20 @@ it('says a working tree with a change, staged or not, or a file git neither trac
         return Git::at($fixture->root);
     },
     'an untracked file' => fn(): Repository => Git::at($committed()->write('src/Rate.php', "<?php\n")->root),
+    'a change to a file marked assume-unchanged' => function () use ($committed): Repository {
+        $fixture = $committed();
+        $fixture->git('update-index', '--assume-unchanged', 'src/Money.php');
+        $fixture->write('src/Money.php', "<?php\nreturn 3;\n");
+
+        return Git::at($fixture->root);
+    },
+    'a change to a file marked skip-worktree' => function () use ($committed): Repository {
+        $fixture = $committed();
+        $fixture->git('update-index', '--skip-worktree', 'src/Money.php');
+        $fixture->write('src/Money.php', "<?php\nreturn 3;\n");
+
+        return Git::at($fixture->root);
+    },
     'git, through GitHub' => fn(): Repository => PassedPullRequests::over(
         Git::at(Fixture::ofTheFixture()->root),
         $github(),

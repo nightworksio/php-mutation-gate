@@ -28,7 +28,10 @@ use function preg_match_all;
 use function range;
 use function stripcslashes;
 
-/** What git's diffs say: which paths changed and how, and which lines each gained on its new side. */
+/**
+ * What git's diffs say: which paths changed and how, and which lines each
+ * gained on its new side; and whether its listing of the index hides a change.
+ */
 final readonly class Diff
 {
     /** The kinds of entry of `--name-status` that name two paths: where the file came from, and where it is. */
@@ -43,6 +46,12 @@ final readonly class Diff
      * holds a space. It comes before any hunk, so the first line like it is it.
      */
     private const string NEW_SIDE = '~^\+\+\+ "?b/(?<path>.*?)"?\t?$~m';
+
+    /**
+     * An entry of `ls-files -v -z` whose tag marks it assume-unchanged, in
+     * lower case, or skip-worktree, `S`.
+     */
+    private const string HIDDEN = '~(?:^|\x00)(?:[a-z]|S) ~';
 
     /** Each hunk header of a part, with where its new side starts and how many lines it spans. */
     private const string HUNK = '~^@@ -\d+(?:,\d+)? \+(?<start>\d+)(?:,(?<count>\d+))? @@~m';
@@ -95,6 +104,15 @@ final readonly class Diff
         $last = array_pop($pieces);
 
         return self::linesAt(self::spanning(1, count($pieces) + ($last === '' ? 0 : 1)));
+    }
+
+    /**
+     * Whether a `ls-files -v -z` listing marks any file assume-unchanged or
+     * skip-worktree, whose changes on disk `status` and `diff` do not show.
+     */
+    public static function hidesChanges(string $listed): bool
+    {
+        return preg_match(self::HIDDEN, $listed) === 1;
     }
 
     /** @param ByPath<Lines> $lines */

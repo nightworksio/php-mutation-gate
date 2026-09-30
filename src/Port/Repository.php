@@ -21,7 +21,8 @@ interface Repository
 
     /**
      * Whether the working tree holds nothing the commit it is at does not: no
-     * change, staged or not, and no file that is neither tracked nor ignored.
+     * change, staged or not, no file that is neither tracked nor ignored, and
+     * no file whose changes git is told not to show.
      */
     public function isClean(): bool|CannotTell;
 

@@ -158,11 +158,20 @@ final readonly class Planning
     /**
      * The run's digests, taken at the commit the checkout is at where the
      * working tree holds nothing that commit does not, as read once every key
-     * is built: a file changed while they were built is then read as a change.
+     * is built: a change made while they were built and still on disk then
+     * reads as a change. One undone before then leaves the files as the
+     * commit holds them, and a digest taken of it meanwhile matches neither,
+     * so the result that records it never counts. A commit made while the
+     * plan was made moves HEAD, and the digests then stand for no commit.
      */
     private function committed(Digests $digests, Revision $head): Digests
     {
-        return $this->adapters->repository->isClean() === true ? $digests->takenAt($head) : $digests;
+        $clean = $this->adapters->repository->isClean() === true;
+        $still = $this->adapters->repository->head();
+
+        return $clean && $still instanceof Revision && $still->name() === $head->name()
+            ? $digests->takenAt($head)
+            : $digests;
     }
 
     /**
