@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Runtime;
 
 use function array_key_exists;
+use function array_keys;
 use function array_values;
-use function explode;
 use function implode;
 use function is_file;
 use function is_string;
@@ -15,12 +15,12 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug;
 use NightWorksIO\MutationGate\Core\Doctor\RunnerPhp;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function preg_match;
 use function sprintf;
-use function str_starts_with;
 
 use Symfony\Component\Process\Exception\ExceptionInterface;
 use Symfony\Component\Process\Process;
@@ -28,20 +28,14 @@ use Symfony\Component\Process\Process;
 use function trim;
 
 /**
- * The PHP a runner starts, described by `php -m` and `php -i` with the
- * runner's own options. Neither runs the project's code, and neither sees a
- * variable withheld.
+ * The PHP a runner starts, as it describes itself when started with the
+ * runner's own options (see Platform). Describing runs none of the project's
+ * code, and never sees a variable withheld.
  */
 final readonly class PhpProbe
 {
-    /** How long each description may take, in seconds. */
+    /** How long a description may take, in seconds. */
     private const float LIMIT = 30.0;
-
-    /** A setting of `php -i`: its name, its value here, and, after it, the value of the php.ini. */
-    private const string SETTING = '/^(?<name>[^=]+?) => (?<value>.*?)(?: => .*)?$/D';
-
-    /** What `php -i` shows for a setting with no value. */
-    private const string NO_VALUE = 'no value';
 
     private const string EXTENSION_DIRECTORY = 'extension_dir';
 
@@ -52,7 +46,7 @@ final readonly class PhpProbe
 
     /**
      * @param array<string, string> $environment the environment the gate runs in
-     * @param Seconds               $limit       how long each description may take
+     * @param Seconds               $limit       how long a description may take
      */
     public function __construct(private string $binary, private array $environment, private Seconds $limit)
     {
@@ -69,23 +63,9 @@ final readonly class PhpProbe
     }
 
     /** The PHP, started with these options, or why it could not describe itself. */
-    public function describe(Withheld $withheld, string ...$options): RunnerPhp|CannotJudge
+    public function platform(Withheld $withheld, string ...$options): Platform|CannotJudge
     {
-        $modules = $this->ran($withheld, [...array_values($options), '-m']);
-        $info = $modules instanceof CannotJudge ? $modules : $this->ran($withheld, [...array_values($options), '-i']);
-
-        return match (true) {
-            $modules instanceof CannotJudge => $modules,
-            $info instanceof CannotJudge => $info,
-            default => $this->read($modules, $info, $withheld),
-        };
-    }
-
-    /**
-     * @param list<string> $arguments
-     */
-    private function ran(Withheld $withheld, array $arguments): string|CannotJudge
-    {
+        $arguments = [...array_values($options), ...Platform::describing()];
         $environment = [];
 
         foreach ($this->environment as $name => $value) {
@@ -97,44 +77,47 @@ final readonly class PhpProbe
         try {
             $process->run();
         } catch (ExceptionInterface $failure) {
-            return $this->failed($arguments, $failure->getMessage());
+            return $this->failed($options, $failure->getMessage());
         }
 
-        return $process->isSuccessful()
-            ? $process->getOutput()
-            : $this->failed($arguments, trim(sprintf('%s%s', $process->getOutput(), $process->getErrorOutput())));
+        $output = sprintf('%s%s', $process->getOutput(), $process->getErrorOutput());
+        $platform = $process->isSuccessful() ? Platform::describedBy($output) : CannotJudge::because(trim($output));
+
+        return $platform instanceof CannotJudge ? $this->failed($options, $platform->why()) : $platform;
     }
 
-    /** @param list<string> $arguments */
-    private function failed(array $arguments, string $said): CannotJudge
+    /**
+     * The PHP, started with these options, as doctor reads it: what it loads,
+     * the coverage drivers installed beside it, and the variables it sees,
+     * or why it could not describe itself.
+     */
+    public function describe(Withheld $withheld, string ...$options): RunnerPhp|CannotJudge
     {
-        return CannotJudge::because(sprintf(self::FAILED, $this->binary, implode(' ', $arguments), $said));
+        $platform = $this->platform($withheld, ...$options);
+
+        return $platform instanceof CannotJudge
+            ? $platform
+            : $this->offered($this->seen($this->read($platform), $withheld));
     }
 
-    private function read(string $modules, string $info, Withheld $withheld): RunnerPhp
+    /** @param array<string> $options */
+    private function failed(array $options, string $said): CannotJudge
     {
-        $php = RunnerPhp::at($this->binary);
+        $started = implode(' ', [...array_values($options), '-r']);
 
-        foreach (explode("\n", $modules) as $line) {
-            $module = trim($line);
-            $php = $module === '' || str_starts_with($module, '[') ? $php : $php->loading($module);
-        }
-
-        foreach (explode("\n", $info) as $line) {
-            $php = $this->set($php, trim($line));
-        }
-
-        return $this->offered($this->seen($php, $withheld));
+        return CannotJudge::because(sprintf(self::FAILED, $this->binary, $started, $said));
     }
 
-    /** The PHP, with the setting a line of `php -i` shows, where it shows one; `no value` is empty. */
-    private function set(RunnerPhp $php, string $line): RunnerPhp
+    private function read(Platform $platform): RunnerPhp
     {
-        if (preg_match(self::SETTING, $line, $setting) !== 1) {
-            return $php;
+        $php = RunnerPhp::at($this->binary)->loading(...array_keys($platform->extensions()));
+        $ini = $platform->iniFile();
+
+        foreach ($platform->settings() as $name => $value) {
+            $php = $php->setting($name, $value);
         }
 
-        return $php->setting(trim($setting['name']), $setting['value'] === self::NO_VALUE ? '' : $setting['value']);
+        return is_string($ini) ? $php->loadingIni($ini) : $php;
     }
 
     /** The PHP, offering each coverage driver its extension directory holds. */

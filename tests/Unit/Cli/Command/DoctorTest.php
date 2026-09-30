@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Command\Doctor;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
+use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\Doctored;
 use NightWorksIO\MutationGate\Tests\Support\FakePhp;
 use NightWorksIO\MutationGate\Tests\Support\Printed;
@@ -28,7 +29,7 @@ function doctored(string $fixture, array $input = []): array
 {
     $project = Scratch::copy($fixture);
     Scratch::write($project, '.gitignore', ".mutation-gate/\n");
-    $php = FakePhp::answering("[PHP Modules]\npcov\n", "extension_dir => /nowhere => /nowhere\n");
+    $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], ['extension_dir' => '/nowhere']));
     $tester = new CommandTester(Doctor::command(Doctored::observed($project, sprintf('%s/php', $php)), Guide::unreleased()));
     $code = $tester->execute($input, ['capture_stderr_separately' => true]);
     $output = $tester->getOutput();

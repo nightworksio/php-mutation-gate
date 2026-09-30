@@ -60,8 +60,8 @@ the gate would use.
 
 ## php-not-read
 
-The PHP the runner starts could not describe itself with `-m` and `-i`. A run
-starts the same PHP with the same options, so it would fail the same way.
+The PHP the runner starts could not describe itself. A run starts the same PHP
+with the same options, so it would fail the same way.
 
 Run that PHP with `-m` by hand, with the runner's options, and correct what
 stops it.

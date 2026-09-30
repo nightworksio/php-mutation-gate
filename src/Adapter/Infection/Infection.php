@@ -86,18 +86,26 @@ final readonly class Infection implements Runner
         );
     }
 
-    /** Infection, PHPUnit and php-code-coverage, and the static analysis tool the project has kill mutants. */
-    public function identity(): Identity|CannotJudge
+    /**
+     * Infection, PHPUnit and php-code-coverage, the static analysis tool the
+     * project has kill mutants, and the PHP as Infection starts each mutant's
+     * run: without `initialTestsPhpOptions`, which only the opening run takes,
+     * and which the config file a key reads holds.
+     */
+    public function identity(Withheld $withheld): Identity|CannotJudge
     {
         $config = OwnConfig::in($this->project);
         $manifest = $this->project->absolute(ComposerInstalled::fileIn(Path::of(Manifest::VENDOR)));
         $versions = $config instanceof CannotJudge
             ? $config
             : Installed::versionsIn($manifest, ...$config->staticAnalysis());
+        $platform = $versions instanceof CannotJudge ? $versions : Platform::ofRunner(
+            $this->shell->run(Command::php(...Platform::describing())->withholding($withheld))->output(),
+        );
 
-        return $versions instanceof CannotJudge
-            ? $versions
-            : Identity::of(self::RUNNER, $versions, Platform::current()->digest());
+        return $platform instanceof Platform
+            ? Identity::of(self::RUNNER, $versions, $platform->digest())
+            : $platform;
     }
 
     public function groups(Withheld $withheld): Groups|CannotJudge

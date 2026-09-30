@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Doctor\RunnerPhp;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
-$php = static fn(): RunnerPhp => RunnerPhp::at('/usr/bin/php')->setting(RunnerPhp::LOADED_INI, '/etc/php.ini');
+$php = static fn(): RunnerPhp => RunnerPhp::at('/usr/bin/php')->loadingIni('/etc/php.ini');
 
 it('finds no driver in a PHP that loads neither pcov nor Xdebug, and says how to get one', function () use ($php): void {
     $found = static fn(string $fix): Findings => Findings::of(Finding::of(

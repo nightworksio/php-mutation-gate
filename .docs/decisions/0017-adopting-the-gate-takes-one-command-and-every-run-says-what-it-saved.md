@@ -186,7 +186,7 @@ would have cost without them.
 9. **`mutation-gate doctor` says what would fail, or run slowly, before a run
    does.**
    - It is read-only, offline and fast. It reads the config, the project's
-     files, git's config, the runner's `php -m` and `php -i`, and what
+     files, git's config, the runner's PHP as it describes itself, and what
      `.mutation-gate/` holds from earlier runs: timings, the ledger and the
      last coverage map.
    - `--measure` adds the coverage run of decision 4.
@@ -217,9 +217,10 @@ would have cost without them.
      each *will fail* and *slow* finding. Users meet them without knowing
      `doctor` exists. The checks are the core's `Diagnosis`, over what an
      adapter observed of the project without running its code.
-   - The PHP the runner uses is described by `php -m` and `php -i`, run with
-     the runner's own options (Infection's `initialTestsPhpOptions`), never
-     seeing a variable withheld.
+   - The PHP the runner uses describes itself, as it does for a proof's key
+     (ADR-0007): its extensions, settings and php.ini, run with the runner's
+     own options (Infection's `initialTestsPhpOptions`), never seeing a
+     variable withheld.
 
 10. **The checks.** Each has a detector with no false positive on the
     benchmark's projects, a contract test of its detection and message, and

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
+use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Ran;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -57,13 +59,21 @@ function judgingResult(string ...$ids): MutationResult
 
 $money = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
 
+/** The opening map a run of the fixture left beside its results. */
+function judgingCoverage(string $results): Covering
+{
+    $coverage = CoverageFile::at(Recorder::coverageBeside($results));
+
+    return $coverage instanceof CoverageFile ? $coverage : throw new RuntimeException('the run left no map');
+}
+
 it('judges each uncovered mutant on a line that is not executable by the tests that read its value', function () use (
     $money,
 ): void {
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate', 'unread', 'internal', 'other']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php', 'tests/MoneySpec.php']));
-    $judged = new Judging($at, $shell)->of(judgingResult('rate', 'unread', 'internal', 'other'), $money, $results);
+    $judged = new Judging($at, $shell)->of(judgingResult('rate', 'unread', 'internal', 'other'), $money, $results, judgingCoverage($results));
 
     expect(judgingOutcomes($judged))->toBe([
         'rate' => 'killed',
@@ -90,7 +100,7 @@ it('runs the tests that read the value, then the fallback\'s others where the mu
             'MUTATION_GATE_GUARD' => sprintf('%s/.mutation-gate/pest/guard.json', $at->root()),
         ]);
 
-    new Judging($at, $shell)->of(judgingResult('internal'), $money, $results);
+    new Judging($at, $shell)->of(judgingResult('internal'), $money, $results, judgingCoverage($results));
 
     expect($shell->commands())->toEqual([
         $judging->judging(Paths::of(Path::of('tests/InternalSpec.php')), WholeSuite::tests(), Withheld::standard())->within(Seconds::of(6.0)),
@@ -106,7 +116,7 @@ it('gives a mutant that timed out the limit Pest allows each mutant', function (
     $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
         ? Ran::finished(succeeded: true, output: '')
         : Ran::stopped(''));
-    $judged = new Judging($at, $shell)->of(judgingResult('rate'), $money, $results);
+    $judged = new Judging($at, $shell)->of(judgingResult('rate'), $money, $results, judgingCoverage($results));
     $mutants = $judged instanceof MutationResult ? iterator_to_array($judged->mutants(), preserve_keys: false) : [];
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
@@ -120,25 +130,22 @@ it('judges nothing without the mutated copy, and leaves the rest of a run as it 
     $killed = judgingResult('rate');
     $settled = MutationResult::of(Mutants::none(), 0);
 
-    expect(judgingOutcomes(new Judging($at, $shell)->of($killed, $money, $results)))
+    expect(judgingOutcomes(new Judging($at, $shell)->of($killed, $money, $results, judgingCoverage($results))))
         ->toBe(['rate' => 'unjudged mutated file missing'])
-        ->and(new Judging($at, $shell)->of($settled, $money, $results))->toBe($settled)
-        ->and(new Judging($at, $shell)->of($killed, MutationRequest::of(Paths::none(), Filter::matching('A')), $results))
+        ->and(new Judging($at, $shell)->of($settled, $money, $results, judgingCoverage($results)))->toBe($settled)
+        ->and(new Judging($at, $shell)->of($killed, MutationRequest::of(Paths::none(), Filter::matching('A')), $results, judgingCoverage($results)))
         ->toBe($killed)
         ->and($shell->commands())->toBe([]);
 });
 
-it('cannot judge where the run left no map or no records to read', function () use ($money): void {
+it('cannot judge where the run left no records to read', function () use ($money): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
-    $unmapped = Unexecutables::project();
-    $mapless = Unexecutables::run($unmapped, ['rate']);
-    unlink(Recorder::coverageBeside($mapless));
     $unrecorded = Unexecutables::project();
     $recordless = Unexecutables::run($unrecorded, ['rate']);
+    $coverage = judgingCoverage($recordless);
     unlink($recordless);
 
-    expect(new Judging($unmapped, $shell)->of(judgingResult('rate'), $money, $mapless))->toBeInstanceOf(CannotJudge::class)
-        ->and(new Judging($unrecorded, $shell)->of(judgingResult('rate'), $money, $recordless))
+    expect(new Judging($unrecorded, $shell)->of(judgingResult('rate'), $money, $recordless, $coverage))
         ->toBeInstanceOf(CannotJudge::class)
         ->and($shell->commands())->toBe([]);
 });

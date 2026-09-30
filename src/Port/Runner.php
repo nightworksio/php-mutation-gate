@@ -30,8 +30,12 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 interface Runner
 {
-    /** The runner's name, the exact version of every package it drives, and a digest of the PHP it runs on. */
-    public function identity(): Identity|CannotJudge;
+    /**
+     * The runner's name, the exact version of every package it drives, and a
+     * digest of the PHP it runs on, as that PHP describes itself when started
+     * the way the runner starts it, never seeing the variables withheld.
+     */
+    public function identity(Withheld $withheld): Identity|CannotJudge;
 
     /**
      * The suite's groups, as the runner itself lists them. Listing loads the

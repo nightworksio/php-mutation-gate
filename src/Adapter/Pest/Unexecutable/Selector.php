@@ -8,7 +8,7 @@ use function file_get_contents;
 use function is_file;
 use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
+use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
@@ -33,23 +33,24 @@ final readonly class Selector
 
     private function __construct(
         private Project $project,
-        private CoverageFile $coverage,
-        private Paths $tests,
+        private Covering $coverage,
+        private TestFiles $tests,
         private Codebase $codebase,
     ) {
     }
 
-    public static function over(Project $project, CoverageFile $coverage, Paths $mutated): self
+    public static function over(Project $project, Covering $coverage, Paths $mutated): self
     {
-        $tests = TestFiles::in($project);
+        $tests = new TestFiles($project);
+        $listed = $tests->all();
         $sources = [];
 
-        foreach ($tests as $test) {
+        foreach ($listed as $test) {
             $sources = [...$sources, ...self::read($project, $test, test: true)];
         }
 
         foreach ([...$coverage->map($project)->files(), ...$mutated] as $file) {
-            $sources = $tests->has($file) ? $sources : [...$sources, ...self::read($project, $file, test: false)];
+            $sources = $listed->has($file) ? $sources : [...$sources, ...self::read($project, $file, test: false)];
         }
 
         return new self($project, $coverage, $tests, Codebase::of(...$sources));
@@ -80,8 +81,8 @@ final readonly class Selector
 
         return match (true) {
             $selection->count() === 0 => Paths::none(),
-            $selection->fits() => TestFiles::naming($this->tests, $selection->classes()),
-            default => $this->tests,
+            $selection->fits() => $this->tests->naming($selection->classes()),
+            default => $this->tests->all(),
         };
     }
 

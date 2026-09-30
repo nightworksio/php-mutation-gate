@@ -6,11 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
 use function array_values;
-use function count;
-use function dirname;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
-use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Judging;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -19,7 +15,6 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
-use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
@@ -57,29 +52,24 @@ final readonly class Pest implements Runner
     /** The file Pest loads before any test, in the test directory it runs with, which the gate leaves at `tests`. */
     private const string BOOT_FILE = 'tests/Pest.php';
 
-    private const string BY_GROUP_ALONE
-        = 'Pest selects held tests by the holds: groups its plugin adds for #[Holds], not by the filter %s.';
-
     private const string COVERAGE_FAILED = "Pest's coverage run failed. Pest said:\n%s";
 
     private const string STALE_MAP = 'An earlier run left %s or its JUnit log, and the gate cannot remove them.';
-
-    private const string COMMA = "Pest's --path and --ignore split on commas, so Pest cannot mutate %s less %s.";
-
-    private const string NOT_PATCHED
-        = 'pest.patch is on, but pest-plugin-mutate in %s is not patched. Run mutation-gate pest:patch.';
-
-    private const string EMPTY_CANARY = 'pest.patch is on, but the canary group %s holds no test. Add one.';
-
-    /** Where the map another job handed over is written again for this job's Pest, beside the results. */
-    private const string SHARED_MAP = '%s/shared.coverage.php';
 
     private const string NOT_FOUND_AGAIN = 'Run again alone, Pest made no mutant with this id.';
 
     private const string NO_PROJECT = '%s holds no project Pest can run: Pest is not installed in its %s.';
 
+    /** The project's test files, listed once for every unit the runner is asked about. */
+    private TestFiles $tests;
+
+    /** What the runner learns once for every run it starts. */
+    private Remembered $remembered;
+
     public function __construct(private Project $project, private Shell $shell, private Patching $patching)
     {
+        $this->tests = new TestFiles($project);
+        $this->remembered = new Remembered();
     }
 
     /**
@@ -99,24 +89,31 @@ final readonly class Pest implements Runner
         return new self($project, new ProcessShell($project->root()), $read->patching());
     }
 
-    public function identity(): Identity|CannotJudge
+    public function identity(Withheld $withheld): Identity|CannotJudge
     {
         $versions = Installed::versionsIn(
             $this->project->absolute(ComposerInstalled::fileIn($this->project->vendor())),
         );
+        $platform = $versions instanceof CannotJudge ? $versions : $this->remembered->platform(
+            $withheld,
+            fn(): Platform|CannotJudge => Platform::ofRunner(
+                $this->shell->run(Command::php($withheld, ...Platform::describing()))->output(),
+            ),
+        );
 
-        if ($versions instanceof CannotJudge) {
-            return $versions;
-        }
-
-        return Identity::of(self::RUNNER, $versions, Platform::current()->digest());
+        return $platform instanceof Platform
+            ? Identity::of(self::RUNNER, $versions, $platform->digest())
+            : $platform;
     }
 
+    /** The groups the suite lists, listed once for each set of variables withheld. */
     public function groups(Withheld $withheld): Groups|CannotJudge
     {
-        return Listing::groupsIn(
+        $listing = fn(): Groups|CannotJudge => Listing::groupsIn(
             $this->shell->run(Invocation::installedIn($this->project->vendor())->listingGroups($withheld)),
         );
+
+        return $this->remembered->groups($withheld, $listing);
     }
 
     /**
@@ -151,27 +148,23 @@ final readonly class Pest implements Runner
         }
 
         $selection = Selection::of($tests);
-        $files = TestFiles::in($this->project);
 
-        return $selection->fits() ? TestFiles::naming($files, $selection->classes()) : $files;
+        return $selection->fits() ? $this->tests->naming($selection->classes()) : $this->tests->all();
     }
 
     /** Every mutant of the requested files, where there are any to mutate: Pest's `--path` never names none. */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
-        if (count($request->files()) === 0) {
-            return MutationResult::of(Mutants::none(), 0);
-        }
-
-        $results = $this->project->freshResults();
-
-        return $results instanceof CannotJudge ? $results : $this->mutated($request, $results);
+        return new MutationRun($this->project, $this->shell, $this->patching, $this->remembered, $this->groups(...))
+            ->of($request);
     }
 
     /**
-     * The mutants run again, one run per file and mutator, judged by the tests
-     * that judged their unit, and matched back by the gate's id. Pest allows
-     * each mutant its own time, so no limit is laid on the run.
+     * The mutants run again, all in one run: their files with their mutators,
+     * judged by the tests that judged their unit, and each matched back by the
+     * gate's id. One run pays Pest's opening run once, where a run per file
+     * and mutator pays it for each. Pest allows each mutant its own time, so
+     * no limit is laid on the run.
      */
     public function retry(
         Mutants $mutants,
@@ -179,24 +172,23 @@ final readonly class Pest implements Runner
         WholeSuite|Group|Filter $judgedBy,
         Withheld $withheld,
     ): Mutants|CannotJudge {
-        $retried = Mutants::none();
+        $files = [];
+        $mutators = [];
 
-        foreach ($this->batches($mutants) as $batch) {
-            $request = MutationRequest::of(Paths::of($batch[0]->location()->file()), $judgedBy)
-                ->onlyMutators(Mutators::named($batch[0]->mutation()->mutator()))
-                ->withholding($withheld);
-            $result = $this->mutate($request);
-
-            if ($result instanceof CannotJudge) {
-                return $result;
-            }
-
-            foreach ($batch as $mutant) {
-                $retried = $retried->with($this->matching($mutant, $result->mutants()));
-            }
+        foreach ($mutants as $mutant) {
+            $files[$mutant->location()->file()->value()] = $mutant->location()->file();
+            $mutators[$mutant->mutation()->mutator()] = $mutant->mutation()->mutator();
         }
 
-        return $retried;
+        if ($files === []) {
+            return Mutants::none();
+        }
+
+        $result = $this->mutate(MutationRequest::of(Paths::of(...array_values($files)), $judgedBy)
+            ->onlyMutators(Mutators::named(...array_values($mutators)))
+            ->withholding($withheld));
+
+        return $result instanceof CannotJudge ? $result : $this->matching($mutants, $result->mutants());
     }
 
     /** Every one of Pest's own ignore markers in the PHP files these paths name. */
@@ -232,54 +224,6 @@ final readonly class Pest implements Runner
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
     }
 
-    /**
-     * The mutants by file and mutator, in the order each pair first appears.
-     *
-     * @return list<non-empty-list<Mutant>>
-     */
-    private function batches(Mutants $mutants): array
-    {
-        $batches = [];
-
-        foreach ($mutants as $mutant) {
-            $key = sprintf("%s\n%s", $mutant->location()->file()->value(), $mutant->mutation()->mutator());
-            $batches[$key] = [...(array_key_exists($key, $batches) ? $batches[$key] : []), $mutant];
-        }
-
-        return array_values($batches);
-    }
-
-    private function mutated(MutationRequest $request, string $results): MutationResult|CannotJudge
-    {
-        $command = Plan::handedOver($this->project, $request, $this->commandFor($request, $results));
-        $result = $command instanceof CannotJudge
-            ? $command
-            : new Interpretation($this->project, $this->patching)->of($this->shell->run($command), $results);
-
-        return $result instanceof CannotJudge
-            ? $result
-            : new Judging($this->project, $this->shell)->of($result, $request, $results);
-    }
-
-    private function commandFor(MutationRequest $request, string $results): Command|CannotJudge
-    {
-        $judgedBy = $request->judgedBy();
-        $files = PathList::of($request->files());
-        $leftOut = PathList::of($request->leftOut());
-
-        return match (true) {
-            $judgedBy instanceof Filter => CannotJudge::because(sprintf(self::BY_GROUP_ALONE, $judgedBy->pattern())),
-            $files->holdsAComma() || $leftOut->holdsAComma() => CannotJudge::because(
-                sprintf(self::COMMA, $files->joined(', '), $leftOut->joined(', ')),
-            ),
-            default => $this->shared(
-                $request,
-                Invocation::installedIn($this->project->vendor())->mutation($request, $judgedBy, $results),
-                $results,
-            ),
-        };
-    }
-
     /** A clean coverage run into a directory, with no earlier run's map or log left there. */
     private function measured(CoverageRequest $request, string $directory): Ran|CannotJudge
     {
@@ -294,58 +238,22 @@ final readonly class Pest implements Runner
         return $ran->succeeded() ? $ran : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
     }
 
-    /**
-     * The mutation command, reading the map another job handed over where
-     * `pest:patch` lets a whole-suite run do so: the gate's own map, written
-     * again beside the results as this job's Pest loads one.
-     */
-    private function shared(MutationRequest $request, Command $command, string $results): Command|CannotJudge
+    /** Each mutant as the run found it again, by the gate's id, or unjudged where the run made no such mutant. */
+    private function matching(Mutants $mutants, Mutants $found): Mutants
     {
-        $directory = $request->coverage();
+        $again = [];
+        $matched = [];
 
-        if (! $this->patching->isOn() || ! $directory instanceof Path || ! $request->judgedBy() instanceof WholeSuite) {
-            return $command;
+        foreach ($found as $mutant) {
+            $again[$mutant->id()->value()] = $mutant;
         }
 
-        $refusal = $this->refusal($request->withheld());
-        $coverage = $refusal instanceof CannotJudge ? $refusal : SharedCoverage::in($this->project, $directory);
-
-        if ($coverage instanceof CannotJudge) {
-            return $coverage;
+        foreach ($mutants as $mutant) {
+            $matched[] = array_key_exists($mutant->id()->value(), $again)
+                ? $again[$mutant->id()->value()]
+                : Interpretation::unjudged($mutant, Reason::that(self::NOT_FOUND_AGAIN));
         }
 
-        $map = sprintf(self::SHARED_MAP, dirname($results));
-        SharedCoverage::write($coverage, $this->project, $map);
-
-        return $command->with([
-            Patch::COVERAGE => $map,
-            Patch::SECONDS => sprintf('%F', SharedCoverage::seconds($coverage)),
-            Patch::CANARY => $this->patching->canary()->name(),
-        ]);
-    }
-
-    /** Why a shard cannot open on the canary group, if it cannot. */
-    private function refusal(Withheld $withheld): Groups|CannotJudge
-    {
-        if (! Patch::isAppliedIn($this->project->absolute($this->project->vendor()))) {
-            return CannotJudge::because(sprintf(self::NOT_PATCHED, $this->project->vendor()->value()));
-        }
-
-        $groups = $this->groups($withheld);
-
-        return $groups instanceof CannotJudge || $groups->has($this->patching->canary())
-            ? $groups
-            : CannotJudge::because(sprintf(self::EMPTY_CANARY, $this->patching->canary()->name()));
-    }
-
-    private function matching(Mutant $mutant, Mutants $found): Mutant
-    {
-        foreach ($found as $again) {
-            if ($again->id()->value() === $mutant->id()->value()) {
-                return $again;
-            }
-        }
-
-        return Interpretation::unjudged($mutant, Reason::that(self::NOT_FOUND_AGAIN));
+        return Mutants::of(...$matched);
     }
 }

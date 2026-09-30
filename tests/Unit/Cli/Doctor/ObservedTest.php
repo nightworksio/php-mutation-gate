@@ -15,9 +15,11 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\Doctored;
 use NightWorksIO\MutationGate\Tests\Support\FakePhp;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -35,7 +37,7 @@ it('observes the config, the runner, the trees, .gitignore, the Infection config
     $project = Scratch::copy('tests/Fixtures/Projects/Library');
     Scratch::write($project, '.gitignore', ".mutation-gate/\n");
     Scratch::write($project, 'infection.json5', '{minMsi: 80, initialTestsPhpOptions: "-d memory_limit=1G"}');
-    $php = FakePhp::answering("[PHP Modules]\npcov\n", "extension_dir => /nowhere => /nowhere\n");
+    $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], ['extension_dir' => '/nowhere']));
     $observed = Doctored::observed($project, sprintf('%s/php', $php))->of($given());
     $trees = $observed->trees();
 
@@ -45,7 +47,7 @@ it('observes the config, the runner, the trees, .gitignore, the Infection config
         ->and($observed->gitIgnore() instanceof GitIgnore && $observed->gitIgnore()->names(Path::of('.mutation-gate')))->toBeTrue()
         ->and($observed->infection())->toEqual(InfectionConfig::in('infection.json5', minMsi: true, ignores: false))
         ->and($observed->php() instanceof RunnerPhp && $observed->php()->loads('pcov'))->toBeTrue()
-        ->and(trim((string) file_get_contents(sprintf('%s/arguments.txt', $php))))->toBe('-d memory_limit=1G -i');
+        ->and(trim((string) file_get_contents(sprintf('%s/arguments.txt', $php))))->toBe(sprintf('-d memory_limit=1G -r %s', Platform::describing()[1]));
 });
 
 it('observes the markers the chosen runner finds in the trees, and the path repositories that copy their packages', function () use ($given): void {
@@ -62,7 +64,7 @@ it('observes the markers the chosen runner finds in the trees, and the path repo
             ]
         }
         JSON);
-    $php = FakePhp::answering("[PHP Modules]\npcov\n", '');
+    $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
     $observed = Doctored::observed($project, sprintf('%s/php', $php))->of($given());
     $markers = $observed->markers();
 
@@ -76,7 +78,7 @@ it('observes no markers where the chosen runner cannot be built, and nothing of 
     $project = Scratch::copy('tests/Fixtures/Projects/Library');
     Scratch::write($project, 'mutation-gate.json', '{"runner": "\\\\Acme\\\\Missing"}');
     $bare = Scratch::directory();
-    $php = sprintf('%s/php', FakePhp::answering('', ''));
+    $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
     $bareObserved = Doctored::observed($bare, $php)->of(new CommandLine('', 'infection', [], '', '', firstPartyOnly: false));
 
     $observed = Doctored::observed($project, $php)->of(new CommandLine('', '', [], '', '', firstPartyOnly: false));
@@ -89,7 +91,7 @@ it('observes no markers where the chosen runner cannot be built, and nothing of 
 
 it('observes both runners left to choose, and no trees where the config cannot be used', function () use ($given): void {
     $project = Scratch::copy('tests/Fixtures/Projects/TwoRunners');
-    $php = FakePhp::answering("[PHP Modules]\npcov\n", '');
+    $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
     $observed = Doctored::observed($project, sprintf('%s/php', $php))->of($given());
 
     expect($observed->runners())->toEqual(InstalledRunners::of(pest: true, infection: true, chosen: false))
@@ -97,14 +99,14 @@ it('observes both runners left to choose, and no trees where the config cannot b
         ->and($observed->trees())->toEqual(NotGiven::value())
         ->and($observed->infection())->toEqual(NotGiven::value())
         ->and($observed->gitIgnore() instanceof GitIgnore && $observed->gitIgnore()->names(Path::of('.mutation-gate')))->toBeFalse()
-        ->and(trim((string) file_get_contents(sprintf('%s/arguments.txt', $php))))->toBe('-i');
+        ->and(trim((string) file_get_contents(sprintf('%s/arguments.txt', $php))))->toBe(sprintf('-r %s', Platform::describing()[1]));
 });
 
 it('observes a runner the command line chooses, and none installed where Composer lists nothing', function () use ($given): void {
     $two = Scratch::copy('tests/Fixtures/Projects/TwoRunners');
     $none = Scratch::directory();
     Scratch::write($none, 'composer.json', '{}');
-    $php = sprintf('%s/php', FakePhp::answering('', ''));
+    $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
 
     expect(Doctored::observed($two, $php)->of($given('pest'))->runners())
         ->toEqual(InstalledRunners::of(pest: true, infection: true, chosen: true))
@@ -115,7 +117,7 @@ it('observes a runner the command line chooses, and none installed where Compose
 it('hands the runner\'s PHP none of the CI plan\'s credentials, nor those the runner\'s config withholds', function (): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Library');
     Scratch::write($project, 'mutation-gate.json', '{"runner": {"use": "infection", "withhold": ["DEPLOY_*"]}}');
-    $php = FakePhp::answering("[PHP Modules]\npcov\n", '');
+    $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
     $environment = ['CI_JOB_TOKEN' => 'job', 'DEPLOY_KEY' => 'key', 'GITHUB_TOKEN' => 'token', 'KEPT' => 'yes'];
     Doctored::observed($project, sprintf('%s/php', $php), $environment)
         ->of(new CommandLine('', '', [], '', 'gitlab', firstPartyOnly: false));

@@ -10,7 +10,7 @@ use function file_get_contents;
 use function is_file;
 use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
+use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -50,18 +50,22 @@ final readonly class Judging
     }
 
     /** A run's result, with each uncovered mutant on a line that is not executable judged. */
-    public function of(MutationResult $result, MutationRequest $request, string $results): MutationResult|CannotJudge
-    {
+    public function of(
+        MutationResult $result,
+        MutationRequest $request,
+        string $results,
+        Covering $coverage,
+    ): MutationResult|CannotJudge {
         $judgedBy = $request->judgedBy();
-        $coverage = CoverageFile::at(Recorder::coverageBeside($results));
-        $records = Records::in($results);
 
         if ($judgedBy instanceof Filter || ! $this->leftUncovered($result->mutants())) {
             return $result;
         }
 
-        if ($coverage instanceof CannotJudge || $records instanceof CannotJudge) {
-            return $coverage instanceof CannotJudge ? $coverage : $records;
+        $records = Records::in($results);
+
+        if ($records instanceof CannotJudge) {
+            return $records;
         }
 
         $selector = Selector::over($this->project, $coverage, $request->files());

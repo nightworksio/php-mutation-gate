@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Diff;
 use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Ran;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -141,7 +143,7 @@ $six = static fn(string $root): array => [
 
 /** The interpretation of a run in a project, with pest:patch off. */
 $read = static fn(Project $project, Ran $ran, string $results): MutationResult|CannotJudge
-    => new Interpretation($project, Patching::off())->of($ran, $results);
+    => new Interpretation($project, Patching::off())->of($ran, $results, CoverageFile::at(Recorder::coverageBeside($results)));
 
 it('reads a finished run by file and line, with a killer and a timeout\'s limit', function () use ($mutant, $six, $read): void {
     [$project, $results, $root] = interpretedRun([11 => [0], 21 => [], 40 => [0]], [11 => [1]]);
@@ -268,9 +270,9 @@ it('cannot judge a filter too long for Pest unpatched', function () use ($mutant
     $ran = Ran::finished(succeeded: true, output: 'Mutations: 1 tested');
     $patched = new Interpretation($project, Patching::on(Group::named('mutation-canary')));
 
-    expect(new Interpretation($project, Patching::off())->of($ran, $results))->toEqual(CannotJudge::because(
+    expect(new Interpretation($project, Patching::off())->of($ran, $results, CoverageFile::at(Recorder::coverageBeside($results))))->toEqual(CannotJudge::because(
         'Pest cannot pass the filter of the 2 tests covering src/Money.php:11. Turn on pest.patch.',
-    ))->and($patched->of($ran, $results))->toEqual(MutationResult::of(Mutants::of(
+    ))->and($patched->of($ran, $results, CoverageFile::at(Recorder::coverageBeside($results))))->toEqual(MutationResult::of(Mutants::of(
         $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Killed, 0.25),
     ), 0));
 });

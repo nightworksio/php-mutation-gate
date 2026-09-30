@@ -11,18 +11,13 @@ use function mb_strtolower;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
- * The PHP a runner runs its tests on, as `php -m` and `php -i` describe it
- * with the runner's own options: the extensions it loads, the ones installed
- * beside them that it does not, its settings, and the variables it sees.
+ * The PHP a runner runs its tests on, as it describes itself with the
+ * runner's own options: the extensions it loads, the ones installed beside
+ * them that it does not, its settings, the php.ini it loads, and the
+ * variables it sees.
  */
 final readonly class RunnerPhp
 {
-    /** How `php -i` names the php.ini a PHP loaded. */
-    public const string LOADED_INI = 'Loaded Configuration File';
-
-    /** What `php -i` says where a PHP loads no php.ini. */
-    private const string NO_INI = '(none)';
-
     /**
      * @param array<string, true>   $loaded    each extension it loads, lower-cased
      * @param array<string, true>   $offered   each extension installed in its extension directory, lower-cased
@@ -35,12 +30,13 @@ final readonly class RunnerPhp
         private array $offered,
         private array $settings,
         private array $variables,
+        private string|NotGiven $iniFile,
     ) {
     }
 
     public static function at(string $binary): self
     {
-        return new self($binary, [], [], [], []);
+        return new self($binary, [], [], [], [], NotGiven::value());
     }
 
     /** This PHP, loading these extensions as well, by name in any case. */
@@ -52,6 +48,7 @@ final readonly class RunnerPhp
             $this->offered,
             $this->settings,
             $this->variables,
+            $this->iniFile,
         );
     }
 
@@ -64,6 +61,7 @@ final readonly class RunnerPhp
             $this->named($this->offered, $extensions),
             $this->settings,
             $this->variables,
+            $this->iniFile,
         );
     }
 
@@ -76,6 +74,7 @@ final readonly class RunnerPhp
             $this->offered,
             [...$this->settings, $name => $value],
             $this->variables,
+            $this->iniFile,
         );
     }
 
@@ -88,7 +87,14 @@ final readonly class RunnerPhp
             $this->offered,
             $this->settings,
             [...$this->variables, $name => $value],
+            $this->iniFile,
         );
+    }
+
+    /** This PHP, loading a php.ini. */
+    public function loadingIni(string $file): self
+    {
+        return new self($this->binary, $this->loaded, $this->offered, $this->settings, $this->variables, $file);
     }
 
     /** The PHP binary the runner starts. */
@@ -113,12 +119,10 @@ final readonly class RunnerPhp
         return array_key_exists($setting, $this->settings) ? $this->settings[$setting] : NotGiven::value();
     }
 
-    /** The php.ini this PHP loads, as `php -i` names it, or a description of it where it loads none. */
+    /** The php.ini this PHP loads, or a description of it where it loads none. */
     public function iniFile(): string
     {
-        $file = $this->valueOf(self::LOADED_INI);
-
-        return is_string($file) && $file !== self::NO_INI ? $file : 'the php.ini this PHP loads';
+        return is_string($this->iniFile) ? $this->iniFile : 'the php.ini this PHP loads';
     }
 
     public function variable(string $name): string|NotGiven

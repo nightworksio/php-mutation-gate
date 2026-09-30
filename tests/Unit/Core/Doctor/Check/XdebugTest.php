@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Doctor\RunnerPhp;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
-$xdebug = static fn(): RunnerPhp => RunnerPhp::at('/usr/bin/php')->loading('xdebug')->setting(RunnerPhp::LOADED_INI, '/etc/php.ini');
+$xdebug = static fn(): RunnerPhp => RunnerPhp::at('/usr/bin/php')->loading('xdebug')->loadingIni('/etc/php.ini');
 
 $slowMode = static fn(string $mode): Findings => Findings::of(Finding::of(
     Slug::XdebugSlowsTests,

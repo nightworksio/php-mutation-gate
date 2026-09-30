@@ -71,7 +71,13 @@ final readonly class Command
      */
     public static function pest(string $script, Withheld $withheld, string ...$arguments): self
     {
-        return self::of(PHP_BINARY, $script, ...$arguments)->with([
+        return self::php($withheld, $script, ...$arguments);
+    }
+
+    /** The PHP that runs the gate, started as it starts Pest's script. */
+    public static function php(Withheld $withheld, string ...$arguments): self
+    {
+        return self::of(PHP_BINARY, ...$arguments)->with([
             ...self::INHERITED,
             ...self::withheldFrom(getenv(), $withheld),
             'PATH' => sprintf('%s%s%s', dirname(PHP_BINARY), PATH_SEPARATOR, getenv('PATH')),

@@ -65,6 +65,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
+use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\PestRun;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
@@ -194,18 +195,40 @@ it('names Pest, the exact versions it mutates with, and the PHP it runs on', fun
     );
     Scratch::write($at->root(), 'vendor/composer/installed.json', (string) json_encode(['packages' => $packages]));
 
-    expect(new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off())->identity())->toEqual(Identity::of(
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: Described::output()));
+    $pest = new Pest($at, $shell, Patching::off());
+    $withheld = Withheld::of('DEPLOY_*');
+
+    expect($pest->identity($withheld))->toEqual(Identity::of(
         'pest',
         Versions::of(...array_map(static fn(string $name): Version => Version::of($name, '1.0.0', 'abc'), $installed)),
-        Platform::current()->digest(),
+        Described::platform()->digest(),
+    ))
+        ->and($pest->identity($withheld))->toEqual($pest->identity($withheld))
+        ->and($shell->commands())->toEqual([Command::php($withheld, ...Platform::describing())]);
+});
+
+it('cannot say which Pest it runs where the PHP it starts does not describe itself', function (): void {
+    $at = adapterProject();
+    $packages = array_map(
+        static fn(string $name): array => ['name' => $name, 'version' => '1.0.0'],
+        ['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/phpunit', 'phpunit/php-code-coverage'],
+    );
+    Scratch::write($at->root(), 'vendor/composer/installed.json', (string) json_encode(['packages' => $packages]));
+    $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'Segmentation fault'));
+
+    expect(new Pest($at, $shell, Patching::off())->identity(Withheld::standard()))->toEqual(CannotJudge::because(
+        'The PHP the runner starts could not describe itself, so no proof can be keyed: '
+        . "it printed no description of itself:\nSegmentation fault",
     ));
 });
 
 it('cannot say which Pest it runs where Composer installed none', function (): void {
     $at = adapterProject();
-    $pest = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off());
+    $shell = ShellFake::answering(Ran::stopped(''));
+    $pest = new Pest($at, $shell, Patching::off());
 
-    expect($pest->identity())->toEqual(CannotJudge::because(sprintf(
+    expect($pest->identity(Withheld::standard()))->toEqual(CannotJudge::because(sprintf(
         '%s/vendor/composer/installed.json does not list pestphp/pest, pestphp/pest-plugin-mutate, phpunit/phpunit, '
         . 'phpunit/php-code-coverage, so the gate cannot say which Pest judges the mutants. Run composer install.',
         $at->root(),
@@ -402,13 +425,16 @@ it('finds Pest, what Composer installed and the patch in the vendor directory th
     $installed = ['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/phpunit', 'phpunit/php-code-coverage'];
     $packages = array_map(static fn(string $name): array => ['name' => $name, 'version' => '1.0.0'], $installed);
     Scratch::write($at->root(), 'lib/vendor/composer/installed.json', (string) json_encode(['packages' => $packages]));
-    $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
-        ? Ran::finished(succeeded: true, output: RUN_LISTING)
-        : adapterKilled($command, $at));
+    $shell = new ShellFake(static fn(Command $command, int $before): Ran => match ($before) {
+        0 => Ran::finished(succeeded: true, output: RUN_LISTING),
+        1 => Ran::finished(succeeded: true, output: Described::output()),
+        default => adapterKilled($command, $at),
+    });
     $pest = new Pest($at, $shell, adapterCanary());
     $invocation = Invocation::installedIn(Path::of('lib/vendor'));
 
-    expect($pest->identity())->toBeInstanceOf(Identity::class)
+    expect($pest->groups(Withheld::standard()))->toBeInstanceOf(Groups::class)
+        ->and($pest->identity(Withheld::standard()))->toBeInstanceOf(Identity::class)
         ->and($pest->mutate(adapterMoney()->reusingCoverage(Path::of('planned'))))->toBeInstanceOf(MutationResult::class)
         ->and($shell->commands()[0])->toEqual($invocation->listingGroups(Withheld::standard()));
 });
@@ -439,7 +465,7 @@ it('cannot open a shard on the canary group without the planning job\'s map', fu
     )));
 });
 
-it('runs the mutants again once per file and mutator, with no deadline, matched back by id', function (): void {
+it('runs the mutants again in one run of their files with their mutators, with no deadline, matched back by id', function (): void {
     $at = adapterProject();
     $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
     $survivor = adapterMutant();
@@ -455,8 +481,7 @@ it('runs the mutants again once per file and mutator, with no deadline, matched 
         MutantStatus::Survived,
         Unmeasured::duration(),
     );
-    $request = adapterMoney()->onlyMutators(Mutators::named(RUN_PLUS));
-    $held = MutationRequest::of(Paths::of(Path::of('src/Held.php')), WholeSuite::tests())
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')), WholeSuite::tests())
         ->onlyMutators(Mutators::named(RUN_PLUS));
     $retried = new Pest($at, $shell, Patching::off())
         ->retry(Mutants::of($survivor, $gone, $elsewhere), Seconds::of(20.0), WholeSuite::tests(), Withheld::standard());
@@ -466,10 +491,9 @@ it('runs the mutants again once per file and mutator, with no deadline, matched 
         $survivor,
         Mutant::of($id, 'n9', $place, $change, MutantStatus::Unjudged, Unmeasured::duration())->because($notFound),
         Interpretation::unjudged($elsewhere, $notFound),
-    ))->and($shell->commands())->toEqual([
-        adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at)),
-        adapterInvocation()->mutation($held, WholeSuite::tests(), adapterResults($at)),
-    ]);
+    ))->and($shell->commands())->toEqual([adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))])
+        ->and(new Pest($at, $shell, Patching::off())->retry(Mutants::none(), Seconds::of(20.0), WholeSuite::tests(), Withheld::standard()))
+        ->toEqual(Mutants::none());
 });
 
 it('runs a held unit\'s mutant again by the group that holds it, withholding what it is told to', function (): void {
