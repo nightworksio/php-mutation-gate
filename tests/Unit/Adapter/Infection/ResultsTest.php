@@ -11,9 +11,11 @@ use NightWorksIO\MutationGate\Adapter\Infection\Results;
 use NightWorksIO\MutationGate\Adapter\Infection\TextLog;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -36,13 +38,13 @@ afterEach(function (): void {
 /** A project whose MoneyTest takes half a second and covers line 11 of src/Money.php. */
 function resultsProject(): Project
 {
-    return Project::at(Scratch::directory(), Paths::none(), Path::of('.gate'));
+    return Project::at(Root::of(Scratch::directory()), Paths::none(), Path::of('.gate'));
 }
 
 function resultsLimits(Project $project): Limits
 {
     InfectionRun::coverage(sprintf('%s/coverage', $project->root()), $project->root(), [], ['Tests\MoneyTest' => 0.5], []);
-    $junit = JUnit::at(sprintf('%s/coverage/junit.xml', $project->root()));
+    $junit = JUnit::at(DiskPath::of(sprintf('%s/coverage/junit.xml', $project->root())));
     $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'));
 
     return Limits::of($map, $junit instanceof JUnit ? $junit : throw new RuntimeException('no JUnit'), Seconds::of(10.0));

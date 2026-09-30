@@ -35,6 +35,10 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -57,6 +61,8 @@ final readonly class RunnerFake implements Runner
         private Mutants $library,
         private Paths $judges,
         private Paths $definitions,
+        private TestNames $names,
+        private Paths $packages,
     ) {
     }
 
@@ -80,6 +86,14 @@ final readonly class RunnerFake implements Runner
             $mutants,
             Paths::of(Path::of('tests/DrainSpec.php'), Path::of('tests/MoneySpec.php')),
             Paths::of(Path::of('tests/Pest.php'), Path::of('phpunit.xml')),
+            TestNames::none()
+                ->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'it adds'))
+                ->with(TestId::of('HeldTest::doubles'), TestName::in(Path::of('tests/HeldTest.php'), 'it doubles'))
+                ->with(TestId::of('MoneyTest::adds#one'), TestRow::of(
+                    TestName::in(Path::of('tests/MoneyTest.php'), 'it adds'),
+                    '"one"',
+                )),
+            Paths::of(Path::of('fixture')),
         );
     }
 
@@ -146,6 +160,27 @@ final readonly class RunnerFake implements Runner
     public function definitions(): Paths
     {
         return $this->definitions;
+    }
+
+    /** The names it knows of these tests. */
+    public function names(TestIds $tests, Withheld $withheld): TestNames
+    {
+        $named = TestNames::none();
+
+        foreach ($tests as $test) {
+            $name = $this->names->nameOf($test);
+            $named = $name instanceof TestId ? $named : $named->with($test, $name);
+        }
+
+        return $named;
+    }
+
+    /** The same runner in a package it knows, which answers as it does. */
+    public function rootedAt(Path $package): self|CannotJudge
+    {
+        return $this->packages->has($package)
+            ? $this
+            : CannotJudge::because(sprintf('%s holds no project the fake runner can run.', $package->value()));
     }
 
     /** @param array{file: string, line: int, removed: string, added: string, status: MutantStatus} $change */

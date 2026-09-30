@@ -69,6 +69,11 @@ final readonly class ProcessShell implements Shell
     {
     }
 
+    public function in(string $directory): self
+    {
+        return new self($directory, $this->inherited);
+    }
+
     public function run(Command $command): Ran
     {
         $process = new Process(

@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Adapter\Infection\TestFiles;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -19,7 +20,7 @@ it('finds the file named after each class that declares it, in the test director
     Scratch::write($root, 'tests/GlobalTest.php', "<?php\nfinal class GlobalTest {}");
     Scratch::write($root, 'tests/Unit/Misnamed.php', "<?php\nnamespace Tests\\Unit;\nfinal class HeldTest {}");
     Scratch::write($root, 'src/HeldTest.php', "<?php\nnamespace Tests\\Unit;\nfinal class HeldTest {}");
-    $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.gate'));
+    $project = Project::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.gate'));
 
     expect(TestFiles::declaring($project, ['Tests\Unit\MoneyTest', 'GlobalTest', 'Tests\Unit\HeldTest']))
         ->toEqual(Paths::of(Path::of('tests/GlobalTest.php'), Path::of('tests/Unit/MoneyTest.php')));

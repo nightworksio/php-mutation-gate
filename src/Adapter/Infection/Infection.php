@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function array_keys;
-use function explode;
 use function getenv;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -13,8 +12,10 @@ use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -29,6 +30,9 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -48,7 +52,7 @@ final readonly class Infection implements Runner
     /** The runner's name, which its identity and the directory it keeps its own files in carry. */
     public const string RUNNER = 'infection';
 
-    private const string HERE = '.';
+    private const string NO_PROJECT = '%s holds no project Infection can run: Infection is not installed there.';
 
     private const string COVERAGE_FAILED = "PHPUnit's coverage run failed. PHPUnit said:\n%s";
 
@@ -68,9 +72,15 @@ final readonly class Infection implements Runner
     {
         $setup = Setup::of($options);
 
-        return $setup instanceof Invalid ? $setup : new self(
-            Project::at(self::HERE, $setup->tests(), Workspace::root()),
-            new ProcessShell(self::HERE, getenv()),
+        if ($setup instanceof Invalid) {
+            return $setup;
+        }
+
+        $project = Project::at(Root::here(), $setup->tests(), Workspace::root());
+
+        return new self(
+            $project,
+            new ProcessShell($project->root(), getenv()),
             $setup->cap(),
             nativeMarkersAllowed: $setup->allowsNativeMarkers(),
         );
@@ -126,7 +136,7 @@ final readonly class Infection implements Runner
         $classes = [];
 
         foreach ($map->testsCoveringFile($file) as $test) {
-            $classes[explode('::', $test->value(), 2)[0]] = true;
+            $classes[TestMethod::classOf($test)] = true;
         }
 
         return $classes === [] ? Paths::none() : TestFiles::declaring($this->project, array_keys($classes));
@@ -187,12 +197,31 @@ final readonly class Infection implements Runner
     }
 
     /**
+     * Each test by the file that declares its class and its method's name,
+     * as PHPUnit's JUnit log names it. Nothing runs, so nothing is withheld.
+     */
+    public function names(TestIds $tests, Withheld $withheld): TestNames
+    {
+        return Names::of($this->project, $tests);
+    }
+
+    /** Infection in a package's directory, where Composer installed it there. */
+    public function rootedAt(Path $package): self|CannotJudge
+    {
+        $project = $this->project->in($package);
+
+        return Invocation::runnableIn($project)
+            ? new self($project, $this->shell->in($project->root()), $this->cap, $this->nativeMarkersAllowed)
+            : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value()));
+    }
+
+    /**
      * The coverage directory a run reads, which the adapter always writes: for
      * a run judged by the whole suite that reuses the map another job handed
      * on, that map in Infection's layout; otherwise PHPUnit's run of the tests
      * that judge it. A held path never reads a map of the whole suite.
      */
-    private function coverageFor(OwnConfig $config, MutationRequest $request): string|CannotJudge
+    private function coverageFor(OwnConfig $config, MutationRequest $request): DiskPath|CannotJudge
     {
         $reused = $request->coverage();
 
@@ -202,7 +231,7 @@ final readonly class Infection implements Runner
     }
 
     /** The map another job handed on in a directory, written into Infection's layout. */
-    private function handedOn(Path $directory): string|CannotJudge
+    private function handedOn(Path $directory): DiskPath|CannotJudge
     {
         $map = HandedMap::in($this->project, $directory);
 
@@ -217,10 +246,10 @@ final readonly class Infection implements Runner
         OwnConfig $config,
         WholeSuite|Group|Filter $tests,
         Withheld $withheld,
-        string $directory,
-    ): string|CannotJudge {
-        foreach ([sprintf('%s/%s', Invocation::XML, CoverageXml::INDEX), Invocation::JUNIT] as $report) {
-            $fresh = $this->project->fresh(sprintf('%s/%s', $directory, $report));
+        DiskPath $directory,
+    ): DiskPath|CannotJudge {
+        foreach ([CoverageXml::indexIn($directory), $directory->child(Invocation::JUNIT)] as $report) {
+            $fresh = $this->project->fresh($report->value());
 
             if ($fresh instanceof CannotJudge) {
                 return $fresh;
@@ -263,7 +292,7 @@ final readonly class Infection implements Runner
      */
     private function rerun(
         OwnConfig $config,
-        string $coverage,
+        DiskPath $coverage,
         array $runs,
         Seconds $limit,
         WholeSuite|Group|Filter $judgedBy,
@@ -288,7 +317,7 @@ final readonly class Infection implements Runner
     }
 
     /** The directory the adapter runs PHPUnit under coverage into, for a run of its own. */
-    private function ownCoverage(): string
+    private function ownCoverage(): DiskPath
     {
         return $this->project->directory(Path::of($this->project->own(Invocation::COVERAGE)));
     }

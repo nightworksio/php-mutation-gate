@@ -9,6 +9,7 @@ use function array_key_exists;
 use DOMDocument;
 use DOMElement;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 
 use function preg_match;
 use function sprintf;
@@ -34,9 +35,9 @@ final readonly class JUnit
     {
     }
 
-    public static function at(string $file): self|CannotJudge
+    public static function at(DiskPath $file): self|CannotJudge
     {
-        $document = XmlFile::read($file, CannotJudge::because(sprintf(self::MISSING, $file)));
+        $document = XmlFile::read($file->value(), CannotJudge::because(sprintf(self::MISSING, $file->value())));
 
         if ($document instanceof CannotJudge) {
             return $document;

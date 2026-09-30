@@ -33,6 +33,17 @@ it('runs a script in its directory, and keeps both of its outputs', function ():
     expect($ran)->toEqual(Ran::finished(succeeded: true, output: sprintf('%s!', $directory)));
 });
 
+it('runs a script in another directory once moved there, on the PATH it had', function (): void {
+    $directory = (string) realpath(Scratch::directory());
+    $ran = new ProcessShell('/', ['PATH' => '/usr/bin'])->in($directory)
+        ->run(Command::php('-r', 'echo getcwd(), " ", getenv("PATH");'));
+
+    expect($ran)->toEqual(Ran::finished(
+        succeeded: true,
+        output: sprintf('%s %s%s/usr/bin', $directory, dirname(PHP_BINARY), PATH_SEPARATOR),
+    ));
+});
+
 it('puts the running PHP first on the PATH, so every PHP it starts is the same', function (): void {
     $ran = new ProcessShell(Scratch::directory(), ['PATH' => '/usr/bin:/bin'])->run(Command::php('-r', SHELL_PRINTS));
 

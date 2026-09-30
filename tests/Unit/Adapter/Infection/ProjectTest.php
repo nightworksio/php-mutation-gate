@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -14,7 +16,7 @@ afterEach(function (): void {
 
 it('holds its root as the real path, its test directories and the gate\'s directory', function (): void {
     $root = Scratch::directory();
-    $project = Project::at(sprintf('%s/./', $root), Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
+    $project = Project::at(Root::of(sprintf('%s/./', $root)), Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
 
     expect($project->root())->toBe((string) realpath($root))
         ->and($project->tests())->toEqual(Paths::of(Path::of('tests')))
@@ -23,11 +25,11 @@ it('holds its root as the real path, its test directories and the gate\'s direct
 });
 
 it('keeps a root that is not there as it is written, less a trailing slash', function (): void {
-    expect(Project::at('/nowhere/at/all/', Paths::none(), Path::of('.gate'))->root())->toBe('/nowhere/at/all');
+    expect(Project::at(Root::of('/nowhere/at/all/'), Paths::none(), Path::of('.gate'))->root())->toBe('/nowhere/at/all');
 });
 
 it('places a path of the project on disk, and an absolute path where it says', function (): void {
-    $project = Project::at('/project', Paths::none(), Path::of('.gate'));
+    $project = Project::at(Root::of('/project'), Paths::none(), Path::of('.gate'));
 
     expect($project->absolute(Path::of('src/Money.php')))->toBe('/project/src/Money.php')
         ->and($project->absolute(Path::root()))->toBe('/project')
@@ -35,7 +37,7 @@ it('places a path of the project on disk, and an absolute path where it says', f
 });
 
 it('spells a file on disk as the project does, and one outside it as it is', function (): void {
-    $project = Project::at('/project', Paths::none(), Path::of('.gate'));
+    $project = Project::at(Root::of('/project'), Paths::none(), Path::of('.gate'));
 
     expect($project->relative('/project/src/Money.php'))->toEqual(Path::of('src/Money.php'))
         ->and($project->relative('/projects/src/Money.php'))->toEqual(Path::of('/projects/src/Money.php'))
@@ -44,16 +46,16 @@ it('spells a file on disk as the project does, and one outside it as it is', fun
 
 it('makes a directory that is not there, and leaves one that is', function (): void {
     $root = Scratch::directory();
-    $project = Project::at($root, Paths::none(), Path::of('.gate'));
+    $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
 
-    expect($project->directory(Path::of('a/b')))->toBe(sprintf('%s/a/b', realpath($root)))
+    expect($project->directory(Path::of('a/b')))->toEqual(DiskPath::of(sprintf('%s/a/b', realpath($root))))
         ->and(is_dir(sprintf('%s/a/b', $root)))->toBeTrue()
-        ->and($project->directory(Path::of('a/b')))->toBe(sprintf('%s/a/b', realpath($root)));
+        ->and($project->directory(Path::of('a/b')))->toEqual(DiskPath::of(sprintf('%s/a/b', realpath($root))));
 });
 
 it('removes an earlier run\'s copy of a file, and makes its directory', function (): void {
     $root = (string) realpath(Scratch::directory());
-    $project = Project::at($root, Paths::none(), Path::of('.gate'));
+    $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
     Scratch::write($root, 'logs/old.json', '{}');
 
     expect($project->fresh(sprintf('%s/logs/old.json', $root)))->toBe(sprintf('%s/logs/old.json', $root))
@@ -64,7 +66,7 @@ it('removes an earlier run\'s copy of a file, and makes its directory', function
 
 it('cannot judge when an earlier run\'s file cannot be removed', function (): void {
     $root = (string) realpath(Scratch::directory());
-    $project = Project::at($root, Paths::none(), Path::of('.gate'));
+    $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
     Scratch::write($root, 'locked/infection.json', '{}');
     chmod(sprintf('%s/locked', $root), 0o555);
     $fresh = $project->fresh(sprintf('%s/locked/infection.json', $root));

@@ -6,7 +6,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function count;
 use function implode;
+use function is_file;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -58,6 +60,19 @@ final readonly class Invocation
     public function listingGroups(Withheld $withheld): Command
     {
         return Command::pest($this->script, $withheld, '--list-groups', '--colors=never');
+    }
+
+    /** Every test, listed and never run, with the plugin naming each in a file. */
+    public function listingTests(Withheld $withheld, string $names): Command
+    {
+        return Command::pest($this->script, $withheld, '--list-tests', '--colors=never')
+            ->with([Naming::FILE => $names]);
+    }
+
+    /** Whether Pest's script is in the project, where the gate runs it from. */
+    public function isIn(Project $project): bool
+    {
+        return is_file($project->absolute(Path::of($this->script)));
     }
 
     public function coverage(CoverageRequest $request, string $directory): Command

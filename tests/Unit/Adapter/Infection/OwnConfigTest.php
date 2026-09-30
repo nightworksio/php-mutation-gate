@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -30,7 +31,7 @@ function ownConfig(string $text): OwnConfig
  */
 function ownGenerated(OwnConfig $config, Mutators $mutators): array
 {
-    $project = Project::at('/project', Paths::none(), Path::of('.gate'));
+    $project = Project::at(Root::of('/project'), Paths::none(), Path::of('.gate'));
     $decoded = json_decode($config->generated($project, ['/project/src'], Seconds::of(12.5), $mutators), associative: true);
 
     return is_array($decoded) ? $decoded : [];
@@ -38,7 +39,7 @@ function ownGenerated(OwnConfig $config, Mutators $mutators): array
 
 it('reads the first config file Infection would, and a config that sets nothing without one', function (): void {
     $root = Scratch::directory();
-    $project = Project::at($root, Paths::none(), Path::of('.gate'));
+    $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
     $none = OwnConfig::in($project);
     Scratch::write($root, 'infection.json.dist', '{"initialTestsPhpOptions": "-d dist=1"}');
     Scratch::write($root, 'infection.json', "{\n  // JSON5\n  initialTestsPhpOptions: '-d json=1',\n}");
@@ -69,7 +70,7 @@ it('refuses a test framework other than PHPUnit, and PHPUnit that is Pest', func
 });
 
 it('runs the project\'s PHPUnit from its config directory, or its own from the root', function (): void {
-    $project = Project::at('/project', Paths::none(), Path::of('.gate'));
+    $project = Project::at(Root::of('/project'), Paths::none(), Path::of('.gate'));
     $custom = ownConfig('{"phpUnit": {"customPath": "tools/phpunit.phar", "configDir": "config"}}');
     $plain = ownConfig('{}');
 

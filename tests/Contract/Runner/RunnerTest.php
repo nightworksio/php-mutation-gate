@@ -27,6 +27,9 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
@@ -208,6 +211,41 @@ it('names the files that define it, the library\'s own among them, from the proj
     foreach ($library->defining() as $file) {
         expect($definitions->has($file))->toBeTrue();
     }
+})->with($libraries);
+
+it('names each test by its file and description, and a data set row by the test it folds into', function (Library $library): void {
+    $asked = TestIds::of(...array_map(TestId::of(...), array_keys($library->naming())));
+    $answer = $library->runner()->names($asked, Withheld::standard());
+    $names = $answer instanceof TestNames ? $answer : TestNames::none();
+    $named = [];
+    $folded = [];
+    $tests = [];
+
+    foreach ($asked as $test) {
+        $name = $names->nameOf($test);
+        $named[$test->value()] = $name->value();
+        $folded[$test->value()] = $names->testOf($test)->value();
+        $tests[$test->value()] = $name instanceof TestRow ? $name->test()->value() : $name->value();
+    }
+
+    expect($answer)->toBeInstanceOf(TestNames::class)
+        ->and($named)->toBe($library->naming())
+        ->and($folded)->toBe($tests);
+})->with($libraries);
+
+it('answers as the runner built in a package when rooted in it from the directory around it', function (Library $library): void {
+    $rooted = $library->outside()->rootedAt($library->package());
+    $runner = $library->runner();
+
+    expect($rooted instanceof CannotJudge ? $rooted : $rooted->identity())->toEqual($runner->identity())
+        ->and($rooted instanceof CannotJudge ? $rooted : $rooted->definitions())->toEqual($runner->definitions())
+        ->and($rooted instanceof CannotJudge ? $rooted : $rooted->groups(Withheld::standard()))
+        ->toEqual($runner->groups(Withheld::standard()));
+})->with($libraries);
+
+it('cannot judge a directory that holds no project it can run', function (Library $library): void {
+    expect($library->runner()->rootedAt(Path::of('src')))->toBeInstanceOf(CannotJudge::class)
+        ->and($library->outside()->rootedAt(Path::of('nowhere')))->toBeInstanceOf(CannotJudge::class);
 })->with($libraries);
 
 it('judges a held path by the tests its #[Holds] filter names, with Infection', function (): void {

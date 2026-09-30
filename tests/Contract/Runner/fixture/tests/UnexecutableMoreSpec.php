@@ -3,17 +3,20 @@
 declare(strict_types=1);
 
 use Library\Unexecutable\Chain;
+
+use function Library\Unexecutable\discount;
+
 use Library\Unexecutable\Early;
 use Library\Unexecutable\Limits;
 use Library\Unexecutable\Scaled;
-use Library\Unexecutable\Weighed;
-
-use function Library\Unexecutable\discount;
-use function Library\Unexecutable\tax;
 
 use const Library\Unexecutable\STARTING;
 
-require_once __DIR__.'/../src/Unexecutable/helpers.php';
+use function Library\Unexecutable\tax;
+
+use Library\Unexecutable\Weighed;
+
+require_once __DIR__ . '/../src/Unexecutable/helpers.php';
 
 it('calls a function with its parameter left out', function (): void {
     expect(tax())->toBe(21);

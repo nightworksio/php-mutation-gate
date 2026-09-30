@@ -10,6 +10,7 @@ use function dirname;
 use function getenv;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -41,6 +42,7 @@ final readonly class Command
         'MUTATION_GATE_SUITE_SECONDS' => false,
         'MUTATION_GATE_CANARY' => false,
         Guard::FILE => false,
+        Naming::FILE => false,
     ];
 
     /**

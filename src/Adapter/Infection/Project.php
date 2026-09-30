@@ -12,6 +12,7 @@ use function is_writable;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -37,10 +38,16 @@ final readonly class Project
     {
     }
 
-    /** The project at a root, as the runner spells it (owner: rc3b), held as its real path. */
-    public static function at(string $root, Paths $tests, Path $workspace): self
+    /** The project at a root, held as its real path. */
+    public static function at(Root $root, Paths $tests, Path $workspace): self
     {
-        return new self(Root::of(self::real($root)), $tests, $workspace);
+        return new self(Root::of(self::real($root->value())), $tests, $workspace);
+    }
+
+    /** The same project in one of its directories: the tests and the gate's directory are that directory's. */
+    public function in(Path $directory): self
+    {
+        return self::at(Root::of($this->absolute($directory)), $this->tests, $this->workspace);
     }
 
     /** The root's real path, as Infection's config and the coverage layout write it. */
@@ -68,12 +75,12 @@ final readonly class Project
     }
 
     /** A directory of the project on disk, made where it is not there yet. */
-    public function directory(Path $path): string
+    public function directory(Path $path): DiskPath
     {
-        $directory = $this->absolute($path);
+        $directory = $this->root->at($path);
 
-        if (! is_dir($directory)) {
-            mkdir($directory, recursive: true);
+        if (! is_dir($directory->value())) {
+            mkdir($directory->value(), recursive: true);
         }
 
         return $directory;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Infection\JUnit;
 use NightWorksIO\MutationGate\Adapter\Infection\Limits;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -21,7 +22,7 @@ function limitsUnder(Seconds $cap): Limits
 {
     $root = Scratch::directory();
     InfectionRun::coverage($root, '/p', [], ['Tests\MoneyTest' => 0.5, 'Tests\DrainTest' => 0.25, 'Tests\SlowTest' => 3.0], []);
-    $junit = JUnit::at(sprintf('%s/junit.xml', $root));
+    $junit = JUnit::at(DiskPath::of(sprintf('%s/junit.xml', $root)));
     $map = CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::large'))

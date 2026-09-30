@@ -22,6 +22,13 @@ it('runs a program in its directory, with its environment, and keeps both of its
     expect($ran)->toEqual(Ran::finished(succeeded: true, output: sprintf('%s on!', $directory)));
 });
 
+it('runs a program in another directory once moved there', function (): void {
+    $directory = (string) realpath(Scratch::directory());
+    $ran = new ProcessShell('/')->in($directory)->run(Command::of(PHP_BINARY, '-r', 'echo getcwd();'));
+
+    expect($ran)->toEqual(Ran::finished(succeeded: true, output: $directory));
+});
+
 it('says a program that exits with a failure did not succeed', function (): void {
     $ran = new ProcessShell(Scratch::directory())->run(Command::of(PHP_BINARY, '-r', 'echo "no"; exit(3);'));
 

@@ -9,9 +9,11 @@ use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -29,7 +31,7 @@ function layoutProject(): Project
     Scratch::write($root, 'src/Money.php', '<?php');
     Scratch::write($root, 'Held.php', '<?php');
 
-    return Project::at($root, Paths::of(Path::of('tests')), Path::of('.gate'));
+    return Project::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.gate'));
 }
 
 /** The text of the first node a query finds in an XML file, with PHPUnit's coverage namespace as `p`. */
@@ -60,19 +62,19 @@ function layoutMap(): CoverageMap
 
 it('writes a map into the layout Infection reads, which reads back as the map it was', function (): void {
     $project = layoutProject();
-    $directory = sprintf('%s/.gate/infection/coverage', $project->root());
+    $directory = DiskPath::of(sprintf('%s/.gate/infection/coverage', $project->root()));
 
-    expect(CoverageLayout::write($project, layoutMap(), $directory))->toBe($directory)
+    expect(CoverageLayout::write($project, layoutMap(), $directory))->toEqual($directory)
         ->and(CoverageXml::read($project, $directory))->toEqual(layoutMap());
 });
 
 it('writes each test class\'s suite with its file and the time its tests took, as Infection looks them up', function (): void {
     $project = layoutProject();
     $directory = sprintf('%s/coverage', $project->root());
-    CoverageLayout::write($project, layoutMap(), $directory);
+    CoverageLayout::write($project, layoutMap(), DiskPath::of($directory));
     $log = sprintf('%s/junit.xml', $directory);
     $suite = static fn(string $class, string $attribute): string => layoutRead($log, sprintf('//testsuite[@name="%s"][1]/@%s', $class, $attribute));
-    $read = JUnit::at($log);
+    $read = JUnit::at(DiskPath::of($log));
 
     expect($suite('Tests\MoneyTest', 'file'))->toBe(sprintf('%s/tests/MoneyTest.php', $project->root()))
         ->and($suite('Tests\HeldTest', 'file'))->toBe(sprintf('%s/tests/Unit/HeldTest.php', $project->root()))
@@ -82,10 +84,19 @@ it('writes each test class\'s suite with its file and the time its tests took, a
         ->and(layoutRead($log, '//testcase[@class="Tests\MoneyTest"][3]/@name'))->toBe('adds with data set "small amounts"');
 });
 
+it('logs no test for a covering id that names no test method, and asks no file to declare it', function (): void {
+    $project = layoutProject();
+    $directory = DiskPath::of(sprintf('%s/coverage', $project->root()));
+    $map = layoutMap()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('money.phpt'));
+
+    expect(CoverageLayout::write($project, $map, $directory))->toEqual($directory)
+        ->and(substr_count((string) file_get_contents(sprintf('%s/junit.xml', $directory->value())), '<testcase '))->toBe(4);
+});
+
 it('writes each report as Infection reads it: its path, a share of lines run, its methods and its lines', function (): void {
     $project = layoutProject();
     $directory = sprintf('%s/coverage', $project->root());
-    CoverageLayout::write($project, layoutMap(), $directory);
+    CoverageLayout::write($project, layoutMap(), DiskPath::of($directory));
     $read = layoutRead(...);
     $money = sprintf('%s/coverage-xml/src/Money.php.xml', $directory);
     $index = sprintf('%s/coverage-xml/index.xml', $directory);
@@ -105,7 +116,7 @@ it('writes each report as Infection reads it: its path, a share of lines run, it
 it('writes an index that says a line ran, where the map holds none of this run\'s files', function (): void {
     $project = layoutProject();
     $directory = sprintf('%s/coverage', $project->root());
-    CoverageLayout::write($project, CoverageMap::empty(), $directory);
+    CoverageLayout::write($project, CoverageMap::empty(), DiskPath::of($directory));
     $index = new DOMDocument();
     $index->load(sprintf('%s/coverage-xml/index.xml', $directory));
 
@@ -116,12 +127,12 @@ it('cannot write a map whose test class no test file declares, or over what an e
     $project = layoutProject();
     $directory = sprintf('%s/coverage', $project->root());
     $gone = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\GoneTest::adds'));
-    CoverageLayout::write($project, layoutMap(), $directory);
+    CoverageLayout::write($project, layoutMap(), DiskPath::of($directory));
     chmod($directory, 0o555);
-    $locked = CoverageLayout::write($project, layoutMap(), $directory);
+    $locked = CoverageLayout::write($project, layoutMap(), DiskPath::of($directory));
     chmod($directory, 0o755);
 
-    expect(CoverageLayout::write($project, $gone, $directory))->toEqual(CannotJudge::because(
+    expect(CoverageLayout::write($project, $gone, DiskPath::of($directory)))->toEqual(CannotJudge::because(
         'The coverage map names the test class Tests\GoneTest, and no test file declares it, so Infection cannot run its tests.',
     ))->and($locked)->toEqual(CannotJudge::because(sprintf(
         'The gate cannot remove %s/junit.xml, so it cannot tell what this run wrote from what an earlier one did.',

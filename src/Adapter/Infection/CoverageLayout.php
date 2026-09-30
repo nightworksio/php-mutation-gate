@@ -14,18 +14,18 @@ use function dirname;
 use DOMDocument;
 use DOMElement;
 
-use function explode;
 use function file_put_contents;
 use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-use function preg_match;
 use function sprintf;
 
 /**
@@ -42,14 +42,11 @@ final readonly class CoverageLayout
     /** A report's share of lines run, where it records any. */
     private const string WHOLE = '100';
 
-    /** How a coverage id names a data set's test: its method, and the data set's number or name. */
-    private const string DATA_SET = '/^(?<method>[^#]+)#(?:(?<number>\d+)|(?<name>.*))$/sD';
-
     private const string NO_TEST_FILE
         = 'The coverage map names the test class %s, and no test file declares it, so Infection cannot run its tests.';
 
     /** The map, written into a directory, which it answers; or why it cannot be. */
-    public static function write(Project $project, CoverageMap $map, string $directory): string|CannotJudge
+    public static function write(Project $project, CoverageMap $map, DiskPath $directory): DiskPath|CannotJudge
     {
         $classes = self::classesOf($map);
         $files = TestFiles::byClass($project, $classes);
@@ -60,12 +57,13 @@ final readonly class CoverageLayout
         }
 
         $documents = [
-            sprintf('%s/%s', Invocation::XML, CoverageXml::INDEX) => self::index($project, $map),
+            Path::of(Invocation::XML)->child(Path::of(CoverageXml::INDEX))->value() => self::index($project, $map),
             Invocation::JUNIT => self::junit($project, $map, $files),
         ];
 
         foreach ($map->files() as $file) {
-            $documents[sprintf('%s/%s.xml', Invocation::XML, $file->value())] = self::report($map, $file);
+            $documents[Path::of(Invocation::XML)->child(Path::of(sprintf('%s.xml', $file->value())))->value()]
+                = self::report($map, $file);
         }
 
         return self::written($project, $directory, $documents);
@@ -77,10 +75,10 @@ final readonly class CoverageLayout
      *
      * @param array<string, DOMDocument> $documents each document, by its path in the directory
      */
-    private static function written(Project $project, string $directory, array $documents): string|CannotJudge
+    private static function written(Project $project, DiskPath $directory, array $documents): DiskPath|CannotJudge
     {
         foreach ($documents as $path => $document) {
-            $file = $project->fresh(sprintf('%s/%s', $directory, $path));
+            $file = $project->fresh($directory->child($path)->value());
 
             if ($file instanceof CannotJudge) {
                 return $file;
@@ -178,13 +176,17 @@ final readonly class CoverageLayout
         }
 
         foreach ($map->tests() as $test) {
-            [$class, $method] = [...explode('::', $test->value(), 2), ''];
-            self::appended($suites[$class], new DOMElement('testcase'), [
-                'name' => self::loggedName($method),
-                'class' => $class,
-                'file' => $project->absolute($files[$class]),
-                'time' => sprintf('%F', self::secondsOf($map, $test)),
-            ]);
+            $method = TestMethod::of($test);
+
+            if ($method instanceof TestMethod) {
+                $class = $method->className();
+                self::appended($suites[$class], new DOMElement('testcase'), [
+                    'name' => $method->in($files[$class], $method->method())->description(),
+                    'class' => $class,
+                    'file' => $project->absolute($files[$class]),
+                    'time' => sprintf('%F', self::secondsOf($map, $test)),
+                ]);
+            }
         }
 
         foreach ($suites as $suite) {
@@ -206,28 +208,17 @@ final readonly class CoverageLayout
         return $seconds;
     }
 
-    /** @return list<string> each test class the map's tests belong to, once, in their order */
+    /** @return list<string> each test class the map's test methods belong to, once, in their order */
     private static function classesOf(CoverageMap $map): array
     {
         $classes = [];
 
         foreach ($map->tests() as $test) {
-            $classes[explode('::', $test->value(), 2)[0]] = true;
+            $method = TestMethod::of($test);
+            $classes += $method instanceof TestMethod ? [$method->className() => true] : [];
         }
 
         return array_keys($classes);
-    }
-
-    /** A test's name as PHPUnit logs it: a data set's test as `<method> with data set #<n>` or `… "<name>"`. */
-    private static function loggedName(string $method): string
-    {
-        if (preg_match(self::DATA_SET, $method, $named, PREG_UNMATCHED_AS_NULL) !== 1) {
-            return $method;
-        }
-
-        return $named['name'] === null
-            ? sprintf('%s with data set #%s', $named['method'], $named['number'])
-            : sprintf('%s with data set "%s"', $named['method'], $named['name']);
     }
 
     private static function secondsOf(CoverageMap $map, TestId $test): float

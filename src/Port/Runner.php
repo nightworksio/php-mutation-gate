@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -77,4 +79,20 @@ interface Runner
      * change to one reaches everything, and every content key reads them.
      */
     public function definitions(): Paths;
+
+    /**
+     * What each of these tests is: the whole test, by its file and the
+     * description the runner gives it, or the data set row that folds into
+     * it. An id the runner names nothing is left out. Naming may load the
+     * project's code, which never sees the variables withheld (ADR-0014).
+     */
+    public function names(TestIds $tests, Withheld $withheld): TestNames|CannotJudge;
+
+    /**
+     * The runner in a package's directory, as a path from the project's
+     * root: its tests, its vendor and the gate's directory are the package's.
+     * A directory that holds no project the runner can run cannot be judged
+     * (ADR-0005).
+     */
+    public function rootedAt(Path $package): self|CannotJudge;
 }

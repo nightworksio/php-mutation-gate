@@ -13,9 +13,11 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -34,6 +36,10 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -57,7 +63,7 @@ function infectionProject(string $config = ''): Project
         Scratch::write($root, 'infection.json5', $config);
     }
 
-    return Project::at($root, Paths::of(Path::of('tests')), Path::of('.gate'));
+    return Project::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.gate'));
 }
 
 /**
@@ -264,7 +270,7 @@ it('writes the map another job handed on in its own layout for a run judged by t
     expect(infectionStatuses($result))->toBe([MutantStatus::Killed])
         ->and(count($shell->commands()))->toBe(1)
         ->and(infectionRan($shell)[0])->toContain(sprintf('--coverage=%s', $own))
-        ->and(CoverageXml::read($at, $own))->toEqual($handed);
+        ->and(CoverageXml::read($at, DiskPath::of($own)))->toEqual($handed);
 });
 
 it('cannot judge a handed-on map whose test class no test file declares', function (): void {
@@ -430,6 +436,46 @@ it('is defined by no PHPUnit config where phpUnit.configDir is outside the proje
     expect(array_map(static fn(Path $path): string => $path->value(), [...$definitions]))
         ->toBe(['infection.json5', 'infection.json', 'infection.json5.dist', 'infection.json.dist']);
 })->with(['/elsewhere', '..', '../shared']);
+
+it('names each test by the file that declares its class and its method, running nothing', function (): void {
+    $at = infectionProject();
+    $shell = infectionShell($at, []);
+    $asked = TestIds::of(
+        TestId::of('Tests\\MoneyTest::adds'),
+        TestId::of('Tests\\MoneyTest::adds#2'),
+        TestId::of('Tests\\GoneTest::adds'),
+        TestId::of('Tests\\MoneyTest'),
+    );
+    $adds = TestName::in(Path::of('tests/MoneyTest.php'), 'adds');
+
+    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->names($asked, Withheld::standard()))
+        ->toEqual(TestNames::none()
+            ->with(TestId::of('Tests\\MoneyTest::adds'), $adds)
+            ->with(TestId::of('Tests\\MoneyTest::adds#2'), TestRow::of($adds, '#2')))
+        ->and($shell->commands())->toBe([]);
+});
+
+it('roots itself in a package that installs Infection, with the package\'s own tests', function (): void {
+    $at = infectionProject();
+    Scratch::write($at->root(), 'packages/billing/vendor/bin/infection', '<?php');
+    Scratch::write($at->root(), 'packages/billing/tests/LedgerTest.php', "<?php\nnamespace Tests;\nfinal class LedgerTest {}");
+    $shell = infectionShell($at, []);
+    $rooted = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->rootedAt(Path::of('packages/billing'));
+    $asked = TestIds::of(TestId::of('Tests\\LedgerTest::books'), TestId::of('Tests\\MoneyTest::adds'));
+
+    expect($rooted instanceof Infection ? $rooted->names($asked, Withheld::standard()) : $rooted)
+        ->toEqual(TestNames::none()->with(TestId::of('Tests\\LedgerTest::books'), TestName::in(Path::of('tests/LedgerTest.php'), 'books')))
+        ->and($shell->directories())->toBe([sprintf('%s/packages/billing', $at->root())]);
+});
+
+it('cannot root itself in a directory that installs no Infection', function (): void {
+    $at = infectionProject();
+    $shell = infectionShell($at, []);
+
+    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->rootedAt(Path::of('packages/billing')))
+        ->toEqual(CannotJudge::because('packages/billing holds no project Infection can run: Infection is not installed there.'))
+        ->and($shell->directories())->toBe([]);
+});
 
 it('is built from the options the flows write, or is invalid', function (): void {
     expect(Infection::fromOptions(Options::ofJson('{"timeout": 30, "nativeMarkers": "allow"}')))->toBeInstanceOf(Infection::class)

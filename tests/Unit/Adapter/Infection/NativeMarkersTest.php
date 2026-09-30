@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\OwnConfig;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -51,7 +52,7 @@ it('finds @infection-ignore-all in a comment of the files asked for, on its own 
         '}',
     ]));
     Scratch::write($root, 'src/Held.php', "<?php\n// @infection-ignore-all\n");
-    $project = Project::at($root, Paths::none(), Path::of('.gate'));
+    $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
     $replaces = '{"mutant": "<the id of each mutant it hides>", "reason": "<why no test can tell>"}';
 
     expect(markersRead(NativeMarkers::in($project, markersConfig('{}'), Paths::of(Path::of('src/Money.php')))))->toBe([
@@ -69,7 +70,7 @@ it('finds every pattern under mutators that hides a mutant, with the entry that 
         'Plus' => ['ignore' => ['App\\Money::add::11', 'App\\Tax'], 'ignoreSourceCodeByRegex' => ['\\$cache.*']],
         'Minus' => ['settings' => ['a' => 1], 'ignore' => 'not a list'],
     ]]));
-    $project = Project::at(Scratch::directory(), Paths::none(), Path::of('.gate'));
+    $project = Project::at(Root::of(Scratch::directory()), Paths::none(), Path::of('.gate'));
     $ignore = '{"path": "<the file %s is in>", "mutator": "%s", "reason": "<why no test can tell>"}';
     $regex = '{"mutant": "<the id of each mutant %s matches>", "reason": "<why no test can tell>"}';
 
@@ -86,7 +87,7 @@ it('finds every pattern under mutators that hides a mutant, with the entry that 
 it('finds nothing in files and a config without markers', function (): void {
     $root = Scratch::directory();
     Scratch::write($root, 'src/Money.php', "<?php\n// an ordinary comment\n");
-    $project = Project::at($root, Paths::none(), Path::of('.gate'));
+    $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
 
     expect(count(NativeMarkers::in($project, markersConfig('{"mutators": {"@default": true}}'), Paths::of(Path::of('src')))))
         ->toBe(0);
