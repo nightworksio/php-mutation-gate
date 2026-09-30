@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Cost\Cost;
+use NightWorksIO\MutationGate\Core\Cost\Rate;
+use NightWorksIO\MutationGate\Core\Cost\RunAccount;
+use NightWorksIO\MutationGate\Core\Cost\RunTime;
+use NightWorksIO\MutationGate\Core\Cost\RunTimings;
+use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -14,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -170,4 +177,71 @@ it('writes a run cut short, a unit a filter holds, the seconds a mutant ran and 
         ->and(Decoded::at($report, 'trees', 0))->not->toHaveKey('baseline')
         ->and(Decoded::at($report, 'mutants', 0))->toMatchArray(['seconds' => 0.25])
         ->and(Decoded::at($report, 'mutants', 0))->not->toHaveKeys(['end', 'limit', 'reason']);
+});
+
+it('writes the run\'s timings, what it cost and what it saved, each in the shape the schema holds it to', function (): void {
+    $report = JsonReport::encode(Verdicts::named('accounted'));
+
+    expect(Schema::errors($report, Schema::at('resources/report.schema.json')))->toBe([])
+        ->and(Decoded::at($report, 'run'))->toBe([
+            'id' => 'github:12345/1',
+            'traceId' => '9b2d6cafc59d87d7a027463ce78b2d84',
+            'phases' => [
+                'plan' => ['start' => '2026-09-30T11:50:00Z', 'seconds' => 40.0],
+                'verdict' => ['start' => '2026-09-30T11:55:10Z', 'seconds' => 30.0],
+            ],
+            'shards' => [
+                ['shard' => 1, 'start' => '2026-09-30T11:51:00Z', 'openingRunSeconds' => 20.0, 'mutateSeconds' => 200.0],
+                ['shard' => 2, 'start' => '2026-09-30T11:51:05Z', 'openingRunSeconds' => 25.0, 'mutateSeconds' => 180.0],
+            ],
+            'units' => ['run' => 1, 'proved' => 1, 'carried' => 1],
+            'wallSeconds' => 360.0,
+            'runnerSeconds' => 840.0,
+            'measured' => true,
+        ])
+        ->and(Decoded::at($report, 'cost'))->toBe([
+            'planned' => ['wallSeconds' => 420.0, 'runnerSeconds' => 900.0],
+            'measured' => ['wallSeconds' => 360.0, 'runnerSeconds' => 840.0],
+            'spared' => ['seconds' => 2460.0],
+            'setupEstimated' => false,
+        ])
+        ->and(Decoded::at($report, 'savings'))->toBe([
+            'fullRun' => ['seconds' => 6060.0, 'measuredPercent' => 94],
+            'saved' => ['reachSeconds' => 4800.0, 'proofsSeconds' => 420.0],
+            'sharding' => ['waitSavedSeconds' => 2280.0, 'setupSeconds' => 180.0],
+        ]);
+});
+
+it('prices each cost where the team gives a rate, and says a timed run with no history has none', function (): void {
+    $account = Verdicts::account();
+    $cost = $account->cost();
+    $priced = $cost instanceof Cost ? $account->withCost($cost->pricedAt(Rate::perMinute(0.5, 'EUR'))) : $account;
+    $timings = $account->timings();
+    $unsaved = $timings instanceof RunTimings ? RunAccount::none()->withTimings($timings->withShard(Verdicts::shard())) : $account;
+    $report = JsonReport::encode(Verdicts::failing()->withAccount($priced));
+    $bare = JsonReport::encode(Verdicts::failing()->withAccount($unsaved));
+
+    expect(Schema::errors($report, Schema::at('resources/report.schema.json')))->toBe([])
+        ->and(Decoded::at($report, 'cost'))->toBe([
+            'planned' => ['wallSeconds' => 420.0, 'runnerSeconds' => 900.0, 'price' => ['amount' => 7.5, 'currency' => 'EUR']],
+            'measured' => ['wallSeconds' => 360.0, 'runnerSeconds' => 840.0, 'price' => ['amount' => 7.0, 'currency' => 'EUR']],
+            'spared' => ['seconds' => 2460.0, 'price' => ['amount' => 20.5, 'currency' => 'EUR']],
+            'setupEstimated' => false,
+            'perRunnerMinute' => ['amount' => 0.5, 'currency' => 'EUR'],
+        ])
+        ->and(Schema::errors($bare, Schema::at('resources/report.schema.json')))->toBe([])
+        ->and(Decoded::at($bare, 'savings'))->toBe(['noHistory' => true])
+        ->and(Decoded::at($bare))->not->toHaveKey('cost')
+        ->and(Decoded::at(JsonReport::encode(Verdicts::failing())))->not->toHaveKeys(['run', 'cost', 'savings']);
+});
+
+it('leaves out the phases no one timed, and the sharding of an unsharded run', function (): void {
+    $timings = RunTimings::of('local', RunTime::estimated(Seconds::of(10.0), Seconds::of(70.0)));
+    $savings = Savings::of(Seconds::of(100.0), Percentage::of(Floor::of(50)), Seconds::of(10.0), Seconds::of(20.0));
+    $report = JsonReport::encode(Verdicts::failing()->withAccount(RunAccount::none()->withTimings($timings)->withSavings($savings)));
+
+    expect($report)->toContain('"phases": {}')
+        ->and(Decoded::at($report, 'run', 'measured'))->toBeFalse()
+        ->and(Decoded::at($report, 'savings'))->not->toHaveKey('sharding')
+        ->and(Schema::errors($report, Schema::at('resources/report.schema.json')))->toBe([]);
 });

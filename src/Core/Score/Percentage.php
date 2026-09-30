@@ -78,6 +78,12 @@ final readonly class Percentage
         return $this->hundredths;
     }
 
+    /** The whole percents, truncated: 94.99 is 94. */
+    public function wholePercent(): int
+    {
+        return intdiv($this->hundredths, self::HUNDREDTHS_PER_PERCENT);
+    }
+
     public function percent(): float
     {
         return $this->hundredths / self::HUNDREDTHS_PER_PERCENT;

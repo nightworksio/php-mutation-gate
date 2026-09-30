@@ -9,11 +9,13 @@ use function explode;
 use function implode;
 use function in_array;
 
+use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Percent;
+use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
@@ -37,7 +39,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * reached and why, every mutant the score counts as not killed with its diff,
  * hint, judging tests, reproduce and explain commands, the ignored mutants
  * with their reasons, the mutants proven equivalent, the floors that can
- * rise, and the failures and warnings.
+ * rise, the failures and warnings, and last what the run took and saved.
  */
 final readonly class ConsoleReport implements Configurable, Reporter
 {
@@ -79,6 +81,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
             ...$this->section('Floors that can rise', $this->raised($verdict)),
             ...$this->section('Failures', $this->texts($verdict->failures())),
             ...$this->section('Warnings', $this->texts($verdict->warnings())),
+            ...$this->headline($verdict),
         ];
 
         foreach ($lines as $line) {
@@ -206,6 +209,18 @@ final readonly class ConsoleReport implements Configurable, Reporter
         }
 
         return $lines === [] ? [] : [...$lines, self::RAISE];
+    }
+
+    /**
+     * What the run took and saved, last, after a blank line; nothing for an untimed run.
+     *
+     * @return list<string>
+     */
+    private function headline(Verdict $verdict): array
+    {
+        $headline = SavingsText::of($verdict, NoHistory::yet());
+
+        return $headline === '' ? [] : ['', $headline];
     }
 
     /**

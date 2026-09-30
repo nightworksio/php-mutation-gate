@@ -161,6 +161,18 @@ Operating the gate raises four needs its reports do not yet meet.
      under the verdict, outside it (ADR-0017).
    - The step summary and the console each give one line.
    - The JSON report gains a `cost` object.
+   - **The section** is `<details><summary>What this run cost</summary>`,
+     then a table of the planned and measured wall and runner time, then
+     *Reach and proofs spared 41m of runner time.* Where the CI did not
+     measure setup it adds *Setup is estimated at 1m a job, from
+     `shards.setup`.* With a rate it adds *At 0.20 EUR a runner minute:
+     planned 3.00 EUR, measured 2.80 EUR, spared 8.20 EUR.* Money is written
+     with two decimals and the currency as the team gave it.
+   - **The `cost` object** is `{"planned": {"wallSeconds", "runnerSeconds",
+     "price"?}, "measured": {…}, "spared": {"seconds", "price"?},
+     "setupEstimated", "perRunnerMinute"?}`. Each `price` and
+     `perRunnerMinute` is `{"amount", "currency"}`, present only where a
+     rate is set.
 
 9. **Chat alerts are reporters: `slack`, `discord` and `webhook`.**
    - They are built-in `Reporter` adapters (ADR-0009 decision 1). They send
@@ -272,6 +284,15 @@ Operating the gate raises four needs its reports do not yet meet.
 
     The `cost` object of decision 8 sits beside it. A team without a
     collector reads the same numbers from a file CI already keeps.
+
+    Its shape: `{"id", "traceId", "phases": {"plan"?: {"start",
+    "seconds"}, "verdict"?: {…}}, "shards": [{"shard", "start",
+    "openingRunSeconds", "mutateSeconds"}], "units": {"run", "proved",
+    "carried"}, "wallSeconds", "runnerSeconds", "measured"}`. `start` is an
+    instant in UTC, as `2026-09-30T11:50:00Z`, and `measured` is false where
+    the runner time is estimated from `shards.setup` (ADR-0017 decision 12).
+    `run`, `cost` and `savings` are left out where the flows gave the
+    verdict no timings.
 
 19. **Phases are timed in `Cli`, and handed to `Core` as a value.**
     - The flows read the PSR-20 clock (ADR-0001), and the verdict carries a

@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
 use function array_key_exists;
+
+use DateInterval;
+
 use function getenv;
 
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -15,6 +19,7 @@ use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Badge;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 use NightWorksIO\MutationGate\Core\Report\Overview;
+use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Report\TrendSvg;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -24,10 +29,13 @@ use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Reporter;
 use Psr\Clock\ClockInterface;
 
+use function sprintf;
+
 /**
  * The reporter `badge`: into `--publish-dir`, `badge.json` for shields.io,
- * and the trend, `trend.json` with this verdict's entry appended to the one
- * found there and `trend.svg` drawn from it. A run its budget cut short
+ * the trend, `trend.json` with this verdict's entry appended to the one
+ * found there and `trend.svg` drawn from it, and `savings.json`, what the
+ * gate saved over the last 30 days (ADR-0017, decision 13). A run its budget cut short
  * updates neither (ADR-0009, decision 5). The command line runs it only for
  * a verdict in CI on the default branch.
  */
@@ -41,6 +49,8 @@ final readonly class BadgeDirectory implements Reporter
     public const string TREND = 'trend.json';
 
     public const string SPARKLINE = 'trend.svg';
+
+    public const string SAVINGS = 'savings.json';
 
     /** The variables CIs name the commit they run in, in the order they are asked. */
     private const array COMMITS = ['GITHUB_SHA', 'CI_COMMIT_SHA', 'BUILDKITE_COMMIT', 'CIRCLE_SHA1'];
@@ -83,12 +93,15 @@ final readonly class BadgeDirectory implements Reporter
             return NotWritten::because(self::CUT_SHORT);
         }
 
+        $now = $this->clock->now();
         $trend = Trend::decode($this->path->file(self::TREND)->read())
-            ->with($verdict, $this->commit, Instant::at($this->clock->now()));
+            ->with($verdict, Revision::ref($this->commit), Instant::at($now));
+        $since = Instant::at($now->sub(new DateInterval(sprintf('P%dD', SavingsText::DAYS))));
         $written = [
             $this->path->file(self::BADGE)->write(Badge::json(Overview::of($verdict)->score(), $this->colors)),
             $this->path->file(self::TREND)->write($trend->json()),
             $this->path->file(self::SPARKLINE)->write(TrendSvg::of($trend)),
+            $this->path->file(self::SAVINGS)->write(Badge::savings($trend->savedSince($since))),
         ];
 
         foreach ($written as $answer) {

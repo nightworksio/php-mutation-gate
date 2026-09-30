@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 
 use function count;
 
+use NightWorksIO\MutationGate\Core\Cost\RunAccount;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 
@@ -24,6 +25,7 @@ final readonly class Verdict
         private Failures $failures,
         private bool $cutShort,
         private KillMatrix $matrix,
+        private RunAccount $account,
     ) {
     }
 
@@ -38,6 +40,7 @@ final readonly class Verdict
             Failures::none(),
             cutShort: false,
             matrix: KillMatrix::none(),
+            account: RunAccount::none(),
         );
     }
 
@@ -67,6 +70,12 @@ final readonly class Verdict
     public function withMatrix(KillMatrix $matrix): self
     {
         return clone($this, ['matrix' => $matrix]);
+    }
+
+    /** This verdict, with its run's timings, cost, savings and the trend before it. */
+    public function withAccount(RunAccount $account): self
+    {
+        return clone($this, ['account' => $account]);
     }
 
     /** This verdict, from a run a budget or a deadline stopped before it judged every mutant. */
@@ -120,6 +129,12 @@ final readonly class Verdict
     public function matrix(): KillMatrix
     {
         return $this->matrix;
+    }
+
+    /** Its run's timings, cost, savings and the trend before it; none of them where the flows gave none. */
+    public function account(): RunAccount
+    {
+        return $this->account;
     }
 
     public function warnings(): Warnings

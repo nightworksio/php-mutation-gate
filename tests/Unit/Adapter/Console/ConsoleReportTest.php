@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
+use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
+use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -111,4 +113,11 @@ it('prints what the project wrote as it is, reading no markup in it', function (
 
 it('writes to the console', function (): void {
     expect(ConsoleReport::fromOptions(Options::none()))->toBeInstanceOf(ConsoleReport::class);
+});
+
+it('ends with what the run took and saved, for a timed run', function () use ($printed): void {
+    expect($printed(Verdicts::named('accounted')))->toEndWith(sprintf(
+        "  src/Kernel.php is run by 412 of 430 tests and nothing holds it.\n\n%s\n",
+        SavingsText::of(Verdicts::named('accounted'), NoHistory::yet()),
+    ));
 });

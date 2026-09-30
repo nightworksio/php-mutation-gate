@@ -60,7 +60,7 @@ $reporters = [
         Schema::at('resources/mutation-testing-elements'),
     ),
     'GitHub annotations' => fn(): Reporter => Annotations::printingTo(sprintf('%s/annotations', Scratch::directory())),
-    'the step summary' => fn(): Reporter => StepSummary::appendingTo(sprintf('%s/summary.md', Scratch::directory()), ''),
+    'the step summary' => fn(): Reporter => StepSummary::appendingTo(sprintf('%s/summary.md', Scratch::directory()), '', new StoppedClock('2026-09-30T12:00:00Z')),
     'the pull request comment' => fn(): Reporter => PullRequestComment::inRun(
         ['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret', 'GITHUB_REPOSITORY' => 'octo/gate'],
         $pullRequest(),
