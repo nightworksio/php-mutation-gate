@@ -96,7 +96,7 @@ final readonly class Exceptions
     private function isCiDefinition(Path $path): bool
     {
         return array_any(
-            Definitions::PLACES,
+            [...Definitions::places()],
             static fn(string $where): bool => $path->within(Path::of($where)),
         );
     }

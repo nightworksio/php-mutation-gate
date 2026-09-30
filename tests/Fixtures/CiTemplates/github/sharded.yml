@@ -1,7 +1,8 @@
 # Written by `mutation-gate init --ci=github`, for the gate dev-main.
 # Require the check `mutation / verdict` in the default branch's protection rule.
 # For an S3 proof store, pass AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as
-# secrets to the job below.
+# secrets to the job below: the workflow hands them to the plan and the
+# verdict, and never to a shard.
 name: mutation
 
 on:

@@ -16,9 +16,7 @@ it('takes the one-step action where a full run fits one shard, and the reusable 
     'just over' => [600.5, GitHubWorkflow::Sharded],
 ]);
 
-it('names the check a branch protection rule requires, and says what it is', function (): void {
-    expect([GitHubWorkflow::Single->check(), GitHubWorkflow::Single->said()])
-        ->toBe(['mutation testing', 'the one-step action'])
-        ->and([GitHubWorkflow::Sharded->check(), GitHubWorkflow::Sharded->said()])
-        ->toBe(['mutation / verdict', 'the reusable workflow']);
+it('says what it is', function (): void {
+    expect([GitHubWorkflow::Single->said(), GitHubWorkflow::Sharded->said()])
+        ->toBe(['the one-step action', 'the reusable workflow']);
 });

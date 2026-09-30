@@ -34,21 +34,21 @@ enum CiTemplate: string
 
     case CircleCi = 'circleci/config.yml';
 
-    /** The workflow GitHub runs the gate in. */
-    public const string GITHUB_WORKFLOW = '.github/workflows/mutation.yml';
+    /** The file of the workflow GitHub runs the gate in, among GitHub's workflows. */
+    private const string GITHUB_WORKFLOW = 'mutation.yml';
 
-    /** The pipeline Buildkite uploads to run the gate. */
-    public const string BUILDKITE_PIPELINE = '.buildkite/mutation-gate.yml';
+    /** The file of the pipeline Buildkite uploads to run the gate, among Buildkite's pipelines. */
+    private const string BUILDKITE_PIPELINE = 'mutation-gate.yml';
 
     private const string NO_TEMPLATE
         = 'init --ci writes a definition for github, gitlab, buildkite or circleci, not %s.';
 
     /**
-     * The definitions `init --ci` renders for a CI, in the order it says them.
+     * The definitions `init --ci` renders for a CI, in the order it says them; none for plain JSON.
      *
-     * @return Listed<self>|CannotJudge
+     * @return Listed<self>
      */
-    public static function for(BuiltinCiPlan $plan, GitHubWorkflow $workflow): Listed|CannotJudge
+    public static function for(BuiltinCiPlan $plan, GitHubWorkflow $workflow): Listed
     {
         return match ($plan) {
             BuiltinCiPlan::GitHub => Listed::of(
@@ -57,7 +57,7 @@ enum CiTemplate: string
             BuiltinCiPlan::GitLab => Listed::of(self::GitLabTemplate, self::GitLabJobs),
             BuiltinCiPlan::Buildkite => Listed::of(self::BuildkitePipeline, self::BuildkiteUpload),
             BuiltinCiPlan::CircleCi => Listed::of(self::CircleCi),
-            BuiltinCiPlan::Json => self::none($plan->value),
+            BuiltinCiPlan::Json => Listed::of(),
         };
     }
 
@@ -67,14 +67,22 @@ enum CiTemplate: string
         return CannotJudge::because(sprintf(self::NO_TEMPLATE, $ci));
     }
 
+    /** The pipeline `init --ci=buildkite` writes, which the step it prints uploads and the config names. */
+    public static function buildkitePipeline(): Path
+    {
+        return Path::of(Definitions::BUILDKITE)->child(Path::of(self::BUILDKITE_PIPELINE));
+    }
+
     /** Where it goes: a file, from the project, or printed for a file the CI already reads. */
     public function destination(Ci $ci): Path|Printed
     {
         return match ($this) {
-            self::GitHubSingle, self::GitHubSharded => Path::of(self::GITHUB_WORKFLOW),
+            self::GitHubSingle, self::GitHubSharded => Path::of(Definitions::GITHUB)->child(
+                Path::of(self::GITHUB_WORKFLOW),
+            ),
             self::GitLabTemplate => $ci->gitlabTemplate(),
             self::GitLabJobs => Printed::into(Definitions::GITLAB),
-            self::BuildkitePipeline => Path::of(self::BUILDKITE_PIPELINE),
+            self::BuildkitePipeline => self::buildkitePipeline(),
             self::BuildkiteUpload => Printed::into('the pipeline Buildkite runs'),
             self::CircleCi => Printed::into(Definitions::CIRCLECI),
         };

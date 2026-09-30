@@ -65,6 +65,8 @@ final readonly class CiDefinition
 
     private const string MISSING = 'The template %s is missing from the package. Reinstall it.';
 
+    private const string UNNAMED = 'Set ci.buildkite.definition to %s in the config: reach and the proof key read it.';
+
     /** @param Directory $templates where each template is, by its file under it */
     public function __construct(
         private string $project,
@@ -84,58 +86,47 @@ final readonly class CiDefinition
     public static function configOf(CiRequest|NotGiven $request): Layer
     {
         return $request instanceof CiRequest && $request->plan() === BuiltinCiPlan::Buildkite
-            ? Layer::of(Ci::of(buildkiteDefinition: Path::of(CiTemplate::BUILDKITE_PIPELINE)))
+            ? Layer::of(Ci::of(buildkiteDefinition: CiTemplate::buildkitePipeline()))
             : Layer::none();
     }
 
-    /** A file it would write that is already here, which `init` never replaces; nothing where none is. */
-    public function clash(CiRequest $request, Settings $settings): CannotJudge|NotGiven
-    {
-        $templates = $request->output() === Output::Written
-            ? CiTemplate::for($request->plan(), GitHubWorkflow::Single)
-            : Listed::of();
-
-        foreach ($templates instanceof Listed ? $templates : [] as $template) {
-            $file = $template->destination($settings->ci());
-
-            if ($file instanceof Path && ! $this->project()->read($file) instanceof Missing) {
-                return CannotJudge::because(sprintf(self::ALREADY_HERE, $file->value()));
-            }
-        }
-
-        return NotGiven::value();
-    }
-
-    /** What it wrote and printed, said; or why nothing could be. */
-    public function made(CiRequest $request, Settings $settings): string|CannotJudge
+    /**
+     * The definition asked for, checked before anything is written: that each value can go into a template, and
+     * that no file it would write is here, since `init` never replaces one. `$kept` says the config was here
+     * already, so `init` writes none that could name the definition.
+     */
+    public function prepared(CiRequest $request, Settings $settings, bool $kept): PreparedCi|CannotJudge
     {
         $plan = $request->plan();
+        $shard = $settings->shards()->seconds();
         $estimate = $plan === BuiltinCiPlan::GitHub && ! $request->workflow() instanceof GitHubWorkflow
             ? $this->estimate($settings)
             : CannotJudge::because('it is not estimated');
-        $workflow = $this->workflow($request->workflow(), $estimate, $settings->shards()->seconds());
+        $workflow = $this->workflow($request->workflow(), $estimate, $shard);
         $templates = CiTemplate::for($plan, $workflow);
-        $said = $templates instanceof CannotJudge ? $templates : $this->each($templates, $request->output(), $settings);
-        $why = $this->why($workflow, $request->workflow(), $estimate, $settings->shards()->seconds());
+        $values = $this->values($settings);
+        $clash = $request->output() === Output::Written ? $this->clash($templates, $settings->ci()) : NotGiven::value();
+        $why = $this->why($workflow, $request->workflow(), $estimate, $shard);
 
-        return $said instanceof CannotJudge
-            ? $said
-            : implode("\n", [...$said, ...$this->notes($plan, $workflow, $why, $settings)]);
+        return match (true) {
+            $values instanceof CannotJudge => $values,
+            $clash instanceof CannotJudge => $clash,
+            default => PreparedCi::of(
+                $templates,
+                $values,
+                $request->output(),
+                Listed::of(...$this->notes($plan, $why, $settings, $kept)),
+            ),
+        };
     }
 
-    /**
-     * Each template, made, said; or why the first that could not be was not.
-     *
-     * @param  Listed<CiTemplate>        $templates
-     * @return list<string>|CannotJudge
-     */
-    private function each(Listed $templates, Output $output, Settings $settings): array|CannotJudge
+    /** What it wrote and printed, said; or why the first that could not be was not. */
+    public function made(PreparedCi $prepared, Ci $ci): string|CannotJudge
     {
-        $values = $this->values($settings);
         $said = [];
 
-        foreach ($templates as $template) {
-            $one = $this->one($template, $values, $output, $settings->ci());
+        foreach ($prepared->templates() as $template) {
+            $one = $this->one($template, $prepared->values(), $prepared->output(), $ci);
 
             if ($one instanceof CannotJudge) {
                 return $one;
@@ -144,7 +135,25 @@ final readonly class CiDefinition
             $said[] = $one;
         }
 
-        return $said;
+        return implode("\n", [...$said, ...$prepared->notes()]);
+    }
+
+    /**
+     * A file these templates would write that is already here; nothing where none is.
+     *
+     * @param Listed<CiTemplate> $templates
+     */
+    private function clash(Listed $templates, Ci $ci): CannotJudge|NotGiven
+    {
+        foreach ($templates as $template) {
+            $file = $template->destination($ci);
+
+            if ($file instanceof Path && ! $this->project()->read($file) instanceof Missing) {
+                return CannotJudge::because(sprintf(self::ALREADY_HERE, $file->value()));
+            }
+        }
+
+        return NotGiven::value();
     }
 
     /** One template, written, printed for a file the CI reads, or printed whole; said, or why it was not. */
@@ -179,8 +188,8 @@ final readonly class CiDefinition
         return $written instanceof CannotJudge ? $written : sprintf('Wrote %s.', $file->value());
     }
 
-    /** What the templates are filled in with, from the config, the project's files and git. */
-    private function values(Settings $settings): TemplateValues
+    /** What the templates are filled in with, from the config, the project's files and git; or why it cannot be. */
+    private function values(Settings $settings): TemplateValues|CannotJudge
     {
         $manifest = $this->project()->read(Manifest::fileIn(Path::root()));
 
@@ -190,29 +199,37 @@ final readonly class CiDefinition
             $this->gate,
             $settings->runner()->choice()->use()->value(),
             $settings->ci()->gitlabTemplate()->value(),
+            $settings->ci()->check(),
+            CiTemplate::buildkitePipeline()->value(),
         );
     }
 
     /**
-     * What else the person needs to know on GitHub, whose definition names the gate's commit: which definition
-     * was written and why, the check to require, and that the commit is not known.
+     * What else the person needs to know: on GitHub, whose definition names the gate's commit, which definition
+     * was written and why, the check to require, and that the commit is not known; on Buildkite, with the config
+     * kept, that it must name the pipeline written as the one that runs the gate.
      *
      * @return list<string>
      */
-    private function notes(BuiltinCiPlan $plan, GitHubWorkflow $workflow, string $why, Settings $settings): array
+    private function notes(BuiltinCiPlan $plan, string $why, Settings $settings, bool $kept): array
     {
-        $notes = $plan === BuiltinCiPlan::GitHub ? [
+        $github = [
             sprintf('It is %s.', $why),
             sprintf(
                 'Require the check `%s` in the protection of %s.',
-                $workflow->check(),
+                $settings->ci()->check(),
                 $this->defaultBranch($settings),
             ),
-        ] : [];
+            ...$this->gate->isKnown() ? [] : [sprintf(self::GATE_UNPINNED, $this->gate->commit())],
+        ];
+        $pipeline = CiTemplate::buildkitePipeline();
+        $unnamed = $kept && ! $settings->ci()->buildkiteDefinition()->equals($pipeline);
 
-        return $this->gate->isKnown() || $notes === []
-            ? $notes
-            : [...$notes, sprintf(self::GATE_UNPINNED, $this->gate->commit())];
+        return match (true) {
+            $plan === BuiltinCiPlan::GitHub => $github,
+            $plan === BuiltinCiPlan::Buildkite && $unnamed => [sprintf(self::UNNAMED, $pipeline->value())],
+            default => [],
+        };
     }
 
     /** The GitHub definition: the one asked for, or the one a full run's estimate fits, or else the one-step action. */

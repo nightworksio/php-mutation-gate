@@ -4,34 +4,24 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
-use function array_filter;
-use function basename;
-
 use DateTimeImmutable;
 
-use function dirname;
 use function implode;
 use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Infection\Import\Choices;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
-use NightWorksIO\MutationGate\Cli\Config\Imported;
 use NightWorksIO\MutationGate\Cli\Config\InfectionFile;
 use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
-use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Import\Import;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
@@ -52,10 +42,6 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class Init
 {
-    private const string ZERO_CONFIG = 'what zero-config found';
-
-    private const string AND_ZERO_CONFIG = '%s and what zero-config found';
-
     private const string KEPT = '%s is already here, so init makes only what --ci and --editor ask for.';
 
     public static function command(
@@ -175,8 +161,9 @@ final readonly class Init
 
     /**
      * The config, where none is here, the CI definition, where `--ci` asks for one, and the editor's files, where
-     * `--editor` names one, said; or why they were not all made. A CI file already here stops them all, since
-     * `init` never replaces a file.
+     * `--editor` names one, said; or why they were not all made. A CI definition that cannot be made, such as one
+     * whose file is already here, stops them all before anything is written; a file that then cannot be written
+     * is said after what was.
      */
     private static function made(
         Setting $setting,
@@ -187,32 +174,41 @@ final readonly class Init
     ): string|Invalid|CannotJudge {
         $ci = $additions->ci();
         $definition = CiDefinition::packaged($setting->project, $setting->extensions, $setting->gate);
-        $clash = $ci instanceof CiRequest && $settings instanceof Settings
-            ? $definition->clash($ci, $settings)
-            : NotGiven::value();
         $existing = $destination->existing();
+        $prepared = $ci instanceof CiRequest && $settings instanceof Settings
+            ? $definition->prepared($ci, $settings, kept: $existing instanceof Path)
+            : NotGiven::value();
         $config = match (true) {
-            $clash instanceof CannotJudge => $clash,
+            $prepared instanceof CannotJudge => $prepared,
             ! $settings instanceof Settings => $settings,
             $existing instanceof Path
                 => sprintf(self::KEPT, $existing->relativeTo(Path::of($setting->project))->value()),
-            default => self::written($setting, $settings, $destination, $from, CiDefinition::configOf($ci)),
+            default => ConfigWriting::written($setting, $settings, $destination, $from, CiDefinition::configOf($ci)),
         };
 
         if (! is_string($config) || ! $settings instanceof Settings) {
             return $config;
         }
 
-        $made = $ci instanceof CiRequest ? $definition->made($ci, $settings) : '';
-        $editor = is_string($made) ? $additions->editorMade($setting->project) : $made;
+        $made = $prepared instanceof PreparedCi ? $definition->made($prepared, $settings->ci()) : '';
 
-        return match (true) {
-            $editor instanceof CannotJudge => $editor,
-            default => implode(
-                "\n",
-                array_filter([$config, $made, $editor], static fn(string $said): bool => $said !== ''),
-            ),
-        };
+        return self::said($config, $made, is_string($made) ? $additions->editorMade($setting->project) : '');
+    }
+
+    /** What was made, said in order; or, after what was, why the first that could not be made was not. */
+    private static function said(string|CannotJudge ...$outcomes): string|CannotJudge
+    {
+        $said = [];
+
+        foreach ($outcomes as $outcome) {
+            if ($outcome instanceof CannotJudge) {
+                return CannotJudge::because(implode("\n", [...$said, $outcome->why()]));
+            }
+
+            $said = $outcome === '' ? $said : [...$said, $outcome];
+        }
+
+        return implode("\n", $said);
     }
 
     /**
@@ -242,77 +238,5 @@ final readonly class Init
                 '%s is already here, and init writes a config only where there is none.',
                 $existing->value(),
             ));
-    }
-
-    /** What was written, said as a sentence, and what became of each imported key, or why nothing was. */
-    private static function written(
-        Setting $setting,
-        Settings $settings,
-        Destination $destination,
-        Path|NotGiven $from,
-        Layer $more,
-    ): string|Invalid|CannotJudge {
-        $import = self::seeded($setting, $settings, $from, $more);
-        $text = $import instanceof Import
-            ? $setting->formats->file(
-                $import->layer(),
-                $destination->format(),
-                ConfigFile::at($destination->file(), Path::of($setting->project)),
-            )
-            : $import;
-
-        if (! is_string($text)) {
-            return $text;
-        }
-
-        $source = $from instanceof Path ? sprintf(self::AND_ZERO_CONFIG, $from->value()) : self::ZERO_CONFIG;
-        $said = self::write($setting->project, $destination, $text, $source);
-
-        return is_string($said) && $from instanceof Path
-            ? sprintf("%s\n%s", $said, $import->report($from->value()))
-            : $said;
-    }
-
-    /** What zero-config found, with the Infection config imported over it where one is named. */
-    private static function seeded(
-        Setting $setting,
-        Settings $settings,
-        Path|NotGiven $from,
-        Layer $more,
-    ): Import|Invalid|CannotJudge {
-        $zeroConfig = ZeroConfig::layer($setting->extensions, $settings);
-
-        if (! $zeroConfig instanceof Layer) {
-            return $zeroConfig;
-        }
-
-        $found = $zeroConfig->over($more);
-
-        return $from instanceof Path
-            ? Imported::from($setting->project, $from, $found, $setting->now)
-            : Import::of($found);
-    }
-
-    /** The config written, said as a sentence, with where what it holds came from. */
-    private static function write(
-        string $project,
-        Destination $destination,
-        string $text,
-        string $source,
-    ): string|CannotJudge {
-        $file = $destination->file()->value();
-        $written = Directory::at(dirname($file))->write(Path::of(basename($file)), Contents::of($text));
-        $ignored = $written instanceof CannotJudge ? $written : IgnoredWorkspace::in(Directory::at($project));
-
-        return match (true) {
-            $ignored instanceof CannotJudge => $ignored,
-            $ignored => sprintf(
-                'Wrote %s with %s, and added %s to .gitignore.',
-                $destination->shown(),
-                $source,
-                IgnoredWorkspace::line(),
-            ),
-            default => sprintf('Wrote %s with %s.', $destination->shown(), $source),
-        };
     }
 }

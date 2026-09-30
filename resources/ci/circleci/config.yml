@@ -1,17 +1,26 @@
 # For an S3 proof store, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in a
-# context the mutation jobs use.
+# context that only mutation-plan and mutation-verdict use: a shard needs
+# neither. Set each image to one with PHP %%php%% and pcov: no official image
+# is known to include pcov, and without it the first run cannot judge.
 version: 2.1
+
+parameters:
+  shards:
+    type: integer
+    default: 4
 
 jobs:
   mutation-plan:
     docker:
       - image: <an image with PHP %%php%% and pcov>
+    environment:
+      MUTATION_GATE_DEFAULT_BRANCH: '%%branch%%'
     steps:
       - checkout
       - run: |
           mkdir -p .mutation-gate
           echo "$CIRCLE_BRANCH" > .mutation-gate/branch
-          echo '%%branch%%' > .mutation-gate/default-branch
+          echo "$MUTATION_GATE_DEFAULT_BRANCH" > .mutation-gate/default-branch
       - restore_cache:
           keys:
             - mutation-gate-ledger-{{ checksum ".mutation-gate/branch" }}-
@@ -21,15 +30,16 @@ jobs:
       - run: composer install --no-interaction --no-progress
       - run: |
           if [ "<< pipeline.trigger_source >>" = "scheduled_pipeline" ]; then base=""
-          elif [ -n "$CIRCLE_PULL_REQUEST" ]; then base="--changed-since=origin/%%branch%%"
-          else base="--changed-since=last-passed"; fi
-          vendor/bin/mutation-gate plan --shards=4 $base
+          elif [ -n "$CIRCLE_PULL_REQUEST" ]; then base="--changed-since=origin/$MUTATION_GATE_DEFAULT_BRANCH"
+          elif [ "$CIRCLE_BRANCH" = "$MUTATION_GATE_DEFAULT_BRANCH" ]; then base="--changed-since=last-passed"
+          else base="--changed-since=origin/$MUTATION_GATE_DEFAULT_BRANCH"; fi
+          vendor/bin/mutation-gate plan --shards=<< pipeline.parameters.shards >> $base
       - persist_to_workspace:
           root: .
           paths:
             - .mutation-gate
   mutation:
-    parallelism: 4
+    parallelism: << pipeline.parameters.shards >>
     docker:
       - image: <an image with PHP %%php%% and pcov>
     steps:
@@ -45,13 +55,17 @@ jobs:
   mutation-verdict:
     docker:
       - image: <an image with PHP %%php%%>
+    environment:
+      MUTATION_GATE_DEFAULT_BRANCH: '%%branch%%'
     steps:
       - checkout
       - attach_workspace:
           at: .
       - run: composer install --no-interaction --no-progress
       - run: vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
-      - run: '[ "$CIRCLE_BRANCH" = "%%branch%%" ] || rm -rf ".mutation-gate/ledger/refs/heads/%%branch%%"'
+      - run: |
+          [ "$CIRCLE_BRANCH" = "$MUTATION_GATE_DEFAULT_BRANCH" ] \
+            || rm -rf ".mutation-gate/ledger/refs/heads/$MUTATION_GATE_DEFAULT_BRANCH"
       - save_cache:
           key: mutation-gate-ledger-{{ checksum ".mutation-gate/branch" }}-{{ .Revision }}
           paths:

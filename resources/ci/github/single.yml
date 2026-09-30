@@ -1,5 +1,5 @@
 # Written by `mutation-gate init --ci=github`, for the gate %%version%%.
-# Require the check `mutation testing` in the default branch's protection rule.
+# Require the check `%%check%%` in the default branch's protection rule.
 # For an S3 proof store, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from
 # secrets in the env of the gate's step.
 name: mutation
@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   mutation:
-    name: mutation testing
+    name: '%%check%%'
     runs-on: ubuntu-latest
     permissions:
       contents: read

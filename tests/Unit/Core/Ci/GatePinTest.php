@@ -22,14 +22,16 @@ function gatePinOf(array $packages): GatePin
     return $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();
 }
 
+const GATE_COMMIT = '0123456789abcdef0123456789abcdef01234567';
+
 it('pins the commit Composer installed the gate from, with its version', function (): void {
     $pin = gatePinOf([
         ['name' => 'acme/other', 'version' => 'v9.0.0', 'source' => ['reference' => 'ffffffff']],
-        ['name' => 'nightworksio/mutation-gate', 'version' => 'v1.2.0', 'source' => ['reference' => '0123abcd']],
+        ['name' => 'nightworksio/mutation-gate', 'version' => 'v1.2.0', 'source' => ['reference' => GATE_COMMIT]],
     ]);
 
     expect([$pin->commit(), $pin->version(), $pin->isKnown(), $pin->pin()])
-        ->toBe(['0123abcd', 'v1.2.0', true, '0123abcd # v1.2.0']);
+        ->toBe([GATE_COMMIT, 'v1.2.0', true, sprintf('%s # v1.2.0', GATE_COMMIT)]);
 });
 
 it('pins nothing it can name where Composer does not list the gate, or names no commit', function (
@@ -44,14 +46,20 @@ it('pins nothing it can name where Composer does not list the gate, or names no 
         ['name' => 'nightworksio/mutation-gate', 'version' => 'dev-main', 'source' => ['reference' => '']],
     ])],
     'unknown' => [GatePin::unknown()],
+    'no full commit' => [gatePinOf([
+        ['name' => 'nightworksio/mutation-gate', 'version' => 'v1.2.0', 'source' => ['reference' => '0123abcd']],
+    ])],
+    'a version a comment cannot hold' => [gatePinOf([
+        ['name' => 'nightworksio/mutation-gate', 'version' => "v1\n- run: evil", 'source' => ['reference' => GATE_COMMIT]],
+    ])],
 ]);
 
 it('pins a branch Composer installed by its commit alone, since its version names no tag', function (
     string $version,
 ): void {
     $pin = gatePinOf([
-        ['name' => 'nightworksio/mutation-gate', 'version' => $version, 'source' => ['reference' => '0123abcd']],
+        ['name' => 'nightworksio/mutation-gate', 'version' => $version, 'source' => ['reference' => GATE_COMMIT]],
     ]);
 
-    expect([$pin->isKnown(), $pin->pin()])->toBe([true, '0123abcd']);
+    expect([$pin->isKnown(), $pin->pin()])->toBe([true, GATE_COMMIT]);
 })->with(['a branch' => ['dev-main'], 'an aliased branch' => ['2.x-dev']]);

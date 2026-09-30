@@ -9,7 +9,9 @@ mutation-plan:
       case "$CI_PIPELINE_SOURCE" in
         merge_request_event) base="--changed-since=$CI_MERGE_REQUEST_DIFF_BASE_SHA" ;;
         schedule) base="" ;;
-        *) base="--changed-since=last-passed" ;;
+        *)
+          if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then base="--changed-since=last-passed"
+          else base="--changed-since=origin/$CI_DEFAULT_BRANCH"; fi ;;
       esac
       vendor/bin/mutation-gate plan --ci=gitlab $base
   artifacts:

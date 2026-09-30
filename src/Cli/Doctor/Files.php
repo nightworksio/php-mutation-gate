@@ -67,7 +67,7 @@ final readonly class Files
     {
         $running = [];
 
-        foreach (Definitions::PLACES as $place) {
+        foreach (Definitions::places() as $place) {
             $definitions = str_ends_with($place, '/')
                 ? $this->disk->files(sprintf('%s*', $place))
                 : [Path::of($place)];
