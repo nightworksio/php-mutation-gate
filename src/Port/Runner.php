@@ -10,7 +10,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -47,7 +48,7 @@ interface Runner
      * Which tests run which line, with each test's duration, by running the
      * suite or a group, or by reading a map another job wrote.
      */
-    public function coverage(CoverageRequest $request): CoverageMap|CannotJudge;
+    public function coverage(CoverageRun|CoverageRead $request): CoverageMap|CannotJudge;
 
     /** The test files that can judge a mutant of this file, by the runner's own rules for selecting them. */
     public function judges(Path $file, CoverageMap $map): Paths|CannotJudge;

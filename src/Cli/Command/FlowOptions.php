@@ -15,7 +15,8 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\WholeNumber;
@@ -81,13 +82,13 @@ final readonly class FlowOptions
         return self::text($input, self::CHANGED_SINCE) === '';
     }
 
-    public static function coverage(InputInterface $input): CoverageRequest
+    public static function coverage(InputInterface $input): CoverageRun|CoverageRead
     {
         $from = self::text($input, self::COVERAGE);
 
         return $from === ''
-            ? CoverageRequest::running(WholeSuite::tests(), Workspace::coverage())
-            : CoverageRequest::reading(Path::of($from));
+            ? CoverageRun::of(WholeSuite::tests(), Workspace::coverage())
+            : CoverageRead::from(Path::of($from));
     }
 
     public static function cut(InputInterface $input, Settings $settings): Cut|CannotJudge

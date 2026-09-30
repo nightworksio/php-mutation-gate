@@ -32,7 +32,8 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -218,7 +219,7 @@ it('runs the suite or a group under coverage into a directory and reads the map 
     $at = infectionProject();
     $shell = infectionShell($at, []);
     $map = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)
-        ->coverage(CoverageRequest::running(Group::named('slow'), Path::of('.gate/planned')));
+        ->coverage(CoverageRun::of(Group::named('slow'), Path::of('.gate/planned')));
 
     expect($map)->toEqual(CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
@@ -242,14 +243,14 @@ function infectionHandedOn(Project $at, string $directory): CoverageMap
 it('reads the map another job handed on without running anything, and never a runner\'s own report', function (): void {
     $at = infectionProject();
     $measured = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)
-        ->coverage(CoverageRequest::running(WholeSuite::tests(), Path::of('.gate/planned')));
+        ->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.gate/planned')));
     $handed = infectionHandedOn($at, '.gate/planned');
     $shell = infectionShell($at, []);
     $adapter = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false);
 
     expect($measured)->toBeInstanceOf(CoverageMap::class)
-        ->and($adapter->coverage(CoverageRequest::reading(Path::of('.gate/planned'))))->toEqual($handed)
-        ->and($adapter->coverage(CoverageRequest::reading(Path::of('elsewhere'))))->toEqual(CannotJudge::because(sprintf(
+        ->and($adapter->coverage(CoverageRead::from(Path::of('.gate/planned'))))->toEqual($handed)
+        ->and($adapter->coverage(CoverageRead::from(Path::of('elsewhere'))))->toEqual(CannotJudge::because(sprintf(
             'The gate wrote no coverage map at %s/elsewhere/map.json.gz, and reads no runner\'s map another job wrote.',
             $at->root(),
         )))
@@ -260,7 +261,7 @@ it('cannot judge a coverage run that fails, with what PHPUnit said, or one over 
     $at = infectionProject();
     $failed = InfectionShellFake::answering(Ran::finished(succeeded: false, output: 'Tests: 1 failed'));
     $refused = infectionProject('{"phpUnit": {"customPath": "vendor/bin/pest"}}');
-    $request = CoverageRequest::running(WholeSuite::tests(), Path::of('.gate/planned'));
+    $request = CoverageRun::of(WholeSuite::tests(), Path::of('.gate/planned'));
     $untouched = infectionShell($refused, []);
 
     expect(new Infection($at, $failed, Seconds::of(10.0), nativeMarkersAllowed: false)->coverage($request))
@@ -579,7 +580,7 @@ it('withholds from the coverage run and every mutant\'s tests what the request w
             ->withholding(Withheld::of('CI_JOB_TOKEN')),
     );
     new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false)->coverage(
-        CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))
+        CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))
             ->withholding(Withheld::of('CI_JOB_TOKEN')),
     );
 

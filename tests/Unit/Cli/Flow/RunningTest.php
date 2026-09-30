@@ -36,7 +36,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Version;
@@ -438,7 +438,7 @@ it('mutates no held unit whose holding tests miss lines of it, and leaves why', 
     $result = $resultIn($project, 1);
 
     expect($runner->asked())->toEqual([
-        CoverageRequest::running(Group::named('holds:src/Held.php'), Path::of('.mutation-gate/held/shard-1'))
+        CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('.mutation-gate/held/shard-1'))
             ->withholding($adapters->withheld),
     ])
         ->and($result instanceof ShardResult ? [...$result->misses()] : $result)->toEqual([NotCovered::because(

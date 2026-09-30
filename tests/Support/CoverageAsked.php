@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function array_filter;
+use function array_values;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -30,17 +34,26 @@ use NightWorksIO\MutationGate\Port\Runner;
  */
 final class CoverageAsked implements Runner
 {
-    /** @var list<CoverageRequest> */
+    /** @var list<CoverageRun|CoverageRead> */
     private array $asked = [];
 
     public function __construct(private readonly Runner $runner, private readonly CoverageMap|CannotJudge $answer)
     {
     }
 
-    /** @return list<CoverageRequest> each coverage request, in the order it was asked */
+    /** @return list<CoverageRun|CoverageRead> each coverage request, in the order it was asked */
     public function asked(): array
     {
         return $this->asked;
+    }
+
+    /** @return list<CoverageRun> each run of the suite it was asked for, in the order it was asked */
+    public function ran(): array
+    {
+        return array_values(array_filter(
+            $this->asked,
+            static fn(CoverageRun|CoverageRead $asked): bool => $asked instanceof CoverageRun,
+        ));
     }
 
     public function identity(Withheld $withheld): Identity|CannotJudge
@@ -53,7 +66,7 @@ final class CoverageAsked implements Runner
         return $this->runner->groups($withheld);
     }
 
-    public function coverage(CoverageRequest $request): CoverageMap|CannotJudge
+    public function coverage(CoverageRun|CoverageRead $request): CoverageMap|CannotJudge
     {
         $this->asked[] = $request;
 

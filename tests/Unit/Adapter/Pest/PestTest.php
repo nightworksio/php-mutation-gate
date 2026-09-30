@@ -43,7 +43,8 @@ use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -251,7 +252,7 @@ it('runs the suite under coverage into a directory it makes, and reads the map',
 
         return Ran::finished(succeeded: true, output: 'OK');
     });
-    $request = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+    $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
     $directory = sprintf('%s/.mutation-gate/coverage', $at->root());
 
     expect(new Pest($at, $shell, Patching::off())->coverage($request))->toEqual(CoverageMap::empty()
@@ -261,7 +262,7 @@ it('runs the suite under coverage into a directory it makes, and reads the map',
 });
 
 it('cannot judge a coverage run that failed, with what Pest said', function (): void {
-    $request = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+    $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'No code coverage driver'));
 
     expect(new Pest(adapterProject(), $shell, Patching::off())->coverage($request))
@@ -275,7 +276,7 @@ it('reads the gate\'s own map another job handed over, running nothing', functio
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'not run'));
     $pest = new Pest($at, $shell, Patching::off());
 
-    expect($pest->coverage(CoverageRequest::reading(Path::of('planned'))))->toEqual($map)
+    expect($pest->coverage(CoverageRead::from(Path::of('planned'))))->toEqual($map)
         ->and($shell->commands())->toBe([]);
 });
 
@@ -284,7 +285,7 @@ it('never reads a runner\'s map another job wrote, which is PHP that reading run
     Scratch::write($at->root(), 'planned/coverage.php', '<?php throw new RuntimeException(\'ran\');');
     $pest = new Pest($at, ShellFake::answering(Ran::finished(succeeded: false, output: '')), Patching::off());
 
-    expect($pest->coverage(CoverageRequest::reading(Path::of('planned'))))->toEqual(CannotJudge::because(sprintf(
+    expect($pest->coverage(CoverageRead::from(Path::of('planned'))))->toEqual(CannotJudge::because(sprintf(
         'The gate wrote no coverage map at %s/planned/map.json.gz, and reads no runner\'s map another job wrote.',
         $at->root(),
     )));
@@ -556,7 +557,7 @@ it('removes an earlier coverage run\'s map and log before it measures again', fu
     $directory = sprintf('%s/.mutation-gate/coverage', $at->root());
     Scratch::write($at->root(), '.mutation-gate/coverage/coverage.php', '<?php return [];');
     Scratch::write($at->root(), '.mutation-gate/coverage/junit.xml', '<testsuites/>');
-    $request = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+    $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
     $seen = [];
     $shell = new ShellFake(static function () use ($directory, &$seen): Ran {
         $seen = [is_file(sprintf('%s/coverage.php', $directory)), is_file(sprintf('%s/junit.xml', $directory))];
@@ -573,7 +574,7 @@ it('cannot measure coverage where an earlier map cannot be removed', function ()
     $at = adapterProject();
     mkdir(sprintf('%s/.mutation-gate/coverage/coverage.php', $at->root()), recursive: true);
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
-    $request = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+    $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
 
     expect(new Pest($at, $shell, Patching::off())->coverage($request))->toEqual(CannotJudge::because(sprintf(
         'An earlier run left %s/.mutation-gate/coverage/coverage.php or its JUnit log, '

@@ -18,7 +18,8 @@ use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Plan\Workload;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -50,7 +51,7 @@ final readonly class Planning
     {
     }
 
-    public function plan(Mode $mode, CoverageRequest $coverage, Cut $cut): Plan|CannotJudge
+    public function plan(Mode $mode, CoverageRun|CoverageRead $coverage, Cut $cut): Plan|CannotJudge
     {
         $inventory = Inventory::of($this->adapters, $this->settings);
 
@@ -58,7 +59,9 @@ final readonly class Planning
             return $inventory;
         }
 
-        $map = $this->adapters->runner->coverage($coverage->withholding($this->adapters->withheld));
+        $map = $this->adapters->runner->coverage(
+            $coverage instanceof CoverageRun ? $coverage->withholding($this->adapters->withheld) : $coverage,
+        );
 
         if ($map instanceof CannotJudge) {
             return $map;

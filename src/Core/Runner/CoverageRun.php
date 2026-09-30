@@ -10,35 +10,24 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 /**
- * What a runner is asked for a coverage map: to run the whole suite, one
- * group or the tests a filter names under coverage and leave the map in a directory, or to read the map
- * another job left there.
+ * What a runner is asked to run for a coverage map: the whole suite, one
+ * group or the tests a filter names, under coverage, across some processes,
+ * withholding what the tests may not see, leaving the map in a directory.
  */
-final readonly class CoverageRequest
+final readonly class CoverageRun
 {
     private function __construct(
         private WholeSuite|Group|Filter $tests,
         private Path $directory,
-        private bool $runs,
         private Processes $processes,
         private Withheld $withheld,
     ) {
     }
 
-    public static function running(WholeSuite|Group|Filter $tests, Path $into): self
+    /** These tests run under coverage in one process, leaving the map in a directory. */
+    public static function of(WholeSuite|Group|Filter $tests, Path $into): self
     {
-        return new self($tests, $into, runs: true, processes: Processes::of(1), withheld: Withheld::standard());
-    }
-
-    public static function reading(Path $from): self
-    {
-        return new self(
-            WholeSuite::tests(),
-            $from,
-            runs: false,
-            processes: Processes::of(1),
-            withheld: Withheld::standard(),
-        );
+        return new self($tests, $into, Processes::of(1), Withheld::standard());
     }
 
     public function across(Processes $processes): self
@@ -46,7 +35,7 @@ final readonly class CoverageRequest
         return clone($this, ['processes' => $processes]);
     }
 
-    /** This request, withholding these variables from the tests as well as those it already withholds. */
+    /** This run, withholding these variables from the tests as well as those it already withholds. */
     public function withholding(Withheld $withheld): self
     {
         return clone($this, ['withheld' => $this->withheld->and($withheld)]);
@@ -63,16 +52,10 @@ final readonly class CoverageRequest
         return $this->tests;
     }
 
-    /** Where the map is left, or read from. */
+    /** Where the map is left. */
     public function directory(): Path
     {
         return $this->directory;
-    }
-
-    /** Whether the suite runs, rather than a map being read. */
-    public function runs(): bool
-    {
-        return $this->runs;
     }
 
     public function processes(): Processes

@@ -15,7 +15,8 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
@@ -83,9 +84,9 @@ it('runs in full where the command takes none of the flows\' options', function 
 
 it('runs the whole suite under coverage into the workspace, unless a map is named', function () use ($given): void {
     expect(FlowOptions::coverage($given([])))
-        ->toEqual(CoverageRequest::running(WholeSuite::tests(), Workspace::coverage()))
+        ->toEqual(CoverageRun::of(WholeSuite::tests(), Workspace::coverage()))
         ->and(FlowOptions::coverage($given(['--coverage' => 'build/coverage'])))
-        ->toEqual(CoverageRequest::reading(Path::of('build/coverage')));
+        ->toEqual(CoverageRead::from(Path::of('build/coverage')));
 });
 
 it('cuts shards by the config\'s size and most, or into as many as asked', function () use ($given): void {

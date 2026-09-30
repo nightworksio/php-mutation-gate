@@ -5,7 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
@@ -28,7 +28,7 @@ $coverage = static fn(string $project, string $input, ScriptedRunner $runner): F
 
 /** The map the fake runner measures. */
 $measured = static fn(): string => CoverageMapFile::encode(RunnerFake::ofTheFixture()->coverage(
-    CoverageRequest::reading(Path::of('anywhere')),
+    CoverageRead::from(Path::of('anywhere')),
 ));
 
 it('writes the map the suite\'s coverage run measured into the directory it is told', function () use (
@@ -51,7 +51,7 @@ it('measures the suite withholding every CI\'s tokens from its tests', function 
     FlowCommands::run(CoverageCommand::command(
         FlowCommands::composition(FlowCommands::project(), $runner, new ProofStoreFake(), Flows::ci()),
     ));
-    $withheld = $runner->asked()[0]->withheld();
+    $withheld = $runner->ran()[0]->withheld();
 
     expect($runner->asked())->toHaveCount(1)
         ->and(preg_match($withheld->pattern(), 'CI_JOB_TOKEN'))->toBe(1)

@@ -27,7 +27,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -184,7 +184,7 @@ final readonly class Flows
     /** The coverage map the fake runner measures of the project. */
     public static function map(): CoverageMap
     {
-        return RunnerFake::ofTheFixture()->coverage(CoverageRequest::running(WholeSuite::tests(), Workspace::coverage()));
+        return RunnerFake::ofTheFixture()->coverage(CoverageRun::of(WholeSuite::tests(), Workspace::coverage()));
     }
 
     /** A checkout that cannot tell where it stands. */

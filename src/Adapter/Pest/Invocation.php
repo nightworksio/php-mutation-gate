@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -74,7 +74,7 @@ final readonly class Invocation
         return is_file($project->absolute(Path::of($this->script)));
     }
 
-    public function coverage(CoverageRequest $request, string $directory): Command
+    public function coverage(CoverageRun $request, string $directory): Command
     {
         return Command::pest(
             $this->script,

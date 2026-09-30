@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Hold\GroupCoverage;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
@@ -45,7 +45,7 @@ final readonly class HeldCoverage
         foreach ($shard->units() as $unit) {
             $judgedBy = $unit->judgedBy();
             $group = $judgedBy instanceof WholeSuite ? $suite : $this->adapters->runner->coverage(
-                CoverageRequest::running($judgedBy, Workspace::heldCoverage($shard->id()))
+                CoverageRun::of($judgedBy, Workspace::heldCoverage($shard->id()))
                     ->withholding($this->adapters->withheld),
             );
 

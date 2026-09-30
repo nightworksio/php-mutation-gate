@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -180,7 +180,7 @@ it('retries a mutant by the tests that judged its unit', function (Library $libr
 })->with($libraries);
 
 it('names the test files that judge a covered file, and none for an uncovered one', function (Library $library): void {
-    $request = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+    $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
     $map = $library->runner()->coverage($request);
     $covered = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('src/Money.php'), $map) : $map;
     $uncovered = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('src/Nowhere.php'), $map) : $map;
@@ -288,7 +288,7 @@ it('names the test that killed a mutant, as the coverage map names it, with Infe
 it('judges a mutant on a method\'s signature by the map the planning job handed over as by its own coverage, with Infection', function (): void {
     $library = Library::infection(Seconds::of(10.0));
     $handedOver = Path::of('.mutation-gate/planned');
-    $planned = $library->runner()->coverage(CoverageRequest::running(WholeSuite::tests(), $handedOver));
+    $planned = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), $handedOver));
     file_put_contents(
         Tree::at(sprintf('%s/%s', Library::INFECTION_DIRECTORY, CoverageMapFile::in($handedOver)->value())),
         CoverageMapFile::encode($planned instanceof CoverageMap ? $planned : CoverageMap::empty()),
@@ -382,7 +382,7 @@ it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select
 it('opens a patched shard on the canary group and reads the map the planning job handed over', function (): void {
     $patched = Patch::applyIn(Library::vendor());
     $library = Library::pest(Patching::on(Library::canary()));
-    $planned = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/planned'));
+    $planned = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned'));
     $map = $library->runner()->coverage($planned);
     $handedOver = CoverageMapFile::in(Path::of('.mutation-gate/planned'))->value();
     file_put_contents(

@@ -13,7 +13,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -237,7 +238,7 @@ final class ScriptedRunner implements Runner
         return $this->identified;
     }
 
-    public function coverage(CoverageRequest $request): CoverageMap|CannotJudge
+    public function coverage(CoverageRun|CoverageRead $request): CoverageMap|CannotJudge
     {
         return $this->covering instanceof CannotJudge ? $this->covering : $this->covering->coverage($request);
     }

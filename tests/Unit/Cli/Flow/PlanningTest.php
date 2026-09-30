@@ -34,7 +34,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -64,7 +64,7 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$coverage = static fn(): CoverageRequest => CoverageRequest::running(WholeSuite::tests(), Workspace::coverage());
+$coverage = static fn(): CoverageRun => CoverageRun::of(WholeSuite::tests(), Workspace::coverage());
 
 $money = Unit::file(Path::of('src/Money.php'));
 $held = Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'));
@@ -133,8 +133,8 @@ it('asks for coverage withholding what every process that runs the project\'s co
     $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner);
 
     expect($runner->asked())->toHaveCount(1)
-        ->and($runner->asked()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN')))
-        ->and($runner->asked()[0]->tests())->toEqual(WholeSuite::tests());
+        ->and($runner->ran()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN')))
+        ->and($runner->ran()[0]->tests())->toEqual(WholeSuite::tests());
 });
 
 it('weighs each unit by what the cost model expects of it, with what the ledgers learned', function () use (
@@ -326,7 +326,7 @@ it('plans with the runner\'s own markers where ignores.native allows them, or wi
         Flows::adapters(Flows::project(), [], $runner),
         Flows::settings(Ignores::allowingNativeMarkers()),
         Flows::setup(),
-    )->plan(Mode::full(), CoverageRequest::running(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1));
+    )->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1));
 
     expect($planned)->toBeInstanceOf(Plan::class);
 })->with([

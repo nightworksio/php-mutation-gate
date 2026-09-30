@@ -7,7 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -36,7 +36,7 @@ it('runs Pest\'s own script in the vendor directory the project installs into', 
 });
 
 it('runs the whole suite under coverage into a directory, as --coverage expects to find it', function (): void {
-    $request = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))
+    $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))
         ->across(Processes::of(4));
 
     expect(invocation()->coverage($request, '/p/.mutation-gate/coverage'))->toEqual(Command::pest(
@@ -51,7 +51,7 @@ it('runs the whole suite under coverage into a directory, as --coverage expects 
 });
 
 it('runs one group under coverage', function (): void {
-    $request = CoverageRequest::running(Group::named('holds:src/Held.php'), Path::of('held'));
+    $request = CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('held'));
 
     expect(invocation()->coverage($request, '/p/held')->arguments())->toBe([
         PHP_BINARY,
@@ -67,7 +67,7 @@ it('runs one group under coverage', function (): void {
 });
 
 it('runs the tests a filter names under coverage', function (): void {
-    $request = CoverageRequest::running(Filter::matching('HeldTest'), Path::of('held'));
+    $request = CoverageRun::of(Filter::matching('HeldTest'), Path::of('held'));
 
     expect(array_slice(invocation()->coverage($request, '/p/held')->arguments(), -2))->toBe([
         '--filter=HeldTest',
@@ -143,7 +143,7 @@ it('withholds from the listing, the coverage run and the mutation run what each 
 
     try {
         $coverage = invocation()->coverage(
-            CoverageRequest::running(WholeSuite::tests(), Path::of('c'))->withholding(Withheld::of('CI_JOB_TOKEN')),
+            CoverageRun::of(WholeSuite::tests(), Path::of('c'))->withholding(Withheld::of('CI_JOB_TOKEN')),
             '/p/c',
         );
         $mutation = invocation()->mutation(

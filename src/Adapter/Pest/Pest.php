@@ -18,7 +18,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -121,9 +122,9 @@ final readonly class Pest implements Runner
      * the map of the gate's own another job handed over, and never a
      * runner's map another job wrote.
      */
-    public function coverage(CoverageRequest $request): CoverageMap|CannotJudge
+    public function coverage(CoverageRun|CoverageRead $request): CoverageMap|CannotJudge
     {
-        if (! $request->runs()) {
+        if ($request instanceof CoverageRead) {
             return SharedCoverage::in($this->project, $request->directory());
         }
 
@@ -219,7 +220,7 @@ final readonly class Pest implements Runner
     }
 
     /** A clean coverage run into a directory, with no earlier run's map or log left there. */
-    private function measured(CoverageRequest $request, string $directory): Ran|CannotJudge
+    private function measured(CoverageRun $request, string $directory): Ran|CannotJudge
     {
         $map = sprintf('%s/%s', $directory, Invocation::MAP);
 

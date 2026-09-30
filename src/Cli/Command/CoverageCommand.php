@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -50,7 +50,7 @@ final readonly class CoverageCommand
 
     private static function written(Composed $composed, Path $into, OutputInterface $output): int
     {
-        $request = CoverageRequest::running(WholeSuite::tests(), Workspace::coverage())
+        $request = CoverageRun::of(WholeSuite::tests(), Workspace::coverage())
             ->withholding($composed->adapters->withheld);
         $map = $composed->adapters->runner->coverage($request);
         $file = CoverageMapFile::in($into);
