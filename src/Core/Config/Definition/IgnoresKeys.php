@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Ignores;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -24,7 +24,7 @@ use NightWorksIO\MutationGate\Core\Time\Day;
 final readonly class IgnoresKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(Origin $origin): array
+    public static function fields(PathOrigin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
         $entries = Field::optional('entries', Items::of(self::entry($origin)), $judges);
@@ -71,7 +71,7 @@ final readonly class IgnoresKeys
      *
      * @return Section<Ignored>
      */
-    private static function entry(Origin $origin): Section
+    private static function entry(PathOrigin $origin): Section
     {
         $judges = Effect::JudgesOrReportsOnly;
         $mutant = Field::optional('mutant', Identifier::mutant(), $judges);

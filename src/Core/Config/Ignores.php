@@ -130,7 +130,7 @@ final readonly class Ignores implements Part
         return $late === [] ? Absent::setting() : Invalid::because(...$late);
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         $entries = $this->entries instanceof Listed ? Json::items(...array_map(
             static fn(Ignored $ignored): Json => $ignored->written($origin),
@@ -150,7 +150,7 @@ final readonly class Ignores implements Part
         );
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         $entries = $this->entries instanceof Listed && [...$this->entries] !== []
             ? PhpCalls::onGate(

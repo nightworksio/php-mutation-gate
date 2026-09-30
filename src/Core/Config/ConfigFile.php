@@ -22,7 +22,7 @@ use function str_starts_with;
  * project itself is stays out of what is read, so every path a config holds
  * is the same on every machine.
  */
-final readonly class ConfigFile implements Origin
+final readonly class ConfigFile implements PathOrigin
 {
     /** @param string $directory the file's directory from the project; '' for the project, absolute outside it */
     private function __construct(private Path $file, private string $directory)

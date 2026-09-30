@@ -86,7 +86,7 @@ final readonly class Proofs implements Part
         return $this->write instanceof ProofWriting ? $this->write : ProofWriting::Auto;
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
             'proofs',
@@ -106,7 +106,7 @@ final readonly class Proofs implements Part
         ));
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
             ...$this->store instanceof Choice ? [$this->storeCall($this->storeFrom($origin))] : [],
@@ -121,7 +121,7 @@ final readonly class Proofs implements Part
     }
 
     /** The store chosen, with the directory store's path named from the origin. */
-    private function storeFrom(Origin $origin): Choice
+    private function storeFrom(PathOrigin $origin): Choice
     {
         $store = $this->store();
 

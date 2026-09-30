@@ -52,7 +52,7 @@ final readonly class IgnoredPattern implements Ignored
         return $this->expires;
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         $written = Json::object()
             ->with(Member::of('path', $origin->written(Path::of($this->path->value()))))
@@ -64,7 +64,7 @@ final readonly class IgnoredPattern implements Ignored
             : $written;
     }
 
-    public function php(Origin $origin): string
+    public function php(PathOrigin $origin): string
     {
         return sprintf(
             'Ignore::mutator(%s, in: %s, because: %s%s)',

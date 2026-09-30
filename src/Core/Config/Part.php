@@ -23,8 +23,8 @@ interface Part
     public function over(self $later): self;
 
     /** What this part sets, as a config written at this origin writes it. */
-    public function written(Origin $origin): Json;
+    public function written(PathOrigin $origin): Json;
 
     /** What this part sets, as the PHP builder's calls. */
-    public function php(Origin $origin): PhpCalls;
+    public function php(PathOrigin $origin): PhpCalls;
 }

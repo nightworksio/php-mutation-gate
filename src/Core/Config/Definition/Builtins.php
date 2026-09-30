@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
@@ -56,7 +56,7 @@ final readonly class Builtins
     }
 
     /** The tree sources, whose paths are named from the layer's origin. */
-    public static function treeSources(Origin $origin): self
+    public static function treeSources(PathOrigin $origin): self
     {
         return self::of([
             BuiltinTreeSource::PhpUnit->value => Section::options(
@@ -68,7 +68,7 @@ final readonly class Builtins
     }
 
     /** The proof stores, whose paths are named from the layer's origin. */
-    public static function stores(Origin $origin): self
+    public static function stores(PathOrigin $origin): self
     {
         $judges = Effect::JudgesOrReportsOnly;
 

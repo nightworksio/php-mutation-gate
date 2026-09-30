@@ -101,7 +101,7 @@ final readonly class Floors implements Part
         return $this->improvement instanceof Improvement ? $this->improvement : Improvement::Require;
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         $trees = $this->trees instanceof Listed ? Json::items(...array_map(
             static fn(DeclaredTree $tree): Json => $tree->written($origin),
@@ -136,7 +136,7 @@ final readonly class Floors implements Part
         );
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         $calls = $this->trees instanceof Listed
             ? PhpCalls::onGate(
@@ -157,7 +157,7 @@ final readonly class Floors implements Part
     }
 
     /** @return list<string> the settings `with()` takes for what this part sets */
-    private function settings(Origin $origin): array
+    private function settings(PathOrigin $origin): array
     {
         $uncovered = $this->uncovered instanceof UncoveredMutants ? [match ($this->uncovered) {
             UncoveredMutants::Count => 'Uncovered::counted()',

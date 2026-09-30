@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
 use NightWorksIO\MutationGate\Core\File\Glob;
@@ -28,7 +28,7 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
 final readonly class FloorsKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(Origin $origin): array
+    public static function fields(PathOrigin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
         $floor = Field::optional('floor', Percent::floor(), $judges);
@@ -86,7 +86,7 @@ final readonly class FloorsKeys
      *
      * @return Section<DeclaredTree>
      */
-    private static function tree(Origin $origin): Section
+    private static function tree(PathOrigin $origin): Section
     {
         $results = Effect::AffectsResults;
         $judges = Effect::JudgesOrReportsOnly;

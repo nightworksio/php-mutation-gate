@@ -90,7 +90,7 @@ final readonly class Layer
     }
 
     /** What this layer sets, as a config file at this origin writes it. */
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         $written = Json::object();
 
@@ -102,7 +102,7 @@ final readonly class Layer
     }
 
     /** What this layer sets, as the PHP builder's calls. */
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         $calls = PhpCalls::none();
 

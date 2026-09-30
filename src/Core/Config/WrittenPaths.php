@@ -23,7 +23,7 @@ final readonly class WrittenPaths
      * @param  iterable<Glob> $globs
      * @return list<string>
      */
-    public static function globs(Origin $origin, iterable $globs): array
+    public static function globs(PathOrigin $origin, iterable $globs): array
     {
         $written = [];
 
@@ -38,7 +38,7 @@ final readonly class WrittenPaths
      * A choice as a layer at this origin writes it: each of these options, which hold paths from the project,
      * a path or a list of them, named from the origin.
      */
-    public static function choice(Choice $choice, Origin $origin, string ...$paths): Choice
+    public static function choice(Choice $choice, PathOrigin $origin, string ...$paths): Choice
     {
         $options = $choice->options();
         $from = $options->written();

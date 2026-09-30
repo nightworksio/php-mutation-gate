@@ -22,7 +22,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Options;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -52,7 +52,7 @@ final readonly class Configs
      *
      * @param array<mixed>|string $config
      */
-    public static function layer(array|string $config, Origin $origin = new ProjectRoot()): Layer|Invalid
+    public static function layer(array|string $config, PathOrigin $origin = new ProjectRoot()): Layer|Invalid
     {
         return Definition::layer(Node::config(self::json($config)), $origin);
     }
@@ -100,7 +100,7 @@ final readonly class Configs
     }
 
     /** What a layer writes, decoded. */
-    public static function decoded(Layer $layer, Origin $origin = new ProjectRoot()): mixed
+    public static function decoded(Layer $layer, PathOrigin $origin = new ProjectRoot()): mixed
     {
         return json_decode($layer->written($origin)->line(), associative: true);
     }
