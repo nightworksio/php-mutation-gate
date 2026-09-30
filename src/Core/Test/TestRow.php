@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Core\Test;
+
+use function sprintf;
+
+/**
+ * One row of a test's data set, which folds into its test: the test is
+ * useless only when every row is (ADR-0014, decision 6).
+ */
+final readonly class TestRow
+{
+    private function __construct(private TestName $test, private string $row)
+    {
+    }
+
+    /** The row of this test, named as the runner names it, such as `#0` or `"one"`. */
+    public static function of(TestName $test, string $row): self
+    {
+        return new self($test, $row);
+    }
+
+    /** The test this row folds into. */
+    public function test(): TestName
+    {
+        return $this->test;
+    }
+
+    /** The row's name, as the runner spells it. */
+    public function row(): string
+    {
+        return $this->row;
+    }
+
+    /** `tests/Unit/MoneyTest.php::it adds with data set "one"`. */
+    public function value(): string
+    {
+        return sprintf('%s with data set %s', $this->test->value(), $this->row);
+    }
+}
