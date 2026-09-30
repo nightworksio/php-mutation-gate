@@ -157,3 +157,13 @@ it('refuses seconds per line that are not a map of prefix to number', function (
     expect(MeasuredCosts::fromOptions(Options::ofJson('{"secondsPerLine": {"src": "fast"}}')))->toEqual($refused)
         ->and(MeasuredCosts::fromOptions(Options::ofJson('{"secondsPerLine": 0.2}')))->toEqual($refused);
 });
+
+it('does not walk into a linked directory under a held one, which may lead back up into a loop', function () use ($linesOf): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'src/Kernel/Money.php', COSTED_MONEY);
+    symlink('..', sprintf('%s/src/Kernel/loop', $root));
+    $rates = SecondsPerLine::of(LineRate::of('', Seconds::of(1.0)));
+
+    expect(MeasuredCosts::at(Root::of($root), $rates)->cost(Unit::held(Path::of('src/Kernel'), Group::named('holds:kernel')), Timings::none()))
+        ->toEqual(Seconds::of($linesOf(COSTED_MONEY) * 1.0));
+});

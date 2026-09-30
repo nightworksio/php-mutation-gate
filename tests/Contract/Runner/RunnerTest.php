@@ -401,7 +401,12 @@ it('holds the library to the pest-plugin-mutate the package allows', function ()
 
     expect($conflict(sprintf('%s/composer.json', Library::DIRECTORY)))->toBe($conflict('composer.json'))
         ->and($conflict('composer.json'))
-        ->toBe(['pestphp/pest' => '<5.1', 'pestphp/pest-plugin-mutate' => '<5.0.2 || >5.0.2']);
+        ->toBe([
+            'pestphp/pest' => '<5.1',
+            'pestphp/pest-plugin-mutate' => '<5.0.2 || >5.0.2',
+            'phpunit/phpunit' => '<12.5.8 || >=12.5.21 <12.5.22 || >=13.1.5 <13.1.6',
+            'symfony/yaml' => '<7.4.12 || >=8.0 <8.0.12',
+        ]);
 });
 
 // The adapter reads the maps the library's Pest writes with the

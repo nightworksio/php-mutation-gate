@@ -8,6 +8,18 @@ it('spells a path with forward slashes', function (): void {
     expect(Path::of('src\\Core\\Money.php')->value())->toBe('src/Core/Money.php');
 });
 
+it('says whether it leads out of the directory it is spelt from', function (string $path, bool $escapes): void {
+    expect(Path::of($path)->escapes())->toBe($escapes);
+})->with([
+    'inside' => ['src/Money.php', false],
+    'the root' => ['.', false],
+    'dots in a name' => ['src/..hidden/a..b', false],
+    'up' => ['../x', true],
+    'up from inside' => ['src/../../x', true],
+    'a backslash spelling of up' => ['a\\..\\..\\x', true],
+    'absolute' => ['/etc/passwd', true],
+]);
+
 it('names an entry inside a directory', function (): void {
     expect(Path::of('packages/money')->child(Path::of('composer.json')))->toEqual(Path::of('packages/money/composer.json'))
         ->and(Path::root()->child(Path::of('composer.json')))->toEqual(Path::of('composer.json'))

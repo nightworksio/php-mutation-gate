@@ -129,3 +129,45 @@ it('cannot judge a stream whose pieces could not all be written', function (): v
 
     expect($written)->toEqual(CannotJudge::because('/dev/full could not be written.'));
 })->skip(! file_exists('/dev/full'), 'Only a system with /dev/full refuses every write.');
+
+it('refuses a path that leads out of it, reading and writing alike', function (string $path): void {
+    $root = sprintf('%s/store', Scratch::directory());
+    mkdir($root);
+    $refusal = CannotJudge::because(sprintf('%s leads out of %s, so the gate does not read or write it.', Path::of($path)->value(), $root));
+    $directory = Directory::at($root);
+
+    expect($directory->read(Path::of($path)))->toEqual($refusal)
+        ->and($directory->write(Path::of($path), Contents::of('forged')))->toEqual($refusal)
+        ->and($directory->stream(Path::of($path), ['forged']))->toEqual($refusal)
+        ->and(file_exists(sprintf('%s/ledger.json', dirname($root))))->toBeFalse();
+})->with([
+    'up through ..' => ['../ledger.json'],
+    'up from inside' => ['refs/heads/a/../../../ledger.json'],
+    'absolute' => ['/tmp/ledger.json'],
+]);
+
+it('refuses a path through a link that leads elsewhere', function (): void {
+    $scratch = Scratch::directory();
+    mkdir(sprintf('%s/store', $scratch));
+    mkdir(sprintf('%s/elsewhere', $scratch));
+    symlink(sprintf('%s/elsewhere', $scratch), sprintf('%s/store/refs', $scratch));
+
+    expect(Directory::at(sprintf('%s/store', $scratch))->write(Path::of('refs/ledger.json'), Contents::of('forged')))
+        ->toBeInstanceOf(CannotJudge::class)
+        ->and(file_exists(sprintf('%s/elsewhere/ledger.json', $scratch)))->toBeFalse();
+});
+
+it('writes through a link that stays inside it', function (): void {
+    $root = Scratch::directory();
+    mkdir(sprintf('%s/real', $root));
+    symlink(sprintf('%s/real', $root), sprintf('%s/alias', $root));
+
+    expect(Directory::at($root)->write(Path::of('alias/plan.json'), Contents::of('{}')))->toBeInstanceOf(Written::class)
+        ->and(file_get_contents(sprintf('%s/real/plan.json', $root)))->toBe('{}');
+});
+
+it('writes into a directory that is not there yet', function (): void {
+    $root = sprintf('%s/not/yet', Scratch::directory());
+
+    expect(Directory::at($root)->write(Path::of('plan.json'), Contents::of('{}')))->toBeInstanceOf(Written::class);
+});

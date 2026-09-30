@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Git\Command;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -69,4 +70,35 @@ it('leaves none of the files it hands git its input through', function (): void 
     Command::in(Scratch::directory())->feed(['cat-file', '--batch'], "HEAD:./src/Money.php\n");
 
     expect($scratch())->toBe($before);
+});
+
+it('hands git none of the CI\'s credentials, running or fed alike', function (): void {
+    putenv('AWS_SECRET_ACCESS_KEY=leaked');
+    putenv('MUTATION_GATE_KEPT=kept');
+
+    try {
+        $git = Command::in(Repository::empty()->root);
+        $printed = $git->run(['-c', 'alias.environment=!env', 'environment']);
+        $fed = $git->feed(['-c', 'alias.environment=!env', 'environment'], '');
+    } finally {
+        putenv('AWS_SECRET_ACCESS_KEY');
+        putenv('MUTATION_GATE_KEPT');
+    }
+
+    $environments = [is_string($printed) ? $printed : '', is_string($fed) ? $fed : ''];
+
+    expect(array_map(static fn(string $environment): bool => str_contains($environment, 'AWS_SECRET_ACCESS_KEY'), $environments))
+        ->toBe([false, false])
+        ->and(array_map(static fn(string $environment): bool => str_contains($environment, 'MUTATION_GATE_KEPT=kept'), $environments))
+        ->toBe([true, true]);
+});
+
+it('withholds what it is told to from the environment it is given', function (): void {
+    $git = Command::withholding(Repository::empty()->root, Withheld::of('DEPLOY_*'), ['DEPLOY_KEY' => 'secret', 'PATH' => (string) getenv('PATH'), 'KEPT' => 'yes']);
+
+    $environment = $git->run(['-c', 'alias.environment=!env', 'environment']);
+    $printed = is_string($environment) ? $environment : '';
+
+    expect(str_contains($printed, 'DEPLOY_KEY'))->toBeFalse()
+        ->and($printed)->toContain('KEPT=yes');
 });

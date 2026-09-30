@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Git;
 
+use function array_filter;
+use function array_key_exists;
 use function file_get_contents;
 use function file_put_contents;
+use function getenv;
 use function implode;
 use function is_dir;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
+use function preg_match;
 use function proc_close;
 use function proc_open;
 use function sprintf;
@@ -25,7 +30,12 @@ use function tempnam;
 use function trim;
 use function unlink;
 
-/** Git, run in one directory, answering with what it printed or why it could not. */
+/**
+ * Git, run in one directory, answering with what it printed or why it could
+ * not. Git inherits the gate's environment but the CI's credentials, which it
+ * never needs, so that a hook or a config the repository ships cannot read
+ * them.
+ */
 final readonly class Command
 {
     /** Settings that keep what git prints the same whatever the user's own config says. */
@@ -57,20 +67,38 @@ final readonly class Command
     /** How the files git reads its input from and writes its errors to are named. */
     private const string SCRATCH = 'mutation-gate-git-';
 
-    private function __construct(private string $directory)
+    /** @param array<string, string> $environment what git inherits, the credentials left out */
+    private function __construct(private string $directory, private array $environment)
     {
     }
 
+    /** Git in a directory, withholding what every run withholds from the environment the gate runs in. */
     public static function in(string $directory): self
     {
-        return new self($directory);
+        return self::withholding($directory, Withheld::standard(), getenv());
+    }
+
+    /**
+     * Git in a directory, withholding these from this environment.
+     *
+     * @param array<string, string> $inherited
+     */
+    public static function withholding(string $directory, Withheld $withheld, array $inherited): self
+    {
+        $kept = array_filter(
+            $inherited,
+            static fn(string $name): bool => preg_match($withheld->pattern(), $name) !== 1,
+            ARRAY_FILTER_USE_KEY,
+        );
+
+        return new self($directory, $kept);
     }
 
     /** @param list<string> $arguments */
     public function run(array $arguments): string|CannotTell
     {
         return $this->finish(
-            new Process(['git', ...self::SETTINGS, ...$arguments], $this->directory, timeout: null),
+            new Process(['git', ...self::SETTINGS, ...$arguments], $this->directory, $this->withheld(), timeout: null),
             $arguments,
         );
     }
@@ -127,12 +155,30 @@ final readonly class Command
             [0 => ['file', $in, 'r'], 1 => ['pipe', 'w'], 2 => ['file', $errors, 'w']],
             $pipes,
             $this->directory,
+            $this->environment,
         );
         $printed = $git === false ? false : stream_get_contents($pipes[1]);
         $succeeded = $git !== false && proc_close($git) === 0;
         $said = $git === false ? self::NOT_STARTED : trim(sprintf('%s', file_get_contents($errors)));
 
         return $succeeded && is_string($printed) ? $printed : $this->refused($arguments, $said);
+    }
+
+    /**
+     * The environment a process inherits, as Symfony's process takes it: every
+     * variable the gate runs with that git must not see, as false.
+     *
+     * @return array<string, string|false>
+     */
+    private function withheld(): array
+    {
+        $withheld = [];
+
+        foreach (getenv() as $name => $value) {
+            $withheld[$name] = array_key_exists($name, $this->environment) ? $value : false;
+        }
+
+        return [...$withheld, ...$this->environment];
     }
 
     /** Removes the files git read from and wrote to, where they were made. */

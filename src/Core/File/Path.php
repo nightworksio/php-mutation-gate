@@ -10,6 +10,7 @@ use function explode;
 use function implode;
 use function mb_strlen;
 use function mb_substr;
+use function preg_match;
 use function sprintf;
 use function str_ends_with;
 use function str_replace;
@@ -21,6 +22,9 @@ use function str_starts_with;
  */
 final readonly class Path
 {
+    /** A `..` segment, which goes up out of the directory it is in. */
+    private const string UP = '#(?:^|/)\.\.(?:/|$)#';
+
     /** How the name of a PHP file ends. */
     private const string PHP = '.php';
 
@@ -94,5 +98,11 @@ final readonly class Path
     public function child(self $entry): self
     {
         return self::of(sprintf('%s/%s', $this->value, $entry->value));
+    }
+
+    /** Whether this path leads out of the directory it is spelt from: it is absolute, or goes up through `..`. */
+    public function escapes(): bool
+    {
+        return str_starts_with($this->value, '/') || preg_match(self::UP, $this->value) === 1;
     }
 }

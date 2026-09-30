@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
 use function sprintf;
+use function str_replace;
 
 /**
  * The CI plan `buildkite`: steps for `buildkite-agent pipeline upload`,
@@ -169,7 +170,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
 
         return [
             ...$this->commandStep(
-                sprintf('mutation: %s', $shard->label()),
+                sprintf('mutation: %s', $this->literal($shard->label())),
                 sprintf('mutation-gate-shard-%d', $id),
                 sprintf('vendor/bin/mutation-gate run --plan=%s --shard=%d', self::PLAN, $id),
             ),
@@ -186,6 +187,16 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
             self::KEY => $key,
             self::COMMAND => [...$this->templateCommands(), self::DOWNLOAD, $command],
         ];
+    }
+
+    /**
+     * Text as the agent shows it, not as it expands it: `pipeline upload`
+     * reads `$NAME` as a variable, and a label names paths a pull request
+     * chooses, so each `$` is written `$$`.
+     */
+    private function literal(string $text): string
+    {
+        return str_replace('$', '$$', $text);
     }
 
     /** @return list<string> the commands the template runs first */

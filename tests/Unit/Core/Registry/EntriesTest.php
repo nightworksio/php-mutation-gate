@@ -30,12 +30,13 @@ it('leaves the entries it came from as they were', function (): void {
     expect($entries->find('sarif'))->toBeInstanceOf(CannotJudge::class);
 });
 
-it('names each name two packages both register', function (): void {
+it('names each name both register, whichever package each says it comes from', function (): void {
     $ours = new Entries(ExtensionPoint::Reporter)->with('sarif', 'acme/a', Name::of('ours'))->with('json', 'acme/a', Name::of('ours'))->with('html', 'acme/a', Name::of('ours'));
     $theirs = new Entries(ExtensionPoint::Reporter)->with('json', 'acme/b', Name::of('theirs'))->with('html', 'acme/a', Name::of('theirs'))->with('junit', 'acme/b', Name::of('theirs'))->with('sarif', 'acme/c', Name::of('theirs'));
 
     expect($ours->conflictsWith($theirs))->toBe([
         'Two packages register a reporter named "json": acme/a and acme/b.',
+        'Two packages register a reporter named "html": acme/a and acme/a.',
         'Two packages register a reporter named "sarif": acme/a and acme/c.',
     ])->and($ours->conflictsWith(new Entries(ExtensionPoint::Reporter)))->toBe([]);
 });

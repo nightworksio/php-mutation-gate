@@ -8,6 +8,7 @@ use function array_any;
 use function array_map;
 use function is_array;
 use function is_dir;
+use function is_link;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -70,7 +71,7 @@ final readonly class TestFiles
         foreach (is_array($entries) ? $entries : [] as $entry) {
             $path = sprintf('%s/%s', $directory, $entry);
             $found = [...$found, ...match (true) {
-                $entry === '.' || $entry === '..' => [],
+                $entry === '.' || $entry === '..' || (is_link($path) && is_dir($path)) => [],
                 is_dir($path) => self::under($path),
                 Path::of($entry)->isPhp() => [$path],
                 default => [],

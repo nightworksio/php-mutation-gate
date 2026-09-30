@@ -16,7 +16,7 @@ it('is a branch\'s ref or a pull request\'s', function (): void {
 
 it('reads a ref that is a branch\'s or a pull request\'s', function (string $ref): void {
     expect(Scope::parse($ref))->toEqual(Scope::of($ref));
-})->with(['refs/heads/main', 'refs/heads/feat/x', 'refs/heads/.hidden', 'refs/heads/a..b', 'refs/pull/12']);
+})->with(['refs/heads/main', 'refs/heads/feat/x', 'refs/heads/v1.2', 'refs/heads/a.b/c', 'refs/heads/@home', 'refs/pull/12']);
 
 it('refuses a ref that is neither, or would lead out of its store', function (string $ref): void {
     expect(Scope::parse($ref))->toEqual(CannotJudge::because(sprintf(
@@ -36,6 +36,26 @@ it('refuses a ref that is neither, or would lead out of its store', function (st
     'refs/pull/1/merge',
     'refs/tags/v1',
     "refs/heads/main\n",
+    'refs/heads/.hidden',
+    'refs/heads/a..b',
+    'refs/heads/a/.b',
+    'refs/heads/main.lock',
+    'refs/heads/a.lock/b',
+    'refs/heads/main.',
+    'refs/heads/@',
+    'refs/heads/a@{1}',
+    'refs/heads/a\\..\\..\\x',
+    'refs/heads/a\\b',
+    "refs/heads/a\0b",
+    "refs/heads/a\x7Fb",
+    "refs/heads/a\tb",
+    'refs/heads/a~1',
+    'refs/heads/a^',
+    'refs/heads/a:b',
+    'refs/heads/a?',
+    'refs/heads/a*',
+    'refs/heads/a[b',
+    'refs/heads//a',
 ]);
 
 it('is the same scope as another of the same ref', function (): void {

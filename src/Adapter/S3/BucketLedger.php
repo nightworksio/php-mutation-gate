@@ -25,8 +25,11 @@ use function trim;
  * The proof store `s3`: one object per scope, `<prefix>/<scope>/ledger.json.gz`,
  * in a bucket of AWS S3, Cloudflare R2, MinIO or anything else that speaks
  * S3. Credentials come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and,
- * when set, `AWS_SESSION_TOKEN`. A ledger that cannot be fetched is read as
- * empty, which costs a run and never a verdict.
+ * when set, `AWS_SESSION_TOKEN`, and from nowhere else: the configuration
+ * provider reads no `~/.aws` file and no instance, container or web identity
+ * role, so a self-hosted runner never lends the store its host's role. With
+ * `AWS_ROLE_ARN` set, those keys assume that role. A ledger that cannot be
+ * fetched is read as empty, which costs a run and never a verdict.
  */
 final readonly class BucketLedger implements Configurable, ProofStore
 {

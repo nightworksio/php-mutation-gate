@@ -130,14 +130,34 @@ it('follows a rename whatever the repository configures', function (): void {
     ]);
 });
 
-it('says an untracked file it cannot read was added, with no lines', function (): void {
+it('reads an untracked link as the path it points to, as git diffs it, and never what it points to', function (): void {
     $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
     $repository->git('tag', 'base');
-    symlink('nowhere', sprintf('%s/src/Link.php', $repository->root));
+    $outside = sprintf('%s/secret.txt', Scratch::directory());
+    file_put_contents($outside, "one\ntwo\nthree\n");
+    symlink('nowhere', sprintf('%s/src/Dangling.php', $repository->root));
+    symlink($outside, sprintf('%s/src/Out.php', $repository->root));
+    $git = Git::at($repository->root);
 
-    expect(changesByPath(Git::at($repository->root)->changesSince(Revision::ref('base'))))->toEqual([
-        'src/Link.php' => ['added', [], 'src/Link.php'],
-    ]);
+    expect(changesByPath($git->changesSince(Revision::ref('base'))))->toEqual([
+        'src/Dangling.php' => ['added', [1], 'src/Dangling.php'],
+        'src/Out.php' => ['added', [1], 'src/Out.php'],
+    ])->and($git->fileAt(Path::of('src/Out.php'), Revision::workingTree()))->toEqual(Contents::of($outside));
+});
+
+
+it('hashes a link as git stores it, from the path it points to', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $outside = sprintf('%s/secret.txt', Scratch::directory());
+    file_put_contents($outside, "secret\n");
+    symlink($outside, sprintf('%s/src/Out.php', $repository->root));
+    $repository->git('add', 'src/Out.php');
+    $stored = trim(explode(' ', $repository->git('ls-files', '-s', 'src/Out.php'))[1]);
+
+    $fingerprints = Git::at($repository->root)->fingerprints();
+
+    expect($fingerprints instanceof Fingerprints ? $fingerprints->digestOf(Path::of('src/Out.php')) : $fingerprints)
+        ->toEqual(Digest::of($stored));
 });
 
 it('cannot tell what changed since a revision it does not have, or one spelt as an option', function (string $revision): void {
@@ -316,3 +336,12 @@ it('cannot tell the files at a revision the repository does not have, or where g
         ->and($unread)->toBeInstanceOf(CannotTell::class)
         ->and($unread instanceof CannotTell ? $unread->why() : '')->toStartWith('git cat-file --batch gave no answer: ');
 });
+
+it('refuses a revision named like an option, which git would read as one', function (string $name): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $written = sprintf('%s/written-by-git', $repository->root);
+
+    expect(Git::at($repository->root)->fileAt(Path::of('src/A.php'), Revision::ref(sprintf($name, $written))))
+        ->toEqual(CannotTell::because(sprintf('%s is not a revision this repository has.', sprintf($name, $written))))
+        ->and(file_exists($written))->toBeFalse();
+})->with(['--output=%s', '-h%s']);

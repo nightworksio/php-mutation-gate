@@ -32,3 +32,12 @@ it('names a PHP file itself, and every PHP file under a directory in name order'
 it('names nothing for a path that is not there', function (): void {
     expect(PhpFiles::under(DiskPath::of('/nowhere/at/all')))->toBe([]);
 });
+
+it('does not walk into a linked directory, which may lead back up into a loop', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'src/Money.php', '<?php');
+    symlink('..', sprintf('%s/src/loop', $root));
+    $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
+
+    expect(PhpFiles::in($project, Paths::of(Path::of('src'))))->toBe([sprintf('%s/src/Money.php', $root)]);
+});

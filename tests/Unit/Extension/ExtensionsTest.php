@@ -63,11 +63,12 @@ it('refuses two packages registering one name, naming both', function (Extension
     expect($ours->merge($theirs))->toEqual(CannotJudge::because(sprintf('Two packages register a %s named "it": acme/a and acme/b. Remove one of the packages, or run with --no-extensions.', $point->value)));
 })->with(Registering::adapterPoints());
 
-it('lets one package register a name its registry already holds', function (ExtensionPoint $point): void {
+it('refuses a name registered twice under the same package, which a package cannot prove it is', function (ExtensionPoint $point): void {
     $adapter = Registering::adapter($point);
-    $ours = Registering::register($point, new Extensions(Origin::of('acme/a')), static fn(): object => $adapter);
+    $ours = Registering::register($point, new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): object => $adapter);
+    $claimed = Registering::register($point, new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): object => $adapter);
 
-    expect($ours->merge(Registering::register($point, new Extensions(Origin::of('acme/a')), static fn(): object => $adapter)))->toBeInstanceOf(Extensions::class);
+    expect($ours->merge($claimed))->toEqual(CannotJudge::because(sprintf('Two packages register a %s named "it": nightworksio/mutation-gate and nightworksio/mutation-gate. Remove one of the packages, or run with --no-extensions.', $point->value)));
 })->with(Registering::adapterPoints());
 
 it('names every name two packages both register', function (): void {

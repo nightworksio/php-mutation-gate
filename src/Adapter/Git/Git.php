@@ -4,28 +4,21 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Git;
 
-use function array_filter;
 use function array_key_exists;
-use function array_map;
 use function array_pop;
 use function explode;
-use function file_get_contents;
-use function implode;
-use function is_file;
-use function is_string;
 use function mb_strlen;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\Commit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -37,7 +30,7 @@ use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
 
 use function sprintf;
-use function str_contains;
+use function str_starts_with;
 use function trim;
 
 /**
@@ -67,8 +60,6 @@ final class Git implements ChangeSource, Repository
     /** Why a revision cannot be read from. */
     private const string UNKNOWN = '%s is not a revision this repository has.';
 
-    /** Why a file's name cannot be handed to git one per line. */
-    private const string LINE_BREAK = 'git cannot hash "%s" with the others, because its name holds a line break.';
 
     /** @var array<string, string|CannotTell> each revision read at, by its name: its commit, or why it has none */
     private array $commits = [];
@@ -96,7 +87,7 @@ final class Git implements ChangeSource, Repository
     {
         $listed = $this->git->run(['ls-files', '--cached', '--others', '--exclude-standard', '-z']);
 
-        return $listed instanceof CannotTell ? $listed : $this->hashed($this->onDisk($listed));
+        return $listed instanceof CannotTell ? $listed : $this->workingTree()->fingerprints($this->paths($listed));
     }
 
     public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell
@@ -110,7 +101,7 @@ final class Git implements ChangeSource, Repository
     public function filesAt(Paths $paths, Revision $revision): ByPath|CannotTell
     {
         if ($revision->isWorkingTree()) {
-            return ByPath::mapping($paths, $this->read(...));
+            return ByPath::mapping($paths, $this->workingTree()->read(...));
         }
 
         $commit = $this->commitOf($revision);
@@ -121,8 +112,9 @@ final class Git implements ChangeSource, Repository
     public function head(): Revision|CannotTell
     {
         $head = $this->git->run(['rev-parse', '--verify', '--quiet', 'HEAD^{commit}']);
+        $commit = $head instanceof CannotTell ? $head : Commit::parse(trim($head));
 
-        return $head instanceof CannotTell ? $head : Revision::ref(trim($head));
+        return $commit instanceof Commit ? $commit->revision() : $commit;
     }
 
     public function branch(): Scope|Detached|CannotTell
@@ -145,17 +137,34 @@ final class Git implements ChangeSource, Repository
             : RunOn::branchNamed(mb_substr(trim($target), mb_strlen(self::ORIGIN)));
     }
 
-    /** The commit a revision names, resolved the first time it is asked for. */
+    /**
+     * The commit a revision names, resolved the first time it is asked for. A
+     * name that begins with `-` is refused, since git would read it as an
+     * option, and `--end-of-options` keeps any other from being read as one.
+     */
     private function commitOf(Revision $revision): string|CannotTell
     {
-        if (! array_key_exists($revision->name(), $this->commits)) {
-            $commit = $this->git->run(['rev-parse', sprintf('%s^{commit}', $revision->name())]);
-            $this->commits[$revision->name()] = $commit instanceof CannotTell
-                ? CannotTell::because(sprintf(self::UNKNOWN, $revision->name()))
-                : trim($commit);
+        $name = $revision->name();
+
+        if (! array_key_exists($name, $this->commits)) {
+            $printed = str_starts_with($name, '-') ? $name : $this->git->run($this->resolving($name));
+            $parsed = $printed instanceof CannotTell ? $printed : Commit::parse(trim($printed));
+            $this->commits[$name] = $parsed instanceof Commit
+                ? $parsed->id()
+                : CannotTell::because(sprintf(self::UNKNOWN, $name));
         }
 
-        return $this->commits[$revision->name()];
+        return $this->commits[$name];
+    }
+
+    /**
+     * What asks git for the commit a name resolves to, and for nothing else.
+     *
+     * @return list<string>
+     */
+    private function resolving(string $name): array
+    {
+        return ['rev-parse', '--verify', '--quiet', '--end-of-options', sprintf('%s^{commit}', $name)];
     }
 
     private function changesFrom(string $commit): Changes|CannotTell
@@ -203,7 +212,7 @@ final class Git implements ChangeSource, Repository
         $added = [];
 
         foreach ($this->paths($untracked) as $path) {
-            $read = $this->read(Path::of($path));
+            $read = $this->workingTree()->read(Path::of($path));
             $lines = $read instanceof Contents ? Diff::whole($read->text()) : Lines::none();
             $added[] = Change::added(Path::of($path), $lines);
         }
@@ -211,69 +220,9 @@ final class Git implements ChangeSource, Repository
         return Changes::of(...$changes, ...$added);
     }
 
-    /**
-     * The listed paths that are files on disk.
-     *
-     * @return array<int, string>
-     */
-    private function onDisk(string $listed): array
+    private function workingTree(): WorkingTree
     {
-        return array_filter(
-            $this->paths($listed),
-            fn(string $path): bool => is_file($this->directory->at(Path::of($path))->value()),
-        );
-    }
-
-    /**
-     * Every file with the blob id git gives what it holds on disk, hashed in
-     * one batch.
-     *
-     * @param array<int, string> $paths
-     */
-    private function hashed(array $paths): Fingerprints|CannotTell
-    {
-        if ($paths === []) {
-            return Fingerprints::none();
-        }
-
-        $input = $this->input($paths);
-        $hashed = $input instanceof CannotTell
-            ? $input
-            : $this->git->feed(['hash-object', '--no-filters', '--stdin-paths'], $input);
-
-        return $hashed instanceof CannotTell ? $hashed : Fingerprints::of(...array_map(
-            static fn(string $path, string $digest): Fingerprint => Fingerprint::of(
-                Path::of($path),
-                Digest::of($digest),
-            ),
-            $paths,
-            $this->lines($hashed),
-        ));
-    }
-
-    /**
-     * The paths as git reads them from its input, one per line.
-     *
-     * @param array<int, string> $paths
-     */
-    private function input(array $paths): string|CannotTell
-    {
-        foreach ($paths as $path) {
-            if (str_contains($path, "\n")) {
-                return CannotTell::because(sprintf(self::LINE_BREAK, $path));
-            }
-        }
-
-        return sprintf("%s\n", implode("\n", $paths));
-    }
-
-    /** What a file on disk holds, or that it is missing where it is no file or cannot be read. */
-    private function read(Path $path): Contents|Missing
-    {
-        $file = $this->directory->at($path)->value();
-        $text = is_file($file) ? file_get_contents($file) : false;
-
-        return is_string($text) ? Contents::of($text) : Missing::at($path);
+        return WorkingTree::of($this->git, $this->directory);
     }
 
     /**
@@ -289,16 +238,4 @@ final class Git implements ChangeSource, Repository
         return $paths;
     }
 
-    /**
-     * The lines of what git printed, each ended by a line break.
-     *
-     * @return list<string>
-     */
-    private function lines(string $printed): array
-    {
-        $lines = explode("\n", $printed);
-        array_pop($lines);
-
-        return $lines;
-    }
 }

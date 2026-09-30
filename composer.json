@@ -37,7 +37,7 @@
         "symfony/console": "^7.4 || ^8.0",
         "symfony/http-client": "^7.4 || ^8.0",
         "symfony/http-client-contracts": "^3.5",
-        "symfony/process": "^7.4 || ^8.0"
+        "symfony/process": "^7.4.5 || ^8.0.5"
     },
     "require-dev": {
         "ext-dom": "*",
@@ -72,7 +72,9 @@
     },
     "conflict": {
         "pestphp/pest": "<5.1",
-        "pestphp/pest-plugin-mutate": "<5.0.2 || >5.0.2"
+        "pestphp/pest-plugin-mutate": "<5.0.2 || >5.0.2",
+        "phpunit/phpunit": "<12.5.8 || >=12.5.21 <12.5.22 || >=13.1.5 <13.1.6",
+        "symfony/yaml": "<7.4.12 || >=8.0 <8.0.12"
     },
     "suggest": {
         "ext-dom": "To read PHPUnit's XML coverage and JUnit log, which the Infection adapter does (infection/infection requires it)",

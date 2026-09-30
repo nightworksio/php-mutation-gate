@@ -56,9 +56,16 @@ it('registers only this package\'s own extension when asked to', function () use
 });
 
 it('registers this package\'s own extension when it is installed as a dependency', function () use ($discovery, $manifest, $runs): void {
+    $registry = $discovery($manifest('acme/app', []), [$manifest(FirstParty::PACKAGE, [FirstParty::class])])->extensions(firstPartyOnly: true);
+
+    expect($runs($registry, 'pest'))->toBeTrue();
+});
+
+it('takes no other class as this package\'s own, whatever package its manifest says it is', function () use ($discovery, $manifest, $runs): void {
     $registry = $discovery($manifest('acme/app', []), [$manifest(FirstParty::PACKAGE, [ExtensionFake::class])])->extensions(firstPartyOnly: true);
 
-    expect($runs($registry, 'fake'))->toBeTrue();
+    expect($registry)->toBeInstanceOf(Extensions::class)
+        ->and($runs($registry, 'fake'))->toBeFalse();
 });
 
 it('registers nothing where there is no manifest', function () use ($runs): void {
