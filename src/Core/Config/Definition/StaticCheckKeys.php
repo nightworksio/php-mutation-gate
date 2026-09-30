@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
@@ -18,10 +18,10 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 final readonly class StaticCheckKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(Origin $origin): array
+    public static function fields(PathOrigin $origin): array
     {
         $results = Effect::AffectsResults;
-        $tool = Field::optional('tool', Adapter::choosing(Builtins::staticCheckers()), $results);
+        $tool = Field::optional('tool', Adapter::choosing(Builtins::staticCheckers($origin)), $results);
         $config = Field::optional('config', Location::path($origin), $results);
 
         return [Field::section(

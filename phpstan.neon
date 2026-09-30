@@ -525,8 +525,6 @@ services:
                 'NightWorksIO\MutationGate\Core\Config\StaticCheck':
                     - AUTO # the analyser zero-config finds, not a proof-writing mode
                     - NONE # no analyser, not a mutator family or a Pest status
-                'NightWorksIO\MutationGate\Core\Config\Setup':
-                    - TREE_SOURCE # the tree source, not a test framework
                 'NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize':
                     - PER_MEGABYTE # bytes in a megabyte
                 'NightWorksIO\MutationGate\Adapter\Infection\OwnConfig':

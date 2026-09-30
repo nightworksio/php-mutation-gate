@@ -72,7 +72,7 @@ final readonly class Proofs implements Part
     /** Whether the store keeps its ledgers in a directory on this machine: the `directory` store. */
     public function keptOnDisk(): bool
     {
-        return $this->store()->use() === self::STORE;
+        return $this->store()->use()->value() === BuiltinStore::Directory->value;
     }
 
     public function store(): Choice

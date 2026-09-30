@@ -13,9 +13,6 @@ use function sprintf;
 /** The optional Pest patches, and the tests that show they work (ADR-0004): `pest`. */
 final readonly class Pest implements Part
 {
-    /** The runner these settings are the options of. */
-    public const string RUNNER = 'pest';
-
     private const string CANARY = 'mutation-canary';
 
     private function __construct(private bool|Absent $patch, private Group|Absent $canary)
@@ -67,8 +64,8 @@ final readonly class Pest implements Part
     {
         $options = Json::object(Member::of('patch', $this->patch()), Member::of('canary', $this->canary()->name()));
 
-        return $runner->use() === self::RUNNER
-            ? Choice::of($runner->use(), $options->merged($runner->options()))
+        return $runner->use()->value() === BuiltinRunner::Pest->value
+            ? Choice::of($runner->use()->value(), $runner->options()->over($options))
             : $runner;
     }
 

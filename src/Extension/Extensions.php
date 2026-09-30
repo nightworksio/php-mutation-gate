@@ -282,7 +282,7 @@ final readonly class Extensions
         return $this->entries($point)->names();
     }
 
-    /** @return Entries<Closure|Layer> */
+    /** @return Entries<Closure|Layer|MutatorSet> */
     private function entries(ExtensionPoint $point): Entries
     {
         return match ($point) {

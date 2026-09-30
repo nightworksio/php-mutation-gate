@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
+use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
@@ -70,7 +71,7 @@ it('leaves standard output to the plan a CI reads from it, and says what it wrot
 })->with([
     'json' => [JsonPlan::printing('php://output', Variables::of([]))],
     'circleci' => [CircleCiPlan::printing('php://output', Variables::of([]))],
-    'buildkite' => [BuildkitePlan::printing('php://output', [], Variables::of([]))],
+    'buildkite' => [BuildkitePlan::printing('php://output', BuildkiteStep::none(), Variables::of([]))],
 ]);
 
 it('cuts shards by the config\'s size where no count is asked for', function () use ($plan): void {
