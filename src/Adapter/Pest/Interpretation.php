@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
@@ -153,9 +154,13 @@ final readonly class Interpretation
             $records->durationOf($id),
         );
 
+        $limit = $records->limit();
+        $limited = $mutant->status() === MutantStatus::TimedOut && $limit instanceof Seconds
+            ? $mutant->withLimit($limit)
+            : $mutant;
         $reason = Reason::that(sprintf(self::UNSELECTED, implode(', ', $unselected)));
 
-        return $unselected === [] ? $mutant : $mutant->because($reason);
+        return $unselected === [] ? $limited : $limited->because($reason);
     }
 
     /** @param list<string> $seen the key of every mutant before this one */

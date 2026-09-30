@@ -155,3 +155,15 @@ it('cannot judge a run that wrote no results', function (): void {
         'Pest wrote no results to /nowhere/results.jsonl. Is pestphp/pest-plugin allowed to run in composer.json?',
     ));
 });
+
+it('allows a mutant the opening run\'s seconds plus the larger of 5 and a fifth', function () use ($results): void {
+    $limit = static function (mixed $opening) use ($results): mixed {
+        $records = Records::in($results([['event' => 'end', 'opening' => $opening]]));
+
+        return $records instanceof Records ? $records->limit() : $records;
+    };
+
+    expect($limit(1.5))->toEqual(Seconds::of(6.0))
+        ->and($limit(30.7))->toEqual(Seconds::of(36.0))
+        ->and($limit(opening: false))->toEqual(Unmeasured::duration());
+});

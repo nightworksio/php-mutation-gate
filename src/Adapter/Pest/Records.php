@@ -9,12 +9,14 @@ use function array_key_exists;
 use function count;
 use function explode;
 use function file_get_contents;
+use function floor;
 use function is_array;
 use function is_file;
 use function is_float;
 use function is_int;
 use function is_string;
 use function json_decode;
+use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -25,7 +27,8 @@ use function uasort;
 
 /**
  * What the plugin wrote of one Pest run: every mutant it planned, the status
- * each ended with, how long each ran, and whether the run reached its end.
+ * each ended with, how long each ran, whether the run reached its end, and
+ * how long its opening run took.
  *
  * @phpstan-type Planned array{file: string, start: int, end: int, mutator: string, diff: string}
  */
@@ -33,6 +36,12 @@ final readonly class Records
 {
     /** The status of a mutant Pest never ran. */
     public const string NONE = 'none';
+
+    /** The least Pest adds to the opening run's seconds to allow a mutant. */
+    private const float LEAST_EXTRA = 5.0;
+
+    /** The share of the opening run's seconds Pest adds where it is more. */
+    private const float EXTRA_SHARE = 0.2;
 
     /** The statuses Pest's summary counts. */
     private const array STATUSES = ['untested', 'uncovered', self::NONE, 'timeout', 'tested'];
@@ -48,6 +57,7 @@ final readonly class Records
         private array $statuses,
         private array $durations,
         private array $finished,
+        private Seconds|Unmeasured $opening,
         private bool $ended,
     ) {
     }
@@ -61,7 +71,7 @@ final readonly class Records
             ));
         }
 
-        $records = new self([], [], [], [], ended: false);
+        $records = new self([], [], [], [], Unmeasured::duration(), ended: false);
 
         foreach (explode("\n", sprintf('%s', file_get_contents($file))) as $line) {
             $records = $records->read($line);
@@ -102,6 +112,19 @@ final readonly class Records
         return $ran ? Seconds::of($this->durations[$id]) : Unmeasured::duration();
     }
 
+    /**
+     * The seconds Pest allowed each mutant: the opening run's, and the larger
+     * of five seconds and a fifth of them more, in whole seconds.
+     */
+    public function limit(): Seconds|Unmeasured
+    {
+        $opening = $this->opening;
+
+        return $opening instanceof Seconds
+            ? Seconds::of(floor($opening->seconds() + max(self::LEAST_EXTRA, $opening->seconds() * self::EXTRA_SHARE)))
+            : Unmeasured::duration();
+    }
+
     /** Whether the run reached its end, and every planned mutant's final status adds up to Pest's own summary. */
     public function addUpTo(Summary $summary): bool
     {
@@ -125,7 +148,7 @@ final readonly class Records
             'planned' => $this->withPlanned($record),
             'outcome' => $this->withOutcome($record),
             'finished' => $this->withFinished($record),
-            'end' => new self($this->planned, $this->statuses, $this->durations, $this->finished, ended: true),
+            'end' => $this->withEnd($record),
             default => $this,
         };
     }
@@ -146,6 +169,7 @@ final readonly class Records
             $this->statuses,
             $this->durations,
             $this->finished,
+            $this->opening,
             $this->ended,
         );
     }
@@ -158,6 +182,7 @@ final readonly class Records
             [...$this->statuses, $this->text($record, 'id') => $this->text($record, 'status')],
             $this->durations,
             $this->finished,
+            $this->opening,
             $this->ended,
         );
     }
@@ -176,8 +201,19 @@ final readonly class Records
             [...$this->statuses, $id => $status],
             $durations,
             [...$this->finished, $id => $status],
+            $this->opening,
             $this->ended,
         );
+    }
+
+    /** @param array<mixed> $record */
+    private function withEnd(array $record): self
+    {
+        $opening = array_key_exists('opening', $record) && is_float($record['opening'])
+            ? Seconds::of($record['opening'])
+            : Unmeasured::duration();
+
+        return new self($this->planned, $this->statuses, $this->durations, $this->finished, $opening, ended: true);
     }
 
     /** @param array<mixed> $record */

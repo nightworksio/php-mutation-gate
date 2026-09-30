@@ -138,7 +138,7 @@ $six = static fn(string $root): array => [
 $read = static fn(Project $project, Ran $ran, string $results): MutationResult|CannotJudge
     => new Interpretation($project, Patching::off())->of($ran, $results);
 
-it('reads a finished run as the gate\'s records, by file and line', function () use ($mutant, $six, $read): void {
+it('reads a finished run by file and line, with a timeout\'s limit', function () use ($mutant, $six, $read): void {
     [$project, $results, $root] = interpretedRun([11 => [0], 21 => [], 40 => [0]], [11 => [1]]);
     PestRun::write($results, $six($root));
     $unselected = Reason::that(
@@ -151,22 +151,25 @@ it('reads a finished run as the gate\'s records, by file and line', function () 
             $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Killed, 0.25),
             $mutant('n2', 'src/Money.php:21', 'amount', MutantStatus::Uncovered),
             $mutant('n3', 'src/Money.php:40', 'ab', MutantStatus::Survived, 0.5, 1),
-            $mutant('n4', 'src/Money.php:50', 'cd', MutantStatus::TimedOut, 5.0),
+            $mutant('n4', 'src/Money.php:50', 'cd', MutantStatus::TimedOut, 5.0)->withLimit(Seconds::of(6.0)),
             $mutant('n6', 'src/Money.php:60', 'ef', MutantStatus::Unjudged),
         ), 0));
 });
 
-it('keeps what a stopped run judged, and leaves the rest', function () use ($mutant, $plan, $read): void {
+it('keeps what a stopped run judged, unlimited, and leaves the rest', function () use ($mutant, $plan, $read): void {
     [$project, $results, $root] = interpretedRun([11 => [0]], []);
     PestRun::write($results, [
         $plan($root, 'n1', 'src/Money.php:11', 'ab'),
         $plan($root, 'n2', 'src/Money.php:12', 'cd'),
+        $plan($root, 'n3', 'src/Money.php:13', 'ef'),
         PestRun::outcome('n1', 'tested'),
+        PestRun::outcome('n2', 'timeout'),
     ]);
 
     expect($read($project, Ran::stopped('half a run'), $results))->toEqual(MutationResult::of(Mutants::of(
         $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Killed),
-        $mutant('n2', 'src/Money.php:12', 'cd', MutantStatus::Unjudged),
+        $mutant('n2', 'src/Money.php:12', 'cd', MutantStatus::TimedOut),
+        $mutant('n3', 'src/Money.php:13', 'ef', MutantStatus::Unjudged),
     ), 0));
 });
 
