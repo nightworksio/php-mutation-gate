@@ -1,0 +1,279 @@
+{
+  "$comment": "Every CI job, what it checks, how to reproduce and fix it, what evidence it leaves, and what each rule its tools report beyond .github/bot/rules means (ADR-0019, decisions 5 and 7). A job of a called workflow is named <caller>/<job>. tests/Arch/TheGatesAreExplainedTest.php holds this file to the workflows.",
+  "format": 1,
+  "gates": {
+    "scope": {
+      "check": "what changed",
+      "checks": "Which of the PHP gates a change needs: a change to documentation alone needs none.",
+      "reproduce": "git diff --name-only origin/main...HEAD",
+      "evidence": "none",
+      "why": "It decides which gates run and checks nothing itself."
+    },
+    "attribution": {
+      "check": "attribution",
+      "checks": "No commit, and not the pull request's body, credits an AI assistant or a tool.",
+      "reproduce": "python3 .github/scripts/attribution_check.py origin/main HEAD",
+      "evidence": [
+        {"step": "check", "tool": "attribution", "raw": "evidence/raw/attribution.json"}
+      ],
+      "rules": {
+        "attribution": "The check could not read the commits.",
+        "credits-an-assistant": "A commit or the pull request's body carries a co-author trailer or a badge that credits an assistant or a tool. The work is the author's own: remove the line, and reword the commit if it is in one."
+      }
+    },
+    "commitlint": {
+      "check": "commitlint",
+      "checks": "Every commit subject, and the pull request title, is conventional: type(scope): subject.",
+      "reproduce": "python3 .github/scripts/commit_lint.py origin/main HEAD --title \"<the pull request title>\"",
+      "evidence": [
+        {"step": "check", "tool": "commitlint", "raw": "evidence/raw/commitlint.json"}
+      ],
+      "rules": {
+        "commitlint": "The check could not read the commits.",
+        "conventional-subject": "A commit subject is not conventional. Reword it as type(scope): subject, with a type from feat, fix, docs, refactor, test, chore, ci, perf, build, style or revert.",
+        "conventional-title": "The pull request title is not conventional. A squash merge makes it the subject of the commit on main, so write it as type(scope): subject."
+      }
+    },
+    "scripts": {
+      "check": "scripts",
+      "checks": "The deciding half of every script under .github/scripts, by its unit tests.",
+      "reproduce": "python3 -m unittest discover --start-directory .github/scripts",
+      "evidence": [
+        {"step": "unittest", "tool": "scripts", "raw": "evidence/raw/scripts.json"}
+      ],
+      "rules": {
+        "scripts": "The tests did not run to the end.",
+        "failure": "A test's assertion failed.",
+        "error": "A test threw before it could finish."
+      }
+    },
+    "rules": {
+      "check": "rules",
+      "checks": "The architecture rules of ARCHITECTURE.md: layers, shapes, names and the tests themselves (tests/Arch).",
+      "reproduce": "vendor/bin/pest --testsuite=Arch",
+      "evidence": [
+        {"step": "arch", "tool": "pest", "raw": "evidence/raw/rules.xml"}
+      ],
+      "rules": {
+        "pest": "The suite did not run to the end, so it wrote no log of its tests.",
+        "failure": "A test's expectation failed.",
+        "error": "A test threw before it could finish."
+      }
+    },
+    "guards": {
+      "check": "the rules refuse violations",
+      "checks": "Every rule refuses a violation of itself, planted in a copy of the checkout.",
+      "reproduce": "composer test:guards",
+      "evidence": [
+        {"step": "guards", "tool": "pest", "raw": "evidence/raw/guards.xml"}
+      ],
+      "rules": {
+        "pest": "The suite did not run to the end, so it wrote no log of its tests.",
+        "failure": "A rule let a planted violation of itself through.",
+        "error": "A test threw before it could finish."
+      }
+    },
+    "checks": {
+      "check": "checks",
+      "checks": "The manifest, the formatting (Pint), the static analysis (PHPStan), dead idioms (Rector), the advisories and the dependencies.",
+      "reproduce": "composer validate --strict && composer normalize --dry-run && composer audit && composer lint && composer analyse && composer refactor && composer deps",
+      "fix": "composer refactor:fix && composer lint:fix && composer normalize",
+      "evidence": [
+        {"step": "validate", "tool": "composer-validate"},
+        {"step": "normalize", "tool": "composer-normalize", "raw": "evidence/raw/normalize.txt"},
+        {"step": "audit", "tool": "composer-audit", "raw": "evidence/raw/audit.json"},
+        {"step": "lint", "tool": "pint", "raw": "evidence/raw/pint.json"},
+        {"step": "analyse", "tool": "phpstan", "raw": "evidence/raw/phpstan.json"},
+        {"step": "refactor", "tool": "rector", "raw": "evidence/raw/rector.json"},
+        {"step": "deps", "tool": "dependency-analyser", "raw": "evidence/raw/deps.xml"}
+      ],
+      "rules": {
+        "composer-validate": "composer.json is not valid. Run composer validate --strict for what it says.",
+        "composer-normalize": "composer.json is not normalized. composer normalize writes it in the order and shape it wants.",
+        "composer-audit": "The audit did not run to the end.",
+        "advisory": "A package the lock file installs has a security advisory. Raise it to a release the advisory says is fixed.",
+        "abandoned": "A package the lock file installs is abandoned. Replace it with the package its author names, or drop it.",
+        "pint": "Pint did not run to the end.",
+        "phpstan": "PHPStan did not run to the end, or failed outside any file.",
+        "rector": "Rector did not run to the end.",
+        "dependency-analyser": "The dependency analyser did not run to the end.",
+        "unknown-classes": "The code uses a class that no installed package declares.",
+        "unknown-functions": "The code calls a function that no installed package declares.",
+        "shadow-dependencies": "The code uses a package that composer.json does not require; it arrives only through another package. Require it.",
+        "dev-dependencies-in-production-code": "Code under src uses a package that composer.json requires only for development.",
+        "prod-dependencies-used-only-in-dev-paths": "A package required for production is used only by the tests. Move it to require-dev.",
+        "unused-dependencies": "composer.json requires a package that nothing uses. Remove it.",
+        "unused-ignore": "composer-dependency-analyser.php ignores a problem that no longer occurs. Remove the ignore."
+      }
+    },
+    "tests": {
+      "check": "tests and coverage",
+      "checks": "The suite, with every line of src covered (G7).",
+      "reproduce": "composer test:coverage",
+      "troubleshooting": "no-coverage-driver",
+      "evidence": [
+        {"step": "suite", "tool": "pest", "raw": "coverage/junit.xml"},
+        {"step": "suite", "tool": "coverage", "raw": "coverage/clover.xml"}
+      ],
+      "rules": {
+        "pest": "The suite did not run to the end, so it wrote no log of its tests.",
+        "failure": "A test's expectation failed.",
+        "error": "A test threw before it could finish.",
+        "coverage": "The suite did not run to the end, so it wrote no coverage report.",
+        "uncovered": "No test runs this line. Every line of src is covered: add the test that runs it, or remove the line."
+      }
+    },
+    "lowest": {
+      "check": "lowest dependencies",
+      "checks": "The suite against the oldest release of every dependency composer.json admits.",
+      "reproduce": "composer update --prefer-lowest --prefer-stable && composer test",
+      "evidence": [
+        {"step": "suite", "tool": "pest", "raw": "evidence/raw/lowest.xml"}
+      ],
+      "rules": {
+        "pest": "The suite did not run to the end, so it wrote no log of its tests.",
+        "failure": "A test's expectation failed against the lowest dependencies: a lower bound in composer.json no longer works.",
+        "error": "A test threw against the lowest dependencies: a lower bound in composer.json no longer works."
+      }
+    },
+    "runner-contracts": {
+      "check": "runner contracts",
+      "checks": "ADR-0004's Runner contract suite against the real Pest and Infection, at both ends of the ranges the package supports.",
+      "reproduce": "vendor/bin/pest --testsuite=Contract, after installing the fixture libraries as the job does",
+      "evidence": [
+        {"step": "pest-lowest", "tool": "pest", "raw": "evidence/raw/pest-lowest.xml"},
+        {"step": "pest-highest", "tool": "pest", "raw": "evidence/raw/pest-highest.xml"},
+        {"step": "infection-lowest-12", "tool": "pest", "raw": "evidence/raw/infection-lowest-12.xml"},
+        {"step": "infection-lowest-13", "tool": "pest", "raw": "evidence/raw/infection-lowest-13.xml"},
+        {"step": "infection-highest-12", "tool": "pest", "raw": "evidence/raw/infection-highest-12.xml"},
+        {"step": "infection-highest-13", "tool": "pest", "raw": "evidence/raw/infection-highest-13.xml"}
+      ],
+      "rules": {
+        "pest": "The suite did not run to the end, so it wrote no log of its tests.",
+        "failure": "A runner broke a promise of the Runner port.",
+        "error": "A contract test threw before it could finish."
+      }
+    },
+    "sonar": {
+      "check": "sonarcloud",
+      "checks": "SonarCloud's analysis of the reports tests and coverage wrote.",
+      "reproduce": "Open the SonarCloud project from the job's summary",
+      "evidence": "none",
+      "why": "SonarCloud reports on its own pages, and the gate job counts what it found."
+    },
+    "gate": {
+      "check": "gate",
+      "checks": "Zero SonarCloud issues: none new on the pull request, and none open against main.",
+      "reproduce": "Open https://sonarcloud.io/project/issues?id=nightworksio_php-mutation-gate&resolved=false",
+      "evidence": [
+        {"step": "count", "tool": "sonar", "raw": "evidence/raw/sonar.json"}
+      ],
+      "rules": {
+        "sonar": "The gate could not read SonarCloud's counts: the tests or the scan did not pass, or SonarCloud did not answer.",
+        "sonar-new-issues": "SonarCloud finds issues this pull request brings. Fix each, or resolve it in SonarCloud with the reason it is not a defect.",
+        "sonar-open-issues": "SonarCloud finds issues open against main. This repository allows none."
+      }
+    },
+    "evidence": {
+      "check": "evidence",
+      "checks": "It gathers every job's evidence into the one artifact the bot reads.",
+      "reproduce": "Nothing to reproduce",
+      "evidence": "none",
+      "why": "It holds the other jobs' evidence and checks nothing itself."
+    },
+    "hygiene/actionlint": {
+      "check": "hygiene / actionlint",
+      "checks": "The workflows, by actionlint and the shellcheck it runs over their scripts.",
+      "reproduce": "actionlint",
+      "evidence": [
+        {"step": "actionlint", "tool": "actionlint", "raw": "evidence/raw/actionlint.json"}
+      ],
+      "rules": {
+        "actionlint": "actionlint did not run to the end.",
+        "syntax-check": "A workflow is not valid YAML, or not a shape GitHub Actions reads.",
+        "expression": "A ${{ }} expression is wrong, or puts untrusted input straight into a script.",
+        "action": "A step uses an action with inputs it does not have, or misses one it needs.",
+        "events": "A workflow's trigger is not an event GitHub raises, or is written wrongly.",
+        "workflow-call": "A reusable workflow is called with inputs or secrets it does not declare.",
+        "shellcheck": "shellcheck finds a problem in a run: script.",
+        "pyflakes": "pyflakes finds a problem in a Python run: script.",
+        "id": "A job or step id is not valid, or not unique.",
+        "shell-name": "A step names a shell GitHub Actions does not have.",
+        "runner-label": "A job asks for a runner label that does not exist.",
+        "permissions": "A permissions block names a scope or a level that does not exist.",
+        "if-cond": "An if: condition is always true or always false as written.",
+        "glob": "A glob in a filter is not valid.",
+        "credentials": "A workflow writes a password into a container's credentials.",
+        "matrix": "A matrix is written wrongly, or holds a duplicate.",
+        "job-needs": "A job needs a job that does not exist, or the needs form a loop.",
+        "deprecated-commands": "A step uses a workflow command GitHub has retired.",
+        "env-var": "An environment variable's name is not valid.",
+        "config": "actionlint's own configuration is not valid."
+      }
+    },
+    "hygiene/typos": {
+      "check": "hygiene / typos",
+      "checks": "The spelling of every file, by typos.",
+      "reproduce": "typos",
+      "evidence": [
+        {"step": "typos", "tool": "typos", "raw": "evidence/raw/typos.jsonl"}
+      ],
+      "rules": {
+        "typos": "typos did not run to the end.",
+        "typo": "A word typos knows as a misspelling. Its correction is proposed, not applied: inside an identifier, the corrected word can be wrong."
+      }
+    },
+    "hygiene/links": {
+      "check": "hygiene / links",
+      "checks": "Every link in the Markdown, by lychee.",
+      "reproduce": "lychee --config lychee.toml .",
+      "evidence": [
+        {"step": "lychee", "tool": "lychee", "raw": "evidence/raw/lychee.json"}
+      ],
+      "rules": {
+        "lychee": "lychee did not run to the end, or found no link where there are some.",
+        "broken-link": "A link answers 404 or 410, points at a file that is not there, or timed out."
+      }
+    },
+    "hygiene/markdown": {
+      "check": "hygiene / markdown",
+      "checks": "The Markdown, by markdownlint with .markdownlint.jsonc.",
+      "reproduce": "npm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \"**/*.md\"",
+      "fix": "npm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --fix \"**/*.md\"",
+      "evidence": [
+        {"step": "markdownlint", "tool": "markdownlint", "raw": "evidence/raw/markdownlint.json"},
+        {"step": "table", "tool": "markdownlint-table"}
+      ],
+      "rules": {
+        "markdownlint": "markdownlint did not run to the end.",
+        "markdownlint-table": ".github/bot/rules/markdownlint.json is not what the locked markdownlint says of its rules. Run node .github/bot/markdownlint/rules.mjs > .github/bot/rules/markdownlint.json and commit it."
+      }
+    },
+    "security/gitleaks": {
+      "check": "security / gitleaks",
+      "checks": "No secret anywhere in the history, by gitleaks.",
+      "reproduce": "gitleaks git --redact .",
+      "evidence": [
+        {"step": "gitleaks", "tool": "gitleaks", "raw": "evidence/raw/gitleaks.json"},
+        {"step": "freshness", "tool": "gitleaks-freshness"}
+      ],
+      "rules": {
+        "gitleaks": "gitleaks did not run to the end.",
+        "gitleaks-freshness": "The pinned gitleaks is more than 30 days behind its latest release, so it misses rules the latest has. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/security.yml.",
+        "secret": "gitleaks finds a secret committed here. Revoke it first, then remove it from the history; deleting the file in a later commit leaves it readable."
+      }
+    },
+    "security/osv-scanner": {
+      "check": "security / osv-scanner",
+      "checks": "No known vulnerability in what the lock files install, by osv-scanner.",
+      "reproduce": "osv-scanner scan source --recursive .",
+      "evidence": [
+        {"step": "osv-scanner", "tool": "osv-scanner", "raw": "evidence/raw/osv-scanner.json"}
+      ],
+      "rules": {
+        "osv-scanner": "osv-scanner did not run to the end.",
+        "vulnerability": "A package a lock file installs has a known vulnerability. Raise it to a release the advisory says is fixed."
+      }
+    }
+  }
+}

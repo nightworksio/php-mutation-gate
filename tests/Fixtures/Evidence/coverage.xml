@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1790000000">
+  <project timestamp="1790000000">
+    <package name="NightWorksIO\MutationGate\Core\Cost">
+      <file name="/home/runner/work/php-mutation-gate/php-mutation-gate/src/Core/Cost/Shares.php">
+        <class name="NightWorksIO\MutationGate\Core\Cost\Shares" namespace="NightWorksIO\MutationGate\Core\Cost">
+          <metrics complexity="4" methods="2" coveredmethods="1" conditionals="0" coveredconditionals="0" statements="6" coveredstatements="4" elements="8" coveredelements="5"/>
+        </class>
+        <line num="31" type="method" name="of" visibility="public" complexity="2" crap="2" count="3"/>
+        <line num="33" type="stmt" count="3"/>
+        <line num="34" type="stmt" count="3"/>
+        <line num="41" type="method" name="weightOf" visibility="private" complexity="2" crap="6" count="0"/>
+        <line num="43" type="stmt" count="0"/>
+        <line num="44" type="stmt" count="0"/>
+        <metrics loc="50" ncloc="44" classes="1" methods="2" coveredmethods="1" conditionals="0" coveredconditionals="0" statements="6" coveredstatements="4" elements="8" coveredelements="5"/>
+      </file>
+    </package>
+    <metrics files="1" loc="50" ncloc="44" classes="1" methods="2" coveredmethods="1" conditionals="0" coveredconditionals="0" statements="6" coveredstatements="4" elements="8" coveredelements="5"/>
+  </project>
+</coverage>

@@ -66,6 +66,9 @@ jobs:
           if [ "${code}" = false ]; then
             echo "Documentation only; the PHP gates are skipped."
           fi
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py scope
 
   # The record of every commit a pull request brings: no tool is credited for
   # it, and its subject is conventional. Each reads the pull request's
@@ -87,9 +90,28 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
+        id: check
         run: |
+          mkdir -p evidence/raw
           printf '%s\n\n%s\n' "${PR_TITLE}" "${PR_BODY}" \
-            | python3 .github/scripts/attribution_check.py "${BASE_SHA}" "${HEAD_SHA}" --body-on-stdin
+            | python3 .github/scripts/attribution_check.py "${BASE_SHA}" "${HEAD_SHA}" --body-on-stdin \
+              --findings evidence/raw/attribution.json
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py attribution
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-attribution
+          path: evidence/attribution*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py attribution
 
   commitlint:
     name: commitlint
@@ -105,7 +127,56 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: python3 .github/scripts/commit_lint.py "${BASE_SHA}" "${HEAD_SHA}" --title "${PR_TITLE}"
+        id: check
+        run: |
+          mkdir -p evidence/raw
+          python3 .github/scripts/commit_lint.py "${BASE_SHA}" "${HEAD_SHA}" --title "${PR_TITLE}" \
+            --findings evidence/raw/commitlint.json
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py commitlint
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-commitlint
+          path: evidence/commitlint*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py commitlint
+
+  # The deciding half of every script under .github/scripts, tested without a
+  # runner (ADR-0019, decision 1).
+  scripts:
+    name: scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: unittest
+        run: python3 .github/scripts/unit.py evidence/raw/scripts.json
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py scripts
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-scripts
+          path: evidence/scripts*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py scripts
 
   # Workflow lint, spelling, links and Markdown, over every change.
   hygiene:
@@ -132,7 +203,26 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
-      - run: vendor/bin/pest --testsuite=Arch
+      - id: arch
+        run: |
+          mkdir -p evidence/raw
+          vendor/bin/pest --testsuite=Arch --log-junit=evidence/raw/rules.xml
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py rules
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-rules
+          path: evidence/rules*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py rules
 
   # Every rule refuses a violation of itself, planted in a copy of the checkout
   # under the runner's temporary directory, never in the checkout itself.
@@ -155,7 +245,26 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
-      - run: composer test:guards
+      - id: guards
+        run: |
+          mkdir -p evidence/raw
+          composer test:guards -- --log-junit=evidence/raw/guards.xml
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py guards
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-guards
+          path: evidence/guards*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py guards
 
   # The package's metadata, formatting, static analysis, dead idioms and
   # dependency hygiene. One install, one PHP, no coverage driver.
@@ -182,14 +291,52 @@ jobs:
           key: analysis-${{ runner.os }}-${{ github.sha }}
           restore-keys: analysis-${{ runner.os }}-
       # Cheapest first, so a misplaced brace fails in seconds rather than after
-      # the analyser has walked the tree.
-      - run: composer validate --strict
-      - run: composer normalize --dry-run
-      - run: composer audit
-      - run: composer lint
-      - run: composer analyse
-      - run: composer refactor
-      - run: composer deps
+      # the analyser has walked the tree. Each tool reports in its structured
+      # form, into evidence/raw, and the evidence step shows every finding as an
+      # annotation (ADR-0019, decision 5).
+      - id: validate
+        run: |
+          mkdir -p evidence/raw
+          composer validate --strict
+      - id: normalize
+        run: |
+          set -o pipefail
+          composer normalize --dry-run 2>&1 | tee evidence/raw/normalize.txt
+      - id: audit
+        run: composer audit --format=json > evidence/raw/audit.json
+      - id: lint
+        run: composer lint -- --format=json > evidence/raw/pint.json
+      - id: analyse
+        run: composer analyse -- --error-format=json --no-progress > evidence/raw/phpstan.json
+      - id: refactor
+        run: composer refactor -- --output-format=json > evidence/raw/rector.json
+      - id: deps
+        run: composer deps -- --format=junit > evidence/raw/deps.xml
+      # The fixes that are mechanical, computed here and offered to the pull
+      # request as a patch, never pushed (ADR-0019, decision 8).
+      - name: compute the mechanical fixes
+        if: failure() && (steps.normalize.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.refactor.outcome == 'failure')
+        run: |
+          composer refactor:fix
+          composer lint:fix
+          composer normalize
+          git diff > evidence/checks.fix.patch
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py checks
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-checks
+          path: evidence/checks*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py checks
 
   # G7 — every line of src covered, by scripts/coverage.sh. The clover and
   # JUnit reports it writes are what `sonar` hands SonarCloud, so the suite runs
@@ -210,7 +357,8 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
-      - run: composer test:report
+      - id: suite
+        run: composer test:report
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-report
@@ -219,6 +367,22 @@ jobs:
             coverage/junit.xml
           if-no-files-found: error
           retention-days: 1
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py tests
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-tests
+          path: evidence/tests*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py tests
 
   # The suite against the oldest release of every dependency the constraints in
   # composer.json admit, so a lower bound that no longer works is found here
@@ -241,7 +405,26 @@ jobs:
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         with:
           dependency-versions: lowest
-      - run: composer test
+      - id: suite
+        run: |
+          mkdir -p evidence/raw
+          composer test -- --log-junit=evidence/raw/lowest.xml
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py lowest
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-lowest
+          path: evidence/lowest*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py lowest
 
   # ADR-0004's Runner contract suite against the real runners, at both ends of
   # the range the package supports. The fixture library is a project of its
@@ -285,7 +468,10 @@ jobs:
           composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
       # The whole Contract suite, so every contract that needs the fixture
       # library runs against each resolution of it.
-      - run: vendor/bin/pest --testsuite=Contract
+      - id: pest-lowest
+        run: |
+          mkdir -p evidence/raw
+          vendor/bin/pest --testsuite=Contract --log-junit=evidence/raw/pest-lowest.xml
         env:
           RUNNER_CONTRACTS: pest
       - name: install the highest supported Pest into the fixture library
@@ -294,7 +480,10 @@ jobs:
           coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
           composer update --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
           composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
-      - run: vendor/bin/pest --testsuite=Contract
+      - id: pest-highest
+        run: |
+          mkdir -p evidence/raw
+          vendor/bin/pest --testsuite=Contract --log-junit=evidence/raw/pest-highest.xml
         env:
           RUNNER_CONTRACTS: pest
       # Infection's library is a project of its own too, installed at the lowest
@@ -307,7 +496,8 @@ jobs:
         run: |
           composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/phpunit:^12.0"
           composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection'
+      - id: infection-lowest-12
+        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-lowest-12.xml
         env:
           RUNNER_CONTRACTS: infection
       - name: install the lowest Infection with PHPUnit 13 into its library
@@ -315,7 +505,8 @@ jobs:
         run: |
           composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/phpunit:^13.0"
           composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection'
+      - id: infection-lowest-13
+        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-lowest-13.xml
         env:
           RUNNER_CONTRACTS: infection
       - name: install the highest Infection with PHPUnit 12 into its library
@@ -323,7 +514,8 @@ jobs:
         run: |
           composer update --no-interaction --no-progress --with "phpunit/phpunit:^12.0"
           composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection'
+      - id: infection-highest-12
+        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-highest-12.xml
         env:
           RUNNER_CONTRACTS: infection
       - name: install the highest Infection with PHPUnit 13 into its library
@@ -331,9 +523,26 @@ jobs:
         run: |
           composer update --no-interaction --no-progress --with "phpunit/phpunit:^13.0"
           composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection'
+      - id: infection-highest-13
+        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-highest-13.xml
         env:
           RUNNER_CONTRACTS: infection
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py runner-contracts
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-runner-contracts
+          path: evidence/runner-contracts*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py runner-contracts
 
   # G8 — every mutant of src is killed. The package holds its own code to a
   # floor of 100 through its own gate: the reusable workflow and the action in
@@ -367,6 +576,9 @@ jobs:
           args: -Dsonar.qualitygate.wait=true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py sonar
 
   # Zero issues, which SonarCloud's free quality gate cannot express: a green
   # quality gate is not a clean project. This asks for both numbers — the issues
@@ -393,4 +605,45 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
           FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        id: count
         run: bash .github/scripts/sonar_gate.sh
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py gate
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-gate
+          path: evidence/gate*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py gate
+
+  # Every job's evidence, gathered into the one artifact `evidence` the bot
+  # reads when the run is over (ADR-0019, decision 5). A job that did not run
+  # left none.
+  evidence:
+    name: evidence
+    needs: [scope, attribution, commitlint, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contracts, sonar, gate]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - uses: actions/upload-artifact/merge@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: evidence
+          pattern: evidence-*
+          delete-merged: true
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py evidence

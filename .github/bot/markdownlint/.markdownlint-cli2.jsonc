@@ -1,0 +1,11 @@
+// The `hygiene / markdown` job's run of markdownlint-cli2: the rules stay in
+// .markdownlint.jsonc at the root, and this adds the formatters, the default
+// one for the log and the JSON one for the job's evidence (ADR-0019).
+{
+  // What Composer and npm install is other projects' documentation.
+  "ignores": ["**/node_modules/**", "**/vendor/**"],
+  "outputFormatters": [
+    ["markdownlint-cli2-formatter-default"],
+    ["markdownlint-cli2-formatter-json", { "name": "evidence/raw/markdownlint.json", "spaces": 1 }]
+  ]
+}

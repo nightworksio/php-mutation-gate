@@ -39,6 +39,22 @@ updates:
       prefix: build
       include: scope
 
+  # The markdownlint the `hygiene / markdown` job runs, locked with the
+  # formatter that writes its evidence (ADR-0019).
+  - package-ecosystem: npm
+    directory: /.github/bot/markdownlint
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    groups:
+      markdownlint:
+        patterns: ['*']
+    commit-message:
+      prefix: build
+      include: scope
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -161,6 +161,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | runner contracts | the Runner contract suite (ADR-0004) against the lowest and highest supported Pest and Infection | yes |
    | mutation testing | the package's own plan, shards and verdict, through the local reusable workflow, with its `verdict` job as the check | yes |
    | sonar, sonar gate | SonarCloud's analysis, and its quality gate with no open issue allowed | yes |
+   | evidence | every job's evidence, gathered into the one artifact the bot reads (ADR-0019) | no |
    | analyze | CodeQL for the workflows, the reusable workflow and the action | yes |
    | scorecard | OpenSSF Scorecard | no |
    | full mutation | the weekly scheduled full run | no |

@@ -1,0 +1,1 @@
+{"tool":"pint","result":"fail","files":[{"path":"src\/Core\/Planted\/Bad.php","fixers":["final_class","class_definition","blank_line_after_opening_tag","native_function_invocation","global_namespace_import","braces_position","statement_indentation","no_unused_imports","single_line_after_imports","blank_line_after_namespace","blank_lines_before_namespace"]}]}

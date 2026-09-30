@@ -25,8 +25,10 @@ jobs:
       # The CLI rather than gitleaks' own action, which asks an organisation
       # for a licence key.
       - name: gitleaks
+        id: gitleaks
         run: |
           set -euo pipefail
+          mkdir -p evidence/raw
           url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           curl -sSfL --proto '=https' --tlsv1.2 \
             --retry 3 --retry-delay 2 --retry-all-errors \
@@ -34,12 +36,14 @@ jobs:
           sha256sum --check --strict <<<"${GITLEAKS_SHA256}  gitleaks.tar.gz"
           tar xzf gitleaks.tar.gz gitleaks
           rm -f gitleaks.tar.gz
-          ./gitleaks git --no-banner --redact --exit-code 1 .
+          ./gitleaks git --no-banner --redact --exit-code 1 \
+            --report-format json --report-path evidence/raw/gitleaks.json .
 
       # A pinned scanner applies only the rules it shipped with. A release more
       # than STALE_DAYS old that this has not taken fails the run; a younger one
       # is a notice.
       - name: The pinned gitleaks is not far behind the latest release
+        id: freshness
         env:
           GH_TOKEN: ${{ github.token }}
           STALE_DAYS: "30"
@@ -78,6 +82,22 @@ jobs:
             exit 1
           fi
           echo "::notice::gitleaks ${tag} is ${age} days old; this scanned with ${GITLEAKS_VERSION}. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/security.yml when convenient."
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py security/gitleaks
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-security-gitleaks
+          path: evidence/security-gitleaks*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py security/gitleaks
 
   osv-scanner:
     runs-on: ubuntu-latest
@@ -86,10 +106,30 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+      - run: mkdir -p evidence/raw
+      - id: osv-scanner
+        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
         with:
           scan-args: |-
             scan
             source
             --recursive
+            --format=json
+            --output=evidence/raw/osv-scanner.json
             ./
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py security/osv-scanner
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-security-osv-scanner
+          path: evidence/security-osv-scanner*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py security/osv-scanner

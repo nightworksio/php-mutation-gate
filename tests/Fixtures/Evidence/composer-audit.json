@@ -1,0 +1,25 @@
+{
+    "advisories": {
+        "symfony/process": [
+            {
+                "advisoryId": "PKSA-5jz8-6tcw-pbk4",
+                "packageName": "symfony/process",
+                "affectedVersions": ">=7.0.0,<7.4.5",
+                "title": "Symfony Process argument escaping on Windows",
+                "cve": "CVE-2026-24739",
+                "link": "https://symfony.com/cve-2026-24739",
+                "reportedAt": "2026-01-28T12:00:00+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-r39x-jcww-82v6"
+                    }
+                ],
+                "severity": "medium"
+            }
+        ]
+    },
+    "abandoned": {
+        "acme/old": null
+    }
+}

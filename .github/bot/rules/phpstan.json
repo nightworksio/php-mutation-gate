@@ -1,0 +1,204 @@
+{
+  "$comment": "PHPStan identifiers, one line each in this repository's words, with phpstan.org's page; this package's own identifiers name their ARCHITECTURE.md row (ADR-0019, decision 7). Written by hand: PHPStan ships no descriptions.",
+  "rules": {
+    "argument.missing": {
+      "says": "A call leaves out an argument the function needs.",
+      "link": "https://phpstan.org/error-identifiers/argument.missing"
+    },
+    "argument.type": {
+      "says": "A call passes a value of a type the parameter does not accept.",
+      "link": "https://phpstan.org/error-identifiers/argument.type"
+    },
+    "assign.propertyType": {
+      "says": "A property is given a value of a type it does not declare.",
+      "link": "https://phpstan.org/error-identifiers/assign.propertyType"
+    },
+    "booleanAnd.alwaysFalse": {
+      "says": "One side of an && is always false, so the whole is.",
+      "link": "https://phpstan.org/error-identifiers/booleanAnd.alwaysFalse"
+    },
+    "booleanNot.exprNotBoolean": {
+      "says": "A ! is applied to a value that is not a bool.",
+      "link": "https://phpstan.org/error-identifiers/booleanNot.exprNotBoolean"
+    },
+    "class.notFound": {
+      "says": "The code names a class that does not exist.",
+      "link": "https://phpstan.org/error-identifiers/class.notFound"
+    },
+    "deadCode.unreachable": {
+      "says": "A statement can never be reached.",
+      "link": "https://phpstan.org/error-identifiers/deadCode.unreachable"
+    },
+    "disallowed.class": {
+      "says": "A class ARCHITECTURE.md forbids where it is used.",
+      "link": "https://phpstan.org/error-identifiers/disallowed.class"
+    },
+    "disallowed.constant": {
+      "says": "A constant ARCHITECTURE.md forbids where it is read.",
+      "link": "https://phpstan.org/error-identifiers/disallowed.constant"
+    },
+    "disallowed.else": {
+      "says": "An else; this package has none (C5).",
+      "link": "https://phpstan.org/error-identifiers/disallowed.else"
+    },
+    "disallowed.elseIf": {
+      "says": "An elseif; this package has none (C5).",
+      "link": "https://phpstan.org/error-identifiers/disallowed.elseIf"
+    },
+    "disallowed.function": {
+      "says": "A call to a function ARCHITECTURE.md forbids where it is made.",
+      "link": "https://phpstan.org/error-identifiers/disallowed.function"
+    },
+    "disallowed.method": {
+      "says": "A call to a method ARCHITECTURE.md forbids where it is made.",
+      "link": "https://phpstan.org/error-identifiers/disallowed.method"
+    },
+    "disallowed.namespace": {
+      "says": "A namespace ARCHITECTURE.md forbids where it is used.",
+      "link": "https://phpstan.org/error-identifiers/disallowed.namespace"
+    },
+    "disallowed.staticCall": {
+      "says": "A static call ARCHITECTURE.md forbids where it is made.",
+      "link": "https://phpstan.org/error-identifiers/disallowed.staticCall"
+    },
+    "disallowed.variable": {
+      "says": "A variable ARCHITECTURE.md forbids where it is read, such as a superglobal.",
+      "link": "https://phpstan.org/error-identifiers/disallowed.variable"
+    },
+    "ergebnis.final": {
+      "says": "A class is neither abstract nor final; this package makes every class final.",
+      "link": "https://phpstan.org/error-identifiers/ergebnis.final"
+    },
+    "ergebnis.noParameterWithNullDefaultValue": {
+      "says": "A parameter defaults to null.",
+      "link": "https://phpstan.org/error-identifiers/ergebnis.noParameterWithNullDefaultValue"
+    },
+    "function.notFound": {
+      "says": "The code calls a function that does not exist.",
+      "link": "https://phpstan.org/error-identifiers/function.notFound"
+    },
+    "identical.alwaysFalse": {
+      "says": "A === comparison is always false, so the branch it guards never runs.",
+      "link": "https://phpstan.org/error-identifiers/identical.alwaysFalse"
+    },
+    "identical.alwaysTrue": {
+      "says": "A === comparison is always true, so the condition says nothing.",
+      "link": "https://phpstan.org/error-identifiers/identical.alwaysTrue"
+    },
+    "if.alwaysTrue": {
+      "says": "An if condition is always true.",
+      "link": "https://phpstan.org/error-identifiers/if.alwaysTrue"
+    },
+    "method.notFound": {
+      "says": "The code calls a method the class does not have.",
+      "link": "https://phpstan.org/error-identifiers/method.notFound"
+    },
+    "missingType.generics": {
+      "says": "A generic type is named without its type parameters.",
+      "link": "https://phpstan.org/error-identifiers/missingType.generics"
+    },
+    "missingType.iterableValue": {
+      "says": "An array or iterable type does not say what it holds.",
+      "link": "https://phpstan.org/error-identifiers/missingType.iterableValue"
+    },
+    "missingType.parameter": {
+      "says": "A parameter has no type.",
+      "link": "https://phpstan.org/error-identifiers/missingType.parameter"
+    },
+    "missingType.property": {
+      "says": "A property has no type.",
+      "link": "https://phpstan.org/error-identifiers/missingType.property"
+    },
+    "missingType.return": {
+      "says": "A function or method has no return type.",
+      "link": "https://phpstan.org/error-identifiers/missingType.return"
+    },
+    "mutationGate.broadCatch": {
+      "architecture": "C6"
+    },
+    "mutationGate.classNameLettersOnly": {
+      "architecture": "H11"
+    },
+    "mutationGate.closedSetAsStrings": {
+      "architecture": "D8"
+    },
+    "mutationGate.coalesceOnSubscript": {
+      "architecture": "C9"
+    },
+    "mutationGate.dynamicAccess": {
+      "architecture": "P2"
+    },
+    "mutationGate.empty": {
+      "architecture": "C7"
+    },
+    "mutationGate.lateStaticBinding": {
+      "architecture": "Q3"
+    },
+    "mutationGate.listLayout": {
+      "architecture": "H9"
+    },
+    "mutationGate.longLine": {
+      "architecture": "H10"
+    },
+    "mutationGate.magicMethod": {
+      "architecture": "P1"
+    },
+    "mutationGate.magicNumber": {
+      "architecture": "D6"
+    },
+    "mutationGate.manyMethods": {
+      "architecture": "H3"
+    },
+    "mutationGate.manyReturns": {
+      "architecture": "H8"
+    },
+    "mutationGate.mixedOutsideDecoders": {
+      "architecture": "D10"
+    },
+    "mutationGate.nestedTernary": {
+      "architecture": "C9"
+    },
+    "mutationGate.nullsafeInCore": {
+      "architecture": "C2"
+    },
+    "mutationGate.oneLiteral": {
+      "architecture": "H5"
+    },
+    "mutationGate.output": {
+      "architecture": "Q4"
+    },
+    "mutationGate.positionalBoolean": {
+      "architecture": "D5"
+    },
+    "mutationGate.preferSprintf": {
+      "architecture": "H5"
+    },
+    "mutationGate.valueWithTwoHomes": {
+      "architecture": "D9"
+    },
+    "phpstan": {
+      "says": "PHPStan failed without naming an identifier.",
+      "link": ""
+    },
+    "property.notFound": {
+      "says": "The code reads a property the class does not have.",
+      "link": "https://phpstan.org/error-identifiers/property.notFound"
+    },
+    "return.type": {
+      "says": "A function returns a value of a type it does not declare.",
+      "link": "https://phpstan.org/error-identifiers/return.type"
+    },
+    "shipmonk.missingNativeReturnTypehint": {
+      "says": "A function's return type is known but not declared in its signature.",
+      "link": "https://phpstan.org/error-identifiers/shipmonk.missingNativeReturnTypehint"
+    },
+    "staticMethod.notFound": {
+      "says": "The code calls a static method the class does not have.",
+      "link": "https://phpstan.org/error-identifiers/staticMethod.notFound"
+    },
+    "variable.undefined": {
+      "says": "The code reads a variable that may not be set.",
+      "link": "https://phpstan.org/error-identifiers/variable.undefined"
+    }
+  }
+}

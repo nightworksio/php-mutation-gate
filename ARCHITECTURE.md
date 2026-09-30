@@ -159,6 +159,18 @@ osv-scanner, which read the repository rather than the code.
 | **G8** | Every mutant of `src` is killed | planned: the package's own gate at a floor of 100, through its reusable workflow and action (`ci.yml` holds the place) |
 | **G9** | A diagnostic fails the run, and no setting exempts one | arch: the settings, read out of `phpunit.xml` |
 
+## V — CI and the tables the bot explains it with
+
+The contributor bot explains a red CI job only in words from tables in
+`main`, filled with what the job's own tools reported (ADR-0019).
+
+| Rule | Says | Enforced by |
+|---|---|---|
+| **V1** | Every CI job has an entry in `.github/gates.json` saying what it checks and how to reproduce it, and every entry is a job | arch: `.github/gates.json` against the workflows |
+| **V2** | Every CI job writes and uploads its evidence and ends by explaining its failure with `gate_summary.py`, or its entry says why it leaves none | arch: `.github/gates.json` against the workflows |
+| **V3** | Every rule the recorded evidence names, and every step that can fail with none, has its explanation in `.github/bot/rules`, `ARCHITECTURE.md` or its gate's rules | arch: `tests/Fixtures/Evidence`, read by `evidence.py` |
+| **V4** | The generated rule tables are what the locked tools say of their rules | arch: `scripts/bot-rules` run and compared; the `hygiene / markdown` job for markdownlint |
+
 ## R — the rules themselves
 
 | Rule | Says | Enforced by |

@@ -13,3 +13,9 @@
 /tests/Contract/Runner/infection-fixture/composer.lock
 /tests/Contract/Runner/infection-fixture/.mutation-gate/
 /tests/Contract/Runner/infection-fixture/.phpunit.result.cache
+
+# What the bot's evidence steps write, what installs the markdownlint they run,
+# and what Python compiles of the scripts it runs.
+/evidence/
+node_modules/
+__pycache__/
