@@ -49,6 +49,13 @@ it('is a ref already read as a scope, a pull request where the scope says so', f
         ->and(RunOn::at(Scope::branch('feature'), Scope::branch('main'))->scope())->toEqual(Scope::branch('feature'));
 });
 
+it('is a full ref under the scope it spells, and detached for a tag', function (): void {
+    expect(RunOn::onRef('refs/heads/feature/money', Scope::branch('main')))
+        ->toEqual(RunOn::at(Scope::branch('feature/money'), Scope::branch('main')))
+        ->and(RunOn::onRef('refs/tags/v1.0.0', Scope::branch('main')))->toEqual(RunOn::detached(Scope::branch('main')))
+        ->and(RunOn::onRef('', Scope::branch('main')))->toEqual(RunOn::detached(Scope::branch('main')));
+});
+
 it('is a detached HEAD, with no scope and never a pull request', function (): void {
     $run = RunOn::detached(Scope::branch('main'));
 

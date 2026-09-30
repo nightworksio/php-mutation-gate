@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
@@ -101,6 +102,7 @@ it('registers a CI plan for each CI it knows, and plain JSON', function () use (
         ->and($plan('gitlab'))->toBeInstanceOf(GitLabPlan::class)
         ->and($plan('buildkite'))->toBeInstanceOf(BuildkitePlan::class)
         ->and($plan('circleci'))->toBeInstanceOf(CircleCiPlan::class)
+        ->and($plan('azure'))->toBeInstanceOf(AzurePlan::class)
         ->and($plan('json'))->toBeInstanceOf(JsonPlan::class);
 });
 
@@ -210,6 +212,7 @@ it('detects the plan of the CI a job runs in, GitHub Actions first, and none any
     'GitLab CI' => [Variables::of(['GITLAB_CI' => 'true']), BuiltinCiPlan::GitLab->named()],
     'Buildkite' => [Variables::of(['BUILDKITE' => 'true']), BuiltinCiPlan::Buildkite->named()],
     'CircleCI' => [Variables::of(['CIRCLECI' => 'true']), BuiltinCiPlan::CircleCi->named()],
+    'Azure DevOps' => [Variables::of(['TF_BUILD' => 'True']), BuiltinCiPlan::Azure->named()],
     'GitHub Actions before any other' => [
         Variables::of(['GITLAB_CI' => 'true', 'GITHUB_ACTIONS' => 'true']),
         BuiltinCiPlan::GitHub->named(),
@@ -221,6 +224,10 @@ it('detects the plan of the CI a job runs in, GitHub Actions first, and none any
     'Buildkite before CircleCI' => [
         Variables::of(['CIRCLECI' => 'true', 'BUILDKITE' => 'true']),
         BuiltinCiPlan::Buildkite->named(),
+    ],
+    'CircleCI before Azure DevOps' => [
+        Variables::of(['TF_BUILD' => 'True', 'CIRCLECI' => 'true']),
+        BuiltinCiPlan::CircleCi->named(),
     ],
     'a variable not set to true' => [Variables::of(['GITLAB_CI' => '1']), NotGiven::value()],
     'no CI' => [Variables::of([]), NotGiven::value()],

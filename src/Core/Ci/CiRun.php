@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Ci;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 
+use function rawurlencode;
 use function sprintf;
 
 /**
@@ -17,7 +18,7 @@ use function sprintf;
 final readonly class CiRun
 {
     private const string UNREAD
-        = 'This CI is not GitHub Actions, GitLab CI, Buildkite or CircleCI, so the gate cannot name its run.';
+        = 'This CI is not GitHub Actions, GitLab, Buildkite, CircleCI or Azure DevOps: the gate cannot name its run.';
 
     private function __construct(
         private string $repository,
@@ -25,23 +26,24 @@ final readonly class CiRun
         private string $commit,
         private string $url,
         private string $pipeline,
+        private string $id,
     ) {
     }
 
     public static function of(string $repository, string $ref, string $commit, string $url): self
     {
-        return new self($repository, $ref, $commit, $url, '');
+        return new self($repository, $ref, $commit, $url, '', '');
     }
 
     /** This run, in the pipeline or workflow of this name. */
     public function inPipeline(string $pipeline): self
     {
-        return new self($this->repository, $this->ref, $this->commit, $this->url, $pipeline);
+        return new self($this->repository, $this->ref, $this->commit, $this->url, $pipeline, $this->id);
     }
 
     /**
-     * The run the environment of a GitHub Actions, GitLab CI, Buildkite or
-     * CircleCI job describes; why there is none in any other.
+     * The run the environment of a GitHub Actions, GitLab CI, Buildkite,
+     * CircleCI or Azure DevOps job describes; why there is none in any other.
      */
     public static function read(Variables $variables): self|CannotTell
     {
@@ -58,6 +60,7 @@ final readonly class CiRun
                 $variables->valueOf('BUILDKITE_COMMIT'),
                 $variables->valueOf('BUILDKITE_BUILD_URL'),
                 $variables->valueOf('BUILDKITE_PIPELINE_NAME'),
+                self::numbered('buildkite:%s', $variables->valueOf('BUILDKITE_BUILD_ID')),
             ),
             $variables->says(Variables::CIRCLECI) => new self(
                 sprintf(
@@ -69,7 +72,9 @@ final readonly class CiRun
                 $variables->valueOf('CIRCLE_SHA1'),
                 $variables->valueOf('CIRCLE_BUILD_URL'),
                 $variables->valueOf('CIRCLE_JOB'),
+                self::numbered('circleci:%s', $variables->valueOf('CIRCLE_WORKFLOW_ID')),
             ),
+            $variables->has(Variables::TF_BUILD) => self::azure($variables),
             default => CannotTell::because(self::UNREAD),
         };
     }
@@ -103,6 +108,15 @@ final readonly class CiRun
         return $this->url;
     }
 
+    /**
+     * The run as a proof names it (ADR-0007 decision 3): `github:<run id>/<attempt>`, `gitlab:<pipeline id>`,
+     * `buildkite:<build id>`, `circleci:<workflow id>` or `azure:<build id>`; empty where the CI numbers none.
+     */
+    public function id(): string
+    {
+        return $this->id;
+    }
+
     /** The name of the pipeline or workflow it ran in; empty where the CI names none. */
     public function pipeline(): string
     {
@@ -125,6 +139,11 @@ final readonly class CiRun
                 $variables->valueOf('GITHUB_RUN_ID'),
             ),
             $variables->valueOf('GITHUB_WORKFLOW'),
+            $variables->valueOf('GITHUB_RUN_ID') === '' ? '' : sprintf(
+                'github:%s/%s',
+                $variables->valueOf('GITHUB_RUN_ID'),
+                $variables->valueOf('GITHUB_RUN_ATTEMPT'),
+            ),
         );
     }
 
@@ -138,11 +157,35 @@ final readonly class CiRun
             $variables->valueOf('CI_COMMIT_SHA'),
             $variables->valueOf('CI_PIPELINE_URL'),
             $variables->valueOf('CI_PIPELINE_NAME'),
+            self::numbered('gitlab:%s', $variables->valueOf('CI_PIPELINE_ID')),
         );
     }
 
     private static function branch(string $name): string
     {
         return Scope::branch($name)->ref();
+    }
+
+    private static function azure(Variables $variables): self
+    {
+        return new self(
+            $variables->valueOf('BUILD_REPOSITORY_NAME'),
+            $variables->valueOf('BUILD_SOURCEBRANCH'),
+            $variables->valueOf('BUILD_SOURCEVERSION'),
+            sprintf(
+                '%s%s/_build/results?buildId=%s',
+                $variables->valueOf('SYSTEM_COLLECTIONURI'),
+                rawurlencode($variables->valueOf('SYSTEM_TEAMPROJECT')),
+                $variables->valueOf('BUILD_BUILDID'),
+            ),
+            $variables->valueOf('BUILD_DEFINITIONNAME'),
+            self::numbered('azure:%s', $variables->valueOf('BUILD_BUILDID')),
+        );
+    }
+
+    /** A run's number, spelt as a proof names it; empty where the CI gives none. */
+    private static function numbered(string $format, string $number): string
+    {
+        return $number === '' ? '' : sprintf($format, $number);
     }
 }

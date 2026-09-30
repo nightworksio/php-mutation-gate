@@ -37,7 +37,7 @@ that reproduces it and a sentence saying what the tests miss.
 | | `doctor`: what would fail or run slowly, and the fix, before a run finds out | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | A first CI run with no baseline measures, then hands over the baseline to commit | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | `init --from=infection.json5`: a config taken over from Infection's | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
-| | `init --ci`: a ready, pinned workflow for GitHub, GitLab, Buildkite or CircleCI | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
+| | `init --ci`: a ready, pinned workflow for GitHub, GitLab, Buildkite, CircleCI or Azure DevOps | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | | Floors that only rise: a committed baseline, which fails on regression and rises on improvement | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | | Pull-request mode: changed lines and what the change reaches, with a stricter floor for new code | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | | Monorepos: a floor per package and module, with reach that follows the dependencies | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
@@ -45,7 +45,7 @@ that reproduces it and a sentence saying what the tests miss.
 | | A signed PHAR and a multi-arch container image beside the Composer package | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
 | | `composer mutate`, and recipes for CaptainHook, GrumPHP and the pre-commit framework | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | **CI and speed** | A cost model that learns how long each file takes from earlier shards | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
-| | Sharding on any CI: GitHub Actions, GitLab, Buildkite, CircleCI, or a JSON plan | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| | Sharding on any CI: GitHub Actions, GitLab, Buildkite, CircleCI, Azure DevOps, or a JSON plan | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | | A proof cache keyed by content, stored in the GitHub cache, a directory or S3/R2 | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | | Likely killers first: each mutant's tests ordered by which of them killed it before | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | | A shard count chosen from a target wall time | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
@@ -167,7 +167,7 @@ run does.
 |---------|--------------|
 | `mutation-gate` or `mutation-gate run` | Plan, run and judge in one process. With `--changed-since=<ref>`, only what the change reaches. With `--budget=<duration>`, the riskiest code first, within that time. |
 | `coverage [--into=<dir>]` | Run the suite under coverage and write the gate's own map, `<dir>/map.json.gz` (`.mutation-gate/coverage` by default), for a later `plan --coverage=<dir>` |
-| `plan` | Work out the reach, drop proved units, cut shards and print the plan for a CI (`--ci=github\|gitlab\|buildkite\|circleci\|json`, or `--shards=<n>` for a fixed count; `--coverage=<dir>` reads the map `coverage` wrote instead of running the suite) |
+| `plan` | Work out the reach, drop proved units, cut shards and print the plan for a CI (`--ci=github\|gitlab\|buildkite\|circleci\|azure\|json`, or `--shards=<n>` for a fixed count; `--coverage=<dir>` reads the map `coverage` wrote instead of running the suite) |
 | `run --plan=<file> [--shard=<id>]` | Mutate one shard: the one `--shard` names, or the one the CI's environment names |
 | `verdict --plan=<file> --results=<dir>` | Merge every shard's results, judge the floors, write reports and the ledger |
 | `baseline [--write]` | Show, or write, floors raised to what was measured |
@@ -179,7 +179,7 @@ run does.
 | `pre-push` | Judge the commits being pushed, as CI will, after printing each reached tree's score change |
 | `pre-commit` | Print each reached tree's score change from the local ledger; runs nothing and always exits 0 |
 | `hook install [--pre-commit]` / `hook uninstall` | Add or remove the pre-push hook, and with `--pre-commit` the pre-commit hook too |
-| `init [--format=php\|json\|yaml\|neon] [--ci[=github\|gitlab\|buildkite\|circleci]] [--editor=vscode]` | Detect the runner, preset, trees, CI, an Infection config and native markers, and ask only what detection cannot settle; write a config holding the runner, the preset and the answers (PHP by default, or the file `--config` names, in the format of its extension), with the trees it found as a comment, and add `.mutation-gate/` to `.gitignore`; with `--ci`, a pinned CI definition (`--ci` alone takes the detected CI), and with `--editor`, VS Code's watch task, each only where none exists; then print the first run's estimate |
+| `init [--format=php\|json\|yaml\|neon] [--ci[=github\|gitlab\|buildkite\|circleci\|azure]] [--editor=vscode]` | Detect the runner, preset, trees, CI, an Infection config and native markers, and ask only what detection cannot settle; write a config holding the runner, the preset and the answers (PHP by default, or the file `--config` names, in the format of its extension), with the trees it found as a comment, and add `.mutation-gate/` to `.gitignore`; with `--ci`, a pinned CI definition (`--ci` alone takes the detected CI), and with `--editor`, VS Code's watch task, each only where none exists; then print the first run's estimate |
 | `init --from[=<file>]` or `import [<file>]` | Write a config from an Infection config, the file named or the one Infection itself would read, over what zero-config found; say of each of its keys whether it was imported, stays in that file or was dropped, and which keys to delete |
 | `doctor [--measure] [--online] [--format=text\|json]` | Report what would fail, run slowly or deserves attention, each with its fix, reading only files and earlier runs; exits 1 when something would fail |
 | `stub <id>` | Print a failing Pest or PHPUnit test for a survivor or an uncovered mutant, in the style of its nearest covering test |
@@ -441,12 +441,13 @@ and `?` match within one directory, and `**` across any number of them.
 | `shards.setup` | duration: each shard's CI setup before the gate starts | `1m` | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `costs.secondsPerLine` | map of path prefix to number | `{"": 0.2}` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `costs.perRunnerMinute` | `{amount, currency}` | none | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
-| `ci.plan` | adapter: `github`, `gitlab`, `buildkite`, `circleci`, `json` | detected from the environment | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `ci.plan` | adapter: `github`, `gitlab`, `buildkite`, `circleci`, `azure`, `json` | detected from the environment | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | `ci.defaultBranch` | branch name | the CI's answer, else git's `origin/HEAD`, else `main` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.check` | the check-run name the verdict reports under | `mutation / verdict` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `ci.gitlab.template` | path | `.gitlab/mutation-gate.yml` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.buildkite.step` | map of step keys | `{}` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.buildkite.definition` | path of the pipeline file that runs the gate under Buildkite | `.buildkite/pipeline.yml` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `ci.azure.definition` | path of the pipeline file that runs the gate under Azure DevOps | `azure-pipelines.yml` | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | `proofs.store` | adapter: `directory`, `s3` | `directory` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.path` (`directory`) | path | `.mutation-gate/ledger` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.bucket` (`s3`) | string | none; required | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
@@ -488,13 +489,13 @@ Environment variables that change what the gate does:
 
 | Variable | What it does | Decided in |
 |----------|--------------|------------|
-| `CI` | Set: a tree with no floor stops the run, `baseline.improvement` applies, and on the default branch the badge and trend are written. Unset: a full run writes missing floors and raises improved ones | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
-| `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI` | Choose the CI plan, and under GitHub Actions the annotations and step summary | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `CI`, or Azure Pipelines' `TF_BUILD` | Set: a tree with no floor stops the run, `baseline.improvement` applies, and on the default branch the badge and trend are written. Unset: a full run writes missing floors and raises improved ones | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `TF_BUILD` | Choose the CI plan, and under GitHub Actions the annotations and step summary | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | `SHARD`, `CI_NODE_INDEX`, `CI_NODE_TOTAL`, `BUILDKITE_PARALLEL_JOB`, `BUILDKITE_PARALLEL_JOB_COUNT`, `CIRCLE_NODE_INDEX`, `CIRCLE_NODE_TOTAL`, `CI_JOB_NAME`, `PARENT_PIPELINE_ID` | Which shard a job is, and how GitLab's child pipeline finds the plan | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
-| `GITHUB_REF`, `GITHUB_EVENT_NAME`, `GITHUB_EVENT_PATH`, `CI_COMMIT_REF_NAME`, `CI_MERGE_REQUEST_IID`, `CI_DEFAULT_BRANCH`, `BUILDKITE_BRANCH`, `BUILDKITE_PULL_REQUEST`, `BUILDKITE_PIPELINE_DEFAULT_BRANCH`, `CIRCLE_BRANCH`, `CIRCLE_PULL_REQUEST` | The run's ref, whether it is a pull request, and the default branch | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `GITHUB_REF`, `GITHUB_EVENT_NAME`, `GITHUB_EVENT_PATH`, `CI_COMMIT_REF_NAME`, `CI_MERGE_REQUEST_IID`, `CI_DEFAULT_BRANCH`, `BUILDKITE_BRANCH`, `BUILDKITE_PULL_REQUEST`, `BUILDKITE_PIPELINE_DEFAULT_BRANCH`, `CIRCLE_BRANCH`, `CIRCLE_PULL_REQUEST`, `BUILD_SOURCEBRANCH`, `BUILD_REASON`, `SYSTEM_PULLREQUEST_PULLREQUESTNUMBER`, `SYSTEM_PULLREQUEST_PULLREQUESTID` | The run's ref, whether it is a pull request, and the default branch | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | `GITHUB_WORKFLOW_REF`, `CI_CONFIG_PATH` | Which CI definition runs the gate, for reach and the proof key | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `GITHUB_OUTPUT`, `GITHUB_STEP_SUMMARY` | Where the GitHub plan and the step summary are written | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
-| `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, `CI_PIPELINE_ID`, `BUILDKITE_BUILD_ID`, `CIRCLE_WORKFLOW_ID` | The run a proof names | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, `CI_PIPELINE_ID`, `BUILDKITE_BUILD_ID`, `CIRCLE_WORKFLOW_ID`, `BUILD_BUILDID` | The run a proof names | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | `GITHUB_TOKEN` | Lets the sticky PR comment be posted, and the GitHub change source prove which pull request's run passed | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_ROLE_ARN` | The S3 proof store's credentials, and its only ones: no `~/.aws` file, instance, container or web identity role is read. With `AWS_ROLE_ARN` set, those keys assume that role | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`, `MUTATION_GATE_WEBHOOK_URL` | The webhook URLs of the `slack`, `discord` and `webhook` reporters, unless their `with.urlEnv` names other variables | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
@@ -565,9 +566,9 @@ A CI run has three steps:
 A proof ledger lets each step skip what an earlier run already proved.
 
 `vendor/bin/mutation-gate init --ci` writes the definition for GitHub Actions,
-GitLab CI, Buildkite or CircleCI. The package's CI holds each one's syntax: it
-runs the GitHub definitions through `actionlint` and validates the others
-against their provider's published JSON Schema.
+GitLab CI, Buildkite, CircleCI or Azure DevOps. The package's CI holds each
+one's syntax: it runs the GitHub definitions through `actionlint` and
+validates the others against their provider's published JSON Schema.
 
 Two things the setup relies on:
 
@@ -586,10 +587,11 @@ Two things the setup relies on:
 The proof ledger's trust boundary is the store's access control. On GitHub,
 cache scoping keeps a pull request from writing what the default branch reads.
 On GitLab, separate caches for protected branches do the same, and they also
-keep merge requests from reading the default branch's ledger. On Buildkite and
-CircleCI a branch's pipeline config picks its cache key, so a cache is no
-boundary there. Wherever a pull request must read the default branch's proofs
-safely, keep the ledger in S3, with credentials that can write the default
+keep merge requests from reading the default branch's ledger. On Azure DevOps a
+pull request build reads the target branch's caches and cannot write them. On
+Buildkite and CircleCI a branch's pipeline config picks its cache key, so a
+cache is no boundary there. Wherever a pull request must read the default
+branch's proofs safely, keep the ledger in S3, with credentials that can write the default
 branch's prefix held only by default-branch runs
 ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
 With an AWS OIDC role, make its trust policy match a GitHub environment that
@@ -849,6 +851,37 @@ workflows:
 `main` stands for your default branch. Add a weekly scheduled pipeline for the
 full run. The verdict requires `mutation` with the status `terminal`, so it
 runs, and says *cannot judge*, even when a shard failed.
+
+### Azure DevOps
+
+`init --ci=azure` writes the gate's jobs to `.azure/mutation-gate.yml` and
+prints the lines that take them into the pipeline Azure DevOps runs. A config
+it writes names that file as `ci.azure.definition`, and sets
+`ci.defaultBranch`, since Azure DevOps names no default branch:
+
+```yaml
+jobs:
+  - template: '.azure/mutation-gate.yml'
+```
+
+`plan --ci=azure` sets the plan step's output variable `matrix` to one leg per
+shard, `{"s1": {"SHARD": "1"}, …}`, which the `mutation` job's
+`strategy: matrix` reads. A plan with no shards sets one leg, `none`, whose
+empty `SHARD` runs nothing, because Azure always makes at least one job. The
+verdict runs with `condition: succeededOrFailed()`, so it says *cannot judge*
+even when a shard failed. The `Cache@2` task keeps the ledger keyed by the
+digest of the run's scope, and restores the default branch's second where
+Azure lets the run read that branch's caches: a pull request reads its
+target's, and any other run reads only `main`'s and `master`'s besides its
+own. A cache is saved only by a job that succeeds, so a last job, which runs
+whatever the verdict decided, saves the ledger the verdict wrote. A pull
+request is named by `System.PullRequest.PullRequestNumber` where Azure sets it,
+as for a GitHub repository, and by its id otherwise. A fork's build gets no
+secrets, so where `System.PullRequest.IsFork` is `True` the plan and verdict steps
+drop every variable the S3 store reads, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_ROLE_ARN`,
+which Azure hands a fork as the literal text `$(NAME)`. The gate withholds `SYSTEM_ACCESSTOKEN`
+and `AZURE_DEVOPS_EXT_PAT` from the tests. Schedule the pipeline on the
+default branch twice a week, with `always: true`, for the full run.
 
 ### Any other CI
 

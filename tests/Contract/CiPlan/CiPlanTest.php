@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
@@ -11,6 +12,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
@@ -44,6 +46,11 @@ $plans = [
     ),
     'Buildkite' => fn(): CiPlan => BuildkitePlan::printing(sprintf('%s/steps.json', Scratch::directory()), BuildkiteStep::none(), $job()),
     'CircleCI' => fn(): CiPlan => CircleCiPlan::printing(sprintf('%s/plan.json', Scratch::directory()), $job()),
+    'Azure DevOps' => fn(): CiPlan => AzurePlan::printing(
+        sprintf('%s/matrix.txt', Scratch::directory()),
+        $job(),
+        Path::of('azure-pipelines.yml'),
+    ),
     'plain JSON' => fn(): CiPlan => JsonPlan::printing(sprintf('%s/plan.json', Scratch::directory()), $job()),
 ];
 
@@ -86,5 +93,6 @@ it('declares the credentials of its CI that no runner hands the tests, over and 
     'GitLab CI' => fn(): Withheld => GitLabPlan::withheld(),
     'Buildkite' => fn(): Withheld => BuildkitePlan::withheld(),
     'CircleCI' => fn(): Withheld => CircleCiPlan::withheld(),
+    'Azure DevOps' => fn(): Withheld => AzurePlan::withheld(),
     'plain JSON' => fn(): Withheld => JsonPlan::withheld(),
 ]);

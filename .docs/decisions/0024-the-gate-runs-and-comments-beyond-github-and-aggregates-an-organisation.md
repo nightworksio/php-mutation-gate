@@ -24,9 +24,9 @@ documentation, are these.
   | The shard | `BITBUCKET_PARALLEL_STEP` (0-based) and `BITBUCKET_PARALLEL_STEP_COUNT` | the matrix leg's variables, or `System.JobPositionInPhase` and `System.TotalJobsInPhase` under `parallel: N` | the closure's own argument |
   | Files between jobs | artifacts, kept 14 days, 1 GB each; a parallel group's artifacts may not reach its siblings | `PublishPipelineArtifact` and `DownloadPipelineArtifact` | `stash` and `unstash` |
   | The verdict after a failed shard | a `final` step, which runs whatever the others did | `condition: succeededOrFailed()` | `post { always { … } }` |
-  | Ref, pull request, run | `BITBUCKET_BRANCH`, `BITBUCKET_PR_ID`, `BITBUCKET_BUILD_NUMBER` | `Build.SourceBranch`, `System.PullRequest.PullRequestId`, `System.PullRequest.TargetBranch`, `Build.BuildId` | `BRANCH_NAME`, `CHANGE_ID`, `BUILD_TAG`, `GIT_COMMIT` |
+  | Ref, pull request, run | `BITBUCKET_BRANCH`, `BITBUCKET_PR_ID`, `BITBUCKET_BUILD_NUMBER` | `Build.SourceBranch`, `System.PullRequest.PullRequestNumber` (GitHub) or `System.PullRequest.PullRequestId`, `System.PullRequest.TargetBranch`, `Build.BuildId` | `BRANCH_NAME`, `CHANGE_ID`, `BUILD_TAG`, `GIT_COMMIT` |
   | Default branch | not named | not named | not named |
-  | Cache | shared by every branch of the repository: no boundary | a pull request build reads the target branch's caches and cannot write them: a boundary | none built in |
+  | Cache | shared by every branch of the repository: no boundary | a pull request build reads its source's, its target's, `main`'s and `master`'s caches and writes only its own; any other run reads its own branch's, `main`'s and `master`'s: a boundary | none built in |
   | Forks | pull requests from forks start no pipeline | fork builds get no secrets by default | depends on the SCM plugin |
 
   No Azure variable names the YAML file a pipeline runs. Azure's
@@ -108,7 +108,7 @@ documentation, are these.
    | CI | Ref | Pull request | Default branch | The run a proof names |
    |----|-----|--------------|----------------|-----------------------|
    | Bitbucket | `BITBUCKET_BRANCH` | `BITBUCKET_PR_ID` is set | `ci.defaultBranch` | `bitbucket:<BITBUCKET_BUILD_NUMBER>` |
-   | Azure DevOps | `Build.SourceBranch` | `Build.Reason` is `PullRequest`, with `System.PullRequest.PullRequestId` | `ci.defaultBranch` | `azure:<Build.BuildId>` |
+   | Azure DevOps | `Build.SourceBranch` | `Build.Reason` is `PullRequest`, with `System.PullRequest.PullRequestNumber` where Azure sets it (a GitHub pull request, whose id is not its number), and `System.PullRequest.PullRequestId` otherwise | `ci.defaultBranch` | `azure:<Build.BuildId>` |
    | Jenkins | `BRANCH_NAME` | `CHANGE_ID` is set | `ci.defaultBranch` | `jenkins:<BUILD_TAG>` |
 
 2. **None of the three names its default branch, so `ci.defaultBranch`
@@ -123,13 +123,18 @@ documentation, are these.
    `ci.buildkite.definition` does. The file each names reaches everything
    and is read by every key through ADR-0005's rule 1 and ADR-0007's item 6,
    so the path **affects results**. The rest of these keys judge or report
-   only. This amends ADR-0005 decision 4.
+   only. Where the named file is a template another pipeline takes in, as
+   `init --ci=azure` writes it, that other pipeline is outside the key: a
+   change to it, such as its PHP image, reaches nothing, as with Buildkite's
+   uploading pipeline. This amends ADR-0005 decision 4.
 
 4. **Each template keeps the ledger where its CI draws a trust boundary.**
    - **Azure DevOps:** the directory store in the `Cache@2` task, keyed by the
-     digest of the scope, with the default branch's key restored second. A
-     pull request build cannot write the target branch's cache, so this is a
-     boundary, as GitHub's is.
+     digest of the scope, with the default branch's key restored second
+     where Azure lets the run read that branch's caches: a pull request reads
+     its target's, and any other run reads only `main`'s and `master`'s
+     besides its own. A pull request build cannot write the target branch's
+     cache, so this is a boundary, as GitHub's is.
    - **Bitbucket and Jenkins:** an S3-compatible store (or any store whose
      writes need credentials), with credentials only default-branch builds
      hold. Bitbucket's caches are shared by every branch and Jenkins has
@@ -139,7 +144,8 @@ documentation, are these.
    This amends ADR-0007 decision 5.
 
 5. **What the runners never see grows with these CIs.** Azure's
-   `SYSTEM_ACCESSTOKEN` joins what every run withholds from the runner
+   `SYSTEM_ACCESSTOKEN`, and the `AZURE_DEVOPS_EXT_PAT` that `az devops`
+   reads, join what every run withholds from the runner
    (`CiPlan::withheld`, ADR-0004 decision 3), as do the comment tokens of
    decision 7. A project adds any other Bitbucket or Jenkins credential it
    passes to `runner.withhold`.
@@ -149,6 +155,14 @@ documentation, are these.
    are validated offline against each provider's published schema.
    Jenkins publishes no schema for a Jenkinsfile, so its template is held by
    its snapshot test alone. This amends ADR-0015 decisions 13 to 17.
+   - **Azure DevOps.** `init --ci=azure` writes the gate's jobs as a template,
+     `.azure/mutation-gate.yml`, and prints the `- template:` line that takes
+     them into the pipeline Azure runs, which it never edits (ADR-0015
+     decision 13). A config `init` writes names that template as
+     `ci.azure.definition`, as it names Buildkite's pipeline, and where a
+     config is kept, `init` says to. `Cache@2` saves only from a job that
+     succeeds, so a last job, run whatever the verdict decided, saves the
+     ledger the verdict wrote.
 
 ### Comments beyond GitHub
 

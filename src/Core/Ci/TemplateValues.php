@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Ci;
 
+use function implode;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function preg_match;
 use function sprintf;
@@ -13,8 +18,9 @@ use function strtr;
 /**
  * What `init --ci` fills into a CI definition's template (ADR-0015 decision
  * 16), each where the template writes `%%<name>%%`: the PHP version, the
- * default branch, the gate's pin and version, the runner, GitLab's template
- * file, the check to require and the pipeline Buildkite uploads. A template
+ * default branch, the gate's pin and version, the runner, the check to
+ * require, the file of the gate's jobs the CI's own definition pulls in,
+ * where it has one, and the variables the S3 store reads. A template
  * lands in YAML and in shell lines, so each value that comes from the project
  * holds no character either would read as more than text.
  */
@@ -42,15 +48,17 @@ final readonly class TemplateValues
         string $branch,
         GatePin $gate,
         string $runner,
-        string $template,
         string $check,
-        string $pipeline,
+        Path|NotGiven $included,
     ): self|CannotJudge {
+        $gitlabFix = 'Set ci.gitlab.template to a path of letters, digits and ._/-.';
         $checked = [
             ['The default branch', $branch, self::NAME, 'Set ci.defaultBranch to a name of letters, digits and ._/-.'],
             ['The runner', $runner, self::RUNNER, 'Choose a runner by a name of letters, digits and ._-.'],
-            ['The file', $template, self::NAME, 'Set ci.gitlab.template to a path of letters, digits and ._/-.'],
             ['The check', $check, self::CHECK, 'Set ci.check to a name of letters, digits, spaces and ._/-.'],
+            ...$included instanceof Path
+                ? [['The file', $included->value(), self::NAME, $gitlabFix]]
+                : [],
         ];
 
         foreach ($checked as [$what, $value, $pattern, $fix]) {
@@ -65,9 +73,9 @@ final readonly class TemplateValues
             '%%pin%%' => $gate->pin(),
             '%%version%%' => $gate->version(),
             '%%runner%%' => $runner,
-            '%%template%%' => $template,
             '%%check%%' => $check,
-            '%%pipeline%%' => $pipeline,
+            '%%s3%%' => implode(' ', [...BuiltinStore::S3->variables()]),
+            ...$included instanceof Path ? ['%%included%%' => $included->value()] : [],
         ]);
     }
 

@@ -455,6 +455,22 @@
                             "type": "object",
                             "properties": {
                                 "use": {
+                                    "const": "azure"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
                                     "const": "json"
                                 },
                                 "with": {
@@ -479,6 +495,7 @@
                                             "gitlab",
                                             "buildkite",
                                             "circleci",
+                                            "azure",
                                             "json"
                                         ]
                                     }
@@ -542,6 +559,17 @@
                             "type": "string",
                             "minLength": 1,
                             "default": ".buildkite/pipeline.yml"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "azure": {
+                    "type": "object",
+                    "properties": {
+                        "definition": {
+                            "type": "string",
+                            "minLength": 1,
+                            "default": "azure-pipelines.yml"
                         }
                     },
                     "additionalProperties": false

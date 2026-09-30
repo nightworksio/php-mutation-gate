@@ -25,9 +25,12 @@ use function sprintf;
  */
 final readonly class WhichShard
 {
+    /** The variable a job the gate's own plan starts is named by, as a matrix sets it. */
+    public const string VARIABLE = 'SHARD';
+
     /** Each variable that names a job, with the one that counts the jobs and what it counts from. */
     private const array NAMED_BY = [
-        'SHARD' => ['', 1],
+        self::VARIABLE => ['', 1],
         'CI_NODE_INDEX' => ['CI_NODE_TOTAL', 1],
         'BUILDKITE_PARALLEL_JOB' => ['BUILDKITE_PARALLEL_JOB_COUNT', 0],
         'CIRCLE_NODE_INDEX' => ['CIRCLE_NODE_TOTAL', 0],

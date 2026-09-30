@@ -35,6 +35,11 @@ final readonly class Ci implements Setting
         return new self(Json::at('ci.plan', BuiltinCiPlan::CircleCi->value));
     }
 
+    public static function azure(): self
+    {
+        return new self(Json::at('ci.plan', BuiltinCiPlan::Azure->value));
+    }
+
     /** The plan as JSON, for any other CI. */
     public static function json(): self
     {
@@ -92,6 +97,12 @@ final readonly class Ci implements Setting
                 Json::object(Member::of('buildkite', Json::object(Member::of('definition', $path)))),
             ),
         ));
+    }
+
+    /** `ci.azure.definition`: the pipeline file that runs the gate under Azure DevOps. */
+    public static function azureDefinition(string $path): self
+    {
+        return new self(Json::at('ci.azure.definition', $path));
     }
 
     public function written(): Json

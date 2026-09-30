@@ -15,4 +15,18 @@ enum BuiltinStore: string
     {
         return Name::of($this->value);
     }
+
+    /**
+     * The environment variables the store reads its credentials from (ADR-0007 decision 5), and nothing else:
+     * none for a directory.
+     *
+     * @return Listed<string>
+     */
+    public function variables(): Listed
+    {
+        return match ($this) {
+            self::Directory => Listed::of(),
+            self::S3 => Listed::of('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN', 'AWS_ROLE_ARN'),
+        };
+    }
 }

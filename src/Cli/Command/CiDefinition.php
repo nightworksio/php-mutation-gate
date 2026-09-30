@@ -65,7 +65,7 @@ final readonly class CiDefinition
 
     private const string MISSING = 'The template %s is missing from the package. Reinstall it.';
 
-    private const string UNNAMED = 'Set ci.buildkite.definition to %s in the config: reach and the proof key read it.';
+    private const string UNNAMED = 'Set %s to %s in the config: reach and the proof key read it.';
 
     /** @param Directory $templates where each template is, by its file under it */
     public function __construct(
@@ -82,14 +82,6 @@ final readonly class CiDefinition
         return new self($project, $extensions, $gate, Directory::at(Resources::at('ci')));
     }
 
-    /** What `init` adds to a config it writes for this CI: for Buildkite, the pipeline it writes, as its definition. */
-    public static function configOf(CiRequest|NotGiven $request): Layer
-    {
-        return $request instanceof CiRequest && $request->plan() === BuiltinCiPlan::Buildkite
-            ? Layer::of(Ci::of(buildkiteDefinition: CiTemplate::buildkitePipeline()))
-            : Layer::none();
-    }
-
     /**
      * The definition asked for, checked before anything is written: that each value can go into a template, and
      * that no file it would write is here, since `init` never replaces one. `$kept` says the config was here
@@ -104,7 +96,7 @@ final readonly class CiDefinition
             : CannotJudge::because('it is not estimated');
         $workflow = $this->workflow($request->workflow(), $estimate, $shard);
         $templates = CiTemplate::for($plan, $workflow);
-        $values = $this->values($settings);
+        $values = $this->values($settings, $plan);
         $clash = $request->output() === Output::Written ? $this->clash($templates, $settings->ci()) : NotGiven::value();
         $why = $this->why($workflow, $request->workflow(), $estimate, $shard);
 
@@ -116,6 +108,7 @@ final readonly class CiDefinition
                 $values,
                 $request->output(),
                 Listed::of(...$this->notes($plan, $why, $settings, $kept)),
+                $this->config($plan, $settings),
             ),
         };
     }
@@ -188,8 +181,25 @@ final readonly class CiDefinition
         return $written instanceof CannotJudge ? $written : sprintf('Wrote %s.', $file->value());
     }
 
+    /**
+     * What `init` adds to a config it writes for this CI (ADR-0024 decision 2): for Buildkite and Azure DevOps,
+     * the file of the gate's jobs it writes, as the definition; for Azure DevOps, which names no default branch,
+     * the one the project has.
+     */
+    private function config(BuiltinCiPlan $plan, Settings $settings): Layer
+    {
+        return match ($plan) {
+            BuiltinCiPlan::Buildkite => Layer::of(Ci::of(buildkiteDefinition: CiTemplate::buildkitePipeline())),
+            BuiltinCiPlan::Azure => Layer::of(Ci::of(
+                defaultBranch: $this->defaultBranch($settings),
+                azureDefinition: CiTemplate::azureJobs(),
+            )),
+            BuiltinCiPlan::GitHub, BuiltinCiPlan::GitLab, BuiltinCiPlan::CircleCi, BuiltinCiPlan::Json => Layer::none(),
+        };
+    }
+
     /** What the templates are filled in with, from the config, the project's files and git; or why it cannot be. */
-    private function values(Settings $settings): TemplateValues|CannotJudge
+    private function values(Settings $settings, BuiltinCiPlan $plan): TemplateValues|CannotJudge
     {
         $manifest = $this->project()->read(Manifest::fileIn(Path::root()));
 
@@ -198,16 +208,15 @@ final readonly class CiDefinition
             $this->defaultBranch($settings),
             $this->gate,
             $settings->runner()->choice()->use()->value(),
-            $settings->ci()->gitlabTemplate()->value(),
             $settings->ci()->check(),
-            CiTemplate::buildkitePipeline()->value(),
+            CiTemplate::included($plan, $settings->ci()),
         );
     }
 
     /**
      * What else the person needs to know: on GitHub, whose definition names the gate's commit, which definition
-     * was written and why, the check to require, and that the commit is not known; on Buildkite, with the config
-     * kept, that it must name the pipeline written as the one that runs the gate.
+     * was written and why, the check to require, and that the commit is not known; on Buildkite and Azure DevOps,
+     * with the config kept, that it must name the file of the gate's jobs written as the one that runs the gate.
      *
      * @return list<string>
      */
@@ -222,14 +231,37 @@ final readonly class CiDefinition
             ),
             ...$this->gate->isKnown() ? [] : [sprintf(self::GATE_UNPINNED, $this->gate->commit())],
         ];
-        $pipeline = CiTemplate::buildkitePipeline();
-        $unnamed = $kept && ! $settings->ci()->buildkiteDefinition()->equals($pipeline);
+        $ci = $settings->ci();
+        $unnamed = match ($plan) {
+            BuiltinCiPlan::Buildkite => $this->unnamed(
+                'ci.buildkite.definition',
+                $ci->buildkiteDefinition(),
+                CiTemplate::buildkitePipeline(),
+            ),
+            BuiltinCiPlan::Azure => $this->unnamed(
+                'ci.azure.definition',
+                $ci->azureDefinition(),
+                CiTemplate::azureJobs(),
+            ),
+            BuiltinCiPlan::GitHub, BuiltinCiPlan::GitLab, BuiltinCiPlan::CircleCi, BuiltinCiPlan::Json => [],
+        };
 
         return match (true) {
             $plan === BuiltinCiPlan::GitHub => $github,
-            $plan === BuiltinCiPlan::Buildkite && $unnamed => [sprintf(self::UNNAMED, $pipeline->value())],
+            $kept => $unnamed,
             default => [],
         };
+    }
+
+    /**
+     * That a config kept here must name the file of the gate's jobs `init` writes, under this key, where it names
+     * another; nothing where it names that file.
+     *
+     * @return list<string>
+     */
+    private function unnamed(string $key, Path $named, Path $written): array
+    {
+        return $named->equals($written) ? [] : [sprintf(self::UNNAMED, $key, $written->value())];
     }
 
     /** The GitHub definition: the one asked for, or the one a full run's estimate fits, or else the one-step action. */
