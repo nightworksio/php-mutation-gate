@@ -53,3 +53,20 @@ it('cannot name the run of any other CI', function (): void {
     expect(CiRun::read(Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'false'])))
         ->toEqual(CannotTell::because('This CI is not GitHub Actions, GitLab CI, Buildkite or CircleCI, so the gate cannot name its run.'));
 });
+
+it('names the pipeline or workflow each CI names, and none where it names none', function (Variables $environment, string $pipeline): void {
+    $run = CiRun::read($environment);
+
+    expect($run instanceof CiRun ? $run->pipeline() : null)->toBe($pipeline);
+})->with([
+    'GitHub Actions' => [Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_WORKFLOW' => 'mutation']), 'mutation'],
+    'GitLab CI' => [Variables::of(['GITLAB_CI' => 'true', 'CI_PIPELINE_NAME' => 'nightly']), 'nightly'],
+    'Buildkite' => [Variables::of(['BUILDKITE' => 'true', 'BUILDKITE_PIPELINE_NAME' => 'Gate']), 'Gate'],
+    'CircleCI' => [Variables::of(['CIRCLECI' => 'true', 'CIRCLE_JOB' => 'mutate']), 'mutate'],
+    'none' => [Variables::of(['GITHUB_ACTIONS' => 'true']), ''],
+]);
+
+it('takes a pipeline\'s name', function (): void {
+    expect(CiRun::of('o/r', 'refs/heads/main', 'c', 'u')->inPipeline('mutation')->pipeline())->toBe('mutation')
+        ->and(CiRun::of('o/r', 'refs/heads/main', 'c', 'u')->pipeline())->toBe('');
+});

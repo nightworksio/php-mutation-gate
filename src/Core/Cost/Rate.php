@@ -12,8 +12,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 final readonly class Rate
 {
-    private const float SECONDS_PER_MINUTE = 60.0;
-
     private function __construct(private Money $perMinute)
     {
     }
@@ -33,7 +31,7 @@ final readonly class Rate
     public function of(Seconds $runner): Money
     {
         return Money::of(
-            $this->perMinute->amount() * $runner->seconds() / self::SECONDS_PER_MINUTE,
+            $this->perMinute->amount() * $runner->seconds() / Seconds::PER_MINUTE,
             $this->perMinute->currency(),
         );
     }

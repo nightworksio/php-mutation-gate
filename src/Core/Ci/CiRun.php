@@ -13,8 +13,9 @@ use function sprintf;
 use function str_starts_with;
 
 /**
- * A CI run as an alert names it: the repository as owner/name, the full ref
- * it ran on, the full commit, and the link to the run (ADR-0016, decision 12).
+ * A CI run as an alert and a trace name it: the repository as owner/name,
+ * the full ref it ran on, the full commit, the link to the run, and the
+ * pipeline or workflow it ran in (ADR-0016, decisions 12 and 16).
  */
 final readonly class CiRun
 {
@@ -28,12 +29,19 @@ final readonly class CiRun
         private string $ref,
         private string $commit,
         private string $url,
+        private string $pipeline,
     ) {
     }
 
     public static function of(string $repository, string $ref, string $commit, string $url): self
     {
-        return new self($repository, $ref, $commit, $url);
+        return new self($repository, $ref, $commit, $url, '');
+    }
+
+    /** This run, in the pipeline or workflow of this name. */
+    public function inPipeline(string $pipeline): self
+    {
+        return new self($this->repository, $this->ref, $this->commit, $this->url, $pipeline);
     }
 
     /**
@@ -54,6 +62,7 @@ final readonly class CiRun
                 self::branch($variables->valueOf('BUILDKITE_BRANCH')),
                 $variables->valueOf('BUILDKITE_COMMIT'),
                 $variables->valueOf('BUILDKITE_BUILD_URL'),
+                $variables->valueOf('BUILDKITE_PIPELINE_NAME'),
             ),
             $variables->valueOf('CIRCLECI') === 'true' => new self(
                 sprintf(
@@ -64,6 +73,7 @@ final readonly class CiRun
                 self::branch($variables->valueOf('CIRCLE_BRANCH')),
                 $variables->valueOf('CIRCLE_SHA1'),
                 $variables->valueOf('CIRCLE_BUILD_URL'),
+                $variables->valueOf('CIRCLE_JOB'),
             ),
             default => CannotTell::because(self::UNREAD),
         };
@@ -98,6 +108,12 @@ final readonly class CiRun
         return $this->url;
     }
 
+    /** The name of the pipeline or workflow it ran in; empty where the CI names none. */
+    public function pipeline(): string
+    {
+        return $this->pipeline;
+    }
+
     private static function github(Variables $variables): self
     {
         $server = $variables->valueOf('GITHUB_SERVER_URL');
@@ -113,6 +129,7 @@ final readonly class CiRun
                 $repository,
                 $variables->valueOf('GITHUB_RUN_ID'),
             ),
+            $variables->valueOf('GITHUB_WORKFLOW'),
         );
     }
 
@@ -125,6 +142,7 @@ final readonly class CiRun
             $tag === '' ? self::branch($variables->valueOf('CI_COMMIT_REF_NAME')) : sprintf('refs/tags/%s', $tag),
             $variables->valueOf('CI_COMMIT_SHA'),
             $variables->valueOf('CI_PIPELINE_URL'),
+            $variables->valueOf('CI_PIPELINE_NAME'),
         );
     }
 

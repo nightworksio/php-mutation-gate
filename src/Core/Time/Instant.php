@@ -14,7 +14,8 @@ use function sprintf;
 /** A moment, to the second, in UTC, written `2026-09-29T20:48:17Z`. */
 final readonly class Instant
 {
-    private const string FORMAT = 'Y-m-d\TH:i:s\Z';
+    /** How an instant is written, as `DateTimeImmutable::format` takes it. */
+    public const string FORMAT = 'Y-m-d\TH:i:s\Z';
 
     private const string WRITTEN = '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D';
 

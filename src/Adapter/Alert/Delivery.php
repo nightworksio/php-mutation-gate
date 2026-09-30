@@ -14,16 +14,10 @@ use function is_numeric;
 use function max;
 use function min;
 
-use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\Http\Reply;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
-
-use function preg_replace;
-
 use Psr\Clock\ClockInterface;
-
-use function sprintf;
-
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -44,18 +38,8 @@ final readonly class Delivery
     /** The longest a `Retry-After` is waited for, in seconds. */
     private const int LONGEST_WAIT = 30;
 
-    /** The most characters of an answer a failure repeats. */
-    private const int ANSWER = 200;
-
     /** How HTTP writes a date, as `Wed, 30 Sep 2026 12:00:30 GMT`. */
     private const string HTTP_DATE = 'D, d M Y H:i:s \G\M\T';
-
-    private const string REFUSED = '%s answered %d: %s';
-
-    private const string UNREACHED = '%s could not be reached: %s';
-
-    /** Any URL, which a failure never repeats, as a chat's holds its credential. */
-    private const string URL = '#https?://[^\s"\']+#i';
 
     /** @param Closure(int): void $wait waits this many seconds */
     private function __construct(
@@ -84,32 +68,22 @@ final readonly class Delivery
      */
     public function post(string $url, string $body, array $headers, string $to): Written|NotWritten
     {
-        $reply = $this->send($url, $body, $headers, $to);
+        $reply = $this->send($url, $body, $headers);
 
         if ($reply instanceof Reply && $reply->isWorthRetrying()) {
             ($this->wait)($this->waitFor($reply));
-            $reply = $this->send($url, $body, $headers, $to);
+            $reply = $this->send($url, $body, $headers);
         }
 
         return match (true) {
-            $reply instanceof NotWritten => NotWritten::because(sprintf(self::UNREACHED, $to, $reply->why())),
+            $reply instanceof NotWritten => Reply::unreached($to, $reply->why()),
             $reply->isAccepted() => Written::to($to),
-            default => NotWritten::because(sprintf(
-                self::REFUSED,
-                $to,
-                $reply->status(),
-                Fit::line(Fit::plain($reply->body()), self::ANSWER),
-            )),
+            default => $reply->refusedBy($to),
         };
     }
 
-    /**
-     * The reply to one post, or why there was none, with every URL in it
-     * replaced by what the reader knows the service as.
-     *
-     * @param array<string, string> $headers
-     */
-    private function send(string $url, string $body, array $headers, string $to): Reply|NotWritten
+    /** @param array<string, string> $headers */
+    private function send(string $url, string $body, array $headers): Reply|NotWritten
     {
         try {
             $response = $this->client->request('POST', $url, [
@@ -126,7 +100,7 @@ final readonly class Delivery
                 $response->getContent(throw: false),
             );
         } catch (ExceptionInterface $unreached) {
-            return NotWritten::because(Fit::plain(preg_replace(self::URL, $to, $unreached->getMessage()) ?? ''));
+            return NotWritten::because($unreached->getMessage());
         }
     }
 

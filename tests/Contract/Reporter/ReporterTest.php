@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
+use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
@@ -94,6 +95,12 @@ $reporters = [
     'Slack' => fn(): Reporter => $alerting(Channel::Slack),
     'Discord' => fn(): Reporter => $alerting(Channel::Discord),
     'the webhook' => fn(): Reporter => $alerting(Channel::Webhook),
+    'OTLP' => fn(): Reporter => OtlpReporter::to(
+        Variables::of([]),
+        new MockHttpClient(static fn(): MockResponse => new MockResponse('{}')),
+        new StoppedClock('2026-09-30T12:00:00Z'),
+        'https://otel.example',
+    ),
     'the badge' => fn(): Reporter => BadgeDirectory::at(
         sprintf('%s/publish', Scratch::directory()),
         BadgeColors::defaults(),

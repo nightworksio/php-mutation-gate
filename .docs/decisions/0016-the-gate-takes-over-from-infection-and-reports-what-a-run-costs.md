@@ -350,6 +350,36 @@ Operating the gate raises four needs its reports do not yet meet.
     - The reusable workflow takes `OTEL_EXPORTER_OTLP_ENDPOINT` and
       `OTEL_EXPORTER_OTLP_HEADERS` as optional secrets, passed to every job,
       because every job adds spans.
+    - **As built.** The verdict job sends every span, since the verdict
+      holds each phase's timings, and the trace id ties them to the run as
+      decision 15 intends. It sends `/v1/traces` only for a timed run, and
+      `/v1/metrics` always, stamped with the clock's time.
+      - With neither `with.endpoint` nor the variable set, the endpoint is
+        `http://localhost:4318`, OpenTelemetry's default.
+      - A header or resource list is `key=value,key=value`, its values
+        percent-encoded. A pair it cannot read is left out.
+      - `service.name` comes from `OTEL_SERVICE_NAME`, then the resource
+        attributes, then `mutation-gate`.
+      - Like an alert's post, it follows no redirect. A failure repeats no
+        URL, and a collector's answer is shown as one plain line.
+      - It names its endpoint by scheme, host and port alone, whether it
+        wrote or not. A vendor may put its key in the userinfo, the path or
+        the query.
+      - A signal's path goes before any query the endpoint holds.
+    - **Attributes as built.**
+      - Spans carry the four conventional ones where the CI names them.
+        They also carry `mutation_gate.mode`, `change` or `full`, and a
+        shard's spans carry `mutation_gate.shard`.
+      - Metrics use `mutation_gate.tree` for a score. A new-code set is
+        `new code in <package>`.
+      - They use `mutation_gate.status` for a mutant's judgement and for a
+        unit's `run`, `proved` or `carried`.
+      - They use `mutation_gate.phase` for a duration: `plan`, `opening
+        run`, `mutate` or `verdict`.
+      - A sum is this run's alone, as OTLP's delta temporality.
+      - Spans carry `mutation_gate.runner`, the runner's name, where the
+        flows give the timings the runner that judged the run, with
+        `RunTimings::ranBy(Identity)`.
 
 18. **The JSON report gains a `run` section.** It holds:
     - the phase durations and per-shard timings;

@@ -59,8 +59,6 @@ final readonly class ProcessShell implements Shell
     /** How long the shell waits between looks at a running process, in microseconds. */
     private const int POLL = 20000;
 
-    private const int NANOSECONDS = 1_000_000_000;
-
     /** Each process and the one that started it, as `ps` lists them. */
     private const string PARENTS = '/^\s*(?<pid>\d+)\s+(?<parent>\d+)\s*$/m';
 
@@ -124,7 +122,7 @@ final readonly class ProcessShell implements Shell
             return false;
         }
 
-        $end = hrtime(as_number: true) + (int) ($deadline->seconds() * self::NANOSECONDS);
+        $end = hrtime(as_number: true) + $deadline->nanoseconds();
 
         while ($process->isRunning() && hrtime(as_number: true) < $end) {
             usleep(self::POLL);

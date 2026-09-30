@@ -495,10 +495,10 @@ services:
                 'NightWorksIO\MutationGate\Adapter\Alert\Delivery':
                     - TIMEOUT # seconds a post may take
                     - LONGEST_WAIT # seconds a Retry-After is waited
-                    - ANSWER # characters of an answer repeated
-                'NightWorksIO\MutationGate\Adapter\Alert\Reply':
+                'NightWorksIO\MutationGate\Core\Http\Reply':
                     - SERVER # an HTTP status
                     - REDIRECT # an HTTP status
+                    - ANSWER # characters of an answer repeated
                 'NightWorksIO\MutationGate\Adapter\GitHub\Markdown':
                     - COMMENTED # entries a comment's list holds
                 'NightWorksIO\MutationGate\Core\Alert\AlertLines':
