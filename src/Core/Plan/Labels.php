@@ -8,17 +8,15 @@ use function array_filter;
 use function array_keys;
 use function array_last;
 use function array_map;
+use function array_values;
 use function count;
 use function implode;
 use function in_array;
 use function mb_strlen;
 
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
-use NightWorksIO\MutationGate\Core\Unit\Unit;
-use NightWorksIO\MutationGate\Core\Unit\Units;
 
 use function sprintf;
 use function str_starts_with;
@@ -33,31 +31,23 @@ use function usort;
  */
 final readonly class Labels
 {
-    /** @param list<list<Weighed>> $runs */
-    public static function of(array $runs, Trees $trees): Shards
+    public static function of(Trees $trees, Run ...$runs): Shards
     {
-        $named = array_map(static fn(array $run): array => self::treesOf($run, $trees), $runs);
+        $runs = array_values($runs);
+        $named = array_map(static fn(Run $run): array => self::treesOf($run, $trees), $runs);
         $shards = [];
 
         foreach ($runs as $at => $run) {
-            $id = ShardId::of($at + 1);
-            $shards[] = $run === [] ? Shard::empty($id) : Shard::of(
-                $id,
-                $run[0]->package(),
-                Units::of(...array_map(static fn(Weighed $unit): Unit => $unit->unit(), $run)),
-                Seconds::of(Runs::costOf($run)),
-                self::labelOf($at, $named),
-            );
+            $shards[] = $run->shard(ShardId::of($at + 1), self::labelOf($at, $named));
         }
 
         return Shards::of(...$shards);
     }
 
     /**
-     * @param  list<Weighed> $run
-     * @return list<string>  the trees a run takes, in the order it takes them
+     * @return list<string> the trees a run takes, in the order it takes them
      */
-    private static function treesOf(array $run, Trees $trees): array
+    private static function treesOf(Run $run, Trees $trees): array
     {
         $taken = [];
 

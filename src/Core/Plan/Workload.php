@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
+use function array_map;
+use function array_values;
 use function count;
 
 use Countable;
 
 use function ksort;
-use function usort;
 
 /** The units a plan cuts into shards, each weighed. */
 final readonly class Workload implements Countable
@@ -25,10 +26,9 @@ final readonly class Workload implements Countable
     }
 
     /**
-     * The units of each package, by the package's path in path order, and
-     * each package's units in path order.
+     * The units of each package, packages in path order.
      *
-     * @return array<string, list<Weighed>>
+     * @return list<PackageWork>
      */
     public function byPackage(): array
     {
@@ -40,16 +40,7 @@ final readonly class Workload implements Countable
 
         ksort($packages, SORT_STRING);
 
-        foreach ($packages as $package => $units) {
-            usort(
-                $units,
-                static fn(Weighed $one, Weighed $other): int => $one->unit()->path()->value()
-                    <=> $other->unit()->path()->value(),
-            );
-            $packages[$package] = $units;
-        }
-
-        return $packages;
+        return array_values(array_map(static fn(array $units): PackageWork => PackageWork::of(...$units), $packages));
     }
 
     public function count(): int

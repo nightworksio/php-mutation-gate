@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Plan\PackageWork;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Plan\Workload;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -29,16 +30,16 @@ it('groups its units by package, packages and units each in path order', functio
     );
 
     $grouped = array_map(
-        static fn(array $units): array => array_map(
+        static fn(PackageWork $package): array => array_map(
             static fn(Weighed $unit): string => $unit->unit()->path()->value(),
-            $units,
+            iterator_to_array($package->runs(1)[0], preserve_keys: false),
         ),
         $work->byPackage(),
     );
 
     expect($grouped)->toBe([
-        '.' => ['src/A.php', 'src/Z.php'],
-        'packages/a' => ['packages/a/src/A.php'],
-        'packages/b' => ['packages/b/src/B.php'],
+        ['src/A.php', 'src/Z.php'],
+        ['packages/a/src/A.php'],
+        ['packages/b/src/B.php'],
     ]);
 });

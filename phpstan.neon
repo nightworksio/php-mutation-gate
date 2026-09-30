@@ -487,7 +487,6 @@ services:
                 - src/Core/Config/Definition/Unchecked.php
                 - src/Core/Config/Definition/Url.php
                 - src/Core/Config/Layers.php
-                - src/Core/Plan/PlanFile.php
                 - tests/Support/Configs.php
                 - tests/Support/Decoded.php
                 - tests/Support/InfectionRun.php
