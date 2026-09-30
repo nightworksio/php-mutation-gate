@@ -1,0 +1,228 @@
+name: mutation-gate
+description: Mutation testing for PHP that runs only what a change reaches, proves what it skips, and fails a pull request that lowers a floor.
+author: NightWorksIO
+
+branding:
+  icon: shield
+  color: green
+
+# Every input is a string, because an action's inputs are: the description
+# gives the format of the value (ADR-0011, decision 8).
+inputs:
+  config:
+    description: The config file, where the gate should not look for one.
+    required: false
+    default: ''
+  php-version:
+    description: The PHP version to set up.
+    required: false
+    default: '8.5'
+  runner:
+    description: pest, infection or a registered runner's name; the config's, or zero-config's, where empty.
+    required: false
+    default: ''
+  shard:
+    description: The id of the one shard of `.mutation-gate/plan.json` to run; the whole gate runs where empty.
+    required: false
+    default: ''
+  mode:
+    description: auto (change-scoped on pull requests and pushes, full on schedules, manual runs, releases and tags), full or changed.
+    required: false
+    default: auto
+  changed-since:
+    description: A git ref, or last-passed; the pull request's base on pull_request, last-passed on a push, where empty.
+    required: false
+    default: ''
+  budget:
+    description: How long the run may take, such as 15m or 1h30m.
+    required: false
+    default: ''
+  reports:
+    description: '<name>:<path> lines, each added as --report, such as sarif:build/mutation.sarif.'
+    required: false
+    default: ''
+  cache:
+    description: 'true to keep the proof ledger in the Actions cache.'
+    required: false
+    default: 'true'
+
+outputs:
+  verdict:
+    description: passed, failed or cannot-judge; empty for one shard, whose verdict comes later.
+    value: ${{ steps.outputs.outputs.verdict }}
+  scores:
+    description: 'JSON: each tree''s score, and the new code''s.'
+    value: ${{ steps.outputs.outputs.scores }}
+  report-paths:
+    description: 'JSON: each written report''s name and path.'
+    value: ${{ steps.outputs.outputs.report_paths }}
+  plan:
+    description: 'JSON: the plan, as plan --ci=json prints it.'
+    value: ${{ steps.outputs.outputs.plan }}
+
+runs:
+  using: composite
+  steps:
+    # C2.1: an event that runs the default branch's workflow with write access
+    # over a pull request's content is refused before anything is installed.
+    - name: Refuse an event the gate never runs under
+      shell: bash
+      run: python3 "${GITHUB_ACTION_PATH}/.github/scripts/gate_action.py" guard
+
+    - name: Set up PHP
+      uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+      with:
+        php-version: ${{ inputs.php-version }}
+        coverage: pcov
+
+    - name: Install the project's dependencies
+      uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+
+    - name: Resolve the run
+      id: resolve
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        CHANGED_SINCE: ${{ inputs.changed-since }}
+        CONFIG: ${{ inputs.config }}
+        RUNNER: ${{ inputs.runner }}
+        BUDGET: ${{ inputs.budget }}
+        REPORTS: ${{ inputs.reports }}
+        CACHE: ${{ inputs.cache }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        if [ -z "${DEFAULT_BRANCH}" ]; then
+          DEFAULT_BRANCH="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
+          export DEFAULT_BRANCH
+        fi
+        INSTALLED="$(composer show nightworksio/mutation-gate --format=json 2>/dev/null | jq -r '.versions[0] // ""' || true)"
+        export INSTALLED
+        python3 "${GITHUB_ACTION_PATH}/.github/scripts/gate_action.py" resolve
+
+    # ADR-0007: the Actions cache holds the directory store at its default path
+    # and nothing else, so a config that keeps its ledger elsewhere runs uncached.
+    - name: Check where the ledger is kept
+      id: store
+      if: inputs.cache == 'true'
+      shell: bash
+      env:
+        GATE: ${{ steps.resolve.outputs.gate }}
+        OPTIONS: ${{ steps.resolve.outputs.options }}
+      run: |
+        set -euo pipefail
+        mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+        "${GATE}" config:show --format=json "${arguments[@]}" \
+          | python3 "${GITHUB_ACTION_PATH}/.github/scripts/gate_action.py" store
+
+    - name: Restore this scope's ledger
+      if: steps.store.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.resolve.outputs.own_dir }}
+        key: ${{ steps.resolve.outputs.own_prefix }}${{ github.run_id }}
+        restore-keys: ${{ steps.resolve.outputs.own_prefix }}
+
+    - name: Restore the default branch's ledger
+      if: steps.store.outputs.default_store == 'true' && steps.resolve.outputs.default_dir != ''
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.resolve.outputs.default_dir }}
+        key: ${{ steps.resolve.outputs.default_prefix }}${{ github.run_id }}
+        restore-keys: ${{ steps.resolve.outputs.default_prefix }}
+
+    # One shard of a plan the reusable workflow made: its result is the verdict's to judge.
+    - name: Run shard ${{ inputs.shard }}
+      id: shard
+      if: inputs.shard != ''
+      shell: bash
+      env:
+        GATE: ${{ steps.resolve.outputs.gate }}
+        OPTIONS: ${{ steps.resolve.outputs.options }}
+        SHARD: ${{ inputs.shard }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        set -uo pipefail
+        mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+        "${GATE}" run --plan=.mutation-gate/plan.json --shard="${SHARD}" --results=.mutation-gate/results "${arguments[@]}"
+        echo "code=$?" >> "${GITHUB_OUTPUT}"
+
+    # The whole gate in this job: the plan, each of its shards in turn, then the
+    # verdict, the same path the reusable workflow takes across jobs.
+    - name: Plan
+      id: plan
+      if: inputs.shard == ''
+      shell: bash
+      env:
+        GATE: ${{ steps.resolve.outputs.gate }}
+        OPTIONS: ${{ steps.resolve.outputs.plan_options }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        set -uo pipefail
+        mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+        "${GATE}" plan --ci=github "${arguments[@]}"
+        echo "code=$?" >> "${GITHUB_OUTPUT}"
+
+    - name: Run every shard
+      id: run
+      if: inputs.shard == '' && steps.plan.outputs.code == '0'
+      shell: bash
+      env:
+        GATE: ${{ steps.resolve.outputs.gate }}
+        OPTIONS: ${{ steps.resolve.outputs.options }}
+        SHARDS: ${{ steps.plan.outputs.shards }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        set -uo pipefail
+        mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+        mapfile -t shards < <(jq -r '.[].id' <<< "${SHARDS:-[]}")
+        for shard in "${shards[@]}"; do
+          echo "::group::Shard ${shard}"
+          "${GATE}" run --plan=.mutation-gate/plan.json --shard="${shard}" --results=.mutation-gate/results "${arguments[@]}"
+          echo "::endgroup::"
+        done
+
+    - name: Verdict
+      id: verdict
+      if: inputs.shard == '' && steps.plan.outputs.code == '0'
+      shell: bash
+      env:
+        GATE: ${{ steps.resolve.outputs.gate }}
+        OPTIONS: ${{ steps.resolve.outputs.options }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        set -uo pipefail
+        mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+        "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
+          --report=json:.mutation-gate/action/report.json "${arguments[@]}"
+        echo "code=$?" >> "${GITHUB_OUTPUT}"
+
+    # Only the verdict writes a ledger, and only for the run's own scope where
+    # it may write it (ADR-0007). An unchanged ledger has the key it had.
+    - name: Save this scope's ledger
+      if: >-
+        inputs.shard == '' && steps.resolve.outputs.save == 'true'
+        && steps.store.outputs.default_store == 'true' && steps.verdict.outputs.code != ''
+        && hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir)) != ''
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.resolve.outputs.own_dir }}
+        key: ${{ steps.resolve.outputs.own_prefix }}${{ hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir)) }}
+
+    - name: Say what the gate decided
+      id: outputs
+      if: inputs.shard == ''
+      shell: bash
+      env:
+        EXIT_CODE: ${{ steps.verdict.outputs.code || steps.plan.outputs.code || '2' }}
+        REPORT: .mutation-gate/action/report.json
+        REPORTS: ${{ inputs.reports }}
+        PLAN: ${{ steps.plan.outputs.plan }}
+      run: python3 "${GITHUB_ACTION_PATH}/.github/scripts/gate_action.py" outputs
+
+    - name: Fail unless the gate passed
+      shell: bash
+      env:
+        CODE: ${{ inputs.shard != '' && steps.shard.outputs.code || steps.verdict.outputs.code || steps.plan.outputs.code || '2' }}
+      run: exit "${CODE}"
