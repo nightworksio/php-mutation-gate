@@ -46,7 +46,8 @@ sees the same verdict.
    - **File reports**, listed in `reports` (ADR-0002): each entry is
      `{"use": <name or class>, "path": <file or directory>, "with": <options>}`.
      The built-in names are `json`, `junit`, `sarif`, `html`, `tests` and
-     `kill-matrix` (ADR-0014), each needing a `path`. `reports` is empty by default, and `--report=<name>:<path>` adds
+     `kill-matrix` (ADR-0014), and `gitlab`, GitLab's Code Quality JSON
+     (ADR-0016), each needing a `path`. `reports` is empty by default, and `--report=<name>:<path>` adds
      one for a single command.
    - **GitHub annotations and the step summary** (written to
      `GITHUB_STEP_SUMMARY`) whenever `GITHUB_ACTIONS` is set.
@@ -55,6 +56,9 @@ sees the same verdict.
      set it.
    - **The badge and the trend** when the verdict runs in CI on the default
      branch (decision 5).
+   - **Chat alerts,** `slack`, `discord` and `webhook`, when listed in
+     `reports` and the verdict runs in CI on the default branch and changes
+     its state, and **OpenTelemetry**, `otlp`, when listed (ADR-0016).
 
    A reporter that fails to write says so, and it does not change the verdict's
    exit code.
@@ -122,7 +126,8 @@ sees the same verdict.
        - unjudged and flaky mutants;
        - warnings;
        - floors that must or can rise (ADR-0003);
-       - a link to the run and its HTML report.
+       - a link to the run and its HTML report;
+       - the run's cost, collapsed (ADR-0016).
      - **Fork pull requests.** The token GitHub gives a `pull_request` run from
        a fork is read-only, so no comment is written. The step summary carries
        the same content, and the reporter says why without failing. The README's
@@ -179,7 +184,8 @@ sees the same verdict.
      - orange at 60;
      - red below the lowest.
    - **The trend.** `trend.json` gets one entry per run on the default branch:
-     commit, time, the project's score and each tree's score. It keeps the
+     commit, time, the verdict, the project's score and each tree's score.
+     The verdict is what chat alerts compare against (ADR-0016). It keeps the
      newest 500. The verdict also draws `trend.svg`, a plain sparkline with no
      script, which the step summary and the HTML report show.
    - **Where they are written.** Only a verdict in CI (the `CI` environment
@@ -273,3 +279,4 @@ but data.
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): *equivalent, proven*, the first killer, and a shard target the plan could not meet
 - [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): test-level data, the `tests` and `kill-matrix` reports, and `explain`
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the problems output, and SARIF's local root
+- [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): the `gitlab`, chat and `otlp` reporters, the JSON report's `cost` and `run`, and `trend.json`'s `verdict`

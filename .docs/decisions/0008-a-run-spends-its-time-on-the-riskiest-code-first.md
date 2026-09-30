@@ -161,7 +161,10 @@ presets for Laravel, Symfony and plain libraries.
      before anything is mutated, listing each marker and the config entry that
      replaces it. A marker hides the mutant from the count without a reason or
      an end.
-   - **`ignores.native: allow` lets a project migrate.**
+   - **`ignores.native: allow` lets a project migrate.** `init --from`
+     converts Infection's `ignore` patterns into entries, and sets `allow`
+     only for the regex ignores that have no equivalent (ADR-0016,
+     decision 4).
      - Pest's marker, `@infection-ignore-all` and `ignore` stop the runner
        generating the mutant at all. The report counts the markers it found,
        and says it cannot count what they hide.
@@ -225,3 +228,4 @@ warnings say where holding groups would save time.
 - [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): mutator families, and how unjudged and flaky mutants are shown
 - [ADR-0010](0010-the-gate-runs-while-you-work-and-before-you-push.md): the budgets of watch and pre-push
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the order survivor confirmation and `triage` use, and ignores a proof makes redundant
+- [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): Infection's ignores converted by `init --from`

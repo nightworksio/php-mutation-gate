@@ -233,7 +233,10 @@ about Laravel, NativePHP or the project's modules, and does not.
        defaults.
      - **Secrets**, all optional: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
        and `AWS_SESSION_TOKEN`, passed to every job that reads or writes an S3
-       proof store.
+       proof store; `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`,
+       `MUTATION_GATE_WEBHOOK_URL` and `MUTATION_GATE_WEBHOOK_SECRET`, passed
+       to the `verdict` job; and `OTEL_EXPORTER_OTLP_ENDPOINT` and
+       `OTEL_EXPORTER_OTLP_HEADERS`, passed to every job (ADR-0016).
      - **Outputs** are `verdict`, `scores` and `plan`, as the action's. The
        reports are uploaded as the artifact `mutation-gate-reports`.
      - **Jobs:**
@@ -345,3 +348,4 @@ points at the ADR that decides it.
 - [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): what the workflow posts and publishes
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the release gate covers every feature the README lists
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the problems output as public API, and the CI templates pinned to the package's own workflows
+- [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): the reusable workflow's secrets for chat alerts and OpenTelemetry

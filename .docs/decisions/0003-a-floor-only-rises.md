@@ -70,9 +70,11 @@ itself, and goes up with the tests.
 
 2. **A floor belongs to a tree, and a tree is a path.** Trees come from a tree
    source (ADR-0002, ADR-0005), or from `trees` in the config: a list of
-   entries, each with a `path`, an optional `floor` (a number from 0 to 100)
-   and, when the floor is 0, a `reason`. In the PHP builder that is
-   `Tree::at('<path>', floor: <n>, because: '<reason>')`. A tree's effective
+   entries, each with a `path`, an optional `floor` (a number from 0 to 100),
+   when the floor is 0 a `reason`, and an optional `exclude`: globs of paths
+   inside the tree that belong to no tree (ADR-0016, decision 3). In the PHP
+   builder that is `Tree::at('<path>', floor: <n>, because: '<reason>',
+   excluding: ['<glob>'])`. A tree's effective
    floor is the higher of:
    - the floor its config entry or manifest **declares**, which is a policy
      minimum;
@@ -213,3 +215,4 @@ failure message gives the command that writes it.
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): proved and carried results
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): unjudged, flaky, timeouts and ignores
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): mutants proven equivalent
+- [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): `trees[].exclude`

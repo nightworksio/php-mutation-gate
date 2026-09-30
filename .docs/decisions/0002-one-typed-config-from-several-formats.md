@@ -54,7 +54,9 @@ cannot.
    changes nothing until somebody edits it. It also adds `.mutation-gate/` to
    `.gitignore`. `init --ci=<provider>` also writes a CI definition, and
    `init --editor=vscode` the editor's task and recommendation, each only where
-   no such file exists (ADR-0015). `mutation-gate config:show --format=php|json|yaml|neon`
+   no such file exists (ADR-0015). `init --from=<file>`, or `import <file>`,
+   seeds the config from an Infection config and reports how each of its keys
+   maps (ADR-0016). `mutation-gate config:show --format=php|json|yaml|neon`
    (default `json`) prints the effective config in any of the four formats.
 
 3. **The four formats.**
@@ -237,3 +239,4 @@ gate's own.
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): monorepo tree sources
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): presets
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): `init --ci` and `init --editor`
+- [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): `init --from`, and webhook URLs kept out of the config

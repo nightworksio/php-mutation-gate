@@ -26,6 +26,7 @@ that reproduces it and a sentence saying what the tests miss.
 | | Feature | Decided in |
 |---|---------|------------|
 | **Adoption** | Zero-config start: trees from `phpunit.xml`'s `<source>`, and an optional config file | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
+| | `init --from=infection.json5`: a config taken over from Infection's | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | | `init --ci`: a ready, pinned workflow for GitHub, GitLab, Buildkite or CircleCI | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | | Floors that only rise: a committed baseline, which fails on regression and rises on improvement | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | | Pull-request mode: changed lines and what the change reaches, with a stricter floor for new code | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
@@ -56,6 +57,9 @@ that reproduces it and a sentence saying what the tests miss.
 | | Presets for Laravel, Symfony and plain libraries | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | **Visibility** | An HTML report | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | A sticky comment on the pull request | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| | A cost estimate in the PR comment: time planned, measured and spared, and money at the team's rate | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
+| | Chat alerts to Slack, Discord or a webhook when the default branch fails, cannot be judged, or recovers | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
+| | Run metrics as OpenTelemetry traces and metrics, and in the JSON report | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | | A badge (a shields.io endpoint) and a trend on the default branch | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 
 ## Install
@@ -126,6 +130,7 @@ to write one.
 | `pre-commit` | Print each reached tree's score change from the local ledger; runs nothing and always exits 0 |
 | `hook install [--pre-commit]` / `hook uninstall` | Add or remove the pre-push hook, and with `--pre-commit` the pre-commit hook too |
 | `init [--format=php\|json\|yaml\|neon] [--ci=github\|gitlab\|buildkite\|circleci] [--editor=vscode]` | Write a config holding what zero-config found (PHP by default, or the file `--config` names, in the format of its extension), and add `.mutation-gate/` to `.gitignore`; with `--ci`, a pinned CI definition, and with `--editor`, VS Code's watch task, each only where none exists |
+| `init --from=<file>` or `import <file>` | Write a config from an Infection config, and report how each of its keys maps |
 | `stub <id>` | Print a failing Pest or PHPUnit test for a survivor or an uncovered mutant, in the style of its nearest covering test |
 | `config:show [--format=…]` / `config:schema` | Print the effective config (JSON by default), or the JSON Schema |
 | `pest:patch` | Apply the optional Pest patches ([ADR-0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md)) |
@@ -289,6 +294,7 @@ chooses an adapter takes a registered name or `{"use": <name or class>,
 | `trees` | list of `{path, floor, reason}` | the tree source's trees | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `trees[].floor` | number, 0 to 100 | the nearest manifest's, if any | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `trees[].reason` | string | none; required when `floor` is 0 | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
+| `trees[].exclude` | list of globs from the repository root, each matching a file in the tree | `[]` | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `newCode.floor` | number, 0 to 100 | `100` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `uncovered` | `count` or `exclude` | `count` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `baseline.path` | path | `mutation-gate.baseline.json` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
@@ -301,6 +307,7 @@ chooses an adapter takes a registered name or `{"use": <name or class>,
 | `shards.target` | duration; replaces `shards.seconds`, and setting both is an error | none | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `shards.setup` | duration: each shard's CI setup before the gate starts | `1m` | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `costs.secondsPerLine` | map of path prefix to number | `{"": 0.2}` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `costs.perRunnerMinute` | `{amount, currency}` | none | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `ci.plan` | adapter: `github`, `gitlab`, `buildkite`, `circleci`, `json` | detected from the environment | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.defaultBranch` | branch name | the CI's answer, else git's `origin/HEAD`, else `main` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.gitlab.template` | path | `.gitlab/mutation-gate.yml` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
@@ -324,7 +331,7 @@ chooses an adapter takes a registered name or `{"use": <name or class>,
 | `ignores.maxDays` | integer | none | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `ignores.native` | `refuse` or `allow` | `refuse` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `equivalence.static` | boolean | `true` | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
-| `reports` | list of `{use, path, with}`; built-in `json`, `junit`, `sarif`, `html`, `tests`, `kill-matrix` | `[]` | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `reports` | list of `{use, path, with}`; built-in `json`, `junit`, `sarif`, `html`, `tests`, `kill-matrix`, `gitlab`, and without a `path` `slack`, `discord`, `webhook`, `otlp` | `[]` | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `badge.colors` | map of shields.io colour to lowest score | `{"brightgreen": 90, "green": 80, "yellow": 70, "orange": 60}`, red below | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `pest.patch` | boolean | `false` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `pest.canary` | group name | `mutation-canary` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
@@ -353,6 +360,9 @@ Environment variables that change what the gate does:
 | `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, `CI_PIPELINE_ID`, `BUILDKITE_BUILD_ID`, `CIRCLE_WORKFLOW_ID` | The run a proof names | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `GITHUB_TOKEN` | Lets the sticky PR comment be posted, and the GitHub change source prove which pull request's run passed | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | Credentials for the S3 proof store | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`, `MUTATION_GATE_WEBHOOK_URL` | The webhook URLs of the `slack`, `discord` and `webhook` reporters, unless their `with.urlEnv` names other variables | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
+| `MUTATION_GATE_WEBHOOK_SECRET` | Signs each `webhook` request as `X-Mutation-Gate-Signature`, unless `with.secretEnv` names another variable | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES` | Where and how the `otlp` reporter sends | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `MUTATION_GATE_RESULTS` | Set by the Pest adapter for its own plugin; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `MUTATION_GATE_SHARED_COVERAGE`, `MUTATION_GATE_SUITE_SECONDS`, `MUTATION_GATE_CANARY` | Set by the Pest adapter for the lines `pest:patch` writes into pest-plugin-mutate: the planning job's coverage map, its suite's seconds and the canary group; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 
@@ -534,7 +544,10 @@ jobs:
 
 It takes the action's inputs less `shard`, and the optional secrets
 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN` for an S3
-proof store. Its outputs are `verdict`, `scores` and `plan`, and it uploads the
+proof store, `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`,
+`MUTATION_GATE_WEBHOOK_URL` and `MUTATION_GATE_WEBHOOK_SECRET` for chat alerts,
+and `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` for
+OpenTelemetry. Its outputs are `verdict`, `scores` and `plan`, and it uploads the
 reports as the artifact `mutation-gate-reports`.
 
 Here is what the examples rely on:

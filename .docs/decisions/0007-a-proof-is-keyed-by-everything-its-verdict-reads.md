@@ -65,7 +65,7 @@ has to bring its result with it.
       report left out.
       - In: `runner` with its options, `pest.patch`, `pest.canary`,
         `timeouts.seconds`, `timeouts.retries`, `flaky.confirmSurvivors`,
-        `tests.order` (ADR-0013, decision 4), and what decides the trees and packages (`trees[].path`, `treeSource`,
+        `tests.order` (ADR-0013, decision 4), and what decides the trees and packages (`trees[].path`, `trees[].exclude` (ADR-0016), `treeSource`,
         `packages`).
       - Left out: floors and their reasons (`trees[].floor`,
         `trees[].reason`, `newCode`), `baseline`, `uncovered`, `ignores`,
@@ -275,3 +275,4 @@ signed, and the README says where the boundary lies for each store.
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): why budget-cut and flaky units are never recorded
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): `tests.order` in the key, the killer history and opening runs in the ledger, and forks reading the S3 store
 - [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): `killedBy` in the proof
+- [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): `trees[].exclude` in the key
