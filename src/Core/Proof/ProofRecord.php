@@ -114,7 +114,7 @@ final readonly class ProofRecord
     }
 
     /**
-     * A mutant's full record, which the ledger keeps of every mutant that was not killed.
+     * A mutant's full record, which the ledger keeps of every mutant no test killed.
      *
      * @throws NotInShape
      */

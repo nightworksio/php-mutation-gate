@@ -107,7 +107,7 @@ it('reads every list of the log as the gate\'s status, by file and then by line,
         ['src/Money.php', 16, MutantStatus::Survived, MutatorFamily::Boundary, ''],
         ['src/Money.php', 21, MutantStatus::Uncovered, MutatorFamily::Arithmetic, ''],
         ['src/Money.php', 27, MutantStatus::TimedOut, MutatorFamily::Arithmetic, 'n27'],
-        ['src/Money.php', 30, MutantStatus::Killed, MutatorFamily::Literal, ''],
+        ['src/Money.php', 30, MutantStatus::KilledByStaticAnalysis, MutatorFamily::Literal, ''],
         ['src/Money.php', 31, MutantStatus::Errored, MutatorFamily::Exception, ''],
         ['src/Money.php', 32, MutantStatus::Errored, MutatorFamily::None, ''],
     ])->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(0)

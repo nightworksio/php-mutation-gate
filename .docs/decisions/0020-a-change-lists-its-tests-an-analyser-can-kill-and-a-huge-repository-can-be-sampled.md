@@ -221,6 +221,9 @@ needs remain, and the runners' own behaviour shapes each answer.
       and 4.
     - Its `killedBy` is unknown (ADR-0013 decision 1), and every kill-matrix
       cell is `not-run` (ADR-0014).
+    - The mutant's record keeps its rejection: the analyser's name and the
+      finding's code and message. A shard's results and the proof hold it,
+      and so does the JSON report's `rejection`.
     - `explain` prints the analyser, the finding's code and its message.
 
 11. **Each mutant is checked where it pays: before its tests, after them, or

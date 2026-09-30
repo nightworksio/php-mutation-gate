@@ -80,6 +80,9 @@ final readonly class Hint
 
     private const string ERRORED = 'It crashes its tests, which counts as killed.';
 
+    private const string REJECTED
+        = 'The static analyser the project runs rejects it, so it could not pass CI, which counts as killed.';
+
     private const string TIMED_OUT
         = 'Its tests ran far past their usual time with it in place, so the timeout counts as a kill.';
 
@@ -149,6 +152,7 @@ final readonly class Hint
             MutantJudgement::Survived => self::missed($mutant, $source),
             MutantJudgement::Uncovered => sprintf(self::UNCOVERED, $mutant->location()->start()->number()),
             MutantJudgement::Killed => self::KILLED,
+            MutantJudgement::KilledByStaticAnalysis => self::REJECTED,
             MutantJudgement::Errored => self::ERRORED,
             MutantJudgement::KilledByTimeout => self::TIMED_OUT,
             MutantJudgement::Unjudged => self::UNJUDGED,

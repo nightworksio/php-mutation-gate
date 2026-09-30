@@ -35,11 +35,11 @@ it('writes the sticky comment: the verdict, trees, new code, survivors on change
     expect(Markdown::comment(Verdicts::failing(), $run))->toBe(implode("\n\n", [
         '<!-- mutation-gate -->',
         '## mutation-gate: failed',
-        'The project scores 37.50%.',
+        'The project scores 44.44%.',
         implode("\n", [
             '| Tree | Floor | Score | Against the base | Result |',
             '|---|---|---|---|---|',
-            '| <code>src</code> | 80.00% | 37.50% | -2.50 | failed |',
+            '| <code>src</code> | 80.00% | 44.44% | -2.50 | failed |',
             '| <code>app/Legacy</code> | exempt |  |  | exempt: Replaced by the new billing module |',
             '| <code>src/Empty</code> | 90.00% | nothing to mutate |  | nothing-to-mutate |',
         ]),
@@ -113,7 +113,7 @@ it('comments on up to 20 survivors on changed lines, and 20 unjudged or flaky, t
 it('writes the step summary with every mutant counted as not killed in one table', function () use ($run): void {
     $summary = Markdown::summary(Verdicts::failing(), $run, Verdicts::monthAgo());
 
-    expect($summary)->toStartWith("## mutation-gate: failed\n\nThe project scores 37.50%.")
+    expect($summary)->toStartWith("## mutation-gate: failed\n\nThe project scores 44.44%.")
         ->and($summary)->not->toContain(Markdown::MARKER)
         ->and($summary)->toContain("### Not killed (5)\n\n| Mutant | Mutator | Judgement | What the tests miss | Command |")
         ->and(substr_count($summary, '| <code>vendor/bin/mutation-gate reproduce '))->toBe(5)
@@ -160,7 +160,7 @@ it('says what the run took and saved under the verdict, and folds what it cost i
     $comment = Markdown::comment(Verdicts::named('accounted'), $run);
 
     expect($comment)->toStartWith(sprintf(
-        "%s\n\n## mutation-gate: failed\n\n%s\n\nThe project scores 37.50%%.",
+        "%s\n\n## mutation-gate: failed\n\n%s\n\nThe project scores 44.44%%.",
         Markdown::MARKER,
         SavingsText::of(Verdicts::named('accounted'), NoHistory::yet()),
     ))
@@ -175,7 +175,7 @@ it('adds to the step summary what the default branch saved lately', function () 
     $summary = Markdown::summary($verdict, $run, Verdicts::monthAgo());
 
     expect($summary)->toContain(sprintf(
-        "%s\nIn the last 30 days the gate saved 2h 27m of runner time.\n\nThe project scores 37.50%%.",
+        "%s\nIn the last 30 days the gate saved 2h 27m of runner time.\n\nThe project scores 44.44%%.",
         SavingsText::of($verdict, NoHistory::yet()),
     ))
         ->and(Markdown::summary(Verdicts::named('accounted'), $run, Verdicts::monthAgo()))->not->toContain('In the last 30 days')

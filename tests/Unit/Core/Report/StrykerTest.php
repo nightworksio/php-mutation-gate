@@ -98,12 +98,13 @@ it('gives each judgement the viewer status the gate\'s score treats the same way
         ->and($of('src/Money.php', 'statusReason'))->toBe(['survived', 'killed', 'uncovered'])
         ->and($of('src/Order.php', 'status'))->toBe(['Survived', 'Survived', 'Survived', 'Timeout'])
         ->and($of('src/Order.php', 'statusReason'))->toBe(['flaky', 'unjudged: The run\'s budget ran out before it.', 'too slow to judge', 'killed by timeout'])
-        ->and($of('src/Log.php', 'status'))->toBe(['Ignored', 'Ignored', 'Killed', 'Ignored'])
+        ->and($of('src/Log.php', 'status'))->toBe(['Ignored', 'Ignored', 'Killed', 'Ignored', 'Killed'])
         ->and($of('src/Log.php', 'statusReason'))->toBe([
             'ignored: Logging is asserted in the integration suite',
             'ignored by a native marker',
             'errored',
             'equivalent, proven',
+            'killed by static analysis',
         ]);
 });
 

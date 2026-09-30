@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -15,7 +16,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * judging tests take on their own, which timeout triage compares. The native id is the
  * runner's own, and means something only within the run that printed it. A
  * mutant the runner left unjudged can say why, and a killed one names the
- * tests that killed it where the runner does.
+ * tests that killed it where the runner does. One a static analyser killed
+ * keeps the rejection that killed it.
  */
 final readonly class Mutant
 {
@@ -30,6 +32,7 @@ final readonly class Mutant
         private Seconds|Unmeasured $judgingTime,
         private Reason|Unreported $reason,
         private TestIds $killers,
+        private Rejection|Unreported $rejection,
     ) {
     }
 
@@ -52,6 +55,7 @@ final readonly class Mutant
             Unmeasured::duration(),
             Unreported::reason(),
             TestIds::none(),
+            Unreported::rejection(),
         );
     }
 
@@ -86,6 +90,12 @@ final readonly class Mutant
     public function unjudged(OutOfTime $before): self
     {
         return clone($this, ['status' => MutantStatus::Unjudged, 'reason' => $before->reason()]);
+    }
+
+    /** This mutant, killed by a static analyser that rejected it. */
+    public function rejected(Rejection $rejection): self
+    {
+        return clone($this, ['status' => MutantStatus::KilledByStaticAnalysis, 'rejection' => $rejection]);
     }
 
     /**
@@ -154,5 +164,11 @@ final readonly class Mutant
     public function killers(): TestIds
     {
         return $this->killers;
+    }
+
+    /** What rejected it, where a static analyser killed it. */
+    public function rejection(): Rejection|Unreported
+    {
+        return $this->rejection;
     }
 }

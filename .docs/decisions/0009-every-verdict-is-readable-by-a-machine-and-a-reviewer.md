@@ -92,7 +92,8 @@ sees the same verdict.
        `judgement`, `counts` and the ids of its `mutants`.
      - Each mutant is written once, at the top: `id`, `file`, `line`, `end`,
        `mutator`, `family`, `diff`, the runner's `status`, the gate's
-       `judgement`, the `reason` its record gives, `changedLine`, its judging
+       `judgement`, the `reason` its record gives, the `rejection` that killed
+       it where a static analyser did (ADR-0020), `changedLine`, its judging
        `tests`, its `hint`, its `reproduce` command, and the `seconds` it ran
        and the `limit` it was allowed where the runner says.
      - A value that is not known is left out, never written as null.
@@ -223,7 +224,7 @@ sees the same verdict.
 
    | Gate status | Viewer status |
    |-------------|---------------|
-   | killed, and errored | `Killed` |
+   | killed, errored, and killed by static analysis (ADR-0020) | `Killed` |
    | killed by timeout | `Timeout` |
    | survived, unjudged, flaky, and too slow to judge | `Survived` |
    | uncovered | `NoCoverage`, or `Ignored` under `uncovered: exclude` |

@@ -9,6 +9,7 @@ use function count;
 use function explode;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
@@ -67,17 +68,20 @@ final readonly class MutantText
     }
 
     /**
-     * The whole block: its heading, then its diff, reason, judging tests by
+     * The whole block: its heading, then its diff, reason, the rejection
+     * that killed it where a static analyser did, judging tests by
      * the names their runner gave them, hint, and reproduce and explain
      * commands, indented.
      */
     public static function block(JudgedMutant $judged, TestNames $names): string
     {
         $reason = $judged->mutant()->reason();
+        $rejection = $judged->mutant()->rejection();
 
         $lines = [
             ...self::diffOf($judged),
             ...$reason instanceof Reason ? [sprintf('Why: %s', $reason->text())] : [],
+            ...$rejection instanceof Rejection ? [self::rejected($rejection)] : [],
             ...count($judged->tests()) === 0 ? [] : [sprintf(self::JUDGED_BY, $names->listed($judged->tests()))],
             $judged->hint()->text(),
             sprintf('Reproduce: %s', $judged->reproduce()),
@@ -88,6 +92,17 @@ final readonly class MutantText
             self::heading($judged),
             ...array_map(static fn(string $line): string => rtrim(sprintf('%s%s', self::INDENT, $line)), $lines),
         ]);
+    }
+
+    /** The line naming the analyser that rejected a mutant, and the error it found. */
+    private static function rejected(Rejection $rejection): string
+    {
+        return sprintf(
+            'Rejected by %s: %s: %s',
+            $rejection->analyser(),
+            $rejection->finding()->code(),
+            $rejection->finding()->message(),
+        );
     }
 
     /** @return list<string> */

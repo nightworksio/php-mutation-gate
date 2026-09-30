@@ -93,6 +93,7 @@ it('says what each other judgement means', function (MutantJudgement $judgement,
 })->with([
     'uncovered' => [MutantJudgement::Uncovered, 'No test runs line 8.'],
     'killed' => [MutantJudgement::Killed, 'A test fails with it in place.'],
+    'killed by static analysis' => [MutantJudgement::KilledByStaticAnalysis, 'The static analyser the project runs rejects it, so it could not pass CI, which counts as killed.'],
     'errored' => [MutantJudgement::Errored, 'It crashes its tests, which counts as killed.'],
     'killed by timeout' => [MutantJudgement::KilledByTimeout, 'Its tests ran far past their usual time with it in place, so the timeout counts as a kill.'],
     'unjudged' => [MutantJudgement::Unjudged, 'Nothing judged it before the run stopped, so it counts as not killed.'],
@@ -113,6 +114,7 @@ it('names no test of a mutant that was killed, left out or never run', function 
 })->with([
     MutantJudgement::Uncovered,
     MutantJudgement::Killed,
+    MutantJudgement::KilledByStaticAnalysis,
     MutantJudgement::Errored,
     MutantJudgement::KilledByTimeout,
     MutantJudgement::Ignored,

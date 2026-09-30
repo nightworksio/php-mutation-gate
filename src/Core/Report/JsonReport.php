@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Cluster\Membership;
@@ -12,7 +13,9 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -77,6 +80,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     status: string,
  *     judgement: string,
  *     reason?: string,
+ *     rejection?: array{analyser: string, code: string, message: string},
  *     changedLine: bool,
  *     tests: list<string>,
  *     coveredBy: list<int>,
@@ -203,6 +207,7 @@ final readonly class JsonReport
             'status' => $mutant->status()->value,
             'judgement' => $judged->judgement()->value,
             ...$reason instanceof Reason ? ['reason' => $reason->text()] : [],
+            ...self::rejectionOf($mutant),
             'changedLine' => $judged->isOnChangedLine(),
             'tests' => $tests,
             'coveredBy' => $table->placesOf($matrix->coveredBy($judged)),
@@ -214,6 +219,22 @@ final readonly class JsonReport
             ...$limit instanceof Seconds ? ['limit' => $limit->seconds()] : [],
             ...$cluster instanceof Membership ? ['cluster' => $cluster->id()->value()] : [],
         ];
+    }
+
+    /**
+     * The rejection that killed a mutant, where a static analyser did.
+     *
+     * @return array{rejection?: array{analyser: string, code: string, message: string}}
+     */
+    private static function rejectionOf(Mutant|ProvedKill $mutant): array
+    {
+        $rejection = $mutant instanceof Mutant ? $mutant->rejection() : Unreported::rejection();
+
+        return $rejection instanceof Rejection ? ['rejection' => [
+            'analyser' => $rejection->analyser(),
+            'code' => $rejection->finding()->code(),
+            'message' => $rejection->finding()->message(),
+        ]] : [];
     }
 
     /** @return ClusterEntry */

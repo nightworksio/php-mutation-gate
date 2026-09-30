@@ -9,6 +9,7 @@ it('prints each judgement in words', function (MutantJudgement $judgement, strin
     expect(Label::of($judgement))->toBe($label);
 })->with([
     [MutantJudgement::Killed, 'killed'],
+    [MutantJudgement::KilledByStaticAnalysis, 'killed by static analysis'],
     [MutantJudgement::Errored, 'errored'],
     [MutantJudgement::KilledByTimeout, 'killed by timeout'],
     [MutantJudgement::Survived, 'survived'],

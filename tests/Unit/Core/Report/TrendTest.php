@@ -25,12 +25,12 @@ it('appends a verdict\'s entry: its commit, time, judgement, the project\'s scor
             'commit' => 'abc123',
             'time' => '2026-09-30T10:00:00Z',
             'verdict' => 'failed',
-            'score' => 37.5,
-            'trees' => ['src' => 37.5],
+            'score' => 44.44,
+            'trees' => ['src' => 44.44],
             'floors' => ['src' => 80.0, 'src/Empty' => 90.0],
         ]],
     ])
-        ->and(iterator_to_array($trend->scores(), preserve_keys: false))->toBe([37.5]);
+        ->and(iterator_to_array($trend->scores(), preserve_keys: false))->toBe([44.44]);
 });
 
 it('leaves out the score of a set with nothing to mutate', function (): void {
@@ -50,7 +50,7 @@ it('reads back what it wrote and appends to it', function (): void {
     $written = Trend::none()->with(Verdicts::failing(), Revision::ref('one'), Moment::at('2026-09-30T10:00:00Z'))->json();
     $trend = Trend::decode($written)->with(Verdicts::passing(), Revision::ref('two'), Moment::at('2026-09-30T11:00:00Z'));
 
-    expect(iterator_to_array($trend->scores(), preserve_keys: false))->toBe([37.5, 100.0])
+    expect(iterator_to_array($trend->scores(), preserve_keys: false))->toBe([44.44, 100.0])
         ->and(Decoded::column($trend->json(), 'commit', 'runs'))->toBe(['one', 'two']);
 });
 
@@ -118,7 +118,7 @@ it('hands on its newest entry: what that verdict judged, and each tree\'s floor 
 
     expect($newest->verdict())->toBe(Judgement::Failed)
         ->and($newest->floorOf(Path::of('src')))->toEqual(Floor::of(80))
-        ->and($newest->scoreOf(Path::of('src')))->toEqual(Score::ofHundredths(3_750))
+        ->and($newest->scoreOf(Path::of('src')))->toEqual(Score::ofHundredths(4_444))
         ->and($newest->floorOf(Path::of('app/Legacy')))->toEqual(Unrecorded::floor())
         ->and($newest->scoreOf(Path::of('src/Empty')))->toEqual(Unrecorded::floor());
 });

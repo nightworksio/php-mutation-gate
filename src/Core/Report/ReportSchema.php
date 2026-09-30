@@ -316,6 +316,7 @@ final readonly class ReportSchema
             'status' => self::oneOf(...MutantStatus::cases()),
             'judgement' => self::oneOf(...MutantJudgement::cases()),
             'reason' => self::TEXT,
+            'rejection' => self::object(['analyser' => self::TEXT, 'code' => self::TEXT, 'message' => self::TEXT], []),
             'changedLine' => self::FLAG,
             'tests' => self::listOf(self::TEXT),
             'coveredBy' => self::listOf(self::WHOLE),
@@ -326,7 +327,7 @@ final readonly class ReportSchema
             'seconds' => self::SECONDS,
             'limit' => self::SECONDS,
             'cluster' => self::CLUSTER_ID,
-        ], ['end', 'family', 'diff', 'reason', 'seconds', 'limit', 'cluster']);
+        ], ['end', 'family', 'diff', 'reason', 'rejection', 'seconds', 'limit', 'cluster']);
     }
 
     /** @return Flat */

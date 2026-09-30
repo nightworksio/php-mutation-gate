@@ -421,7 +421,7 @@ its parser attributes. Both change when the checkout moves.
      | `stats` count | Where the mutants are | Gate status |
      |---------------|-----------------------|-------------|
      | `killedCount` | `killed` | killed |
-     | `killedByStaticAnalysisCount` | `killedByStaticAnalysis` | killed |
+     | `killedByStaticAnalysisCount` | `killedByStaticAnalysis` | killed by static analysis |
      | `escapedCount` | `escaped` | survived |
      | `errorCount` | `errored` | errored |
      | `syntaxErrorCount` | `syntaxErrors` | errored |

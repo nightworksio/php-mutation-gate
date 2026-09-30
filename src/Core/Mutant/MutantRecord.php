@@ -8,6 +8,8 @@ use function array_key_exists;
 use function array_map;
 use function count;
 
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -23,8 +25,9 @@ use function sprintf;
 /**
  * A mutant as the gate's files write it. The full record holds everything a
  * runner reported of it, with the reason it left one unjudged, what a time
- * budget ran out before where one did, and the tests that killed it. The
- * killed record, which a ledger keeps of a killed mutant, is
+ * budget ran out before where one did, and the tests that killed it, or the
+ * static analyser's rejection that did. The killed record, which a ledger
+ * keeps of a mutant tests killed, is
  * `[id, line, mutator, killers]`, the mutator an index into the ledger's
  * list of mutator names and the killers indices into its list of tests: what
  * ignores and the tests report need of it, in as few bytes as a ledger of
@@ -80,6 +83,14 @@ final readonly class MutantRecord
 
     private const string KILLED_BY = 'killedBy';
 
+    private const string REJECTION = 'rejection';
+
+    private const string ANALYSER = 'analyser';
+
+    private const string CODE = 'code';
+
+    private const string MESSAGE = 'message';
+
     /** @return Full */
     public static function full(Mutant $mutant): array
     {
@@ -88,6 +99,7 @@ final readonly class MutantRecord
         $limit = $mutant->limit();
         $judging = $mutant->judgingTime();
         $reason = $mutant->reason();
+        $rejection = $mutant->rejection();
 
         return [
             self::ID => $mutant->id()->value(),
@@ -104,6 +116,11 @@ final readonly class MutantRecord
             ...$judging instanceof Seconds ? [self::TEST_SECONDS => $judging->seconds()] : [],
             ...$reason instanceof Reason ? [self::REASON => $reason->text(), ...self::outOfTime($reason)] : [],
             ...count($mutant->killers()) > 0 ? [self::KILLED_BY => self::idsOf($mutant->killers())] : [],
+            ...$rejection instanceof Rejection ? [self::REJECTION => [
+                self::ANALYSER => $rejection->analyser(),
+                self::CODE => $rejection->finding()->code(),
+                self::MESSAGE => $rejection->finding()->message(),
+            ]] : [],
         ];
     }
 
@@ -151,8 +168,9 @@ final readonly class MutantRecord
         $limited = $limit instanceof Seconds ? $mutant->withLimit($limit) : $mutant;
         $limited = $judging instanceof Seconds ? $limited->withJudgingTime($judging) : $limited;
         $said = $reason instanceof Reason ? $limited->because($reason) : $limited;
+        $killed = $killers->isPresent() ? $said->killedBy(self::testsIn($killers)) : $said;
 
-        return $killers->isPresent() ? $said->killedBy(self::testsIn($killers)) : $said;
+        return self::rejectedIn($record, $killed);
     }
 
     /**
@@ -186,6 +204,21 @@ final readonly class MutantRecord
     public static function isFull(Node $record): bool
     {
         return $record->field(self::DIFF)->isPresent();
+    }
+
+    /**
+     * The mutant, rejected as the record says a static analyser rejected it.
+     *
+     * @throws NotInShape
+     */
+    private static function rejectedIn(Node $record, Mutant $mutant): Mutant
+    {
+        $rejection = $record->field(self::REJECTION);
+
+        return $rejection->isPresent() ? $mutant->rejected(Rejection::by(
+            $rejection->field(self::ANALYSER)->text(),
+            Finding::error($rejection->field(self::CODE)->text(), $rejection->field(self::MESSAGE)->text()),
+        )) : $mutant;
     }
 
     /** @throws NotInShape */

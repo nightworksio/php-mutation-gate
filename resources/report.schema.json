@@ -36,6 +36,10 @@
                     "type": "integer",
                     "minimum": 0
                 },
+                "killed-by-static-analysis": {
+                    "type": "integer",
+                    "minimum": 0
+                },
                 "errored": {
                     "type": "integer",
                     "minimum": 0
@@ -79,6 +83,7 @@
             },
             "required": [
                 "killed",
+                "killed-by-static-analysis",
                 "errored",
                 "killed-by-timeout",
                 "survived",
@@ -152,6 +157,10 @@
                                 "type": "integer",
                                 "minimum": 0
                             },
+                            "killed-by-static-analysis": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
                             "errored": {
                                 "type": "integer",
                                 "minimum": 0
@@ -195,6 +204,7 @@
                         },
                         "required": [
                             "killed",
+                            "killed-by-static-analysis",
                             "errored",
                             "killed-by-timeout",
                             "survived",
@@ -288,6 +298,10 @@
                                 "type": "integer",
                                 "minimum": 0
                             },
+                            "killed-by-static-analysis": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
                             "errored": {
                                 "type": "integer",
                                 "minimum": 0
@@ -331,6 +345,7 @@
                         },
                         "required": [
                             "killed",
+                            "killed-by-static-analysis",
                             "errored",
                             "killed-by-timeout",
                             "survived",
@@ -443,6 +458,7 @@
                     "status": {
                         "enum": [
                             "killed",
+                            "killed-by-static-analysis",
                             "survived",
                             "uncovered",
                             "timed-out",
@@ -455,6 +471,7 @@
                     "judgement": {
                         "enum": [
                             "killed",
+                            "killed-by-static-analysis",
                             "errored",
                             "killed-by-timeout",
                             "survived",
@@ -469,6 +486,26 @@
                     },
                     "reason": {
                         "type": "string"
+                    },
+                    "rejection": {
+                        "type": "object",
+                        "properties": {
+                            "analyser": {
+                                "type": "string"
+                            },
+                            "code": {
+                                "type": "string"
+                            },
+                            "message": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "analyser",
+                            "code",
+                            "message"
+                        ],
+                        "additionalProperties": false
                     },
                     "changedLine": {
                         "type": "boolean"

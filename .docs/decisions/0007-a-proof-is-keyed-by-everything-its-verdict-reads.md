@@ -245,9 +245,10 @@ has to bring its result with it.
      indices into those lists; only its `source` is written in full. A list
      with an entry that is not well formed is not read, and a proof that
      points into it is dropped, as one that points past its end is.
-   - A mutant that was not killed keeps its full record, so reports can show a
+   - A mutant no test killed keeps its full record, so reports can show a
      proved survivor. A timed-out or skipped mutant also keeps its limit
-     (ADR-0004).
+     (ADR-0004), and one a static analyser killed keeps its rejection
+     (ADR-0020).
    - A killed mutant is the tuple `[id, line, mutator, killedBy]`. `mutator`
      is its index in the ledger's `mutators`, and `killedBy` is the indices in
      the ledger's `tests` of the test that killed it first, or of every test

@@ -13,6 +13,8 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
 enum MutantStatus: string
 {
     case Killed = 'killed';
+    /** A static analyser rejected it, by an error its original does not have (ADR-0020, decision 10). */
+    case KilledByStaticAnalysis = 'killed-by-static-analysis';
     case Survived = 'survived';
     case Uncovered = 'uncovered';
     case TimedOut = 'timed-out';

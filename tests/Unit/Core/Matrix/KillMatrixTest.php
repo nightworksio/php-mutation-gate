@@ -105,7 +105,13 @@ it('does not know what a test did with a timeout, a flaky mutant, an unknown kil
 
 it('says no test ran a mutant the run never ran', function (MutantStatus $status) use ($judged, $coverage, $first): void {
     expect(KillMatrix::of(MatrixKind::Full, $coverage())->outcome($judged($status, TestIds::none()), $first))->toBe(Outcome::NotRun);
-})->with([MutantStatus::Uncovered, MutantStatus::Unjudged, MutantStatus::IgnoredByMarker, MutantStatus::Skipped]);
+})->with([
+    MutantStatus::KilledByStaticAnalysis,
+    MutantStatus::Uncovered,
+    MutantStatus::Unjudged,
+    MutantStatus::IgnoredByMarker,
+    MutantStatus::Skipped,
+]);
 
 it('keeps the names the runner gives its tests', function () use ($coverage, $first): void {
     $names = TestNames::none()->with($first, TestName::in(Path::of('tests/Unit/MoneyTest.php'), 'it fits'));

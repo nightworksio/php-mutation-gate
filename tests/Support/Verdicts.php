@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function explode;
 
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Cost;
 use NightWorksIO\MutationGate\Core\Cost\Phase;
@@ -205,7 +207,14 @@ final class Verdicts
         );
     }
 
-    /** Every judgement once, the survivor on a changed line first. */
+    /** The mutant of `Log.php`'s fourteenth line, which PHPStan rejects for returning an int where a string is due. */
+    public static function rejected(): Mutant
+    {
+        return self::mutant('src/Log.php:14', 'CastString', Family::Unwrap, self::diff('return (string) $id;', 'return $id;'))
+            ->rejected(Rejection::by('phpstan', Finding::error('return.type', 'Method Log::id() should return string but returns int.')));
+    }
+
+    /** Every judgement once, the survivor on a changed line first and the kill by static analysis last. */
     public static function everyJudgement(): JudgedMutants
     {
         $flaky = JudgedMutant::of(self::mutant('src/Order.php:3', 'MethodCallRemoval', Family::RemovedCall, self::diff('$this->save($order);', '')), Judged::Flaky);
@@ -229,6 +238,7 @@ final class Verdicts
             JudgedMutant::of(self::mutant('src/Log.php:9', 'Throw_', Family::Exception, self::diff('throw new Refused();', '')), Judged::Errored),
             JudgedMutant::of(self::mutant('src/Log.php:12', 'ReturnValue', Family::ReturnValue, self::diff('return $x ?? 0;', 'return $x;')), Judged::Survived)
                 ->provenEquivalent(),
+            JudgedMutant::of(self::rejected(), Judged::KilledByStaticAnalysis),
         );
     }
 
@@ -246,7 +256,7 @@ final class Verdicts
             JudgedUnit::of(Unit::held(Path::of('src/Log.php'), Group::named('holds:src/Log.php')), Origin::Carried),
         );
         $src = TreeVerdict::judged(Tree::at(Path::of('src'), Floor::of(80), $root), Floor::of(75.5), $units, self::everyJudgement(), Uncovered::Count)
-            ->comparedWith(Score::ofHundredths(4_000));
+            ->comparedWith(Score::ofHundredths(4_694));
         $legacy = Tree::at(Path::of('app/Legacy'), Exempt::because('Replaced by the new billing module'), $root);
         $empty = Tree::at(Path::of('src/Empty'), Floor::of(90), $root);
         $newCode = NewCodeVerdict::judged($root, Floor::of(100), JudgedMutants::of(self::survivor()), Uncovered::Count);

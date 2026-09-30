@@ -59,7 +59,7 @@ final readonly class Results
     /** Each list in the JSON log, with the count in `stats` that it must match and the status of its mutants. */
     private const array LISTS = [
         self::KILLED_BY_TESTS => ['killedCount', MutantStatus::Killed],
-        'killedByStaticAnalysis' => ['killedByStaticAnalysisCount', MutantStatus::Killed],
+        'killedByStaticAnalysis' => ['killedByStaticAnalysisCount', MutantStatus::KilledByStaticAnalysis],
         'escaped' => ['escapedCount', MutantStatus::Survived],
         'errored' => ['errorCount', MutantStatus::Errored],
         'syntaxErrors' => ['syntaxErrorCount', MutantStatus::Errored],

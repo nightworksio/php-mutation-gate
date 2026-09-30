@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
@@ -115,6 +117,21 @@ it('writes and reads back in full the tests that killed a mutant', function () u
     expect(MutantRecord::full($killed->killedBy($killers)))->toMatchArray(['killedBy' => ['CartTest::totals', 'MoneyTest::adds']])
         ->and(MutantRecord::full($killed))->not->toHaveKey('killedBy')
         ->and(MutantRecord::readFull($read(MutantRecord::full($killed->killedBy($killers)))))->toEqual($killed->killedBy($killers));
+});
+
+it('writes and reads back in full the rejection that killed a mutant', function () use ($unjudged, $killed, $read): void {
+    $rejected = $unjudged->rejected(Rejection::by('phpstan', Finding::error('return.type', 'Method Money::of() should return int but returns string.')));
+
+    expect(MutantRecord::full($rejected))->toMatchArray([
+        'status' => 'killed-by-static-analysis',
+        'rejection' => [
+            'analyser' => 'phpstan',
+            'code' => 'return.type',
+            'message' => 'Method Money::of() should return int but returns string.',
+        ],
+    ])
+        ->and(MutantRecord::full($killed))->not->toHaveKey('rejection')
+        ->and(MutantRecord::readFull($read(MutantRecord::full($rejected))))->toEqual($rejected);
 });
 
 it('reads back the mutant it wrote in full', function () use ($timedOut, $killed, $unjudged, $read): void {

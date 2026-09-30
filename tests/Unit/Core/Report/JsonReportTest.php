@@ -85,15 +85,15 @@ it('writes the verdict, the project and each tree', function (): void {
         'judgement' => 'failed',
         'cutShort' => false,
         'uncovered' => 'count',
-        'score' => 37.5,
+        'score' => 44.44,
         'reach' => ['src/Money.php changed, so it is reached.'],
         'warnings' => ['src/Kernel.php is run by 412 of 430 tests and nothing holds it.'],
         'failures' => ['The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.'],
         'cannotJudge' => [],
     ])
         ->and(Decoded::at($report, 'counts'))->toBe([
-            'killed' => 1, 'errored' => 1, 'killed-by-timeout' => 1, 'survived' => 1, 'uncovered' => 1,
-            'unjudged' => 1, 'flaky' => 1, 'too-slow-to-judge' => 1, 'ignored' => 1, 'ignored-by-marker' => 1,
+            'killed' => 1, 'killed-by-static-analysis' => 1, 'errored' => 1, 'killed-by-timeout' => 1,
+            'survived' => 1, 'uncovered' => 1, 'unjudged' => 1, 'flaky' => 1, 'too-slow-to-judge' => 1, 'ignored' => 1, 'ignored-by-marker' => 1,
             'equivalent' => 1,
         ])
         ->and(Decoded::at($report, 'trees', 0))->toMatchArray([
@@ -102,8 +102,8 @@ it('writes the verdict, the project and each tree', function (): void {
             'declared' => 80.0,
             'baseline' => 75.5,
             'floor' => 80.0,
-            'score' => 37.5,
-            'base' => 40.0,
+            'score' => 44.44,
+            'base' => 46.94,
             'judgement' => 'failed',
             'units' => [
                 ['path' => 'src/Money.php', 'origin' => 'run'],
@@ -112,7 +112,7 @@ it('writes the verdict, the project and each tree', function (): void {
             ],
         ])
         ->and(Decoded::at($report, 'trees', 0))->not->toHaveKey('raised')
-        ->and(Decoded::at($report, 'trees', 0, 'mutants'))->toHaveCount(11)
+        ->and(Decoded::at($report, 'trees', 0, 'mutants'))->toHaveCount(12)
         ->and(Decoded::at($report, 'trees', 1))->toMatchArray(['path' => 'app/Legacy', 'exempt' => 'Replaced by the new billing module', 'judgement' => 'exempt'])
         ->and(Decoded::at($report, 'trees', 1))->not->toHaveKeys(['declared', 'baseline', 'floor', 'score', 'base'])
         ->and(Decoded::at($report, 'trees', 2))->toMatchArray(['path' => 'src/Empty', 'floor' => 90.0, 'judgement' => 'nothing-to-mutate'])
@@ -123,12 +123,28 @@ it('writes the verdict, the project and each tree', function (): void {
             'score' => 0.0,
             'judgement' => 'failed',
             'counts' => [
-                'killed' => 0, 'errored' => 0, 'killed-by-timeout' => 0, 'survived' => 1, 'uncovered' => 0,
-                'unjudged' => 0, 'flaky' => 0, 'too-slow-to-judge' => 0, 'ignored' => 0, 'ignored-by-marker' => 0,
+                'killed' => 0, 'killed-by-static-analysis' => 0, 'errored' => 0, 'killed-by-timeout' => 0,
+                'survived' => 1, 'uncovered' => 0, 'unjudged' => 0, 'flaky' => 0, 'too-slow-to-judge' => 0, 'ignored' => 0, 'ignored-by-marker' => 0,
                 'equivalent' => 0,
             ],
             'mutants' => [Verdicts::survivor()->mutant()->id()->value()],
         ]]);
+});
+
+it('writes the rejection of a mutant a static analyser killed, and none of any other', function (): void {
+    $report = JsonReport::encode(Verdicts::failing());
+
+    expect(Decoded::at($report, 'mutants', 11))->toMatchArray([
+        'id' => Verdicts::rejected()->id()->value(),
+        'status' => 'killed-by-static-analysis',
+        'judgement' => 'killed-by-static-analysis',
+        'rejection' => [
+            'analyser' => 'phpstan',
+            'code' => 'return.type',
+            'message' => 'Method Log::id() should return string but returns int.',
+        ],
+    ])
+        ->and(Decoded::at($report, 'mutants', 1))->not->toHaveKey('rejection');
 });
 
 it('writes every mutant once, with its judgement, tests, hint, and reproduce and explain commands', function (): void {
@@ -136,7 +152,7 @@ it('writes every mutant once, with its judgement, tests, hint, and reproduce and
     $survivor = Verdicts::survivor();
     $id = $survivor->mutant()->id()->value();
 
-    expect(Decoded::at($report, 'mutants'))->toHaveCount(11)
+    expect(Decoded::at($report, 'mutants'))->toHaveCount(12)
         ->and(Decoded::at($report, 'mutants', 0))->toBe([
             'id' => $id,
             'file' => 'src/Money.php',

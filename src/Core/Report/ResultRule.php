@@ -30,6 +30,7 @@ enum ResultRule: string
             MutantJudgement::Flaky => self::Flaky,
             MutantJudgement::Survived,
             MutantJudgement::Killed,
+            MutantJudgement::KilledByStaticAnalysis,
             MutantJudgement::Errored,
             MutantJudgement::KilledByTimeout,
             MutantJudgement::Ignored,

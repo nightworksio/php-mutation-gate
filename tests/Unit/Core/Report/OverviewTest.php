@@ -21,7 +21,7 @@ use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('scores the whole project over every tree\'s mutants', function (): void {
-    expect(Overview::of(Verdicts::failing())->score())->toEqual(Score::ofHundredths(3_750))
+    expect(Overview::of(Verdicts::failing())->score())->toEqual(Score::ofHundredths(4_444))
         ->and(Overview::of(Verdicts::passing())->score())->toEqual(Score::ofHundredths(10_000))
         ->and(Overview::of(Verdicts::empty())->score())->toEqual(NothingToMutate::found());
 });

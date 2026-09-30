@@ -63,3 +63,11 @@ it('says why a mutant stands as it does, where its record says, and leaves out a
     expect(MutantText::block($unjudged, TestNames::none()))->toContain("\n    Why: The run's budget ran out before it.\n    Nothing judged it")
         ->and(explode("\n", MutantText::block($bare, TestNames::none())))->toHaveCount(4);
 });
+
+it('names the analyser that rejected a mutant, and the error it found', function (): void {
+    $rejected = Judged::listed(Verdicts::everyJudgement())[11];
+
+    expect(MutantText::block($rejected, TestNames::none()))
+        ->toContain("\n    Rejected by phpstan: return.type: Method Log::id() should return string but returns int.\n")
+        ->and(MutantText::block(Judged::listed(Verdicts::everyJudgement())[1], TestNames::none()))->not->toContain('Rejected by');
+});

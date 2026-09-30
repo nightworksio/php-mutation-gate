@@ -38,12 +38,12 @@ it('emits each tree\'s and each new-code set\'s score, the mutants by status and
         ->and($metrics['mutation_gate.score']->kind())->toBe(MetricKind::Gauge)
         ->and($metrics['mutation_gate.score']->unit())->toBe('%')
         ->and($points($metrics['mutation_gate.score']))->toBe([
-            [37.5, ['mutation_gate.tree' => 'src']],
+            [44.44, ['mutation_gate.tree' => 'src']],
             [0.0, ['mutation_gate.tree' => 'new code in .']],
         ])
         ->and($metrics['mutation_gate.mutants']->kind())->toBe(MetricKind::Sum)
         ->and($points($metrics['mutation_gate.mutants']))->toContain([1, ['mutation_gate.status' => 'survived']])
-        ->and($points($metrics['mutation_gate.mutants']))->toHaveCount(11)
+        ->and($points($metrics['mutation_gate.mutants']))->toHaveCount(12)
         ->and($points($metrics['mutation_gate.units']))->toBe([
             [1, ['mutation_gate.status' => 'run']],
             [1, ['mutation_gate.status' => 'proved']],

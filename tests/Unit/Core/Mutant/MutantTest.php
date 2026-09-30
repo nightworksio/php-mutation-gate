@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -99,4 +101,24 @@ it('names the tests that killed it, none until they are said, keeping the rest o
         ->and($killed->id())->toEqual($mutant->id())
         ->and($killed->status())->toBe(MutantStatus::Killed)
         ->and($killed->duration())->toEqual(Seconds::of(0.1));
+});
+
+it('is killed by the static analyser that rejected it, none until one did, keeping the rest of its record', function (): void {
+    $mutant = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-+\n+-", 0),
+        '12',
+        Location::of(Path::of('src/Money.php'), Line::of(4), Unreported::line()),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, "-+\n+-"),
+        MutantStatus::Survived,
+        Seconds::of(0.1),
+    );
+    $rejection = Rejection::by('mago', Finding::error('invalid-return-statement', 'Money::add() must return int.'));
+    $rejected = $mutant->rejected($rejection);
+
+    expect($mutant->rejection())->toEqual(Unreported::rejection())
+        ->and($rejected->rejection())->toBe($rejection)
+        ->and($rejected->status())->toBe(MutantStatus::KilledByStaticAnalysis)
+        ->and($rejected->id())->toEqual($mutant->id())
+        ->and($rejected->duration())->toEqual(Seconds::of(0.1))
+        ->and($mutant->status())->toBe(MutantStatus::Survived);
 });

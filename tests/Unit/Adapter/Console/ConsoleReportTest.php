@@ -42,10 +42,10 @@ it('prints the verdict, the trees, new code, units, reach, what was not killed, 
 
     expect($printed(Verdicts::failing()))->toBe(implode("\n", [
         'mutation-gate: failed',
-        'The project scores 37.50%.',
+        'The project scores 44.44%.',
         '',
         'Trees',
-        '  src scores 37.50%, below its floor of 80.00%. That is -2.50 against the base.',
+        '  src scores 44.44%, below its floor of 80.00%. That is -2.50 against the base.',
         '  app/Legacy is exempt: Replaced by the new billing module',
         '  src/Empty has nothing to mutate.',
         '',
@@ -99,7 +99,7 @@ it('says a run was cut short, and which floors can rise', function () use ($prin
 it('says the run cannot judge, and why, before its trees', function () use ($printed): void {
     expect($printed(Verdicts::named('cannot judge')))->toStartWith(implode("\n", [
         'mutation-gate: cannot-judge',
-        'The project scores 37.50%.',
+        'The project scores 44.44%.',
         '',
         'Cannot judge',
         sprintf('  %s', Verdicts::UNJUDGED),

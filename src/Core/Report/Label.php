@@ -13,6 +13,7 @@ final readonly class Label
     {
         return match ($judgement) {
             MutantJudgement::KilledByTimeout => 'killed by timeout',
+            MutantJudgement::KilledByStaticAnalysis => 'killed by static analysis',
             MutantJudgement::TooSlowToJudge => 'too slow to judge',
             MutantJudgement::IgnoredByMarker => 'ignored by a native marker',
             MutantJudgement::Equivalent => 'equivalent, proven',
