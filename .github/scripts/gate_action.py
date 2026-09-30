@@ -82,8 +82,15 @@ def from_fork(payload: dict) -> bool:
     return bool(pull) and head != base
 
 
-def mode_arguments(mode: str, changed_since: str, event: str, ref: str, payload: dict) -> list[str]:
-    """The options that choose what the gate considers: every unit, or what changed since a ref."""
+def mode_arguments(
+    mode: str, changed_since: str, event: str, ref: str, payload: dict, default_branch: str
+) -> list[str]:
+    """The options that choose what the gate considers: every unit, or what changed since a ref.
+
+    With no base given, a pull request runs from its base, another branch
+    from the default branch, and the default branch from the last commit
+    whose verdict passed (ADR-0005, decision 2).
+    """
     if mode not in MODES:
         raise Refused(f"mode is {mode!r}; it is auto, full or changed.")
     tag = ref.startswith("refs/tags/")
@@ -94,6 +101,9 @@ def mode_arguments(mode: str, changed_since: str, event: str, ref: str, payload:
     base = ((payload.get("pull_request") or {}).get("base") or {}).get("sha")
     if event == "pull_request" and isinstance(base, str) and base:
         return [f"--changed-since={base}"]
+    branch = ref.removeprefix("refs/heads/") if ref.startswith("refs/heads/") else ""
+    if branch and default_branch and branch != default_branch:
+        return [f"--changed-since=origin/{default_branch}"]
     return ["--changed-since=last-passed"]
 
 
@@ -235,11 +245,12 @@ def _resolve() -> dict[str, str]:
     why = None if gate.startswith("bin/") else version_refusal(installed, MAJOR)
     if why is not None:
         raise Refused(why)
+    default_branch = os.environ.get("DEFAULT_BRANCH", "")
     arguments = mode_arguments(
-        os.environ.get("MODE", "auto"), os.environ.get("CHANGED_SINCE", ""), event, ref, payload
+        os.environ.get("MODE", "auto"), os.environ.get("CHANGED_SINCE", ""), event, ref, payload, default_branch
     )
     options = _options()
-    kept = ledgers(event, ref, payload, os.environ.get("DEFAULT_BRANCH", ""), os.environ.get("CACHE") == "true")
+    kept = ledgers(event, ref, payload, default_branch, os.environ.get("CACHE") == "true")
     return {"gate": gate, "options": json.dumps(options), "plan_options": json.dumps(options + arguments), **kept}
 
 

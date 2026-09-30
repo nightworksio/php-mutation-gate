@@ -30,7 +30,7 @@ inputs:
     required: false
     default: auto
   changed-since:
-    description: A git ref, or last-passed; the pull request's base on pull_request, last-passed on a push, where empty.
+    description: A git ref, or last-passed; where empty, the pull request's base on pull_request, the default branch on another branch, and last-passed on the default branch.
     required: false
     default: ''
   budget:
