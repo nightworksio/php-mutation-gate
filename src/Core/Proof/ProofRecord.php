@@ -8,7 +8,6 @@ use function array_map;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -74,15 +73,13 @@ final readonly class ProofRecord
     }
 
     /**
-     * @param list<string> $mutators the ledger's mutator names, each at its index
-     * @param list<string> $tests    the ledger's test ids, each at its index
-     * @param InputsTable  $inputs   what the digests of the ledger's proofs share
+     * A proof under its key, sharing with the ledger's other proofs what they share.
      *
      * @throws NotInShape
      */
-    public static function read(Digest $key, Node $entry, array $mutators, array $tests, InputsTable $inputs): Proof
+    public static function read(Digest $key, Node $entry, ProofsRead $read): Proof
     {
-        $unit = Path::of($entry->field('unit')->text());
+        $unit = $read->unit($entry->field('unit')->text());
         $reported = [];
         $kills = [];
 
@@ -93,18 +90,19 @@ final readonly class ProofRecord
                 continue;
             }
 
-            $kills[] = MutantRecord::readKilled($record, $unit, $mutators, $tests);
+            $kills[] = MutantRecord::readKilled($record, $unit, $read->killed());
         }
 
         $digests = $entry->field(DigestsRecord::FIELD);
+        $inputs = $digests->isPresent() ? DigestsRecord::readProof($digests, $read->inputs()) : Undigested::proof();
 
         return Proof::held(
             $key,
             $unit,
             Mutants::of(...$reported),
             ProvedKills::of(...$kills),
-            Run::of($entry->field('run')->text(), self::instantIn($entry), self::baseIn($entry)),
-        )->withInputs($digests->isPresent() ? DigestsRecord::readProof($digests, $inputs) : Undigested::proof());
+            $read->run($entry->field('run')->text(), self::instantIn($entry), self::baseIn($entry)),
+        )->withInputs($inputs);
     }
 
     /** @return array{digests?: ProofDigests} the digests of the proof's inputs, where it records them */

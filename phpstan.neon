@@ -302,6 +302,8 @@ parameters:
             message: "Q1 — the gate runs inside somebody else's process when a test boots it, and a setting changed here stays changed for them. Pass the value where it is needed (Q1)."
             allowIn:
                 - tests/*
+                # The command, and no library code, gives its own process the memory its ledgers may need.
+                - bin/mutation-gate
                 # zlib raises a broken stream as a warning as well as answering false; the handler that keeps the
                 # warning from the run's output is restored before inflate_add's answer is returned.
                 - src/Core/Format/Gzip.php
@@ -553,6 +555,8 @@ services:
                     - NONE # no analyser, not a mutator family or a Pest status
                 'NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize':
                     - PER_MEGABYTE # bytes in a megabyte
+                'NightWorksIO\MutationGate\Core\Proof\LedgerMemory':
+                    - PER_BYTE # bytes of memory per byte of ledger
                 'NightWorksIO\MutationGate\Adapter\Infection\OwnConfig':
                     - FRAMEWORK # Infection's name for PHPUnit
                 'NightWorksIO\MutationGate\Core\Test\TestsDirectory':

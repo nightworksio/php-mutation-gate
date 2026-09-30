@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
-use function array_key_exists;
 use function array_map;
 use function count;
 
@@ -19,8 +18,6 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
-
-use function sprintf;
 
 /**
  * A mutant as the gate's files write it. The full record holds everything a
@@ -188,12 +185,9 @@ final readonly class MutantRecord
     /**
      * A killed record, read as the kill it proves in the unit it was proved in.
      *
-     * @param list<string> $mutators the ledger's mutator names, each at its index
-     * @param list<string> $tests    the ledger's test ids, each at its index
-     *
      * @throws NotInShape
      */
-    public static function readKilled(Node $record, Path $unit, array $mutators, array $tests): ProvedKill
+    public static function readKilled(Node $record, Path $unit, KilledRecords $read): ProvedKill
     {
         $fields = $record->items();
 
@@ -203,12 +197,11 @@ final readonly class MutantRecord
 
         [$id, $line, $mutator, $killers] = $fields;
 
-        return ProvedKill::of(
+        return ProvedKill::at(
             self::idOf($id),
-            $unit,
-            self::lineIn($line),
-            self::mutatorOf($mutator, $mutators),
-            self::killersOf($killers, $tests),
+            $read->location($unit, self::lineIn($line)),
+            $read->mutator($mutator),
+            $read->killers($killers),
         );
     }
 
@@ -252,26 +245,6 @@ final readonly class MutantRecord
         return self::idOf($record->field(self::ID));
     }
 
-    /**
-     * The tests a killed record's indices name.
-     *
-     * @param list<string> $tests
-     *
-     * @throws NotInShape
-     */
-    private static function killersOf(Node $killers, array $tests): TestIds
-    {
-        $named = [];
-
-        foreach ($killers->integers() as $index) {
-            $named[] = array_key_exists($index, $tests)
-                ? TestId::of($tests[$index])
-                : throw NotInShape::at($killers->at(), sprintf('the index of a listed test, not %d', $index));
-        }
-
-        return TestIds::of(...$named);
-    }
-
     /** @throws NotInShape */
     private static function testsIn(Node $tests): TestIds
     {
@@ -282,20 +255,6 @@ final readonly class MutantRecord
     private static function idsOf(TestIds $tests): array
     {
         return array_map(static fn(TestId $test): string => $test->value(), [...$tests]);
-    }
-
-    /**
-     * @param list<string> $mutators
-     *
-     * @throws NotInShape
-     */
-    private static function mutatorOf(Node $mutator, array $mutators): string
-    {
-        $index = $mutator->integer();
-
-        return array_key_exists($index, $mutators)
-            ? $mutators[$index]
-            : throw NotInShape::at($mutator->at(), 'a mutator');
     }
 
     /** @throws NotInShape */

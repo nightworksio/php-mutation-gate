@@ -31,14 +31,13 @@ final readonly class ProvedKill
 
     public static function of(MutantId $id, Path $unit, Line $line, string $mutator, TestIds $killers): self
     {
-        return new self(
-            $id,
-            Location::of($unit, $line, Unreported::line()),
-            $mutator,
-            $killers,
-            MutantStatus::Killed,
-            Unreported::reason(),
-        );
+        return self::at($id, Location::of($unit, $line, Unreported::line()), $mutator, $killers);
+    }
+
+    /** A kill at a location already built, which kills on the same line share. */
+    public static function at(MutantId $id, Location $location, string $mutator, TestIds $killers): self
+    {
+        return new self($id, $location, $mutator, $killers, MutantStatus::Killed, Unreported::reason());
     }
 
     /** This kill, no longer standing: a time budget ran out before this run judged it again. */

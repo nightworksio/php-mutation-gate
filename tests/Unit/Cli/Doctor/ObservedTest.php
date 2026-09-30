@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
 use NightWorksIO\MutationGate\Core\Doctor\InstalledRunners;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
@@ -77,7 +78,7 @@ it('observes the markers the chosen runner finds in the trees, and the path repo
     expect($markers instanceof Markers ? array_map(static fn(Marker $marker): string => $marker->where(), [...$markers]) : [])
         ->toBe(['src/Held.php:2'])
         ->and($observed->files()->composer())->toEqual(ComposerSetup::of(Paths::of(Path::of('packages/money'))))
-        ->and($observed->now())->toEqual(new DateTimeImmutable(Configs::NOW));
+        ->and($observed->run())->toEqual(DoctorRun::of(new DateTimeImmutable(Configs::NOW), -1));
 });
 
 it('observes the CI definitions that run the gate, the baseline, and the ledgers the directory store keeps', function (): void {

@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Mutant\KilledRecords;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -142,10 +143,10 @@ it('reads back the mutant it wrote in full', function () use ($timedOut, $killed
 
 it('reads a killed record as the kill it proves in the unit it was proved in', function () use ($killed, $id, $read): void {
     $killers = TestIds::of(TestId::of('CartTest::totals'));
-    $kill = MutantRecord::readKilled($read(MutantRecord::killed($killed, ['LessThan' => 1], [])), Path::of('src/Money.php'), ['Plus', 'LessThan'], ['CartTest::totals']);
+    $kill = MutantRecord::readKilled($read(MutantRecord::killed($killed, ['LessThan' => 1], [])), Path::of('src/Money.php'), KilledRecords::of(['Plus', 'LessThan'], ['CartTest::totals']));
 
     expect($kill)->toEqual(ProvedKill::of($id, Path::of('src/Money.php'), Line::of(1), 'LessThan', TestIds::none()))
-        ->and(MutantRecord::readKilled($read(MutantRecord::killed($killed->killedBy($killers), ['LessThan' => 1], ['CartTest::totals' => 0])), Path::of('src/Money.php'), ['Plus', 'LessThan'], ['CartTest::totals']))
+        ->and(MutantRecord::readKilled($read(MutantRecord::killed($killed->killedBy($killers), ['LessThan' => 1], ['CartTest::totals' => 0])), Path::of('src/Money.php'), KilledRecords::of(['Plus', 'LessThan'], ['CartTest::totals'])))
         ->toEqual(ProvedKill::of($id, Path::of('src/Money.php'), Line::of(1), 'LessThan', $killers))
         ->and(MutantRecord::killed($kill, ['LessThan' => 1], []))->toBe(MutantRecord::killed($killed, ['LessThan' => 1], []));
 });
@@ -172,7 +173,7 @@ it('refuses a record that does not hold a mutant, saying where', function (array
 ]);
 
 it('refuses a killed record that does not hold a killed mutant, saying where', function (array $record, NotInShape $refusal) use ($read): void {
-    expect(fn(): ProvedKill => MutantRecord::readKilled($read($record), Path::of('src/Money.php'), ['Plus'], ['MoneyTest::adds']))->toThrow($refusal);
+    expect(fn(): ProvedKill => MutantRecord::readKilled($read($record), Path::of('src/Money.php'), KilledRecords::of(['Plus'], ['MoneyTest::adds'])))->toThrow($refusal);
 })->with([
     'too few fields' => [['3f9a1c2b7d04', 44, 0], NotInShape::at('the file', 'a killed mutant, as [id, line, mutator, killers]')],
     'too many fields' => [['3f9a1c2b7d04', 44, 0, [], 0], NotInShape::at('the file', 'a killed mutant, as [id, line, mutator, killers]')],

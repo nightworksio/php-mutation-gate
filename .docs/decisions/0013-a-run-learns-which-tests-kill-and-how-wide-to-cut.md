@@ -286,6 +286,21 @@ decides are accepted for that release too.
       proofs, not bytes, so where a project's units hold enough mutants to
       pass a limit first, the oldest of the kept proofs are dropped until the
       ledger is within it, and the run says how many it kept.
+    - **The memory.** A ledger is read with each test, each set of killers,
+      each line of a unit, each unit and each run built once and shared by
+      its proofs, and each proof's entry of the decoded file let go once its
+      proof is read. It is written a section at a time, and its proofs one at
+      a time. The ledger at the retention cap is held in 151 MB, read at a
+      peak of 179 MB and written in 57 MB more: per byte of its text, 8.0,
+      9.5 and 3.0. A ledger of kills alone is read at a peak of 11.2 per
+      byte and written in 3.9. A run holds at most two ledgers, the default
+      branch's and its own, and writes one. The gate's command gives its own
+      process a `memory_limit` of PHP's default 128 MiB for the rest of a
+      run and 24 bytes for each byte of the largest ledger a run reads, a
+      fifth more than the 19.9 of two held and one written: 1,046,217,728
+      bytes. It raises the limit only where it is lower, never where it is
+      `-1`, and only for itself; library code changes no setting. Where PHP
+      does not let it, `doctor` reports `memory-limit-low`.
     - **The bucket policy.** The README gives it: public `GetObject` on
       `<prefix>/refs/heads/<default branch>/*` and nothing else.
     - **Writing.** Writing still needs the credentials only default-branch

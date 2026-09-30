@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Format;
 
 use function json_encode;
+use function sprintf;
 use function str_replace;
 
 /**
@@ -18,6 +19,9 @@ final readonly class JsonText
 {
     public const int FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         | JSON_PRESERVE_ZERO_FRACTION | JSON_INVALID_UTF8_SUBSTITUTE;
+    private const string MEMBER = '%s%s:%s';
+
+    private const string OBJECT = '{%s}';
 
     private const string HASH = '#';
 
@@ -60,5 +64,24 @@ final readonly class JsonText
     public static function compact(array $data): string
     {
         return json_encode($data, self::FLAGS);
+    }
+
+    /**
+     * A JSON object on one line, written a member at a time from each member's
+     * value as JSON text already, so that an object too large to hold both as
+     * values and as text is held as text alone.
+     *
+     * @param iterable<array-key, string> $members each member's value, as JSON text, by its key
+     */
+    public static function object(iterable $members): string
+    {
+        $text = '';
+
+        foreach ($members as $key => $value) {
+            $name = json_encode(sprintf('%s', $key), self::FLAGS);
+            $text .= sprintf(self::MEMBER, $text === '' ? '' : ',', $name, $value);
+        }
+
+        return sprintf(self::OBJECT, $text);
     }
 }

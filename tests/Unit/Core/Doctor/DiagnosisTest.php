@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
 use NightWorksIO\MutationGate\Core\Doctor\Diagnosis;
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
 use NightWorksIO\MutationGate\Core\Doctor\InstalledRunners;
@@ -42,7 +43,7 @@ it('runs every check over what was observed, what fails a run first', function (
             'ignores' => ['entries' => [['path' => 'src/A.php', 'mutator' => 'Plus', 'reason' => 'Equivalent', 'expires' => '2026-10-01']]],
         ]))
         ->withMarkers(Markers::of(Marker::of('infection.json5 mutators.global-ignore', 'App\\Money', '{}')))
-        ->at(new DateTimeImmutable(Configs::NOW));
+        ->in(DoctorRun::of(new DateTimeImmutable(Configs::NOW), -1));
 
     expect(array_map(static fn(Finding $finding): Slug => $finding->slug(), [...Diagnosis::of($observed)]))->toBe([
         Slug::OpcacheOnTheCommandLine,

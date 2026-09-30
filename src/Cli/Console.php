@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Cli;
 
 use function class_exists;
 use function getenv;
+use function ini_get;
+use function ini_parse_quantity;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Runtime\PhpProbe;
@@ -30,6 +32,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use Psr\Clock\ClockInterface;
@@ -120,7 +123,14 @@ final readonly class Console
         $application->addCommand(ConfigSchema::command());
         $probe = PhpProbe::of(PHP_BINARY, getenv());
         $application->addCommand(Doctor::command(
-            new Observed($project, $extensions, $effective, $detected, $probe, $now),
+            new Observed(
+                $project,
+                $extensions,
+                $effective,
+                $detected,
+                $probe,
+                DoctorRun::of($now, ini_parse_quantity(ini_get('memory_limit'))),
+            ),
             new Measure($composition),
             new Online($project, $environment, HttpClient::create()),
             $installed instanceof Installed ? Guide::installedIn($installed) : Guide::unreleased(),

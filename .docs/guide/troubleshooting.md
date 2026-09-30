@@ -135,6 +135,18 @@ not one the gate keeps: its retention was not applied, or it is another file.
 Delete it. The next run of its scope writes it afresh, within the retention
 cap.
 
+## memory-limit-low
+
+The PHP that runs the gate may take less memory than reading and writing
+ledgers as large as a run reads can take, and the gate could not raise its
+own `memory_limit`. The gate's command raises it for its own process where
+PHP lets it, so this is a PHP that refuses `ini_set`, or the gate running
+inside another process. Past the limit, PHP stops a run over a ledger that
+large.
+
+Set `memory_limit` to the size the finding names, or to `-1`, for the PHP
+that runs the gate.
+
 ## coverage-run-failed
 
 `doctor --measure` could not measure the suite. It finds the units and runs

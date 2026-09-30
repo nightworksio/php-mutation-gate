@@ -4,32 +4,21 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
-use function array_flip;
+use function array_key_first;
 use function array_map;
 use function array_merge;
-use function array_unique;
-use function array_values;
-
-use Closure;
-
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Commit;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
-use NightWorksIO\MutationGate\Core\Mutant\Mutant;
-use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
-use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
-use NightWorksIO\MutationGate\Core\Test\TestId;
-use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Mutant\KilledRecords;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use stdClass;
 
 /**
  * A ledger as its file holds it: `"format": 3`, compact JSON, gzipped. A
@@ -62,7 +51,21 @@ final readonly class LedgerFile
     /** The list a ledger's killed mutants and its kill history point into by index. */
     public const string TESTS = 'tests';
 
-    private const int FORMAT = 3;
+    public const int FORMAT = 3;
+
+    public const string SECONDS = 'seconds';
+
+    public const string RUNNER = 'runner';
+
+    public const string AT = ProofRecord::AT;
+
+    public const string BASES = 'bases';
+
+    public const string MUTATORS = 'mutators';
+
+    public const string PASSED = 'passed';
+
+    public const string PROOFS = 'proofs';
 
     /** The format before proofs recorded the digests of their inputs, which reads without them. */
     private const int UNDIGESTED = 2;
@@ -72,65 +75,11 @@ final readonly class LedgerFile
 
     private const string OTHER_FORMAT = 'The ledger is of a format this gate does not read.';
 
-    private const string SECONDS = 'seconds';
-
-    private const string RUNNER = 'runner';
-
-    private const string AT = ProofRecord::AT;
-
-    private const string BASES = 'bases';
-
-    private const string MUTATORS = 'mutators';
-
-    private const string PASSED = 'passed';
-
 
     /** A ledger's file, within the limits a run reads to: {@see EncodedLedger::within()}. */
     public static function encode(Ledger $ledger): string
     {
         return EncodedLedger::within($ledger, LedgerLimits::standard())->bytes();
-    }
-
-    /** The JSON text of what a ledger keeps under this retention, before it is gzipped. */
-    public static function text(Ledger $ledger, LedgerRetention $retention): string
-    {
-        $kept = $retention->proofsOf($ledger);
-        $killers = $retention->killersOf($ledger);
-        $mutators = self::namesOf($kept, static fn(Mutant|ProvedKill $killed): array => [$killed->mutator()]);
-        $tests = array_values(array_unique([
-            ...self::namesOf($kept, static fn(Mutant|ProvedKill $killed): array => self::idsOf($killed->killers())),
-            ...KillersRecord::testsOf($killers),
-        ]));
-        $mutatorIndex = array_flip($mutators);
-        $testIndex = array_flip($tests);
-        $inputs = InputsTable::of(...$kept);
-        $proofs = [];
-
-        foreach ($kept as $proof) {
-            $proofs[$proof->key()->value()] = ProofRecord::of($proof, $mutatorIndex, $testIndex, $inputs);
-        }
-
-        $timings = self::timings($ledger->timings());
-        $passed = $ledger->lastPassed();
-
-        return JsonText::compact([
-            'format' => self::FORMAT,
-            self::BASES => array_map(
-                static fn(Digest $base): string => $base->value(),
-                [...$retention->basesOf($ledger)],
-            ),
-            self::MUTATORS => $mutators,
-            self::TESTS => $tests,
-            InputsTable::SECTION => $inputs->written(),
-            'proofs' => $proofs === [] ? new stdClass() : $proofs,
-            'timings' => $timings === [] ? new stdClass() : $timings,
-            KillersRecord::SECTION => KillersRecord::of($killers, $testIndex),
-            ...$passed instanceof Passed ? [self::PASSED => [
-                'commit' => $passed->commit()->name(),
-                'check' => $passed->check(),
-                'ownScopeProofs' => $passed->ownScopeProofs(),
-            ]] : [],
-        ]);
     }
 
     /** The ledger these bytes hold; empty where they hold none this gate reads. */
@@ -144,6 +93,8 @@ final readonly class LedgerFile
     /**
      * The ledger these bytes hold, within the limits; or why they hold none: they are past the limit, compressed
      * or decompressed, no whole gzip stream, or of another format. Past the compressed limit, none is inflated.
+     * Each proof's entry is let go once its proof is read, so the decoded file and the ledger read from it are
+     * not both held whole.
      */
     public static function read(string $bytes, LedgerLimits $limits): Ledger|CannotJudge|TooLarge
     {
@@ -154,21 +105,39 @@ final readonly class LedgerFile
         }
 
         $file = Node::decode($json);
+        unset($json);
 
-        return self::isReadable($file) ? self::ledgerIn($file) : CannotJudge::because(self::OTHER_FORMAT);
+        if (! self::isReadable($file)) {
+            return CannotJudge::because(self::OTHER_FORMAT);
+        }
+
+        $ledger = self::ledgerIn($file);
+        $read = self::proofsRead($file);
+        $entries = self::entriesOf($file->field(self::PROOFS));
+        unset($file);
+        $proofs = [];
+
+        while (($key = array_key_first($entries)) !== null) {
+            $proofs[] = self::proofsIn($key, $entries[$key], $read);
+            unset($entries[$key]);
+        }
+
+        return $ledger->withProofs(Proofs::of(...array_merge(...$proofs)));
     }
 
+    /** What a file's proofs point into and share. */
+    private static function proofsRead(Node $file): ProofsRead
+    {
+        return ProofsRead::of(
+            KilledRecords::of(self::namesIn($file, self::MUTATORS), self::namesIn($file, self::TESTS)),
+            InputsTable::read($file->field(InputsTable::SECTION)),
+        );
+    }
+
+    /** What a file holds besides its proofs. */
     private static function ledgerIn(Node $file): Ledger
     {
-        $mutators = self::namesIn($file, self::MUTATORS);
-        $tests = self::namesIn($file, self::TESTS);
-        $inputs = InputsTable::read($file->field(InputsTable::SECTION));
-        $proofs = [];
         $timings = [];
-
-        foreach (self::entriesOf($file->field('proofs')) as $key => $entry) {
-            $proofs[] = self::proofsIn($key, $entry, $mutators, $tests, $inputs);
-        }
 
         foreach (self::entriesOf($file->field('timings')) as $unit => $entry) {
             $timings[] = self::timingsIn($unit, $entry);
@@ -176,72 +145,8 @@ final readonly class LedgerFile
 
         return self::passedIn($file)
             ->withBases(self::basesIn($file))
-            ->withProofs(Proofs::of(...array_merge(...$proofs)))
             ->withTimings(Timings::of(...array_merge(...$timings)))
-            ->withKillers(KillersRecord::read($file->field(KillersRecord::SECTION), $tests));
-    }
-
-    /**
-     * What the killed mutants of these proofs name, each once, in the order
-     * they first name it: their mutators, or the tests that killed them.
-     *
-     * @param  list<Proof>                              $proofs
-     * @param  Closure(Mutant|ProvedKill): list<string> $named
-     * @return list<string>
-     */
-    private static function namesOf(array $proofs, Closure $named): array
-    {
-        $names = [];
-
-        foreach ($proofs as $proof) {
-            $names[] = self::killedNamesIn($proof, $named);
-        }
-
-        return array_values(array_unique(array_merge(...$names)));
-    }
-
-    /**
-     * What the killed mutants of one proof name, reported or proved.
-     *
-     * @param  Closure(Mutant|ProvedKill): list<string> $named
-     * @return list<string>
-     */
-    private static function killedNamesIn(Proof $proof, Closure $named): array
-    {
-        $names = [];
-
-        foreach ($proof->reported() as $mutant) {
-            $names[] = $mutant->status() === MutantStatus::Killed ? $named($mutant) : [];
-        }
-
-        foreach ($proof->kills() as $kill) {
-            $names[] = $named($kill);
-        }
-
-        return array_merge(...$names);
-    }
-
-    /** @return list<string> */
-    private static function idsOf(TestIds $tests): array
-    {
-        return array_map(static fn(TestId $test): string => $test->value(), [...$tests]);
-    }
-
-
-    /** @return array<string, TimingRecord> */
-    private static function timings(Timings $timings): array
-    {
-        $written = [];
-
-        foreach ($timings as $timing) {
-            $written[$timing->unit()->value()] = [
-                self::SECONDS => $timing->seconds()->seconds(),
-                self::RUNNER => $timing->runner(),
-                self::AT => $timing->at()->value(),
-            ];
-        }
-
-        return $written;
+            ->withKillers(KillersRecord::read($file->field(KillersRecord::SECTION), self::namesIn($file, self::TESTS)));
     }
 
     private static function isReadable(Node $file): bool
@@ -332,21 +237,12 @@ final readonly class LedgerFile
     }
 
 
-    /**
-     * @param  list<string> $mutators
-     * @param  list<string> $tests
-     * @return list<Proof>  the proof an entry holds, or none where it is malformed
-     */
-    private static function proofsIn(
-        string $key,
-        Node $entry,
-        array $mutators,
-        array $tests,
-        InputsTable $inputs,
-    ): array {
+    /** @return list<Proof> the proof an entry holds, or none where it is malformed */
+    private static function proofsIn(string $key, Node $entry, ProofsRead $read): array
+    {
         try {
             return Digest::isSha256($key)
-                ? [ProofRecord::read(Digest::of($key), $entry, $mutators, $tests, $inputs)]
+                ? [ProofRecord::read(Digest::of($key), $entry, $read)]
                 : [];
         } catch (NotInShape) {
             return [];

@@ -59,6 +59,12 @@ final readonly class LedgerLimits
         return $this->packed;
     }
 
+    /** The most bytes a ledger is decompressed to. */
+    public function unpacked(): int
+    {
+        return $this->unpacked;
+    }
+
     /**
      * The text a ledger's bytes inflate to, within these limits; or why there is none: they are past the
      * compressed limit, which leaves them uninflated, or inflate past the other, or are no whole gzip stream.

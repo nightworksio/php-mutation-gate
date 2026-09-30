@@ -25,6 +25,7 @@ enum Slug: string
     case IgnoresExpiring = 'ignores-expiring';
     case TreeWithoutFloor = 'tree-without-floor';
     case LedgerTooLarge = 'ledger-too-large';
+    case MemoryLimitLow = 'memory-limit-low';
     case CoverageRunFailed = 'coverage-run-failed';
     case CoverageEmpty = 'coverage-empty';
     case HotPathUnheld = 'hot-path-unheld';

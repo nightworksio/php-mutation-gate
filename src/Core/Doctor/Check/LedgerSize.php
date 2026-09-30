@@ -22,7 +22,8 @@ use function sprintf;
  */
 final readonly class LedgerSize
 {
-    private const int PER_MEGABYTE = 1_000_000;
+    /** Bytes in a megabyte, as doctor's findings count sizes. */
+    public const int PER_MEGABYTE = 1_000_000;
 
     private const string LEDGER = '%s is %.1f MB';
 

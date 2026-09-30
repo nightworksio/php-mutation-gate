@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\EncodedLedger;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
+use NightWorksIO\MutationGate\Core\Proof\LedgerJson;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerRetention;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -62,7 +63,7 @@ it('drops the oldest proofs until a ledger past a limit is within it, reads back
     int $textShare,
 ): void {
     $ledger = encodedLedgerOf(200);
-    $whole = LedgerFile::text($ledger, LedgerRetention::standard());
+    $whole = LedgerJson::text($ledger, LedgerRetention::standard());
     $limits = LedgerLimits::of(
         intdiv(strlen(Gzip::pack($whole)), $packedShare),
         intdiv(strlen($whole), $textShare),
@@ -89,4 +90,17 @@ it('keeps no proof where even one is past the limits, and still ends', function 
     expect(LedgerFile::decode($encoded->bytes())->proofs())->toHaveCount(0)
         ->and($encoded->written(Written::to('ledger.json.gz'))->said())
         ->toBe('Wrote ledger.json.gz. It keeps the newest 0 of 20 proofs, so a run can still read the ledger.');
+});
+
+it('steps down to one proof, and past it to none where one is still past the limits', function (): void {
+    $two = encodedLedgerOf(2);
+    $whole = strlen(Gzip::pack(LedgerJson::text($two, LedgerRetention::standard())));
+    $one = strlen(Gzip::pack(LedgerJson::text($two, LedgerRetention::standard()->keepingAtMost(1))));
+    $limits = LedgerLimits::of(intdiv($whole, 2) + 1, 38_000_000, 60.0);
+    $encoded = EncodedLedger::within($two, $limits);
+
+    expect($one)->toBeGreaterThan(intdiv($whole, 2) + 1)
+        ->and(LedgerFile::decode($encoded->bytes())->proofs())->toHaveCount(0)
+        ->and($encoded->written(Written::to('ledger.json.gz'))->said())
+        ->toBe('Wrote ledger.json.gz. It keeps the newest 0 of 2 proofs, so a run can still read the ledger.');
 });

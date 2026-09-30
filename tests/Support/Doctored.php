@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
 use NightWorksIO\MutationGate\Cli\FirstParty;
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
@@ -41,7 +42,7 @@ final class Doctored
             new Effective($project, $extensions, $detected, $now),
             $detected,
             PhpProbe::of($php, $environment),
-            $now,
+            DoctorRun::of($now, -1),
         );
     }
 }

@@ -32,6 +32,7 @@
                             "ignores-expiring",
                             "tree-without-floor",
                             "ledger-too-large",
+                            "memory-limit-low",
                             "coverage-run-failed",
                             "coverage-empty",
                             "hot-path-unheld",

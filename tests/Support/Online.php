@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Doctor\Asked;
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\GitHub\ForkApproval;
 use NightWorksIO\MutationGate\Core\Doctor\GitHub\GitHubSettings;
 use NightWorksIO\MutationGate\Core\Doctor\GitHub\Schedule;
@@ -54,7 +55,7 @@ final readonly class Online
     public static function observed(GitHubSettings|CannotTell $gitHub): Observations
     {
         return Observations::none()
-            ->at(new DateTimeImmutable('2026-09-30T12:00:00Z'))
+            ->in(DoctorRun::of(new DateTimeImmutable('2026-09-30T12:00:00Z'), -1))
             ->withSettings(Configs::settings(['runner' => 'pest']))
             ->withAsked(Asked::nothing()->withGitHub($gitHub));
     }

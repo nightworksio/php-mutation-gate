@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
@@ -35,7 +36,8 @@ final readonly class IgnoresExpiring
     public static function in(Observations $observed): Findings
     {
         $settings = $observed->settings();
-        $now = $observed->now();
+        $run = $observed->run();
+        $now = $run instanceof DoctorRun ? $run->now() : $run;
 
         if (! $settings instanceof Settings || ! $now instanceof DateTimeImmutable) {
             return Findings::none();
