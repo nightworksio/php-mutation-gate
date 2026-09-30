@@ -57,7 +57,7 @@ final readonly class HtmlReportDirectory implements Configurable, Reporter
 
     public static function fromOptions(Options $options): self|Invalid
     {
-        $path = ReportPath::from($options, '', self::UNNAMED);
+        $path = ReportPath::named($options, self::UNNAMED);
 
         return $path instanceof Invalid ? $path : new self(
             $path,

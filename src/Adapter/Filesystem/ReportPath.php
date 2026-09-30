@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
-use function is_string;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
@@ -41,20 +40,26 @@ final readonly class ReportPath
     /** The file an entry for this report must name; where it names none, why the entry is invalid. */
     public static function ofFile(Options $options, string $report): self|Invalid
     {
-        return self::from($options, '', sprintf(self::NO_FILE, $report));
+        return self::named($options, sprintf(self::NO_FILE, $report));
     }
 
-    /** The path an entry names, or the path it may leave out; with neither, why the entry is invalid. */
-    public static function from(Options $options, string $otherwise, string $what): self|Invalid
+    /**
+     * The path an entry names, from the project and inside it, or absolute where the command line names it.
+     * Where it names none, `$what` says why the entry is invalid.
+     */
+    public static function named(Options $options, string $what): self|Invalid
     {
-        $path = $options->text(Key::of(self::KEY));
-        $named = match (true) {
-            $path instanceof NotGiven => $otherwise,
-            is_string($path) => $path,
-            default => '',
-        };
+        $path = self::in($options);
 
-        return $named === '' ? Invalid::because(Problem::at(self::KEY, $what)) : self::at($named);
+        return $path instanceof NotGiven ? Invalid::because(Problem::at(self::KEY, $what)) : $path;
+    }
+
+    /** The path an entry names, as `named()` reads it, or this one where it names none. */
+    public static function namedOr(Options $options, string $otherwise): self|Invalid
+    {
+        $path = self::in($options);
+
+        return $path instanceof NotGiven ? self::at($otherwise) : $path;
     }
 
     public function value(): string
@@ -96,5 +101,16 @@ final readonly class ReportPath
     private function said(Written|CannotJudge $written): Written|NotWritten
     {
         return $written instanceof CannotJudge ? NotWritten::because($written->why()) : Written::to($this->value());
+    }
+
+    private static function in(Options $options): self|Invalid|NotGiven
+    {
+        $path = $options->path(Key::of(self::KEY));
+
+        return match (true) {
+            $path instanceof Path => self::at($path->value()),
+            $path instanceof Problem => Invalid::because($path),
+            default => $path,
+        };
     }
 }

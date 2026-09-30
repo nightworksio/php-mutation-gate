@@ -94,7 +94,7 @@ it('lays the config file over its presets, and the command line over both', func
             ['use' => 'json', 'path' => 'build/mutation.json'],
         ],
     ])->and($settings instanceof Settings ? $settings->ci()->plan() : $settings)
-        ->toEqual(Choice::of('github', Configs::options('{}')));
+        ->toEqual(Choice::of('github', Configs::commandLine('{}')));
 });
 
 it('takes the runner from the config file before looking for one', function () use ($effective, $nothing): void {
@@ -124,7 +124,7 @@ it('keeps what the config withholds where the command line chooses the runner', 
     $runner = $settings instanceof Settings ? $settings->runner() : $settings;
 
     expect($runner instanceof ChosenRunner ? [$runner->choice(), $runner->withhold()] : $runner)
-        ->toEqual([Choice::of('infection', Configs::options('{}')), Withheld::of('DEPLOY_*')]);
+        ->toEqual([Choice::of('infection', Configs::commandLine('{}')), Withheld::of('DEPLOY_*')]);
 });
 
 it('applies a list of presets in order, the later winning', function () use (
@@ -223,7 +223,7 @@ it('lets the command line choose the runner where two are installed', function (
         ->settings(CommandLine::nothing()->withRunner('infection'));
 
     expect($settings instanceof Settings ? $settings->runner()->choice() : $settings)
-        ->toEqual(Choice::of('infection', Configs::options('{}')));
+        ->toEqual(Choice::of('infection', Configs::commandLine('{}')));
 });
 
 it('reports a preset nothing registered at its path, with what only every layer together can say', function (

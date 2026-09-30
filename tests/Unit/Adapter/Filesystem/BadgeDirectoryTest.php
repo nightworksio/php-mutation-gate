@@ -92,7 +92,9 @@ it('refuses colours that are not a map of scores, and a directory that is not te
 })->with([
     'a colour as text' => ['{"colors": {"green": "high"}}', 'colors', 'Each badge colour maps to the lowest score that earns it.'],
     'colours as a number' => ['{"colors": 80}', 'colors', 'Each badge colour maps to the lowest score that earns it.'],
-    'a directory as a number' => ['{"path": 3}', 'path', 'The badge and trend are written to a directory, as text.'],
+    'a directory as a number' => ['{"path": 3}', 'path', 'expected a path, got 3'],
+    'a directory outside the project' => ['{"path": "/tmp/x"}', 'path', 'expected a path inside the project, got "/tmp/x"'],
+    'a directory up out of the project' => ['{"path": "../x"}', 'path', 'expected a path inside the project, got "../x"'],
 ]);
 
 it('writes what the gate saved over the last 30 days beside the badge', function () use ($clock): void {

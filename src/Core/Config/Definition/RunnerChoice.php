@@ -87,7 +87,7 @@ final readonly class RunnerChoice implements Shape
             'anyOf',
             Json::items(
                 Json::object(Member::of('type', 'string'), Member::of('minLength', 1)),
-                ...$this->builtins->schemas($withhold, [], []),
+                ...$this->builtins->schemas($withhold, [], [], []),
                 ...[
                     Json::object(
                         Member::of('type', 'object'),

@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
@@ -27,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
@@ -122,6 +124,9 @@ final readonly class Builtins
 
         return self::of([
             ...self::bare(
+                BuiltinReporter::Console,
+                BuiltinReporter::GitHubAnnotations,
+                BuiltinReporter::GitHubSummary,
                 BuiltinReporter::Json,
                 BuiltinReporter::JUnit,
                 BuiltinReporter::Sarif,
@@ -141,6 +146,19 @@ final readonly class Builtins
                 Json::object(),
                 Field::optional('endpoint', Url::https(), $judges),
             ),
+            BuiltinReporter::Problems->value => Section::options(
+                Json::object(),
+                Field::optional('only', Enumerated::of(ProblemsShown::cases()), $judges),
+            ),
+            BuiltinReporter::GitHubComment->value => Section::options(
+                Json::object(),
+                Field::optional('identity', Text::of('an account name'), $judges),
+            ),
+            BuiltinReporter::Badge->value => Section::options(
+                Json::object(),
+                Field::optional('colors', NumberMap::of(Number::percent()), $judges),
+                Field::optional('commit', Text::of('a commit'), $judges),
+            ),
         ], $origin);
     }
 
@@ -156,7 +174,7 @@ final readonly class Builtins
             $options = $this->options[$use]->read($with);
             $read = $options->value();
 
-            return $read instanceof Options ? Reading::of(Choice::of($use, $read)) : Reading::invalid(
+            return $read instanceof Options ? Reading::of(Choice::of($use, $this->reaching($read))) : Reading::invalid(
                 Invalid::because(...$options->problems()),
             );
         }
@@ -181,28 +199,30 @@ final readonly class Builtins
         return array_key_exists($use, $this->options);
     }
 
-
     /**
      * The JSON Schema of each way to choose one: every built-in adapter with its own options, and any other
      * name or class with any options.
      *
      * @param  list<string> $alsoRequired those of the other keys a built-in adapter needs
      * @param  list<string> $without      the built-in adapters that take none of the other keys
+     * @param  list<string> $unrequired   the built-in adapters that take the other keys, but need none
      * @return list<Json>
      */
-    public function schemas(Json $also, array $alsoRequired, array $without): array
+    public function schemas(Json $also, array $alsoRequired, array $without, array $unrequired): array
     {
         $schemas = [];
         $bare = array_flip($without);
+        $optional = array_flip($unrequired);
 
         foreach ($this->options as $name => $options) {
             $own = array_key_exists($name, $bare);
+            $needs = $own || array_key_exists($name, $optional) ? [] : $alsoRequired;
             $properties = Json::object(Member::of('use', Json::object(Member::of('const', $name))));
             $properties = $own ? $properties : $properties->merged($also);
             $schemas[] = Json::object()
                 ->with(Member::of('type', 'object'))
                 ->with(Member::of('properties', $properties->with(Member::of('with', $options->schema()))))
-                ->with(Member::of('required', Json::items('use', ...$own ? [] : $alsoRequired)))
+                ->with(Member::of('required', Json::items('use', ...$needs)))
                 ->with(Member::of('additionalProperties', value: false));
         }
 
@@ -239,6 +259,17 @@ final readonly class Builtins
         }
 
         return $effects;
+    }
+
+    /**
+     * Options a built-in adapter's section read, whose paths it named from the project: from the project still,
+     * and reaching outside it where the layer that chose it may name such a path, as the command line may.
+     */
+    private function reaching(Options $options): Options
+    {
+        return $this->origin->reachesOutside()
+            ? Options::at($options->written(), ProjectRoot::commandLine())
+            : $options;
     }
 
     /** Built-in adapters that take no options, each by its name or by the case that holds it. */

@@ -45,4 +45,16 @@ enum BuiltinReporter: string
     {
         return Name::of($this->value);
     }
+
+    /** Whether a `reports` entry of this reporter names the path it writes to. */
+    public function entryPath(): EntryPath
+    {
+        return match ($this) {
+            self::Json, self::JUnit, self::Sarif, self::Html, self::Tests, self::KillMatrix, self::GitLab
+                => EntryPath::Required,
+            self::Badge => EntryPath::Optional,
+            self::Console, self::Problems, self::Slack, self::Discord, self::Webhook, self::Otlp,
+            self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment => EntryPath::Refused,
+        };
+    }
 }

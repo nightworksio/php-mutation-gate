@@ -19,7 +19,7 @@ afterEach(function (): void {
 it('writes GitLab\'s Code Quality JSON to the path its entry names', function (): void {
     $file = sprintf('%s/build/gl-code-quality.json', Scratch::directory());
 
-    expect(CodeQualityReportFile::fromOptions(Configs::options((string) json_encode(['path' => $file]))))
+    expect(CodeQualityReportFile::fromOptions(Configs::commandLine((string) json_encode(['path' => $file]))))
         ->toEqual(CodeQualityReportFile::at($file))
         ->and(CodeQualityReportFile::at($file)->report(Verdicts::failing()))->toEqual(Written::to($file))
         ->and(file_get_contents($file))->toBe(CodeQuality::json(Verdicts::failing()));

@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\ConfigurableReporter;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -99,15 +100,12 @@ it('hands a reporter its path beside the options its entry gives', function (): 
 });
 
 it('says which entry of reports cannot be built', function (): void {
-    $settings = Flows::settings(
-        Report::uses('console'),
-        Report::writing('badge', 'publish', Option::nested('colors', Option::of('green', 'high'))),
-    );
+    $settings = Flows::settings(Report::uses('otlp'), Report::uses(sprintf('\\%s', ConfigurableReporter::class)));
 
-    expect(reportersOf($settings, Variables::of([]), reportingOnMain()))->toEqual(Invalid::because(Problem::at(
-        'reports[1].with.colors',
-        'Each badge colour maps to the lowest score that earns it.',
-    )));
+    expect(reportersOf($settings, Variables::of([]), reportingOnMain()))->toEqual(Invalid::because(
+        Problem::at('reports[1].with.channel', 'expected a channel name, got nothing'),
+        Problem::at('reports[1].with', 'needs a channel'),
+    ));
 });
 
 it('annotates and summarises under GitHub Actions, and comments on a pull request it can write to', function (

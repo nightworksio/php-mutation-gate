@@ -80,7 +80,7 @@ final readonly class BadgeDirectory implements Reporter
      */
     public static function configured(Options $options, ClockInterface $clock): self|Invalid
     {
-        $path = ReportPath::from($options, self::PATH, 'The badge and trend are written to a directory, as text.');
+        $path = ReportPath::namedOr($options, self::PATH);
         $colors = self::colorsIn($options);
         $commit = $options->text(Key::of('commit'));
 

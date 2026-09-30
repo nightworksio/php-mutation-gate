@@ -126,6 +126,12 @@ final readonly class Configs
         return $options instanceof Json ? Options::of($options) : throw new LogicException($options->why());
     }
 
+    /** An adapter's options, as the command line names them: a path among them may be absolute. */
+    public static function commandLine(string $json): Options
+    {
+        return Options::at(self::options($json)->written(), ProjectRoot::commandLine());
+    }
+
     /** A built-in adapter's options, as the definition reads what a config writes beside it: every default filled in. */
     public static function builtin(Builtins $builtins, string $use, string $with = '{}'): Options
     {

@@ -153,12 +153,12 @@ it('says what is wrong with a config it cannot compose', function (
             Extension::class,
         )),
     ],
-    'a reporter that cannot be built' => [
+    'a reporter whose options the config gets wrong' => [
         '{"runner": "fake", "reports": [{"use": "badge", "path": "p", "with": {"colors": "x"}}]}',
         'fake',
         Invalid::because(Problem::at(
             'reports[0].with.colors',
-            'Each badge colour maps to the lowest score that earns it.',
+            'expected an object of numbers, got "x"',
         )),
     ],
 ]);

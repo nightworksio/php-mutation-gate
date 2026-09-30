@@ -789,6 +789,55 @@ it('refuses a map whose keys are settings where a map of numbers belongs', funct
         ->toBe(['shards: expected an object, got a list']);
 });
 
+it('refuses a badge written outside the project, by its entry or its options', function (
+    array $entry,
+    string $problem,
+): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'reports' => [['use' => 'badge', ...$entry]]])))
+        ->toBe([$problem]);
+})->with([
+    'an absolute path' => [['path' => '/tmp/x'], 'reports[0].path: expected a path inside the project, got "/tmp/x"'],
+    'a path up out of the project' => [['path' => '../x'], 'reports[0].path: expected a path inside the project, got "../x"'],
+    'a path among its options' => [['with' => ['path' => '/tmp/x']], 'reports[0].with.path: unknown key'],
+]);
+
+it('takes a path for a report it writes, may for the badge, and takes none for one it prints or sends', function (
+    string $use,
+    array $entry,
+    array $problems,
+): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'reports' => [['use' => $use, ...$entry]]])))
+        ->toBe($problems);
+})->with([
+    'a file with none' => ['json', [], ['reports[0].path: expected a path, got nothing']],
+    'the badge with none' => ['badge', [], []],
+    'the badge with one' => ['badge', ['path' => 'publish'], []],
+    'the console with one' => [
+        'console',
+        ['path' => 'out.txt'],
+        ['reports[0].path: expected nothing, as console writes no file, got "out.txt"'],
+    ],
+    'a comment with one' => [
+        'github-comment',
+        ['path' => 'out.md'],
+        ['reports[0].path: expected nothing, as github-comment writes no file, got "out.md"'],
+    ],
+]);
+
+it('reads the problems report\'s only and the comment\'s identity, and refuses what they do not take', function (): void {
+    $problems = static fn(array $with): array => Configs::problems(Configs::validated([
+        'runner' => 'pest',
+        'reports' => [['use' => 'problems', 'with' => $with]],
+    ]));
+
+    expect($problems(['only' => 'changed']))->toBe([])
+        ->and($problems(['only' => 'some']))->toBe(['reports[0].with.only: expected "all" or "changed", got "some"'])
+        ->and(Configs::problems(Configs::validated([
+            'runner' => 'pest',
+            'reports' => [['use' => 'github-comment', 'with' => ['identity' => 7]]],
+        ])))->toBe(['reports[0].with.identity: expected an account name, got 7']);
+});
+
 it('refuses a Buildkite step whose command is not text, or a list of text, at the command', function (): void {
     expect(Configs::problems(Configs::validated(['runner' => 'pest', 'ci' => ['buildkite' => ['step' => ['command' => 7]]]])))
         ->toBe(['ci.buildkite.step.command: expected a command, or a list of commands, as text, got 7']);

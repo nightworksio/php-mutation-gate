@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\ReportPath;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -16,18 +17,32 @@ afterEach(function (): void {
 });
 
 it('reads the path an entry names, or takes the one it may leave out', function (): void {
-    expect(ReportPath::from(Configs::options('{"path": "build/mutation.json"}'), '', 'needed'))->toEqual(ReportPath::at('build/mutation.json'))
-        ->and(ReportPath::from(Options::none(), '.mutation-gate/publish', 'needed'))->toEqual(ReportPath::at('.mutation-gate/publish'));
+    expect(ReportPath::named(Configs::options('{"path": "build/mutation.json"}'), 'needed'))->toEqual(ReportPath::at('build/mutation.json'))
+        ->and(ReportPath::namedOr(Configs::options('{"path": "build/badge"}'), '.mutation-gate/publish'))->toEqual(ReportPath::at('build/badge'))
+        ->and(ReportPath::namedOr(Options::none(), '.mutation-gate/publish'))->toEqual(ReportPath::at('.mutation-gate/publish'))
+        ->and(ReportPath::namedOr(Configs::options('{"path": "/tmp/x"}'), '.mutation-gate/publish'))
+        ->toEqual(Invalid::because(Problem::at('path', 'expected a path inside the project, got "/tmp/x"')));
 });
 
-it('refuses an entry with no path it needs, or one that is not text', function (string $options): void {
-    expect(ReportPath::from(Configs::options($options), '', 'The report needs a path.'))
-        ->toEqual(Invalid::because(Problem::at('path', 'The report needs a path.')));
+it('refuses an entry with no path it needs, or one that is not a path inside the project', function (
+    string $options,
+    string $problem,
+): void {
+    expect(ReportPath::named(Configs::options($options), 'The report needs a path.'))
+        ->toEqual(Invalid::because(Problem::at('path', $problem)));
 })->with([
-    'none' => ['{}'],
-    'a number' => ['{"path": 3}'],
-    'empty' => ['{"path": ""}'],
+    'none' => ['{}', 'The report needs a path.'],
+    'a number' => ['{"path": 3}', 'expected a path, got 3'],
+    'empty' => ['{"path": ""}', 'expected a path, got ""'],
+    'absolute' => ['{"path": "/tmp/x"}', 'expected a path inside the project, got "/tmp/x"'],
+    'up out of the project' => ['{"path": "../x"}', 'expected a path inside the project, got "../x"'],
 ]);
+
+it('takes an absolute path the command line names', function (): void {
+    $named = Options::at(Configs::options('{"path": "/tmp/x"}')->written(), ProjectRoot::commandLine());
+
+    expect(ReportPath::named($named, 'needed'))->toEqual(ReportPath::at('/tmp/x'));
+});
 
 it('writes a file, making the directories it needs, and reads it back', function (): void {
     $path = ReportPath::at(sprintf('%s/build/reports/mutation.json', Scratch::directory()));

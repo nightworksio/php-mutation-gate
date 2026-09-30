@@ -803,6 +803,54 @@
                         "type": "object",
                         "properties": {
                             "use": {
+                                "const": "console"
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "github-annotations"
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "github-summary"
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
                                 "const": "json"
                             },
                             "path": {
@@ -1058,10 +1106,93 @@
                         "type": "object",
                         "properties": {
                             "use": {
+                                "const": "problems"
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "only": {
+                                        "enum": [
+                                            "all",
+                                            "changed"
+                                        ]
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "github-comment"
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "identity": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "badge"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "colors": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                        }
+                                    },
+                                    "commit": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
                                 "type": "string",
                                 "minLength": 1,
                                 "not": {
                                     "enum": [
+                                        "console",
+                                        "github-annotations",
+                                        "github-summary",
                                         "json",
                                         "junit",
                                         "sarif",
@@ -1072,7 +1203,10 @@
                                         "slack",
                                         "discord",
                                         "webhook",
-                                        "otlp"
+                                        "otlp",
+                                        "problems",
+                                        "github-comment",
+                                        "badge"
                                     ]
                                 }
                             },

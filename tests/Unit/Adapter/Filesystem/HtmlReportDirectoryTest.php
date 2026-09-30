@@ -47,7 +47,7 @@ it('carries the viewer at the version it names, with its licence', function (): 
 
 it('finds the viewer in the package from its options, and needs a directory', function (): void {
     $html = sprintf('%s/html', Scratch::directory());
-    $reporter = HtmlReportDirectory::fromOptions(Configs::options((string) json_encode(['path' => $html])));
+    $reporter = HtmlReportDirectory::fromOptions(Configs::commandLine((string) json_encode(['path' => $html])));
 
     expect($reporter)->toEqual(HtmlReportDirectory::at($html, '.', Schema::at('resources/mutation-testing-elements')))
         ->and(HtmlReportDirectory::fromOptions(Options::none()))->toEqual(Invalid::because(Problem::at(

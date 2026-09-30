@@ -90,7 +90,7 @@ final readonly class Adapter implements Shape
                 'anyOf',
                 Json::items(
                     Json::object(Member::of('type', 'string'))->with(Member::of('minLength', 1)),
-                    ...$this->builtins->schemas(Json::object(), [], []),
+                    ...$this->builtins->schemas(Json::object(), [], [], []),
                 ),
             ),
         );

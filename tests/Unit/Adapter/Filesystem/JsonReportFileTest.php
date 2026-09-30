@@ -20,7 +20,7 @@ afterEach(function (): void {
 
 it('writes the JSON report to the path its entry names', function (): void {
     $file = sprintf('%s/build/mutation.json', Scratch::directory());
-    $reporter = JsonReportFile::fromOptions(Configs::options((string) json_encode(['path' => $file])));
+    $reporter = JsonReportFile::fromOptions(Configs::commandLine((string) json_encode(['path' => $file])));
 
     expect($reporter)->toEqual(JsonReportFile::at($file))
         ->and(JsonReportFile::at($file)->report(Verdicts::failing()))->toEqual(Written::to($file))

@@ -20,7 +20,7 @@ it('streams the kill matrix to the path its entry names', function (): void {
     $file = sprintf('%s/build/kill-matrix.csv', Scratch::directory());
     $verdict = Verdicts::named('with a matrix');
 
-    expect(KillMatrixFile::fromOptions(Configs::options((string) json_encode(['path' => $file]))))->toEqual(KillMatrixFile::at($file))
+    expect(KillMatrixFile::fromOptions(Configs::commandLine((string) json_encode(['path' => $file]))))->toEqual(KillMatrixFile::at($file))
         ->and(KillMatrixFile::at($file)->report($verdict))->toEqual(Written::to($file))
         ->and(file_get_contents($file))->toBe(implode('', iterator_to_array(KillMatrixCsv::records($verdict), preserve_keys: false)));
 });
