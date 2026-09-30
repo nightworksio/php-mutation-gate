@@ -6,6 +6,11 @@ use NightWorksIO\MutationGate\Core\Cost\Phase;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\ShardTiming;
+use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\Unidentified;
+use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -21,7 +26,16 @@ it('names its run and the trace every job of it adds to, and knows nothing more 
         ->and($timings->verdict())->toEqual(Unmeasured::duration())
         ->and(iterator_to_array($timings->shards(), preserve_keys: false))->toBe([])
         ->and($timings->spent())->toBe($spent)
+        ->and($timings->runner())->toEqual(Unidentified::runner())
         ->and($timings->isSharded())->toBeFalse();
+});
+
+it('names the runner that judged the run, as the plan\'s proof keys name it', function (): void {
+    $runner = Identity::of('pest', Versions::of(Version::of('pestphp/pest', '4.1.0', 'abc123')), Digest::of('php'));
+    $timings = RunTimings::of('run', RunTime::measured(Seconds::of(1.0), Seconds::of(1.0)))->ranBy($runner);
+
+    expect($timings->runner())->toBe($runner)
+        ->and($timings->withVerdict(Verdicts::shard()->mutate())->runner())->toBe($runner);
 });
 
 it('keeps the plan, each shard and the verdict, and is sharded from a second shard on', function (): void {

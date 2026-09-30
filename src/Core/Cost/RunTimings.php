@@ -8,6 +8,8 @@ use function count;
 use function hash;
 use function mb_substr;
 
+use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\Unidentified;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 use function sprintf;
@@ -34,13 +36,14 @@ final readonly class RunTimings
         private array $shards,
         private Phase|Unmeasured $verdict,
         private RunTime $spent,
+        private Identity|Unidentified $runner,
     ) {
     }
 
     /** The timings of a run, as a proof names it (ADR-0007), that took this long. */
     public static function of(string $run, RunTime $spent): self
     {
-        return new self($run, Unmeasured::duration(), [], Unmeasured::duration(), $spent);
+        return new self($run, Unmeasured::duration(), [], Unmeasured::duration(), $spent, Unidentified::runner());
     }
 
     public function withPlan(Phase $plan): self
@@ -56,6 +59,18 @@ final readonly class RunTimings
     public function withVerdict(Phase $verdict): self
     {
         return clone($this, ['verdict' => $verdict]);
+    }
+
+    /** These timings, of a run this runner judged, as the plan's proof keys name it. */
+    public function ranBy(Identity $runner): self
+    {
+        return clone($this, ['runner' => $runner]);
+    }
+
+    /** The runner that judged the run; unidentified where the flows did not say. */
+    public function runner(): Identity|Unidentified
+    {
+        return $this->runner;
     }
 
     public function run(): string

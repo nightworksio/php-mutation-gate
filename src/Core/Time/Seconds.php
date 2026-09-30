@@ -16,7 +16,11 @@ use function sprintf;
 /** A duration, in seconds. */
 final readonly class Seconds
 {
-    private const int PER_MINUTE = 60;
+    /** Nanoseconds in a second, as a monotonic clock and OTLP count time. */
+    public const int NANOSECONDS = 1_000_000_000;
+
+    /** Seconds in a minute. */
+    public const int PER_MINUTE = 60;
 
     private const int PER_HOUR = 3600;
 
@@ -61,6 +65,18 @@ final readonly class Seconds
     public function seconds(): float
     {
         return $this->seconds;
+    }
+
+    /** The duration in whole nanoseconds, rounded. */
+    public function nanoseconds(): int
+    {
+        return (int) round($this->seconds * self::NANOSECONDS);
+    }
+
+    /** The duration in minutes, as runner time is billed. */
+    public function inMinutes(): float
+    {
+        return $this->seconds / self::PER_MINUTE;
     }
 
     /**

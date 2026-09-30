@@ -46,3 +46,10 @@ it('says a test\'s duration to the hundredth of a second under a minute', functi
     [59.6, '1m'],
     [6060.0, '1h 41m'],
 ]);
+
+it('says its length in whole nanoseconds, rounded, and in minutes', function (): void {
+    expect(Seconds::of(40.25)->nanoseconds())->toBe(40_250_000_000)
+        ->and(Seconds::of(0.0000000015)->nanoseconds())->toBe(2)
+        ->and(Seconds::of(840.0)->inMinutes())->toBe(14.0)
+        ->and(Seconds::of(90.0)->inMinutes())->toBe(1.5);
+});

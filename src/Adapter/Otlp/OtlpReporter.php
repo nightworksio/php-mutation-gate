@@ -1,0 +1,174 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Adapter\Otlp;
+
+use function count;
+use function explode;
+use function getenv;
+
+use NightWorksIO\MutationGate\Core\Ci\CiRun;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Cost\RunTimings;
+use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Http\Origin;
+use NightWorksIO\MutationGate\Core\Http\Reply;
+use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Telemetry\Metrics;
+use NightWorksIO\MutationGate\Core\Telemetry\Trace;
+use NightWorksIO\MutationGate\Core\Time\Instant;
+use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Port\Reporter;
+use Psr\Clock\ClockInterface;
+
+use function rtrim;
+use function sprintf;
+use function str_contains;
+
+use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+
+/**
+ * The reporter `otlp`: the run's spans and the verdict's metrics as
+ * OTLP/HTTP JSON, posted to `/v1/traces` and `/v1/metrics` under the
+ * endpoint `with.endpoint` or OpenTelemetry's own variables name. Each post
+ * takes at most 5 seconds and is not tried again; a failed one is *not
+ * written* (ADR-0016, decisions 14 to 17).
+ */
+final readonly class OtlpReporter implements Reporter
+{
+    /** The longest one post may take, in seconds. */
+    private const float TIMEOUT = 5.0;
+
+    private const string ENDPOINT = 'The endpoint is a URL, as text.';
+
+    private function __construct(
+        private HttpClientInterface $client,
+        private ClockInterface $clock,
+        private Variables $environment,
+        private string $endpoint,
+    ) {
+    }
+
+    /** The reporter reading this environment, posting with this client, its `with.endpoint` first. */
+    public static function inEnvironment(
+        Options $options,
+        Variables $environment,
+        HttpClientInterface $client,
+        ClockInterface $clock,
+    ): self|Invalid {
+        $endpoint = Node::decode($options->json())->field('endpoint');
+
+        try {
+            $named = $endpoint->isPresent() ? $endpoint->text() : OtelEnvironment::of($environment)->endpoint();
+        } catch (NotInShape) {
+            return Invalid::because(Problem::at('endpoint', self::ENDPOINT));
+        }
+
+        return self::to($environment, $client, $clock, $named);
+    }
+
+    /** The reporter reading this environment, posting with this client under this endpoint. */
+    public static function to(
+        Variables $environment,
+        HttpClientInterface $client,
+        ClockInterface $clock,
+        string $endpoint,
+    ): self {
+        return new self($client, $clock, $environment, $endpoint);
+    }
+
+    /** The reporter in this process's environment, posting over the network. */
+    public static function configured(Options $options, ClockInterface $clock): self|Invalid
+    {
+        return self::inEnvironment($options, Variables::of(getenv()), HttpClient::create(), $clock);
+    }
+
+    public function report(Verdict $verdict): Written|NotWritten
+    {
+        $resource = OtelEnvironment::of($this->environment)->resource();
+        $timings = $verdict->account()->timings();
+        $traces = $timings instanceof RunTimings
+            ? $this->post('/v1/traces', $this->traces($verdict, $timings, $resource))
+            : Written::to(Origin::of($this->endpoint));
+        $metrics = $this->post(
+            '/v1/metrics',
+            OtlpJson::metrics(Metrics::of($verdict), $resource, Instant::at($this->clock->now())),
+        );
+
+        return $traces instanceof NotWritten ? $traces : $metrics;
+    }
+
+    /** @param array<string, string> $resource */
+    private function traces(Verdict $verdict, RunTimings $timings, array $resource): string
+    {
+        return OtlpJson::traces(
+            $timings->traceId(),
+            Trace::spans($timings, $this->attributes($verdict, $timings)),
+            $resource,
+        );
+    }
+
+    /**
+     * What every span says of its run: the ref and commit, the CI run and its pipeline, the runner, and the mode.
+     *
+     * @return array<string, string>
+     */
+    private function attributes(Verdict $verdict, RunTimings $timings): array
+    {
+        $run = CiRun::read($this->environment);
+        $known = $run instanceof CiRun ? [
+            'vcs.ref.head.name' => $run->refName(),
+            'vcs.ref.head.revision' => $run->commit(),
+            ...$run->pipeline() === '' ? [] : ['cicd.pipeline.name' => $run->pipeline()],
+        ] : [];
+
+        $runner = $timings->runner();
+
+        return [
+            ...$known,
+            'cicd.pipeline.run.id' => $timings->run(),
+            ...$runner instanceof Identity ? ['mutation_gate.runner' => $runner->runner()] : [],
+            'mutation_gate.mode' => count($verdict->newCode()) > 0 ? 'change' : 'full',
+        ];
+    }
+
+    private function post(string $path, string $body): Written|NotWritten
+    {
+        $url = $this->signal($this->endpoint, $path);
+        $to = Origin::of($this->endpoint);
+
+        try {
+            $response = $this->client->request('POST', $url, [
+                'body' => $body,
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    ...OtelEnvironment::of($this->environment)->headers(),
+                ],
+                'max_duration' => self::TIMEOUT,
+                'max_redirects' => 0,
+            ]);
+            $reply = Reply::of($response->getStatusCode(), '', $response->getContent(throw: false));
+
+            return $reply->isAccepted() ? Written::to($to) : $reply->refusedBy($to);
+        } catch (ExceptionInterface $unreached) {
+            return Reply::unreached($to, $unreached->getMessage());
+        }
+    }
+
+    /** The URL of one signal under the endpoint: its path added before any query the endpoint holds. */
+    private function signal(string $endpoint, string $path): string
+    {
+        [$base, $query] = str_contains($endpoint, '?') ? explode('?', $endpoint, 2) : [$endpoint, ''];
+
+        return sprintf('%s%s%s', rtrim($base, '/'), $path, $query === '' ? '' : sprintf('?%s', $query));
+    }
+}
