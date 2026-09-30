@@ -368,7 +368,7 @@ chooses an adapter takes a registered name or `{"use": <name or class>,
 | `baseline.path` | path | `mutation-gate.baseline.json` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `baseline.improvement` | `require` or `report` | `require` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `packages` | list of globs | `[]` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
-| `reach.everything` | list of globs | `[]`, plus the preset's | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| `reach.everything` | list of globs, from the repository's root | `[]`, plus the preset's | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `holds.hotPath` | number, 0 to 1 | `0.8` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `shards.seconds` | integer | `600` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `shards.max` | integer | `20` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |

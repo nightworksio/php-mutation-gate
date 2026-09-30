@@ -31,6 +31,9 @@ final readonly class Blobs
 
     private const string BLOB = 'blob';
 
+    /** How `ls-tree` prints the blob a commit holds at a path: its mode, its type and its id, then a tab. */
+    private const string ENTRY = '/^\d+ blob (?<id>[0-9a-f]{40,64})\t/';
+
     private function __construct(private Command $git, private string $commit)
     {
     }
@@ -54,7 +57,13 @@ final readonly class Blobs
                 continue;
             }
 
-            $alone[$path->value()] = $this->one($path);
+            $file = $this->one($path);
+
+            if ($file instanceof CannotTell) {
+                return $file;
+            }
+
+            $alone[$path->value()] = $file;
         }
 
         $held = $this->batch($batched);
@@ -127,12 +136,21 @@ final readonly class Blobs
         return [$file, $end + 1 + $size + 1];
     }
 
-    /** A file read on its own. */
-    private function one(Path $path): Contents|Missing
+    /**
+     * A file read on its own: missing where the commit holds no blob at it,
+     * and not told where git cannot say what it holds.
+     */
+    private function one(Path $path): Contents|Missing|CannotTell
     {
-        $blob = $this->git->run(['cat-file', 'blob', $this->spelt($path)]);
+        $entry = $this->git->run(['ls-tree', '-z', $this->commit, '--', sprintf('./%s', $path->value())]);
 
-        return $blob instanceof CannotTell ? Missing::at($path) : Contents::of($blob);
+        if ($entry instanceof CannotTell || preg_match(self::ENTRY, $entry, $found) !== 1) {
+            return $entry instanceof CannotTell ? $entry : Missing::at($path);
+        }
+
+        $blob = $this->git->run(['cat-file', 'blob', $found['id']]);
+
+        return $blob instanceof CannotTell ? $blob : Contents::of($blob);
     }
 
     /** A file at the commit, spelt from the directory git runs in. */

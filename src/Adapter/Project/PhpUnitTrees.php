@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
+use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -80,12 +81,23 @@ final readonly class PhpUnitTrees implements TreeSource
         return count($included) > 0 ? $this->source($included, $this->paths($xml, self::EXCLUDED)) : $this->fallback();
     }
 
-    /** The `<directory>` of every `<testsuite>`, where the tests are. */
-    public function testDirectories(): Paths|CannotJudge
+    /**
+     * The `<directory>` of every `<testsuite>`, where the tests are, each with
+     * the suffix it tells its files of test cases by.
+     *
+     * @return list<SuiteDirectory>|CannotJudge
+     */
+    public function testDirectories(): array|CannotJudge
     {
         $xml = $this->xml();
+        $nodes = $xml instanceof SimpleXMLElement ? $xml->xpath(self::TESTS) : [];
+        $directories = [];
 
-        return $xml instanceof CannotJudge ? $xml : $this->paths($xml, self::TESTS);
+        foreach (is_array($nodes) ? $nodes : [] as $node) {
+            $directories[] = SuiteDirectory::of(Path::of(trim((string) $node)), (string) $node->attributes()?->suffix);
+        }
+
+        return $xml instanceof CannotJudge ? $xml : $directories;
     }
 
     /** The paths that are, or are not, inside one of the others. */

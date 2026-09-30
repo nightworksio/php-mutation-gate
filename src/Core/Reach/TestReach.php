@@ -44,6 +44,9 @@ final readonly class TestReach
 
     private const string NOTHING = '`%s` reaches nothing by itself.';
 
+    private const string UNREAD
+        = '`%s` cannot be read, so what it declares is not known, and every unit of %s is reached.';
+
     private function __construct(
         private Layout $layout,
         private Packages $packages,
@@ -113,7 +116,8 @@ final readonly class TestReach
     private function supportChanged(Reach $reach, Change $change, Package $package): Reach
     {
         $path = $change->path();
-        $users = $this->users->of($path, $this->declaredBy($change), $this->named($package));
+        $declared = $this->declaredBy($change, $package);
+        $users = $declared instanceof Reason ? $declared : $this->users->of($path, $declared, $this->named($package));
 
         if ($users instanceof Reason || $this->coverage instanceof NoMap) {
             $why = $users instanceof Reason
@@ -138,20 +142,28 @@ final readonly class TestReach
         );
     }
 
-    /** What a changed piece of support declares, on disk and at the base. */
-    private function declaredBy(Change $change): Names
+    /**
+     * What a changed piece of support declares, on disk and at the base; or,
+     * where neither can be read, why every unit of its package is reached,
+     * since the tests that use it cannot be told.
+     */
+    private function declaredBy(Change $change, Package $package): Names|Reason
     {
         $declared = Names::of();
+        $read = false;
 
         $versions = [$this->sources->now($change->path()), $this->sources->before($change->previousPath())];
 
         foreach ($versions as $version) {
-            $declared = $version instanceof Contents
-                ? $declared->merge(PhpFile::read($version)->declares())
-                : $declared;
+            if ($version instanceof Contents) {
+                $declared = $declared->merge(PhpFile::read($version)->declares());
+                $read = true;
+            }
         }
 
-        return $declared;
+        return $read
+            ? $declared
+            : Reason::that(sprintf(self::UNREAD, $change->path()->value(), $this->named($package)));
     }
 
     /** This reach, and every tree of each module a changed test is inside. */

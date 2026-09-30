@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reaching;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Sources;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
+use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -32,7 +33,7 @@ $money = Package::at(Path::of('packages/money'))->dependingOn(Path::of('packages
 $reaching = static fn(): Reaching => new Reaching(
     Layout::standard(Paths::of(Path::of('tests/Pest.php')))
         ->runBy(Glob::of('.github/workflows/gate.yml'))
-        ->testedIn(Paths::of(Path::of('tests'), Path::of('app-modules/billing/tests')))
+        ->testedIn(SuiteDirectory::conventional(), SuiteDirectory::of(Path::of('app-modules/billing/tests'), ''))
         ->withModule(Path::of('app-modules/billing')),
     Trees::of(
         Tree::at(Path::of('src'), Undeclared::floor(), $root),
@@ -93,6 +94,28 @@ it('reaches a package whole, and every package that depends on it, where a file 
         ->and($reach->reaches(Unit::file(Path::of('packages/money/src/Money.php'))))->toBeTrue()
         ->and($said($reach))->toBe([
             '`packages/core/composer.json` decides how the gate runs in packages/core, so every unit of packages/core, packages/money is reached.',
+        ]);
+});
+
+it('matches reach.everything against the path from the repository, not from the package that holds it', function () use ($judges, $said, $core, $money, $root): void {
+    $reaching = new Reaching(
+        Layout::standard(Paths::none())->decidedAlsoBy(Glob::of('config/**'))->decidedAlsoBy(Glob::of('packages/core/routes/**')),
+        Trees::of(
+            Tree::at(Path::of('src'), Undeclared::floor(), $root),
+            Tree::at(Path::of('packages/core/src'), Undeclared::floor(), $core),
+            Tree::at(Path::of('packages/money/src'), Undeclared::floor(), $money),
+        ),
+    );
+    $reach = $reaching->of(Changes::of(
+        Change::modified(Path::of('packages/money/config/app.php'), Lines::of(Line::of(1))),
+        Change::modified(Path::of('packages/core/routes/web.php'), Lines::of(Line::of(1))),
+    ), $judges(), Sources::none());
+
+    expect($reach->reachesPackage($core))->toBeTrue()
+        ->and($reach->reachesPackage($root))->toBeFalse()
+        ->and($said($reach))->toBe([
+            '`packages/money/config/app.php` reaches nothing by itself.',
+            '`packages/core/routes/web.php` decides how the gate runs in packages/core, so every unit of packages/core, packages/money is reached.',
         ]);
 });
 
@@ -250,9 +273,14 @@ it('reaches every unit of its package where changed support cannot be followed',
         '`tests/Fakes/ClockFake.php` runs code when it is loaded, so every unit of the project is reached.',
     ],
     'no map' => [
-        Sources::none(),
+        fn(): Sources => Sources::none()->withNow(Path::of('tests/Fakes/ClockFake.php'), Contents::of("<?php\n\nfinal class ClockFake {}\n")),
         NoMap::toRead(),
         'No coverage map says what `tests/Fakes/ClockFake.php` runs, so every unit of the project is reached.',
+    ],
+    'no version of it can be read' => [
+        Sources::none(),
+        Judges::none(),
+        '`tests/Fakes/ClockFake.php` cannot be read, so what it declares is not known, and every unit of the project is reached.',
     ],
 ]);
 

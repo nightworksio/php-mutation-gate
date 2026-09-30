@@ -579,9 +579,6 @@ services:
                     - WORKFLOW # owner: flows (GitHubPlan::WORKFLOW)
                 'NightWorksIO\MutationGate\Cli\Console':
                     - NAME # owner: flows (ThisPackage::NAME)
-                'NightWorksIO\MutationGate\Core\Reach\Layout':
-                    - PHP # owner: flows (Path::isPhp())
-                    - TESTS # owner: flows (TestsDirectory::conventional())
                 'NightWorksIO\MutationGate\Cli\FirstParty':
                     - PACKAGE # owner: flows (ThisPackage::COMPOSER)
         tags:

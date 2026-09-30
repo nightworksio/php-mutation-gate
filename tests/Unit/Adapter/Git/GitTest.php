@@ -310,6 +310,22 @@ it('reads many files at a revision at once, each as it was, and one that was not
     ]);
 });
 
+it('reads a file named with a line feed as missing where the commit holds no file at it, and cannot tell it where git lost it', function (): void {
+    $repository = Repository::empty()
+        ->write("src/Line\nBreak.php", "<?php\nbroken\n")
+        ->write("src/Folder\n/A.php", "<?php\na\n")
+        ->commit('The base.');
+    $blob = trim($repository->git('rev-parse', "HEAD:src/Line\nBreak.php"));
+    $git = Git::at($repository->root);
+    $folder = $git->filesAt(Paths::of(Path::of("src/Folder\n")), Revision::ref('HEAD'));
+    unlink(sprintf('%s/.git/objects/%s/%s', $repository->root, mb_substr($blob, 0, 2), mb_substr($blob, 2)));
+
+    expect($folder instanceof ByPath ? FileTexts::of($folder) : $folder)->toBe(["src/Folder\n" => null])
+        ->and($git->fileAt(Path::of("src/Line\nBreak.php"), Revision::ref('HEAD')))->toBeInstanceOf(CannotTell::class)
+        ->and($git->filesAt(Paths::of(Path::of('src/Other.php'), Path::of("src/Line\nBreak.php")), Revision::ref('HEAD')))
+        ->toBeInstanceOf(CannotTell::class);
+});
+
 it('reads many files as they are on disk, and many files at a revision spelt from the directory it is at', function (): void {
     $repository = Repository::empty()->write('packages/money/src/A.php', "<?php\na\n")->commit('The base.');
     $repository->write('packages/money/src/A.php', "<?php\nnow\n");
@@ -345,3 +361,14 @@ it('refuses a revision named like an option, which git would read as one', funct
         ->toEqual(CannotTell::because(sprintf('%s is not a revision this repository has.', sprintf($name, $written))))
         ->and(file_exists($written))->toBeFalse();
 })->with(['--output=%s', '-h%s']);
+
+it('reads the changes alike whatever copy detection the user\'s own config asks for', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n\nfinal class A\n{\n    public function one(): int { return 1; }\n}\n")->commit('The base.');
+    $repository->git('tag', 'base');
+    $repository->git('config', 'diff.renames', 'copies');
+    $repository->write('src/Copy.php', "<?php\n\nfinal class A\n{\n    public function one(): int { return 1; }\n}\n")->commit('A copy.');
+
+    expect(changesByPath(Git::at($repository->root)->changesSince(Revision::ref('base'))))->toEqual([
+        'src/Copy.php' => ['added', [1, 2, 3, 4, 5, 6], 'src/Copy.php'],
+    ]);
+});

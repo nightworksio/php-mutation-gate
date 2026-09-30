@@ -56,3 +56,13 @@ it('sends a JSON body with a method, and reads the answer', function (): void {
         ->and($response->getRequestOptions()['body'])->toBe('{"body":"text"}')
         ->and($response->getRequestOptions()['headers'])->toContain('Authorization: Bearer secret');
 });
+
+it('asks without a token rather than with an empty one, which GitHub refuses', function (): void {
+    $response = new JsonMockResponse(['sha' => 'abc']);
+    Api::at(new MockHttpClient($response), '', '')->get('/repos/octo/gate/commits/abc');
+
+    $headers = (string) json_encode($response->getRequestOptions()['headers']);
+
+    expect(str_contains($headers, 'Authorization'))->toBeFalse()
+        ->and($headers)->toContain('X-GitHub-Api-Version');
+});

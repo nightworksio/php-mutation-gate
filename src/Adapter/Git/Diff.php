@@ -7,10 +7,13 @@ namespace NightWorksIO\MutationGate\Adapter\Git;
 use function array_map;
 use function array_merge;
 use function array_pop;
+use function array_shift;
 use function count;
 use function explode;
+use function in_array;
 use function intval;
 use function is_string;
+use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -23,21 +26,13 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use function preg_match;
 use function preg_match_all;
 use function range;
-use function rtrim;
 use function stripcslashes;
 
 /** What git's diffs say: which paths changed and how, and which lines each gained on its new side. */
 final readonly class Diff
 {
-    /**
-     * One entry of `--name-status -z`: its kind, the path it came from ended
-     * by its NUL (empty but for a rename, whose score is 0 to 100), and its path.
-     */
-    private const string ENTRY = <<<'REGEX'
-        ~(?<kind>[A-Z])\d*\0
-        (?<from>(?:(?<=R\d\0|R\d\d\0|R\d\d\d\0)[^\0]*\0)?)
-        (?<path>[^\0]*)\0~x
-        REGEX;
+    /** The kinds of entry of `--name-status` that name two paths: where the file came from, and where it is. */
+    private const array PAIRED = ['R', 'C'];
 
     /** Where each file's part of a patch starts, past the first. */
     private const string PART = "\ndiff --git ";
@@ -60,12 +55,13 @@ final readonly class Diff
      */
     public static function changes(string $status, ByPath $lines): Changes
     {
-        preg_match_all(self::ENTRY, $status, $entries, PREG_SET_ORDER);
+        $fields = explode("\0", $status);
         $changes = [];
 
-        foreach ($entries as $entry) {
-            $from = rtrim($entry['from'], "\0");
-            $changes[] = self::change($entry['kind'], $from, Path::of($entry['path']), $lines);
+        while (count($fields) > 1) {
+            $kind = mb_substr(array_shift($fields), 0, 1);
+            $from = in_array($kind, self::PAIRED, strict: true) ? array_shift($fields) : '';
+            $changes[] = self::change($kind, $from, Path::of((string) array_shift($fields)), $lines);
         }
 
         return Changes::of(...$changes);
@@ -108,7 +104,7 @@ final readonly class Diff
 
         return match ($kind) {
             'R' => Change::renamed(Path::of($from), $path, $gained),
-            'A' => Change::added($path, $gained),
+            'A', 'C' => Change::added($path, $gained),
             'D' => Change::deleted($path),
             default => Change::modified($path, $gained),
         };

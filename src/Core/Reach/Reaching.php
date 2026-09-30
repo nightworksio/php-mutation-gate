@@ -94,18 +94,18 @@ final readonly class Reaching
         };
     }
 
-    /** The path of this change that decides how the gate runs in its package, or its paths where none does. */
-    private function decidingIn(Change $change, Packages $packages): Path|Paths
+    /** The path of this change that decides how the gate runs in its package, where one does. */
+    private function decidingIn(Change $change, Packages $packages): Path|NotDeciding
     {
         $paths = Paths::of($change->path(), $change->previousPath());
 
         foreach ($paths as $path) {
-            if ($this->layout->decides($path->relativeTo($packages->holding($path)->path()))) {
+            if ($this->layout->decides($path, $packages->holding($path)->path())) {
                 return $path;
             }
         }
 
-        return $paths;
+        return NotDeciding::change();
     }
 
     private function isSource(Path $path): bool
