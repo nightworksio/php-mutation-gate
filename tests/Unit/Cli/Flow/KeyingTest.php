@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
@@ -215,4 +216,57 @@ it('leaves out nothing for a store with no path of its own, and never what defin
     expect($exceptions->leaveOut(Path::of('tests/Pest.php')))->toBeFalse()
         ->and($exceptions->leaveOut(Path::of('tests/MoneyTest.php')))->toBeTrue()
         ->and($exceptions->leaveOut(Path::of('mutation-gate.json')))->toBeFalse();
+});
+
+/**
+ * The key of `src/Money.php` in a project whose PHPUnit config keeps its
+ * tests beside the source in `src`, where `src/Clock.php`, which no test
+ * names, holds this text.
+ */
+function keyingColocated(string $clock): Digest|Unkeyed
+{
+    $project = Scratch::directory();
+    $files = [
+        'phpunit.xml' => <<<'XML'
+            <phpunit>
+                <testsuites>
+                    <testsuite name="Unit"><directory suffix="Test.php">src</directory></testsuite>
+                </testsuites>
+            </phpunit>
+            XML,
+        'src/Money.php' => "<?php\nfinal class Money {}\n",
+        'src/MoneyTest.php' => "<?php\nit('adds', fn () => new Money());\n",
+        'src/Clock.php' => $clock,
+    ];
+    $fingerprints = Fingerprints::none();
+
+    foreach ($files as $path => $text) {
+        Scratch::write($project, $path, $text);
+        $fingerprints = $fingerprints->with(Fingerprint::of(Path::of($path), Digest::sha256Of($text)));
+    }
+
+    $suite = Suite::read(Flows::trees(), $fingerprints, Directory::at($project));
+    $runner = new RunnerFake(
+        Identity::of('fake', Versions::of(Version::of('fake/runner', '1.0.0', 'abc')), Digest::of('php')),
+        Groups::of(),
+        CoverageMap::empty(),
+        Mutants::none(),
+        Paths::of(Path::of('src/MoneyTest.php')),
+        Paths::of(Path::of('phpunit.xml')),
+        TestNames::none(),
+        Paths::none(),
+    );
+    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(2), TestId::of('MoneyTest::adds'));
+    $keying = $suite instanceof Suite
+        ? Keying::of(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup(), $suite, $map)
+        : $suite;
+
+    return $keying instanceof Keying
+        ? $keying->keysOf(Units::of(Unit::file(Path::of('src/Money.php'))))->keyOf(Path::of('src/Money.php'))
+        : throw new RuntimeException($keying->why());
+}
+
+it('keys every file a tree holds as source, though the PHPUnit config keeps its tests beside it', function (): void {
+    expect(keyingColocated("<?php\nfinal class Clock { public function now(): int { return 1; } }\n"))
+        ->not->toEqual(keyingColocated("<?php\nfinal class Clock { public function now(): int { return 2; } }\n"));
 });

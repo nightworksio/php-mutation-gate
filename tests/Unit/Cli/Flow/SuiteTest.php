@@ -224,3 +224,23 @@ it('cannot judge a suite whose PHPUnit config cannot be read', function () use (
         ->and(Suite::read(Flows::trees(), $listed(), Directory::at($unreadable)))
         ->toEqual(CannotJudge::because(sprintf('%s/phpunit.xml could not be read.', $unreadable)));
 });
+
+it('keeps a file a tree holds apart as source, though the config keeps its tests beside it', function () use (
+    $listed,
+): void {
+    $config = <<<'XML'
+        <phpunit>
+            <testsuites>
+                <testsuite name="Unit"><directory suffix="Test.php">src</directory></testsuite>
+            </testsuites>
+        </phpunit>
+        XML;
+    $read = suiteOf(
+        ['phpunit.xml' => $config, 'src/Money.php' => "<?php\n", 'src/MoneyTest.php' => "<?php\n"],
+        $listed('phpunit.xml', 'src/Money.php', 'src/MoneyTest.php'),
+    );
+
+    expect(array_map(static fn(TestFile $file): string => $file->fingerprint()->path()->value(), [...$read->files()]))
+        ->toBe(['src/MoneyTest.php'])
+        ->and($read->outside())->toEqual($listed('phpunit.xml', 'src/Money.php'));
+});

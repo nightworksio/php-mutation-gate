@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
+use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
 use function sprintf;
@@ -147,7 +148,7 @@ final readonly class Suite
         $outside = Fingerprints::none();
 
         foreach ($files as $file) {
-            if (! self::isIn($file->path(), $configured, $packages)) {
+            if (! self::isIn($file->path(), $configured, $packages, $trees)) {
                 $outside = $outside->with($file);
 
                 continue;
@@ -213,14 +214,19 @@ final readonly class Suite
     }
 
     /**
-     * Whether a file is one of the suite's: the configured one's, or in another package's tests.
+     * Whether a file is one of the suite's: the configured one's, or in
+     * another package's tests. A file a tree holds is source whatever the
+     * config says, unless it is a file of test cases kept beside the source,
+     * so every key reads it (ADR-0007, decision 2).
      *
      * @param list<SuiteDirectory> $packages
      */
-    private static function isIn(Path $path, PhpUnitSuite $configured, array $packages): bool
+    private static function isIn(Path $path, PhpUnitSuite $configured, array $packages, Trees $trees): bool
     {
-        return $configured->holds($path)
+        $tested = $configured->holds($path)
             || array_any($packages, static fn(SuiteDirectory $tests): bool => $tests->holds($path));
+
+        return $tested && (! $trees->holding($path) instanceof Tree || self::isTestCase($path, $configured, $packages));
     }
 
     /**

@@ -108,7 +108,9 @@ has to bring its result with it.
       blob id of its content as it is on disk. That means tracked files and
       untracked files git does not ignore. It includes source, `composer.json`,
       `composer.lock`, the PHPUnit config, the files that define the runner
-      (ADR-0004), templates, translations and documentation. Five exceptions,
+      (ADR-0004), templates, translations and documentation. A file a tree
+      holds is source here even where the PHPUnit config keeps its tests
+      beside it, unless it is a file of test cases. Five exceptions,
       none of which ever leaves out a file that defines the runner:
       - **The gate's config file** is left out, because item 3 already holds
         what of it affects results. Each `composer.json` is hashed with its
