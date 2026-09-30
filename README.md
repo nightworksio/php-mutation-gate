@@ -328,6 +328,10 @@ reports:
 Quote mutant ids in YAML and NEON: an id such as `12e456789012` would
 otherwise be read as a number. Dates need no quotes.
 
+Every path and glob a config file writes is named from the file's own
+directory, and one that goes up out of the project is refused
+([ADR-0002](.docs/decisions/0002-one-typed-config-from-several-formats.md)).
+
 A setting that names an adapter takes either a registered name (`"pest"`,
 `"sarif"`) or a class with its options (`{"use": "Acme\\Gate\\SlackReporter",
 "with": {"channel": "#ci"}}`). A `use` with a backslash is a class, so a class
@@ -413,8 +417,8 @@ and `?` match within one directory, and `**` across any number of them.
 | `treeSource.with.fallback` | list of paths, the trees when `phpunit.xml` has no `<source>` | `[]`, or the preset's; `[]` takes the `autoload` paths of `composer.json` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `trees` | list of `{path, floor, reason}` | the tree source's trees | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `trees[].floor` | number, 0 to 100 | the nearest manifest's, if any | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
-| `trees[].reason` | string | none; required when `floor` is 0 | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
-| `trees[].exclude` | list of globs from the repository root, each matching a file in the tree | `[]` | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
+| `trees[].reason` | string | none; required when `floor` is 0, and refused beside any other | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
+| `trees[].exclude` | list of globs, each matching a file in the tree | `[]` | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `newCode.floor` | number, 0 to 100 | `100` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `uncovered` | `count` or `exclude` | `count` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `baseline.path` | path | `mutation-gate.baseline.json` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
@@ -459,7 +463,7 @@ and `?` match within one directory, and `**` across any number of them.
 | `pest.canary` | group name | `mutation-canary` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `staticCheck.tool` | adapter: `mago`, `phpstan`, `psalm`; or `auto`, the first installed and configured, or `none` | `auto` | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | `staticCheck.config` | path | the analyser's own | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
-| `local.watchBudget` | duration | `60s` | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
+| `local.watchBudget` | duration | `1m` | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 | `local.prePushBudget` | duration | `5m` | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 
 In a `composer.json`, under `extra.mutation-gate`:
