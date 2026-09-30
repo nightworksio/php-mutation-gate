@@ -5,13 +5,24 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily as Family;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Report\TrendEntry;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Tree\Tree;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement as Judged;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -130,4 +141,27 @@ it('hands on an entry that recorded nothing where it has none, or its newest cam
         ->and($old->newest()->verdict())->toEqual(Unrecorded::floor())
         ->and($old->newest()->floorOf(Path::of('src')))->toEqual(Unrecorded::floor())
         ->and($old->newest()->scoreOf(Path::of('src')))->toEqual(Score::ofHundredths(8_000));
+});
+
+it('writes and reads back a tree whose path reads as a number, beside one that does not', function (): void {
+    $root = Package::at(Path::root());
+    $killed = JudgedMutant::of(
+        Verdicts::mutant('12/Money.php:9', 'TrueValue', Family::Literal, Verdicts::diff('return true;', 'return false;')),
+        Judged::Killed,
+    );
+    $tree = static fn(string $path, int $floor): TreeVerdict => TreeVerdict::judged(
+        Tree::at(Path::of($path), Floor::of($floor), $root),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        JudgedMutants::of($killed),
+        Uncovered::Count,
+    );
+    $verdict = Verdict::of(TreeVerdicts::of($tree('12', 80), $tree('src', 70)));
+    $trend = Trend::none()->with($verdict, Revision::ref('abc123'), Moment::at('2026-09-30T10:00:00Z'));
+    $newest = Trend::decode($trend->json())->newest();
+
+    expect(Decoded::at($trend->json(), 'runs', 0, 'floors'))->toBe(['12' => 80.0, 'src' => 70.0])
+        ->and($newest->floorOf(Path::of('12')))->toEqual(Floor::of(80))
+        ->and($newest->scoreOf(Path::of('12')))->toEqual(Score::ofHundredths(10_000))
+        ->and($newest->floorOf(Path::of('src')))->toEqual(Floor::of(70));
 });

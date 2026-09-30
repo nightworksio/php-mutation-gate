@@ -175,3 +175,10 @@ it('names the package of the static analysis tool the project has Infection kill
         ->and(ownConfig('{"staticAnalysisTool": "psalm"}')->staticAnalysis())->toBe([])
         ->and(ownConfig('{}')->staticAnalysis())->toBe([]);
 });
+
+it('drops a setting whose key reads as a number, as any other it does not keep', function (): void {
+    $generated = ownGenerated(ownConfig('{"12": true, "source": {"directories": ["src"]}}'), Mutators::all());
+
+    expect($generated)->toHaveKey('source')
+        ->and(array_key_exists(12, $generated))->toBeFalse();
+});

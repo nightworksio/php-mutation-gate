@@ -549,3 +549,15 @@ it('reads a ledger at a peak of no more than twelve bytes of memory for each byt
     expect(memory_get_peak_usage() - $before)->toBeLessThan(12 * strlen(is_string($text) ? $text : ''))
         ->and($read->proofs())->toHaveCount(2_000);
 });
+
+it('reads a key that reads as a number as text, dropping what is not well formed under it, and keeps the rest', function (string $section, array $entries) use ($data, $written, $readBack): void {
+    $file = $data();
+    $held = $file[$section] ?? [];
+    $file[$section] = is_array($held) ? [...$held, ...$entries] : $entries;
+    $read = LedgerFile::read($written($file), LedgerLimits::standard());
+
+    expect($read instanceof Ledger ? LedgerFile::encode($read) : $read)->toBe(LedgerFile::encode($readBack));
+})->with([
+    'a proof' => ['proofs', ['12' => ['unit' => 'src/Money.php']]],
+    'a timing' => ['timings', ['7' => ['seconds' => 'long']]],
+]);

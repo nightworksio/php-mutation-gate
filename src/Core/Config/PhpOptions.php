@@ -41,7 +41,7 @@ final readonly class PhpOptions
             $written[] = sprintf(
                 'Option::%s(%s)',
                 $method,
-                implode(', ', [PhpCalls::literal($key), ...$arguments]),
+                implode(', ', [PhpCalls::literal(sprintf('%s', $key)), ...$arguments]),
             );
         }
 

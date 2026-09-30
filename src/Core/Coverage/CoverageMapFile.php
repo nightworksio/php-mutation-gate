@@ -279,7 +279,7 @@ final readonly class CoverageMapFile
         }
     }
 
-    /** @return array<string, Node> */
+    /** @return array<array-key, Node> each entry, by its key, which PHP keys as a number where it reads as one */
     private static function entriesOf(Node $map): array
     {
         try {

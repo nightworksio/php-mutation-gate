@@ -44,12 +44,18 @@ final readonly class TrendEntry
 
     public function withFloor(Path $tree, Floor $floor): self
     {
-        return new self($this->verdict, [...$this->floors, $tree->value() => $floor], $this->scores);
+        $floors = $this->floors;
+        $floors[$tree->value()] = $floor;
+
+        return new self($this->verdict, $floors, $this->scores);
     }
 
     public function withScore(Path $tree, Score $score): self
     {
-        return new self($this->verdict, $this->floors, [...$this->scores, $tree->value() => $score]);
+        $scores = $this->scores;
+        $scores[$tree->value()] = $score;
+
+        return new self($this->verdict, $this->floors, $scores);
     }
 
     /** What the verdict judged; unrecorded for no entry, or one written before the trend recorded it. */

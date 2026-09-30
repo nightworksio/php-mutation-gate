@@ -63,3 +63,13 @@ it('cannot judge a source file it cannot read', function (): void {
     expect(SourceFunctions::read(Directory::at($project), Paths::of(Path::of('src/Money.php'))))
         ->toEqual(CannotJudge::because(sprintf('%s/src/Money.php could not be read.', $project)));
 });
+
+it('names the function a mutant is in, in a file whose path reads as a number', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '12', "<?php\n\nfunction add(): int\n{\n    return 1 + 1;\n}\n");
+    Scratch::write($project, 'src/Money.php', "<?php\n\nfunction sub(): int\n{\n    return 1 - 1;\n}\n");
+    $read = sourceFunctionsIn($project, Paths::of(Path::of('12'), Path::of('src/Money.php')));
+
+    expect($read->around(sourceMutantAt('12', 5)))->toEqual(Enclosing::named(Path::of('12'), 'add'))
+        ->and($read->around(sourceMutantAt('src/Money.php', 5)))->toEqual(Enclosing::named(Path::of('src/Money.php'), 'sub'));
+});

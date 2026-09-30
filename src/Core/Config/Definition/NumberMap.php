@@ -55,7 +55,8 @@ final readonly class NumberMap implements Shape
         $numbers = Table::none();
         $readings = [];
 
-        foreach ($at->entries() as $key => $entry) {
+        foreach ($at->entries() as $entryKey => $entry) {
+            $key = sprintf('%s', $entryKey);
             $prefix = $this->keyed($key);
             $reading = $this->origin instanceof PathOrigin && Path::of($prefix)->escapes()
                 ? Reading::refused(Problem::at(

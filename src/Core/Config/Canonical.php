@@ -99,7 +99,8 @@ final readonly class Canonical
             $written[sprintf('%s', $key)] = $value;
         }
 
-        foreach ($entries as $key => $member) {
+        foreach ($entries as $entryKey => $member) {
+            $key = sprintf('%s', $entryKey);
             $under = $path === '' ? $key : sprintf('%s.%s', $path, $key);
             $judged = $this->effect($under) === Effect::JudgesOrReportsOnly;
             $kept = match (true) {

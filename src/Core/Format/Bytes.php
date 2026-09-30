@@ -15,6 +15,12 @@ use function mb_substr;
  */
 final readonly class Bytes
 {
+    /** Bytes in a megabyte, as a size is said to a person. */
+    public const int PER_MEGABYTE = 1_000_000;
+
+    /** Bytes in PHP's `M`, as a memory_limit counts them. */
+    public const int PER_MEBIBYTE = 1_048_576;
+
     /** The encoding in which one character is one byte. */
     private const string ENCODING = '8bit';
 

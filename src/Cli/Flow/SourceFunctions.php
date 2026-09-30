@@ -42,9 +42,9 @@ final readonly class SourceFunctions
                 return $contents;
             }
 
-            $functions = $contents instanceof Contents
-                ? [...$functions, $file->value() => Functions::in($contents)]
-                : $functions;
+            if ($contents instanceof Contents) {
+                $functions[$file->value()] = Functions::in($contents);
+            }
         }
 
         return new self($functions);

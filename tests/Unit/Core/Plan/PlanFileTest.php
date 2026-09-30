@@ -394,3 +394,14 @@ it('reads back digests of a run with no unit and no test file', function (): voi
 
     expect(PlanFile::decode(PlanFile::encode($plan)))->toEqual($plan);
 });
+
+it('reads back a change to a file whose path reads as a number', function (): void {
+    $plan = planFileEmpty()->on(RunOn::detached(Scope::branch('main')))->considering(
+        Considered::everything()->reaching(
+            Changes::of(Change::modified(Path::of('7'), Lines::of(Line::of(3)))),
+            Reasons::of(Reason::that('`7` changed, so its unit is reached.')),
+        ),
+    );
+
+    expect(PlanFile::decode(PlanFile::encode($plan)))->toEqual($plan);
+});

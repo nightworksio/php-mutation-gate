@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Mutant\KilledRecords;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
+use function sprintf;
+
 /**
  * A ledger as its file holds it: `"format": 3`, compact JSON, gzipped. A
  * ledger of format 2 reads as it is: its proofs record no digests of their
@@ -118,7 +120,7 @@ final readonly class LedgerFile
         $proofs = [];
 
         while (($key = array_key_first($entries)) !== null) {
-            $proofs[] = self::proofsIn($key, $entries[$key], $read);
+            $proofs[] = self::proofsIn(sprintf('%s', $key), $entries[$key], $read);
             unset($entries[$key]);
         }
 
@@ -140,7 +142,7 @@ final readonly class LedgerFile
         $timings = [];
 
         foreach (self::entriesOf($file->field('timings')) as $unit => $entry) {
-            $timings[] = self::timingsIn($unit, $entry);
+            $timings[] = self::timingsIn(sprintf('%s', $unit), $entry);
         }
 
         return self::passedIn($file)
@@ -216,7 +218,7 @@ final readonly class LedgerFile
         }
     }
 
-    /** @return array<string, Node> */
+    /** @return array<array-key, Node> each entry, by its key, which PHP keys as a number where it reads as one */
     private static function entriesOf(Node $map): array
     {
         try {

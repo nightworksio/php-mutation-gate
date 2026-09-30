@@ -29,3 +29,11 @@ it('refuses a run\'s commit that is not a full commit id, rather than read it as
 
     expect(fn(): Digests => DigestsRecord::readRun(Node::config(JsonText::encode($written))))->toThrow(NotInShape::class);
 })->with(['a ref' => 'HEAD', 'an abbreviated id' => 'c0c0c0c', 'a number' => 7]);
+
+it('reads back the digests of a source and a test whose paths read as numbers', function (): void {
+    $numeric = Digests::of(Digest::sha256Of('mutation'))
+        ->withSource(Path::of('7'), Digest::sha256Of('seven'))
+        ->withTest(Path::of('12'), Digest::sha256Of('twelve'));
+
+    expect(DigestsRecord::readRun(Node::config(JsonText::encode(DigestsRecord::ofRun($numeric)))))->toEqual($numeric);
+});

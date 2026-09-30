@@ -31,3 +31,9 @@ it('names the service by OTEL_SERVICE_NAME, then the resource attributes, then m
         ['service.name' => 'named', 'team' => 'a'],
     ],
 ]);
+
+it('reads a header whose name reads as a number as the name it is', function (): void {
+    $environment = OtelEnvironment::of(Variables::of(['OTEL_EXPORTER_OTLP_HEADERS' => '12=b,api-key=a']));
+
+    expect($environment->headers())->toBe(['12' => 'b', 'api-key' => 'a']);
+});

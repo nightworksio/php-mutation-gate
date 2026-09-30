@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_keys;
-use function array_map;
 use function intval;
 
 use NightWorksIO\MutationGate\Core\Cost\LineRate;
@@ -115,13 +113,17 @@ final readonly class Shards implements Part
     /** What a line costs before anything was measured, by path prefix. */
     public function secondsPerLine(): SecondsPerLine
     {
-        return $this->secondsPerLine instanceof Table
-            ? SecondsPerLine::of(...array_map(
-                static fn(string $prefix, int|float $seconds): LineRate => LineRate::of($prefix, Seconds::of($seconds)),
-                array_keys([...$this->secondsPerLine]),
-                [...$this->secondsPerLine],
-            ))
-            : SecondsPerLine::standard();
+        if (! $this->secondsPerLine instanceof Table) {
+            return SecondsPerLine::standard();
+        }
+
+        $rates = [];
+
+        foreach ($this->secondsPerLine as $prefix => $seconds) {
+            $rates[] = LineRate::of($prefix, Seconds::of($seconds));
+        }
+
+        return SecondsPerLine::of(...$rates);
     }
 
     /** The options the gate hands the cost model it builds in, `learned`: the seconds a line costs, by prefix. */

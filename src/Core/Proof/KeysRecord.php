@@ -8,6 +8,9 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+
+use function sprintf;
+
 use stdClass;
 
 /**
@@ -43,7 +46,7 @@ final readonly class KeysRecord
         foreach ($keys->entries() as $unit => $key) {
             $unkeyed = $key->field(self::UNKEYED);
             $read[] = Keys::none()->with(
-                Path::of($unit),
+                Path::of(sprintf('%s', $unit)),
                 $unkeyed->isPresent() ? Unkeyed::because($unkeyed->text()) : Digest::of($key->text()),
             );
         }

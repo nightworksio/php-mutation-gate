@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use ArrayIterator;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+
+use function sprintf;
+
 use Traversable;
 
 /**
@@ -18,7 +20,7 @@ use Traversable;
  */
 final readonly class Table implements IteratorAggregate
 {
-    /** @param array<string, int|float> $numbers */
+    /** @param array<array-key, int|float> $numbers by name, which PHP keys as a number where it reads as one */
     private function __construct(private array $numbers)
     {
     }
@@ -52,7 +54,7 @@ final readonly class Table implements IteratorAggregate
         $written = Json::object();
 
         foreach ($this->numbers as $key => $number) {
-            $written = $written->with(Member::of($key, $number));
+            $written = $written->with(Member::of(sprintf('%s', $key), $number));
         }
 
         return $written;
@@ -61,6 +63,8 @@ final readonly class Table implements IteratorAggregate
     /** @return Traversable<string, int|float> */
     public function getIterator(): Traversable
     {
-        return new ArrayIterator($this->numbers);
+        foreach ($this->numbers as $key => $number) {
+            yield sprintf('%s', $key) => $number;
+        }
     }
 }
