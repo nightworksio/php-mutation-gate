@@ -80,7 +80,7 @@ final readonly class ProcessShell implements Shell
         $output = sprintf('%s%s', $process->getOutput(), $process->getErrorOutput());
         $ran = $stopped ? Ran::stopped($output) : Ran::finished(succeeded: $process->isSuccessful(), output: $output);
 
-        return $ran->taking(Seconds::of(($this->clock->nanoseconds() - $started) / Seconds::NANOSECONDS));
+        return $ran->took(Seconds::of(($this->clock->nanoseconds() - $started) / Seconds::NANOSECONDS));
     }
 
     /**

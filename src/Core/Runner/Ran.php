@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -14,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  */
 final readonly class Ran
 {
+    private const string UNTIMED = 'The run was not timed, so how long it took cannot be told.';
+
     private function __construct(private string $output, private Ending $ending, private Seconds|Unmeasured $took)
     {
     }
@@ -57,5 +60,11 @@ final readonly class Ran
     public function duration(): Seconds|Unmeasured
     {
         return $this->took;
+    }
+
+    /** How long it took, where the shell measured it. */
+    public function timed(): Seconds|CannotJudge
+    {
+        return $this->took instanceof Seconds ? $this->took : CannotJudge::because(self::UNTIMED);
     }
 }

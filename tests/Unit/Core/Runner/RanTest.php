@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Runner\Ending;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -31,4 +32,10 @@ it('took no time it measured, until it is told how long it took', function (): v
         ->and($ran->took(Seconds::of(1.5))->duration())->toEqual(Seconds::of(1.5))
         ->and($ran->took(Seconds::of(1.5))->ending())->toBe(Ending::Stopped)
         ->and($ran->took(Seconds::of(1.5))->output())->toBe('half');
+});
+
+it('says how long a run took only where the shell measured it', function (): void {
+    expect(Ran::finished(succeeded: true, output: '')->took(Seconds::of(1.5))->timed())->toEqual(Seconds::of(1.5))
+        ->and(Ran::finished(succeeded: true, output: '')->timed())->toBeInstanceOf(CannotJudge::class)
+        ->and(Ran::stopped('')->timed())->toBeInstanceOf(CannotJudge::class);
 });

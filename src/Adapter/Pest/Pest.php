@@ -202,7 +202,7 @@ final readonly class Pest implements Runner
             Invocation::installedIn($this->project->vendor())->startingUp($withheld, $original, $copy),
         );
 
-        return $ran->succeeded() ? $ran->took() : CannotJudge::because(sprintf(self::NOT_STARTED, $ran->output()));
+        return $ran->succeeded() ? $ran->timed() : CannotJudge::because(sprintf(self::NOT_STARTED, $ran->output()));
     }
 
     /** Every mutant of the requested files, where there are any to mutate: Pest's `--path` never names none. */

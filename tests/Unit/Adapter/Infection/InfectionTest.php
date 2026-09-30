@@ -273,7 +273,7 @@ it('reads the map another job handed on without running anything, and never a ru
 it('times a run of no test, started as a mutant\'s run, withholding what it is told', function (): void {
     $at = infectionProject();
     Scratch::write($at->root(), 'phpunit.xml', '<phpunit bootstrap="vendor/autoload.php"/>');
-    $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: 'No tests executed!')->taking(Seconds::of(1.2)));
+    $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: 'No tests executed!')->took(Seconds::of(1.2)));
     $withheld = Withheld::of('DEPLOY_*');
 
     expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp(Path::of('src/Money.php'), $withheld))

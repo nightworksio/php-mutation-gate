@@ -58,14 +58,14 @@ final readonly class ProcessShell implements Shell
             if ($this->clock->seconds() >= $until) {
                 ProcessTree::of($process)->stop();
 
-                return Ran::stopped($this->outputOf($process))->taking($this->since($started));
+                return Ran::stopped($this->outputOf($process))->took($this->since($started));
             }
 
             usleep(Polling::interval()->microseconds());
         }
 
         return Ran::finished(succeeded: $process->isSuccessful(), output: $this->outputOf($process))
-            ->taking($this->since($started));
+            ->took($this->since($started));
     }
 
     /** The time on the clock since a reading of it. */

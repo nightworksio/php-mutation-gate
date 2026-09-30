@@ -273,7 +273,7 @@ it('cannot judge a coverage run that failed, with what Pest said', function (): 
 it('times a run of no test, started as a mutant\'s own run of a file whose mutant is an unchanged copy', function (): void {
     $at = adapterProject();
     Scratch::write($at->root(), 'src/Money.php', '<?php // money');
-    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: 'No tests found.')->taking(Seconds::of(1.8)));
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: 'No tests found.')->took(Seconds::of(1.8)));
     $copy = sprintf('%s/.mutation-gate/pest/start-up/Money.php', $at->root());
 
     expect(new Pest($at, $shell, Patching::off())->startUp(Path::of('src/Money.php'), Withheld::of('DEPLOY_*')))
@@ -287,7 +287,7 @@ it('times a run of no test, started as a mutant\'s own run of a file whose mutan
 it('cannot judge a run of no test that failed, with what Pest said, or one of a file that is not there', function (): void {
     $at = adapterProject();
     Scratch::write($at->root(), 'src/Money.php', '<?php');
-    $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'Fatal error')->taking(Seconds::of(0.4)));
+    $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'Fatal error')->took(Seconds::of(0.4)));
     $pest = new Pest($at, $shell, Patching::off());
 
     expect($pest->startUp(Path::of('src/Money.php'), Withheld::standard()))
