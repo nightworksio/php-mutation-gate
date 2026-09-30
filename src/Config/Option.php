@@ -51,10 +51,4 @@ final readonly class Option
     {
         return $options === [] ? $use : Json::object()->with('use', $use)->with('with', self::object(...$options));
     }
-
-    /** This option as the JSON object it makes on its own. */
-    public function written(): Json
-    {
-        return self::object($this);
-    }
 }

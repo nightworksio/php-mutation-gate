@@ -5,7 +5,6 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
-use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
 use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
@@ -116,7 +115,7 @@ const DEFAULTS = <<<'JSON'
             "canary": "mutation-canary"
         },
         "local": {
-            "watchBudget": "60s",
+            "watchBudget": "1m",
             "prePushBudget": "5m"
         }
     }
@@ -181,13 +180,13 @@ const EVERYTHING = [
 ];
 
 it('fills every setting a config leaves out with its default', function (): void {
-    expect(Configs::settings(['runner' => 'pest'])->effective())->toBe(DEFAULTS);
+    expect(Configs::effective(Configs::settings(['runner' => 'pest'])))->toBe(DEFAULTS);
 });
 
 it('reads the effective config back into the same settings', function (): void {
     $settings = Configs::settings(EVERYTHING);
 
-    expect(Configs::settings($settings->effective())->effective())->toBe($settings->effective());
+    expect(Configs::effective(Configs::settings(Configs::effective($settings))))->toBe(Configs::effective($settings));
 });
 
 it('reads the defaults into their types', function (): void {
@@ -196,8 +195,8 @@ it('reads the defaults into their types', function (): void {
 
     expect([...$settings->extensions()])->toBe([])
         ->and([...$settings->presets()])->toBe([])
-        ->and($settings->runner()->choice())->toEqual(Choice::of('pest', '{}'))
-        ->and($settings->treeSource())->toEqual(Choice::of('phpunit', '{"fallback":[]}'))
+        ->and($settings->runner()->choice())->toEqual(Choice::of('pest', Configs::options('{}')))
+        ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":[]}')))
         ->and($floors->trees())->toEqual(Absent::setting())
         ->and($floors->newCode())->toEqual(Floor::of(100))
         ->and($floors->uncovered())->toBe(UncoveredMutants::Count)
@@ -205,18 +204,18 @@ it('reads the defaults into their types', function (): void {
         ->and($floors->improvement())->toBe(Improvement::Require)
         ->and([...$settings->reach()->packages()])->toBe([])
         ->and([...$settings->reach()->everything()])->toBe([])
-        ->and($settings->reach()->hotPath())->toBe(0.8)
+        ->and($settings->reach()->hotPaths()->share())->toBe(0.8)
         ->and($settings->shards()->seconds())->toEqual(Seconds::of(600))
         ->and($settings->shards()->max())->toBe(20)
-        ->and([...$settings->shards()->secondsPerLine()])->toBe(['' => 0.2])
+        ->and($settings->shards()->secondsPerLine()->written())->toBe(['' => 0.2])
         ->and($settings->ci()->plan())->toEqual(Absent::setting())
         ->and($settings->ci()->defaultBranch())->toEqual(Absent::setting())
         ->and($settings->ci()->check())->toBe('mutation / verdict')
         ->and($settings->ci()->gitlabTemplate())->toEqual(Path::of('.gitlab/mutation-gate.yml'))
-        ->and($settings->ci()->buildkiteStep())->toBe('{}')
+        ->and($settings->ci()->buildkiteStep()->line())->toBe('{}')
         ->and($settings->ci()->buildkiteDefinition())->toEqual(Path::of('.buildkite/pipeline.yml'))
         ->and($settings->runner()->withhold())->toEqual(Withheld::nothing())
-        ->and($settings->proofs()->store())->toEqual(Choice::of('directory', '{"path":".mutation-gate/ledger"}'))
+        ->and($settings->proofs()->store())->toEqual(Choice::of('directory', Configs::options('{"path":".mutation-gate/ledger"}')))
         ->and([...$settings->proofs()->ignore()])->toBe([])
         ->and($settings->proofs()->write())->toBe(ProofWriting::Auto)
         ->and($settings->budget())->toEqual(Unlimited::time())
@@ -229,7 +228,7 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->ignores()->native())->toBe(NativeMarkers::Refuse)
         ->and([...$settings->reports()])->toBe([])
         ->and([...$settings->badge()])
-        ->toBe(['brightgreen' => 90.0, 'green' => 80.0, 'yellow' => 70.0, 'orange' => 60.0])
+        ->toBe(['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60])
         ->and($settings->pest()->patch())->toBeFalse()
         ->and($settings->pest()->canary())->toEqual(Group::named('mutation-canary'))
         ->and($settings->local()->watchBudget())->toEqual(Seconds::of(60))
@@ -246,9 +245,9 @@ it('reads every setting a config writes into its type', function (): void {
 
     expect([...$settings->extensions()])->toBe(['Acme\\GateSlack\\SlackExtension'])
         ->and([...$settings->presets()])->toBe(['laravel', 'acme'])
-        ->and($settings->runner()->choice())->toEqual(Choice::of('infection', '{}'))
+        ->and($settings->runner()->choice())->toEqual(Choice::of('infection', Configs::options('{}')))
         ->and($settings->runner()->withhold())->toEqual(Withheld::of('DEPLOY_*', 'COMPOSER_AUTH'))
-        ->and($settings->treeSource())->toEqual(Choice::of('phpunit', '{"fallback":["app","lib"]}'))
+        ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":["app","lib"]}')))
         ->and(array_map(
             static fn(DeclaredTree $tree): array => [$tree->path()->value(), $tree->declared()],
             $trees instanceof Absent ? [] : [...$trees],
@@ -264,19 +263,19 @@ it('reads every setting a config writes into its type', function (): void {
         ->and($floors->improvement())->toBe(Improvement::Report)
         ->and([...$settings->reach()->packages()])->toBe(['packages/*'])
         ->and([...$settings->reach()->everything()])->toBe(['config/**', 'routes/**'])
-        ->and($settings->reach()->hotPath())->toBe(1.0)
+        ->and($settings->reach()->hotPaths()->share())->toBe(1.0)
         ->and($settings->shards()->seconds())->toEqual(Seconds::of(900))
         ->and($settings->shards()->max())->toBe(8)
-        ->and([...$settings->shards()->secondsPerLine()])->toBe(['' => 0.25, 'src/Legacy' => 2.0])
-        ->and($ci->plan())->toEqual(Choice::of('gitlab', '{}'))
+        ->and($settings->shards()->secondsPerLine()->written())->toBe(['' => 0.25, 'src/Legacy' => 2.0])
+        ->and($ci->plan())->toEqual(Choice::of('gitlab', Configs::options('{}')))
         ->and($ci->defaultBranch())->toBe('trunk')
         ->and($ci->check())->toBe('gate / verdict')
         ->and($ci->gitlabTemplate())->toEqual(Path::of('.gitlab/gate.yml'))
-        ->and($ci->buildkiteStep())->toBe('{"agents":{"queue":"mutation"}}')
+        ->and($ci->buildkiteStep()->line())->toBe('{"agents":{"queue":"mutation"}}')
         ->and($ci->buildkiteDefinition())->toEqual(Path::of('.buildkite/mutation.yml'))
         ->and($proofs->store())->toEqual(Choice::of(
             's3',
-            '{"bucket":"proofs","prefix":"mutation-gate","region":"us-east-1","endpoint":"https://r2.example.com"}',
+            Configs::options('{"bucket":"proofs","prefix":"mutation-gate","region":"us-east-1","endpoint":"https://r2.example.com"}'),
         ))
         ->and([...$proofs->ignore()])->toBe(['docs/**'])
         ->and($proofs->write())->toBe(ProofWriting::Never)
@@ -287,7 +286,7 @@ it('reads every setting a config writes into its type', function (): void {
         ->and($triage->confirmSurvivors())->toBeFalse()
         ->and($settings->ignores()->maxDays())->toBe(90)
         ->and($settings->ignores()->native())->toBe(NativeMarkers::Allow)
-        ->and([...$settings->badge()])->toBe(['green' => 95.0])
+        ->and([...$settings->badge()])->toBe(['green' => 95])
         ->and($settings->pest()->patch())->toBeTrue()
         ->and($settings->pest()->canary())->toEqual(Group::named('canary'))
         ->and($settings->local()->watchBudget())->toEqual(Seconds::of(120))
@@ -318,8 +317,8 @@ it('reads each report with its reporter and where it is written', function (): v
     $reports = [...Configs::settings(EVERYTHING)->reports()];
 
     expect(array_map(static fn(Report $report): array => [$report->reporter(), $report->path()], $reports))->toEqual([
-        [Choice::of('sarif', '{}'), Path::of('build/mutation.sarif')],
-        [Choice::of('Acme\\GateSlack\\SlackReporter', '{"channel":"#ci"}'), Absent::setting()],
+        [Choice::of('sarif', Configs::options('{}')), Path::of('build/mutation.sarif')],
+        [Choice::of('Acme\\GateSlack\\SlackReporter', Configs::options('{"channel":"#ci"}')), Absent::setting()],
     ]);
 });
 
@@ -338,7 +337,10 @@ it('refuses a runner that withholds without naming the runner, or withholds anyt
 ): void {
     expect(Configs::problems(Configs::validated(['runner' => $runner])))->toBe([$problem]);
 })->with([
-    'no runner at all' => [['withhold' => ['DEPLOY_*']], 'runner.use: expected a name or a class, got nothing'],
+    'no runner at all' => [
+        ['withhold' => ['DEPLOY_*']],
+        'runner: expected a name, a class, or an object with use and with, got nothing',
+    ],
     'options for no runner' => [['with' => ['a' => 1]], 'runner.use: expected a name or a class, got nothing'],
     'one name, not a list' => [
         ['use' => 'pest', 'withhold' => 'DEPLOY_*'],
@@ -369,8 +371,8 @@ it('serialises the settings that affect results canonically, and only those', fu
         '{"flaky":{"confirmSurvivors":false},"packages":["packages/*"],"pest":{"canary":"canary","patch":true},'
         . '"runner":"infection","tests":{"order":"killers-first"},"timeouts":{"retries":0,"seconds":30},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
-        . '"trees":[{"exclude":[],"path":"app/Domain"},{"exclude":[],"path":"app/Http"},'
-        . '{"exclude":[],"path":"app/Generated"},{"exclude":[],"path":"app/Legacy"}]}',
+        . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},'
+        . '{"path":"app/Generated"},{"path":"app/Legacy"}]}',
     );
 });
 
@@ -489,8 +491,8 @@ it('takes the ends of every range', function (): void {
     ]);
 
     expect($settings->floors()->newCode())->toEqual(Floor::of(0))
-        ->and($settings->reach()->hotPath())->toBe(0.0)
-        ->and([...$settings->badge()])->toBe(['green' => 100.0, 'red' => 0.0])
+        ->and($settings->reach()->hotPaths()->share())->toBe(0.0)
+        ->and([...$settings->badge()])->toBe(['green' => 100, 'red' => 0])
         ->and($settings->ignores()->maxDays())->toBe(1);
 });
 
@@ -544,18 +546,14 @@ it('refuses an ignore that does not expire within ignores.maxDays of today', fun
     ]);
 });
 
-it('refuses a late ignore with every problem outside the ignores', function (): void {
+it('reports what is wrong in a layer before what only every layer together can say', function (): void {
     expect(Configs::problems(Configs::validated([
         'budget' => 'soon',
         'ignores' => [
             'maxDays' => 30,
             'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'A day late', 'expires' => '2026-10-31']],
         ],
-    ])))->toBe([
-        'runner: expected a name, a class, or an object with use and with, got nothing',
-        'budget: expected a duration such as 90s, 15m or 1h30m, got "soon"',
-        'ignores.entries[0].expires: expected a date by 2026-10-30, within ignores.maxDays of today, got "2026-10-31"',
-    ]);
+    ])))->toBe(['budget: expected a duration such as 90s, 15m or 1h30m, got "soon"']);
 });
 
 it('judges expiries once every ignore is written as it must be', function (): void {
@@ -572,12 +570,11 @@ it('judges expiries once every ignore is written as it must be', function (): vo
 });
 
 it('judges no expiry where a config is described rather than read', function (): void {
-    $described = Definition::config(Absent::setting())->read(
+    $described = Configs::layer(
         ['runner' => 'pest', 'ignores' => ['maxDays' => 1, 'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'x']]]],
-        '',
     );
 
-    expect($described->problems())->toBe([]);
+    expect(Configs::problems($described))->toBe([]);
 });
 
 it('judges no expiry against a maxDays written wrong, or entries that are not a list', function (array $ignores): void {
@@ -600,8 +597,9 @@ it('judges expiries against a maxDays of one day', function (): void {
     ]);
 });
 
-it('keeps any $schema a file names, without reading it', function (mixed $schema): void {
-    expect(Configs::shown(Configs::settings(['$schema' => $schema, 'runner' => 'pest']), '$schema'))->toBe($schema);
+it('takes any $schema a file names, and leaves it out of the effective config', function (mixed $schema): void {
+    expect(Configs::decoded(Configs::settings(['$schema' => $schema, 'runner' => 'pest'])->effective()))
+        ->not->toHaveKey('$schema');
 })->with([
     'a path' => ['vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json'],
     'an empty string' => [''],
@@ -638,8 +636,8 @@ it('leaves the options of a class or another extension\'s adapter to it', functi
         'proofs' => ['store' => 'Acme\\Gate\\Store'],
     ]);
 
-    expect($settings->runner()->choice())->toEqual(Choice::of('Acme\\Gate\\Runner', '{"workers":4}'))
-        ->and($settings->proofs()->store())->toEqual(Choice::of('Acme\\Gate\\Store', '{}'))
+    expect($settings->runner()->choice())->toEqual(Choice::of('Acme\\Gate\\Runner', Configs::options('{"workers":4}')))
+        ->and($settings->proofs()->store())->toEqual(Choice::of('Acme\\Gate\\Store', Configs::options('{}')))
         ->and(Configs::shown($settings, 'runner'))->toBe(['use' => 'Acme\\Gate\\Runner', 'with' => ['workers' => 4]]);
 });
 
@@ -696,7 +694,7 @@ it('reads tree excludes, the shard target and setup, the price, the test order a
         ->and($price instanceof Price ? [$price->amount(), $price->currency()] : [])->toBe([0.008, 'USD'])
         ->and(Configs::shown($settings, 'proofs', 'store', 'with', 'publicUrl'))->toBe('https://proofs.example.com')
         ->and($settings->triage()->order())->toBe(TestOrder::Runner)
-        ->and($settings->triage()->staticEquivalence())->toBeFalse();
+        ->and($settings->ignores()->staticEquivalence())->toBeFalse();
 });
 
 it('excludes nothing, cuts by seconds, prices nothing, puts killers first and checks equivalence by default', function (
@@ -709,7 +707,7 @@ it('excludes nothing, cuts by seconds, prices nothing, puts killers first and ch
         ->and($settings->shards()->setup())->toEqual(Seconds::of(60))
         ->and($settings->shards()->perRunnerMinute())->toEqual(Absent::setting())
         ->and($settings->triage()->order())->toBe(TestOrder::KillersFirst)
-        ->and($settings->triage()->staticEquivalence())->toBeTrue();
+        ->and($settings->ignores()->staticEquivalence())->toBeTrue();
 });
 
 it('refuses a shard count set two ways, and a price, a public URL, an order or an exclude written wrong', function (
@@ -758,11 +756,14 @@ it('reads the file reporters, the chat reporters with their variables, and OpenT
         ['use' => 'tests', 'path' => 'build/tests.json'],
         ['use' => 'kill-matrix', 'path' => 'build/kills.csv'],
         ['use' => 'gitlab', 'path' => 'gl-code-quality.json'],
-        ['use' => 'slack'],
+        ['use' => 'slack', 'with' => ['urlEnv' => 'MUTATION_GATE_SLACK_URL']],
         ['use' => 'discord', 'with' => ['urlEnv' => 'TEAM_DISCORD']],
-        ['use' => 'webhook'],
+        [
+            'use' => 'webhook',
+            'with' => ['urlEnv' => 'MUTATION_GATE_WEBHOOK_URL', 'secretEnv' => 'MUTATION_GATE_WEBHOOK_SECRET'],
+        ],
         ['use' => 'otlp', 'with' => ['endpoint' => 'https://otel.example.com']],
-    ])->and(array_map(static fn(Report $report): string => $report->reporter()->options(), [...$settings->reports()]))
+    ])->and(array_map(static fn(Report $report): string => $report->reporter()->options()->line(), [...$settings->reports()]))
         ->toBe([
             '{}',
             '{}',

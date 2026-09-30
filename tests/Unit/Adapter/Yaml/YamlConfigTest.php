@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -13,53 +15,71 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-it('reads a date without quotes as the day it names, and an unquoted id as what it was read as', function (): void {
+/** A config file, in the directory it is in. */
+$file = static fn(string $path): ConfigFile => ConfigFile::at(Path::of($path), Path::of(dirname($path)));
+
+/** @return array<mixed> what a YAML file reads into, or every problem in it */
+$read = static function (string $yaml) use ($file): array {
     $project = Scratch::directory();
-    Scratch::write($project, 'mutation-gate.yaml', <<<'YAML'
+    Scratch::write($project, 'mutation-gate.yaml', $yaml);
+    $layer = new YamlConfig()->load($file(sprintf('%s/mutation-gate.yaml', $project)));
+    $read = $layer instanceof Layer ? Configs::decoded($layer) : Configs::problems($layer);
+
+    return is_array($read) ? $read : [];
+};
+
+it('reads a date without quotes as the day it names', function () use ($read): void {
+    expect($read(<<<'YAML'
+        ignores:
+          entries:
+            - mutant: 3f9a1c2b7d04
+              reason: Equivalent
+              expires: 2027-03-31
+        YAML))->toBe(['ignores' => ['entries' => [
+        ['mutant' => '3f9a1c2b7d04', 'reason' => 'Equivalent', 'expires' => '2027-03-31'],
+    ]]]);
+});
+
+it('names an unquoted id as what YAML read it as', function () use ($read): void {
+    expect($read(<<<'YAML'
         ignores:
           entries:
             - mutant: 12e456789012
               reason: Equivalent
-              expires: 2027-03-31
             - mutant: 123456789012
               reason: Equivalent
-        YAML);
-    $document = new YamlConfig()->load(Path::of(sprintf('%s/mutation-gate.yaml', $project)));
-
-    expect($document instanceof Document ? json_decode($document->json(), associative: true) : $document)->toBe([
-        'ignores' => ['entries' => [
-            ['mutant' => 'INF', 'reason' => 'Equivalent', 'expires' => '2027-03-31'],
-            ['mutant' => 123456789012, 'reason' => 'Equivalent'],
-        ]],
+        YAML))->toBe([
+        'ignores.entries[0].mutant: expected a mutant id, twelve lowercase hex characters in quotes, got "INF"',
+        'ignores.entries[1].mutant: expected a mutant id, twelve lowercase hex characters in quotes, got 123456789012',
     ]);
 });
 
-it('cannot judge a file that is not YAML, naming it', function (): void {
+it('cannot judge a file that is not YAML, naming it', function () use ($file): void {
     $project = Scratch::directory();
     Scratch::write($project, 'mutation-gate.yaml', "runner: [pest\n");
-    $file = sprintf('%s/mutation-gate.yaml', $project);
-    $loaded = new YamlConfig()->load(Path::of($file));
+    $path = sprintf('%s/mutation-gate.yaml', $project);
+    $loaded = new YamlConfig()->load($file($path));
 
-    expect($loaded instanceof CannotJudge ? $loaded->why() : '')->toStartWith(sprintf('%s is not YAML: ', $file));
+    expect($loaded instanceof CannotJudge ? $loaded->why() : '')->toStartWith(sprintf('%s is not YAML: ', $path));
 });
 
-it('cannot judge a file that is not there', function (): void {
-    expect(new YamlConfig()->load(Path::of('/nowhere/mutation-gate.yaml')))
+it('cannot judge a file that is not there', function () use ($file): void {
+    expect(new YamlConfig()->load($file('/nowhere/mutation-gate.yaml')))
         ->toEqual(CannotJudge::because('/nowhere/mutation-gate.yaml could not be read.'));
 });
 
-it('writes a config as YAML that reads back as the same config', function (): void {
+it('writes a config as YAML that reads back as the same config', function () use ($read): void {
     $config = [
         'runner' => ['use' => 'Acme\\Runner', 'with' => ['workers' => 4]],
         'trees' => [['path' => 'src', 'floor' => 83.5]],
-        'ignores' => ['entries' => [['mutant' => '123456789012', 'reason' => 'Equivalent', 'expires' => '2027-03-31']]],
         'costs' => ['secondsPerLine' => ['' => 0.2]],
-        'extensions' => [],
+        'ignores' => ['entries' => [['mutant' => '123456789012', 'reason' => 'Equivalent', 'expires' => '2027-03-31']]],
     ];
-    $project = Scratch::directory();
-    Scratch::write($project, 'mutation-gate.yaml', new YamlConfig()->render(Configs::document($config)));
-    $read = new YamlConfig()->load(Path::of(sprintf('%s/mutation-gate.yaml', $project)));
+    $layer = Configs::layer($config);
+    $pest = Configs::layer(['runner' => 'pest']);
 
-    expect(new YamlConfig()->render(Configs::document(['runner' => 'pest'])))->toBe("runner: pest\n")
-        ->and($read instanceof Document ? json_decode($read->json(), associative: true) : $read)->toBe($config);
+    expect($pest instanceof Layer ? new YamlConfig()->render($pest->written(ProjectRoot::origin())) : $pest)
+        ->toBe("runner: pest\n")
+        ->and($read($layer instanceof Layer ? new YamlConfig()->render($layer->written(ProjectRoot::origin())) : ''))
+        ->toBe($config);
 });

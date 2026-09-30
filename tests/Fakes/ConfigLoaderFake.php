@@ -7,8 +7,11 @@ namespace NightWorksIO\MutationGate\Tests\Fakes;
 use function array_key_exists;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Document;
-use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Definition;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 
 use function sprintf;
@@ -24,13 +27,18 @@ final readonly class ConfigLoaderFake implements ConfigLoader
     /** The contract suite's fixture: one config, as every format would write it. */
     public static function ofTheFixture(): self
     {
-        return new self(['mutation-gate.fake' => '{"runner": "pest", "trees": [{"path": "src", "floor": 100}], "newCode": {"floor": 100}}']);
+        return new self([
+            '/fixtures/Config/mutation-gate.fake'
+                => '{"runner": "pest", "trees": [{"path": "src", "floor": 100}], "newCode": {"floor": 100}}',
+        ]);
     }
 
-    public function load(Path $file): Document|CannotJudge
+    public function load(ConfigFile $file): Layer|Invalid|CannotJudge
     {
-        return array_key_exists($file->value(), $this->files)
-            ? Document::ofJson($this->files[$file->value()])
-            : CannotJudge::because(sprintf('%s is not there.', $file->value()));
+        $path = $file->file()->value();
+
+        return array_key_exists($path, $this->files)
+            ? Definition::layer(Node::config($this->files[$path]), $file)
+            : CannotJudge::because(sprintf('%s is not there.', $path));
     }
 }

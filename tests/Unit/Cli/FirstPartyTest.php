@@ -33,10 +33,10 @@ use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
-use NightWorksIO\MutationGate\Cli\Config\Presets;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -99,7 +99,7 @@ it('registers a loader for every config format, the tree sources and the presets
         ->and($loader('neon'))->toBeInstanceOf(NeonConfig::class)
         ->and(Lookup::in($registry())->treeSource(Name::of('phpunit'), Options::none()))->toBeInstanceOf(PhpUnitTrees::class)
         ->and(Lookup::in($registry())->treeSource(Name::of('composer'), Options::none()))->toBeInstanceOf(AutoloadTrees::class)
-        ->and(Lookup::in($registry())->preset(Name::of('laravel')))->toEqual(Presets::laravel());
+        ->and(Lookup::in($registry())->preset(Name::of('laravel')))->toBeInstanceOf(Layer::class);
 });
 
 it('registers Infection as a runner, built from the options the flows write', function () use ($registry): void {

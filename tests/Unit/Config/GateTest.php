@@ -25,13 +25,10 @@ use NightWorksIO\MutationGate\Config\Source;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\Tree;
 use NightWorksIO\MutationGate\Config\Uncovered;
-use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('writes nothing for a config with no settings', function (): void {
-    $document = Gate::configure()->document();
-
-    expect($document instanceof Document ? $document->json() : '')->toBe('{}');
+    expect(Gate::configure()->written()->line())->toBe('{}');
 });
 
 it('writes the README\'s example as the README\'s JSON', function (): void {
@@ -293,13 +290,13 @@ it('writes lists as lists, whatever their arguments are named', function (): voi
         'reach' => ['everything' => ['config/**']],
         'proofs' => ['ignore' => ['docs/**']],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
-    ])->and(Option::list(...['key' => 'k', 'a' => 1, 'b' => 2])->written())->toBe('{"k":[1,2]}');
+    ])->and(Option::object(Option::list(...['key' => 'k', 'a' => 1, 'b' => 2]))->line())->toBe('{"k":[1,2]}');
 });
 
-it('writes an option as the object it makes on its own', function (): void {
-    expect(Option::of('channel', '#ci')->written())->toBe('{"channel":"#ci"}')
-        ->and(Option::object())->toBe('{}')
-        ->and(Option::choice('pest'))->toBe('"pest"');
+it('writes options as the object they make', function (): void {
+    expect(Option::object(Option::of('channel', '#ci'))->line())->toBe('{"channel":"#ci"}')
+        ->and(Option::object()->line())->toBe('{}')
+        ->and(Option::choice('pest'))->toBe('pest');
 });
 
 it('keeps a number as it was written, for the validator to judge', function (): void {

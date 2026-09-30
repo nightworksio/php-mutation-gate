@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Cli\Config\Given;
+use NightWorksIO\MutationGate\Cli\CommandLine;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\InputOption;
@@ -18,7 +20,7 @@ $definition = static fn(): InputDefinition => new InputDefinition([
 ]);
 
 it('reads what the command line says about the config', function () use ($definition): void {
-    $given = Given::from(new ArrayInput([
+    $given = CommandLine::from(new ArrayInput([
         '--config' => 'ci/gate.json',
         '--runner' => 'infection',
         '--report' => ['sarif:build/mutation.sarif', 'acme'],
@@ -29,7 +31,7 @@ it('reads what the command line says about the config', function () use ($defini
 
     expect($given->config)->toBe('ci/gate.json')
         ->and($given->firstPartyOnly)->toBeTrue()
-        ->and($given->layer())->toBe([
+        ->and(json_decode($given->written()->line(), associative: true))->toBe([
             'runner' => 'infection',
             'reports' => [['use' => 'sarif', 'path' => 'build/mutation.sarif'], ['use' => 'acme']],
             'budget' => '15m',
@@ -38,26 +40,29 @@ it('reads what the command line says about the config', function () use ($defini
 });
 
 it('sets nothing a command line does not say', function () use ($definition): void {
-    $given = Given::from(new ArrayInput([], $definition()));
+    $given = CommandLine::from(new ArrayInput([], $definition()));
 
     expect($given->config)->toBe('')
         ->and($given->firstPartyOnly)->toBeFalse()
-        ->and($given->layer())->toBe([]);
+        ->and($given->written()->line())->toBe('{}')
+        ->and($given->layer())->toEqual(Layer::none());
 });
 
 it('reads nothing from an option a command does not take', function (): void {
-    $given = Given::from(new ArrayInput([], new InputDefinition()));
+    $given = CommandLine::from(new ArrayInput([], new InputDefinition()));
 
     expect([$given->config, $given->runner, $given->reports, $given->budget, $given->ci])->toBe(['', '', [], '', '']);
 });
 
 it('keeps a report path that holds a colon whole', function () use ($definition): void {
-    expect(Given::from(new ArrayInput(['--report' => ['html:C:/build/html']], $definition()))->layer())
+    $layer = CommandLine::from(new ArrayInput(['--report' => ['html:C:/build/html']], $definition()))->layer();
+
+    expect($layer instanceof Layer ? Configs::decoded($layer) : Configs::problems($layer))
         ->toBe(['reports' => [['use' => 'html', 'path' => 'C:/build/html']]]);
 });
 
 it('says everything but the config file to read, where init writes one', function () use ($definition): void {
-    $given = Given::from(new ArrayInput([
+    $given = CommandLine::from(new ArrayInput([
         '--config' => 'ci/gate.json',
         '--runner' => 'infection',
         '--report' => ['sarif:build/mutation.sarif'],
@@ -68,4 +73,19 @@ it('says everything but the config file to read, where init writes one', functio
 
     expect([$given->config, $given->runner, $given->reports, $given->budget, $given->ci, $given->firstPartyOnly])
         ->toBe(['', 'infection', ['sarif:build/mutation.sarif'], '15m', 'gitlab', true]);
+});
+
+it('reads what the command line sets as a layer, each problem at the setting it writes', function () use (
+    $definition,
+): void {
+    $valid = CommandLine::from(new ArrayInput(['--runner' => 'pest', '--budget' => '15m'], $definition()))->layer();
+    $invalid = CommandLine::from(new ArrayInput(['--budget' => 'soon', '--report' => ['html']], $definition()))
+        ->layer();
+
+    expect($valid instanceof Layer ? Configs::decoded($valid) : Configs::problems($valid))
+        ->toBe(['runner' => 'pest', 'budget' => '15m'])
+        ->and(Configs::problems($invalid))->toBe([
+            'budget: expected a duration such as 90s, 15m or 1h30m, got "soon"',
+            'reports[0].path: expected a path, got nothing',
+        ]);
 });

@@ -81,7 +81,7 @@ final readonly class DeclaredTree
             $floor,
             $reason,
             $exclude,
-        );
+        )->defaulting(Json::object()->with('exclude', Json::items([])));
     }
 
     public function path(): Path
@@ -110,7 +110,9 @@ final readonly class DeclaredTree
             default => $written,
         };
 
-        return $written->with('exclude', Json::items([...$this->exclude]));
+        $excluded = [...$this->exclude];
+
+        return $excluded === [] ? $written : $written->with('exclude', Json::items($excluded));
     }
 
     /** This entry as the builder's `Tree::at()` writes it. */

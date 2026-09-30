@@ -1117,7 +1117,7 @@
                 "watchBudget": {
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                    "default": "60s"
+                    "default": "1m"
                 },
                 "prePushBudget": {
                     "type": "string",

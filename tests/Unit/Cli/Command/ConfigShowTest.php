@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
-use NightWorksIO\MutationGate\Core\Config\Definition\Json;
-use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 use NightWorksIO\MutationGate\Tests\Support\Commands;
@@ -17,13 +17,20 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** A config as printed, read back by the loader of its format into the JSON every format shares. */
-$read = static function (string $format, string $printed, ConfigLoader $loader): string {
+/**
+ * A config as printed, read back by the loader of its format into the layer every format reads into.
+ *
+ * @return array<mixed>
+ */
+$read = static function (string $format, string $printed, ConfigLoader $loader): array {
     $project = Scratch::directory();
     Scratch::write($project, sprintf('mutation-gate.%s', $format), $printed);
-    $document = $loader->load(Path::of(sprintf('%s/mutation-gate.%s', $project, $format)));
+    $layer = $loader->load(
+        ConfigFile::at(Path::of(sprintf('%s/mutation-gate.%s', $project, $format)), Path::of($project)),
+    );
+    $read = $layer instanceof Layer ? Configs::decoded($layer) : Configs::problems($layer);
 
-    return $document instanceof Document ? $document->json() : $document->why();
+    return is_array($read) ? $read : [];
 };
 
 /**
@@ -45,7 +52,6 @@ $decoded = static fn(string $json): array => (static fn(mixed $tree): array => i
 it('prints the effective config as JSON, every setting with its value', function () use ($show): void {
     $shown = $show('Configured');
     $settings = Configs::settings([
-        '$schema' => 'vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json',
         'preset' => 'symfony',
         'runner' => 'infection',
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['src']]],
@@ -56,7 +62,7 @@ it('prints the effective config as JSON, every setting with its value', function
         'reports' => [['use' => 'sarif', 'path' => 'build/mutation.sarif']],
     ]);
 
-    expect([$shown->code, $shown->output, $shown->errors])->toBe([0, sprintf("%s\n", $settings->effective()), '']);
+    expect([$shown->code, $shown->output, $shown->errors])->toBe([0, sprintf("%s\n", Configs::effective($settings)), '']);
 });
 
 it('lays the command line over the config file', function () use ($show, $decoded): void {
@@ -85,8 +91,8 @@ it('prints the effective config in the format --format names', function () use (
     $neon = $show('Configured', ['--format' => 'neon'])->output;
     $php = $show('Configured', ['--format' => 'php'])->output;
 
-    expect($read('yaml', $yaml, new YamlConfig()))->toBe(Json::encode($decoded($json)))
-        ->and($read('neon', $neon, new NeonConfig()))->toBe(Json::encode($decoded($json)))
+    expect($read('yaml', $yaml, new YamlConfig()))->toBe($decoded($json))
+        ->and($read('neon', $neon, new NeonConfig()))->toBe($decoded($json))
         ->and($php)->toStartWith("<?php\n\ndeclare(strict_types=1);\n")
         ->and($php)->toContain("    ->preset(Preset::symfony())\n    ->runner(Runner::infection())\n");
 });

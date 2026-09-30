@@ -147,6 +147,16 @@ final readonly class Section implements Shape
         return new self($this->build, $this->fields, $this->alternatives, $keys, $this->defaults);
     }
 
+    /**
+     * This object, whose settings take these values where a config leaves them out, as its schema says.
+     *
+     * @return self<T>
+     */
+    public function defaulting(Json $defaults): self
+    {
+        return new self($this->build, $this->fields, $this->alternatives, $this->exclusive, $defaults);
+    }
+
     public function read(Node $at): Reading
     {
         if (! self::isObject($at)) {
