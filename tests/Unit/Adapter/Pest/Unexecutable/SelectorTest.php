@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\SymbolKind;
+use NightWorksIO\MutationGate\Core\Php\Unnamed;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Unexecutables;
@@ -50,7 +51,7 @@ it('chooses the test files that read a value, and those that cover the mutant\'s
         ->toEqual(Choice::of(selectorTests('InternalSpec'), $covering, ambiguous: false))
         ->and($selector->choose(Symbol::constant('App\Money', 'UNREAD'), $money))
         ->toEqual(Choice::of(Paths::none(), $covering, ambiguous: false))
-        ->and($selector->choose(Symbol::unnamed(SymbolKind::AttributeArgument), $money))
+        ->and($selector->choose(Unnamed::of(SymbolKind::AttributeArgument), $money))
         ->toEqual(Choice::of(Paths::none(), $covering, ambiguous: true));
 });
 

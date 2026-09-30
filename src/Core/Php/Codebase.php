@@ -39,9 +39,9 @@ final readonly class Codebase
     }
 
     /** Where the project reads a value, followed through the declarations that read it. */
-    public function references(Symbol $symbol): References
+    public function references(Symbol|Unnamed $symbol): References
     {
-        return $symbol->isFollowable()
+        return $symbol instanceof Symbol
             ? $this->followed($symbol, 1, [$symbol->described() => true])
             : References::unknown();
     }
@@ -73,7 +73,7 @@ final readonly class Codebase
             $found = $found->and(match (true) {
                 $inner instanceof Executable => References::at($site),
                 array_key_exists($inner->described(), $seen) => References::none(),
-                ! $inner->isFollowable() || $step >= self::STEPS => References::unknown(),
+                $inner instanceof Unnamed || $step >= self::STEPS => References::unknown(),
                 default => $this->followed($inner, $step + 1, [...$seen, $inner->described() => true]),
             });
         }

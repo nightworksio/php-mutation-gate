@@ -35,6 +35,8 @@ it('says what the tests miss about a survivor of each family', function (Mutator
     'visibility' => [MutatorFamily::Visibility, 'public function fits(int $amount, int $limit): bool', 'protected function fits(int $amount, int $limit): bool', 'Nothing outside the class calls `fits()`. It can be narrower.'],
     'no family, changed' => [MutatorFamily::None, 'return $a . $b;', 'return $b . $a;', 'These tests run line 9, but none fails when it becomes `return $b . $a;`.'],
     'no family, removed' => [MutatorFamily::None, 'return $a . $b;', '', 'These tests run line 9, but none fails when it is removed.'],
+    'an unknown family' => [MutatorFamily::Unknown, 'return $a . $b;', 'return $b . $a;', 'These tests run line 9, but none fails when it becomes `return $b . $a;`.'],
+    'an unrecorded family' => [MutatorFamily::Unrecorded, 'return $a . $b;', '', 'These tests run line 9, but none fails when it is removed.'],
 ]);
 
 it('has a sentence for every family', function (MutatorFamily $family) use ($source): void {

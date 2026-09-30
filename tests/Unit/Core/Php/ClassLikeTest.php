@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Php\ClassLike;
+use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Tests\Support\Php;
 
@@ -37,9 +38,10 @@ it('names nothing for an anonymous class, or where no class stands', function ()
     $source = Php::source('<?php $a = new class extends Base { const X = 1; };');
     $anonymous = $source->shape()->classes()[0];
 
-    expect($anonymous->name())->toBe('')
+    expect($anonymous->name())->toEqual(Nameless::code())
+        ->and($anonymous->names())->toEqual(Names::of())
         ->and($anonymous->parents())->toEqual(Names::of('Base'))
         ->and($anonymous->declares('X'))->toBeTrue()
-        ->and(ClassLike::none()->key())->toBe('')
+        ->and(ClassLike::none()->key())->toEqual(Nameless::code())
         ->and(ClassLike::none()->parents())->toEqual(Names::of());
 });

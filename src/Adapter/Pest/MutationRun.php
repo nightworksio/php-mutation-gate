@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -128,10 +129,12 @@ final readonly class MutationRun
         $map = sprintf(self::SHARED_MAP, dirname($results));
         $this->remembered->writeOnce($map, fn() => SharedCoverage::write($shared, $this->project, $map));
 
+        $canary = $this->patching->canary();
+
         return $command->with([
             GateVariable::SharedCoverage->value => $map,
             GateVariable::SuiteSeconds->value => sprintf('%F', SharedCoverage::seconds($shared)),
-            GateVariable::Canary->value => $this->patching->canary()->name(),
+            ...($canary instanceof Group ? [GateVariable::Canary->value => $canary->name()] : []),
         ]);
     }
 
@@ -164,9 +167,10 @@ final readonly class MutationRun
         }
 
         $groups = ($this->groups)($withheld);
+        $canary = $this->patching->canary();
 
-        return $groups instanceof CannotJudge || $groups->has($this->patching->canary())
+        return $groups instanceof CannotJudge || ! $canary instanceof Group || $groups->has($canary)
             ? $groups
-            : CannotJudge::because(sprintf(self::EMPTY_CANARY, $this->patching->canary()->name()));
+            : CannotJudge::because(sprintf(self::EMPTY_CANARY, $canary->name()));
     }
 }

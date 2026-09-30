@@ -46,7 +46,7 @@ it('names a mutator\'s family by its class, whose short name another mutator may
         ->and(Families::knows(ConcatSwitchSides::class))->toBeTrue();
 });
 
-it('gives a mutator it does not know no family', function (): void {
-    expect(Families::of('Pest\Mutate\Mutators\Future\Unknown'))->toBe(MutatorFamily::None)
+it('gives a mutator it does not know an unknown family', function (): void {
+    expect(Families::of('Pest\Mutate\Mutators\Future\Unknown'))->toBe(MutatorFamily::Unknown)
         ->and(Families::knows('Pest\Mutate\Mutators\Future\Unknown'))->toBeFalse();
 });

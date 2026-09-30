@@ -83,7 +83,7 @@ final readonly class StaticReads
 
         return match (true) {
             $tokens->is($left, T_STATIC) => $this->fromStatic($colon, $around),
-            $said === 'self' => $this->reachedBy(Names::of($around->key()), $colon),
+            $said === 'self' => $this->reachedBy($around->names(), $colon),
             $said === 'parent' => $this->reachedBy($around->parents(), $colon),
             $tokens->is($left, ...Names::TOKENS) => $this->reachedBy(
                 $this->source->scope()->resolve($tokens->text($left)),
@@ -96,7 +96,7 @@ final readonly class StaticReads
     /** A read through `static::`, which a subclass's own constant of the name could answer instead. */
     private function fromStatic(int $colon, ClassLike $around): References
     {
-        $read = $this->reachedBy(Names::of($around->key()), $colon);
+        $read = $this->reachedBy($around->names(), $colon);
         $overridden = $this->symbol->kind() === SymbolKind::Constant
             && $this->hierarchy->overrides($this->symbol->owner(), $this->symbol->name());
 
@@ -157,8 +157,10 @@ final readonly class StaticReads
     }
 
     /** The name a class between the reader and the owner would shadow: a constant's, and nothing for a property. */
-    private function shadowing(): string
+    private function shadowing(): Shadowing
     {
-        return $this->symbol->kind() === SymbolKind::Constant ? $this->symbol->name() : '';
+        return $this->symbol->kind() === SymbolKind::Constant
+            ? Shadowing::byConstant($this->symbol->name())
+            : Shadowing::none();
     }
 }

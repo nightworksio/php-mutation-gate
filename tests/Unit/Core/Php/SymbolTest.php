@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\SymbolKind;
+use NightWorksIO\MutationGate\Core\Php\Unnamed;
 
 it('is a constant, a case, a property or a parameter of an owner, by the owner as PHP compares it', function (): void {
     $constant = Symbol::constant('\App\Money', 'RATE');
@@ -18,9 +20,10 @@ it('is a constant, a case, a property or a parameter of an owner, by the owner a
         ->and(Symbol::parameter('App\tax', 'rate')->described())->toBe('function parameter App\tax::rate');
 });
 
-it('can be followed where its kind can and something named owns it', function (): void {
-    expect(Symbol::constant('App\Money', 'RATE')->isFollowable())->toBeTrue()
-        ->and(Symbol::constant('', 'RATE')->isFollowable())->toBeFalse()
-        ->and(Symbol::unnamed(SymbolKind::AttributeArgument)->isFollowable())->toBeFalse()
-        ->and(Symbol::unnamed(SymbolKind::ClosureParameter)->described())->toBe('closure parameter');
+it('is unnamed where nothing named owns it, and names only its kind', function (): void {
+    expect(Symbol::constant(Nameless::code(), 'RATE'))->toEqual(Unnamed::of(SymbolKind::Constant))
+        ->and(Symbol::enumCase(Nameless::code(), 'Paid'))->toEqual(Unnamed::of(SymbolKind::EnumCase))
+        ->and(Symbol::property(Nameless::code(), 'cents', static: false))->toEqual(Unnamed::of(SymbolKind::Property))
+        ->and(Unnamed::of(SymbolKind::ClosureParameter)->kind())->toBe(SymbolKind::ClosureParameter)
+        ->and(Unnamed::of(SymbolKind::ClosureParameter)->described())->toBe('closure parameter');
 });

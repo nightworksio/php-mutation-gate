@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Php\Codebase;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\SymbolKind;
+use NightWorksIO\MutationGate\Core\Php\Unnamed;
 use NightWorksIO\MutationGate\Tests\Support\Php;
 
 $codebase = static fn(): Codebase => Codebase::of(
@@ -66,7 +67,7 @@ it('follows a loop of declarations once round', function () use ($codebase): voi
 });
 
 it('cannot follow a value no reference names at all', function () use ($codebase): void {
-    $read = $codebase()->references(Symbol::unnamed(SymbolKind::AttributeArgument));
+    $read = $codebase()->references(Unnamed::of(SymbolKind::AttributeArgument));
 
     expect(Php::sites($read))->toBe([])
         ->and($read->isAmbiguous())->toBeTrue();

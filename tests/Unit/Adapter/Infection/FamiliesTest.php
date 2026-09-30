@@ -35,7 +35,7 @@ it('marks the mutators no hint can name as having no family', function (): void 
     }
 });
 
-it('gives a mutator it does not know no family', function (): void {
-    expect(Families::of('FutureMutator'))->toBe(MutatorFamily::None)
+it('gives a mutator it does not know an unknown family', function (): void {
+    expect(Families::of('FutureMutator'))->toBe(MutatorFamily::Unknown)
         ->and(Families::knows('FutureMutator'))->toBeFalse();
 });

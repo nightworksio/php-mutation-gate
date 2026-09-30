@@ -10,9 +10,9 @@ use function sprintf;
 
 /**
  * What a line that is not executable declares: a class constant, an enum case,
- * a property or a parameter, with the class or function it belongs to and its
- * name as written. The owner is fully qualified; an anonymous class or a
- * closure owns nothing a reference can name.
+ * a property or a plain function's parameter, with the class or function it
+ * belongs to and its name as written. The owner is fully qualified; one an
+ * anonymous class owns is unnamed, since no reference can name it.
  */
 final readonly class Symbol
 {
@@ -20,33 +20,36 @@ final readonly class Symbol
     {
     }
 
-    /** A constant of a class, an interface, a trait or an enum. */
-    public static function constant(string $owner, string $name): self
+    /**
+     * A constant of a class, an interface, a trait or an enum.
+     *
+     * @return ($owner is string ? self : Unnamed)
+     */
+    public static function constant(string|Nameless $owner, string $name): self|Unnamed
     {
-        return new self(SymbolKind::Constant, $owner, $name);
+        return self::owned(SymbolKind::Constant, $owner, $name);
     }
 
-    public static function enumCase(string $owner, string $name): self
+    /** @return ($owner is string ? self : Unnamed) */
+    public static function enumCase(string|Nameless $owner, string $name): self|Unnamed
     {
-        return new self(SymbolKind::EnumCase, $owner, $name);
+        return self::owned(SymbolKind::EnumCase, $owner, $name);
     }
 
-    /** A property's default, static or not, by its name without the `$`. */
-    public static function property(string $owner, string $name, bool $static): self
+    /**
+     * A property's default, static or not, by its name without the `$`.
+     *
+     * @return ($owner is string ? self : Unnamed)
+     */
+    public static function property(string|Nameless $owner, string $name, bool $static): self|Unnamed
     {
-        return new self($static ? SymbolKind::StaticProperty : SymbolKind::Property, $owner, $name);
+        return self::owned($static ? SymbolKind::StaticProperty : SymbolKind::Property, $owner, $name);
     }
 
     /** A plain function's parameter default, by the function's fully qualified name. */
     public static function parameter(string $function, string $name): self
     {
         return new self(SymbolKind::FunctionParameter, $function, $name);
-    }
-
-    /** A value no reference names: a method's or a closure's parameter default, or an attribute's argument. */
-    public static function unnamed(SymbolKind $kind): self
-    {
-        return new self($kind, '', '');
     }
 
     public function kind(): SymbolKind
@@ -66,17 +69,15 @@ final readonly class Symbol
         return $this->name;
     }
 
-    /** Whether references to it can be found: of a kind a scan follows, and owned by something named. */
-    public function isFollowable(): bool
-    {
-        return $this->kind->isFollowable() && $this->owner !== '';
-    }
-
     /** How a reason names it, such as `constant Money::RATE`. */
     public function described(): string
     {
-        return $this->owner === ''
-            ? $this->kind->value
-            : sprintf('%s %s::%s', $this->kind->value, $this->owner, $this->name);
+        return sprintf('%s %s::%s', $this->kind->value, $this->owner, $this->name);
+    }
+
+    /** @return ($owner is string ? self : Unnamed) */
+    private static function owned(SymbolKind $kind, string|Nameless $owner, string $name): self|Unnamed
+    {
+        return $owner instanceof Nameless ? Unnamed::of($kind) : new self($kind, $owner, $name);
     }
 }

@@ -38,7 +38,7 @@ final readonly class Creations
         $around = $this->source->classAround($new);
 
         return match (true) {
-            $tokens->is($class, T_STATIC) || $said === 'self' => $this->reachedBy(Names::of($around->key()), $new),
+            $tokens->is($class, T_STATIC) || $said === 'self' => $this->reachedBy($around->names(), $new),
             $said === 'parent' => $this->reachedBy($around->parents(), $new),
             $tokens->is($class, ...Names::TOKENS) => $this->reachedBy(
                 $this->source->scope()->resolve($tokens->text($class)),
@@ -51,7 +51,7 @@ final readonly class Creations
 
     private function reachedBy(Names $names, int $at): References
     {
-        return $this->hierarchy->anyReaches($names, $this->symbol->owner(), '')
+        return $this->hierarchy->anyReaches($names, $this->symbol->owner(), Shadowing::none())
             ? References::at(Site::in($this->source, $at))
             : References::none();
     }

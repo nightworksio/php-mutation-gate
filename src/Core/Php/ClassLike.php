@@ -21,7 +21,7 @@ final readonly class ClassLike
     private const array STARTS = [T_CONST, T_CASE, T_VARIABLE, ';', '{'];
 
     /** @param list<string> $constants */
-    private function __construct(private string $name, private Names $parents, private array $constants)
+    private function __construct(private string|Nameless $name, private Names $parents, private array $constants)
     {
     }
 
@@ -42,7 +42,7 @@ final readonly class ClassLike
                 : $parents;
         }
 
-        $name = $tokens->is($keyword + 1, T_STRING) ? $scope->declared($tokens->text($keyword + 1)) : '';
+        $name = $tokens->is($keyword + 1, T_STRING) ? $scope->declared($tokens->text($keyword + 1)) : Nameless::code();
         $constants = [];
 
         foreach ($tokens->inside($body, '=') as $equals) {
@@ -57,19 +57,27 @@ final readonly class ClassLike
     /** A place no class-like encloses, which names nothing and extends nothing. */
     public static function none(): self
     {
-        return new self('', Names::of(), []);
+        return new self(Nameless::code(), Names::of(), []);
     }
 
-    /** Its fully qualified name as declared, or nothing for an anonymous class. */
-    public function name(): string
+    /** Its fully qualified name as declared; an anonymous class has none. */
+    public function name(): string|Nameless
     {
         return $this->name;
     }
 
-    /** Its fully qualified name in lower case, as PHP compares class names. */
-    public function key(): string
+    /** Its fully qualified name in lower case, as PHP compares class names; an anonymous class has none. */
+    public function key(): string|Nameless
     {
-        return mb_strtolower($this->name);
+        return $this->name instanceof Nameless ? $this->name : mb_strtolower($this->name);
+    }
+
+    /** The names `self` and `static` may stand for in its body: its own, or none in an anonymous class. */
+    public function names(): Names
+    {
+        $key = $this->key();
+
+        return $key instanceof Nameless ? Names::of() : Names::of($key);
     }
 
     /** What its `extends` and `implements` may name, each in lower case. */

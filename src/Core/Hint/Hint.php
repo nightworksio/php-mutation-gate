@@ -170,7 +170,7 @@ final readonly class Hint
             MutatorFamily::Exception => self::EXCEPTION,
             MutatorFamily::Unwrap => self::about($change->call(), self::UNWRAP, self::UNWRAP_HERE),
             MutatorFamily::Visibility => self::about($function, self::VISIBLE, self::VISIBLE_HERE),
-            MutatorFamily::None => $change->added() === ''
+            MutatorFamily::None, MutatorFamily::Unknown, MutatorFamily::Unrecorded => $change->added() === ''
                 ? sprintf(self::GOES, $line->number())
                 : sprintf(self::BECOMES, $line->number(), $change->added()),
         };

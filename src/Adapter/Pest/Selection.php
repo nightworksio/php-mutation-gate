@@ -11,6 +11,7 @@ use function array_values;
 use function count;
 use function explode;
 use function implode;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -33,7 +34,7 @@ final readonly class Selection
     private const string TEST = '/\\\\([a-zA-Z0-9]*)::(__pest_evaluable_)?([^#]*)"?/';
 
     /** A test's class, by its name within its namespace. */
-    private const string CLASS_NAME = '/(?:^|\\\\)([^\\\\]*)::/';
+    private const string CLASS_NAME = '/(?:^|\\\\)([^\\\\]+)::/';
 
     private const string EVALUABLE = '__pest_evaluable_';
 
@@ -49,10 +50,7 @@ final readonly class Selection
     public static function of(TestIds $covering): self
     {
         $tests = array_map(static fn(TestId $test): string => $test->value(), [...$covering]);
-        $pieces = array_unique(array_filter(
-            array_map(self::pieceOf(...), $tests),
-            static fn(string $piece): bool => $piece !== '',
-        ));
+        $pieces = array_unique(array_filter(array_map(self::pieceOf(...), $tests), is_string(...)));
 
         return new self($tests, sprintf('--filter="%s"', implode('|', $pieces)));
     }
@@ -82,22 +80,25 @@ final readonly class Selection
         return TestIds::of(...array_map(TestId::of(...), $unselected));
     }
 
-    /** @return list<string> the class of each covering test, by its name within its namespace */
+    /** @return list<string> the class of each covering test that names one, by its name within its namespace */
     public function classes(): array
     {
-        $classes = array_map(
-            static fn(string $test): string => preg_match(self::CLASS_NAME, $test, $parts) === 1 ? $parts[1] : '',
-            $this->tests,
-        );
+        $classes = [];
 
-        return array_values(array_unique(array_filter($classes, static fn(string $class): bool => $class !== '')));
+        foreach ($this->tests as $test) {
+            if (preg_match(self::CLASS_NAME, $test, $parts) === 1) {
+                $classes[$parts[1]] = $parts[1];
+            }
+        }
+
+        return array_values($classes);
     }
 
-    /** The alternative pest-plugin-mutate adds to the filter for one test, or nothing where it drops the test. */
-    private static function pieceOf(string $test): string
+    /** The alternative pest-plugin-mutate adds to the filter for one test, or none where it drops the test. */
+    private static function pieceOf(string $test): string|Unselectable
     {
         if (preg_match(self::TEST, $test, $parts) !== 1) {
-            return '';
+            return Unselectable::Test;
         }
 
         $name = $parts[2] === self::EVALUABLE ? str_replace(['__', '_'], ['.{1,2}', '.'], $parts[3]) : $parts[3];
@@ -110,6 +111,6 @@ final readonly class Selection
     {
         $piece = self::pieceOf($test);
 
-        return $piece !== '' && preg_match(sprintf('"%s"', $piece), explode('#', $test)[0]) === 1;
+        return is_string($piece) && preg_match(sprintf('"%s"', $piece), explode('#', $test)[0]) === 1;
     }
 }
