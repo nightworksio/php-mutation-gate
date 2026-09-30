@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Config;
 
 use DateTimeImmutable;
+use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Definition\Json;
@@ -88,7 +89,7 @@ final readonly class Effective
         $problems = [];
 
         foreach ($presets as $path => $preset) {
-            $layer = $registry->preset(Name::of($preset));
+            $layer = Lookup::in($registry)->preset(Name::of($preset));
 
             if ($layer instanceof Document) {
                 $layers[] = $layer;

@@ -11,11 +11,14 @@ use function count;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Port\ChangeSource;
+use NightWorksIO\MutationGate\Port\Repository;
 
 use function preg_match;
 use function rawurlencode;
@@ -30,9 +33,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * branch was up to date and its run judged exactly the tree that landed, so
  * those commits reach nothing and only what is uncommitted counts. A range of
  * more than twenty commits, or one commit it cannot prove, is read from the
- * other source whole.
+ * other source whole. Where the checkout stands, the other source says.
  */
-final readonly class PassedPullRequests implements ChangeSource
+final readonly class PassedPullRequests implements ChangeSource, Repository
 {
     /** The most commits back GitHub is asked about. */
     private const int FARTHEST = 20;
@@ -44,7 +47,7 @@ final readonly class PassedPullRequests implements ChangeSource
     private const string WORKFLOW = '~^[^/]+/[^/]+/(?<path>[^@]+)@~';
 
     private function __construct(
-        private ChangeSource $source,
+        private ChangeSource&Repository $source,
         private Api $api,
         private string $repository,
         private string $head,
@@ -60,8 +63,11 @@ final readonly class PassedPullRequests implements ChangeSource
      *
      * @param array<string, string> $environment
      */
-    public static function over(ChangeSource $source, HttpClientInterface $client, array $environment): ChangeSource
-    {
+    public static function over(
+        ChangeSource&Repository $source,
+        HttpClientInterface $client,
+        array $environment,
+    ): ChangeSource&Repository {
         $read = static fn(string $name): string => array_key_exists($name, $environment) ? $environment[$name] : '';
         $repository = $read('GITHUB_REPOSITORY');
         $head = $read('GITHUB_SHA');
@@ -92,6 +98,21 @@ final readonly class PassedPullRequests implements ChangeSource
     public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell
     {
         return $this->source->fileAt($path, $revision);
+    }
+
+    public function head(): Revision|CannotTell
+    {
+        return $this->source->head();
+    }
+
+    public function branch(): Scope|Detached|CannotTell
+    {
+        return $this->source->branch();
+    }
+
+    public function defaultBranch(): Scope|CannotTell
+    {
+        return $this->source->defaultBranch();
     }
 
     /** Whether every commit from a base to the head is the tree of a pull request whose run passed. */

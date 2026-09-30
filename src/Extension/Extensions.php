@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Port\ConfigLoader;
 use NightWorksIO\MutationGate\Port\CostModel;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
+use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Port\TreeSource;
 
@@ -27,7 +28,8 @@ use function sprintf;
 /**
  * Every adapter and preset the extensions offer, by name. An adapter is
  * registered as the function that builds it from its options, so a config
- * can choose it by name and configure it.
+ * can choose it by name and configure it. Extensions only register; the
+ * command line looks up what they registered.
  */
 final readonly class Extensions
 {
@@ -52,6 +54,9 @@ final readonly class Extensions
     /** @var Entries<Closure(Options): (ChangeSource|Invalid)> */
     private Entries $changeSources;
 
+    /** @var Entries<Closure(Options): (Repository|Invalid)> */
+    private Entries $repositories;
+
     /** @var Entries<Closure(Options): (ConfigLoader|Invalid)> */
     private Entries $configLoaders;
 
@@ -61,15 +66,16 @@ final readonly class Extensions
     /** An empty registry, whose additions come from this package. */
     public function __construct(private Origin $origin)
     {
-        $this->runners = new Entries('runner');
-        $this->treeSources = new Entries('tree source');
-        $this->costModels = new Entries('cost model');
-        $this->proofStores = new Entries('proof store');
-        $this->ciPlans = new Entries('CI plan');
-        $this->reporters = new Entries('reporter');
-        $this->changeSources = new Entries('change source');
-        $this->configLoaders = new Entries('config loader');
-        $this->presets = new Entries('preset');
+        $this->runners = new Entries(Kind::Runner->value);
+        $this->treeSources = new Entries(Kind::TreeSource->value);
+        $this->costModels = new Entries(Kind::CostModel->value);
+        $this->proofStores = new Entries(Kind::ProofStore->value);
+        $this->ciPlans = new Entries(Kind::CiPlan->value);
+        $this->reporters = new Entries(Kind::Reporter->value);
+        $this->changeSources = new Entries(Kind::ChangeSource->value);
+        $this->repositories = new Entries(Kind::Repository->value);
+        $this->configLoaders = new Entries(Kind::ConfigLoader->value);
+        $this->presets = new Entries(Kind::Preset->value);
     }
 
     /** @param Closure(Options): (Runner|Invalid) $build */
@@ -128,6 +134,14 @@ final readonly class Extensions
         ]);
     }
 
+    /** @param Closure(Options): (Repository|Invalid) $build */
+    public function withRepository(Name $name, Closure $build): self
+    {
+        return clone($this, [
+            'repositories' => $this->repositories->with($name->value(), $this->origin->name(), $build),
+        ]);
+    }
+
     /** @param Closure(Options): (ConfigLoader|Invalid) $build */
     public function withConfigLoader(Name $name, Closure $build): self
     {
@@ -159,6 +173,7 @@ final readonly class Extensions
             ...$this->ciPlans->conflictsWith($other->ciPlans),
             ...$this->reporters->conflictsWith($other->reporters),
             ...$this->changeSources->conflictsWith($other->changeSources),
+            ...$this->repositories->conflictsWith($other->repositories),
             ...$this->configLoaders->conflictsWith($other->configLoaders),
             ...$this->presets->conflictsWith($other->presets),
         ];
@@ -178,69 +193,33 @@ final readonly class Extensions
             'ciPlans' => $this->ciPlans->merge($other->ciPlans),
             'reporters' => $this->reporters->merge($other->reporters),
             'changeSources' => $this->changeSources->merge($other->changeSources),
+            'repositories' => $this->repositories->merge($other->repositories),
             'configLoaders' => $this->configLoaders->merge($other->configLoaders),
             'presets' => $this->presets->merge($other->presets),
         ]);
     }
 
-    public function runner(Name $name, Options $options): Runner|Invalid|CannotJudge
+    /**
+     * What is registered as this kind under this name: the function that
+     * builds an adapter from its options, or a preset's fragment.
+     *
+     * @internal extensions register; only the command line looks up
+     */
+    public function registered(Kind $kind, Name $name): Closure|Document|CannotJudge
     {
-        $build = $this->runners->find($name->value());
+        $entries = match ($kind) {
+            Kind::Runner => $this->runners,
+            Kind::TreeSource => $this->treeSources,
+            Kind::CostModel => $this->costModels,
+            Kind::ProofStore => $this->proofStores,
+            Kind::CiPlan => $this->ciPlans,
+            Kind::Reporter => $this->reporters,
+            Kind::ChangeSource => $this->changeSources,
+            Kind::Repository => $this->repositories,
+            Kind::ConfigLoader => $this->configLoaders,
+            Kind::Preset => $this->presets,
+        };
 
-        return $build instanceof CannotJudge ? $build : $build($options);
-    }
-
-    public function treeSource(Name $name, Options $options): TreeSource|Invalid|CannotJudge
-    {
-        $build = $this->treeSources->find($name->value());
-
-        return $build instanceof CannotJudge ? $build : $build($options);
-    }
-
-    public function costModel(Name $name, Options $options): CostModel|Invalid|CannotJudge
-    {
-        $build = $this->costModels->find($name->value());
-
-        return $build instanceof CannotJudge ? $build : $build($options);
-    }
-
-    public function proofStore(Name $name, Options $options): ProofStore|Invalid|CannotJudge
-    {
-        $build = $this->proofStores->find($name->value());
-
-        return $build instanceof CannotJudge ? $build : $build($options);
-    }
-
-    public function ciPlan(Name $name, Options $options): CiPlan|Invalid|CannotJudge
-    {
-        $build = $this->ciPlans->find($name->value());
-
-        return $build instanceof CannotJudge ? $build : $build($options);
-    }
-
-    public function reporter(Name $name, Options $options): Reporter|Invalid|CannotJudge
-    {
-        $build = $this->reporters->find($name->value());
-
-        return $build instanceof CannotJudge ? $build : $build($options);
-    }
-
-    public function changeSource(Name $name, Options $options): ChangeSource|Invalid|CannotJudge
-    {
-        $build = $this->changeSources->find($name->value());
-
-        return $build instanceof CannotJudge ? $build : $build($options);
-    }
-
-    public function configLoader(Name $name, Options $options): ConfigLoader|Invalid|CannotJudge
-    {
-        $build = $this->configLoaders->find($name->value());
-
-        return $build instanceof CannotJudge ? $build : $build($options);
-    }
-
-    public function preset(Name $name): Document|CannotJudge
-    {
-        return $this->presets->find($name->value());
+        return $entries->find($name->value());
     }
 }

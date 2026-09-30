@@ -140,7 +140,7 @@ Options:
 | Option | Accepted by | What it does | Decided in |
 |--------|-------------|--------------|------------|
 | `--config=<path>` | every command | Read this config file instead of looking for one | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
-| `--no-extensions` | every command | Load only the package's own adapters | [0001](.docs/decisions/0001-a-framework-free-core-behind-eight-ports.md) |
+| `--no-extensions` | every command | Load only the package's own adapters | [0001](.docs/decisions/0001-a-framework-free-core-behind-nine-ports.md) |
 | `--runner=<name>` | every command | Set `runner` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--report=<name>:<path>` | every command, repeatable | Add a file report to `reports` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--changed-since=<ref>` | `plan`, `run` without a plan | Mutate only what the change since `<ref>` reaches; `last-passed` is the newest passing commit | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
@@ -275,7 +275,7 @@ A setting that names an adapter takes either a registered name (`"pest"`,
 `"sarif"`) or a class with its options (`{"use": "Acme\\Gate\\SlackReporter",
 "with": {"channel": "#ci"}}`). Packages that offer adapters are found through
 `extra.mutation-gate.extensions` in their `composer.json`
-([ADR-0001](.docs/decisions/0001-a-framework-free-core-behind-eight-ports.md)).
+([ADR-0001](.docs/decisions/0001-a-framework-free-core-behind-nine-ports.md)).
 
 ### Configuration reference
 
@@ -342,7 +342,7 @@ In a `composer.json`, under `extra.mutation-gate`:
 
 | Key | Type | Default | Decided in |
 |-----|------|---------|------------|
-| `extensions` | list of class names | `[]` | [0001](.docs/decisions/0001-a-framework-free-core-behind-eight-ports.md) |
+| `extensions` | list of class names | `[]` | [0001](.docs/decisions/0001-a-framework-free-core-behind-nine-ports.md) |
 | `floor` | number, 0 to 100 | none | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `floorReason` | string | none; required when `floor` is 0 | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `newCodeFloor` | number, 0 to 100 | `newCode.floor` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
@@ -736,7 +736,7 @@ and `init` adds it there.
 
 The design is recorded as [decisions](.docs/decisions/README.md):
 
-- a framework-free core behind eight ports;
+- a framework-free core behind nine ports;
 - Pest and Infection as adapters;
 - a content-keyed proof ledger;
 - the toolchain the package holds itself to.

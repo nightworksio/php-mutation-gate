@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Discovery\Discovery;
 use NightWorksIO\MutationGate\Cli\FirstParty;
+use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -38,7 +39,7 @@ $discovery = static function (array|string $root, array|string $installed): Disc
     return new Discovery(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)));
 };
 
-$runs = static fn(Extensions|CannotJudge $registry, string $name): bool => $registry instanceof Extensions && $registry->runner(Name::of($name), Options::none()) instanceof Runner;
+$runs = static fn(Extensions|CannotJudge $registry, string $name): bool => $registry instanceof Extensions && Lookup::in($registry)->runner(Name::of($name), Options::none()) instanceof Runner;
 
 it('registers what the root and every installed package declare', function () use ($discovery, $manifest, $runs): void {
     $registry = $discovery($manifest(FirstParty::PACKAGE, [FirstParty::class]), [$manifest('acme/one', [ExtensionFake::class])])->extensions(firstPartyOnly: false);

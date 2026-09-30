@@ -174,7 +174,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    - the problems output's line format (ADR-0015);
    - the action's and the reusable workflow's inputs, outputs, secrets and job
      names;
-   - the eight ports, `Extension`, `Extensions`, `Configurable`, the `Core`
+   - the nine ports, `Extension`, `Extensions`, `Configurable`, the `Core`
      value types the ports use, and the `#[Holds]` attribute.
 
    Everything else is marked `@internal`, and that includes
@@ -341,7 +341,7 @@ points at the ADR that decides it.
 
 ## Related
 
-- [ADR-0001](0001-a-framework-free-core-behind-eight-ports.md): the layers the arch rules enforce
+- [ADR-0001](0001-a-framework-free-core-behind-nine-ports.md): the layers the arch rules enforce
 - [ADR-0003](0003-a-floor-only-rises.md): the floors the package holds itself to
 - [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): the runner contract suite and `pest:patch`
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): what the reusable workflow runs

@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\ChangeSource;
+use NightWorksIO\MutationGate\Port\Repository;
 use Symfony\Component\HttpClient\HttpClient;
 
 /**
@@ -49,13 +50,14 @@ final readonly class FirstParty implements Extension
             ->withCiPlan(Name::of('circleci'), CircleCiPlan::fromOptions(...))
             ->withCiPlan(Name::of('json'), JsonPlan::fromOptions(...))
             ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Git::at(self::HERE))
-            ->withChangeSource(
-                Name::of('github'),
-                static fn(): ChangeSource => PassedPullRequests::over(
-                    Git::at(self::HERE),
-                    HttpClient::create(),
-                    getenv(),
-                ),
-            );
+            ->withRepository(Name::of('git'), static fn(): Repository => Git::at(self::HERE))
+            ->withChangeSource(Name::of('github'), static fn(): ChangeSource => self::github())
+            ->withRepository(Name::of('github'), static fn(): Repository => self::github());
+    }
+
+    /** Git, with GitHub's word on what the default branch already proved. */
+    private static function github(): ChangeSource&Repository
+    {
+        return PassedPullRequests::over(Git::at(self::HERE), HttpClient::create(), getenv());
     }
 }
