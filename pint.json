@@ -1,5 +1,6 @@
 {
     "preset": "per",
+    "exclude": ["tests/Contract/Runner/fixture", "tests/Contract/Runner/infection-fixture"],
     "rules": {
         "declare_strict_types": true,
         "strict_comparison": true,

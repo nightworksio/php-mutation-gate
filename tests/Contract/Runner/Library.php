@@ -180,7 +180,12 @@ final class Library
     /** The Pest adapter over the installed library, with `pest:patch` off or on. */
     public static function pest(Patching $patching): self
     {
-        $root = Tree::at(self::DIRECTORY);
+        return self::pestAt(Tree::at(self::DIRECTORY), $patching);
+    }
+
+    /** The Pest adapter over the installed library at a root, such as a link to it. */
+    public static function pestAt(string $root, Patching $patching): self
+    {
         $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
 
         $name = sprintf('pest %s', $patching->isOn() ? 'patched' : 'unpatched');

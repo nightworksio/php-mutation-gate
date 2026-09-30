@@ -42,7 +42,9 @@ it('runs a small fallback beside ambiguous reads, and judges nothing past ten', 
         ->toEqual(Outcome::unjudged('ambiguous reference; src/Theme.php is covered by 11 test files'));
 });
 
-it('judges nothing that no test reads', function (): void {
+it('judges nothing no test reads, and never runs no files, which Pest takes as the whole suite', function (): void {
     expect(Choice::of(Paths::none(), choiceTests(3), ambiguous: false)->first(Path::of('src/Theme.php')))
-        ->toEqual(Outcome::unjudged('no test reaches this value'));
+        ->toEqual(Outcome::unjudged('no test reaches this value'))
+        ->and(Choice::of(Paths::none(), Paths::none(), ambiguous: true)->first(Path::of('src/Theme.php')))
+        ->toEqual(Outcome::unjudged('ambiguous reference; src/Theme.php is covered by 0 test files'));
 });

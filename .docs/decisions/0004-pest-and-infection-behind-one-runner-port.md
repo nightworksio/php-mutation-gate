@@ -592,16 +592,17 @@ its parser attributes. Both change when the checkout moves.
        only through the fallback;
      - a plain function's parameter default, a closure's parameter default,
        and an attribute's argument;
-     - a global `const` in a `files` autoload file, which stays uncovered;
+     - a global `const` in a `files` autoload file, which stays uncovered,
+       and a function's parameter default there, loaded before the override;
      - no reference, and a same-named constant in another class that does not
        count;
-     - `$class::NAME` inside and beyond the bound, and a chain four steps deep;
+     - `$class::NAME` inside the bound, with two test files as arguments, and
+       beyond it, and a chain four steps deep;
      - a held unit, where only the holding group judges;
-     - a symlinked project root, a dataset that loads the enum early, and a
-       missing mutated file;
-     - the override under `--parallel`, and several test files as arguments;
-     - Infection, which emits no mutant on constants, enum cases, properties
-       or attribute arguments.
+     - a symlinked project root, and an enum `tests/Pest.php` loads before the
+       override;
+     - Infection, which emits no mutant on a constant, an enum case, a
+       property or an attribute argument, and one on a parameter default.
 
 ## Alternatives considered
 

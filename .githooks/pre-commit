@@ -7,9 +7,16 @@
 
 set -eu
 
-staged=$(git diff --cached --name-only --diff-filter=ACM -- '*.php')
-[ -n "$staged" ] || exit 0
 [ -x vendor/bin/pint ] || exit 0
+
+# Pint checks every path it is given, so what pint.json excludes stays out.
+# shellcheck disable=SC2016 # PHP's own variables, for PHP to expand
+excluded=$(php -r 'foreach (json_decode(file_get_contents("pint.json"), true)["exclude"] ?? [] as $path) {
+	echo ":(exclude)$path\n";
+}')
+# shellcheck disable=SC2086
+staged=$(git diff --cached --name-only --diff-filter=ACM -- '*.php' $excluded)
+[ -n "$staged" ] || exit 0
 
 # shellcheck disable=SC2086
 vendor/bin/pint --test $staged || {

@@ -43,14 +43,15 @@ final readonly class Choice
     public function first(Path $file): Paths|Outcome
     {
         $bounded = count($this->covering) <= self::BOUND;
+        $tests = $this->ambiguous ? $this->joined() : $this->reading;
+        $none = $tests->count() === 0;
 
         return match (true) {
-            $this->ambiguous && ! $bounded => Outcome::unjudged(
+            $this->ambiguous && (! $bounded || $none) => Outcome::unjudged(
                 sprintf(self::AMBIGUOUS, $file->value(), count($this->covering)),
             ),
-            $this->ambiguous => $this->joined(),
-            count($this->reading) === 0 => Outcome::unjudged(self::UNREAD),
-            default => $this->reading,
+            $none => Outcome::unjudged(self::UNREAD),
+            default => $tests,
         };
     }
 
