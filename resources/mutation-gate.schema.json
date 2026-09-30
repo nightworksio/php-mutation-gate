@@ -189,6 +189,14 @@
                     "reason": {
                         "type": "string",
                         "minLength": 1
+                    },
+                    "exclude": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "default": []
                     }
                 },
                 "required": [
@@ -280,9 +288,24 @@
                     "type": "integer",
                     "minimum": 1,
                     "default": 20
+                },
+                "target": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                },
+                "setup": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "default": "1m"
                 }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "not": {
+                "required": [
+                    "seconds",
+                    "target"
+                ]
+            }
         },
         "costs": {
             "type": "object",
@@ -296,6 +319,24 @@
                     "default": {
                         "": 0.2
                     }
+                },
+                "perRunnerMinute": {
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "currency": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "required": [
+                        "amount",
+                        "currency"
+                    ],
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false
@@ -502,6 +543,10 @@
                                         "endpoint": {
                                             "type": "string",
                                             "minLength": 1
+                                        },
+                                        "publicUrl": {
+                                            "type": "string",
+                                            "pattern": "^https://."
                                         }
                                     },
                                     "required": [
@@ -600,6 +645,19 @@
             },
             "additionalProperties": false
         },
+        "tests": {
+            "type": "object",
+            "properties": {
+                "order": {
+                    "enum": [
+                        "killers-first",
+                        "runner"
+                    ],
+                    "default": "killers-first"
+                }
+            },
+            "additionalProperties": false
+        },
         "ignores": {
             "type": "object",
             "properties": {
@@ -659,6 +717,16 @@
                         "allow"
                     ],
                     "default": "refuse"
+                }
+            },
+            "additionalProperties": false
+        },
+        "equivalence": {
+            "type": "object",
+            "properties": {
+                "static": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -755,6 +823,177 @@
                         "type": "object",
                         "properties": {
                             "use": {
+                                "const": "tests"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "kill-matrix"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "gitlab"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "slack"
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "urlEnv": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "default": "MUTATION_GATE_SLACK_URL"
+                                    },
+                                    "url": {
+                                        "not": {},
+                                        "description": "expected no url: a webhook URL is a credential; set MUTATION_GATE_SLACK_URL, or name another variable in urlEnv"
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "discord"
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "urlEnv": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "default": "MUTATION_GATE_DISCORD_URL"
+                                    },
+                                    "url": {
+                                        "not": {},
+                                        "description": "expected no url: a webhook URL is a credential; set MUTATION_GATE_DISCORD_URL, or name another variable in urlEnv"
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "webhook"
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "urlEnv": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "default": "MUTATION_GATE_WEBHOOK_URL"
+                                    },
+                                    "url": {
+                                        "not": {},
+                                        "description": "expected no url: a webhook URL is a credential; set MUTATION_GATE_WEBHOOK_URL, or name another variable in urlEnv"
+                                    },
+                                    "secretEnv": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "default": "MUTATION_GATE_WEBHOOK_SECRET"
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "otlp"
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "endpoint": {
+                                        "type": "string",
+                                        "pattern": "^https://."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
                                 "type": "string",
                                 "minLength": 1,
                                 "not": {
@@ -762,7 +1001,14 @@
                                         "json",
                                         "junit",
                                         "sarif",
-                                        "html"
+                                        "html",
+                                        "tests",
+                                        "kill-matrix",
+                                        "gitlab",
+                                        "slack",
+                                        "discord",
+                                        "webhook",
+                                        "otlp"
                                     ]
                                 }
                             },

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use function array_flip;
 use function array_key_exists;
 use function array_keys;
 
@@ -65,17 +66,20 @@ final readonly class Builtins
      *
      * @param  array<string, array<string, mixed>> $also         the other keys the object holds
      * @param  list<string>                        $alsoRequired those a built-in adapter needs
+     * @param  list<string>                        $without      the built-in adapters that take none of them
      * @return list<array<string, mixed>>
      */
-    public function schemas(array $also, array $alsoRequired): array
+    public function schemas(array $also, array $alsoRequired, array $without): array
     {
         $schemas = [];
+        $bare = array_flip($without);
 
         foreach ($this->options as $name => $options) {
+            $own = array_key_exists($name, $bare);
             $schemas[] = [
                 'type' => 'object',
-                'properties' => ['use' => ['const' => $name], ...$also, 'with' => $options->schema()],
-                'required' => ['use', ...$alsoRequired],
+                'properties' => ['use' => ['const' => $name], ...$own ? [] : $also, 'with' => $options->schema()],
+                'required' => ['use', ...$own ? [] : $alsoRequired],
                 'additionalProperties' => false,
             ];
         }

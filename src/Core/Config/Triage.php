@@ -17,6 +17,8 @@ final readonly class Triage
         private Seconds $limit,
         private int $retries,
         private bool $confirmSurvivors,
+        private TestOrder $order,
+        private bool $staticEquivalence,
     ) {
     }
 
@@ -42,5 +44,17 @@ final readonly class Triage
     public function confirmSurvivors(): bool
     {
         return $this->confirmSurvivors;
+    }
+
+    /** `tests.order`: the order each mutant's covering tests run in (ADR-0013). */
+    public function order(): TestOrder
+    {
+        return $this->order;
+    }
+
+    /** `equivalence.static`: whether a mutant the optimizer compiles as its original is proven equivalent. */
+    public function staticEquivalence(): bool
+    {
+        return $this->staticEquivalence;
     }
 }

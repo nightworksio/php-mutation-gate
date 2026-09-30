@@ -67,6 +67,9 @@ final readonly class Settings
                 Seconds::of($read->fields('shards')->int('seconds')),
                 $read->fields('shards')->int('max'),
                 $read->fields('costs')->object('secondsPerLine', Table::class),
+                $read->fields('shards')->optional('target', Seconds::class),
+                $read->fields('shards')->object('setup', Seconds::class),
+                $read->fields('costs')->optional('perRunnerMinute', Price::class),
             ),
             new Ci(
                 $read->fields('ci')->optional('plan', Choice::class),
@@ -87,6 +90,8 @@ final readonly class Settings
                 Seconds::of($read->fields('timeouts')->int('seconds')),
                 $read->fields('timeouts')->int('retries'),
                 $read->fields('flaky')->bool('confirmSurvivors'),
+                $read->fields('tests')->object('order', TestOrder::class),
+                $read->fields('equivalence')->bool('static'),
             ),
             new Ignores(
                 Listed::of($read->fields('ignores')->objects('entries', Ignored::class)),

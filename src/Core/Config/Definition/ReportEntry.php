@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use function array_flip;
+use function array_key_exists;
+
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Report;
 use NightWorksIO\MutationGate\Core\File\Path;
+
+use function sprintf;
 
 /**
  * One entry of `reports`: always an object, with the reporter in `use`, its
@@ -18,12 +23,16 @@ use NightWorksIO\MutationGate\Core\File\Path;
  */
 final readonly class ReportEntry implements Node
 {
-    /** @param Section<Fields> $written */
-    private function __construct(private Builtins $builtins, private Section $written)
+    /**
+     * @param Section<Fields> $written
+     * @param list<string>    $sending the built-in reporters that send rather than write a file, and take no path
+     */
+    private function __construct(private Builtins $builtins, private Section $written, private array $sending)
     {
     }
 
-    public static function choosing(Builtins $builtins): self
+    /** @param list<string> $sending the built-in reporters that send rather than write a file, and take no path */
+    public static function choosing(Builtins $builtins, array $sending): self
     {
         return new self(
             $builtins,
@@ -32,6 +41,7 @@ final readonly class ReportEntry implements Node
                 Field::optional('path', Location::path(), Effect::JudgesOrReportsOnly),
                 Field::optional('with', OpenObject::any(), Effect::JudgesOrReportsOnly),
             ),
+            $sending,
         );
     }
 
@@ -50,7 +60,9 @@ final readonly class ReportEntry implements Node
 
     public function schema(): array
     {
-        return ['anyOf' => $this->builtins->schemas(['path' => Location::path()->schema()], ['path'])];
+        return [
+            'anyOf' => $this->builtins->schemas(['path' => Location::path()->schema()], ['path'], $this->sending),
+        ];
     }
 
     public function effects(): array
@@ -65,10 +77,18 @@ final readonly class ReportEntry implements Node
         $chosen = $this->builtins->choose($use, $fields->has('with') ? Json::decode($fields->string('with')) : [], $at);
         $choice = $chosen->value();
 
+        $sends = array_key_exists($use, array_flip($this->sending));
+
         return match (true) {
             ! $choice instanceof Choice => $chosen,
-            $path instanceof Absent && $this->builtins->has($use) => Reading::refused([
+            $path instanceof Absent && $this->builtins->has($use) && ! $sends => Reading::refused([
                 Problem::at(At::key($at, 'path'), 'expected a path, got nothing'),
+            ]),
+            $path instanceof Path && $sends => Reading::refused([
+                Problem::at(
+                    At::key($at, 'path'),
+                    sprintf('expected nothing, as %s writes no file, got "%s"', $use, $path->value()),
+                ),
             ]),
             default => Reading::of(Report::of($choice, $path), $written->shown()),
         };
