@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
+use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Cores;
@@ -25,9 +26,12 @@ use NightWorksIO\MutationGate\Config\Pest;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Shards;
+use NightWorksIO\MutationGate\Config\StaticCheck;
+use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -46,6 +50,7 @@ use NightWorksIO\MutationGate\Mutator\Engine\SetEngine;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -81,10 +86,16 @@ function wiringEveryCi(): Withheld
     );
 }
 
+/** What zero-config finds of the fixture project, which installs no static analyser. */
+function wiringDetected(): Detected
+{
+    return new Detected(Directory::at(Flows::project()), Directory::at(sprintf('%s/vendor', Flows::project())));
+}
+
 /** The adapters these settings choose, started in these variables. */
 function wiredOf(Settings $settings, Variables $environment): Adapters
 {
-    $adapters = new Wiring(wiringRegistry(), $environment)
+    $adapters = new Wiring(wiringRegistry(), $environment, wiringDetected())
         ->adapters($settings, Directory::at(Flows::project()));
 
     return $adapters instanceof Adapters ? $adapters : throw new RuntimeException('The adapters could not be wired.');
@@ -107,7 +118,7 @@ it('wires the runner, the store, the learned cost model, the JSON plan and git w
 it('counts a plan\'s mutants with the default set, where the set is registered', function (): void {
     $registry = new DefaultExtension()->extend(wiringRegistry());
     $set = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
-    $adapters = new Wiring($registry, Variables::of([]))->adapters(Flows::settings(), Directory::at(Flows::project()));
+    $adapters = new Wiring($registry, Variables::of([]), wiringDetected())->adapters(Flows::settings(), Directory::at(Flows::project()));
 
     expect($adapters instanceof Adapters ? $adapters->engine : $adapters)
         ->toEqual($set instanceof MutatorSet ? SetEngine::of($set) : $set);
@@ -321,6 +332,7 @@ it('cannot wire a runner the registry does not have, or one that refuses its opt
     $wired = static fn(Extensions $registry, string $runner): Adapters|Invalid|CannotJudge => new Wiring(
         $registry,
         Variables::of([]),
+        wiringDetected(),
     )->adapters(Flows::settings(Runner::uses($runner)), Directory::at(Scratch::directory()));
 
     expect($wired(wiringRegistry(), 'nowhere'))->toEqual(CannotJudge::because('No runner is registered as "nowhere".'))
@@ -336,4 +348,32 @@ it('hands the Pest runner pest.patch and its canary, so it says every key reads 
     expect($patched->readByEveryKey())->toEqual(Groups::of(Group::named('mutation-canary')))
         ->and($unpatched->readByEveryKey())->toEqual(Groups::none())
         ->and($unpatched->opensEachShard())->toBeTrue();
+});
+
+it('wires no static analyser where none is chosen, or where auto finds none installed', function (StaticCheck $static): void {
+    expect(wiredOf(Flows::settings($static), Variables::of([]))->checker)->toEqual(NoAnalyser::configured());
+})->with([
+    'none' => [StaticCheck::none()],
+    'auto, in a project that installs none' => [StaticCheck::auto()],
+]);
+
+it('wires the analyser chosen, handing it staticCheck.config as its config', function (): void {
+    $handed = [];
+    $registry = wiringRegistry()->withStaticChecker(Name::of('fake'), static function (Options $options) use (&$handed): StaticCheckerFake {
+        $handed[] = $options->path(Key::of('config'));
+
+        return StaticCheckerFake::findingNothing();
+    });
+    $settings = Flows::settings(StaticCheck::uses('fake'), StaticCheck::config('config/analyser.neon'));
+    $adapters = new Wiring($registry, Variables::of([]), wiringDetected())->adapters($settings, Directory::at(Flows::project()));
+
+    expect($adapters instanceof Adapters ? $adapters->checker : $adapters)->toEqual(StaticCheckerFake::findingNothing())
+        ->and($handed)->toEqual([Path::of('config/analyser.neon')]);
+});
+
+it('cannot wire an analyser the registry does not have', function (): void {
+    $adapters = new Wiring(wiringRegistry(), Variables::of([]), wiringDetected())
+        ->adapters(Flows::settings(StaticCheck::uses('nowhere')), Directory::at(Flows::project()));
+
+    expect($adapters)->toEqual(CannotJudge::because('No static checker is registered as "nowhere".'));
 });

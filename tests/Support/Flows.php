@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
 use NightWorksIO\MutationGate\Config\Setting;
+use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -47,6 +48,7 @@ use NightWorksIO\MutationGate\Port\CostModel;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Port\Runner;
+use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
@@ -158,6 +160,7 @@ final readonly class Flows
 
         return new Adapters(
             self::given(Runner::class, RunnerFake::ofTheFixture(), $ports),
+            self::checker($ports),
             self::given(TreeSource::class, new TreeSourceFake(self::trees()), $ports),
             self::given(ProofStore::class, new ProofStoreFake(), $ports),
             self::given(CostModel::class, new CostModelFake(Seconds::of(1.0)), $ports),
@@ -198,6 +201,22 @@ final readonly class Flows
         $lost = CannotTell::because('git is not installed.');
 
         return new RepositoryFake($lost, $lost, $lost, $lost);
+    }
+
+    /**
+     * The static analyser among these ports, or none.
+     *
+     * @param array<object> $ports
+     */
+    private static function checker(array $ports): StaticChecker|NoAnalyser
+    {
+        foreach ($ports as $given) {
+            if ($given instanceof StaticChecker) {
+                return $given;
+            }
+        }
+
+        return NoAnalyser::configured();
     }
 
     /**

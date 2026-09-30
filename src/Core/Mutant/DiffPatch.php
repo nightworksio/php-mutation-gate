@@ -28,8 +28,6 @@ use function usort;
  */
 final readonly class DiffPatch
 {
-    private const string HUNK = '@@';
-
     private const string CONTEXT = ' ';
 
     private const string REMOVED = '-';
@@ -52,7 +50,7 @@ final readonly class DiffPatch
         $current = [];
 
         foreach (explode("\n", $mutation->diff()) as $line) {
-            [$hunks, $current] = str_starts_with($line, self::HUNK)
+            [$hunks, $current] = str_starts_with($line, Hunks::HUNK)
                 ? [self::closed($hunks, $current), [[], [], 0, false]]
                 : [$hunks, self::read($current, $line)];
         }

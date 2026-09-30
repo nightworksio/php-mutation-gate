@@ -11,7 +11,10 @@ use function hash_copy;
 use function hash_update;
 
 use HashContext;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
@@ -42,7 +45,9 @@ use function sprintf;
  * 2. The gate's installed version and source reference.
  * 3. The configuration as it affects results, serialised canonically.
  * 4. The runner's identity: its name, the version and reference of every
- *    package it drives, and the digest of the PHP it runs on.
+ *    package it drives, and the digest of the PHP it runs on; and the
+ *    identity of the static analyser that checks its mutants, its name,
+ *    version and config's digest, or that none does (ADR-0020, decision 14).
  * 5. The digest of `vendor/composer/installed.json`.
  * 6. Every file outside the test directories, by its digest, less the
  *    exceptions.
@@ -61,7 +66,7 @@ use function sprintf;
  */
 final readonly class ContentKeys
 {
-    public const string FORMAT = 'mutation-gate proof 2';
+    public const string FORMAT = 'mutation-gate proof 3';
 
     private const string MISSING = 'missing';
 
@@ -78,12 +83,13 @@ final readonly class ContentKeys
         Version $gate,
         string $config,
         Identity $runner,
+        AnalyserIdentity|NoAnalyser $analyser,
         Digest $installed,
         Source $source,
         Tests $tests,
     ): self {
         $context = Digest::hashing();
-        self::hashMutationReads($context, $gate, $config, $runner, $installed);
+        self::hashMutationReads($context, $gate, $config, $runner, $analyser, $installed);
         $mutation = hash_copy($context);
         hash_update($mutation, self::framed('definitions'));
         self::hashFingerprintsIn($mutation, $source->definitions());
@@ -178,13 +184,19 @@ final readonly class ContentKeys
         Version $gate,
         string $config,
         Identity $runner,
+        AnalyserIdentity|NoAnalyser $analyser,
         Digest $installed,
     ): void {
         hash_update($context, self::framed(self::FORMAT, 'gate', $gate->package(), $gate->version()));
         hash_update($context, self::framed($gate->reference()));
         hash_update($context, self::framed('config', $config, 'runner', $runner->runner()));
         self::hashVersionsIn($context, $runner);
-        hash_update($context, self::framed($runner->platform()->value(), 'installed', $installed->value()));
+        hash_update($context, self::framed($runner->platform()->value()));
+        $checked = $analyser instanceof AnalyserIdentity
+            ? [$analyser->analyser(), $analyser->version(), $analyser->config()->value()]
+            : [StaticCheck::NONE];
+        hash_update($context, self::framed('analyser', ...$checked));
+        hash_update($context, self::framed('installed', $installed->value()));
     }
 
     /** Every file outside the test directories, and every CI definition that runs the gate. */
