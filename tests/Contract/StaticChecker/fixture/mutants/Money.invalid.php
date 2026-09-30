@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Acme;
+namespace StaticCheckFixture;
 
 final class Money
 {

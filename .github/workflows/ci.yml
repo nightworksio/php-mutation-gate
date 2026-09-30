@@ -213,11 +213,12 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      # PHPStan's cache tracks what each file depends on. Rector's does not: a
+      # file it cached stays clean when a class declared elsewhere changes
+      # what a rule does to it, so Rector runs uncached.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            .phpstan-cache
-            .rector-cache
+          path: .phpstan-cache
           key: analysis-${{ runner.os }}-${{ github.sha }}
           restore-keys: analysis-${{ runner.os }}-
       # Cheapest first, so a misplaced brace fails in seconds rather than after
