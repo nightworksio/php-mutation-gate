@@ -133,12 +133,17 @@ needs remain, and the runners' own behaviour shapes each answer.
      of every file the analyser analyses, which must hold these files, from
      one warm-up run. Each check reports on the whole of that scope too, so
      a finding the originals already had is never read as new.
-   - `check(MutantCheck): Findings|CannotJudge` checks one mutant. The
-     request holds the original, the mutant, the dependents to analyse
-     again unchanged against it (none by default), and what is withheld. So
-     a finding always belongs to that mutant or to one of those dependents.
-     A check that cannot run leaves the mutant to its tests. It never kills
-     it.
+   - `check(MutantCheck): Findings|OutOfScope|CannotJudge` checks one
+     mutant. The request holds the original, the mutant, the dependents to
+     analyse again unchanged against it (none by default), and what is
+     withheld. So a finding always belongs to that mutant or to one of those
+     dependents. An original outside the paths the analyser analyses is
+     `OutOfScope`. A check that is out of scope or cannot run leaves the
+     mutant to its tests. It never kills it.
+   - The runner gives each mutant as the analyser reads it:
+     `Runner::checkable(Mutant): Checkable|CannotJudge` holds the mutant's
+     text and the original it is judged against (decision 9). The runner
+     owns its mutants' format, so `Core` needs no parser.
    - Every process an adapter starts, its version command included, runs
      without what the runner withholds (decision 18).
    - `Core` compares findings. The port has a fake in `tests/Fakes` and one
@@ -157,7 +162,8 @@ needs remain, and the runners' own behaviour shapes each answer.
      that breaks a file depending on it is found there. Mago analyses a
      substitute outside its configured `paths` too, so the adapter checks
      the original against `mago list-files` first: a mutant of a file
-     outside them is left unchecked, and the run says so. The gate runs the
+     outside them is `OutOfScope`, left unchecked, and the run says so
+     (decision 11). The gate runs the
      binary Composer's package downloaded, under
      `vendor/carthage-software/mago/composer/bin/<version>/`, rather than
      `vendor/bin/mago`, whose first run downloads it.
@@ -205,9 +211,23 @@ needs remain, and the runners' own behaviour shapes each answer.
    - Each finding is compared by its code and message, ignoring lines:
      PHPStan's `identifier`, Mago's `code` and Psalm's `type`. Any
      error-level finding the original file does not have rejects the mutant.
-   - The original's findings come from the warm-up run, once per run. So a
-     project with a baseline, or with known errors, is served. A clean
+   - The original's findings come from the warm-up run, once per shard. So
+     a project with a baseline, or with known errors, is served. A clean
      analyser run is not required.
+   - Infection's and PHPUnit's mutants are the file as written with the
+     runner's diff put back onto it: each hunk where its lines stand,
+     nearest the mutant's line. They are judged against the warm-up's
+     findings.
+   - Pest diffs two prints of the file by php-parser's standard printer, so
+     its adapter prints the original the same way and puts the diff onto
+     the print. The print is checked once per file, and stands for the
+     original only where its findings are the warm-up's, each as many
+     times. Otherwise every survivor of that file is left unchecked.
+   - A diff that does not apply, or a file gone or no longer parsed, leaves
+     the mutant unchecked. It is never killed.
+   - The texts a check reads go under `.mutation-gate/staticcheck/mutants/`
+     and `.mutation-gate/staticcheck/originals/`, one file per check, named
+     by the mutant's id and removed after it.
 
 10. **A rejected mutant is *killed by static analysis*, and counts as
     killed.**
@@ -236,7 +256,19 @@ needs remain, and the runners' own behaviour shapes each answer.
 
 11. **Each mutant is checked where it pays: before its tests, after them, or
     both.**
-    - Every survivor is checked after its tests.
+    - Every survivor that is not flaky is checked after its tests, in its
+      shard, once the shard's invocations are done. The checks count
+      against the time budget (ADR-0008): a survivor the time left has no
+      room for, at the checks' mean time so far, stays a survivor.
+    - A survivor left unchecked stays a survivor. The verdict warns once for
+      each reason, with how many survivors it left and the first three of
+      their files, sorted: the analyser could not say its version, its run
+      over the originals failed, the file is out of its scope, the runner
+      could not give the mutant, the print analyses otherwise than the
+      file, the check could not run, or the budget ran out.
+    - A check after the tests records its time alone, in the ledger's
+      `analysers` section. Rates are learned only from checks before the
+      tests, since the survivors are no fair sample of a mutator's mutants.
     - A mutant is also checked **before** its tests when its mutator's
       rejection rate × its judging tests' time is greater than the time of
       one check. The tests' time comes from the coverage map, and the check's
@@ -286,8 +318,8 @@ needs remain, and the runners' own behaviour shapes each answer.
       check comes after them, and `plan` says so once.
     - With `staticCheck.tool` other than `none`, the config the adapter
       writes drops `staticAnalysisTool` and `staticAnalysisToolOptions`, and
-      the gate checks survivors from `logs.json`'s `mutatedSourceCode` by
-      decision 9. With `none`, the project's own keys are kept.
+      the gate checks survivors by decision 9, from each mutant's diff put
+      back onto its file. With `none`, the project's own keys are kept.
     - One rule and one status then hold under every runner, Psalm included.
     - `init --from` maps `staticAnalysisTool: phpstan` or `mago` to
       `staticCheck.tool`.
