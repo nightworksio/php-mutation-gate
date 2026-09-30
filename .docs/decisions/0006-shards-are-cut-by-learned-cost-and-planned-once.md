@@ -37,14 +37,19 @@ Two parts of that do not carry over to a public package.
      - reads the config and the trees;
      - takes the coverage map, either by running the suite or from
        `--coverage=<dir>`, which an earlier test job wrote in the runner's
-       layout (ADR-0004). A Pest map is PHP code, which reading it runs, so
-       only a map the same pipeline run wrote is ever read;
+       layout (ADR-0004). A PHP coverage map, such as Pest's, is code that
+       reading it runs, so a PHP coverage map is read only when this same job
+       wrote it;
      - works out the reach (ADR-0005) and each considered unit's content key
        (ADR-0007), and drops every unit a proof already covers;
      - weighs the rest with the cost model and cuts the shards.
 
      It writes `.mutation-gate/plan.json`, keeps the coverage it used under
      `.mutation-gate/coverage/`, and prints the plan in the CI's format.
+     Coverage leaves the job that read it only as the gate's own map:
+     `"format": 1`, compact JSON, gzipped, data that reading never runs. Each
+     shard's map holds only the lines of the files that shard mutates, with
+     every test and its duration.
    - **`mutation-gate run --plan=<file>`** mutates one shard's units and writes
      `.mutation-gate/results/<id>.json`. That file holds every mutant's record,
      each unit's content key and what the shard measured.
