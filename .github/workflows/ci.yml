@@ -225,14 +225,18 @@ jobs:
       # the analyser has walked the tree. Each tool reports in its structured
       # form, into evidence/raw, and the evidence step shows every finding as an
       # annotation (ADR-0019, decision 5).
+      # Each plugin's composer.json is checked on its own too, as it will be
+      # once the plugin leaves (A8).
       - id: validate
         run: |
           mkdir -p evidence/raw
           composer validate --strict
+          for manifest in plugins/*/composer.json; do composer validate --strict --no-check-lock "$manifest"; done
       - id: normalize
         run: |
           set -o pipefail
           composer normalize --dry-run 2>&1 | tee evidence/raw/normalize.txt
+          for manifest in plugins/*/composer.json; do composer normalize --dry-run "$manifest" 2>&1 | tee -a evidence/raw/normalize.txt; done
       - id: audit
         run: composer audit --locked --format=json > evidence/raw/audit.json
       - id: lint

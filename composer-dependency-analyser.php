@@ -9,9 +9,9 @@ use ShipMonk\ComposerDependencyAnalyser\Config\ErrorType;
  * G4 — no dev dependency is reachable from the code that ships, and every
  * dependency is used.
  *
- * `src` is what a project that requires this package runs. Anything it names
- * that only `require-dev` installs is absent there, and the first a user hears
- * of it is a fatal error in their CI.
+ * `src` and each plugin's `src` are what a project that requires this package
+ * runs. Anything they name that only `require-dev` installs is absent there,
+ * and the first a user hears of it is a fatal error in their CI.
  */
 
 return (new Configuration())
@@ -19,7 +19,9 @@ return (new Configuration())
     // dev dependency is either used in code or listed below with what runs it.
     ->enableAnalysisOfUnusedDevDependencies()
     ->addPathToScan(__DIR__ . '/src', isDev: false)
+    ->addPathToScan(__DIR__ . '/plugins/default/src', isDev: false)
     ->addPathToScan(__DIR__ . '/tests', isDev: true)
+    ->addPathToScan(__DIR__ . '/plugins/default/tests', isDev: true)
     ->addPathToScan(__DIR__ . '/phpstan', isDev: true)
     // The runner contract suite's fixture is a project of its own, with its own
     // dependencies.

@@ -14,6 +14,9 @@ use PhpParser\Node;
  */
 interface Mutator
 {
+    /** The attribute a node offered to a mutator keeps its parent in, as both runners set it. */
+    public const string PARENT = 'parent';
+
     /** Its name in reports and ignores, `<set>/<Name>`, such as `laravel/GateAllowsToTrue`. */
     public function name(): MutatorName;
 

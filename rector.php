@@ -10,6 +10,7 @@ return RectorConfig::configure()
     // R3 — the same trees phpstan.neon and the Arch suite read, and the executable.
     ->withPaths([
         __DIR__ . '/src',
+        __DIR__ . '/plugins',
         __DIR__ . '/tests',
         __DIR__ . '/phpstan',
         __DIR__ . '/bin/mutation-gate',

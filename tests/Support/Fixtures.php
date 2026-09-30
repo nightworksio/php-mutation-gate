@@ -108,6 +108,48 @@ final readonly class Fixtures
                     }
                 }
                 PHP, 'lets a layer name only itself and the layers before it'),
+            Fixture::suite('A6', 'src/Adapter/Pest/PlantedPluginReach.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                namespace NightWorksIO\MutationGate\Adapter\Pest;
+
+                use NightWorksIO\MutationGateDefault\DefaultSet;
+
+                final readonly class PlantedPluginReach
+                {
+                    public function __construct(private DefaultSet $set) {}
+                }
+                PHP, 'keeps src from naming any plugin'),
+            Fixture::suite('A7', 'plugins/default/src/PlantedInternals.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                namespace NightWorksIO\MutationGateDefault;
+
+                use NightWorksIO\MutationGate\Adapter\Pest\Diff;
+
+                final readonly class PlantedInternals
+                {
+                    public function __construct(private Diff $diff) {}
+                }
+                PHP, 'lets a plugin name only PHP, php-parser, the mutator SDK, the extension API and the core values they reach'),
+            Fixture::suite('A8', 'plugins/default/src/PlantedDependency.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                namespace NightWorksIO\MutationGateDefault;
+
+                use Symfony\Component\Process\Process;
+
+                final readonly class PlantedDependency
+                {
+                    public function __construct(private Process $process) {}
+                }
+                PHP, 'gives each plugin a manifest of its own that requires every package its code names'),
             Fixture::suite('A5', 'src/Attribute/PlantedReach.php', <<<'PHP'
                 <?php
 

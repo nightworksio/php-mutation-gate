@@ -19,6 +19,7 @@ parameters:
     # R3 — the same trees rector.php and the Arch suite read, and the executable.
     paths:
         - src
+        - plugins
         - tests
         - phpstan
         - bin/mutation-gate
@@ -559,6 +560,8 @@ services:
                     - INDENT # a NEON indent
                 'NightWorksIO\MutationGate\Adapter\Pest\Diff':
                     - INDENT # a line of Pest's diff
+                'NightWorksIO\MutationGateDefault\Literals':
+                    - 'TRUE' # PHP's constant, not Infection's setting
                 'NightWorksIO\MutationGate\Core\Proof\LedgerFile':
                     - FORMAT # a format version
                     - SECONDS # a field of the ledger

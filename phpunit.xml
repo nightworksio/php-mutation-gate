@@ -29,6 +29,11 @@
             <directory>tests/Unit</directory>
         </testsuite>
 
+        <!-- The first-party plugins, each tested inside its own tree (A8). -->
+        <testsuite name="Plugins">
+            <directory>plugins/*/tests</directory>
+        </testsuite>
+
         <!-- One suite per port, run against its fake and every adapter (G2).
              The runner suite's fixture is a project of its own, with a vendor
              directory whose files end in Test.php. -->
@@ -76,6 +81,7 @@
     >
         <include>
             <directory>src</directory>
+            <directory>plugins/*/src</directory>
         </include>
     </source>
 </phpunit>

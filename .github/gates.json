@@ -98,8 +98,8 @@
     },
     "checks": {
       "check": "checks",
-      "checks": "The manifest, the formatting (Pint), the static analysis (PHPStan), dead idioms (Rector), the advisories and the dependencies.",
-      "reproduce": "composer validate --strict && composer normalize --dry-run && composer audit --locked && composer lint && composer analyse && composer refactor && composer deps",
+      "checks": "The manifests, the root's and each plugin's, the formatting (Pint), the static analysis (PHPStan), dead idioms (Rector), the advisories and the dependencies.",
+      "reproduce": "composer validate --strict && composer normalize --dry-run && composer validate --strict --no-check-lock plugins/default/composer.json && composer normalize --dry-run plugins/default/composer.json && composer audit --locked && composer lint && composer analyse && composer refactor && composer deps",
       "fix": "composer refactor:fix && composer lint:fix && composer normalize",
       "evidence": [
         {"step": "validate", "tool": "composer-validate"},

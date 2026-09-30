@@ -9,7 +9,6 @@ use function array_filter;
 use function array_map;
 use function array_unique;
 use function array_values;
-use function explode;
 use function file_get_contents;
 use function in_array;
 use function is_string;
@@ -115,13 +114,16 @@ final readonly class Source
         return $names;
     }
 
-    /** The class PSR-4 says a file at this path under src or tests declares. */
+    /** The class PSR-4 says a file at this path declares, or nothing where no PSR-4 root holds it. */
     public static function classAtPath(string $path): string
     {
-        $namespace = str_starts_with($path, 'tests/') ? sprintf('%s\\Tests', Layer::ROOT) : Layer::ROOT;
-        $relative = mb_substr($path, mb_strlen(explode('/', $path)[0]) + 1, -mb_strlen('.php'));
+        foreach (Tree::namespaces() as $directory => $namespace) {
+            if (str_starts_with($path, $directory)) {
+                return sprintf('%s%s', $namespace, str_replace('/', '\\', mb_substr($path, mb_strlen($directory), -mb_strlen('.php'))));
+            }
+        }
 
-        return sprintf('%s\\%s', $namespace, str_replace('/', '\\', $relative));
+        return '';
     }
 
     /**

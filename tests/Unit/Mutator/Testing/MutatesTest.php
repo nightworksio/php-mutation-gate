@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Mutator\Testing\NotParsed;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\DateTimeToImmutable;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveItem;
 
 function money(): string
 {
@@ -50,6 +51,28 @@ it('removes a statement under Pest, and empties it under Infection', function ()
 
     expect(iterator_to_array($mutates->underPest(), preserve_keys: false))->toBe(["-        echo 'adding';\n-"])
         ->and(iterator_to_array($mutates->underInfection(), preserve_keys: false))->toBe(["-        echo 'adding';\n+        "]);
+});
+
+it('removes an item of a list under both runners', function (): void {
+    $code = <<<'CODE'
+        <?php
+
+        final class Money
+        {
+            public function parts()
+            {
+                return [1, 2];
+            }
+        }
+        CODE;
+    $mutates = Mutates::with(new RemoveItem(), $code);
+    $removed = [
+        "-        return [1, 2];\n+        return [2];",
+        "-        return [1, 2];\n+        return [1];",
+    ];
+
+    expect(iterator_to_array($mutates->underPest(), preserve_keys: false))->toBe($removed)
+        ->and(iterator_to_array($mutates->underInfection(), preserve_keys: false))->toBe($removed);
 });
 
 it('offers each node with its names resolved, and counts no change where the mutator leaves one', function (): void {
