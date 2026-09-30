@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
@@ -49,6 +51,9 @@ final readonly class GitLabPlan implements CiPlan, Configurable
 
     /** The file that defines `.mutation-gate`, unless `ci.gitlab.template` names another. */
     public const string TEMPLATE = '.gitlab/mutation-gate.yml';
+
+    /** The pipeline GitLab runs where `CI_CONFIG_PATH` names no other. */
+    private const string PIPELINE_DEFINITION = '.gitlab-ci.yml';
 
     private const string SHARD_JOB = 'mutation-gate-shard';
 
@@ -109,13 +114,27 @@ final readonly class GitLabPlan implements CiPlan, Configurable
         return WhichShard::in($this->variables, $plan);
     }
 
+    /** A merge request's scope, a branch's, or none for a tag, which is no branch the gate writes for. */
     public function runOn(): RunOn|CannotTell
     {
         $defaultBranch = RunOn::branchNamed($this->variables->valueOf('CI_DEFAULT_BRANCH'));
 
-        return $this->variables->has('CI_MERGE_REQUEST_IID')
-            ? RunOn::pullRequest($this->variables->valueOf('CI_MERGE_REQUEST_IID'), $defaultBranch)
-            : RunOn::branch($this->variables->valueOf('CI_COMMIT_REF_NAME'), $defaultBranch);
+        return match (true) {
+            $this->variables->has('CI_MERGE_REQUEST_IID') => RunOn::pullRequest(
+                $this->variables->valueOf('CI_MERGE_REQUEST_IID'),
+                $defaultBranch,
+            ),
+            $this->variables->has('CI_COMMIT_TAG') => RunOn::detached($defaultBranch),
+            default => RunOn::branch($this->variables->valueOf('CI_COMMIT_REF_NAME'), $defaultBranch),
+        };
+    }
+
+    /** The pipeline `CI_CONFIG_PATH` names, `.gitlab-ci.yml` by default, and the template its child includes. */
+    public function definitions(): Paths
+    {
+        $pipeline = $this->variables->valueOf('CI_CONFIG_PATH');
+
+        return Paths::of(Path::of($pipeline === '' ? self::PIPELINE_DEFINITION : $pipeline), Path::of($this->template));
     }
 
     /** @return array<string, mixed> */

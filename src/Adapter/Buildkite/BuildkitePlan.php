@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -50,6 +52,8 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
     private const string DOWNLOAD = "buildkite-agent artifact download '.mutation-gate/**/*' .";
 
     private const string PLAN = '.mutation-gate/plan.json';
+
+    private const string DEFINITION = '.buildkite/pipeline.yml';
 
     /** @param array<string, mixed> $step the step template */
     private function __construct(private Variables $variables, private array $step, private string $to)
@@ -104,9 +108,17 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
         $defaultBranch = RunOn::branchNamed($this->variables->valueOf('BUILDKITE_PIPELINE_DEFAULT_BRANCH'));
         $pullRequest = $this->variables->valueOf('BUILDKITE_PULL_REQUEST');
 
-        return $pullRequest !== '' && $pullRequest !== 'false'
-            ? RunOn::pullRequest($pullRequest, $defaultBranch)
-            : RunOn::branch($this->variables->valueOf('BUILDKITE_BRANCH'), $defaultBranch);
+        return match (true) {
+            $pullRequest !== '' && $pullRequest !== 'false' => RunOn::pullRequest($pullRequest, $defaultBranch),
+            $this->variables->valueOf('BUILDKITE_TAG') !== '' => RunOn::detached($defaultBranch),
+            default => RunOn::branch($this->variables->valueOf('BUILDKITE_BRANCH'), $defaultBranch),
+        };
+    }
+
+    /** The pipeline Buildkite uploads from the repository. */
+    public function definitions(): Paths
+    {
+        return Paths::of(Path::of(self::DEFINITION));
     }
 
     /** @return array<string, mixed> */

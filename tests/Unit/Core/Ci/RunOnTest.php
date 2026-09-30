@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\Ci\Unnamed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 
 it('is a branch, scoped by its ref, with the default branch the CI names', function (): void {
@@ -59,4 +61,39 @@ it('takes the default branch it is told, in place of the one the CI named', func
 
     expect($run->defaultBranch())->toEqual(Scope::branch('trunk'))
         ->and($run->scope())->toEqual(Scope::pullRequest(12));
+});
+
+it('names no commit until the CI names one', function (): void {
+    $run = RunOn::at(Scope::branch('main'), Scope::branch('main'));
+
+    expect($run->commit())->toEqual(Unnamed::commit())
+        ->and($run->withCommit(Revision::ref('5eeca8f'))->commit())->toEqual(Revision::ref('5eeca8f'))
+        ->and($run->withCommit(Revision::ref('5eeca8f'))->withDefaultBranch(Scope::branch('main'))->commit())
+        ->toEqual(Revision::ref('5eeca8f'));
+});
+
+it('keeps the default branch\'s scope only where the checkout is the commit the CI names', function (
+    Scope $scope,
+    string $named,
+    Scope|Detached $kept,
+): void {
+    $run = RunOn::at($scope, Scope::branch('main'));
+    $run = $named === '' ? $run : $run->withCommit(Revision::ref($named));
+    $checked = $run->atCheckout(Revision::ref('5eeca8f'));
+
+    expect($checked->scope())->toEqual($kept)
+        ->and($checked->defaultBranch())->toEqual(Scope::branch('main'))
+        ->and($checked->commit())->toEqual(Unnamed::commit());
+})->with([
+    'the default branch at the commit named' => [Scope::branch('main'), '5eeca8f', Scope::branch('main')],
+    'the default branch at another commit' => [Scope::branch('main'), '206b4e0', Detached::head()],
+    'the default branch with no commit named' => [Scope::branch('main'), '', Scope::branch('main')],
+    'another branch at another commit' => [Scope::branch('feature'), '206b4e0', Scope::branch('feature')],
+    'a pull request at another commit' => [Scope::pullRequest(12), '206b4e0', Scope::pullRequest(12)],
+]);
+
+it('keeps a scope where the default branch is not known', function (): void {
+    $run = RunOn::at(Scope::branch('main'), CannotTell::because('Unknown.'))->withCommit(Revision::ref('206b4e0'));
+
+    expect($run->atCheckout(Revision::ref('5eeca8f'))->scope())->toEqual(Scope::branch('main'));
 });

@@ -8,14 +8,18 @@ use function count;
 use function file_get_contents;
 use function file_put_contents;
 use function getenv;
+use function in_array;
 use function is_file;
 use function json_encode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -49,6 +53,14 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     private const string PULL_REQUEST = '#^refs/pull/(\d+)/#';
 
     private const string BRANCH = '#^refs/heads/(.+)$#';
+
+    private const string EVENT = 'GITHUB_EVENT_NAME';
+
+    /** How `GITHUB_WORKFLOW_REF` spells the workflow: owner, repository, then its path before the ref. */
+    private const string WORKFLOW = '~^[^/]+/[^/]+/(?<path>[^@]+)@~';
+
+    /** The events whose ref is a branch the run may write for: none runs code from a pull request. */
+    private const array TRUSTED = ['push', 'schedule', 'workflow_dispatch'];
 
     private function __construct(private Variables $variables)
     {
@@ -87,33 +99,85 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         return WhichShard::in($this->variables, $plan);
     }
 
+    /**
+     * A pull request's scope wherever the event payload or a `pull_request`
+     * ref names one; a branch only on `push`, `schedule` and
+     * `workflow_dispatch`; and, for a tag or any other event, such as
+     * `workflow_run` or `issue_comment`, which act on code from elsewhere, no
+     * scope at all, so the run writes nothing. The run is for `GITHUB_SHA`.
+     */
     public function runOn(): RunOn|CannotTell
     {
-        $ref = $this->variables->valueOf('GITHUB_REF');
-        $defaultBranch = $this->defaultBranch();
+        $payload = $this->payload();
+        $run = $this->runIn($payload, $this->defaultBranchIn($payload));
+        $commit = $this->variables->valueOf('GITHUB_SHA');
 
-        $pullRequest = $this->variables->valueOf('GITHUB_EVENT_NAME') === 'pull_request';
-
-        if ($pullRequest && preg_match(self::PULL_REQUEST, $ref, $number) === 1) {
-            return RunOn::pullRequest($number[1], $defaultBranch);
-        }
-
-        return preg_match(self::BRANCH, $ref, $branch) === 1
-            ? RunOn::branch($branch[1], $defaultBranch)
-            : CannotTell::because(sprintf('GITHUB_REF is "%s", which is neither a branch nor a pull request.', $ref));
+        return $run instanceof RunOn && $commit !== '' ? $run->withCommit(Revision::ref($commit)) : $run;
     }
 
-    private function defaultBranch(): Scope|CannotTell
+    /** The workflow `GITHUB_WORKFLOW_REF` names. */
+    public function definitions(): Paths
+    {
+        return preg_match(self::WORKFLOW, $this->variables->valueOf('GITHUB_WORKFLOW_REF'), $found) === 1
+            ? Paths::of(Path::of($found['path']))
+            : Paths::none();
+    }
+
+    private function runIn(Node|CannotTell $payload, Scope|CannotTell $defaultBranch): RunOn|CannotTell
+    {
+        $number = $this->pullRequestIn($payload);
+        $branch = $this->branch();
+        $trusted = in_array($this->variables->valueOf(self::EVENT), self::TRUSTED, strict: true);
+
+        return match (true) {
+            $number !== '' => RunOn::pullRequest($number, $defaultBranch),
+            $trusted && $branch !== '' => RunOn::branch($branch, $defaultBranch),
+            default => RunOn::detached($defaultBranch),
+        };
+    }
+
+    /** The pull request's number, from the payload or a `pull_request` event's merge ref; empty where neither says. */
+    private function pullRequestIn(Node|CannotTell $payload): string
+    {
+        $number = ($payload instanceof Node ? $payload : Node::decode('{}'))->field('pull_request')->field('number');
+        $ref = $this->variables->valueOf('GITHUB_REF');
+        $isPullRequest = $this->variables->valueOf(self::EVENT) === 'pull_request';
+
+        try {
+            return match (true) {
+                $number->isPresent() => sprintf('%d', $number->integer()),
+                $isPullRequest && preg_match(self::PULL_REQUEST, $ref, $merge) === 1 => $merge[1],
+                default => '',
+            };
+        } catch (NotInShape) {
+            return '';
+        }
+    }
+
+    /** The branch `GITHUB_REF` names; empty for a tag or a pull request's ref. */
+    private function branch(): string
+    {
+        return preg_match(self::BRANCH, $this->variables->valueOf('GITHUB_REF'), $branch) === 1 ? $branch[1] : '';
+    }
+
+    private function payload(): Node|CannotTell
     {
         $event = $this->variables->valueOf('GITHUB_EVENT_PATH');
         $payload = is_file($event) ? file_get_contents($event) : false;
 
-        if ($payload === false) {
-            return CannotTell::because('No event payload could be read, so the default branch is not known.');
+        return $payload === false
+            ? CannotTell::because('No event payload could be read, so the default branch is not known.')
+            : Node::decode($payload);
+    }
+
+    private function defaultBranchIn(Node|CannotTell $payload): Scope|CannotTell
+    {
+        if ($payload instanceof CannotTell) {
+            return $payload;
         }
 
         try {
-            return RunOn::branchNamed(Node::decode($payload)->field('repository')->field('default_branch')->text());
+            return RunOn::branchNamed($payload->field('repository')->field('default_branch')->text());
         } catch (NotInShape) {
             return CannotTell::because('The event payload does not name the default branch.');
         }

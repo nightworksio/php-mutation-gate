@@ -63,3 +63,12 @@ it('says what it can of the run, or that it cannot tell', function (CiPlan $ci):
 
     expect($run instanceof RunOn || $run->why() !== '')->toBeTrue();
 })->with($plans);
+
+it('names the CI definitions that run the gate as paths from the root', function (CiPlan $ci): void {
+    foreach ($ci->definitions() as $definition) {
+        expect($definition->value())->not->toStartWith('/')
+            ->and($definition->value())->not->toBe('.');
+    }
+
+    expect($ci->definitions()->count())->toBeLessThanOrEqual(2);
+})->with($plans);

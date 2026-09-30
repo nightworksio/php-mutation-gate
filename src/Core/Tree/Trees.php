@@ -12,6 +12,7 @@ use function count;
 
 use Countable;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\File\Path;
 use Traversable;
 
 /**
@@ -39,6 +40,19 @@ final readonly class Trees implements Countable, IteratorAggregate
     public function with(Tree $tree): self
     {
         return new self([...$this->trees, $tree]);
+    }
+
+    /** The tree a path is in: the innermost one whose path holds it. */
+    public function holding(Path $path): Tree|Outside
+    {
+        $holding = Outside::trees();
+
+        foreach ($this->trees as $tree) {
+            $inner = $holding instanceof Outside || $tree->path()->within($holding->path());
+            $holding = $inner && $path->within($tree->path()) ? $tree : $holding;
+        }
+
+        return $holding;
     }
 
     public function count(): int
