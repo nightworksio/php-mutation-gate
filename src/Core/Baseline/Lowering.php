@@ -36,14 +36,17 @@ final readonly class Lowering
 
     public static function against(Baseline $base, Baseline $head, Trees $trees): Failures
     {
-        $failures = Failures::none();
+        $failures = [];
 
         foreach ($base as $was) {
             $failure = self::failureOf($was, $head->entryOf($was->tree()), $trees);
-            $failures = $failure instanceof Failure ? $failures->with($failure) : $failures;
+
+            if ($failure instanceof Failure) {
+                $failures[] = $failure;
+            }
         }
 
-        return $failures;
+        return Failures::of(...$failures);
     }
 
     private static function failureOf(Entry $was, Entry|Unrecorded $is, Trees $trees): Failure|Kept

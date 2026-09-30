@@ -134,13 +134,13 @@ final readonly class BaselineFile
             throw NotInShape::at($file->field('format')->at(), sprintf('format %d', self::FORMAT));
         }
 
-        $baseline = Baseline::none();
+        $entries = [];
 
         foreach ($file->field('trees')->entries() as $tree => $entry) {
-            $baseline = $baseline->with(self::entryIn(Path::of($tree), $entry));
+            $entries[] = self::entryIn(Path::of($tree), $entry);
         }
 
-        return $baseline;
+        return Baseline::of(...$entries);
     }
 
     /** @throws NotInShape */

@@ -62,21 +62,21 @@ final readonly class Manifests
             return $manifest instanceof CannotJudge ? $manifest : Paths::none();
         }
 
-        $paths = Paths::none();
+        $paths = [];
 
         foreach (self::AUTOLOAD as $kind) {
             foreach ($this->strings($this->under($manifest, ['autoload', $kind])) as $path) {
-                $paths = $paths->with(Path::of($path));
+                $paths[] = Path::of($path);
             }
         }
 
-        return $paths;
+        return Paths::of(...$paths);
     }
 
     /** One tree per path, each with the floor the nearest manifest above it declares, in the root package. */
     public function trees(Paths $paths): Trees|CannotJudge
     {
-        $trees = Trees::none();
+        $trees = [];
 
         foreach ($paths as $path) {
             $declared = $this->declaredFor($path);
@@ -85,10 +85,10 @@ final readonly class Manifests
                 return $declared;
             }
 
-            $trees = $trees->with(Tree::at($path, $declared, Package::at(Path::root())));
+            $trees[] = Tree::at($path, $declared, Package::at(Path::root()));
         }
 
-        return $trees;
+        return Trees::of(...$trees);
     }
 
     private function declaredFor(Path $tree): Floor|Exempt|Undeclared|CannotJudge

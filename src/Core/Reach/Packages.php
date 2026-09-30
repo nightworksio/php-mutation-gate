@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
+use function array_key_exists;
 use function array_pop;
+use function array_values;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -50,20 +52,20 @@ final readonly class Packages
     /** A package, and every package that depends on it, directly or through others. */
     public function withDependents(Package $package): Paths
     {
-        $reached = Paths::of($package->path());
+        $reached = [$package->path()->value() => $package->path()];
         $pending = [$package->path()];
 
         while ($pending !== []) {
             $dependency = array_pop($pending);
 
             foreach ($this->packages as $other) {
-                if ($other->dependencies()->has($dependency) && ! $reached->has($other->path())) {
-                    $reached = $reached->with($other->path());
+                if ($other->dependencies()->has($dependency) && ! array_key_exists($other->path()->value(), $reached)) {
+                    $reached[$other->path()->value()] = $other->path();
                     $pending[] = $other->path();
                 }
             }
         }
 
-        return $reached;
+        return Paths::of(...array_values($reached));
     }
 }

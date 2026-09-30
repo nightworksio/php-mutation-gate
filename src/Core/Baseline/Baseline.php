@@ -42,13 +42,15 @@ final readonly class Baseline implements Countable, IteratorAggregate
 
     public static function of(Entry ...$entries): self
     {
-        $baseline = self::none();
+        $collected = [];
 
         foreach ($entries as $entry) {
-            $baseline = $baseline->with($entry);
+            $collected[$entry->tree()->value()] = $entry;
         }
 
-        return $baseline;
+        ksort($collected, SORT_STRING);
+
+        return new self($collected);
     }
 
     /** This baseline, with this tree's entry in place of any it had. */
@@ -84,14 +86,17 @@ final readonly class Baseline implements Countable, IteratorAggregate
      */
     public function raisedBy(TreeVerdicts $verdicts): self
     {
-        $raised = $this;
+        $raised = [];
 
         foreach ($verdicts as $verdict) {
             $floor = $verdict->raised();
-            $raised = $floor instanceof Floor ? $raised->with(Entry::of($verdict->tree()->path(), $floor)) : $raised;
+
+            if ($floor instanceof Floor) {
+                $raised[] = Entry::of($verdict->tree()->path(), $floor);
+            }
         }
 
-        return $raised;
+        return self::of(...array_values($this->entries), ...$raised);
     }
 
     public function count(): int

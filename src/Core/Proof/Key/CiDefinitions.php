@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use function array_any;
+use function array_values;
 
 use ArrayIterator;
 
@@ -38,32 +39,19 @@ final readonly class CiDefinitions implements Countable, IteratorAggregate
 
     public static function of(CiDefinition ...$definitions): self
     {
-        $all = self::none();
+        $byPath = [];
 
         foreach ($definitions as $definition) {
-            $all = $all->with($definition);
+            $byPath[$definition->path()->value()] = $definition;
         }
 
-        return $all;
+        return self::sorted(array_values($byPath));
     }
 
     /** These definitions and one more; a definition at a path already here replaces it. */
     public function with(CiDefinition $definition): self
     {
-        $kept = [$definition];
-
-        foreach ($this->definitions as $held) {
-            if (! $held->path()->equals($definition->path())) {
-                $kept[] = $held;
-            }
-        }
-
-        usort(
-            $kept,
-            static fn(CiDefinition $one, CiDefinition $other): int => $one->path()->value() <=> $other->path()->value(),
-        );
-
-        return new self($kept);
+        return self::of(...$this->definitions, ...[$definition]);
     }
 
     public function has(Path $path): bool
@@ -80,5 +68,16 @@ final readonly class CiDefinitions implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator($this->definitions);
+    }
+
+    /** @param list<CiDefinition> $definitions each at its own path */
+    private static function sorted(array $definitions): self
+    {
+        usort(
+            $definitions,
+            static fn(CiDefinition $one, CiDefinition $other): int => $one->path()->value() <=> $other->path()->value(),
+        );
+
+        return new self($definitions);
     }
 }

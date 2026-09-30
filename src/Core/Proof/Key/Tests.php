@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use function array_key_exists;
+use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -19,16 +20,24 @@ use NightWorksIO\MutationGate\Core\File\Paths;
  * file the coverage map does not know, the canary group, and what all of
  * those name. Support is found by the names each file declares, and matching
  * over-reads on purpose: a word that happens to match brings the file in.
+ *
+ * What each file names is looked up once, when the files are read, so
+ * following it from any file is a walk over what it names.
  */
 final readonly class Tests
 {
     /**
      * @param array<string, TestFile>   $files  by path
-     * @param array<string, list<Path>> $byName each support file, by each name it declares
+     * @param array<string, list<Path>> $naming the support each file names, each once, by the file's path
      * @param Paths                     $always the files in every key
+     * @param Paths                     $cases  every file of test cases
      */
-    private function __construct(private array $files, private array $byName, private Paths $always)
-    {
+    private function __construct(
+        private array $files,
+        private array $naming,
+        private Paths $always,
+        private Paths $cases,
+    ) {
     }
 
     /**
@@ -39,30 +48,43 @@ final readonly class Tests
     {
         $byPath = [];
         $byName = [];
-        $seeds = $canaries;
+        $seeds = [];
+        $cases = [];
 
         foreach ($files as $file) {
             $path = $file->fingerprint()->path();
             $byPath[$path->value()] = $file;
             $byName = self::withDeclarationsOf($file, $byName);
-            $seeds = self::isInEveryKey($file, $known) ? $seeds->with($path) : $seeds;
+
+            if (self::isInEveryKey($file, $known)) {
+                $seeds[] = $path;
+            }
+
+            if ($file->role() === Role::TestCase) {
+                $cases[] = $path;
+            }
         }
 
-        $unseeded = new self($byPath, $byName, Paths::none());
+        $naming = [];
 
-        return new self($byPath, $byName, $unseeded->reachedFrom($seeds));
+        foreach ($byPath as $file) {
+            $naming[$file->fingerprint()->path()->value()] = self::supportNamedBy($file, $byName);
+        }
+
+        $unseeded = new self($byPath, $naming, Paths::none(), Paths::none());
+
+        return new self(
+            $byPath,
+            $naming,
+            $unseeded->reachedFrom(Paths::of(...$canaries, ...$seeds)),
+            Paths::of(...$cases),
+        );
     }
 
     /** Every file of test cases, each of which can judge a held unit, because any test can join a group. */
     public function testCases(): Paths
     {
-        $cases = Paths::none();
-
-        foreach ($this->files as $file) {
-            $cases = $file->role() === Role::TestCase ? $cases->with($file->fingerprint()->path()) : $cases;
-        }
-
-        return $cases;
+        return $this->cases;
     }
 
     /** What of the test directories goes into the key of a unit these test files judge. */
@@ -97,36 +119,50 @@ final readonly class Tests
             || ($file->role() === Role::TestCase && ! $known->has($file->fingerprint()->path()));
     }
 
+    /**
+     * The support a file names, each once, in the order it names them.
+     *
+     * @param  array<string, list<Path>> $byName each support file, by each name it declares
+     * @return list<Path>
+     */
+    private static function supportNamedBy(TestFile $file, array $byName): array
+    {
+        $found = [];
+
+        foreach ($file->php()->names() as $name) {
+            foreach (array_key_exists($name, $byName) ? $byName[$name] : [] as $support) {
+                $found += [$support->value() => $support];
+            }
+        }
+
+        return array_values($found);
+    }
+
     /** These files, and every support file they name, transitively, in the order they were reached. */
     private function reachedFrom(Paths $from): Paths
     {
         $queue = [...$from];
-        $reached = $from;
+        $reached = [];
+
+        foreach ($queue as $path) {
+            $reached[$path->value()] = $path;
+        }
 
         $at = 0;
 
         while ($at < count($queue)) {
-            foreach ($this->supportNamedBy($queue[$at]) as $found) {
-                $queue = $reached->has($found) ? $queue : [...$queue, $found];
-                $reached = $reached->with($found);
+            $named = array_key_exists($queue[$at]->value(), $this->naming) ? $this->naming[$queue[$at]->value()] : [];
+
+            foreach ($named as $found) {
+                if (! array_key_exists($found->value(), $reached)) {
+                    $reached[$found->value()] = $found;
+                    $queue[] = $found;
+                }
             }
 
             $at++;
         }
 
-        return $reached;
-    }
-
-    /** @return list<Path> */
-    private function supportNamedBy(Path $file): array
-    {
-        $found = [];
-        $names = array_key_exists($file->value(), $this->files) ? $this->files[$file->value()]->php()->names() : [];
-
-        foreach ($names as $name) {
-            $found = [...$found, ...(array_key_exists($name, $this->byName) ? $this->byName[$name] : [])];
-        }
-
-        return $found;
+        return Paths::of(...array_values($reached));
     }
 }
