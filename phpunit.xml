@@ -36,6 +36,7 @@
             <directory>tests/Contract</directory>
             <exclude>tests/Contract/Runner/fixture</exclude>
             <exclude>tests/Contract/Runner/infection-fixture</exclude>
+            <exclude>tests/Contract/StaticChecker/fixture</exclude>
         </testsuite>
 
         <!-- The judgements of the rules in phpstan/Rules, each test file beside the

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\MisreadSetting;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
@@ -17,52 +16,53 @@ use NightWorksIO\MutationGate\Core\Format\Json;
  */
 final readonly class Layer
 {
-    /** @param array<class-string<Part>, Part> $parts */
-    private function __construct(private array $parts)
+    private function __construct(private Parts $parts)
     {
     }
 
     public function setup(): Setup
     {
-        return $this->part(Setup::class);
+        return $this->parts->part(Setup::class);
     }
 
     /** A layer that sets nothing. */
     public static function none(): self
     {
-        return new self([
-            Setup::class => Setup::none(),
-            Floors::class => Floors::none(),
-            Reach::class => Reach::none(),
-            Shards::class => Shards::none(),
-            Ci::class => Ci::none(),
-            Proofs::class => Proofs::none(),
-            Triage::class => Triage::none(),
-            Ignores::class => Ignores::none(),
-            Reports::class => Reports::none(),
-            Badge::class => Badge::none(),
-            Pest::class => Pest::none(),
-            Local::class => Local::none(),
-        ]);
+        return new self(Parts::of(
+            Setup::none(),
+            Floors::none(),
+            Reach::none(),
+            Shards::none(),
+            Ci::none(),
+            Proofs::none(),
+            Triage::none(),
+            Ignores::none(),
+            Reports::none(),
+            Badge::none(),
+            Pest::none(),
+            StaticCheck::none(),
+            Local::none(),
+        ));
     }
 
     /** Every setting at the value it takes when every layer leaves it out. */
     public static function standard(): self
     {
-        return new self([
-            Setup::class => Setup::standard(),
-            Floors::class => Floors::standard(),
-            Reach::class => Reach::standard(),
-            Shards::class => Shards::standard(),
-            Ci::class => Ci::standard(),
-            Proofs::class => Proofs::standard(),
-            Triage::class => Triage::standard(),
-            Ignores::class => Ignores::standard(),
-            Reports::class => Reports::standard(),
-            Badge::class => Badge::standard(),
-            Pest::class => Pest::standard(),
-            Local::class => Local::standard(),
-        ]);
+        return new self(Parts::of(
+            Setup::standard(),
+            Floors::standard(),
+            Reach::standard(),
+            Shards::standard(),
+            Ci::standard(),
+            Proofs::standard(),
+            Triage::standard(),
+            Ignores::standard(),
+            Reports::standard(),
+            Badge::standard(),
+            Pest::standard(),
+            StaticCheck::standard(),
+            Local::standard(),
+        ));
     }
 
     /** A layer that sets only what these parts set. */
@@ -71,7 +71,7 @@ final readonly class Layer
         $layer = self::none();
 
         foreach ($parts as $part) {
-            $layer = $layer->over(new self([$part::class => $part]));
+            $layer = $layer->over(new self(Parts::of($part)));
         }
 
         return $layer;
@@ -80,106 +80,79 @@ final readonly class Layer
     /** This layer with a later one laid over it. */
     public function over(self $later): self
     {
-        $parts = $this->parts;
-
-        foreach ($later->parts as $class => $part) {
-            $parts[$class] = $parts[$class]->over($part);
-        }
-
-        return new self($parts);
+        return new self($this->parts->over($later->parts));
     }
 
     /** What this layer sets, as a config file at this origin writes it. */
     public function written(Origin $origin): Json
     {
-        $written = Json::object();
-
-        foreach ($this->parts as $part) {
-            $written = $written->merged($part->written($origin));
-        }
-
-        return $written;
+        return $this->parts->written($origin);
     }
 
     /** What this layer sets, as the PHP builder's calls. */
     public function php(Origin $origin): PhpCalls
     {
-        $calls = PhpCalls::none();
-
-        foreach ($this->parts as $part) {
-            $calls = $calls->and($part->php($origin));
-        }
-
-        return $calls;
+        return $this->parts->php($origin);
     }
 
     public function floors(): Floors
     {
-        return $this->part(Floors::class);
+        return $this->parts->part(Floors::class);
     }
 
     public function reach(): Reach
     {
-        return $this->part(Reach::class);
+        return $this->parts->part(Reach::class);
     }
 
     public function shards(): Shards
     {
-        return $this->part(Shards::class);
+        return $this->parts->part(Shards::class);
     }
 
     public function ci(): Ci
     {
-        return $this->part(Ci::class);
+        return $this->parts->part(Ci::class);
     }
 
     public function proofs(): Proofs
     {
-        return $this->part(Proofs::class);
+        return $this->parts->part(Proofs::class);
     }
 
     public function triage(): Triage
     {
-        return $this->part(Triage::class);
+        return $this->parts->part(Triage::class);
     }
 
     public function ignores(): Ignores
     {
-        return $this->part(Ignores::class);
+        return $this->parts->part(Ignores::class);
     }
 
     public function reports(): Reports
     {
-        return $this->part(Reports::class);
+        return $this->parts->part(Reports::class);
     }
 
     public function badge(): Badge
     {
-        return $this->part(Badge::class);
+        return $this->parts->part(Badge::class);
     }
 
     public function pest(): Pest
     {
-        return $this->part(Pest::class);
+        return $this->parts->part(Pest::class);
+    }
+
+    public function staticCheck(): StaticCheck
+    {
+        return $this->parts->part(StaticCheck::class);
     }
 
     public function local(): Local
     {
-        return $this->part(Local::class);
+        return $this->parts->part(Local::class);
     }
 
-    /**
-     * @template P of Part
-     *
-     * @param  class-string<P> $class
-     * @return P
-     */
-    private function part(string $class): Part
-    {
-        $part = $this->parts[$class];
-
-        return $part instanceof $class
-            ? $part
-            : throw MisreadSetting::as($class, 'a part of a layer');
-    }
 }

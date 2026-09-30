@@ -6,8 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use DateTimeImmutable;
 use NightWorksIO\MutationGate\Core\Config\Definition\Adapter;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
 use function sprintf;
 
@@ -93,12 +91,6 @@ final readonly class Settings
         return $this->layer->proofs();
     }
 
-    /** How long a run may take, riskiest code first (ADR-0008). */
-    public function budget(): Seconds|Unlimited
-    {
-        return $this->layer->triage()->budget();
-    }
-
     public function triage(): Triage
     {
         return $this->layer->triage();
@@ -124,6 +116,12 @@ final readonly class Settings
     public function pest(): Pest
     {
         return $this->layer->pest();
+    }
+
+    /** Which static analyser rejects a mutant before its tests run, and with which config (ADR-0020). */
+    public function staticCheck(): StaticCheck
+    {
+        return $this->layer->staticCheck();
     }
 
     public function local(): Local

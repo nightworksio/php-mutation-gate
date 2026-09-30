@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Config\Source;
+use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\Tree;
 use NightWorksIO\MutationGate\Config\Uncovered;
@@ -122,6 +123,8 @@ it('writes every setting of the configuration reference', function (): void {
                 Badge::colour('green', 85),
                 Pest::patched(),
                 Pest::canary('canary'),
+                StaticCheck::phpstan(),
+                StaticCheck::config('phpstan.dist.neon'),
                 Local::watchBudget('2m'),
                 Local::prePushBudget('10m'),
             ),
@@ -182,6 +185,7 @@ it('writes every setting of the configuration reference', function (): void {
         'flaky' => ['confirmSurvivors' => false],
         'badge' => ['colors' => ['green' => 85]],
         'pest' => ['patch' => true, 'canary' => 'canary'],
+        'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],
         'local' => ['watchBudget' => '2m', 'prePushBudget' => '10m'],
     ]);
 });
@@ -259,6 +263,20 @@ it('names each built-in adapter by a method of its own', function (Closure $gate
     'no Buildkite step' => [
         fn(): Gate => Gate::configure()->with(Ci::buildkiteStep()),
         ['ci' => ['buildkite' => ['step' => []]]],
+    ],
+    'the analyser zero-config finds' => [
+        fn(): Gate => Gate::configure()->with(StaticCheck::auto()),
+        ['staticCheck' => ['tool' => 'auto']],
+    ],
+    'no analyser' => [
+        fn(): Gate => Gate::configure()->with(StaticCheck::none()),
+        ['staticCheck' => ['tool' => 'none']],
+    ],
+    'mago' => [fn(): Gate => Gate::configure()->with(StaticCheck::mago()), ['staticCheck' => ['tool' => 'mago']]],
+    'psalm' => [fn(): Gate => Gate::configure()->with(StaticCheck::psalm()), ['staticCheck' => ['tool' => 'psalm']]],
+    'an analyser by name' => [
+        fn(): Gate => Gate::configure()->with(StaticCheck::uses('acme', Option::of('level', 9))),
+        ['staticCheck' => ['tool' => ['use' => 'acme', 'with' => ['level' => 9]]]],
     ],
 ]);
 

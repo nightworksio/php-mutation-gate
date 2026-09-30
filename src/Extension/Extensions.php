@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Port\Runner;
+use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
 
 use function sprintf;
@@ -64,6 +65,9 @@ final readonly class Extensions
     /** @var Entries<Closure(Options): (ConfigLoader|Invalid)> */
     private Entries $configLoaders;
 
+    /** @var Entries<Closure(Options): (StaticChecker|Invalid)> */
+    private Entries $staticCheckers;
+
     /** @var Entries<Layer> */
     private Entries $presets;
 
@@ -82,6 +86,7 @@ final readonly class Extensions
         $this->changeSources = new Entries(ExtensionPoint::ChangeSource);
         $this->repositories = new Entries(ExtensionPoint::Repository);
         $this->configLoaders = new Entries(ExtensionPoint::ConfigLoader);
+        $this->staticCheckers = new Entries(ExtensionPoint::StaticChecker);
         $this->presets = new Entries(ExtensionPoint::Preset);
         $this->mutatorSets = new Entries(ExtensionPoint::MutatorSet);
     }
@@ -158,6 +163,14 @@ final readonly class Extensions
         ]);
     }
 
+    /** @param Closure(Options): (StaticChecker|Invalid) $build */
+    public function withStaticChecker(Name $name, Closure $build): self
+    {
+        return clone($this, [
+            'staticCheckers' => $this->staticCheckers->with(Entry::of($name, $this->origin, $build)),
+        ]);
+    }
+
     /** A config fragment with a name, applied before the config file so the project's own settings win. */
     public function withPreset(Name $name, Layer $fragment): self
     {
@@ -194,6 +207,7 @@ final readonly class Extensions
             ...$this->changeSources->conflictsWith($other->changeSources),
             ...$this->repositories->conflictsWith($other->repositories),
             ...$this->configLoaders->conflictsWith($other->configLoaders),
+            ...$this->staticCheckers->conflictsWith($other->staticCheckers),
             ...$this->presets->conflictsWith($other->presets),
             ...$this->mutatorSets->conflictsWith($other->mutatorSets),
         ];
@@ -215,6 +229,7 @@ final readonly class Extensions
             'changeSources' => $this->changeSources->merge($other->changeSources),
             'repositories' => $this->repositories->merge($other->repositories),
             'configLoaders' => $this->configLoaders->merge($other->configLoaders),
+            'staticCheckers' => $this->staticCheckers->merge($other->staticCheckers),
             'presets' => $this->presets->merge($other->presets),
             'mutatorSets' => $this->mutatorSets->merge($other->mutatorSets),
         ]);
@@ -238,6 +253,7 @@ final readonly class Extensions
             ExtensionPoint::ChangeSource => $this->changeSources,
             ExtensionPoint::Repository => $this->repositories,
             ExtensionPoint::ConfigLoader => $this->configLoaders,
+            ExtensionPoint::StaticChecker => $this->staticCheckers,
             ExtensionPoint::Preset => $this->presets,
             ExtensionPoint::MutatorSet => $this->mutatorSets,
         };

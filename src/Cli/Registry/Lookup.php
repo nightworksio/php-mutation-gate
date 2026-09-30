@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Port\Runner;
+use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
 
 use function sprintf;
@@ -67,6 +68,11 @@ final readonly class Lookup
     public function ciPlan(Name $name, Options $options): CiPlan|Invalid|CannotJudge
     {
         return $this->built(ExtensionPoint::CiPlan, $name, $options, CiPlan::class);
+    }
+
+    public function staticChecker(Name $name, Options $options): StaticChecker|Invalid|CannotJudge
+    {
+        return $this->built(ExtensionPoint::StaticChecker, $name, $options, StaticChecker::class);
     }
 
     public function reporter(Name $name, Options $options): Reporter|Invalid|CannotJudge

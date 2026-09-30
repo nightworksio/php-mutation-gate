@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -123,3 +124,49 @@ it('reads what Composer installed, or says it lists nothing', function () use ($
         ->and($installed instanceof Installed && $installed->has(Detected::PEST))->toBeFalse()
         ->and($bare instanceof Installed && $bare->has(Detected::INFECTION))->toBeFalse();
 });
+
+/** What zero-config finds in a project with these commands in vendor/bin and these files at its root. */
+$analysing = static function (string ...$paths): Detected {
+    $project = Scratch::directory();
+
+    foreach ($paths as $path) {
+        Scratch::write($project, $path, '');
+    }
+
+    return new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)));
+};
+
+it('takes the analyser that is installed and configured', function (string $analyser, string $config) use (
+    $analysing,
+): void {
+    expect($analysing(sprintf('vendor/bin/%s', $analyser), $config)->staticChecker())->toEqual(Name::of($analyser));
+})->with([
+    'Mago by its TOML' => ['mago', 'mago.toml'],
+    'Mago by its YAML' => ['mago', 'mago.yaml'],
+    'Mago by its JSON' => ['mago', 'mago.json'],
+    'PHPStan by its neon' => ['phpstan', 'phpstan.neon'],
+    'PHPStan by its distributed neon' => ['phpstan', 'phpstan.neon.dist'],
+    'PHPStan by its other distributed neon' => ['phpstan', 'phpstan.dist.neon'],
+    'Psalm by its XML' => ['psalm', 'psalm.xml'],
+    'Psalm by its distributed XML' => ['psalm', 'psalm.xml.dist'],
+]);
+
+it('takes Mago before PHPStan, and PHPStan before Psalm', function () use ($analysing): void {
+    $configs = ['mago.toml', 'phpstan.neon', 'psalm.xml'];
+
+    expect($analysing('vendor/bin/psalm', 'vendor/bin/phpstan', 'vendor/bin/mago', ...$configs)->staticChecker())
+        ->toEqual(Name::of('mago'))
+        ->and($analysing('vendor/bin/psalm', 'vendor/bin/phpstan', ...$configs)->staticChecker())
+        ->toEqual(Name::of('phpstan'));
+});
+
+it('takes no analyser that is installed but not configured, or configured but not installed', function (
+    string ...$paths,
+) use ($analysing): void {
+    expect($analysing(...$paths)->staticChecker())->toEqual(Name::of('none'));
+})->with([
+    'nothing' => [],
+    'installed only' => ['vendor/bin/mago', 'vendor/bin/phpstan', 'vendor/bin/psalm'],
+    'configured only' => ['mago.toml', 'phpstan.neon', 'psalm.xml'],
+    'each by the other\'s config' => ['vendor/bin/mago', 'vendor/bin/psalm', 'phpstan.neon'],
+]);

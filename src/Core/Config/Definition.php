@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\ReportsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Config\Definition\SetupKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ShardsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\StaticCheckKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\TriageKeys;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -58,6 +59,7 @@ final readonly class Definition
             ...ReportsKeys::fields($origin),
             ...BadgeKeys::fields(),
             ...PestKeys::fields(),
+            ...StaticCheckKeys::fields($origin),
             ...LocalKeys::fields(),
         ];
 

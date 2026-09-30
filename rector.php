@@ -38,6 +38,8 @@ return RectorConfig::configure()
         // The runner contract suite's fixture is a project of its own, written as a user's library is.
         __DIR__ . '/tests/Contract/Runner/fixture',
         __DIR__ . '/tests/Contract/Runner/infection-fixture',
+        // The static checker contract suite's fixture holds mutants, which are wrong on purpose.
+        __DIR__ . '/tests/Contract/StaticChecker/fixture',
     ])
     ->withImportNames(importShortClasses: false)
     ->withCache(__DIR__ . '/.rector-cache');

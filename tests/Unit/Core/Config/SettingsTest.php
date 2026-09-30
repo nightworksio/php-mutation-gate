@@ -115,6 +115,9 @@ const DEFAULTS = <<<'JSON'
             "patch": false,
             "canary": "mutation-canary"
         },
+        "staticCheck": {
+            "tool": "auto"
+        },
         "local": {
             "watchBudget": "1m",
             "prePushBudget": "5m"
@@ -177,6 +180,7 @@ const EVERYTHING = [
     ],
     'badge' => ['colors' => ['green' => 95]],
     'pest' => ['patch' => true, 'canary' => 'canary'],
+    'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],
     'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s'],
 ];
 
@@ -235,7 +239,7 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->proofs()->store())->toEqual(Choice::of('directory', Configs::options('{"path":".mutation-gate/ledger"}')))
         ->and([...$settings->proofs()->ignore()])->toBe([])
         ->and($settings->proofs()->write())->toBe(ProofWriting::Auto)
-        ->and($settings->budget())->toEqual(Unlimited::time())
+        ->and($settings->triage()->budget())->toEqual(Unlimited::time())
         ->and($settings->triage()->timeouts())->toBe(TimeoutMode::Confirm)
         ->and($settings->triage()->limit())->toEqual(Seconds::of(10))
         ->and($settings->triage()->retries())->toBe(20)
@@ -248,6 +252,8 @@ it('reads the defaults into their types', function (): void {
         ->toBe(['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60])
         ->and($settings->pest()->patch())->toBeFalse()
         ->and($settings->pest()->canary())->toEqual(Group::named('mutation-canary'))
+        ->and($settings->staticCheck()->tool())->toEqual(Choice::of('auto', Configs::options('{}')))
+        ->and($settings->staticCheck()->config())->toEqual(Absent::setting())
         ->and($settings->local()->watchBudget())->toEqual(Seconds::of(60))
         ->and($settings->local()->prePushBudget())->toEqual(Seconds::of(300));
 });
@@ -296,7 +302,7 @@ it('reads every setting a config writes into its type', function (): void {
         ))
         ->and([...$proofs->ignore()])->toEqual([Glob::of('docs/**')])
         ->and($proofs->write())->toBe(ProofWriting::Never)
-        ->and($settings->budget())->toEqual(Seconds::of(5400))
+        ->and($settings->triage()->budget())->toEqual(Seconds::of(5400))
         ->and($triage->timeouts())->toBe(TimeoutMode::Unjudged)
         ->and($triage->limit())->toEqual(Seconds::of(30))
         ->and($triage->retries())->toBe(0)
@@ -306,6 +312,8 @@ it('reads every setting a config writes into its type', function (): void {
         ->and([...$settings->badge()])->toBe(['green' => 95])
         ->and($settings->pest()->patch())->toBeTrue()
         ->and($settings->pest()->canary())->toEqual(Group::named('canary'))
+        ->and($settings->staticCheck()->tool())->toEqual(Choice::of('phpstan', Configs::options('{}')))
+        ->and($settings->staticCheck()->config())->toEqual(Path::of('phpstan.dist.neon'))
         ->and($settings->local()->watchBudget())->toEqual(Seconds::of(120))
         ->and($settings->local()->prePushBudget())->toEqual(Seconds::of(90));
 });
@@ -382,11 +390,12 @@ it('leaves an ignore without an end date open when nothing limits it', function 
 it('serialises the settings that affect results canonically, and only those', function (): void {
     expect(Configs::settings(['runner' => 'pest'])->canonical())->toBe(
         '{"flaky":{"confirmSurvivors":true},"packages":[],"pest":{"canary":"mutation-canary","patch":false},'
-        . '"runner":"pest","tests":{"order":"killers-first"},"timeouts":{"retries":20,"seconds":10},'
-        . '"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
+        . '"runner":"pest","staticCheck":{"tool":"auto"},"tests":{"order":"killers-first"},'
+        . '"timeouts":{"retries":20,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
     )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
         '{"flaky":{"confirmSurvivors":false},"packages":["packages/*"],"pest":{"canary":"canary","patch":true},'
-        . '"runner":"infection","tests":{"order":"killers-first"},"timeouts":{"retries":0,"seconds":30},'
+        . '"runner":"infection","staticCheck":{"config":"phpstan.dist.neon","tool":"phpstan"},'
+        . '"tests":{"order":"killers-first"},"timeouts":{"retries":0,"seconds":30},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
         . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},'
         . '{"path":"app/Generated"},{"path":"app/Legacy"}]}',
@@ -426,6 +435,8 @@ it('changes the canonical form with every setting that affects results', functio
     'survivor confirmation' => [['flaky' => ['confirmSurvivors' => true]]],
     'the Pest patches' => [['pest' => ['patch' => false]]],
     'the canary group' => [['pest' => ['canary' => 'other']]],
+    'the static analyser' => [['staticCheck' => ['tool' => 'psalm', 'config' => 'phpstan.dist.neon']]],
+    'the static analyser\'s config' => [['staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.neon']]],
     'a tree\'s exclude' => [['trees' => [...EVERYTHING['trees'], ['path' => 'lib', 'exclude' => ['lib/Gen/**']]]]],
     'the test order' => [['tests' => ['order' => 'runner']]],
     'the tree source\'s fallback' => [['treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]]]],
@@ -465,6 +476,7 @@ it('reports every problem at once, each at its path with what was expected', fun
         ]],
         'reports' => [['use' => 'sarif'], ['path' => 'build/report']],
         'pest' => ['patch' => 'yes'],
+        'staticCheck' => ['tool' => ['use' => 'phpstan', 'with' => ['level' => 9]], 'config' => ''],
     ])))->toBe([
         'runner: expected a name, a class, or an object with use and with, got 3',
         'treeSource.with.fallback: expected a list, got "app"',
@@ -484,6 +496,8 @@ it('reports every problem at once, each at its path with what was expected', fun
         'reports[0].path: expected a path, got nothing',
         'reports[1].use: expected a name or a class, got nothing',
         'pest.patch: expected true or false, got "yes"',
+        'staticCheck.tool.with.level: unknown key',
+        'staticCheck.config: expected a path, got ""',
         'newcode: unknown key, did you mean newCode?',
     ]);
 });
@@ -663,16 +677,20 @@ it('refuses an adapter written as neither a name nor an object', function (strin
     'the tree source' => ['treeSource', ['treeSource' => 5]],
     'the CI plan' => ['ci.plan', ['ci' => ['plan' => 5]]],
     'the proof store' => ['proofs.store', ['proofs' => ['store' => 5]]],
+    'the static analyser' => ['staticCheck.tool', ['staticCheck' => ['tool' => 5]]],
 ]);
 
 it('leaves the options of a class or another extension\'s adapter to it', function (): void {
     $settings = Configs::settings([
         'runner' => ['use' => 'Acme\\Gate\\Runner', 'with' => ['workers' => 4]],
         'proofs' => ['store' => 'Acme\\Gate\\Store'],
+        'staticCheck' => ['tool' => ['use' => 'Acme\\Gate\\Analyser', 'with' => ['level' => 9]]],
     ]);
 
     expect($settings->runner()->choice())->toEqual(Choice::of('Acme\\Gate\\Runner', Configs::options('{"workers":4}')))
         ->and($settings->proofs()->store())->toEqual(Choice::of('Acme\\Gate\\Store', Configs::options('{}')))
+        ->and($settings->staticCheck()->tool())
+        ->toEqual(Choice::of('Acme\\Gate\\Analyser', Configs::options('{"level":9}')))
         ->and(Configs::shown($settings, 'runner'))->toBe(['use' => 'Acme\\Gate\\Runner', 'with' => ['workers' => 4]]);
 });
 
