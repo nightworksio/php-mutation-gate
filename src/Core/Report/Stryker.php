@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -136,24 +137,18 @@ final readonly class Stryker
             'statusReason' => $reason instanceof Reason
                 ? sprintf('%s: %s', Label::of($judged->judgement()), $reason->text())
                 : Label::of($judged->judgement()),
-            'description' => self::description($judged),
+            'description' => self::description($judged, $matrix->names()),
             'coveredBy' => self::ids($covering),
             'killedBy' => self::ids($judged->mutant()->killers()),
             'testsCompleted' => $completed,
         ];
     }
 
-    /** Judging tests, the hint, and the reproduce and explain commands, one to a line. */
-    private static function description(JudgedMutant $judged): string
+    /** Judging tests by name, the hint, and the reproduce and explain commands, one to a line. */
+    private static function description(JudgedMutant $judged, TestNames $names): string
     {
-        $tests = [];
-
-        foreach ($judged->tests() as $test) {
-            $tests[] = $test->value();
-        }
-
         return implode("\n", [
-            ...count($tests) > 0 ? [sprintf('Judged by: %s', implode(', ', $tests))] : [],
+            ...count($judged->tests()) > 0 ? [sprintf(MutantText::JUDGED_BY, $names->listed($judged->tests()))] : [],
             $judged->hint()->text(),
             sprintf('Reproduce: %s', $judged->reproduce()),
             sprintf('Explain: %s', $judged->explain()),

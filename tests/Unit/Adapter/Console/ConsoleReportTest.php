@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -31,7 +32,7 @@ it('prints the verdict, the trees, new code, units, reach, what was not killed, 
 
     foreach (Verdicts::failing()->trees() as $tree) {
         foreach ($tree->survivors() as $mutant) {
-            $blocks[] = $indented(MutantText::block($mutant));
+            $blocks[] = $indented(MutantText::block($mutant, TestNames::none()));
         }
     }
 
@@ -132,4 +133,8 @@ it('ends with what the run took and saved, for a timed run', function () use ($p
         "  src/Kernel.php is run by 412 of 430 tests and nothing holds it.\n\n%s\n",
         SavingsText::of(Verdicts::named('accounted'), NoHistory::yet()),
     ));
+});
+
+it('names the judging tests as the runner named them', function () use ($printed): void {
+    expect($printed(Verdicts::named('with a matrix')))->toContain('Judged by: tests/Unit/MoneyTest.php::it fits, ');
 });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Report\JUnit;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use NightWorksIO\MutationGate\Tests\Support\Xpath;
 
@@ -24,7 +25,7 @@ it('fails a tree\'s floor with every mutant it counts as not killed', function (
 
     foreach (Verdicts::failing()->trees() as $tree) {
         foreach ($tree->survivors() as $mutant) {
-            $blocks[] = MutantText::block($mutant);
+            $blocks[] = MutantText::block($mutant, TestNames::none());
         }
     }
 
@@ -79,4 +80,9 @@ it('fails a case of the run for each thing that kept it from judging, before its
             'The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.',
         ])
         ->and(Xpath::of($xml, '/testsuites/testsuite[5]/testcase/failure/@type'))->toBe(['cannot-judge', 'run']);
+});
+
+it('names the judging tests of a failed floor\'s mutants as the runner named them', function (): void {
+    expect(implode("\n", Xpath::of(JUnit::xml(Verdicts::named('with a matrix')), '/testsuites/testsuite[1]/testcase/failure')))
+        ->toContain('Judged by: tests/Unit/MoneyTest.php::it fits, ');
 });

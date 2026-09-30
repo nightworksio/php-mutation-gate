@@ -8,8 +8,8 @@ use function array_filter;
 use function array_map;
 use function count;
 use function implode;
-use function iterator_to_array;
 
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
@@ -53,13 +53,20 @@ final readonly class JUnit
     {
         $suites = [];
 
+        $names = $verdict->matrix()->names();
+
         foreach ($verdict->trees() as $tree) {
-            $suites[] = self::suite($tree->tree()->path()->value(), [self::tree($tree)]);
+            $suites[] = self::suite($tree->tree()->path()->value(), [self::tree($tree, $names)]);
         }
 
-        if (count($verdict->newCode()) > 0) {
-            $sets = iterator_to_array($verdict->newCode(), preserve_keys: false);
-            $suites[] = self::suite(self::NEW_CODE, array_map(self::newCode(...), $sets));
+        $sets = [];
+
+        foreach ($verdict->newCode() as $set) {
+            $sets[] = self::newCode($set, $names);
+        }
+
+        if ($sets !== []) {
+            $suites[] = self::suite(self::NEW_CODE, $sets);
         }
 
         $run = self::run($verdict);
@@ -107,15 +114,15 @@ final readonly class JUnit
     }
 
     /** @return array{string, bool} */
-    private static function tree(TreeVerdict $tree): array
+    private static function tree(TreeVerdict $tree, TestNames $names): array
     {
         $path = $tree->tree()->path()->value();
 
-        return self::case('floor', $path, $tree->judgement(), SetText::tree($tree), $tree->survivors());
+        return self::case('floor', $path, $tree->judgement(), SetText::tree($tree), $tree->survivors(), $names);
     }
 
     /** @return array{string, bool} */
-    private static function newCode(NewCodeVerdict $set): array
+    private static function newCode(NewCodeVerdict $set, TestNames $names): array
     {
         return self::case(
             $set->package()->path()->value(),
@@ -123,6 +130,7 @@ final readonly class JUnit
             $set->judgement(),
             SetText::newCode($set),
             $set->survivors(),
+            $names,
         );
     }
 
@@ -162,10 +170,11 @@ final readonly class JUnit
         Judgement $judgement,
         string $said,
         JudgedMutants $survivors,
+        TestNames $names,
     ): array {
         [$body, $failed] = match ($judgement) {
             Judgement::Failed, Judgement::CannotJudge => [
-                sprintf(self::FAILED, 'floor', Xml::text($said), Xml::text(self::listing($said, $survivors))),
+                sprintf(self::FAILED, 'floor', Xml::text($said), Xml::text(self::listing($said, $survivors, $names))),
                 true,
             ],
             Judgement::Exempt => [sprintf(self::SKIPPED, Xml::text($said)), false],
@@ -176,11 +185,14 @@ final readonly class JUnit
     }
 
     /** What a failed floor says, then every mutant it counts as not killed. */
-    private static function listing(string $said, JudgedMutants $survivors): string
+    private static function listing(string $said, JudgedMutants $survivors, TestNames $names): string
     {
-        return implode("\n\n", [
-            $said,
-            ...array_map(MutantText::block(...), iterator_to_array($survivors, preserve_keys: false)),
-        ]);
+        $blocks = [$said];
+
+        foreach ($survivors as $survivor) {
+            $blocks[] = MutantText::block($survivor, $names);
+        }
+
+        return implode("\n\n", $blocks);
     }
 }

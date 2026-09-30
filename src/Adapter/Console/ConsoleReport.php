@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Report\Percent;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
@@ -73,7 +74,10 @@ final readonly class ConsoleReport implements Configurable, Reporter
             ...$this->section('New code', $this->newCode($verdict)),
             ...$this->section('Units', $this->units($verdict)),
             ...$this->section('Reach', $this->texts($verdict->reach())),
-            ...$this->section(sprintf('Not killed (%d)', count($overview->survivors())), $this->survivors($overview)),
+            ...$this->section(
+                sprintf('Not killed (%d)', count($overview->survivors())),
+                $this->survivors($overview, $verdict->matrix()->names()),
+            ),
             ...$this->section(
                 'Ignored',
                 $this->leftOut($verdict, MutantJudgement::Ignored, MutantJudgement::IgnoredByMarker),
@@ -163,12 +167,12 @@ final readonly class ConsoleReport implements Configurable, Reporter
     }
 
     /** @return list<string> */
-    private function survivors(Overview $overview): array
+    private function survivors(Overview $overview, TestNames $names): array
     {
         $blocks = [];
 
         foreach ($overview->survivors() as $mutant) {
-            $blocks[] = MutantText::block($mutant);
+            $blocks[] = MutantText::block($mutant, $names);
         }
 
         return $blocks === [] ? [] : [implode("\n\n", $blocks)];

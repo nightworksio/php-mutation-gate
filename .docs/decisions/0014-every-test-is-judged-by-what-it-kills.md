@@ -127,6 +127,12 @@ running it: why is this mutant here, and has it always been?
    - **Naming never blocks a verdict.** A runner that cannot name its tests
      answers *cannot judge* for the names alone. The reports then name each
      test by its id, with a warning.
+   - **Where the names show.** The flows hand the names to the kill matrix
+     with `KillMatrix::named(TestNames)`. Every *Judged by* line takes them
+     from there: the console's, a JUnit failure's, and the HTML and Stryker
+     report's description, as `tests/Unit/MoneyTest.php::it fits, …`. The
+     JSON report's `tests` takes them from there too. A test named nothing
+     is listed by its id.
 
 7. **`run --kill-matrix=full` records every killer, under Pest.**
    - In each mutant's child the plugin drops `--bail`, so every covering test
