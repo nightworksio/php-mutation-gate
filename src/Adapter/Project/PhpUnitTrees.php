@@ -12,7 +12,7 @@ use function is_array;
 use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -140,15 +140,17 @@ final readonly class PhpUnitTrees implements TreeSource
         };
     }
 
-    private function xml(): SimpleXMLElement|Absent|CannotJudge
+    /** The project's PHPUnit config, read; missing, by the first name it could have, where it has none. */
+    private function xml(): SimpleXMLElement|Missing|CannotJudge
     {
+        $candidates = [...PhpUnitConfig::candidatesIn(Path::root())];
         $config = array_find(
-            [...PhpUnitConfig::candidatesIn(Path::root())],
+            $candidates,
             fn(Path $candidate): bool => is_file($this->root->at($candidate)->value()),
         );
 
         if (! $config instanceof Path) {
-            return Absent::setting();
+            return Missing::at($candidates[0]);
         }
 
         $xml = simplexml_load_string(
@@ -161,7 +163,7 @@ final readonly class PhpUnitTrees implements TreeSource
             : CannotJudge::because(sprintf(self::NOT_XML, $config->value()));
     }
 
-    private function paths(SimpleXMLElement|Absent $xml, string $query): Paths
+    private function paths(SimpleXMLElement|Missing $xml, string $query): Paths
     {
         $nodes = $xml instanceof SimpleXMLElement ? $xml->xpath($query) : [];
         $paths = [];

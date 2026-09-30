@@ -55,9 +55,9 @@ final readonly class Functions
     }
 
     /** The innermost named function a line is in, or nothing where it is in none. */
-    public function around(Line $line): string
+    public function around(Line $line): string|Nameless
     {
-        $name = '';
+        $name = Nameless::code();
         $first = 0;
 
         foreach ($this->spans as [$function, $from, $to]) {

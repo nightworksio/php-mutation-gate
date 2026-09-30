@@ -10,7 +10,8 @@ it('holds a prefix without its trailing separator, and what a line costs under i
     $perLine = Seconds::of(0.5);
     $rate = LineRate::of('src/Http/', $perLine);
 
-    expect($rate->prefix())->toBe('src/Http')
+    expect($rate->prefix())->toEqual(Path::of('src/Http'))
+        ->and($rate->written())->toBe('src/Http')
         ->and($rate->perLine())->toBe($perLine);
 });
 
@@ -24,6 +25,16 @@ it('covers its path and those below it, and none only starting alike', function 
     'a path elsewhere' => ['lib/A.php', false],
 ]);
 
-it('covers every path with the empty prefix', function (): void {
-    expect(LineRate::of('', Seconds::of(0.2))->covers(Path::of('lib/A.php')))->toBeTrue();
+it('covers every path with the empty prefix, the root or no prefix at all, and writes it empty', function (): void {
+    expect(LineRate::of('', Seconds::of(0.2))->covers(Path::of('lib/A.php')))->toBeTrue()
+        ->and(LineRate::of('.', Seconds::of(0.2))->covers(Path::of('lib/A.php')))->toBeTrue()
+        ->and(LineRate::everywhere(Seconds::of(0.2))->covers(Path::of('lib/A.php')))->toBeTrue()
+        ->and(LineRate::everywhere(Seconds::of(0.2))->written())->toBe('')
+        ->and(LineRate::of('.', Seconds::of(0.2))->written())->toBe('');
+});
+
+it('is narrower the longer its prefix, and every path the least narrow', function (): void {
+    expect(LineRate::everywhere(Seconds::of(0.2))->narrowness())->toBe(0)
+        ->and(LineRate::of('a', Seconds::of(0.2))->narrowness())->toBe(1)
+        ->and(LineRate::of('src/Http', Seconds::of(0.2))->narrowness())->toBe(8);
 });

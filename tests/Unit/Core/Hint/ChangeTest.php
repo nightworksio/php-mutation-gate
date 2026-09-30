@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Hint\Change;
+use NightWorksIO\MutationGate\Core\Php\Nameless;
 
 it('reads the lines a diff removed and added, past its header', function (): void {
     $change = Change::of("--- Original\n+++ New\n@@ @@\n-        if (\$amount < \$limit) {\n+        if (\$amount <= \$limit) {\n");
@@ -26,14 +27,14 @@ it('finds the expression around what changed, as far as a bracket or a statement
     'an item of an array' => ['$xs = [$a + 1];', '$xs = [$a - 1];', '$a + 1'],
 ]);
 
-it('names what the original calls where it changed', function (string $removed, string $added, string $call): void {
-    expect(Change::of(sprintf("@@ @@\n-%s\n+%s\n", $removed, $added))->call())->toBe($call);
+it('names what the original calls where it changed', function (string $removed, string $added, string|Nameless $call): void {
+    expect(Change::of(sprintf("@@ @@\n-%s\n+%s\n", $removed, $added))->call())->toEqual($call);
 })->with([
     'a method call removed' => ['$this->save($order);', '', 'save'],
     'a function unwrapped' => ['return array_values($xs);', 'return $xs;', 'array_values'],
     'a qualified function' => ['return \\App\\total($xs);', 'return $xs;', 'total'],
     'a static call removed' => ['Log::write($line);', '', 'write'],
-    'no call at all' => ['return 3;', 'return 4;', ''],
+    'no call at all' => ['return 3;', 'return 4;', Nameless::code()],
 ]);
 
 it('takes a diff without a header whole, and one that only removes', function (): void {
