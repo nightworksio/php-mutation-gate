@@ -48,6 +48,8 @@ final readonly class Php
         'Tree' => self::BUILDER,
         'Uncovered' => self::BUILDER,
         'Glob' => 'NightWorksIO\\MutationGate\\Core\\File',
+        'MemoryCap' => 'NightWorksIO\\MutationGate\\Core\\Runner',
+        'MemoryUnit' => 'NightWorksIO\\MutationGate\\Core\\Runner',
         'Withheld' => 'NightWorksIO\\MutationGate\\Core\\Runner',
     ];
 

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Config;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 /** `runner`: the tool that mutates (ADR-0004). */
@@ -41,6 +42,18 @@ final readonly class Runner
         $runner = $this->json instanceof Json ? $this->json : Json::object(Member::of('use', $this->json));
 
         return new self($runner->with(Member::of('withhold', Json::items(...$withheld))));
+    }
+
+    /**
+     * This runner, each process that runs a mutant using no more memory than
+     * this (ADR-0004): `runner.memory`, such as `MemoryCap::of(512, MemoryUnit::Megabytes)`,
+     * or `MemoryCap::none()`. 1G where no layer caps it.
+     */
+    public function cappedAt(MemoryCap $memory): self
+    {
+        $runner = $this->json instanceof Json ? $this->json : Json::object(Member::of('use', $this->json));
+
+        return new self($runner->with(Member::of('memory', $memory->written())));
     }
 
     public function written(): Json|string

@@ -14,12 +14,14 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 /**
  * The `runner` key: an adapter chosen as any other is, and in its object
  * form also `withhold`, the environment variables a project adds to those the
- * runner never hands its tests (ADR-0004). A layer may write `withhold`
+ * runner never hands its tests, and `memory`, the memory each process that
+ * runs a mutant may use (ADR-0004). A layer may write `withhold` or `memory`
  * alone, for a later layer or zero-config to choose the runner.
  *
  * @implements Shape<Setup>
@@ -40,24 +42,34 @@ final readonly class RunnerChoice implements Shape
         $use = Field::optional('use', Text::of('a name or a class'), $judges);
         $with = Field::optional('with', OpenObject::any(), $judges);
         $withhold = Field::optional('withhold', Items::of(Text::of('a variable name or a glob')), $judges);
+        $memory = Field::optional('memory', MemoryAmount::written(), Effect::AffectsResults);
 
         return new self(
             Adapter::choosing($builtins),
             Section::of(
-                static function (Node $at) use ($builtins, $use, $with, $withhold): Setup|Invalid {
+                static function (Node $at) use ($builtins, $use, $with, $withhold, $memory): Setup|Invalid {
                     $named = $use->read($at);
                     $withheld = $withhold->read($at);
+                    $capped = $memory->read($at);
 
                     return Reading::built(
-                        static fn(): Setup|Invalid => self::object($builtins, $at, $named->value(), $withheld->value()),
+                        static fn(): Setup|Invalid => self::object(
+                            $builtins,
+                            $at,
+                            $named->value(),
+                            $withheld->value(),
+                            $capped->value(),
+                        ),
                         $named,
                         $with->read($at),
                         $withheld,
+                        $capped,
                     );
                 },
                 $use,
                 $with,
                 $withhold,
+                $memory,
             ),
             $builtins,
         );
@@ -81,18 +93,21 @@ final readonly class RunnerChoice implements Shape
 
     public function schema(): Json
     {
-        $withhold = Json::object(Member::of('withhold', Items::of(Text::of('a variable name or a glob'))->schema()));
+        $alone = Json::object(
+            Member::of('withhold', Items::of(Text::of('a variable name or a glob'))->schema()),
+            Member::of('memory', MemoryAmount::written()->schema()),
+        );
 
         return Json::object(Member::of(
             'anyOf',
             Json::items(
                 Json::object(Member::of('type', 'string'), Member::of('minLength', 1)),
-                ...$this->builtins->schemas($withhold, [], [], []),
+                ...$this->builtins->schemas($alone, [], [], []),
                 ...[
                     Json::object(
                         Member::of('type', 'object'),
-                        Member::of('properties', $withhold),
-                        Member::of('required', Json::items('withhold')),
+                        Member::of('properties', $alone),
+                        Member::of('minProperties', 1),
                         Member::of('additionalProperties', value: false),
                     ),
                 ],
@@ -102,7 +117,11 @@ final readonly class RunnerChoice implements Shape
 
     public function effects(): array
     {
-        return [...$this->adapter->effects(), '.withhold' => Effect::JudgesOrReportsOnly];
+        return [
+            ...$this->adapter->effects(),
+            '.withhold' => Effect::JudgesOrReportsOnly,
+            '.memory' => Effect::AffectsResults,
+        ];
     }
 
     /** @param Listed<string>|Absent $withhold */
@@ -111,21 +130,25 @@ final readonly class RunnerChoice implements Shape
         Node $at,
         string|Absent $use,
         Listed|Absent $withhold,
+        MemoryCap|Absent $memory,
     ): Setup|Invalid {
         $withheld = $withhold instanceof Absent ? Withheld::nothing() : Withheld::of(...$withhold);
         $options = $at->field('with');
 
         return match (true) {
-            ! $use instanceof Absent => self::chosen(Adapter::chosen($builtins->choose($use, $options)), $withheld),
-            $withhold instanceof Absent, $options->kind() !== Kind::Nothing => Invalid::because(
-                $at->field('use')->mismatch('a name or a class'),
+            ! $use instanceof Absent => self::chosen(
+                Adapter::chosen($builtins->choose($use, $options)),
+                $withheld,
+                $memory,
             ),
-            default => Setup::of(withhold: $withheld),
+            ($withhold instanceof Absent && $memory instanceof Absent), $options->kind() !== Kind::Nothing
+                => Invalid::because($at->field('use')->mismatch('a name or a class')),
+            default => Setup::of(withhold: $withheld, memory: $memory),
         };
     }
 
-    private static function chosen(Choice|Invalid $choice, Withheld $withhold): Setup|Invalid
+    private static function chosen(Choice|Invalid $choice, Withheld $withhold, MemoryCap|Absent $memory): Setup|Invalid
     {
-        return $choice instanceof Choice ? Setup::of(runner: $choice, withhold: $withhold) : $choice;
+        return $choice instanceof Choice ? Setup::of(runner: $choice, withhold: $withhold, memory: $memory) : $choice;
     }
 }

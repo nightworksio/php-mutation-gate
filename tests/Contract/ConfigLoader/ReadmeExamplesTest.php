@@ -63,7 +63,7 @@ it('shows one config in every format', function (string $format, ConfigLoader $l
     $php = $effective('php', $example('php'), new PhpConfig());
 
     expect($effective($format, $example($format), $loader))->toBe($php)
-        ->and($php)->toMatchArray(['preset' => 'laravel', 'runner' => 'pest']);
+        ->and($php)->toMatchArray(['preset' => 'laravel', 'runner' => ['use' => 'pest', 'memory' => '1G']]);
 })->with([
     'JSON' => ['json', fn(): ConfigLoader => new JsonConfig()],
     'YAML' => ['yaml', fn(): ConfigLoader => new YamlConfig()],

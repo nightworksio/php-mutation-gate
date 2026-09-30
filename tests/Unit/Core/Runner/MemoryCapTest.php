@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\Uncapped;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Process\Process;
 
@@ -77,4 +79,27 @@ it('caps a PHP process that reads it at the cap', function (): void {
     $php->run();
 
     expect($php->getOutput())->toBe('256M');
+});
+
+it('is a whole number of a unit, as the builder writes it, or no cap', function (): void {
+    $cap = MemoryCap::of(512, MemoryUnit::Megabytes);
+
+    expect([$cap->written(), $cap->number(), $cap->unit()])->toBe(['512M', 512, MemoryUnit::Megabytes])
+        ->and(MemoryCap::none()->unit())->toBe(Uncapped::Memory)
+        ->and(MemoryCap::parse('512M'))->toEqual($cap);
+});
+
+it('holds a number of bytes in the fewest whole megabytes, one at the least', function (): void {
+    expect(MemoryCap::atLeast(512 * 1024 * 1024)->written())->toBe('512M')
+        ->and(MemoryCap::atLeast(512 * 1024 * 1024 + 1)->written())->toBe('513M')
+        ->and(MemoryCap::atLeast(0)->written())->toBe('1M');
+});
+
+it('leaves room for what a suite needed where it holds twice that, as no cap always does', function (): void {
+    $cap = MemoryCap::standard();
+
+    expect($cap->leavesRoomFor(MemoryCap::of(512, MemoryUnit::Megabytes)))->toBeTrue()
+        ->and($cap->leavesRoomFor(MemoryCap::of(513, MemoryUnit::Megabytes)))->toBeFalse()
+        ->and(MemoryCap::none()->leavesRoomFor(MemoryCap::of(8, MemoryUnit::Gigabytes)))->toBeTrue()
+        ->and(MemoryCap::of(600, MemoryUnit::Megabytes)->withRoom()->written())->toBe('1200M');
 });

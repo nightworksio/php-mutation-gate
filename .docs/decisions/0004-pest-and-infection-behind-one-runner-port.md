@@ -646,6 +646,35 @@ its parser attributes. Both change when the checkout moves.
      - Infection, which emits no mutant on a constant, an enum case, a
        property or an attribute argument, and one on a parameter default.
 
+9. **Every PHP process a mutation run starts has a memory cap.**
+   - `runner.memory` is the `memory_limit` of each PHP process a mutation
+     run starts: the runner's own, its opening run of the suite, and each
+     mutant's process. It is written as PHP writes it, a whole number of
+     bytes, `K`, `M` or `G`, such as `512M`. It is `1G` by default, and `-1`
+     for none. A mutant that runs away with memory then stops alone, rather
+     than taking the machine and every mutant still to run on it with it.
+   - The adapter writes `memory_limit` to an ini file in a directory of its
+     own in the run's workspace, and adds that directory to
+     `PHP_INI_SCAN_DIR`, after the directories PHP scans already. A runner
+     starts each mutant as a PHP process of its own, which takes none of the
+     options of the command that started the runner but inherits its
+     environment. A cap the adapter cannot write makes the run *cannot
+     judge*.
+   - A project that sets `memory_limit` itself sets it after PHP reads the
+     cap, and so wins over it: with `<ini name="memory_limit">` under `<php>`
+     in its PHPUnit config, or with `ini_set()` in a bootstrap file. doctor
+     finds the first; the second shows only when the tests run.
+   - Coverage runs, listing the tests, and the gate's own process run
+     uncapped.
+   - The cap can change a mutant's result, so it is part of a proof's key
+     (ADR-0007).
+   - doctor's findings on it are advice (ADR-0017, decision 10):
+     `memory-uncapped` where it is `-1`; `memory-cap-lifted` where the
+     project's PHPUnit config sets a higher `memory_limit`, or none; and,
+     under `--measure`, `memory-cap-near` where the suite's processes held
+     over half the cap, by the most resident memory `getrusage` counts for
+     the processes the gate waited for.
+
 ## Alternatives considered
 
 | Option | Why it lost |
@@ -662,6 +691,8 @@ its parser attributes. Both change when the checkout moves.
 | **Counting such mutants as uncovered, or leaving them out** | A constant or an enum value a test depends on would then be either always against the project or never judged, whatever the tests assert. Judging it against the tests that reference it gives the real answer. |
 | **Patching Pest by default** | Edits another package's vendor code on every install without being asked. Opt-in keeps that a visible decision in the project's own `composer.json`. |
 | **Waiting for Pest to offer a report or a shared map** | Not in this package's control. The adapter works with what the supported versions ship, and the contract suite finds out when that changes. |
+| **The cap as `-d memory_limit` on the runner's command** | Only the process the gate starts takes it. Each mutant's process is started by the runner, and inherits the environment, not the options. |
+| **An address-space limit (`ulimit -v`) on the runner's processes** | It counts reserved address space, which PHP's JIT and OPcache reserve far beyond what they use, it does not exist on Windows, and a process over it dies with no message that names the cause. |
 | **Codeception and phpspec through Infection** | Their coverage and group listing are not PHPUnit's, and nothing in the gate's reach, holds or proof key has been checked against them. An extension can add them through the same port. |
 
 ## Consequences

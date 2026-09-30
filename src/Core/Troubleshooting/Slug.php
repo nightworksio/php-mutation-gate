@@ -34,4 +34,7 @@ enum Slug: string
     case ScheduleNotRunning = 'schedule-not-running';
     case OnlineUnread = 'online-unread';
     case NoGitHubRepository = 'no-github-repository';
+    case MemoryUncapped = 'memory-uncapped';
+    case MemoryCapLifted = 'memory-cap-lifted';
+    case MemoryCapNear = 'memory-cap-near';
 }

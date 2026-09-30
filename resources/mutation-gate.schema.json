@@ -51,6 +51,10 @@
                                 "minLength": 1
                             }
                         },
+                        "memory": {
+                            "type": "string",
+                            "pattern": "^(?:-1|[1-9][0-9]*[KkMmGg]?)$"
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -73,6 +77,10 @@
                                 "type": "string",
                                 "minLength": 1
                             }
+                        },
+                        "memory": {
+                            "type": "string",
+                            "pattern": "^(?:-1|[1-9][0-9]*[KkMmGg]?)$"
                         },
                         "with": {
                             "type": "object",
@@ -104,6 +112,10 @@
                                 "minLength": 1
                             }
                         },
+                        "memory": {
+                            "type": "string",
+                            "pattern": "^(?:-1|[1-9][0-9]*[KkMmGg]?)$"
+                        },
                         "with": {
                             "type": "object"
                         }
@@ -122,14 +134,19 @@
                                 "type": "string",
                                 "minLength": 1
                             }
+                        },
+                        "memory": {
+                            "type": "string",
+                            "pattern": "^(?:-1|[1-9][0-9]*[KkMmGg]?)$"
                         }
                     },
-                    "required": [
-                        "withhold"
-                    ],
+                    "minProperties": 1,
                     "additionalProperties": false
                 }
-            ]
+            ],
+            "default": {
+                "memory": "1G"
+            }
         },
         "treeSource": {
             "anyOf": [

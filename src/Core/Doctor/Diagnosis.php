@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\HotPath;
 use NightWorksIO\MutationGate\Core\Doctor\Check\IgnoresExpiring;
 use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionImport;
 use NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize;
+use NightWorksIO\MutationGate\Core\Doctor\Check\Memory;
 use NightWorksIO\MutationGate\Core\Doctor\Check\MemoryLimit;
 use NightWorksIO\MutationGate\Core\Doctor\Check\MirroredRepository;
 use NightWorksIO\MutationGate\Core\Doctor\Check\NativeMarkers;
@@ -39,6 +40,7 @@ final readonly class Diagnosis
             CoverageDriver::in($observed),
             Xdebug::in($observed),
             Opcache::in($observed),
+            Memory::in($observed),
             Runners::in($observed),
             Config::in($observed),
             TreesFound::in($observed),

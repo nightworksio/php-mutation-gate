@@ -24,6 +24,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
@@ -40,7 +42,10 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 const DEFAULTS = <<<'JSON'
     {
         "extensions": [],
-        "runner": "pest",
+        "runner": {
+            "use": "pest",
+            "memory": "1G"
+        },
         "treeSource": {
             "use": "phpunit",
             "with": {
@@ -141,7 +146,7 @@ const EVERYTHING = [
     '$schema' => 'resources/mutation-gate.schema.json',
     'extensions' => ['Acme\\GateSlack\\SlackExtension'],
     'preset' => ['laravel', 'acme'],
-    'runner' => ['use' => 'infection', 'with' => [], 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH']],
+    'runner' => ['use' => 'infection', 'with' => [], 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512m'],
     'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app', 'lib']]],
     'trees' => [
         ['path' => 'app/Domain', 'floor' => 100],
@@ -248,6 +253,7 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->ci()->buildkiteStep()->json()->line())->toBe('{}')
         ->and($settings->ci()->buildkiteDefinition())->toEqual(Path::of('.buildkite/pipeline.yml'))
         ->and($settings->runner()->withhold())->toEqual(Withheld::nothing())
+        ->and($settings->runner()->memory())->toEqual(MemoryCap::standard())
         ->and($settings->proofs()->store())->toEqual(Choice::of('directory', Configs::options('{"path":".mutation-gate/ledger"}')))
         ->and([...$settings->proofs()->ignore()])->toBe([])
         ->and($settings->proofs()->write())->toBe(Writing::Auto)
@@ -282,6 +288,7 @@ it('reads every setting a config writes into its type', function (): void {
         ->and([...$settings->presets()])->toBe(['laravel', 'acme'])
         ->and($settings->runner()->choice())->toEqual(Choice::of('infection', Configs::options('{}')))
         ->and($settings->runner()->withhold())->toEqual(Withheld::of('DEPLOY_*', 'COMPOSER_AUTH'))
+        ->and($settings->runner()->memory())->toEqual(MemoryCap::of(512, MemoryUnit::Megabytes))
         ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":["app","lib"]}')))
         ->and(array_map(
             static fn(DeclaredTree $tree): array => [$tree->path()->value(), $tree->declared()],
@@ -360,13 +367,16 @@ it('reads each report with its reporter and where it is written', function (): v
     ]);
 });
 
-it('shows what the runner withholds beside the runner, and only where it withholds anything', function (): void {
+it('shows the memory cap beside the runner, and what it withholds only where it withholds anything', function (): void {
     $withholding = Configs::settings(['runner' => ['use' => 'pest', 'withhold' => ['DEPLOY_*']]]);
 
-    expect(Configs::shown($withholding, 'runner'))->toBe(['use' => 'pest', 'withhold' => ['DEPLOY_*']])
-        ->and(Configs::shown(Configs::settings(['runner' => ['use' => 'pest']]), 'runner'))->toBe('pest')
+    expect(Configs::shown($withholding, 'runner'))->toBe(['use' => 'pest', 'withhold' => ['DEPLOY_*'], 'memory' => '1G'])
+        ->and(Configs::shown(Configs::settings(['runner' => ['use' => 'pest']]), 'runner'))
+        ->toBe(['use' => 'pest', 'memory' => '1G'])
+        ->and(Configs::shown(Configs::settings(['runner' => ['use' => 'pest', 'memory' => '-1']]), 'runner'))
+        ->toBe(['use' => 'pest', 'memory' => '-1'])
         ->and(Configs::shown(Configs::settings(EVERYTHING), 'runner'))
-        ->toBe(['use' => 'infection', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH']]);
+        ->toBe(['use' => 'infection', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512M']);
 });
 
 it('refuses a runner that withholds without naming the runner, or withholds anything but names', function (
@@ -405,13 +415,13 @@ it('serialises the settings that affect results canonically, and only those', fu
         '{"ci":{"azure":{"definition":"azure-pipelines.yml"},"buildkite":{"definition":".buildkite/pipeline.yml"},'
         . '"gitlab":{"template":".gitlab/mutation-gate.yml"}},'
         . '"flaky":{"confirmSurvivors":true},"packages":[],"pest":{"canary":"mutation-canary","patch":false},'
-        . '"runner":"pest","staticCheck":{"tool":"auto"},"tests":{"order":"killers-first"},'
+        . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"tool":"auto"},"tests":{"order":"killers-first"},'
         . '"timeouts":{"retries":20,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
     )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
         '{"ci":{"azure":{"definition":"ci/azure.yml"},"buildkite":{"definition":".buildkite/mutation.yml"},'
         . '"gitlab":{"template":".gitlab/gate.yml"}},'
         . '"flaky":{"confirmSurvivors":false},"packages":["packages/*"],"pest":{"canary":"canary","patch":true},'
-        . '"runner":"infection","staticCheck":{"config":"phpstan.dist.neon","tool":"phpstan"},'
+        . '"runner":{"memory":"512M","use":"infection"},"staticCheck":{"config":"phpstan.dist.neon","tool":"phpstan"},'
         . '"tests":{"order":"killers-first"},"timeouts":{"retries":0,"seconds":30},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
         . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},'
@@ -433,7 +443,7 @@ it('keeps the settings that only judge or report out of the canonical form', fun
         'ignores' => ['entries' => []],
         'budget' => '5m',
         'proofs' => ['write' => 'auto'],
-        'runner' => ['use' => 'infection', 'with' => []],
+        'runner' => ['use' => 'infection', 'with' => [], 'memory' => '512M'],
     ];
 
     expect(Configs::settings($judging)->canonical())->toBe(Configs::settings(EVERYTHING)->canonical());
@@ -444,6 +454,7 @@ it('changes the canonical form with every setting that affects results', functio
         ->not->toBe(Configs::settings(EVERYTHING)->canonical());
 })->with([
     'the runner' => [['runner' => 'pest']],
+    'the memory cap' => [['runner' => [...EVERYTHING['runner'], 'memory' => '-1']]],
     'its tree source' => [['treeSource' => 'composer']],
     'a tree\'s path' => [['trees' => [['path' => 'app']]]],
     'the packages' => [['packages' => []]],
@@ -759,7 +770,8 @@ it('leaves the options of a class or another extension\'s adapter to it', functi
         ->and($settings->proofs()->store())->toEqual(Choice::of('Acme\\Gate\\Store', Configs::options('{}')))
         ->and($settings->staticCheck()->tool())
         ->toEqual(Choice::of('Acme\\Gate\\Analyser', Configs::options('{"level":9}')))
-        ->and(Configs::shown($settings, 'runner'))->toBe(['use' => 'Acme\\Gate\\Runner', 'with' => ['workers' => 4]]);
+        ->and(Configs::shown($settings, 'runner'))
+        ->toBe(['use' => 'Acme\\Gate\\Runner', 'with' => ['workers' => 4], 'memory' => '1G']);
 });
 
 it('says whether the store keeps its ledgers on this machine', function (string|array $store, bool $kept): void {

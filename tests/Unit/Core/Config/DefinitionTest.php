@@ -43,6 +43,7 @@ it('declares every setting as affecting results or as judging or reporting only'
         'preset' => $judges,
         'runner' => $results,
         'runner.withhold' => $judges,
+        'runner.memory' => $results,
         'treeSource' => $results,
         'treeSource.with.fallback' => $results,
         'trees[].path' => $results,

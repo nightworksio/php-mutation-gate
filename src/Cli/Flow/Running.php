@@ -297,6 +297,7 @@ final readonly class Running
             ->across($this->adapters->processes())
             ->reusingCoverage(Workspace::shardCoverage($shard))
             ->withholding($this->adapters->withheld)
+            ->cappedAt($this->settings->runner()->memory())
             ->orderedBy($ordering);
     }
 

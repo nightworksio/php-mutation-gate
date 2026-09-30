@@ -252,7 +252,7 @@ it('reads the config it wrote at --config back into what zero-config found', fun
     $shown = Commands::run($project, 'config:show', ['--config' => 'ci/gate.yml']);
 
     expect(json_decode($shown->output, associative: true))
-        ->toMatchArray(['preset' => 'laravel', 'runner' => 'pest', 'trees' => [['path' => 'app']]]);
+        ->toMatchArray(['preset' => 'laravel', 'runner' => ['use' => 'pest', 'memory' => '1G'], 'trees' => [['path' => 'app']]]);
 });
 
 it('writes nothing where the file --config names is in no format it writes', function () use ($init, $file): void {

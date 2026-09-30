@@ -422,6 +422,7 @@ and `?` match within one directory, and `**` across any number of them.
 | `preset` | a preset name, or a list of them: `library`, `laravel`, `symfony` | chosen from `composer.json` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `runner` | adapter: `pest`, `infection` | the one installed | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `runner.withhold` | list of environment-variable names or globs the runner never hands the project's tests, added to those every run withholds | `[]` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `runner.memory` | the `memory_limit` of every PHP process a mutation run starts, as PHP writes it (`512M`, `1G`), or `-1` for none; a `memory_limit` the project sets in `phpunit.xml` or a bootstrap file wins over it | `1G` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `treeSource` | adapter: `phpunit`, `composer` | `phpunit` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `treeSource.with.fallback` | list of paths, the trees when `phpunit.xml` has no `<source>` | `[]`, or the preset's; `[]` takes the `autoload` paths of `composer.json` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `trees` | list of `{path, floor, reason, exclude}`, laid over the tree source's trees: a listed path takes its floor, reason and exclude from here | the tree source's trees | [0003](.docs/decisions/0003-a-floor-only-rises.md) |

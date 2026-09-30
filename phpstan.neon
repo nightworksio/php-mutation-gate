@@ -676,6 +676,8 @@ services:
                     - PRE_PUSH_MINUTES # a budget, in minutes
                 'NightWorksIO\MutationGate\Cli\Flow\Invoking':
                     - DOUBLED # a retried timeout's cap, doubled
+                'NightWorksIO\MutationGate\Core\Runner\MemoryCap':
+                    - ROOM # times a suite's peak memory a cap holds
             # Constants still to refer to their value's one home, by the builder whose area holds them.
             awaiting:
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':

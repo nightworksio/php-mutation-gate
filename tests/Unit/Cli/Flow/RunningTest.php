@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Flaky;
+use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
 use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\Tests;
 use NightWorksIO\MutationGate\Config\Timeouts;
@@ -47,6 +48,8 @@ use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
@@ -262,6 +265,22 @@ it('runs the held path by its group, the rest by the suite, on the shard\'s map,
         ->and($rest->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($runner->identified())->not->toBeEmpty()
         ->and($runner->identified())->each->toEqual($adapters->withheld);
+});
+
+it('caps each mutant\'s process at runner.memory, and at 1G where the config sets none', function (): void {
+    $capped = static function (ConfiguredRunner ...$runner): array {
+        $project = Flows::project();
+        $scripted = ScriptedRunner::fixture();
+
+        new Running(Flows::adapters($project, [], $scripted), Flows::settings(...$runner), Flows::setup())
+            ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+        return array_map(static fn(MutationRequest $request): MemoryCap => $request->memory(), $scripted->requests());
+    };
+
+    expect($capped(ConfiguredRunner::uses('fake')->cappedAt(MemoryCap::of(256, MemoryUnit::Megabytes))))
+        ->toEqual([MemoryCap::of(256, MemoryUnit::Megabytes), MemoryCap::of(256, MemoryUnit::Megabytes)])
+        ->and($capped())->toEqual([MemoryCap::standard(), MemoryCap::standard()]);
 });
 
 it('leaves every invocation\'s mutants in one result, with what each skipped added up', function () use (

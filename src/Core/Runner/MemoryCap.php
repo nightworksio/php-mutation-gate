@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function intdiv;
+use function max;
 use function mb_strtoupper;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -14,8 +16,8 @@ use function sprintf;
 /**
  * `runner.memory`: the memory each process that runs a mutant may use, as
  * PHP's `memory_limit` writes it, bytes or a whole number of K, M or G, or
- * `-1` for no cap. A mutant that runs away with memory then stops alone,
- * rather than taking the machine with it.
+ * `-1` for no cap (ADR-0004, decision 9). A mutant that runs away with
+ * memory then stops alone, rather than taking the machine with it.
  */
 final readonly class MemoryCap
 {
@@ -34,10 +36,16 @@ final readonly class MemoryCap
     /** PHP's shorthand for an amount of memory, its unit in either case. */
     private const string SHORTHAND = '/^(?<number>[1-9]\d*)(?<unit>[KMG]?)$/i';
 
+    /**
+     * How many times what the suite needed a cap should hold: a mutant rarely
+     * needs twice what its whole suite does, unless it runs away.
+     */
+    private const int ROOM = 2;
+
     private const string UNREADABLE
         = '"%s" is not an amount of memory. Write it as PHP\'s memory_limit does, such as 512M or 1G, or -1 for none.';
 
-    private function __construct(private string $written, private int $bytes)
+    private function __construct(private int $number, private MemoryUnit|Uncapped $unit)
     {
     }
 
@@ -48,7 +56,21 @@ final readonly class MemoryCap
 
     public static function none(): self
     {
-        return new self(self::NONE, 0);
+        return new self(0, Uncapped::Memory);
+    }
+
+    /** A cap of a whole number of units, such as `MemoryCap::of(512, MemoryUnit::Megabytes)`. */
+    public static function of(int $number, MemoryUnit $unit): self
+    {
+        return new self($number, $unit);
+    }
+
+    /** The smallest cap of whole megabytes that holds this many bytes. */
+    public static function atLeast(int $bytes): self
+    {
+        $megabyte = MemoryUnit::Megabytes->bytes();
+
+        return self::of(max(1, intdiv($bytes + $megabyte - 1, $megabyte)), MemoryUnit::Megabytes);
     }
 
     /** A cap as a config writes it: `512M`, `1G`, a number of bytes, or `-1` for none. */
@@ -66,13 +88,24 @@ final readonly class MemoryCap
     /** Whether it caps anything. */
     public function caps(): bool
     {
-        return $this->written !== self::NONE;
+        return $this->unit instanceof MemoryUnit;
     }
 
     /** The cap as PHP's `memory_limit` takes it. */
     public function written(): string
     {
-        return $this->written;
+        return $this->unit instanceof MemoryUnit ? sprintf('%d%s', $this->number, $this->unit->value) : self::NONE;
+    }
+
+    /** How many of its unit it is, where it caps anything. */
+    public function number(): int
+    {
+        return $this->number;
+    }
+
+    public function unit(): MemoryUnit|Uncapped
+    {
+        return $this->unit;
     }
 
     /**
@@ -81,13 +114,25 @@ final readonly class MemoryCap
      */
     public function isExceededBy(self $limit): bool
     {
-        return $this->caps() && (! $limit->caps() || $limit->bytes > $this->bytes);
+        return $this->caps() && (! $limit->caps() || $limit->bytes() > $this->bytes());
+    }
+
+    /** Whether this cap holds what a suite needed, as `peak`, with room to spare: none always does. */
+    public function leavesRoomFor(self $peak): bool
+    {
+        return ! $this->caps() || $this->bytes() >= $peak->withRoom()->bytes();
+    }
+
+    /** The cap that holds this much with room to spare. */
+    public function withRoom(): self
+    {
+        return self::atLeast($this->bytes() * self::ROOM);
     }
 
     /** The ini file that sets this cap, where it caps anything. */
     public function ini(): string
     {
-        return sprintf("memory_limit=%s\n", $this->written);
+        return sprintf("memory_limit=%s\n", $this->written());
     }
 
     /**
@@ -105,9 +150,8 @@ final readonly class MemoryCap
         return sprintf('%s%s%s', $inherited === false ? '' : $inherited, PATH_SEPARATOR, $directory);
     }
 
-    /** A cap of a whole number of these units. */
-    private static function of(int $number, MemoryUnit $unit): self
+    private function bytes(): int
     {
-        return new self(sprintf('%d%s', $number, $unit->value), $number * $unit->bytes());
+        return $this->unit instanceof MemoryUnit ? $this->number * $this->unit->bytes() : 0;
     }
 }

@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
 use NightWorksIO\MutationGate\Core\Doctor\InstalledRunners;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
+use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
 use NightWorksIO\MutationGate\Core\Doctor\RunnerPhp;
 use NightWorksIO\MutationGate\Core\File\GitIgnore;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -23,6 +24,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -96,6 +99,20 @@ it('observes the CI definitions that run the gate, the baseline, and the ledgers
         ->and($observed->files()->baseline())->toEqual(Baseline::of(Entry::of(Path::of('src'), Floor::of(70))))
         ->and($ledgers instanceof KeptLedgers ? array_map(static fn(KeptLedger $ledger): string => $ledger->file()->value(), [...$ledgers]) : [])
         ->toBe(['.mutation-gate/ledger/refs/heads/main/ledger.json.gz']);
+});
+
+it('observes the memory_limit the first PHPUnit config sets, and none it cannot read', function (): void {
+    $setting = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($setting, 'phpunit.dist.xml', '<phpunit><php><ini name="memory_limit" value="2G"/></php></phpunit>');
+    Scratch::write($setting, 'phpunit.xml.dist', '<phpunit><php><ini name="memory_limit" value="4G"/></php></phpunit>');
+    $unreadable = Scratch::copy('tests/Fixtures/Projects/Library');
+    mkdir(sprintf('%s/phpunit.xml', $unreadable));
+    $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
+
+    expect(Doctored::observed($setting, $php)->of(CommandLine::nothing())->files()->phpUnitMemory())
+        ->toEqual(PhpUnitMemory::of(Path::of('phpunit.dist.xml'), MemoryCap::of(2, MemoryUnit::Gigabytes)))
+        ->and(Doctored::observed($unreadable, $php)->of(CommandLine::nothing())->files()->phpUnitMemory())
+        ->toEqual(NotGiven::value());
 });
 
 it('observes an empty baseline where there is none, and why one cannot be read', function (): void {

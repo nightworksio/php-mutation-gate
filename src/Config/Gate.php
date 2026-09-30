@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 /**
@@ -59,6 +60,15 @@ final readonly class Gate
         $withhold = Json::object(Member::of('withhold', Json::items(...$withheld)));
 
         return $this->merge(Json::object(Member::of('runner', $withhold)));
+    }
+
+    /**
+     * `runner.memory`, where a preset or another layer chooses the runner:
+     * `MemoryCap::of(512, MemoryUnit::Megabytes)`.
+     */
+    public function cappedAt(MemoryCap $memory): self
+    {
+        return $this->merge(Json::object(Member::of('runner', Json::object(Member::of('memory', $memory->written())))));
     }
 
     public function treeSource(Source $source): self

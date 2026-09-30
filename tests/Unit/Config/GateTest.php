@@ -27,6 +27,9 @@ use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\Tree;
 use NightWorksIO\MutationGate\Config\Uncovered;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('writes nothing for a config with no settings', function (): void {
@@ -188,6 +191,15 @@ it('writes every setting of the configuration reference', function (): void {
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],
         'local' => ['watchBudget' => '2m', 'prePushBudget' => '10m'],
     ]);
+});
+
+it('writes the memory cap beside the runner it chooses, and alone where a later layer chooses one', function (): void {
+    $cap = MemoryCap::of(512, MemoryUnit::Megabytes);
+
+    expect(Configs::written(Gate::configure()->runner(Runner::pest()->cappedAt($cap))))
+        ->toBe(['runner' => ['use' => 'pest', 'memory' => '512M']])
+        ->and(Configs::written(Gate::configure()->withholding(Withheld::of('DEPLOY_*'))->cappedAt(MemoryCap::none())))
+        ->toBe(['runner' => ['withhold' => ['DEPLOY_*'], 'memory' => '-1']]);
 });
 
 it('writes each other way to choose an adapter or a word', function (): void {
