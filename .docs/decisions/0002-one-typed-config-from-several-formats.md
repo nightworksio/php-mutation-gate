@@ -204,6 +204,9 @@ cannot.
    config file, then command-line options.
    - Layers are laid section by section. A setting a later layer writes
      replaces the earlier one's, and a setting it leaves out keeps it.
+   - Maps merge by key: a later layer's `costs.secondsPerLine` prefixes lie
+     beside an earlier one's. `badge.colors` is the exception: its colours are
+     bands of one scale, so a layer that sets them replaces them whole.
    - Lists concatenate, and an entry equal to an earlier one is dropped.
    - `trees` is the exception: a layer that sets it replaces the list whole, so
      declaring trees never adds them to the ones `phpunit.xml` or a preset

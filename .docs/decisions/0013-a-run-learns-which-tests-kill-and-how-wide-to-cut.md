@@ -163,7 +163,9 @@ decides are accepted for that release too.
      n fits in the target, and at most `shards.max`. The cut within that
      count is ADR-0006's: path order, equal shares.
    - **One rule at a time.** Unset, `shards.seconds` decides as before. A
-     config that sets both stops with exit code 2, naming both keys.
+     layer of config that sets both stops with exit code 2, naming both keys.
+     One a later layer sets replaces the other an earlier layer set
+     (ADR-0002, decision 5).
    - `shards.target` judges or reports only, like the other `shards` keys
      (ADR-0007 decision 2.3).
 

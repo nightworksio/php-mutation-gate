@@ -97,8 +97,9 @@ Two parts of that do not carry over to a public package.
    - **Or a target wall time sets the count.** With `shards.target` (a
      duration) set, the number of shards is the smallest that fits a shard's
      overhead, its opening run plus `shards.setup`, and its share of the cost
-     into the target. The cut within that count is the same. A config that sets
-     both `shards.target` and `shards.seconds` stops with exit code 2
+     into the target. The cut within that count is the same. A layer of config
+     that sets both `shards.target` and `shards.seconds` stops with exit code
+     2, and one a later layer sets replaces the other an earlier layer set
      (ADR-0013, decisions 6 to 9).
    - There are never more than `shards.max` shards (an integer, 20 by default).
      Past that limit, shards grow instead, and a target that needs more says
