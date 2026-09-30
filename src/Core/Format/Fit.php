@@ -17,8 +17,9 @@ use function trim;
 /**
  * Text cut to a chat's limit by construction: whole lines kept while they
  * fit, then how many were left out, so no message a chat refuses is sent.
- * Text from outside, such as what a service answered, is made one plain
- * line first, so it can start no command in a CI's log.
+ * Text from outside, such as what a service answered or the name a
+ * project gave a test, is made one plain line first, so it can start no
+ * command in a CI's log.
  */
 final readonly class Fit
 {

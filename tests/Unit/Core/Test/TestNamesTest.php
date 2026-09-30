@@ -49,3 +49,13 @@ it('lists tests by the names the runner gave them, and by their ids where it gav
         ->toBe('tests/Unit/MoneyTest.php::it fits, tests/Unit/MoneyTest.php::it fits with data set "over", PriceTest::adds')
         ->and($names->listed(TestIds::of()))->toBe('');
 });
+
+it('lists a name a project wrote with line breaks, escapes and workflow commands as one plain line', function (): void {
+    $names = TestNames::none()->with(
+        TestId::of('MoneyTest::fits'),
+        TestName::in(Path::of('tests/Unit/MoneyTest.php'), "it \e[31mfits\r\n::error::forged\tthere"),
+    );
+
+    expect($names->listed(TestIds::of(TestId::of('MoneyTest::fits'), TestId::of('PriceTest::adds'))))
+        ->toBe('tests/Unit/MoneyTest.php::it [31mfits ::error::forged there, PriceTest::adds');
+});
