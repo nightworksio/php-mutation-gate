@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Composer\ComposerTrees;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -9,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Port\TreeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Project;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 // What every tree source answers over the fixture: src/Domain declares 100,
 // src/Http declares nothing and src/Generated declares 0 with a reason. One
@@ -16,7 +19,12 @@ use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 
 $sources = [
     'the fake' => fn(): TreeSource => TreeSourceFake::ofTheFixture(),
+    'the manifests' => fn(): TreeSource => ComposerTrees::at(Project::ofTheFixture(), ['composer.json'], []),
 ];
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
 
 it('finds every tree once, with the floor each declares', function (TreeSource $source): void {
     $trees = $source->trees();

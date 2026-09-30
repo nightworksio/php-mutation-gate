@@ -32,3 +32,22 @@ it('equals a path spelt differently that names the same place', function (): voi
     expect(Path::of('src/')->equals(Path::of('./src')))->toBeTrue()
         ->and(Path::of('src')->equals(Path::of('tests')))->toBeFalse();
 });
+
+it('is within a directory it is inside or is, and not within one it only shares a prefix with', function (): void {
+    expect(Path::of('src/Money.php')->within(Path::of('src')))->toBeTrue()
+        ->and(Path::of('src')->within(Path::of('src')))->toBeTrue()
+        ->and(Path::of('src/Money.php')->within(Path::root()))->toBeTrue()
+        ->and(Path::of('srcs/Money.php')->within(Path::of('src')))->toBeFalse()
+        ->and(Path::of('src')->within(Path::of('src/Money.php')))->toBeFalse();
+});
+
+it('is spelt from a directory it is inside', function (): void {
+    expect(Path::of('packages/money/composer.json')->relativeTo(Path::of('packages/money'))->value())->toBe('composer.json')
+        ->and(Path::of('packages/money/tests/Pest.php')->relativeTo(Path::of('packages'))->value())->toBe('money/tests/Pest.php');
+});
+
+it('is spelt as it is from a directory it is not inside, the root among them', function (): void {
+    expect(Path::of('src/Money.php')->relativeTo(Path::of('packages/money'))->value())->toBe('src/Money.php')
+        ->and(Path::of('src/Money.php')->relativeTo(Path::root())->value())->toBe('src/Money.php')
+        ->and(Path::of('packages/moneyed/a.php')->relativeTo(Path::of('packages/money'))->value())->toBe('packages/moneyed/a.php');
+});

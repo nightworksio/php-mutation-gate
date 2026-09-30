@@ -25,7 +25,12 @@ return RectorConfig::configure()
     ->withSkip([
         // An architecture rule names namespaces, and a namespace with no class
         // of that name is not a class constant.
-        StringClassNameToClassConstantRector::class => [__DIR__ . '/tests/Arch'],
+        StringClassNameToClassConstantRector::class => [
+            __DIR__ . '/tests/Arch',
+            // Core reads #[Holds] from tokens by its name, and names nothing
+            // of the attribute layer (A5).
+            __DIR__ . '/src/Core/Php/HoldsAttributes.php',
+        ],
         // Pest binds a closure in a dataset to the test case before calling it,
         // and the closure of a static method cannot be bound.
         ArrowFunctionDelegatingCallToFirstClassCallableRector::class => [__DIR__ . '/tests/Contract'],

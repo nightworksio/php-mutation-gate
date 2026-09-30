@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\File;
 use function array_filter;
 use function explode;
 use function implode;
+use function mb_strlen;
+use function mb_substr;
 use function sprintf;
 use function str_replace;
 use function str_starts_with;
@@ -51,5 +53,21 @@ final readonly class Path
     public function equals(self $other): bool
     {
         return $this->value === $other->value;
+    }
+
+    /** Whether this path is a directory's own path or a path inside it. Every path is inside the root. */
+    public function within(self $directory): bool
+    {
+        return $directory->value === self::ROOT
+            || $this->value === $directory->value
+            || str_starts_with($this->value, sprintf('%s/', $directory->value));
+    }
+
+    /** This path as a directory it is inside spells it; a path not inside it is answered as it is. */
+    public function relativeTo(self $directory): self
+    {
+        $prefix = sprintf('%s/', $directory->value);
+
+        return str_starts_with($this->value, $prefix) ? new self(mb_substr($this->value, mb_strlen($prefix))) : $this;
     }
 }

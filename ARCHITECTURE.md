@@ -19,6 +19,7 @@ Three machines enforce what follows, and they overlap on purpose:
 ```text
 src/
   Core/        decides. Values and the steps that turn one into the next. No I/O.
+  Attribute/   #[Holds], which tests write and the gate reads from their tokens. Public API.
   Port/        the interfaces the core asks. Public API.
   Config/      the typed config and its builder. Public API.
   Extension/   the Extension interface and the Extensions registry. Public API.
@@ -34,9 +35,11 @@ tests/
   Support/     what the Arch suite and the guards read the tree with, and what other tests share.
 ```
 
-The layers are ordered: Core, Port, Config, Extension, Adapter, Cli. A layer
-names only itself and the layers before it, so nothing but an adapter and the
-CLI can name an adapter, and the CLI is the only place adapters are wired.
+The layers are ordered: Core, Attribute, Port, Config, Extension, Adapter, Cli.
+A layer names only itself and the layers before it, so nothing but an adapter
+and the CLI can name an adapter, and the CLI is the only place adapters are
+wired. Attribute names nothing but PHP and nothing else names it, because the
+gate reads `#[Holds]` from a test's tokens without loading it.
 
 ## A — layers
 
@@ -46,6 +49,7 @@ CLI can name an adapter, and the CLI is the only place adapters are wired.
 | **A2** | A port is an interface | arch: every declaration under `src/Port` |
 | **A3** | An adapter names no other adapter | arch: every class name each adapter's files write |
 | **A4** | A layer names only itself and the layers before it | arch: every class name each file under `src` writes |
+| **A5** | Attribute names nothing but PHP, and nothing else under `src` names it | arch: every class name each file under `src` writes |
 
 ## B — input and output
 
@@ -79,13 +83,13 @@ without a repository, a runner or a CI.
 
 ## D — types
 
-The API surface is every class in Port, Config and Extension, and every core
-type their public signatures reach (ADR-0001).
+The API surface is every class in Attribute, Port, Config and Extension, and
+every core type their public signatures reach (ADR-0001).
 
 | Rule | Says | Enforced by |
 |---|---|---|
 | **D1** | No `array` in a public signature on the API surface | arch: every public method of the API surface |
-| **D2** | A string, int or float is taken only by a named constructor on the API surface | arch: every public method of the API surface |
+| **D2** | A string, int or float is taken only by a named constructor on the API surface, or by an attribute's constructor, which PHP calls with what the attribute is written with | arch: every public method of the API surface |
 | **D3** | Nothing is untyped, and nothing on the API surface is `mixed` | phpstan: type coverage at 100, plus arch for `mixed` itself |
 | **D4** | A closed set is an enum, not a class named for being one | arch: no class named `Status`, `State`, `Type` or `Kind` |
 | **D5** | No bare `true` or `false` at a call site | phpstan: own rule |

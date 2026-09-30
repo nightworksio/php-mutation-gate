@@ -92,6 +92,23 @@ final readonly class Fixtures
                     }
                 }
                 PHP, 'lets a layer name only itself and the layers before it'),
+            Fixture::suite('A5', 'src/Attribute/PlantedReach.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                namespace NightWorksIO\MutationGate\Attribute;
+
+                use NightWorksIO\MutationGate\Core\File\Path;
+
+                final readonly class PlantedReach
+                {
+                    public static function at(Path $path): self
+                    {
+                        return new self();
+                    }
+                }
+                PHP, 'keeps the attribute to PHP alone, and named by nothing else under src'),
         ];
     }
 

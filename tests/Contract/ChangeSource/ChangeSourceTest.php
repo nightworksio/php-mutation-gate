@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Git\Git;
+use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -13,6 +15,10 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Repository;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
 
 // What every change source answers over the fixture: since fixture-base, the
 // working tree changed line 2 of src/Money.php and added src/Limit.php. One
@@ -20,7 +26,21 @@ use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 
 $sources = [
     'the fake' => fn(): ChangeSource => ChangeSourceFake::ofTheFixture(),
+    'git' => fn(): ChangeSource => Git::at(Repository::ofTheFixture()->root),
+    'git, with GitHub proving nothing' => fn(): ChangeSource => PassedPullRequests::over(
+        Git::at(Repository::ofTheFixture()->root),
+        new MockHttpClient(static fn(): MockResponse => new MockResponse('{"message": "Not Found"}', ['http_code' => 404])),
+        [
+            'GITHUB_REPOSITORY' => 'octo/gate',
+            'GITHUB_SHA' => 'head',
+            'GITHUB_WORKFLOW_REF' => 'octo/gate/.github/workflows/gate.yml@refs/heads/main',
+        ],
+    ),
 ];
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
 
 it('says what changed since a base, on which lines', function (ChangeSource $source): void {
     $changes = $source->changesSince(Revision::ref('fixture-base'));

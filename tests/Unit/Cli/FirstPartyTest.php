@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
+use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
@@ -15,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Extension\Origin;
+use NightWorksIO\MutationGate\Port\ChangeSource;
 
 $registry = static fn(): Extensions => new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)));
 
@@ -47,4 +49,9 @@ it('registers a CI plan for each CI it knows, and plain JSON', function () use (
         ->and($plan('buildkite'))->toBeInstanceOf(BuildkitePlan::class)
         ->and($plan('circleci'))->toBeInstanceOf(CircleCiPlan::class)
         ->and($plan('json'))->toBeInstanceOf(JsonPlan::class);
+});
+
+it('registers git as a change source, and git with GitHub\'s word on what the default branch proved', function () use ($registry): void {
+    expect($registry()->changeSource(Name::of('git'), Options::none()))->toBeInstanceOf(Git::class)
+        ->and($registry()->changeSource(Name::of('github'), Options::none()))->toBeInstanceOf(ChangeSource::class);
 });
