@@ -111,6 +111,7 @@ every core type their public signatures reach (ADR-0001).
 | **H7** | A test is named for the behaviour it pins, never with an identifier | arch: every test description |
 | **H8** | A method returns from at most three places | phpstan: own rule |
 | **H9** | A list is on one line or fully split, as SonarCloud's S1808 requires | phpstan: own rule, over `src` |
+| **H10** | No line in `src` is longer than 120 characters, as SonarCloud's S103 requires | phpstan: own rule, over `src` |
 | **W1** | A file under `src` declares one class, and it is the one its path names | arch |
 
 ## K — comments

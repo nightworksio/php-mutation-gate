@@ -442,7 +442,7 @@ services:
                 - src/Core/Config/Parsed.php
                 - src/Adapter/Php/PhpConfig.php
                 - src/Cli/CommandLine.php
-                - src/Adapter/Infection/Json5.php
+                - src/Adapter/Infection/RelaxedJson.php
                 - tests/Support/Bucket.php
                 - tests/Support/Commands.php
             allowIn:
@@ -517,6 +517,11 @@ services:
     # H8
     -
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoManyReturnsRule
+        tags:
+            - phpstan.rules.rule
+    # H10
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoLongLineRule
         tags:
             - phpstan.rules.rule
     # H9
