@@ -1,0 +1,492 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://github.com/nightworksio/php-mutation-gate/blob/main/resources/report.schema.json",
+    "title": "mutation-gate report",
+    "description": "Everything a mutation-gate verdict decided (ADR-0009).",
+    "type": "object",
+    "properties": {
+        "format": {
+            "const": 1
+        },
+        "judgement": {
+            "enum": [
+                "passed",
+                "failed"
+            ]
+        },
+        "cutShort": {
+            "type": "boolean"
+        },
+        "uncovered": {
+            "enum": [
+                "count",
+                "exclude"
+            ]
+        },
+        "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+        },
+        "counts": {
+            "type": "object",
+            "properties": {
+                "killed": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "errored": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "killed-by-timeout": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "survived": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "uncovered": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "unjudged": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "flaky": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "too-slow-to-judge": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "ignored": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "ignored-by-marker": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            },
+            "required": [
+                "killed",
+                "errored",
+                "killed-by-timeout",
+                "survived",
+                "uncovered",
+                "unjudged",
+                "flaky",
+                "too-slow-to-judge",
+                "ignored",
+                "ignored-by-marker"
+            ],
+            "additionalProperties": false
+        },
+        "trees": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string"
+                    },
+                    "package": {
+                        "type": "string"
+                    },
+                    "declared": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "exempt": {
+                        "type": "string"
+                    },
+                    "baseline": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "floor": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "score": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "base": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "raised": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "judgement": {
+                        "enum": [
+                            "passed",
+                            "failed",
+                            "nothing-to-mutate",
+                            "exempt"
+                        ]
+                    },
+                    "counts": {
+                        "type": "object",
+                        "properties": {
+                            "killed": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "errored": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "killed-by-timeout": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "survived": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "uncovered": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "unjudged": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "flaky": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "too-slow-to-judge": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "ignored": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "ignored-by-marker": {
+                                "type": "integer",
+                                "minimum": 0
+                            }
+                        },
+                        "required": [
+                            "killed",
+                            "errored",
+                            "killed-by-timeout",
+                            "survived",
+                            "uncovered",
+                            "unjudged",
+                            "flaky",
+                            "too-slow-to-judge",
+                            "ignored",
+                            "ignored-by-marker"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "units": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "path": {
+                                    "type": "string"
+                                },
+                                "group": {
+                                    "type": "string"
+                                },
+                                "filter": {
+                                    "type": "string"
+                                },
+                                "origin": {
+                                    "enum": [
+                                        "run",
+                                        "proved",
+                                        "carried"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "path",
+                                "origin"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "mutants": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{12}$"
+                        }
+                    }
+                },
+                "required": [
+                    "path",
+                    "package",
+                    "judgement",
+                    "counts",
+                    "units",
+                    "mutants"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "newCode": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "package": {
+                        "type": "string"
+                    },
+                    "floor": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "score": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "judgement": {
+                        "enum": [
+                            "passed",
+                            "failed",
+                            "nothing-to-mutate"
+                        ]
+                    },
+                    "counts": {
+                        "type": "object",
+                        "properties": {
+                            "killed": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "errored": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "killed-by-timeout": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "survived": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "uncovered": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "unjudged": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "flaky": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "too-slow-to-judge": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "ignored": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "ignored-by-marker": {
+                                "type": "integer",
+                                "minimum": 0
+                            }
+                        },
+                        "required": [
+                            "killed",
+                            "errored",
+                            "killed-by-timeout",
+                            "survived",
+                            "uncovered",
+                            "unjudged",
+                            "flaky",
+                            "too-slow-to-judge",
+                            "ignored",
+                            "ignored-by-marker"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "mutants": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{12}$"
+                        }
+                    }
+                },
+                "required": [
+                    "package",
+                    "floor",
+                    "judgement",
+                    "counts",
+                    "mutants"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "mutants": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{12}$"
+                    },
+                    "file": {
+                        "type": "string"
+                    },
+                    "line": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "end": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "mutator": {
+                        "type": "string"
+                    },
+                    "family": {
+                        "enum": [
+                            "boundary",
+                            "condition",
+                            "logical",
+                            "arithmetic",
+                            "return-value",
+                            "removed-call",
+                            "literal",
+                            "collection",
+                            "exception",
+                            "unwrap",
+                            "visibility",
+                            "none"
+                        ]
+                    },
+                    "diff": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "killed",
+                            "survived",
+                            "uncovered",
+                            "timed-out",
+                            "errored",
+                            "unjudged",
+                            "ignored-by-marker"
+                        ]
+                    },
+                    "judgement": {
+                        "enum": [
+                            "killed",
+                            "errored",
+                            "killed-by-timeout",
+                            "survived",
+                            "uncovered",
+                            "unjudged",
+                            "flaky",
+                            "too-slow-to-judge",
+                            "ignored",
+                            "ignored-by-marker"
+                        ]
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "changedLine": {
+                        "type": "boolean"
+                    },
+                    "tests": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "hint": {
+                        "type": "string"
+                    },
+                    "reproduce": {
+                        "type": "string"
+                    },
+                    "seconds": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "limit": {
+                        "type": "number",
+                        "minimum": 0
+                    }
+                },
+                "required": [
+                    "id",
+                    "file",
+                    "line",
+                    "mutator",
+                    "family",
+                    "diff",
+                    "status",
+                    "judgement",
+                    "changedLine",
+                    "tests",
+                    "hint",
+                    "reproduce"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "reach": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "warnings": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "failures": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "format",
+        "judgement",
+        "cutShort",
+        "uncovered",
+        "counts",
+        "trees",
+        "newCode",
+        "mutants",
+        "reach",
+        "warnings",
+        "failures"
+    ],
+    "additionalProperties": false
+}

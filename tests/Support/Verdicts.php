@@ -1,0 +1,224 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Tests\Support;
+
+use function explode;
+
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Lines;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily as Family;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Reach\Packages;
+use NightWorksIO\MutationGate\Core\Reach\Reach;
+use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
+use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Score\Exempt;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Score;
+use NightWorksIO\MutationGate\Core\Score\Unrecorded;
+use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Tree\Tree;
+use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Verdict\Failure;
+use NightWorksIO\MutationGate\Core\Verdict\Failures;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement as Judged;
+use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\Origin;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
+
+use function sprintf;
+
+/**
+ * The verdicts every reporter's tests render: one that fails with a mutant
+ * of every judgement, one that passes, and one with nothing to mutate.
+ */
+final class Verdicts
+{
+    public const string MONEY = <<<'PHP'
+        <?php
+
+        final class Money
+        {
+            public function fits(int $amount, int $limit): bool
+            {
+                if ($amount < $limit) {
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        PHP;
+
+    /** A diff of `Money.php`'s seventh line. */
+    public const string BOUNDARY = <<<'DIFF'
+        --- Original
+        +++ New
+        @@ @@
+        -        if ($amount < $limit) {
+        +        if ($amount <= $limit) {
+
+        DIFF;
+
+    public const string LESS = 'Pest\\Mutate\\Mutators\\Equality\\LessToLessOrEqual';
+
+    /** A mutant at `<file>:<line>`, with its diff; its runner's status says nothing the reporters read. */
+    public static function mutant(string $at, string $mutator, Family $family, string $diff): Mutant
+    {
+        [$file, $line] = explode(':', $at);
+
+        return Mutant::of(
+            MutantId::hash(Path::of($file), $mutator, $diff, (int) $line),
+            sprintf('native-%s', $line),
+            Location::of(Path::of($file), Line::of((int) $line), Line::of((int) $line)),
+            Mutation::of($mutator, $family, $diff),
+            MutantStatus::Survived,
+            Unmeasured::duration(),
+        );
+    }
+
+    /** A survivor on a changed line, judged by four tests. */
+    public static function survivor(): JudgedMutant
+    {
+        return JudgedMutant::of(self::mutant('src/Money.php:7', self::LESS, Family::Boundary, self::BOUNDARY), Judged::Survived)
+            ->judgedBy(TestIds::of(
+                TestId::of('MoneyTest::fits'),
+                TestId::of('MoneyTest::refuses'),
+                TestId::of('PriceTest::adds'),
+                TestId::of('CartTest::totals'),
+            ))
+            ->within(Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/Money.php'), Lines::of(Line::of(7))));
+    }
+
+    /** Every judgement once, the survivor on a changed line first. */
+    public static function everyJudgement(): JudgedMutants
+    {
+        $flaky = JudgedMutant::of(self::mutant('src/Order.php:3', 'MethodCallRemoval', Family::RemovedCall, self::diff('$this->save($order);', '')), Judged::Flaky);
+        $unjudged = self::mutant('src/Order.php:5', 'DecrementInteger', Family::Literal, self::diff('return 3;', 'return 4;'))
+            ->because(Reason::that('The run\'s budget ran out before it.'));
+        $slow = self::mutant('src/Order.php:8', 'Plus', Family::Arithmetic, self::diff('return $a + $b;', 'return $a - $b;'))
+            ->withLimit(Seconds::of(5.0));
+        $ignored = self::mutant('src/Log.php:4', 'MethodCallRemoval', Family::RemovedCall, self::diff('$this->log($line);', ''))
+            ->because(Reason::that('Logging is asserted in the integration suite'));
+
+        return JudgedMutants::of(
+            self::survivor(),
+            JudgedMutant::of(self::mutant('src/Money.php:9', 'TrueValue', Family::Literal, self::diff('return true;', 'return false;')), Judged::Killed),
+            JudgedMutant::of(self::mutant('src/Money.php:12', 'FalseValue', Family::Literal, self::diff('return false;', 'return true;')), Judged::Uncovered),
+            $flaky->judgedBy(TestIds::of(TestId::of('OrderTest::saves'))),
+            JudgedMutant::of($unjudged, Judged::Unjudged),
+            JudgedMutant::of($slow, Judged::TooSlowToJudge),
+            JudgedMutant::of(self::mutant('src/Order.php:11', 'Plus', Family::Arithmetic, self::diff('$c = $a + $b;', '$c = $a - $b;')), Judged::KilledByTimeout),
+            JudgedMutant::of($ignored, Judged::Ignored),
+            JudgedMutant::of(self::mutant('src/Log.php:6', 'Concat', Family::None, self::diff('return $a . $b;', 'return $b . $a;')), Judged::IgnoredByMarker),
+            JudgedMutant::of(self::mutant('src/Log.php:9', 'Throw_', Family::Exception, self::diff('throw new Refused();', '')), Judged::Errored),
+        );
+    }
+
+    /**
+     * A change-scoped run that fails: `src` below its floor with a mutant of
+     * every judgement, an exempt tree, a tree with nothing to mutate, new code
+     * below its floor, a stale ignore, a hot path and the reach's reasons.
+     */
+    public static function failing(): Verdict
+    {
+        $root = Package::at(Path::root());
+        $units = JudgedUnits::of(
+            JudgedUnit::of(Unit::file(Path::of('src/Money.php')), Origin::Run),
+            JudgedUnit::of(Unit::file(Path::of('src/Order.php')), Origin::Proved),
+            JudgedUnit::of(Unit::held(Path::of('src/Log.php'), Group::named('holds:src/Log.php')), Origin::Carried),
+        );
+        $src = TreeVerdict::judged(Tree::at(Path::of('src'), Floor::of(80), $root), Floor::of(75.5), $units, self::everyJudgement(), Uncovered::Count)
+            ->comparedWith(Score::ofHundredths(4_000));
+        $legacy = Tree::at(Path::of('app/Legacy'), Exempt::because('Replaced by the new billing module'), $root);
+        $empty = Tree::at(Path::of('src/Empty'), Floor::of(90), $root);
+        $newCode = NewCodeVerdict::judged($root, Floor::of(100), JudgedMutants::of(self::survivor()), Uncovered::Count);
+
+        return Verdict::of(TreeVerdicts::of($src, self::bare($legacy), self::bare($empty)))
+            ->withNewCode(NewCodeVerdicts::of($newCode))
+            ->withReach(Reasons::of(Cause::that('src/Money.php changed, so it is reached.')))
+            ->withWarnings(Warnings::of(Warning::that('src/Kernel.php is run by 412 of 430 tests and nothing holds it.')))
+            ->withFailures(Failures::of(Failure::that('The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.')));
+    }
+
+    /** A full run that passes, with its one mutant killed and its floor able to rise. */
+    public static function passing(): Verdict
+    {
+        $killed = JudgedMutant::of(self::mutant('src/Money.php:9', 'TrueValue', Family::Literal, self::diff('return true;', 'return false;')), Judged::Killed);
+
+        return Verdict::of(TreeVerdicts::of(TreeVerdict::judged(
+            Tree::at(Path::of('src'), Floor::of(80), Package::at(Path::root())),
+            Unrecorded::floor(),
+            JudgedUnits::of(JudgedUnit::of(Unit::file(Path::of('src/Money.php')), Origin::Run)),
+            JudgedMutants::of($killed),
+            Uncovered::Count,
+        )));
+    }
+
+    /** One of the verdicts above, by its name, for a dataset to list. */
+    public static function named(string $name): Verdict
+    {
+        return match ($name) {
+            'failing' => self::failing(),
+            'passing' => self::passing(),
+            'cut short' => self::passing()->cutShort(),
+            default => self::empty(),
+        };
+    }
+
+    /** A run of one tree with no mutant in it. */
+    public static function empty(): Verdict
+    {
+        return Verdict::of(TreeVerdicts::of(self::bare(Tree::at(Path::of('src'), Floor::of(80), Package::at(Path::root())))));
+    }
+
+    /** A verdict over these mutants alone, in one tree held to this floor. */
+    public static function of(Floor $floor, JudgedMutant ...$mutants): Verdict
+    {
+        return Verdict::of(TreeVerdicts::of(TreeVerdict::judged(
+            Tree::at(Path::of('src'), $floor, Package::at(Path::root())),
+            Unrecorded::floor(),
+            JudgedUnits::none(),
+            JudgedMutants::of(...$mutants),
+            Uncovered::Count,
+        )));
+    }
+
+    /** A one-line diff, as Pest writes one: a line removed, and the line put in its place where there is one. */
+    public static function diff(string $removed, string $added): string
+    {
+        return $added === ''
+            ? sprintf("@@ @@\n-        %s\n", $removed)
+            : sprintf("@@ @@\n-        %s\n+        %s\n", $removed, $added);
+    }
+
+    private static function bare(Tree $tree): TreeVerdict
+    {
+        return TreeVerdict::judged($tree, Unrecorded::floor(), JudgedUnits::none(), JudgedMutants::none(), Uncovered::Count);
+    }
+}

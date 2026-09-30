@@ -1,0 +1,129 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
+use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
+use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\Environment;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\Verdicts;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\JsonMockResponse;
+use Symfony\Component\HttpClient\Response\MockResponse;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
+
+$environment = [
+    'GITHUB_EVENT_NAME' => 'pull_request',
+    'GITHUB_TOKEN' => 'secret',
+    'GITHUB_REPOSITORY' => 'octo/gate',
+    'GITHUB_API_URL' => 'https://api.github.example',
+    'GITHUB_SERVER_URL' => 'https://github.example',
+    'GITHUB_RUN_ID' => '7',
+];
+
+$event = static fn(string $head = 'octo/gate'): string => (string) json_encode(['pull_request' => [
+    'number' => 12,
+    'head' => ['repo' => ['full_name' => $head]],
+    'base' => ['repo' => ['full_name' => 'octo/gate']],
+]]);
+
+$comment = static fn(int $id, string $login, string $body): array => ['id' => $id, 'user' => ['login' => $login], 'body' => $body];
+
+it('posts a new comment where the token\'s identity has none', function () use ($environment, $event, $comment): void {
+    $post = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-9']);
+    $requests = [
+        new JsonMockResponse(['login' => 'gate-bot']),
+        new JsonMockResponse([$comment(1, 'someone', 'Looks good'), $comment(2, 'someone', Markdown::MARKER)]),
+        $post,
+    ];
+    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), '')->report(Verdicts::failing());
+
+    expect($answer)->toEqual(Written::to('https://github.example/octo/gate/pull/12#issuecomment-9'))
+        ->and($post->getRequestMethod())->toBe('POST')
+        ->and($post->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/12/comments')
+        ->and(Decoded::at(is_string($post->getRequestOptions()['body']) ? $post->getRequestOptions()['body'] : '', 'body'))
+        ->toBe(Markdown::comment(Verdicts::failing(), 'https://github.example/octo/gate/actions/runs/7'));
+});
+
+it('updates its own comment in place, passing runs included, reading every page of comments', function () use ($environment, $event, $comment): void {
+    $firstPage = array_map(static fn(int $id): array => $comment($id, 'someone', 'text'), range(1, 100));
+    $second = new JsonMockResponse([$comment(101, 'github-actions[bot]', sprintf("%s\nold", Markdown::MARKER))]);
+    $patch = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-101']);
+    $requests = [new MockResponse('{"message": "Resource not accessible by integration"}', ['http_code' => 403]), new JsonMockResponse($firstPage), $second, $patch];
+    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), '')->report(Verdicts::passing());
+
+    expect($answer)->toEqual(Written::to('https://github.example/octo/gate/pull/12#issuecomment-101'))
+        ->and($second->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/12/comments?per_page=100&page=2')
+        ->and($patch->getRequestMethod())->toBe('PATCH')
+        ->and($patch->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/comments/101');
+});
+
+it('finds its comment by the identity it is given, asking GitHub nothing about the token', function () use ($environment, $event, $comment): void {
+    $patch = new JsonMockResponse(['html_url' => 'u']);
+    $requests = [new JsonMockResponse([$comment(5, 'gate-bot', Markdown::MARKER), $comment(6, 'other-bot', Markdown::MARKER)]), $patch];
+    PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'other-bot')->report(Verdicts::passing());
+
+    expect($patch->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/comments/6');
+});
+
+it('says why, and fails nothing, where GitHub refuses the comment', function () use ($environment, $event): void {
+    $requests = [
+        new JsonMockResponse(['login' => 'gate-bot']),
+        new JsonMockResponse([]),
+        new MockResponse('{"message": "Resource not accessible by integration"}', ['http_code' => 403]),
+    ];
+    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), '')->report(Verdicts::passing());
+
+    expect($answer)->toBeInstanceOf(NotWritten::class)
+        ->and($answer instanceof NotWritten ? $answer->why() : '')->toStartWith('The pull request comment could not be written (')
+        ->and($answer instanceof NotWritten ? $answer->why() : '')->toContain('403')
+        ->and($answer instanceof NotWritten ? $answer->why() : '')->toEndWith('); the step summary carries it.');
+});
+
+it('writes no comment, and says why, where the run cannot comment', function (string $name, string $token, string $event, string $why): void {
+    $environment = ['GITHUB_EVENT_NAME' => $name, 'GITHUB_TOKEN' => $token];
+    $answer = PullRequestComment::inRun($environment, $event, new MockHttpClient([]), '')->report(Verdicts::failing());
+
+    expect($answer)->toEqual(NotWritten::because($why));
+})->with([
+    'a push' => ['push', 'secret', $event(), 'This run is not for a pull request, so there is no comment to write.'],
+    'no pull request in the event' => ['pull_request', 'secret', '{}', 'This run is not for a pull request, so there is no comment to write.'],
+    'no token' => ['pull_request', '', $event(), 'GITHUB_TOKEN is not set, so no comment is written; the step summary carries it.'],
+    'a fork' => ['pull_request', 'secret', $event('someone/gate'), 'A fork\'s pull request gets a read-only token, so no comment is written; the step summary carries it.'],
+]);
+
+it('reads its run from the environment and the event file, and its identity from its options', function () use ($event): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'event.json', $event());
+    $run = ['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => null, 'GITHUB_REPOSITORY' => 'octo/gate'];
+    $noToken = Environment::during(
+        [...$run, 'GITHUB_EVENT_PATH' => sprintf('%s/event.json', $root)],
+        static fn(): PullRequestComment => PullRequestComment::fromOptions(Options::ofJson('{"identity": "gate-bot"}')),
+    );
+    $noEvent = Environment::during(
+        [...$run, 'GITHUB_EVENT_PATH' => sprintf('%s/none.json', $root)],
+        static fn(): PullRequestComment => PullRequestComment::fromOptions(Options::ofJson('{"identity": 3}')),
+    );
+
+    expect($noToken->report(Verdicts::passing()))
+        ->toEqual(NotWritten::because('GITHUB_TOKEN is not set, so no comment is written; the step summary carries it.'))
+        ->and($noEvent->report(Verdicts::passing()))
+        ->toEqual(NotWritten::because('This run is not for a pull request, so there is no comment to write.'));
+});
+
+it('asks GitHub itself where no API is named', function () use ($event): void {
+    $post = new JsonMockResponse(['html_url' => 'u']);
+    $environment = ['GITHUB_EVENT_NAME' => 'pull_request_target', 'GITHUB_TOKEN' => 'secret', 'GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_RUN_ID' => '7'];
+    PullRequestComment::inRun($environment, $event(), new MockHttpClient([new JsonMockResponse([]), $post]), 'gate-bot')->report(Verdicts::passing());
+
+    expect($post->getRequestUrl())->toBe('https://api.github.com/repos/octo/gate/issues/12/comments')
+        ->and(Decoded::at(is_string($post->getRequestOptions()['body']) ? $post->getRequestOptions()['body'] : '', 'body'))
+        ->toContain('[The run](https://github.com/octo/gate/actions/runs/7)');
+});

@@ -3,7 +3,8 @@
 # Hidden files are read, so the decision records under `.docs` are checked.
 # `.git` holds compressed objects rather than documents.
 hidden = true
-exclude_path = [".git", "vendor"]
+# The vendored viewer and the fixtures are other projects' files.
+exclude_path = [".git", "vendor", "resources/mutation-testing-elements", "tests/Fixtures"]
 
 exclude_loopback = true
 max_retries = 3

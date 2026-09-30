@@ -37,3 +37,15 @@ it('cannot tell from an answer that is not JSON', function (): void {
 
     expect($answer)->toBeInstanceOf(CannotTell::class);
 });
+
+it('sends a JSON body with a method, and reads the answer', function (): void {
+    $response = new JsonMockResponse(['id' => 9]);
+    $answer = Api::at(new MockHttpClient($response), 'https://api.github.com', 'secret')
+        ->send('PATCH', '/repos/octo/gate/issues/comments/9', ['body' => 'text']);
+
+    expect($answer instanceof Answer ? $answer->number('id') : 0)->toBe(9)
+        ->and($response->getRequestMethod())->toBe('PATCH')
+        ->and($response->getRequestUrl())->toBe('https://api.github.com/repos/octo/gate/issues/comments/9')
+        ->and($response->getRequestOptions()['body'])->toBe('{"body":"text"}')
+        ->and($response->getRequestOptions()['headers'])->toContain('Authorization: Bearer secret');
+});
