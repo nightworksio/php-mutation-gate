@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
@@ -135,11 +136,11 @@ final readonly class Builtins
                 BuiltinReporter::KillMatrix,
                 BuiltinReporter::GitLab,
             ),
-            BuiltinReporter::Slack->value => $chat('MUTATION_GATE_SLACK_URL', Json::object()),
-            BuiltinReporter::Discord->value => $chat('MUTATION_GATE_DISCORD_URL', Json::object()),
+            BuiltinReporter::Slack->value => $chat(GateSecret::SlackUrl->value, Json::object()),
+            BuiltinReporter::Discord->value => $chat(GateSecret::DiscordUrl->value, Json::object()),
             BuiltinReporter::Webhook->value => $chat(
-                'MUTATION_GATE_WEBHOOK_URL',
-                Json::object(Member::of('secretEnv', 'MUTATION_GATE_WEBHOOK_SECRET')),
+                GateSecret::WebhookUrl->value,
+                Json::object(Member::of('secretEnv', GateSecret::WebhookSecret->value)),
                 Field::optional('secretEnv', $variable, $judges),
             ),
             BuiltinReporter::Otlp->value => Section::options(

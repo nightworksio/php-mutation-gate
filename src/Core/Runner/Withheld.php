@@ -52,10 +52,13 @@ final readonly class Withheld implements IteratorAggregate
     {
     }
 
-    /** What every run withholds, whatever the CI and the config. */
+    /** What every run withholds, whatever the CI and the config: those, and every secret the gate reads. */
     public static function standard(): self
     {
-        return new self(self::STANDARD);
+        return new self([
+            ...self::STANDARD,
+            ...array_map(static fn(GateSecret $secret): string => $secret->value, GateSecret::cases()),
+        ]);
     }
 
     /**
