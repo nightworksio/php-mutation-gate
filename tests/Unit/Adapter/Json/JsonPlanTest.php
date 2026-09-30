@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -64,4 +65,8 @@ it('names the shard a job was started as, or the generic parallel variables say'
 it('leaves the run to git', function (): void {
     expect(JsonPlan::printing('', Variables::of(['GITHUB_REF' => 'refs/heads/main']))->runOn())
         ->toEqual(CannotTell::because('The JSON plan knows nothing of the run, so git names its branch.'));
+});
+
+it('is run by no definition of its own', function (): void {
+    expect(JsonPlan::printing('', Variables::of([]))->definitions())->toEqual(Paths::none());
 });

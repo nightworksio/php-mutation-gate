@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Written;
@@ -33,6 +35,8 @@ use function sprintf;
 final readonly class CircleCiPlan implements CiPlan, Configurable
 {
     private const string PULL_REQUEST = '#/pull/(\d+)$#';
+
+    private const string DEFINITION = '.circleci/config.yml';
 
     private function __construct(private Variables $variables, private string $to)
     {
@@ -65,8 +69,17 @@ final readonly class CircleCiPlan implements CiPlan, Configurable
     {
         $defaultBranch = CannotTell::because('CircleCI does not name the default branch. Set ci.defaultBranch.');
 
-        return preg_match(self::PULL_REQUEST, $this->variables->valueOf('CIRCLE_PULL_REQUEST'), $number) === 1
-            ? RunOn::pullRequest($number[1], $defaultBranch)
-            : RunOn::branch($this->variables->valueOf('CIRCLE_BRANCH'), $defaultBranch);
+        return match (true) {
+            preg_match(self::PULL_REQUEST, $this->variables->valueOf('CIRCLE_PULL_REQUEST'), $number) === 1
+                => RunOn::pullRequest($number[1], $defaultBranch),
+            $this->variables->valueOf('CIRCLE_TAG') !== '' => RunOn::detached($defaultBranch),
+            default => RunOn::branch($this->variables->valueOf('CIRCLE_BRANCH'), $defaultBranch),
+        };
+    }
+
+    /** The config CircleCI runs from the repository. */
+    public function definitions(): Paths
+    {
+        return Paths::of(Path::of(self::DEFINITION));
     }
 }

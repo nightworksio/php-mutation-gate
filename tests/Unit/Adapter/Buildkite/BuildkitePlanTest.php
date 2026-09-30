@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -196,4 +198,14 @@ it('refuses a step template that is not a map of step keys', function (): void {
 
     expect(BuildkitePlan::fromOptions(Options::ofJson('{"step": ["agents"]}')))->toEqual($refused)
         ->and(BuildkitePlan::fromOptions(Options::ofJson('{"step": "agents"}')))->toEqual($refused);
+});
+
+it('gives no scope to a tag, which is no branch the gate writes for', function () use ($on): void {
+    $tag = Variables::of(['BUILDKITE_TAG' => 'v1', 'BUILDKITE_BRANCH' => 'v1', 'BUILDKITE_PIPELINE_DEFAULT_BRANCH' => 'main']);
+
+    expect($on($tag)->runOn())->toEqual(RunOn::detached(RunOn::branchNamed('main')));
+});
+
+it('is run by the pipeline it uploads from the repository', function () use ($on): void {
+    expect($on(Variables::of([]))->definitions())->toEqual(Paths::of(Path::of('.buildkite/pipeline.yml')));
 });

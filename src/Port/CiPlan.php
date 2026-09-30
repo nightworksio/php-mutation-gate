@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Port;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Written;
@@ -26,4 +27,12 @@ interface CiPlan
      * asks git and `ci.defaultBranch`.
      */
     public function runOn(): RunOn|CannotTell;
+
+    /**
+     * The CI definitions that run the gate, as paths from the repository's
+     * root: the content key reads them as they run, and a change to one
+     * reaches everything. None where the CI runs no definition from the
+     * repository.
+     */
+    public function definitions(): Paths;
 }

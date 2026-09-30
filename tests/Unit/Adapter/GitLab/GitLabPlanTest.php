@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Written;
@@ -183,4 +185,18 @@ it('writes its pipeline where the gate expects it, with the named template', fun
 it('refuses a template that is not written as text', function (): void {
     expect(GitLabPlan::fromOptions(Options::ofJson('{"template": ["ci/gate.yml"]}')))
         ->toEqual(Invalid::because(Problem::at('template', 'The template is a path, written as text.')));
+});
+
+it('gives no scope to a tag, which is no branch the gate writes for', function () use ($on): void {
+    $tag = Variables::of(['CI_COMMIT_TAG' => 'v1', 'CI_COMMIT_REF_NAME' => 'v1', 'CI_DEFAULT_BRANCH' => 'main']);
+
+    expect($on($tag)->runOn())->toEqual(RunOn::detached(RunOn::branchNamed('main')));
+});
+
+it('is run by the pipeline CI_CONFIG_PATH names, .gitlab-ci.yml by default, and by the template', function (): void {
+    $named = GitLabPlan::writing('', 'ci/gate.yml', Variables::of(['CI_CONFIG_PATH' => 'ci/main.yml']));
+
+    expect($named->definitions())->toEqual(Paths::of(Path::of('ci/main.yml'), Path::of('ci/gate.yml')))
+        ->and(GitLabPlan::writing('', 'ci/gate.yml', Variables::of([]))->definitions())
+        ->toEqual(Paths::of(Path::of('.gitlab-ci.yml'), Path::of('ci/gate.yml')));
 });

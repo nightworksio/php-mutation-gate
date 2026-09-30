@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -89,50 +90,77 @@ it('names the shard a job was started as', function (): void {
     expect(GitHubPlan::in(Variables::of(['SHARD' => '2']))->shard(ShardedPlan::of(3)))->toEqual(ShardId::of(2));
 });
 
-it('reads a pull request from its merge ref, and the default branch from the event payload', function (): void {
-    $event = sprintf('%s/event.json', Scratch::directory());
-    file_put_contents($event, '{"repository": {"default_branch": "trunk"}}');
+$event = static function (string $json): string {
+    $file = sprintf('%s/event.json', Scratch::directory());
+    file_put_contents($file, $json);
+
+    return $file;
+};
+
+it('reads a pull request from its merge ref, and the default branch from the event payload', function () use ($event): void {
     $github = GitHubPlan::in(Variables::of([
         'GITHUB_EVENT_NAME' => 'pull_request',
         'GITHUB_REF' => 'refs/pull/12/merge',
-        'GITHUB_EVENT_PATH' => $event,
+        'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "trunk"}}'),
     ]));
 
     expect($github->runOn())->toEqual(RunOn::pullRequest('12', RunOn::branchNamed('trunk')));
 });
 
-it('reads a push as its branch', function (): void {
-    $event = sprintf('%s/event.json', Scratch::directory());
-    file_put_contents($event, '{"repository": {"default_branch": "main"}}');
+it('takes the pull request the payload names, whatever the event and its ref', function (string $name) use ($event): void {
+    $github = GitHubPlan::in(Variables::of([
+        'GITHUB_EVENT_NAME' => $name,
+        'GITHUB_REF' => 'refs/heads/main',
+        'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "main"}, "pull_request": {"number": 7}}'),
+    ]));
+
+    expect($github->runOn())->toEqual(RunOn::pullRequest('7', RunOn::branchNamed('main')));
+})->with(['pull_request_target', 'pull_request', 'push']);
+
+it('reads a branch on push, schedule and workflow_dispatch, for the commit GitHub names', function (string $name) use ($event): void {
+    $github = GitHubPlan::in(Variables::of([
+        'GITHUB_EVENT_NAME' => $name,
+        'GITHUB_REF' => 'refs/heads/release/2.x',
+        'GITHUB_SHA' => '5eeca8f',
+        'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "main"}}'),
+    ]));
+    $run = RunOn::branch('release/2.x', RunOn::branchNamed('main'));
+
+    expect($github->runOn())->toEqual($run instanceof RunOn ? $run->withCommit(Revision::ref('5eeca8f')) : $run);
+})->with(['push', 'schedule', 'workflow_dispatch']);
+
+it('gives no scope to an event that acts on code from elsewhere, so it writes nothing', function (string $name) use ($event): void {
+    $github = GitHubPlan::in(Variables::of([
+        'GITHUB_EVENT_NAME' => $name,
+        'GITHUB_REF' => 'refs/heads/main',
+        'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "main"}}'),
+    ]));
+
+    expect($github->runOn())->toEqual(RunOn::detached(RunOn::branchNamed('main')));
+})->with(['workflow_run', 'issue_comment', 'pull_request_target', 'release', '']);
+
+it('gives no scope to a tag, or to a pull request ref outside a pull request event', function (string $ref): void {
+    expect(GitHubPlan::in(Variables::of(['GITHUB_EVENT_NAME' => 'push', 'GITHUB_REF' => $ref]))->runOn())
+        ->toEqual(RunOn::detached(CannotTell::because('No event payload could be read, so the default branch is not known.')));
+})->with(['refs/tags/v1', 'refs/pull/12/merge']);
+
+it('reads a pull request event with no payload from its merge ref alone', function (): void {
+    $github = GitHubPlan::in(Variables::of(['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_REF' => 'refs/pull/12/merge']));
+
+    expect($github->runOn())->toEqual(RunOn::pullRequest(
+        '12',
+        CannotTell::because('No event payload could be read, so the default branch is not known.'),
+    ));
+});
+
+it('takes no pull request from a payload whose number is not one', function () use ($event): void {
     $github = GitHubPlan::in(Variables::of([
         'GITHUB_EVENT_NAME' => 'push',
-        'GITHUB_REF' => 'refs/heads/release/2.x',
-        'GITHUB_EVENT_PATH' => $event,
+        'GITHUB_REF' => 'refs/heads/main',
+        'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "main"}, "pull_request": {"number": "7"}}'),
     ]));
 
-    expect($github->runOn())->toEqual(RunOn::branch('release/2.x', RunOn::branchNamed('main')));
-});
-
-it('reads a pull request ref as a pull request only on a pull request event', function (): void {
-    $push = GitHubPlan::in(Variables::of(['GITHUB_EVENT_NAME' => 'push', 'GITHUB_REF' => 'refs/pull/12/merge']));
-    $pullRequest = GitHubPlan::in(Variables::of([
-        'GITHUB_EVENT_NAME' => 'pull_request',
-        'GITHUB_REF' => 'refs/heads/x',
-    ]));
-
-    expect($push->runOn())
-        ->toEqual(CannotTell::because(
-            'GITHUB_REF is "refs/pull/12/merge", which is neither a branch nor a pull request.',
-        ))
-        ->and($pullRequest->runOn())
-        ->toEqual(RunOn::branch('x', CannotTell::because(
-            'No event payload could be read, so the default branch is not known.',
-        )));
-});
-
-it('cannot tell the run of a tag', function (): void {
-    expect(GitHubPlan::in(Variables::of(['GITHUB_EVENT_NAME' => 'push', 'GITHUB_REF' => 'refs/tags/v1']))->runOn())
-        ->toEqual(CannotTell::because('GITHUB_REF is "refs/tags/v1", which is neither a branch nor a pull request.'));
+    expect($github->runOn())->toEqual(RunOn::branch('main', RunOn::branchNamed('main')));
 });
 
 it('cannot tell the default branch from a payload that does not name it or cannot be read', function (): void {
@@ -143,6 +171,7 @@ it('cannot tell the default branch from a payload that does not name it or canno
     $unnamed = CannotTell::because('The event payload does not name the default branch.');
     $unread = CannotTell::because('No event payload could be read, so the default branch is not known.');
     $runOn = static fn(string $event): RunOn|CannotTell => GitHubPlan::in(Variables::of([
+        'GITHUB_EVENT_NAME' => 'push',
         'GITHUB_REF' => 'refs/heads/main',
         'GITHUB_EVENT_PATH' => $event,
     ]))->runOn();
@@ -154,6 +183,15 @@ it('cannot tell the default branch from a payload that does not name it or canno
     expect($runOn(sprintf('%s/other.json', $root)))->toEqual(RunOn::branch('main', $unnamed))
         ->and($runOn(sprintf('%s/absent.json', $root)))->toEqual(RunOn::branch('main', $unread))
         ->and($locked)->toEqual(RunOn::branch('main', $unread));
+});
+
+it('is run by the workflow GITHUB_WORKFLOW_REF names, and by none where it names none', function (): void {
+    $github = GitHubPlan::in(Variables::of([
+        'GITHUB_WORKFLOW_REF' => 'nightworksio/gate/.github/workflows/mutation.yml@refs/heads/main',
+    ]));
+
+    expect($github->definitions())->toEqual(Paths::of(Path::of('.github/workflows/mutation.yml')))
+        ->and(GitHubPlan::in(Variables::of([]))->definitions())->toEqual(Paths::none());
 });
 
 it('reads the output file from the environment', function (): void {
