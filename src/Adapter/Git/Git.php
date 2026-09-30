@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
@@ -29,6 +30,7 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
@@ -45,7 +47,8 @@ use function trim;
  * branch it is on, and the branch the remote calls its default.
  *
  * A revision is resolved to its commit once, the first time a file is read
- * at it, so every file read at it is read at the same commit.
+ * at it, so every file read at it is read at the same commit, and the files
+ * read at it together are read in one batch.
  */
 final class Git implements ChangeSource, Repository
 {
@@ -94,19 +97,21 @@ final class Git implements ChangeSource, Repository
 
     public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell
     {
+        $files = $this->filesAt(Paths::of($path), $revision);
+
+        return $files instanceof CannotTell ? $files : $files->at($path, Missing::at($path));
+    }
+
+    /** @return ByPath<Contents|Missing>|CannotTell */
+    public function filesAt(Paths $paths, Revision $revision): ByPath|CannotTell
+    {
         if ($revision->isWorkingTree()) {
-            return $this->read($path);
+            return ByPath::mapping($paths, $this->read(...));
         }
 
         $commit = $this->commitOf($revision);
 
-        if ($commit instanceof CannotTell) {
-            return $commit;
-        }
-
-        $blob = $this->git->run(['cat-file', 'blob', sprintf('%s:./%s', $commit, $path->value())]);
-
-        return is_string($blob) ? Contents::of($blob) : Missing::at($path);
+        return $commit instanceof CannotTell ? $commit : Blobs::at($this->git, $commit)->of($paths);
     }
 
     public function head(): Revision|CannotTell
@@ -255,16 +260,12 @@ final class Git implements ChangeSource, Repository
         return sprintf("%s\n", implode("\n", $paths));
     }
 
+    /** What a file on disk holds, or that it is missing where it is no file or cannot be read. */
     private function read(Path $path): Contents|Missing
     {
         $file = $this->pathTo($path->value());
+        $text = is_file($file) ? file_get_contents($file) : false;
 
-        return is_file($file) ? $this->contentsOf($path, file_get_contents($file)) : Missing::at($path);
-    }
-
-    /** What a file holds, or that it is missing where it could not be read. */
-    private function contentsOf(Path $path, string|false $text): Contents|Missing
-    {
         return is_string($text) ? Contents::of($text) : Missing::at($path);
     }
 

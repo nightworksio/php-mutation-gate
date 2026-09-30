@@ -13,10 +13,12 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\ProvingRange;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
@@ -97,6 +99,12 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
     public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell
     {
         return $this->source->fileAt($path, $revision);
+    }
+
+    /** @return ByPath<Contents|Missing>|CannotTell */
+    public function filesAt(Paths $paths, Revision $revision): ByPath|CannotTell
+    {
+        return $this->source->filesAt($paths, $revision);
     }
 
     public function head(): Revision|CannotTell

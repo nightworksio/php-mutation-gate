@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Checkout;
@@ -199,6 +200,7 @@ it('reads files and fingerprints from the source underneath', function () use ($
     $proved = PassedPullRequests::over($source(), answering([]), PULL_REQUESTS_RUN);
 
     expect($proved->fileAt(Path::of('src/Money.php'), Revision::ref('base')))->toEqual(Contents::of('base'))
+        ->and($proved->filesAt(Paths::of(Path::of('src/Money.php')), Revision::ref('base')))->toEqual($source()->filesAt(Paths::of(Path::of('src/Money.php')), Revision::ref('base')))
         ->and($proved->fingerprints())->toEqual($source()->fingerprints());
 });
 

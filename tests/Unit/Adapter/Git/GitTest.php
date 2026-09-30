@@ -6,12 +6,15 @@ use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Tests\Support\FileTexts;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -249,4 +252,67 @@ it('reads every file at a revision at the commit it named when first read', func
         ->and(Git::at($repository->root)->fileAt(Path::of('src/B.php'), Revision::ref('moving')))->toEqual(Contents::of("<?php\nmoved\n"))
         ->and($git->fileAt(Path::of('src/B.php'), Revision::ref('no-such-revision')))->toEqual(CannotTell::because('no-such-revision is not a revision this repository has.'))
         ->and($git->fileAt(Path::of('src/A.php'), Revision::ref('no-such-revision')))->toEqual(CannotTell::because('no-such-revision is not a revision this repository has.'));
+});
+
+it('reads many files at a revision at once, each as it was, and one that was not there as missing', function (): void {
+    $repository = Repository::empty()
+        ->write('src/A.php', "<?php\na\n")
+        ->write('src/Euro €.php', "€ \0\n")
+        ->write('src/Empty.php', '')
+        ->write("src/Line\nBreak.php", "<?php\nbroken\n")
+        ->write("src/Carriage\r.php", "<?php\ncarried\n")
+        ->commit('The base.');
+    $repository->write('src/A.php', "<?php\nchanged\n");
+
+    $files = Git::at($repository->root)->filesAt(
+        Paths::of(
+            Path::of('src/A.php'),
+            Path::of('src/Euro €.php'),
+            Path::of('src/Empty.php'),
+            Path::of("src/Line\nBreak.php"),
+            Path::of("src/Carriage\r.php"),
+            Path::of("src/Gone\n.php"),
+            Path::of('src/Gone.php'),
+            Path::of('src'),
+        ),
+        Revision::ref('HEAD'),
+    );
+
+    expect($files instanceof ByPath ? FileTexts::of($files) : $files)->toBe([
+        'src/A.php' => "<?php\na\n",
+        'src/Euro €.php' => "€ \0\n",
+        'src/Empty.php' => '',
+        "src/Line\nBreak.php" => "<?php\nbroken\n",
+        "src/Carriage\r.php" => "<?php\ncarried\n",
+        "src/Gone\n.php" => null,
+        'src/Gone.php' => null,
+        'src' => null,
+    ]);
+});
+
+it('reads many files as they are on disk, and many files at a revision spelt from the directory it is at', function (): void {
+    $repository = Repository::empty()->write('packages/money/src/A.php', "<?php\na\n")->commit('The base.');
+    $repository->write('packages/money/src/A.php', "<?php\nnow\n");
+    $git = Git::at(sprintf('%s/packages/money', $repository->root));
+    $paths = Paths::of(Path::of('src/A.php'), Path::of('src/B.php'));
+    $then = $git->filesAt($paths, Revision::ref('HEAD'));
+    $now = $git->filesAt($paths, Revision::workingTree());
+
+    expect($then instanceof ByPath ? FileTexts::of($then) : $then)->toBe(['src/A.php' => "<?php\na\n", 'src/B.php' => null])
+        ->and($now instanceof ByPath ? FileTexts::of($now) : $now)->toBe(['src/A.php' => "<?php\nnow\n", 'src/B.php' => null])
+        ->and($git->filesAt(Paths::none(), Revision::ref('HEAD')))->toEqual(ByPath::mapping(Paths::none(), Missing::at(...)));
+});
+
+it('cannot tell the files at a revision the repository does not have, or where git cannot read them', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\na\n")->commit('The base.');
+    $git = Git::at($repository->root);
+    $git->fileAt(Path::of('src/A.php'), Revision::ref('HEAD'));
+    rename(sprintf('%s/.git', $repository->root), sprintf('%s/.gone', $repository->root));
+
+    $unread = $git->filesAt(Paths::of(Path::of('src/A.php')), Revision::ref('HEAD'));
+
+    expect($git->filesAt(Paths::of(Path::of('src/A.php')), Revision::ref('no-such-revision')))
+        ->toEqual(CannotTell::because('no-such-revision is not a revision this repository has.'))
+        ->and($unread)->toBeInstanceOf(CannotTell::class)
+        ->and($unread instanceof CannotTell ? $unread->why() : '')->toStartWith('git cat-file --batch gave no answer: ');
 });
