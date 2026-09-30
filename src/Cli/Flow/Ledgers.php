@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Access;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -82,6 +83,12 @@ final readonly class Ledgers
     public function killers(): KillHistory
     {
         return $this->own->killers()->and($this->defaultBranch->killers());
+    }
+
+    /** Each unit's newest result, in any ledger read. */
+    public function newest(): NewestProofs
+    {
+        return $this->own->and($this->defaultBranch)->proofs()->newest();
     }
 
     /** How long each unit took, as every ledger read learned it. */

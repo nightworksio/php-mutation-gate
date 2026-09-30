@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
@@ -161,6 +162,19 @@ it('lists what the shard warns of, and reads it back', function () use ($finishe
     expect($written)->toEndWith("    \"warnings\": [\n        \"One.\",\n        \"Two.\"\n    ]\n}")
         ->and(ShardResultFile::decode($written))->toEqual($result)
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"warnings"');
+});
+
+it('lists the units its budget ran out before, and reads them back', function () use ($finished, $survivor, $measured): void {
+    $unjudged = Units::of(
+        Unit::file(Path::of('src/Late.php')),
+        Unit::held(Path::of('src/Http'), Group::named('holds:src/Http')),
+    );
+    $result = $finished($survivor, $measured)->withUnjudged($unjudged);
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toContain('"unjudged": [')
+        ->and(ShardResultFile::decode($written))->toEqual($result)
+        ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"unjudged"');
 });
 
 it('reads back a shard that could not judge', function () use ($measured): void {

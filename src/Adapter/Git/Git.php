@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Git;
 use function array_key_exists;
 use function array_map;
 use function array_pop;
+use function count;
 use function explode;
 use function getenv;
 use function mb_strlen;
@@ -29,6 +30,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
 
@@ -112,6 +114,18 @@ final class Git implements ChangeSource, Repository
             $untracked instanceof CannotTell => $untracked,
             default => Paths::of(...array_map(Path::of(...), [...$this->paths($changed), ...$this->paths($untracked)])),
         };
+    }
+
+    /** @return ByPath<Instant>|CannotTell */
+    public function lastChanged(Paths $paths): ByPath|CannotTell
+    {
+        if (count($paths) === 0) {
+            return ByPath::none();
+        }
+
+        $printed = $this->git->feed(History::arguments(), History::input($paths));
+
+        return $printed instanceof CannotTell ? $printed : History::lastChanged($printed, $paths);
     }
 
     public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell

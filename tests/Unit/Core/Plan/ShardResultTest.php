@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 
 it('holds the plan it followed, its units and keys, what the runner reported and what it measured', function (): void {
     $plan = Digest::of('9c1e');
@@ -29,7 +31,21 @@ it('holds the plan it followed, its units and keys, what the runner reported and
         ->and($result->units())->toBe($units)
         ->and($result->outcome())->toBe($outcome)
         ->and($result->measured())->toBe($measured)
-        ->and($result->flaky())->toHaveCount(0);
+        ->and($result->flaky())->toHaveCount(0)
+        ->and($result->unjudged())->toHaveCount(0);
+});
+
+it('names the units its budget ran out before, keeping everything else', function (): void {
+    $units = Keys::none()->with(Path::of('src/Money.php'), Digest::of('aaa'));
+    $outcome = MutationResult::of(Mutants::none(), 0);
+    $measured = Measurement::of(Seconds::of(42.5), 'pest', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')));
+    $unjudged = Units::of(Unit::file(Path::of('src/Money.php')));
+    $result = ShardResult::of(Digest::of('9c1e'), ShardId::of(2), $units, $outcome, $measured)->withUnjudged($unjudged);
+
+    expect($result->unjudged())->toBe($unjudged)
+        ->and($result->units())->toBe($units)
+        ->and($result->outcome())->toBe($outcome)
+        ->and($result->measured())->toBe($measured);
 });
 
 it('takes the ids of the mutants that gave two answers, keeping everything else', function (): void {

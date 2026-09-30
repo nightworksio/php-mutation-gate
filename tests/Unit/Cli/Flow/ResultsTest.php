@@ -5,8 +5,12 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -14,8 +18,10 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
+use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
@@ -24,6 +30,7 @@ use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -150,4 +157,23 @@ it('keeps each shard\'s result as it was read', function () use ($ran): void {
     $results = $ran(Flows::project(), ScriptedRunner::fixture());
 
     expect($results instanceof Results ? $results->shards()[0][1] : $results)->toBeInstanceOf(ShardResult::class);
+});
+
+it('takes no unit a budget ran out before as run, and names every one', function (): void {
+    $project = Flows::project();
+    $plan = Planned::handedIn($project, Planned::twoShards());
+    $setup = new Setup(
+        Absent::setting(),
+        Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
+        Digest::sha256Of('installed'),
+        new StoppedClock('2026-09-30T12:00:00Z'),
+    );
+    new Running(Flows::adapters($project), Flows::settings(Budget::of('1s')), $setup)->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+
+    expect($results instanceof Results ? [...$results->units()] : $results)->toBe([])
+        ->and($results instanceof Results ? array_map(
+            static fn(Unit $unit): string => $unit->path()->value(),
+            [...$results->unjudged()],
+        ) : $results)->toBe(['src/Money.php', 'src/Held.php']);
 });

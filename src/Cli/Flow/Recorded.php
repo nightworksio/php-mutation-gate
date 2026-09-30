@@ -136,7 +136,11 @@ final readonly class Recorded
         return $ledger->withKillers($history)->keepingKillersIn($functions->files());
     }
 
-    /** The ledger, with what each shard taught the cost model of its units, timed by the map it was handed. */
+    /**
+     * The ledger, with what each shard taught the cost model of the units it
+     * ran, timed by the map it was handed: a unit its budget ran out before
+     * took none of its time.
+     */
     private function learned(Ledger $ledger, Results $results): Ledger|CannotJudge
     {
         $handoff = new Handoff($this->adapters->project);
@@ -149,7 +153,7 @@ final readonly class Recorded
             }
 
             $ledger = $ledger->withTimings($this->adapters->costs->learn(
-                $shard->units(),
+                $shard->units()->except($result->unjudged()),
                 $mutated->mutants(),
                 $map,
                 $result->measured(),

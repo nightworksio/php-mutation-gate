@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 
 /**
  * The repository as version control sees it. Where it cannot say, it answers
@@ -34,6 +35,15 @@ interface ChangeSource
      * it was staged, or never added.
      */
     public function unstaged(): Paths|CannotTell;
+
+    /**
+     * When each of these paths last changed in a commit HEAD holds, a
+     * directory when the newest of its files did. A path no commit changed
+     * has none.
+     *
+     * @return ByPath<Instant>|CannotTell
+     */
+    public function lastChanged(Paths $paths): ByPath|CannotTell;
 
     /** What a file held at a revision. */
     public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell;

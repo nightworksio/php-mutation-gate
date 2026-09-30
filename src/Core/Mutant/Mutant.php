@@ -73,6 +73,12 @@ final readonly class Mutant
         return clone($this, ['reason' => $reason]);
     }
 
+    /** This mutant, left without a result by a time budget that ran out before this. */
+    public function unjudged(OutOfTime $before): self
+    {
+        return clone($this, ['status' => MutantStatus::Unjudged, 'reason' => $before->reason()]);
+    }
+
     /**
      * This mutant, killed by these tests: the first that failed on it, or
      * every one that failed under a full kill matrix.

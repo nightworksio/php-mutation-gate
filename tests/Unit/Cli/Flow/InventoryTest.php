@@ -101,6 +101,11 @@ it('cannot find the units where anything it asks cannot answer', function (
                 return Paths::none();
             }
 
+            public function lastChanged(Paths $paths): CannotTell
+            {
+                return CannotTell::because('git log failed.');
+            }
+
             public function fileAt(Path $path, Revision $revision): Missing
             {
                 return Missing::at($path);

@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\NeverProved;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
@@ -181,4 +182,24 @@ it('reads the kill history of every ledger, its own scope\'s where both know a m
     expect($killers)->toEqual($own->and($main))
         ->and($killers->likelyKillers($mutant, $add))->toEqual(TestIds::of(TestId::of('own')))
         ->and([...$killers->functions()])->toHaveCount(1);
+});
+
+it('gives each unit its newest result in any ledger it read, its own scope\'s first of two as new', function (): void {
+    $store = new ProofStoreFake();
+    $proof = static fn(string $key, string $at): Proof => Proof::of(
+        Digest::of($key),
+        Path::of('src/A.php'),
+        Mutants::none(),
+        Run::of('local', Moment::at($at), Digest::sha256Of('now')),
+    );
+    $store->write(Scope::branch('main'), Ledger::empty()->withProof($proof('main', '2026-09-30T10:00:00Z')));
+    $store->write(Scope::pullRequest(7), Ledger::empty()->withProof($proof('own', '2026-09-30T10:00:00Z')));
+    $newer = new ProofStoreFake();
+    $newer->write(Scope::branch('main'), Ledger::empty()->withProof($proof('main', '2026-09-30T11:00:00Z')));
+    $newer->write(Scope::pullRequest(7), Ledger::empty()->withProof($proof('own', '2026-09-30T10:00:00Z')));
+    $run = RunOn::at(Scope::pullRequest(7), Scope::branch('main'));
+    $newest = static fn(ProofStoreFake $in): Proof|NeverProved => ledgersOn($run, Writing::Auto, $in)->newest()->of(Path::of('src/A.php'));
+
+    expect($newest($store))->toEqual($proof('own', '2026-09-30T10:00:00Z'))
+        ->and($newest($newer))->toEqual($proof('main', '2026-09-30T11:00:00Z'));
 });

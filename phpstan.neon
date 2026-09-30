@@ -616,9 +616,10 @@ services:
                     - CHANGED # a field of the plan
                 'NightWorksIO\MutationGate\Core\Plan\ShardResultFile':
                     - FLAKY # a field of a shard result
+                    - UNJUDGED # a field of a shard result
                 'NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage':
                     - HALVES # the halves of a limit
-                'NightWorksIO\MutationGate\Cli\Flow\Running':
+                'NightWorksIO\MutationGate\Cli\Flow\Invoking':
                     - DOUBLED # a retried timeout's cap, doubled
             # Constants still to refer to their value's one home, by the builder whose area holds them.
             awaiting:

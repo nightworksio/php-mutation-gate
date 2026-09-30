@@ -129,6 +129,12 @@ it('raises its baseline to a score above the floor it was held to, and to nothin
     'above the baseline but below the declared floor' => [Floor::of(80), Floor::of(70), $threeOfFour, Unraised::floor()],
     'with nothing to mutate' => [Undeclared::floor(), Unrecorded::floor(), JudgedMutants::none(), Unraised::floor()],
     'exempt' => [Exempt::because('Generated code'), Unrecorded::floor(), $threeOfFour, Unraised::floor()],
+    'above the baseline with an unjudged mutant' => [
+        Floor::of(10),
+        Floor::of(10),
+        Judged::mutants(MutantJudgement::Killed, MutantJudgement::Killed, MutantJudgement::Unjudged),
+        Unraised::floor(),
+    ],
 ]);
 
 it('carries why the baseline lowered its floor, and has no reason until it is given one', function (): void {

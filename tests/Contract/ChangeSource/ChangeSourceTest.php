@@ -63,6 +63,20 @@ it('names every file whose content on disk is not what is staged', function (Cha
     expect($said)->toBe(['src/Limit.php', 'src/Money.php']);
 })->with($sources);
 
+it('says when each path last changed in a commit, a directory by its newest file, and nothing for one never committed', function (ChangeSource $source): void {
+    $paths = Paths::of(Path::of('src/Money.php'), Path::of('src'), Path::of('src/Limit.php'));
+    $changed = $source->lastChanged($paths);
+    $said = [];
+
+    foreach ($changed instanceof ByPath ? $changed : [] as $path => $at) {
+        $said[$path->value()] = $at;
+    }
+
+    expect(array_keys($said))->toBe(['src/Money.php', 'src'])
+        ->and($said['src'])->toEqual($said['src/Money.php'])
+        ->and($source->lastChanged(Paths::none()))->toHaveCount(0);
+})->with($sources);
+
 it('cannot tell what changed since a revision it does not have', function (ChangeSource $source): void {
     expect($source->changesSince(Revision::ref('no-such-revision')))->toBeInstanceOf(CannotTell::class);
 })->with($sources);

@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\UnitRecord;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
@@ -33,8 +34,9 @@ use function sprintf;
  * A shard's result as `.mutation-gate/results/<id>.json` holds it,
  * `"format": 1`, with `flaky` listing the ids of the mutants that gave two
  * answers where there are any, `missed` each held unit whose holding tests
- * miss lines of it, with why, where there are any, and `warnings` what the
- * shard warns of, where it warns of anything. A result that cannot be read is
+ * miss lines of it, with why, where there are any, `warnings` what the
+ * shard warns of, where it warns of anything, and `unjudged` the units its
+ * budget ran out before, where there are any. A result that cannot be read is
  * refused, and the verdict reads that shard as having left no result.
  *
  * @internal the shape of the shard result file
@@ -56,6 +58,8 @@ final readonly class ShardResultFile
     private const string MISSED_WHY = 'why';
 
     private const string WARNINGS = 'warnings';
+
+    private const string UNJUDGED = 'unjudged';
 
     public static function encode(ShardResult $result): string
     {
@@ -93,6 +97,7 @@ final readonly class ShardResultFile
                 static fn(Warning $warning): string => $warning->text(),
                 [...$result->warnings()],
             )] : [],
+            ...count($result->unjudged()) > 0 ? [self::UNJUDGED => UnitRecord::all($result->unjudged())] : [],
         ]);
     }
 
@@ -123,7 +128,14 @@ final readonly class ShardResultFile
         )
             ->withFlaky(self::flakyIn($file->field(self::FLAKY)))
             ->withMisses(self::missesIn($file->field(self::MISSED)))
-            ->withWarnings(self::warningsIn($file->field(self::WARNINGS)));
+            ->withWarnings(self::warningsIn($file->field(self::WARNINGS)))
+            ->withUnjudged(self::unjudgedIn($file->field(self::UNJUDGED)));
+    }
+
+    /** @throws NotInShape */
+    private static function unjudgedIn(Node $unjudged): Units
+    {
+        return $unjudged->isPresent() ? UnitRecord::readAll($unjudged) : Units::none();
     }
 
     /** @throws NotInShape */

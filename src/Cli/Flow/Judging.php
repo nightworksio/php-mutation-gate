@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
+use NightWorksIO\MutationGate\Core\Verdict\LeftUnjudged;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Ratchet;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
@@ -127,7 +128,10 @@ final readonly class Judging
             $ledgers->defaultBranch()->proofs(),
             $ledgers->own()->proofs(),
         );
-        $unclustered = $judge->trees($fresh->and($proving->proved())->and($carrying->carried()));
+        $unjudged = LeftUnjudged::of($results->unjudged(), $ledgers->newest());
+        $unclustered = $judge->trees(
+            $fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results()),
+        );
         $verdicts = $unclustered->clustered(Sources::ofSurvivors($unclustered, $this->adapters->project));
         $unfloored = Ratchet::unfloored($verdicts);
         $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));
@@ -141,6 +145,7 @@ final readonly class Judging
             $plan,
             Lowering::against($committed, $baseline, $trees),
             $this->missed($results->misses())
+                ->and($unjudged->failures())
                 ->and($refused ? $this->unfloored($baseline, $verdicts) : Failures::none()),
             $judge,
             $verdicts,
@@ -177,7 +182,8 @@ final readonly class Judging
 
     /**
      * @param Failures $lowered each floor the run lowers from the default branch's without its reason
-     * @param Failures $missed  each held unit its holding tests miss lines of
+     * @param Failures $missed  each held unit its holding tests miss lines of, and each unit
+     *                          the budget ran out before that no ledger holds a result of
      * @param Warnings $shards  what the shards warn of
      */
     private function verdictOf(

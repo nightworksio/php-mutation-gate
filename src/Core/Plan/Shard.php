@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 use function count;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Order\RiskOrder;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -65,6 +66,12 @@ final readonly class Shard
     public function label(): string
     {
         return $this->label;
+    }
+
+    /** The shard with its units in this order, the riskiest first (ADR-0008, decision 1). */
+    public function ordered(RiskOrder $order): self
+    {
+        return new self($this->id, $this->package, $order->ordered($this->units), $this->cost, $this->label);
     }
 
     public function isEmpty(): bool
