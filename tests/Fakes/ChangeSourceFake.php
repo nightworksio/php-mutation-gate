@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
@@ -18,6 +19,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 
 use function sprintf;
@@ -70,5 +72,11 @@ final readonly class ChangeSourceFake implements ChangeSource
         $files = array_key_exists($revision->name(), $this->files) ? $this->files[$revision->name()] : [];
 
         return array_key_exists($path->value(), $files) ? Contents::of($files[$path->value()]) : Missing::at($path);
+    }
+
+    /** @return ByPath<Contents|Missing> */
+    public function filesAt(Paths $paths, Revision $revision): ByPath
+    {
+        return ByPath::mapping($paths, fn(Path $path): Contents|Missing => $this->fileAt($path, $revision));
     }
 }

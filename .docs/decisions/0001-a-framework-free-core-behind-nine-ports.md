@@ -73,7 +73,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    | `ProofStore` | The ledgers of proved results this run may read, and where to write the new one | Directory, S3-compatible (ADR-0007) |
    | `CiPlan` | A plan in a CI's own format; which shard this job is; and the run's ref, whether it is a pull request, and the default branch | GitHub, GitLab, Buildkite, CircleCI, JSON (ADR-0006) |
    | `Reporter` | Writing a verdict for one audience | Console, JSON, JUnit, SARIF, HTML, GitHub annotations and step summary, PR comment, badge and trend (ADR-0009) |
-   | `ChangeSource` | The repository as version control sees it: what changed since a base and on which lines, every file with a digest of its content and the time it last changed, and a file as it was at the base | git, with GitHub as a source for the base (ADR-0005) |
+   | `ChangeSource` | The repository as version control sees it: what changed since a base and on which lines, every file with a digest of its content and the time it last changed, and files as they were at the base, one or many read together | git, with GitHub as a source for the base (ADR-0005) |
    | `Repository` | Where the checkout stands: the commit it is at, the branch it is on or that its `HEAD` is detached, and the branch the remote calls its default | git (ADR-0006) |
    | `ConfigLoader` | One config file read into the untyped tree that ADR-0002 validates | PHP, JSON, YAML, NEON (ADR-0002) |
 

@@ -7,12 +7,14 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
@@ -74,4 +76,21 @@ it('reads a file as it was at a revision, and says when it was not there', funct
     expect($source->fileAt(Path::of('src/Money.php'), Revision::ref('fixture-base')))->toEqual(Contents::of("<?php\nreturn 1;\n"))
         ->and($source->fileAt(Path::of('src/Money.php'), Revision::workingTree()))->toEqual(Contents::of("<?php\nreturn 2;\n"))
         ->and($source->fileAt(Path::of('src/Limit.php'), Revision::ref('fixture-base')))->toEqual(Missing::at(Path::of('src/Limit.php')));
+})->with($sources);
+
+it('reads files as they were at a revision together, each one there or missing', function (ChangeSource $source): void {
+    $paths = Paths::of(Path::of('src/Money.php'), Path::of('src/Limit.php'));
+    $held = static function (ByPath|CannotTell $files) use ($paths): array {
+        $held = [];
+
+        foreach ($paths as $path) {
+            $held[] = $files instanceof ByPath ? $files->at($path, Contents::of('not asked')) : $files;
+        }
+
+        return $held;
+    };
+
+    expect($held($source->filesAt($paths, Revision::ref('fixture-base'))))->toEqual([Contents::of("<?php\nreturn 1;\n"), Missing::at(Path::of('src/Limit.php'))])
+        ->and($held($source->filesAt($paths, Revision::workingTree())))->toEqual([Contents::of("<?php\nreturn 2;\n"), Contents::of("<?php\n")])
+        ->and($source->filesAt($paths, Revision::ref('fixture-base')))->toHaveCount(2);
 })->with($sources);
