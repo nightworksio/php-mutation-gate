@@ -225,7 +225,10 @@ its parser attributes. Both change when the checkout moves.
        `GITHUB_TOKEN`, `SONAR_TOKEN`, and the cloud stores' of ADR-0028:
        `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_GHA_CREDS_PATH`,
        `CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE`, `AZURE_*`,
-       `MUTATION_GATE_GCS_TOKEN` and `MUTATION_GATE_AZURE_TOKEN`), each CI plan adds its own CI's tokens
+       `MUTATION_GATE_GCS_TOKEN` and `MUTATION_GATE_AZURE_TOKEN`) and the
+       secrets the gate itself reads (`OTEL_EXPORTER_OTLP_HEADERS` and the
+       alert channels' `MUTATION_GATE_*_URL` and
+       `MUTATION_GATE_WEBHOOK_SECRET`), each CI plan adds its own CI's tokens
        (such as GitLab's `CI_JOB_TOKEN` and Buildkite's
        `BUILDKITE_AGENT_ACCESS_TOKEN`), and `runner.withhold`, a list of names
        or globs, adds a project's own. The list only ever grows.
@@ -451,8 +454,8 @@ its parser attributes. Both change when the checkout moves.
        mutant through the script's `#!` line. They inherit no variable of
        another run (`INFECTION_*`, `MUTATION_GATE_*`, `PEST_MUTATION_*`,
        `PARATEST`, `TEST_TOKEN`, `UNIQUE_TEST_TOKEN`) and no credential
-       (`AWS_*`, `GITHUB_TOKEN`, `SONAR_TOKEN`, `ACTIONS_*`, and the cloud
-       stores' of ADR-0028), because the
+       (`AWS_*`, `GITHUB_TOKEN`, `SONAR_TOKEN`, `ACTIONS_*`, the cloud
+       stores' of ADR-0028, the gate's own secrets), because the
        project's tests and every mutant of its code run in them.
      - A project withholds its own credentials from either runner with
        `runner.withhold`, a list of variable names or globs whose `*` stands
