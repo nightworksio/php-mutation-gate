@@ -2,11 +2,15 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\CoverageXml;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Adapter\Infection\Ran;
+use NightWorksIO\MutationGate\Cli\Flow\Handoff;
+use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -24,6 +28,10 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Plan\Shard;
+use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Plan\ShardResult;
+use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -43,10 +51,14 @@ use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\Described;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\InfectionRun;
 use NightWorksIO\MutationGate\Tests\Support\InfectionShellFake;
+use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -574,4 +586,26 @@ it('withholds from the coverage run and every mutant\'s tests what the request w
     expect(count($shell->commands()))->toBe(3)
         ->and(array_map(static fn(Command $command): Withheld => $command->withheld(), $shell->commands()))
         ->each->toEqual(Withheld::standard()->and(Withheld::of('CI_JOB_TOKEN')));
+});
+
+it('runs a shard of the flows on the map the plan handed it, in its own layout', function (): void {
+    $at = infectionProject();
+    $plan = Planned::of(
+        Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(1.0), 'money'),
+    );
+    new Handoff(Directory::at($at->root()))->write($plan, CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
+        ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5)));
+    $shell = infectionShell($at, infectionKilled($at));
+    $infection = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false);
+
+    new Running(Flows::adapters($at->root(), [], $infection), Flows::settings(), Flows::setup())
+        ->run($plan, ShardId::of(1), Workspace::results());
+    $file = sprintf('%s/.mutation-gate/results/1.json', $at->root());
+    $result = ShardResultFile::decode((string) file_get_contents($file));
+    $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
+
+    expect(infectionStatuses($outcome))->toBe([MutantStatus::Killed])
+        ->and(count($shell->commands()))->toBe(1)
+        ->and(infectionRan($shell)[0])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()));
 });
