@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -210,7 +211,7 @@ final class Library
     public static function infection(Seconds $cap): self
     {
         $infection = static function (string $root) use ($cap): Infection {
-            $project = InfectionProject::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
+            $project = InfectionProject::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
 
             return new Infection($project, new InfectionShell($root, getenv()), $cap, nativeMarkersAllowed: false);
         };

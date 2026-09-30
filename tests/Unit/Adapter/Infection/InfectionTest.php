@@ -13,9 +13,11 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -61,7 +63,7 @@ function infectionProject(string $config = ''): Project
         Scratch::write($root, 'infection.json5', $config);
     }
 
-    return Project::at($root, Paths::of(Path::of('tests')), Path::of('.gate'));
+    return Project::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.gate'));
 }
 
 /**
@@ -268,7 +270,7 @@ it('writes the map another job handed on in its own layout for a run judged by t
     expect(infectionStatuses($result))->toBe([MutantStatus::Killed])
         ->and(count($shell->commands()))->toBe(1)
         ->and(infectionRan($shell)[0])->toContain(sprintf('--coverage=%s', $own))
-        ->and(CoverageXml::read($at, $own))->toEqual($handed);
+        ->and(CoverageXml::read($at, DiskPath::of($own)))->toEqual($handed);
 });
 
 it('cannot judge a handed-on map whose test class no test file declares', function (): void {

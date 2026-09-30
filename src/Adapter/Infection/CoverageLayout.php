@@ -20,6 +20,7 @@ use function max;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
@@ -45,7 +46,7 @@ final readonly class CoverageLayout
         = 'The coverage map names the test class %s, and no test file declares it, so Infection cannot run its tests.';
 
     /** The map, written into a directory, which it answers; or why it cannot be. */
-    public static function write(Project $project, CoverageMap $map, string $directory): string|CannotJudge
+    public static function write(Project $project, CoverageMap $map, DiskPath $directory): DiskPath|CannotJudge
     {
         $classes = self::classesOf($map);
         $files = TestFiles::byClass($project, $classes);
@@ -56,12 +57,13 @@ final readonly class CoverageLayout
         }
 
         $documents = [
-            sprintf('%s/%s', Invocation::XML, CoverageXml::INDEX) => self::index($project, $map),
+            Path::of(Invocation::XML)->child(Path::of(CoverageXml::INDEX))->value() => self::index($project, $map),
             Invocation::JUNIT => self::junit($project, $map, $files),
         ];
 
         foreach ($map->files() as $file) {
-            $documents[sprintf('%s/%s.xml', Invocation::XML, $file->value())] = self::report($map, $file);
+            $documents[Path::of(Invocation::XML)->child(Path::of(sprintf('%s.xml', $file->value())))->value()]
+                = self::report($map, $file);
         }
 
         return self::written($project, $directory, $documents);
@@ -73,10 +75,10 @@ final readonly class CoverageLayout
      *
      * @param array<string, DOMDocument> $documents each document, by its path in the directory
      */
-    private static function written(Project $project, string $directory, array $documents): string|CannotJudge
+    private static function written(Project $project, DiskPath $directory, array $documents): DiskPath|CannotJudge
     {
         foreach ($documents as $path => $document) {
-            $file = $project->fresh(sprintf('%s/%s', $directory, $path));
+            $file = $project->fresh($directory->child($path)->value());
 
             if ($file instanceof CannotJudge) {
                 return $file;

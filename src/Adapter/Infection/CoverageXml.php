@@ -9,12 +9,12 @@ use DOMElement;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-use function rtrim;
 use function sprintf;
 
 /**
@@ -31,11 +31,11 @@ final readonly class CoverageXml
         = '%s is not there or is not PHPUnit XML coverage, so the gate cannot say which tests run which line.';
 
     /** The map a coverage directory holds, with each file as the project spells it. */
-    public static function read(Project $project, string $directory): CoverageMap|CannotJudge
+    public static function read(Project $project, DiskPath $directory): CoverageMap|CannotJudge
     {
-        $xml = sprintf('%s/%s', $directory, Invocation::XML);
-        $index = self::loaded(sprintf('%s/%s', $xml, self::INDEX));
-        $junit = JUnit::at(sprintf('%s/%s', $directory, Invocation::JUNIT));
+        $xml = $directory->child(Invocation::XML);
+        $index = self::loaded(self::indexIn($directory));
+        $junit = JUnit::at($directory->child(Invocation::JUNIT));
         $map = $index instanceof CannotJudge ? $index : self::covered($project, $index, $xml);
 
         return match (true) {
@@ -45,7 +45,13 @@ final readonly class CoverageXml
         };
     }
 
-    private static function covered(Project $project, DOMDocument $index, string $xml): CoverageMap|CannotJudge
+    /** Where a coverage directory's index of every file's report is. */
+    public static function indexIn(DiskPath $directory): DiskPath
+    {
+        return $directory->child(Invocation::XML)->child(self::INDEX);
+    }
+
+    private static function covered(Project $project, DOMDocument $index, DiskPath $xml): CoverageMap|CannotJudge
     {
         $map = CoverageMap::empty();
         $source = '';
@@ -55,7 +61,7 @@ final readonly class CoverageXml
         }
 
         foreach ($index->getElementsByTagName('file') as $file) {
-            $report = self::loaded(sprintf('%s/%s', $xml, $file->getAttribute('href')));
+            $report = self::loaded($xml->child($file->getAttribute('href')));
 
             if ($report instanceof CannotJudge) {
                 return $report;
@@ -68,9 +74,9 @@ final readonly class CoverageXml
     }
 
     /** An XML file, or why the coverage cannot be read where it is not there or not XML. */
-    private static function loaded(string $file): DOMDocument|CannotJudge
+    private static function loaded(DiskPath $file): DOMDocument|CannotJudge
     {
-        return XmlFile::read($file, CannotJudge::because(sprintf(self::UNREADABLE, $file)));
+        return XmlFile::read($file->value(), CannotJudge::because(sprintf(self::UNREADABLE, $file->value())));
     }
 
     private static function linesOf(
@@ -144,9 +150,9 @@ final readonly class CoverageXml
     /** A covered file's path on disk: the report's source directory, the file's directory under it, and its name. */
     private static function onDisk(string $source, DOMElement $file): string
     {
-        $directory = rtrim(sprintf('%s%s', $source, $file->getAttribute('path')), '/');
-
-        return sprintf('%s/%s', $directory, $file->getAttribute('name'));
+        return DiskPath::of(sprintf('%s%s', $source, $file->getAttribute('path')))
+            ->child($file->getAttribute('name'))
+            ->value();
     }
 
     private static function timed(CoverageMap $map, JUnit $junit): CoverageMap

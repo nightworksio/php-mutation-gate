@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Adapter\Infection\Targets;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -20,7 +21,7 @@ $project = static function (): Project {
         Scratch::write($root, $file, '<?php');
     }
 
-    return Project::at($root, Paths::none(), Path::of('.gate'));
+    return Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
 };
 
 it('gives Infection the paths asked for, in the directories they are in', function () use ($project): void {

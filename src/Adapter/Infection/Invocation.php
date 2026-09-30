@@ -8,6 +8,7 @@ use function addcslashes;
 use function implode;
 use function is_file;
 
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -70,15 +71,15 @@ final readonly class Invocation
         Project $project,
         OwnConfig $config,
         WholeSuite|Group|Filter $tests,
-        string $directory,
+        DiskPath $directory,
     ): Command {
         return Command::php(
             ...[
                 ...$config->phpOptions(),
                 $config->phpunit($project),
                 sprintf('--configuration=%s', $config->configDirectory($project)),
-                sprintf('--coverage-xml=%s/%s', $directory, self::XML),
-                sprintf('--log-junit=%s/%s', $directory, self::JUNIT),
+                sprintf('--coverage-xml=%s', $directory->child(self::XML)->value()),
+                sprintf('--log-junit=%s', $directory->child(self::JUNIT)->value()),
                 '--colors=never',
                 ...$config->extraArguments(),
                 ...self::narrowedTo($tests),
@@ -98,7 +99,7 @@ final readonly class Invocation
         Project $project,
         OwnConfig $config,
         WholeSuite|Group|Filter $judgedBy,
-        string $coverage,
+        DiskPath $coverage,
         Processes $processes,
         array $paths,
     ): Command {
@@ -112,7 +113,7 @@ final readonly class Invocation
             '--no-interaction',
             '--with-uncovered',
             '--logger-github=false',
-            sprintf('--coverage=%s', $coverage),
+            sprintf('--coverage=%s', $coverage->value()),
             '--skip-initial-tests',
             ...($extra === [] ? [] : [sprintf('--test-framework-extra-args=%s', self::quoted($extra))]),
             ...($judgedBy instanceof Filter ? ['--only-covering-test-cases'] : []),

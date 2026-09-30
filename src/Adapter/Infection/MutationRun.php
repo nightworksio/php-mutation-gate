@@ -7,11 +7,10 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use function file_put_contents;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-
-use function sprintf;
 
 /**
  * One run of Infection over a coverage directory: the config the gate writes
@@ -32,7 +31,7 @@ final readonly class MutationRun
     }
 
     /** The request's mutants, judged with the coverage in a directory, each allowed at most the cap. */
-    public function of(MutationRequest $request, string $coverage, Seconds $cap): MutationResult|CannotJudge
+    public function of(MutationRequest $request, DiskPath $coverage, Seconds $cap): MutationResult|CannotJudge
     {
         $limits = $this->limits($coverage, $cap);
 
@@ -47,7 +46,7 @@ final readonly class MutationRun
 
     private function ran(
         MutationRequest $request,
-        string $coverage,
+        DiskPath $coverage,
         Targets $targets,
         Limits $limits,
     ): MutationResult|CannotJudge {
@@ -72,10 +71,10 @@ final readonly class MutationRun
     }
 
     /** What Infection allows each mutant, from the coverage the run reads. */
-    private function limits(string $coverage, Seconds $cap): Limits|CannotJudge
+    private function limits(DiskPath $coverage, Seconds $cap): Limits|CannotJudge
     {
         $map = CoverageXml::read($this->project, $coverage);
-        $junit = JUnit::at(sprintf('%s/%s', $coverage, Invocation::JUNIT));
+        $junit = JUnit::at($coverage->child(Invocation::JUNIT));
 
         return match (true) {
             $map instanceof CannotJudge => $map,
