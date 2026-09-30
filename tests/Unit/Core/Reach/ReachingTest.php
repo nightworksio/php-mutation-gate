@@ -31,7 +31,7 @@ $core = Package::at(Path::of('packages/core'));
 $money = Package::at(Path::of('packages/money'))->dependingOn(Path::of('packages/core'));
 
 $reaching = static fn(): Reaching => new Reaching(
-    Layout::standard()
+    Layout::standard(Paths::of(Path::of('tests/Pest.php')))
         ->runBy(Glob::of('.github/workflows/gate.yml'))
         ->testedIn(Paths::of(Path::of('tests'), Path::of('app-modules/billing/tests')))
         ->withModule(Path::of('app-modules/billing')),

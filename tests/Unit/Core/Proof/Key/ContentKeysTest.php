@@ -137,7 +137,7 @@ function contentKeyOf(
                     CiDefinition::at(Path::of('.github/workflows/mutation.yml'), Contents::of($ci)),
                     CiDefinition::at(Path::of('.gitlab/template.yml'), Contents::of($template)),
                 ),
-            Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate-baseline.json'), Ignored::globs('docs/**')),
+            Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate-baseline.json'), Ignored::globs('docs/**'), Paths::none()),
         ),
         Tests::of(TestFiles::of(...$files), contentKeyPaths($known), contentKeyPaths($canaries)),
     );
@@ -307,7 +307,7 @@ $bare = static fn(): ContentKeys => ContentKeys::of(
     Configured::document('{}'),
     Identity::of('pest', Versions::none(), Digest::of('platform')),
     Digest::of('installed'),
-    Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing())),
+    Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing(), Paths::none())),
     Tests::of(TestFiles::of(), Paths::none(), Paths::none()),
 );
 
@@ -370,7 +370,7 @@ function contentKeysPinned(): ContentKeys
                 CiDefinition::at(Path::of('.github/workflows/gate.yml'), Contents::of("name: gate\n")),
                 CiDefinition::at(Path::of('.gitlab-ci.yml'), Contents::of("stages: [gate]\n")),
             ),
-            Exceptions::of(Path::of('mutation-gate.json'), Path::of('baseline.json'), Ignored::nothing()),
+            Exceptions::of(Path::of('mutation-gate.json'), Path::of('baseline.json'), Ignored::nothing(), Paths::none()),
         ),
         Tests::of(
             TestFiles::of(
@@ -454,7 +454,7 @@ it('keys hundreds of units every test file judges in linear time', function (): 
         Configured::document('{}'),
         Identity::of('pest', Versions::none(), Digest::of('platform')),
         Digest::of('installed'),
-        Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing())),
+        Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing(), Paths::none())),
         Tests::of(TestFiles::of(...$files), Paths::of(...$judges), Paths::none()),
     );
     $units = array_map(

@@ -56,6 +56,7 @@ final readonly class RunnerFake implements Runner
         private CoverageMap $map,
         private Mutants $library,
         private Paths $judges,
+        private Paths $definitions,
     ) {
     }
 
@@ -78,6 +79,7 @@ final readonly class RunnerFake implements Runner
                 ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.2)),
             $mutants,
             Paths::of(Path::of('tests/DrainSpec.php'), Path::of('tests/MoneySpec.php')),
+            Paths::of(Path::of('tests/Pest.php'), Path::of('phpunit.xml')),
         );
     }
 
@@ -139,6 +141,11 @@ final readonly class RunnerFake implements Runner
         return $this->within(Path::of(Library::MARKED), $files)
             ? Markers::of(Marker::of(Library::MARKER, 'fake-ignore', '{"mutant": "<id>", "reason": "<why>"}'))
             : Markers::none();
+    }
+
+    public function definitions(): Paths
+    {
+        return $this->definitions;
     }
 
     /** @param array{file: string, line: int, removed: string, added: string, status: MutantStatus} $change */

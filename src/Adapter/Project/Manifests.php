@@ -4,20 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Project;
 
-use function array_key_exists;
 use function dirname;
 use function file_get_contents;
-use function is_array;
 use function is_dir;
 use function is_file;
-use function is_float;
-use function is_int;
-use function is_string;
-use function json_decode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Absent;
-use NightWorksIO\MutationGate\Core\Config\Definition\Json;
+use NightWorksIO\MutationGate\Core\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
@@ -36,14 +31,6 @@ use function sprintf;
  */
 final readonly class Manifests
 {
-    private const string MANIFEST = 'composer.json';
-
-    private const array AUTOLOAD = ['psr-4', 'psr-0', 'classmap', 'files'];
-
-    private const int NONE = 0;
-
-    private const int WHOLE = 100;
-
     private function __construct(private string $root)
     {
     }
@@ -58,19 +45,11 @@ final readonly class Manifests
     {
         $manifest = $this->read(Path::root());
 
-        if (! is_array($manifest)) {
-            return $manifest instanceof CannotJudge ? $manifest : Paths::none();
-        }
-
-        $paths = [];
-
-        foreach (self::AUTOLOAD as $kind) {
-            foreach ($this->strings($this->under($manifest, ['autoload', $kind])) as $path) {
-                $paths[] = Path::of($path);
-            }
-        }
-
-        return Paths::of(...$paths);
+        return match (true) {
+            $manifest instanceof Manifest => $manifest->autoloaded(),
+            $manifest instanceof CannotJudge => $manifest,
+            default => Paths::none(),
+        };
     }
 
     /** One tree per path, each with the floor the nearest manifest above it declares, in the root package. */
@@ -111,97 +90,20 @@ final readonly class Manifests
         $manifest = $this->read($directory);
 
         return match (true) {
-            is_array($manifest) => $this->floor(
-                $this->under($manifest, ['extra', 'mutation-gate']),
-                Path::of(sprintf('%s/%s', $directory->value(), self::MANIFEST))->value(),
-            ),
+            $manifest instanceof Manifest => $manifest->gate()->floor(),
             $manifest instanceof CannotJudge => $manifest,
             default => Undeclared::floor(),
         };
     }
 
-    /** @return array<mixed>|Absent|CannotJudge */
-    private function read(Path $directory): array|Absent|CannotJudge
+    private function read(Path $directory): Manifest|Missing|CannotJudge
     {
-        $file = sprintf('%s/%s/%s', $this->root, $directory->value(), self::MANIFEST);
+        $file = Manifest::fileIn($directory);
+        $on = sprintf('%s/%s', $this->root, $file->value());
 
-        if (! is_file($file)) {
-            return Absent::setting();
-        }
-
-        $manifest = json_decode((string) file_get_contents($file), associative: true);
-
-        return is_array($manifest)
-            ? $manifest
-            : CannotJudge::because(sprintf(
-                '%s is not a JSON object.',
-                Path::of(sprintf('%s/%s', $directory->value(), self::MANIFEST))->value(),
-            ));
-    }
-
-    private function floor(mixed $settings, string $file): Floor|Exempt|Undeclared|CannotJudge
-    {
-        $floor = $this->under($settings, ['floor']);
-        $reason = $this->under($settings, ['floorReason']);
-
-        return match (true) {
-            $floor instanceof Absent => Undeclared::floor(),
-            ! $this->isPercentage($floor) => CannotJudge::because(sprintf(
-                '%s declares extra.mutation-gate.floor as %s, which is not a number from 0 to 100.',
-                $file,
-                Json::encode($floor),
-            )),
-            $floor > self::NONE => Floor::of($floor),
-            is_string($reason) && $reason !== '' => Exempt::because($reason),
-            default => CannotJudge::because(sprintf(
-                '%s declares a floor of 0 without the reason extra.mutation-gate.floorReason gives it.',
-                $file,
-            )),
-        };
-    }
-
-    /** @phpstan-assert-if-true int|float $floor */
-    private function isPercentage(mixed $floor): bool
-    {
-        return (is_int($floor) || is_float($floor)) && $floor >= self::NONE && $floor <= self::WHOLE;
-    }
-
-    /**
-     * What a decoded manifest holds under these keys, or none.
-     *
-     * @param list<string> $keys
-     */
-    private function under(mixed $data, array $keys): mixed
-    {
-        foreach ($keys as $key) {
-            if (! is_array($data) || ! array_key_exists($key, $data)) {
-                return Absent::setting();
-            }
-
-            $data = $data[$key];
-        }
-
-        return $data;
-    }
-
-    /**
-     * The strings an autoload entry names: a map's values, or a list's entries, each a string or a list of them.
-     *
-     * @return list<string>
-     */
-    private function strings(mixed $entry): array
-    {
-        $strings = [];
-
-        foreach (is_array($entry) ? $entry : [] as $value) {
-            foreach (is_array($value) ? $value : [$value] as $path) {
-                if (is_string($path)) {
-                    $strings[] = $path;
-                }
-            }
-        }
-
-        return $strings;
+        return is_file($on)
+            ? Manifest::decode(Contents::of((string) file_get_contents($on)), $directory)
+            : Missing::at($file);
     }
 
     /**

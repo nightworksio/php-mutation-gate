@@ -15,6 +15,8 @@ use function is_readable;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 
@@ -44,6 +46,14 @@ final readonly class Disk
         $text = is_readable($on) ? file_get_contents($on) : false;
 
         return is_string($text) ? $text : CannotJudge::because(sprintf('%s could not be read.', $file->value()));
+    }
+
+    /** The manifest in a directory, where there is one. */
+    public function manifestIn(Path $directory): Manifest|Missing|CannotJudge
+    {
+        $read = $this->read(Manifest::fileIn($directory));
+
+        return is_string($read) ? Manifest::decode(Contents::of($read), $directory) : $read;
     }
 
     public function isFile(Path $file): bool

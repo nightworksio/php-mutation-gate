@@ -68,12 +68,16 @@ final readonly class Project
         };
     }
 
-    /** A file on disk as the project spells it, or as it is where it lies outside the project. */
+    /** A file on disk as the project spells it, the root as the root, or as it is where it lies outside the project. */
     public function relative(string $file): Path
     {
         $prefix = sprintf('%s/', $this->root);
 
-        return Path::of(str_starts_with($file, $prefix) ? mb_substr($file, mb_strlen($prefix)) : $file);
+        return match (true) {
+            $file === $this->root => Path::root(),
+            str_starts_with($file, $prefix) => Path::of(mb_substr($file, mb_strlen($prefix))),
+            default => Path::of($file),
+        };
     }
 
     /** A directory of the project on disk, made where it is not there yet. */

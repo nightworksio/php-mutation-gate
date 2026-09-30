@@ -38,7 +38,8 @@ it('spells a file on disk as the project does, and one outside it as it is', fun
     $project = Project::at('/project', Paths::none(), Path::of('.gate'));
 
     expect($project->relative('/project/src/Money.php'))->toEqual(Path::of('src/Money.php'))
-        ->and($project->relative('/projects/src/Money.php'))->toEqual(Path::of('/projects/src/Money.php'));
+        ->and($project->relative('/projects/src/Money.php'))->toEqual(Path::of('/projects/src/Money.php'))
+        ->and($project->relative('/project'))->toEqual(Path::root());
 });
 
 it('makes a directory that is not there, and leaves one that is', function (): void {

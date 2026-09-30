@@ -93,7 +93,9 @@ The same repository has two more needs.
       package.** Those files are:
       - the gate's config and each package's `composer.json`;
       - the PHPUnit config and the test bootstrap it names;
-      - Pest's `tests/Pest.php`, and the runner's own config (`infection.json5`);
+      - the files that define the runner, which the runner names itself
+        (ADR-0004): Pest's `tests/Pest.php`, and Infection's config
+        (`infection.json5`) and the PHPUnit config in its `phpUnit.configDir`;
       - the paths a preset lists, such as Laravel's `bootstrap/**`, `config/**`
         and `routes/**` (ADR-0008);
       - the paths matched by `reach.everything`, a list of globs, empty by

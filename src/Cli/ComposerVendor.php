@@ -8,7 +8,7 @@ use function getenv;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Composer\Disk;
-use NightWorksIO\MutationGate\Adapter\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Path;
 
 use function sprintf;
@@ -25,7 +25,7 @@ final readonly class ComposerVendor
     public static function of(string $project): Path
     {
         $overridden = getenv('COMPOSER_VENDOR_DIR');
-        $manifest = Manifest::in(Disk::at($project), Path::root());
+        $manifest = Disk::at($project)->manifestIn(Path::root());
 
         return match (true) {
             is_string($overridden) && $overridden !== '' => Path::of($overridden),

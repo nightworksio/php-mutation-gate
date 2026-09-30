@@ -507,3 +507,10 @@ it('is Pest in the project the gate runs in, as its options say, or the options\
         Problem::at('patch', 'Whether the project applies pest:patch is true or false.'),
     ));
 });
+
+it('is defined by tests/Pest.php and the PHPUnit config in the project\'s root, by any of its names', function (): void {
+    $definitions = new Pest(adapterProject(), ShellFake::answering(Ran::stopped('')), Patching::off())->definitions();
+
+    expect(array_map(static fn(Path $path): string => $path->value(), [...$definitions]))
+        ->toBe(['tests/Pest.php', 'phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist']);
+});

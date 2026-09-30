@@ -8,6 +8,7 @@ use function array_flip;
 use function array_intersect_key;
 use function in_array;
 
+use NightWorksIO\MutationGate\Core\Format\JsonObject;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
@@ -87,7 +88,7 @@ final readonly class MutatorSettings
         $own = $this->entriesOf($this->block);
         $kept = $mutators->isAll() ? $this->all($own) : $this->named($own, $mutators);
 
-        return $kept === [] ? [] : ['mutators' => ConfigJson::object($kept)];
+        return $kept === [] ? [] : ['mutators' => JsonObject::of($kept)];
     }
 
     /**
@@ -166,7 +167,7 @@ final readonly class MutatorSettings
         $json = $settings->json();
 
         return $json === self::EMPTY_LIST && ! in_array($name, self::GLOBAL, strict: true)
-            ? ConfigJson::object([])
+            ? JsonObject::of([])
             : $json;
     }
 

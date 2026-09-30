@@ -364,6 +364,31 @@ it('finds the native markers in the files asked for and in the project\'s config
         ->toBeInstanceOf(CannotJudge::class);
 });
 
+it('is defined by its config, by any of its names, and the PHPUnit config in phpUnit.configDir or the root', function (string $config, string $directory): void {
+    $at = infectionProject($config);
+    $definitions = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->definitions();
+    $phpunit = array_map(
+        static fn(string $name): string => $directory === '' ? $name : sprintf('%s/%s', $directory, $name),
+        ['phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist'],
+    );
+
+    expect(array_map(static fn(Path $path): string => $path->value(), [...$definitions]))
+        ->toBe(['infection.json5', 'infection.json', 'infection.json5.dist', 'infection.json.dist', ...$phpunit]);
+})->with([
+    'no config' => ['', ''],
+    'a config that names no directory' => ['{"phpUnit": {}}', ''],
+    'a directory of the project' => ['{"phpUnit": {"configDir": "config/"}}', 'config'],
+    'a config it refuses' => ['{"testFramework": "phpspec", "phpUnit": {"configDir": "config"}}', ''],
+]);
+
+it('is defined by no PHPUnit config where phpUnit.configDir is outside the project', function (string $directory): void {
+    $at = infectionProject(sprintf('{"phpUnit": {"configDir": "%s"}}', $directory));
+    $definitions = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->definitions();
+
+    expect(array_map(static fn(Path $path): string => $path->value(), [...$definitions]))
+        ->toBe(['infection.json5', 'infection.json', 'infection.json5.dist', 'infection.json.dist']);
+})->with(['/elsewhere', '..', '../shared']);
+
 it('is built from the options the flows write, or is invalid', function (): void {
     expect(Infection::fromOptions(Options::ofJson('{"timeout": 30, "nativeMarkers": "allow"}')))->toBeInstanceOf(Infection::class)
         ->and(Infection::fromOptions(Options::ofJson('{"nativeMarkers": "sometimes"}')))

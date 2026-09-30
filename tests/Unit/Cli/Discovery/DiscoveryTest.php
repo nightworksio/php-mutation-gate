@@ -81,9 +81,9 @@ it('cannot judge a declared class that is not an extension, and loads nothing af
 
 it('cannot judge a manifest it cannot read, the root before the installed packages', function () use ($discovery): void {
     expect($discovery('not json', 'not json either')->extensions(firstPartyOnly: false))
-        ->toEqual(CannotJudge::because('composer.json is not a JSON object, so the extensions it names cannot be read.'))
+        ->toEqual(CannotJudge::because('composer.json is not a JSON object.'))
         ->and($discovery('{}', 'not json either')->extensions(firstPartyOnly: false))
-        ->toEqual(CannotJudge::because('composer/installed.json is not the list of installed packages Composer 2 writes, so their extensions cannot be read.'));
+        ->toEqual(CannotJudge::because('composer/installed.json is not the list of installed packages Composer 2 writes, so what it installed cannot be read.'));
 });
 
 it('cannot judge a manifest that is a directory', function (): void {

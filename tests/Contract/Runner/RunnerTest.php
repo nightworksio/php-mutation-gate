@@ -195,6 +195,19 @@ it('finds its runner\'s own ignore marker, and none in code without one', functi
         ->and($none instanceof Markers ? count($none) : -1)->toBe(0);
 })->with($libraries);
 
+it('names the files that define it, the library\'s own among them, from the project\'s root', function (Library $library): void {
+    $definitions = $library->runner()->definitions();
+
+    foreach ($definitions as $definition) {
+        expect($definition->value())->not->toStartWith('/')
+            ->and($definition->value())->not->toBe('.');
+    }
+
+    foreach ($library->defining() as $file) {
+        expect($definitions->has($file))->toBeTrue();
+    }
+})->with($libraries);
+
 it('judges a held path by the tests its #[Holds] filter names, with Infection', function (): void {
     $library = Library::infection(Seconds::of(10.0));
     $request = MutationRequest::of(Paths::of(Path::of('src/Held.php')), Filter::matching('HeldSpec'))

@@ -9,6 +9,7 @@ use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -22,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -43,14 +45,14 @@ final readonly class Pest implements Runner
 {
     private const string RUNNER = 'pest';
 
-    /** Where Composer lists what it installed, in the vendor directory. */
-    private const string MANIFEST = '%s/composer/installed.json';
-
     /** Where the gate runs Pest: the project's root, which the gate runs in. */
     private const string ROOT = '.';
 
     /** Where the adapter keeps what it writes. */
     private const string WORKSPACE = '.mutation-gate';
+
+    /** The file Pest loads before any test, in the test directory it runs with, which the gate leaves at `tests`. */
+    private const string BOOT_FILE = 'tests/Pest.php';
 
     private const string BY_GROUP_ALONE
         = 'Pest selects held tests by the holds: groups its plugin adds for #[Holds], not by the filter %s.';
@@ -92,7 +94,7 @@ final readonly class Pest implements Runner
     public function identity(): Identity|CannotJudge
     {
         $versions = Installed::versionsIn(
-            $this->project->absolute(Path::of(sprintf(self::MANIFEST, $this->project->vendor()->value()))),
+            $this->project->absolute(ComposerInstalled::fileIn($this->project->vendor())),
         );
 
         if ($versions instanceof CannotJudge) {
@@ -192,6 +194,12 @@ final readonly class Pest implements Runner
     public function markers(Paths $files): Markers
     {
         return NativeMarkers::in($this->project, $files);
+    }
+
+    /** `tests/Pest.php`, and the PHPUnit config in the project's root, whichever name it has. */
+    public function definitions(): Paths
+    {
+        return Paths::of(Path::of(self::BOOT_FILE), ...PhpUnitConfig::candidatesIn(Path::root()));
     }
 
     /**

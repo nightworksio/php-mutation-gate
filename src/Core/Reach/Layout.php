@@ -7,11 +7,13 @@ namespace NightWorksIO\MutationGate\Core\Reach;
 use function array_any;
 use function array_map;
 
+use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Globs;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 
 use function str_ends_with;
 
@@ -22,19 +24,6 @@ use function str_ends_with;
  */
 final readonly class Layout
 {
-    /** The files besides its config that decide how the gate runs in every package, spelt from its own directory. */
-    private const array DECISIVE = [
-        'composer.json',
-        'phpunit.xml',
-        'phpunit.xml.dist',
-        'phpunit.dist.xml',
-        'tests/Pest.php',
-        'infection.json5',
-        'infection.json',
-        'infection.json5.dist',
-        'infection.json.dist',
-    ];
-
     /** Where a package keeps its tests, unless its PHPUnit config says otherwise. */
     private const string TESTS = 'tests';
 
@@ -52,11 +41,23 @@ final readonly class Layout
     ) {
     }
 
-    /** The files every project decides with, and its tests in `tests`. */
-    public static function standard(): self
+    /**
+     * The files that decide how the gate runs in every package, and its tests
+     * in `tests`. Those files are the gate's config, the package's
+     * `composer.json`, its PHPUnit config, and the files that define the
+     * runner, each spelt from the package's own directory.
+     */
+    public static function standard(Paths $runnerDefinitions): self
     {
+        $decisive = [
+            ...array_map(Path::of(...), Format::fileNames()),
+            Manifest::fileIn(Path::root()),
+            ...PhpUnitConfig::candidatesIn(Path::root()),
+            ...$runnerDefinitions,
+        ];
+
         return new self(
-            Globs::of(...array_map(Glob::of(...), [...Format::fileNames(), ...self::DECISIVE])),
+            Globs::of(...array_map(static fn(Path $file): Glob => Glob::of($file->value()), $decisive)),
             Globs::of(),
             Paths::of(Path::of(self::TESTS)),
             Paths::none(),

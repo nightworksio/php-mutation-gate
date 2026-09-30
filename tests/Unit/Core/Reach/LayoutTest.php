@@ -7,8 +7,14 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Reach\Layout;
 
+/** The layout of a project whose runner is defined by these files. */
+function layoutDefinedBy(string ...$files): Layout
+{
+    return Layout::standard(Paths::of(...array_map(Path::of(...), $files)));
+}
+
 it('decides how the gate runs with the files every project decides with, spelt from its package', function (string $file): void {
-    expect(Layout::standard()->decides(Path::of($file)))->toBeTrue();
+    expect(layoutDefinedBy()->decides(Path::of($file)))->toBeTrue();
 })->with([
     'mutation-gate.php',
     'mutation-gate.json',
@@ -19,36 +25,41 @@ it('decides how the gate runs with the files every project decides with, spelt f
     'phpunit.xml',
     'phpunit.xml.dist',
     'phpunit.dist.xml',
-    'tests/Pest.php',
-    'infection.json5',
-    'infection.json',
-    'infection.json5.dist',
-    'infection.json.dist',
 ]);
 
+it('decides how the gate runs with the files that define the runner, and not with another runner\'s', function (): void {
+    $layout = layoutDefinedBy('infection.json5', 'config/phpunit.xml');
+
+    expect($layout->decides(Path::of('infection.json5')))->toBeTrue()
+        ->and($layout->decides(Path::of('config/phpunit.xml')))->toBeTrue()
+        ->and($layout->decides(Path::of('tests/Pest.php')))->toBeFalse()
+        ->and(layoutDefinedBy('tests/Pest.php')->decides(Path::of('tests/Pest.php')))->toBeTrue()
+        ->and(layoutDefinedBy('tests/Pest.php')->decides(Path::of('infection.json5')))->toBeFalse();
+});
+
 it('decides nothing with any other file', function (string $file): void {
-    expect(Layout::standard()->decides(Path::of($file)))->toBeFalse();
-})->with(['README.md', 'src/composer.json', 'composer.lock', 'tests/Unit/PestTest.php']);
+    expect(layoutDefinedBy('tests/Pest.php')->decides(Path::of($file)))->toBeFalse();
+})->with(['README.md', 'src/composer.json', 'composer.lock', 'tests/Unit/PestTest.php', 'src/phpunit.xml']);
 
 it('decides with the files a preset or reach.everything adds', function (): void {
-    $layout = Layout::standard()->decidedAlsoBy(Glob::of('config/**'))->decidedAlsoBy(Glob::of('routes/*.php'));
+    $layout = layoutDefinedBy()->decidedAlsoBy(Glob::of('config/**'))->decidedAlsoBy(Glob::of('routes/*.php'));
 
     expect($layout->decides(Path::of('config/app.php')))->toBeTrue()
         ->and($layout->decides(Path::of('routes/web.php')))->toBeTrue()
         ->and($layout->decides(Path::of('phpunit.xml')))->toBeTrue()
-        ->and(Layout::standard()->decides(Path::of('config/app.php')))->toBeFalse();
+        ->and(layoutDefinedBy()->decides(Path::of('config/app.php')))->toBeFalse();
 });
 
 it('runs the gate from the CI definitions it is given, and from no other', function (): void {
-    $layout = Layout::standard()->runBy(Glob::of('.github/workflows/gate.yml'));
+    $layout = layoutDefinedBy()->runBy(Glob::of('.github/workflows/gate.yml'));
 
     expect($layout->runsTheGate(Path::of('.github/workflows/gate.yml')))->toBeTrue()
         ->and($layout->runsTheGate(Path::of('.github/workflows/lint.yml')))->toBeFalse()
-        ->and(Layout::standard()->runsTheGate(Path::of('.github/workflows/gate.yml')))->toBeFalse();
+        ->and(layoutDefinedBy()->runsTheGate(Path::of('.github/workflows/gate.yml')))->toBeFalse();
 });
 
 it('finds files of test cases and test support under the tests', function (): void {
-    $layout = Layout::standard();
+    $layout = layoutDefinedBy();
 
     expect($layout->isTest(Path::of('tests/Unit/MoneyTest.php')))->toBeTrue()
         ->and($layout->isTest(Path::of('tests/Fakes/ClockFake.php')))->toBeFalse()
@@ -60,7 +71,7 @@ it('finds files of test cases and test support under the tests', function (): vo
 });
 
 it('finds tests in the directories it is given in place of tests', function (): void {
-    $layout = Layout::standard()->testedIn(Paths::of(Path::of('spec'), Path::of('modules/billing/tests')));
+    $layout = layoutDefinedBy()->testedIn(Paths::of(Path::of('spec'), Path::of('modules/billing/tests')));
 
     expect($layout->isTest(Path::of('spec/MoneyTest.php')))->toBeTrue()
         ->and($layout->isTest(Path::of('modules/billing/tests/InvoiceTest.php')))->toBeTrue()
@@ -69,17 +80,17 @@ it('finds tests in the directories it is given in place of tests', function (): 
 });
 
 it('finds the modules a file is inside', function (): void {
-    $layout = Layout::standard()
+    $layout = layoutDefinedBy()
         ->withModule(Path::of('app-modules/billing'))
         ->withModule(Path::of('app-modules/shop'));
 
     expect($layout->modulesHolding(Path::of('app-modules/billing/tests/InvoiceTest.php')))->toEqual(Paths::of(Path::of('app-modules/billing')))
         ->and($layout->modulesHolding(Path::of('tests/MoneyTest.php')))->toEqual(Paths::none())
-        ->and(Layout::standard()->modulesHolding(Path::of('app-modules/billing/tests/InvoiceTest.php')))->toEqual(Paths::none());
+        ->and(layoutDefinedBy()->modulesHolding(Path::of('app-modules/billing/tests/InvoiceTest.php')))->toEqual(Paths::none());
 });
 
 it('keeps what it was given when given more', function (): void {
-    $layout = Layout::standard()
+    $layout = layoutDefinedBy()
         ->withModule(Path::of('app-modules/billing'))
         ->testedIn(Paths::of(Path::of('spec')))
         ->runBy(Glob::of('.github/workflows/gate.yml'))
