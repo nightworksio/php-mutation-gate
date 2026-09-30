@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_count_values;
-use function array_diff;
 use function array_filter;
 use function array_key_exists;
 use function array_key_last;
@@ -28,8 +27,6 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\WrittenBytes;
-use NightWorksIO\MutationGate\Core\Test\TestId;
-use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -37,10 +34,10 @@ use function sprintf;
 
 /**
  * What the plugin wrote of one Pest run: every mutant it planned, and whether
- * it wrote all of them, the status each ended with, how long each ran, the
- * tests that failed in each mutant's own process, the memory limit any
- * such process ran out of, how long the opening run took, and whether the
- * run reached its end. A line cut short, as a run
+ * it wrote all of them, the status each ended with, how long each ran, what
+ * each mutant's own process recorded (see OwnRun), the memory limit any such
+ * process ran out of, how long the opening run took, and whether the run
+ * reached its end. A line cut short, as a run
  * stopped while it wrote leaves its last, is not a record; any other line
  * that is not one, and a whole record that lacks a field its event carries
  * or holds a line no file has, refuses the file.
@@ -80,6 +77,9 @@ final class Records
 
     /** @var array<string, MemoryCap> the memory limit a mutant's own process ran out of, by the copy it ran on */
     private array $exhausted = [];
+
+    /** @var array<string, list<string>> the test files each narrowed own run loaded, by the mutated copy it ran on */
+    private array $narrowed = [];
 
     private Seconds|Unmeasured $opening;
 
@@ -140,31 +140,16 @@ final class Records
         return $seconds > 0.0 ? Seconds::of($seconds) : Unmeasured::duration();
     }
 
-    /**
-     * The tests that failed in a mutant's own process, in the order they
-     * failed: the first killed it. None where no test is known to have. Any
-     * two mutants that leave the same source share their mutated copy, and
-     * so these, even under different mutators.
-     */
-    public function killersOf(PlannedMutant $mutant): TestIds
+    /** What the plugin recorded of a mutant's own process. */
+    public function runOf(PlannedMutant $mutant): OwnRun
     {
         $mutated = $mutant->mutated()->value();
-        $named = array_key_exists($mutated, $this->killers) ? $this->killers[$mutated] : [];
 
-        return TestIds::of(...array_map(TestId::of(...), $named));
-    }
-
-    /**
-     * Whether every test named as a mutant's killer errored rather than fail
-     * an assertion, as a test does whose own code a run could not load.
-     */
-    public function killedByErrorsOnly(PlannedMutant $mutant): bool
-    {
-        $mutated = $mutant->mutated()->value();
-        $killers = array_key_exists($mutated, $this->killers) ? $this->killers[$mutated] : [];
-        $errored = array_key_exists($mutated, $this->errored) ? $this->errored[$mutated] : [];
-
-        return $killers !== [] && array_diff($killers, $errored) === [];
+        return OwnRun::of(
+            array_key_exists($mutated, $this->killers) ? $this->killers[$mutated] : [],
+            array_key_exists($mutated, $this->errored) ? $this->errored[$mutated] : [],
+            array_key_exists($mutated, $this->narrowed) ? $this->narrowed[$mutated] : [],
+        );
     }
 
     /**
@@ -241,6 +226,7 @@ final class Records
             RecordEvent::Killed, RecordEvent::Errored => $this->withKiller($record, RecordEvent::from($event->text())),
             RecordEvent::Exhausted => $this->exhausted[$record->field(RecordField::Mutated->value)->text()]
                 = WrittenBytes::read($record->field(RecordField::Bytes->value)),
+            RecordEvent::Narrowed => $this->withNarrowed($record),
             RecordEvent::End => $this->ended = true,
             null => throw NotInShape::at($event->at(), 'an event the plugin writes'),
         };
@@ -336,6 +322,16 @@ final class Records
         if ($event === RecordEvent::Errored) {
             $this->errored[$mutated][] = $test;
         }
+    }
+
+    /** @throws NotInShape */
+    private function withNarrowed(Node $record): void
+    {
+        $mutated = $record->field(RecordField::Mutated->value)->text();
+        $this->narrowed[$mutated] = array_map(
+            static fn(Node $file): string => $file->text(),
+            $record->field(RecordField::Files->value)->items(),
+        );
     }
 
     /** @throws NotInShape */

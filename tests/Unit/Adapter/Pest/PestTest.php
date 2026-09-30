@@ -785,6 +785,100 @@ it('counts a mutant a narrowed run killed where a test failed, whatever else err
         ->and($shell->commands())->toHaveCount(1);
 });
 
+/**
+ * A patched run of src/Money.php in which a test kills the mutant of line 11 in its own run narrowed to
+ * tests/MoneySpec.php, which it survives with every test file, and the tests of the narrowed files, alone on the
+ * unmutated code, pass or fail.
+ */
+function adapterNarrowedKill(Project $at, bool $passAlone): ShellFake
+{
+    return new ShellFake(static function (Command $command) use ($at, $passAlone): Ran {
+        $results = sprintf('%s', $command->environment()[GateVariable::Results->value] ?? '');
+
+        if ($results === '') {
+            return Ran::finished(succeeded: $passAlone, output: 'the narrowed files alone');
+        }
+
+        $narrowed = ($command->environment()[GateVariable::Narrow->value] ?? false) === '1';
+        $status = $narrowed ? PestStatus::Tested : PestStatus::Untested;
+        CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [11 => [0]]], [RUN_ADDS], []);
+        PestRun::write($results, [
+            PestRun::planned('n1', sprintf('%s/src/Money.php', $at->root()), 11, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+            PestRun::made(1),
+            ...($narrowed ? [PestRun::killed('n1', RUN_ADDS), PestRun::narrowed('n1', [adapterSpec($at)])] : []),
+            PestRun::finished('n1', $status, 0.25),
+            PestRun::end(),
+        ]);
+
+        return Ran::finished(succeeded: true, output: sprintf('  Mutations: 1 %s', $status->value));
+    });
+}
+
+/** The test file a narrowed run of the project loads. */
+function adapterSpec(Project $at): string
+{
+    return sprintf('%s/tests/MoneySpec.php', $at->root());
+}
+
+/**
+ * The status of each mutant a result holds, or why there is none.
+ *
+ * @return list<MutantStatus>|CannotJudge
+ */
+function adapterStatuses(MutationResult|CannotJudge $result): array|CannotJudge
+{
+    return $result instanceof MutationResult
+        ? array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), [...$result->mutants()])
+        : $result;
+}
+
+it('counts a narrowed kill whose files\' tests pass alone on the unmutated code, running them once however many runs loaded them', function (): void {
+    $at = adapterProject();
+    $shell = adapterNarrowedKill($at, passAlone: true);
+    $pest = new Pest($at, $shell, adapterCanary());
+
+    $first = $pest->mutate(adapterMoney());
+    $again = $pest->mutate(adapterMoney());
+    $baselines = array_values(array_filter(
+        $shell->commands(),
+        static fn(Command $command): bool => ($command->environment()[GateVariable::Results->value] ?? false) === false,
+    ));
+
+    expect([adapterStatuses($first), adapterStatuses($again)])->toBe([[MutantStatus::Killed], [MutantStatus::Killed]])
+        ->and($shell->commands())->toHaveCount(3)
+        ->and($baselines)->toHaveCount(1)
+        ->and(array_slice($baselines[0]->arguments(), -1))->toBe([adapterSpec($at)])
+        ->and($baselines[0]->arguments())->toContain('--no-tia');
+});
+
+it('runs a narrowed kill whose files\' tests fail alone on the unmutated code again with every test file, before it counts', function (): void {
+    $at = adapterProject();
+    $shell = adapterNarrowedKill($at, passAlone: false);
+
+    $result = new Pest($at, $shell, adapterCanary())->mutate(adapterMoney()->within(Seconds::of(60.0)));
+
+    expect(adapterStatuses($result))->toBe([MutantStatus::Survived])
+        ->and($shell->commands())->toHaveCount(3);
+});
+
+it('leaves a narrowed kill unjudged where no time is left to run its files\' tests alone', function (): void {
+    $at = adapterProject();
+    $shell = adapterNarrowedKill($at, passAlone: true);
+    $clock = new class implements Clock {
+        private float $read = 0.0;
+
+        public function seconds(): float
+        {
+            return $this->read += 10.0;
+        }
+    };
+
+    $result = new Pest($at, $shell, adapterCanary(), $clock)->mutate(adapterMoney()->within(Seconds::of(10.0)));
+
+    expect(adapterStatuses($result))->toBe([MutantStatus::Unjudged])
+        ->and($shell->commands())->toHaveCount(1);
+});
+
 it('cannot judge a narrowed run whose run again with every test file failed', function (): void {
     $at = adapterProject();
     $loaded = adapterLoadedNothing($at);
@@ -813,7 +907,7 @@ it('leaves a mutant a narrowed run killed with no killer unjudged where no time 
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::Unjudged])
         ->and(array_map(static fn(Mutant $mutant): object => $mutant->reason(), $mutants))->toEqual([Reason::that(
-            "Killed by no test named or only by errors in a run of its covering tests' files; no time to run them all.",
+            "Killed where its covering tests' files alone cannot vouch for the kill; no time is left to run them all.",
         )])
         ->and($shell->commands())->toHaveCount(1);
 });

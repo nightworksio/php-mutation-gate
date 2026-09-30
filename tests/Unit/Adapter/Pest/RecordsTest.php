@@ -246,7 +246,7 @@ it('names the tests that failed in each mutant\'s own process, in order, by the 
         RecordLine::killed('/tmp/elsewhere', 'P\\Tests\\OtherSpec::__pest_evaluable_it'),
     ]));
     $named = static fn(string $id): array => $records instanceof Records
-        ? array_map(static fn(TestId $test): string => $test->value(), [...$records->killersOf($mutant($id, '/p/src/Money.php', 10))])
+        ? array_map(static fn(TestId $test): string => $test->value(), [...$records->runOf($mutant($id, '/p/src/Money.php', 10))->killers()])
         : [];
 
     expect($named('a'))->toBe(['P\\Tests\\MoneySpec::__pest_evaluable_it_adds', 'Tests\\LegacySpec::testAdds#(1)'])
@@ -265,14 +265,34 @@ it('tells a mutant killed only by tests that errored from one a test failed on, 
         RecordLine::killed('/tmp/b', 'T::subtracts'),
     ]));
     $only = static fn(string $id): bool => $records instanceof Records
-        && $records->killedByErrorsOnly($mutant($id, '/p/src/Money.php', 10));
+        && $records->runOf($mutant($id, '/p/src/Money.php', 10))->killedByErrorsOnly();
     $named = static fn(string $id): array => $records instanceof Records
-        ? array_map(static fn(TestId $test): string => $test->value(), [...$records->killersOf($mutant($id, '/p/src/Money.php', 10))])
+        ? array_map(static fn(TestId $test): string => $test->value(), [...$records->runOf($mutant($id, '/p/src/Money.php', 10))->killers()])
         : [];
 
     expect([$only('a'), $only('b'), $only('c')])->toBe([true, false, false])
         ->and($named('a'))->toBe(['T::adds', 'T::subtracts'])
         ->and($named('b'))->toBe(['T::adds', 'T::subtracts']);
+});
+
+it('names the test files each mutant\'s own run was narrowed to, by the mutated copy it ran on, and none where it loaded every one', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        $planned('b', '/p/src/Money.php', 20),
+        RecordLine::narrowed('/tmp/a', ['/p/tests/AddsSpec.php', '/p/tests/HelpersSpec.php']),
+    ]));
+    $loaded = static fn(string $id): array => $records instanceof Records
+        ? $records->runOf($mutant($id, '/p/src/Money.php', 10))->narrowedTo()
+        : ['unread'];
+
+    expect($loaded('a'))->toBe(['/p/tests/AddsSpec.php', '/p/tests/HelpersSpec.php'])
+        ->and($loaded('b'))->toBe([]);
+});
+
+it('refuses a narrowed record whose files are not a list of paths', function () use ($results): void {
+    $read = Records::in($results(['{"event": "narrowed", "mutated": "/tmp/a", "files": "/p/tests/AddsSpec.php"}']));
+
+    expect($read instanceof CannotJudge ? $read->why() : '')->toEndWith('the record.files is not a list.');
 });
 
 it('keeps the memory limit each mutant\'s own process ran out of, by the mutated copy it ran on', function () use ($results, $planned, $mutant): void {

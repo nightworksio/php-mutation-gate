@@ -5,11 +5,13 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedTests;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
     putenv(GateVariable::Narrow->value);
+    putenv(GateVariable::Results->value);
     CoveringFiles::forget();
     Scratch::sweep();
 });
@@ -75,7 +77,7 @@ it('narrows a mutant\'s run to what its covering tests need, only where the run 
     $narrowing = static function (int $longest, string ...$tests) use ($root): array {
         CoveringFiles::forget($root);
 
-        return CoveringFiles::of(array_values($tests), $longest);
+        return CoveringFiles::of(array_values($tests), longest: $longest);
     };
     $unnarrowed = $narrowing(100000, $child);
     putenv(sprintf('%s=1', GateVariable::Narrow->value));
@@ -87,6 +89,25 @@ it('narrows a mutant\'s run to what its covering tests need, only where the run 
         ->and($narrowing(100000, $child, 'Never\Loaded::test'))->toBe([])
         ->and($narrowing(100000))->toBe([])
         ->and($narrowing(Bytes::length(implode(' ', $expected)), $child, $alone))->toBe([]);
+});
+
+it('records the files a narrowed run loads by the mutant\'s mutated copy, only where a results file is named', function () use ($suite): void {
+    [$namespace, , $root] = $suite();
+    $child = sprintf('%s\ChildTest::testIt', $namespace);
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    putenv(sprintf('%s=1', GateVariable::Narrow->value));
+    $unrecorded = CoveringFiles::of([$child], '/tmp/mutations/unrecorded');
+    putenv(sprintf('%s=', GateVariable::Results->value));
+    CoveringFiles::of([$child], '/tmp/mutations/unnamed');
+    putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
+    CoveringFiles::forget($root);
+
+    $paths = CoveringFiles::of([$child], '/tmp/mutations/abc');
+    CoveringFiles::of([$child]);
+    CoveringFiles::of(['Never\Loaded::test'], '/tmp/mutations/whole');
+
+    expect($paths)->toBe($unrecorded)
+        ->and(file_get_contents($results))->toBe(RecordLine::narrowed('/tmp/mutations/abc', $paths));
 });
 
 it('narrows a run of a test its class takes from a trait to the class\'s file and the trait\'s', function () use ($suite): void {

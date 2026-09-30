@@ -12,6 +12,7 @@ use Closure;
 
 use function count;
 use function dirname;
+use function implode;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -27,12 +28,14 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
 use function sprintf;
 
@@ -57,10 +60,13 @@ final readonly class MutationRun
 
     /** Why a narrowed run's doubtful kill is unjudged where no time is left to run it again. */
     private const string NO_TIME_TO_CONFIRM
-        = "Killed by no test named or only by errors in a run of its covering tests' files; no time to run them all.";
+        = "Killed where its covering tests' files alone cannot vouch for the kill; no time is left to run them all.";
 
     /** Why such a mutant is unjudged where the run again made no mutant with its id. */
     private const string NOT_MADE_TO_CONFIRM = 'Run again with every test file, Pest made no mutant with this id.';
+
+    /** Where the parts of a baseline's key are joined. */
+    private const string BETWEEN = "\n";
 
     /** Where the map another job handed over is written again for this job's Pest, beside the results. */
     private const string SHARED_MAP = '%s/shared.coverage.php';
@@ -105,11 +111,10 @@ final readonly class MutationRun
     /**
      * Every mutant of the requested files, where there are any to mutate:
      * Pest's `--path` never names none. Where a patched run narrowed each
-     * mutant's own run to the test files its covering tests need, a mutant
-     * killed with no test named as its killer, or only by tests that errored,
-     * as a run that could not load all its tests needs leaves one, runs again
-     * with every test file before it counts, within the time left, or is
-     * unjudged where none is.
+     * mutant's own run to the test files its covering tests need, a kill
+     * those files alone cannot vouch for (see NarrowedKills) runs again with
+     * every test file before it counts, within the time left, or is unjudged
+     * where none is.
      */
     public function of(MutationRequest $request): MutationResult|CannotJudge
     {
@@ -129,7 +134,16 @@ final readonly class MutationRun
 
         return $result instanceof CannotJudge || ! $this->narrows()
             ? $result
-            : $this->confirmed($result, $request, $started, DoubtfulKills::in($result, $results));
+            : $this->confirmed($result, $request, $started, $this->doubted($result, $request, $results, $started));
+    }
+
+    /** A narrowed run's kills that must run again with every test file before they count (see NarrowedKills). */
+    private function doubted(MutationResult $result, MutationRequest $request, string $results, float $started): Mutants
+    {
+        return NarrowedKills::in($result, $results)->doubted(
+            /** @param list<string> $files */
+            fn(array $files): bool => $this->passesAlone($files, $request, $started),
+        );
     }
 
     private function ran(
@@ -182,10 +196,7 @@ final readonly class MutationRun
             return $result;
         }
 
-        $deadline = $request->deadline();
-        $left = $deadline instanceof Seconds
-            ? Seconds::of($deadline->seconds() - ($this->clock->seconds() - $started))
-            : $deadline;
+        $left = $this->left($request, $started);
         $again = $left instanceof Seconds && $left->seconds() <= 0.0
             ? FoundAgain::among($doubtful, Mutants::none(), Reason::that(self::NO_TIME_TO_CONFIRM))
             : $this->whole()->again($doubtful, $left instanceof Seconds ? $request->within($left) : $request);
@@ -194,6 +205,40 @@ final readonly class MutationRun
             $this->replaced($result->mutants(), $again),
             $result->skipped(),
         );
+    }
+
+    /** The time left of the request's deadline since the run began. */
+    private function left(MutationRequest $request, float $started): Seconds|Unlimited
+    {
+        $deadline = $request->deadline();
+
+        return $deadline instanceof Seconds
+            ? Seconds::of($deadline->seconds() - ($this->clock->seconds() - $started))
+            : $deadline;
+    }
+
+    /**
+     * Whether the tests of the files a mutant's own run was narrowed to, by
+     * their paths on disk, pass on the unmutated code, loaded alone as that
+     * run loaded them, within the time left: once for each set of files.
+     *
+     * @param list<string> $files
+     */
+    private function passesAlone(array $files, MutationRequest $request, float $started): bool
+    {
+        $left = $this->left($request, $started);
+
+        if ($left instanceof Seconds && $left->seconds() <= 0.0) {
+            return false;
+        }
+
+        $withheld = $request->withheld();
+        $judging = Invocation::installedIn($this->project->vendor())
+            ->judging(Paths::of(...array_map(Path::of(...), $files)), $request->judgedBy(), $withheld)
+            ->within($left);
+        $key = implode(self::BETWEEN, [$withheld->pattern(), ...$judging->arguments()]);
+
+        return $this->remembered->baseline($key, fn(): Ran => $this->shell->run($judging));
     }
 
     /** These mutants made again over their files with their mutators, each matched to the one asked for. */

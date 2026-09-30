@@ -72,6 +72,16 @@ final readonly class PestRun
         return self::line(RecordLine::errored(self::mutated($id), $test));
     }
 
+    /**
+     * The test files the own run of the mutant with this native id was narrowed to.
+     *
+     * @param list<string> $files
+     */
+    public static function narrowed(string $id, array $files): string
+    {
+        return self::line(RecordLine::narrowed(self::mutated($id), $files));
+    }
+
     /** The memory limit the own process of the mutant with this native id ran out of. */
     public static function exhausted(string $id, MemoryCap $limit): string
     {

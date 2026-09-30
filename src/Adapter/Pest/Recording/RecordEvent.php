@@ -25,6 +25,9 @@ enum RecordEvent: string
     /** A test that errored in a mutant's own process, rather than fail an assertion. */
     case Errored = 'errored';
 
+    /** The test files a mutant's own run was narrowed to load, by its mutated copy. */
+    case Narrowed = 'narrowed';
+
     /** A mutant's own process ran out of its memory limit. */
     case Exhausted = 'exhausted';
 

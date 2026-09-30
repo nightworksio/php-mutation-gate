@@ -42,7 +42,8 @@ use function str_replace;
  *   Pest times its mutants by the seconds the whole suite took.
  * - Given a list of native ids (see OnlyList), a run makes only those mutants.
  * - Where the gate narrows a run, a mutant's own run loads only the test files
- *   its covering tests need (see CoveringFiles), not every test file.
+ *   its covering tests need (see CoveringFiles), not every test file, and the
+ *   files it loads are recorded by the mutant's mutated copy.
  *
  * Every anchor is checked, against the source as the hunks before it left
  * it, before anything is written, so a moved one changes nothing, and
@@ -165,7 +166,10 @@ final readonly class Patch
     private const string PATHS_BECOMES = <<<'PHP'
                 {MARK} a mutant's own run loads only the test files its covering tests need.
                 if (class_exists(\%1$s::class)) {
-                    $originalArguments = [...$originalArguments, ...\%1$s::of($covering)];
+                    $originalArguments = [
+                        ...$originalArguments,
+                        ...\%1$s::of($covering, $this->mutation->modifiedSourcePath),
+                    ];
                 }
 
                 $envs = [

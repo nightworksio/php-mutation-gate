@@ -46,6 +46,9 @@ enum RecordField: string
     /** A test that failed in a mutant's own process. */
     case Test = 'test';
 
+    /** The test files a mutant's own run loads, by their paths on disk. */
+    case Files = 'files';
+
     /** How many bytes the memory limit a mutant's own process ran out of holds. */
     case Bytes = 'bytes';
 }

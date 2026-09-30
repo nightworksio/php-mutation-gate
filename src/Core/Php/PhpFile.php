@@ -176,7 +176,7 @@ final readonly class PhpFile
      */
     private static function defines(array $tokens, int $at): bool
     {
-        return mb_strtolower($tokens[$at]->text) === 'define'
+        return ltrim(mb_strtolower($tokens[$at]->text), '\\') === 'define'
             && array_key_exists($at + 2, $tokens)
             && $tokens[$at + 1]->is('(')
             && $tokens[$at + 2]->is(T_CONSTANT_ENCAPSED_STRING);

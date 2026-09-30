@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
+use NightWorksIO\MutationGate\Adapter\Pest\Records;
 use NightWorksIO\MutationGate\Core\Analysis\AsWritten;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
@@ -593,15 +595,17 @@ it('opens a patched shard on the canary group and reads the map the planning job
         ->toEqualCanonicalizing($library->expected('adds', 'large'));
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
-// A test that needs a test file beside its own, for a helper function, a
-// constant, a base test case or a trait of tests, none of them autoloaded,
-// works where that file is loaded first: here it sorts first, holds a test of
-// its own, which Pest's --parallel needs to load it at all, and the suite is
-// covered in one process. A mutant only such a test covers, which no test
-// kills, survives a run narrowed to its covering tests' files: the files it
-// needs are loaded with them, and one it calls by a name built at run time,
-// which errors there, is run again with every test file.
-it('narrows a mutant\'s own run over a test that needs another test file, loaded first, and kills nothing by what it left out', function (string ...$files): void {
+// A test that needs a test file beside its own works where that file is
+// loaded first: here it sorts first, holds a test of its own, which Pest's
+// --parallel needs to load it at all, and the suite is covered in one
+// process. A mutant only such a test covers, which no test kills, survives.
+// Where the test needs the file for a name it spells, a helper function, a
+// constant, a base test case or a trait of tests, its own run loads the file
+// with the test's. Where it needs the file for what loading it does, a hook
+// or a trait `->in()` registers, state it sets, or a helper called by a name
+// built at run time, the run narrowed without it cannot vouch for the kill,
+// and the mutant is run again with every test file.
+it('narrows a mutant\'s own run over a test that needs another test file, loaded first, and kills nothing by what it left out', function (bool $together, string ...$files): void {
     $into = Tree::at(sprintf('%s/tests/Reach', Library::DIRECTORY));
     $source = Tree::at(sprintf('%s/src/Reach.php', Library::DIRECTORY));
     mkdir($into);
@@ -613,6 +617,7 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
 
     Patch::applyIn(Library::vendor());
     $runner = Library::pest(Patching::on(Library::canary()))->runner();
+    $expected = $together ? array_map(static fn(string $file): string => (string) realpath(sprintf('%s/%s', $into, $file)), $files) : [];
 
     try {
         $map = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/reach')));
@@ -629,18 +634,31 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
         unlink($source);
     }
 
+    // The records of the last run: the narrowed run, or the run again with every test file.
+    $records = Records::in(Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl', Library::DIRECTORY)));
+    $loaded = array_map(
+        static fn(PlannedMutant $mutant): array => $records instanceof Records ? $records->runOf($mutant)->narrowedTo() : [],
+        $records instanceof Records ? $records->planned() : [],
+    );
+
     expect($map instanceof CannotJudge ? $map->why() : $map)->toBeInstanceOf(CoverageMap::class)
         ->and($result instanceof MutationResult ? array_map(
             static fn(Mutant $mutant): MutantStatus => $mutant->status(),
             [...$result->mutants()],
-        ) : $result)->toBe([MutantStatus::Survived]);
+        ) : $result)->toBe([MutantStatus::Survived])
+        ->and($loaded)->toBe([$expected]);
 })->with([
-    'a helper function' => ['ReachAHelpersSpec.php', 'ReachZHelpedSpec.php'],
-    'a constant' => ['ReachAConstantsSpec.php', 'ReachZConstantSpec.php'],
-    'a defined constant' => ['ReachADefinesSpec.php', 'ReachZDefinedSpec.php'],
-    'a base test case' => ['ReachABaseSpec.php', 'ReachZInheritedSpec.php'],
-    'a trait of tests' => ['ReachAAssertsSpec.php', 'ReachZTraitedSpec.php'],
-    'a helper called by a name built at run time' => ['ReachADynamicSpec.php', 'ReachZDynamicSpec.php'],
+    'a helper function' => [true, 'ReachAHelpersSpec.php', 'ReachZHelpedSpec.php'],
+    'a constant' => [true, 'ReachAConstantsSpec.php', 'ReachZConstantSpec.php'],
+    'a defined constant' => [true, 'ReachADefinesSpec.php', 'ReachZDefinedSpec.php'],
+    'a base test case' => [true, 'ReachABaseSpec.php', 'ReachZInheritedSpec.php'],
+    'a trait of tests' => [true, 'ReachAAssertsSpec.php', 'ReachZTraitedSpec.php'],
+    'a helper called by a name built at run time' => [false, 'ReachADynamicSpec.php', 'ReachZDynamicSpec.php'],
+    'a hook pest()->in() registers' => [false, 'ReachAHooksSpec.php', 'ReachZHookedSpec.php'],
+    'a trait uses()->in() adds' => [false, 'ReachAUsesSpec.php', 'ReachZUsingSpec.php'],
+    'a variable set in $_ENV' => [false, 'ReachAEnvSpec.php', 'ReachZEnvSpec.php'],
+    'a variable put in the environment' => [false, 'ReachAPutenvSpec.php', 'ReachZPutenvSpec.php'],
+    'a global set in $GLOBALS' => [false, 'ReachAGlobalsSpec.php', 'ReachZGlobalsSpec.php'],
 ])->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('hands each mutant\'s own run the test files its covering tests need as paths, and no other', function (): void {

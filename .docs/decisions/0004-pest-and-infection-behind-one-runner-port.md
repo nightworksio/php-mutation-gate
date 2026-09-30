@@ -335,10 +335,25 @@ its parser attributes. Both change when the checkout moves.
        constants declared by `const` or `define()`, used in code or, fully
        qualified, in a quoted string. Where a covering test's class is not
        loaded, or the paths would not fit in the bytes a filter may take, it
-       loads every test file. A name a test builds at run time is not read,
-       and a test that cannot resolve one errors. So a mutant a narrowed run
-       kills with no test named as its killer, or only by tests that errored,
-       runs again with every test file within the time left, or is unjudged.
+       loads every test file. The patched plugin records the files each
+       narrowed run loads.
+     - The names are what the narrowing can see. A test file can also give
+       another what it needs by what loading it does, which no name shows: a
+       hook or a trait `pest()`/`uses()` registers with `->in()`, or state it
+       sets in `$_ENV`, the environment or `$GLOBALS`. A name a test builds at
+       run time is not read either. A test that lacks one of these fails or
+       errors on the unmutated code too. So a narrowed kill counts only where
+       its killers are known to fail on the mutant alone:
+       - a kill with no test named as its killer, or only tests that errored,
+         does not count;
+       - any other counts only where every test in the files its run loaded
+         passes on the unmutated code, loaded alone as that run loaded them.
+         That run is made once for each set of files, and kept while the gate
+         runs.
+
+       A kill that does not count runs again with every test file within the
+       time left, or is unjudged. A kill whose records cannot be read does
+       not count either.
 
      Every anchor is checked before anything is written, and one that has moved
      fails the install: a patch that quietly matched nothing is worse than none.

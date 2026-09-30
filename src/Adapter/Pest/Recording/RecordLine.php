@@ -91,6 +91,16 @@ final readonly class RecordLine
         ]);
     }
 
+    /** @param list<string> $files the test files a mutant's own run loads, by their paths on disk */
+    public static function narrowed(string $mutated, array $files): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Narrowed->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::Files->value => $files,
+        ]);
+    }
+
     /** The memory limit the own process of the mutant Pest serves this mutated copy for ran out of. */
     public static function exhausted(string $mutated, MemoryCap $limit): string
     {
@@ -110,7 +120,7 @@ final readonly class RecordLine
      * A line of JSON, or a failure, so that a record JSON cannot hold, such
      * as a duration that is not a number, is never written as an empty line.
      *
-     * @param array<string, string|int|float> $fields
+     * @param array<string, string|int|float|list<string>> $fields
      */
     private static function line(array $fields): string
     {
