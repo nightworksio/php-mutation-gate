@@ -35,6 +35,13 @@ final readonly class Invocation
     /** JUnit's log of a coverage run, in the same directory. */
     public const string JUNIT = JUnitLog::NAME;
 
+    /**
+     * Where a run is narrowed to a group: a run with none of the group's
+     * tests passes. Under `--parallel`, Pest can sum a run that ran every
+     * test of the group as one with no tests, and fail it.
+     */
+    public const string EMPTY_PASSES = '--do-not-fail-on-empty-test-suite';
+
     /** Pest's script, in the directory Composer installed the project's packages in. */
     private const string SCRIPT = '%s/pestphp/pest/bin/pest';
 
@@ -129,7 +136,7 @@ final readonly class Invocation
     /** @return list<string> */
     private function narrowedTo(WholeSuite|Group $tests): array
     {
-        return $tests instanceof Group ? [sprintf('--group=%s', $tests->name())] : [];
+        return $tests instanceof Group ? [sprintf('--group=%s', $tests->name()), self::EMPTY_PASSES] : [];
     }
 
     /**

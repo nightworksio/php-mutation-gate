@@ -283,7 +283,9 @@ jobs:
           coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
           composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
           composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
-      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php
+      # The whole Contract suite, so every contract that needs the fixture
+      # library runs against each resolution of it.
+      - run: vendor/bin/pest --testsuite=Contract
         env:
           RUNNER_CONTRACTS: pest
       - name: install the highest supported Pest into the fixture library
@@ -292,7 +294,7 @@ jobs:
           coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
           composer update --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
           composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
-      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php
+      - run: vendor/bin/pest --testsuite=Contract
         env:
           RUNNER_CONTRACTS: pest
       # Infection's library is a project of its own too, installed at the lowest
@@ -305,7 +307,7 @@ jobs:
         run: |
           composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/phpunit:^12.0"
           composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php --filter='infection|Infection'
+      - run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection'
         env:
           RUNNER_CONTRACTS: infection
       - name: install the lowest Infection with PHPUnit 13 into its library
@@ -313,7 +315,7 @@ jobs:
         run: |
           composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/phpunit:^13.0"
           composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php --filter='infection|Infection'
+      - run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection'
         env:
           RUNNER_CONTRACTS: infection
       - name: install the highest Infection with PHPUnit 12 into its library
@@ -321,7 +323,7 @@ jobs:
         run: |
           composer update --no-interaction --no-progress --with "phpunit/phpunit:^12.0"
           composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php --filter='infection|Infection'
+      - run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection'
         env:
           RUNNER_CONTRACTS: infection
       - name: install the highest Infection with PHPUnit 13 into its library
@@ -329,7 +331,7 @@ jobs:
         run: |
           composer update --no-interaction --no-progress --with "phpunit/phpunit:^13.0"
           composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php --filter='infection|Infection'
+      - run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection'
         env:
           RUNNER_CONTRACTS: infection
 

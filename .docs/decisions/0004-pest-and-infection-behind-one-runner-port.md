@@ -166,10 +166,16 @@ its parser attributes. Both change when the checkout moves.
      <vendor>/pestphp/pest/bin/pest --mutate --no-cache --parallel --no-tia --everything
          --covered-only=false --stop-on-untested=false
          --stop-on-uncovered=false --retry=false --path=<files>
-         --ignore=<held paths, or .mutation-gate> [--group=<holds group>]
+         --ignore=<held paths, or .mutation-gate>
+         [--group=<holds group> --do-not-fail-on-empty-test-suite]
          [--mutator=<class names>]
      ```
 
+     - Every run narrowed to a group also passes
+       `--do-not-fail-on-empty-test-suite`. Under `--parallel`, Pest can sum a
+       run that ran every test of the group as one with no tests, and fail it.
+       A narrowed run with none of the group's tests passes too, so it kills
+       no mutant.
      - `--path` makes the gate, not a test's `covers()` or `mutates()`, decide
        what is mutated and which tests judge it. A contract test proves that a
        suite using `covers()` is still judged by every covering test.
@@ -602,16 +608,17 @@ its parser attributes. Both change when the checkout moves.
        only through the fallback;
      - a plain function's parameter default, a closure's parameter default,
        and an attribute's argument;
-     - a global `const` in a `files` autoload file, which stays uncovered;
+     - a global `const` in a `files` autoload file, which stays uncovered,
+       and a function's parameter default there, loaded before the override;
      - no reference, and a same-named constant in another class that does not
        count;
-     - `$class::NAME` inside and beyond the bound, and a chain four steps deep;
+     - `$class::NAME` inside the bound, with two test files as arguments, and
+       beyond it, and a chain four steps deep;
      - a held unit, where only the holding group judges;
-     - a symlinked project root, a dataset that loads the enum early, and a
-       missing mutated file;
-     - the override under `--parallel`, and several test files as arguments;
-     - Infection, which emits no mutant on constants, enum cases, properties
-       or attribute arguments.
+     - a symlinked project root, and an enum `tests/Pest.php` loads before the
+       override;
+     - Infection, which emits no mutant on a constant, an enum case, a
+       property or an attribute argument, and one on a parameter default.
 
 ## Alternatives considered
 

@@ -3,8 +3,13 @@
 declare(strict_types=1);
 
 use Library\Shapes;
+use Library\Unexecutable\Early;
 use Pest\Mutate\Repositories\ConfigurationRepository;
 use Pest\Support\Container;
+
+// Loads an enum before Pest starts any plugin, so Pest's override cannot
+// replace it, as a dataset or bootstrap code in a user's suite can.
+Early::First;
 
 // The library's own mutation config, which the gate's command line overrides.
 // In force, it would mutate covered lines only, of a class the library does

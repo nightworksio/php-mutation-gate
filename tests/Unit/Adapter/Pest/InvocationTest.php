@@ -61,6 +61,7 @@ it('runs one group under coverage', function (): void {
         '--coverage-php=/p/held/coverage.php',
         '--log-junit=/p/held/junit.xml',
         '--group=holds:src/Held.php',
+        '--do-not-fail-on-empty-test-suite',
     ]);
 });
 
@@ -112,6 +113,7 @@ it('mutates a tree less its held paths, by a group and some mutators, by a deadl
         '--path=src',
         '--ignore=src/Kernel.php,src/Boot',
         '--group=holds:src',
+        '--do-not-fail-on-empty-test-suite',
         '--mutator=Pest\Mutate\Mutators\Arithmetic\PlusToMinus,Pest\Mutate\Mutators\Logical\TrueToFalse',
     ])->and($command->deadline())->toEqual(Seconds::of(600.0));
 });
@@ -170,6 +172,7 @@ it('judges one mutant by some test files, one after another, stopping at the fir
         '--bail',
         '--colors=never',
         '--group=holds:src/Money.php',
+        '--do-not-fail-on-empty-test-suite',
         'tests/MoneySpec.php',
         'tests/Unit/TaxSpec.php',
     ]);
