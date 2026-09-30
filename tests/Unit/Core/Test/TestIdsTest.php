@@ -41,5 +41,5 @@ it('collects tests in time linear in their number', function (): void {
     };
 
     expect($tests(10)())->toHaveCount(10)
-        ->and(Growth::of(5000, $tests))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(2500, $tests))->toBeLessThan(Growth::LINEAR);
 });

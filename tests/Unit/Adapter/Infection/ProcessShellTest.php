@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Infection\Clock;
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Infection\Ran;
@@ -93,13 +94,39 @@ it('answers a process that cannot start as a failure, with the reason', function
 
 it('stops a script at its deadline with every process it started, keeping what it printed', function (): void {
     $directory = (string) realpath(Scratch::directory());
-    $script = 'echo "started"; flush(); $child = proc_open(["sleep", "30"], [], $pipes);'
-        . ' file_put_contents("child.pid", proc_get_status($child)["pid"]); sleep(30);';
-    $ran = new ProcessShell($directory, ['PATH' => '/usr/bin:/bin'])->run(Command::php('-r', $script)->within(Seconds::of(1.0)));
-    exec(sprintf('kill -0 %d 2>/dev/null', (int) file_get_contents(sprintf('%s/child.pid', $directory))), $output, $alive);
+    // The child holds a lock for as long as it lives, and marks the tree unstopped if it outlives its sleep.
+    $child = '$lock = fopen("alive", "c"); flock($lock, LOCK_EX); touch("ready"); sleep(20); touch("outlived");';
+    $script = sprintf(
+        'echo "started"; flush(); proc_open([PHP_BINARY, "-r", %s], [], $pipes); sleep(20);',
+        var_export($child, return: true),
+    );
+    // The clock stands still until the child holds its lock, then passes every deadline, however slow starting was.
+    $clock = new readonly class ($directory) implements Clock {
+        public function __construct(private string $directory)
+        {
+        }
+
+        public function nanoseconds(): int
+        {
+            return is_file(sprintf('%s/ready', $this->directory)) ? PHP_INT_MAX : 0;
+        }
+    };
+
+    $ran = new ProcessShell($directory, ['PATH' => '/usr/bin:/bin'], $clock)
+        ->run(Command::php('-r', $script)->within(Seconds::of(1.0)));
+    // The lock is released the moment the child ends, so taking it waits for exactly that.
+    $alive = fopen(sprintf('%s/alive', $directory), 'c');
+    $ended = $alive !== false && flock($alive, LOCK_EX);
 
     expect($ran)->toEqual(Ran::stopped('started'))
-        ->and($alive)->not->toBe(0);
+        ->and($ended)->toBeTrue()
+        ->and(is_file(sprintf('%s/outlived', $directory)))->toBeFalse();
+});
+
+it('measures a deadline on the system\'s clock', function (): void {
+    $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'sleep(20);')->within(Seconds::of(0.0)));
+
+    expect($ran)->toEqual(Ran::stopped(''));
 });
 
 it('waits for a script that ends before its deadline', function (): void {

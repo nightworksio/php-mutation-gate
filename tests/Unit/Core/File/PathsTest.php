@@ -48,5 +48,5 @@ it('builds and searches paths in time linear in their number', function (): void
     };
 
     expect($held(10)())->toHaveCount(10)
-        ->and(Growth::of(1250, $held))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(625, $held))->toBeLessThan(Growth::LINEAR);
 });

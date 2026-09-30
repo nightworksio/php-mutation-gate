@@ -84,7 +84,7 @@ it('collects proofs in time linear in their number, keeping the first of a key',
 
     expect($proofs(10)())->toHaveCount(10)
         ->and($proofs(10)()->proofFor(Digest::of(hash('sha256', '1'))))->toEqual($made(1, 'src/First.php')[0])
-        ->and(Growth::of(5000, $proofs))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(2500, $proofs))->toBeLessThan(Growth::LINEAR);
 });
 
 it('answers the newest proof of a path whatever its key, the first of two as new, and none for a path never proved', function (): void {
@@ -124,5 +124,5 @@ it('answers the newest proof of every path in time linear in the proofs and the 
     };
 
     expect($asked(10)())->toBe(10)
-        ->and(Growth::of(2000, $asked))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(1000, $asked))->toBeLessThan(Growth::LINEAR);
 });

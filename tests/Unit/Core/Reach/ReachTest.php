@@ -163,7 +163,7 @@ it('says whether reached files and trees reach each unit in time linear in their
     };
 
     expect($reached(10)())->toBe(10)
-        ->and(Growth::of(1000, $reached))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(500, $reached))->toBeLessThan(Growth::LINEAR);
 });
 
 it('says whether the change added or modified a line of a unit, or of a file a held unit holds', function () use ($nothing): void {

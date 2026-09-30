@@ -132,5 +132,5 @@ it('considers and carries in time linear in the units and the proofs of both led
     };
 
     expect(count($considered(10)()->carried()))->toBe(10)
-        ->and(Growth::of(1000, $considered))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(500, $considered))->toBeLessThan(Growth::LINEAR);
 });

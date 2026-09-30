@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Clock;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Ran;
@@ -35,9 +36,28 @@ it('says a program that exits with a failure did not succeed', function (): void
 });
 
 it('stops a program at its deadline, keeping what it printed', function (): void {
-    $command = Command::of(PHP_BINARY, '-r', 'echo "started"; flush(); sleep(10);')->within(Seconds::of(1.0));
+    $directory = (string) realpath(Scratch::directory());
+    $command = Command::of(PHP_BINARY, '-r', 'echo "started"; flush(); touch("printed"); sleep(20);')
+        ->within(Seconds::of(1.0));
+    // The clock stands still until the program has printed, then passes every deadline, however slow starting was.
+    $clock = new readonly class ($directory) implements Clock {
+        public function __construct(private string $directory)
+        {
+        }
 
-    expect(new ProcessShell(Scratch::directory())->run($command))->toEqual(Ran::stopped('started'));
+        public function seconds(): float
+        {
+            return is_file(sprintf('%s/printed', $this->directory)) ? INF : 0.0;
+        }
+    };
+
+    expect(new ProcessShell($directory, $clock)->run($command))->toEqual(Ran::stopped('started'));
+});
+
+it('measures a deadline on the system\'s clock', function (): void {
+    $command = Command::of(PHP_BINARY, '-r', 'sleep(20);')->within(Seconds::of(0.0));
+
+    expect(new ProcessShell(Scratch::directory())->run($command))->toEqual(Ran::stopped(''));
 });
 
 it('says a program that cannot be started did not succeed, and why', function (): void {

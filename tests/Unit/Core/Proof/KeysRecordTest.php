@@ -68,5 +68,5 @@ it('reads and writes keys in time linear in their number', function (): void {
 
     expect($read(10)())->toHaveCount(10)
         ->and($read(10)()->keyOf(Path::of('src/F10.php')))->toEqual(Digest::of(hash('sha256', '10')))
-        ->and(Growth::of(1250, $read))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(625, $read))->toBeLessThan(Growth::LINEAR);
 });

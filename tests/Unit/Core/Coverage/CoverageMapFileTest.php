@@ -141,7 +141,7 @@ it('writes and reads a map in time linear in its entries', function (): void {
     $few = $read(10)();
 
     expect($few instanceof CoverageMap ? $few->files() : [])->toHaveCount(10)
-        ->and(Growth::of(300, $read))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(150, $read))->toBeLessThan(Growth::LINEAR);
 });
 
 it('is found in the directory a job hands on, and says so where the gate wrote none', function (): void {

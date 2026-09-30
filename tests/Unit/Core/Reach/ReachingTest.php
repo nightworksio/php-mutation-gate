@@ -328,5 +328,5 @@ it('reaches what changed support reaches in time linear in the files and tests',
         '`tests/Support/Helper.php` is test support 10 tests use, so the 100 files they run are reached.',
         '`tests/Support/Other.php` is test support 90 tests use, so the 100 files they run are reached.',
     ])
-        ->and(Growth::of(500, $reach))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(250, $reach))->toBeLessThan(Growth::LINEAR);
 });

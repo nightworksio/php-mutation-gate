@@ -10,7 +10,6 @@ use function array_keys;
 use function array_map;
 use function array_shift;
 use function dirname;
-use function hrtime;
 use function is_int;
 
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -62,14 +61,20 @@ final readonly class ProcessShell implements Shell
     /** Each process and the one that started it, as `ps` lists them. */
     private const string PARENTS = '/^\s*(?<pid>\d+)\s+(?<parent>\d+)\s*$/m';
 
-    /** @param array<string, string> $inherited the environment the gate runs in */
-    public function __construct(private string $directory, private array $inherited)
-    {
+    /**
+     * @param array<string, string> $inherited the environment the gate runs in
+     * @param Clock                 $clock     what a deadline is measured on
+     */
+    public function __construct(
+        private string $directory,
+        private array $inherited,
+        private Clock $clock = new WallClock(),
+    ) {
     }
 
     public function in(string $directory): self
     {
-        return new self($directory, $this->inherited);
+        return new self($directory, $this->inherited, $this->clock);
     }
 
     public function run(Command $command): Ran
@@ -122,9 +127,9 @@ final readonly class ProcessShell implements Shell
             return false;
         }
 
-        $end = hrtime(as_number: true) + $deadline->nanoseconds();
+        $end = $this->clock->nanoseconds() + $deadline->nanoseconds();
 
-        while ($process->isRunning() && hrtime(as_number: true) < $end) {
+        while ($process->isRunning() && $this->clock->nanoseconds() < $end) {
             usleep(self::POLL);
         }
 
