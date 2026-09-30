@@ -265,6 +265,12 @@ its parser attributes. Both change when the checkout moves.
      - The adapter fails closed. The records must add up to the counts on Pest's
        own summary line (`Mutations: … untested, … uncovered, … pending, …
        timeout, … tested`), and a missing file or a mismatch is *cannot judge*.
+       So is a whole record that names an event, or a status, the plugin does
+       not write, or lacks a field its event carries. A line cut short, as a
+       run stopped while it wrote leaves its last, is not a record and is
+       skipped. The plugin and the adapter write and read the lines through
+       one protocol: its events, its fields and Pest's statuses are each
+       spelled once.
      - The plugin relies on Pest APIs that are `@internal`: the plugin
        contracts, the test repository, the test's closure and attributes, and
        the `describe` call's closure. It also relies on the mutate plugin's

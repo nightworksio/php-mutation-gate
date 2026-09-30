@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnUncovered;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Tests\Support\Mutations;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Pest\Mutate\Event\Events\Test\Outcome\Uncovered;
@@ -21,6 +23,6 @@ it('records a mutant no test ran as the event arrives, and keeps its mutated cop
 
     new OnUncovered(Mutations::recorder($results, '/c'))->notify(new Uncovered($test));
 
-    expect(Mutations::recorded($results))->toBe([['event' => 'outcome', 'id' => 'id-1', 'status' => 'uncovered']])
+    expect(Mutations::recorded($results))->toBe([RecordLine::outcome('id-1', PestStatus::Uncovered)])
         ->and(file_get_contents(sprintf('%s/mutants/id-1.php', $directory)))->toBe('<?php return 2;');
 });

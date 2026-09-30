@@ -8,7 +8,6 @@ use function array_intersect_key;
 use function array_key_exists;
 use function array_map;
 use function array_sum;
-use function array_values;
 use function file_get_contents;
 use function is_file;
 
@@ -16,6 +15,10 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function rtrim;
 
@@ -82,25 +85,26 @@ final readonly class CoverageFile implements Covering
         return CoverageMap::of(...$covered)->timedEach(...$timed);
     }
 
-    /** @return list<string> the tests that ran any line from the first to the last of a file, each once */
-    public function testsCovering(string $file, int $first, int $last): array
+    public function testsCovering(DiskPath $file, Line $first, Line $last): TestIds
     {
-        $lines = array_key_exists($file, $this->lines) ? $this->lines[$file] : [];
+        $lines = array_key_exists($file->value(), $this->lines) ? $this->lines[$file->value()] : [];
         $tests = [];
 
         foreach ($lines as $line => $covering) {
-            foreach ($line >= $first && $line <= $last ? $covering : [] as $test) {
-                $tests[$test] = $test;
+            $covered = $line >= $first->number() && $line <= $last->number();
+
+            foreach ($covered ? $covering : [] as $test) {
+                $tests[] = TestId::of($test);
             }
         }
 
-        return array_values($tests);
+        return TestIds::of(...$tests);
     }
 
     /** How long a test took, or no time where the map does not time it. */
-    public function secondsOf(string $test): float
+    public function secondsOf(TestId $test): float
     {
-        return array_key_exists($test, $this->durations) ? $this->durations[$test] : 0.0;
+        return array_key_exists($test->value(), $this->durations) ? $this->durations[$test->value()] : 0.0;
     }
 
     /** How long the whole suite took, one test after another. */

@@ -7,13 +7,10 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 use function file_put_contents;
 use function getenv;
 use function is_string;
-use function json_encode;
 
 use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade;
 use PHPUnit\Event\UnknownSubscriberTypeException;
-
-use function sprintf;
 
 /**
  * What the Pest plugin writes in a mutant's own process: each test that fails
@@ -23,8 +20,6 @@ use function sprintf;
  */
 final readonly class Killers
 {
-    private const int FLAGS = JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE;
-
     private function __construct(private string $results, private string $mutated)
     {
     }
@@ -60,7 +55,6 @@ final readonly class Killers
     /** Writes a test that failed or errored, by its id, as the coverage map names it. */
     public function killedBy(string $test): void
     {
-        $line = json_encode(['event' => 'killed', 'mutated' => $this->mutated, 'test' => $test], self::FLAGS);
-        file_put_contents($this->results, sprintf("%s\n", $line), FILE_APPEND | LOCK_EX);
+        file_put_contents($this->results, RecordLine::killed($this->mutated, $test), FILE_APPEND | LOCK_EX);
     }
 }

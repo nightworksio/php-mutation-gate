@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_map;
+use function count;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -17,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
@@ -28,8 +31,6 @@ use function sprintf;
  * stopped at its deadline keeps every result it had, and leaves the rest
  * unjudged. So does a covering test Pest's filter cannot select, because Pest
  * would have called that mutant killed or uncovered without running the test.
- *
- * @phpstan-import-type Planned from Records
  */
 final readonly class Interpretation
 {
@@ -108,41 +109,36 @@ final readonly class Interpretation
         $planned = $records->planned();
         $ids = Identities::of(Root::of($this->project->root()), $planned);
 
-        foreach ($planned as $id => $mutant) {
-            $tests = $coverage->testsCovering($mutant['file'], $mutant['start'], $mutant['end']);
-            $selection = Selection::of($tests);
+        foreach ($planned as $mutant) {
+            $selection = Selection::of($coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()));
 
             if (! $selection->fits() && ! $this->patching->isOn()) {
                 return CannotJudge::because(sprintf(
                     self::TOO_LONG,
                     $selection->count(),
-                    $this->project->relative($mutant['file'])->value(),
-                    $mutant['start'],
+                    $this->project->relative($mutant->file()->value())->value(),
+                    $mutant->start()->number(),
                 ));
             }
 
-            $mutants[] = $this->mutant($id, $ids[$id], $mutant, $records, $selection);
+            $mutants[] = $this->mutant($ids[$mutant->id()], $mutant, $records, $selection);
         }
 
         return MutationResult::of(Mutants::of(...$mutants), 0);
     }
 
-    /**
-     * The one place a Pest mutant becomes the gate's.
-     *
-     * @param Planned $planned
-     */
-    private function mutant(string $id, MutantId $gate, array $planned, Records $records, Selection $selection): Mutant
+    /** The one place a Pest mutant becomes the gate's. */
+    private function mutant(MutantId $gate, PlannedMutant $planned, Records $records, Selection $selection): Mutant
     {
-        $path = $this->project->relative($planned['file']);
-        $diff = Diff::fromPest($planned['diff']);
-        $unselected = $selection->fits() ? $selection->unselected() : [];
+        $id = $planned->id();
+        $unselected = $selection->fits() ? $selection->unselected() : TestIds::none();
+        $judged = count($unselected) === 0;
         $mutant = Mutant::of(
             $gate,
             $id,
-            Location::of($path, Line::of($planned['start']), Line::of($planned['end'])),
-            Mutation::of($planned['mutator'], Families::of($planned['mutator']), $diff),
-            $unselected === [] ? $this->statusOf($records->statusOf($id)) : MutantStatus::Unjudged,
+            Location::of($this->project->relative($planned->file()->value()), $planned->start(), $planned->end()),
+            Mutation::of($planned->mutator(), Families::of($planned->mutator()), Diff::fromPest($planned->diff())),
+            $judged ? $records->statusOf($id)->status() : MutantStatus::Unjudged,
             $records->durationOf($id),
         );
 
@@ -153,19 +149,8 @@ final readonly class Interpretation
             $status === MutantStatus::Killed => $mutant->killedBy($records->killersOf($id)),
             default => $mutant,
         };
-        $reason = Reason::that(sprintf(self::UNSELECTED, implode(', ', $unselected)));
+        $names = array_map(static fn(TestId $test): string => $test->value(), [...$unselected]);
 
-        return $unselected === [] ? $limited : $limited->because($reason);
-    }
-
-    private function statusOf(string $pest): MutantStatus
-    {
-        return match ($pest) {
-            'tested' => MutantStatus::Killed,
-            'untested' => MutantStatus::Survived,
-            'uncovered' => MutantStatus::Uncovered,
-            'timeout' => MutantStatus::TimedOut,
-            default => MutantStatus::Unjudged,
-        };
+        return $judged ? $limited : $limited->because(Reason::that(sprintf(self::UNSELECTED, implode(', ', $names))));
     }
 }

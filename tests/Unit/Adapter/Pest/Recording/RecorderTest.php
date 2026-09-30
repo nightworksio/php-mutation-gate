@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
+use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnFinishMutationSuite;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnStartMutationGeneration;
@@ -11,6 +13,11 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnTimeout;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnUncovered;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnUntested;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Mutations;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Pest\Mutate\Event\Events\Test\Outcome\TestedSubscriber;
@@ -140,30 +147,22 @@ it('records every planned mutant with its file, lines, mutator class, diff and m
     Mutations::recorder($results, '/c')->planned($suite);
     new Recorder(sprintf('%s/unknown.jsonl', $root), '/c', 'not a repository')->planned(Mutations::suite('/p/None.php'));
 
+    $mutant = static fn(string $id, int $line): PlannedMutant => PlannedMutant::of(
+        $id,
+        DiskPath::of(sprintf('%s/src/Money.php', $root)),
+        Line::of($line),
+        Line::of($line + 1),
+        Mutations::PLUS,
+        "  <fg=red>-        return \$a + \$b;</>\n  <fg=green>+        return \$a - \$b;</>\n",
+        DiskPath::of('/nowhere/mutated'),
+    );
+
     expect(Mutations::recorded($results))->toBe([
-        [
-            'event' => 'planned',
-            'id' => 'id-1',
-            'file' => sprintf('%s/src/Money.php', $root),
-            'start' => 11,
-            'end' => 12,
-            'mutator' => Mutations::PLUS,
-            'diff' => "  <fg=red>-        return \$a + \$b;</>\n  <fg=green>+        return \$a - \$b;</>\n",
-            'mutated' => '/nowhere/mutated',
-        ],
-        [
-            'event' => 'planned',
-            'id' => 'id-2',
-            'file' => sprintf('%s/src/Money.php', $root),
-            'start' => 12,
-            'end' => 13,
-            'mutator' => Mutations::PLUS,
-            'diff' => "  <fg=red>-        return \$a + \$b;</>\n  <fg=green>+        return \$a - \$b;</>\n",
-            'mutated' => '/nowhere/mutated',
-        ],
-        ['event' => 'made', 'count' => 2, 'opening' => 1.5],
+        RecordLine::planned($mutant('id-1', 11)),
+        RecordLine::planned($mutant('id-2', 12)),
+        RecordLine::made(2, Seconds::of(1.5)),
     ])->and(Mutations::recorded(sprintf('%s/unknown.jsonl', $root)))->toBe([
-        ['event' => 'made', 'count' => 0, 'opening' => false],
+        RecordLine::made(0, Unmeasured::duration()),
     ]);
 });
 
@@ -193,8 +192,8 @@ it('records every mutant\'s final status and how long it ran, then the end', fun
     Mutations::recorder($results, '/c')->finished($suite);
 
     expect(Mutations::recorded($results))->toBe([
-        ['event' => 'finished', 'id' => 'id-1', 'status' => 'tested', 'duration' => 0.25],
-        ['event' => 'finished', 'id' => 'id-2', 'status' => 'none', 'duration' => 0.0],
-        ['event' => 'end'],
+        RecordLine::finished('id-1', PestStatus::Tested, 0.25),
+        RecordLine::finished('id-2', PestStatus::None, 0.0),
+        RecordLine::end(),
     ]);
 });

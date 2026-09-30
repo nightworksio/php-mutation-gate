@@ -141,13 +141,7 @@ final readonly class Pest implements Runner
      */
     public function judges(Path $file, CoverageMap $map): Paths
     {
-        $tests = [];
-
-        foreach ($map->testsCoveringFile($file) as $test) {
-            $tests[] = $test->value();
-        }
-
-        $selection = Selection::of($tests);
+        $selection = Selection::of($map->testsCoveringFile($file));
 
         return $selection->fits() ? $this->tests->naming($selection->classes()) : $this->tests->all();
     }

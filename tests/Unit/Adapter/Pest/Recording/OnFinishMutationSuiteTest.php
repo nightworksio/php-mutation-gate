@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnFinishMutationSuite;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Tests\Support\Mutations;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Pest\Mutate\Event\Events\TestSuite\FinishMutationSuite;
@@ -21,7 +23,7 @@ it('records every mutant\'s final status once Pest has run them all', function (
     new OnFinishMutationSuite(Mutations::recorder($results, '/c'))->notify(new FinishMutationSuite($suite));
 
     expect(Mutations::recorded($results))->toBe([
-        ['event' => 'finished', 'id' => 'id-1', 'status' => 'untested', 'duration' => 0.0],
-        ['event' => 'end'],
+        RecordLine::finished('id-1', PestStatus::Untested, 0.0),
+        RecordLine::end(),
     ]);
 });

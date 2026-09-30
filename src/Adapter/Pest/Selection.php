@@ -13,6 +13,8 @@ use function explode;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function preg_match;
 use function sprintf;
@@ -46,9 +48,10 @@ final readonly class Selection
     {
     }
 
-    /** @param list<string> $tests the ids of the tests covering a mutant */
-    public static function of(array $tests): self
+    /** The tests covering a mutant. */
+    public static function of(TestIds $covering): self
     {
+        $tests = array_map(static fn(TestId $test): string => $test->value(), [...$covering]);
         $pieces = array_unique(array_filter(
             array_map(self::pieceOf(...), $tests),
             static fn(string $piece): bool => $piece !== '',
@@ -74,10 +77,12 @@ final readonly class Selection
         return Bytes::length($this->argument) < self::CEILING;
     }
 
-    /** @return list<string> the covering tests the filter does not select */
-    public function unselected(): array
+    /** The covering tests the filter does not select. */
+    public function unselected(): TestIds
     {
-        return array_values(array_filter($this->tests, static fn(string $test): bool => ! self::selects($test)));
+        $unselected = array_filter($this->tests, static fn(string $test): bool => ! self::selects($test));
+
+        return TestIds::of(...array_map(TestId::of(...), $unselected));
     }
 
     /** @return list<string> the class of each covering test, by its name within its namespace */

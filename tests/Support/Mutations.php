@@ -5,12 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_keys;
-use function array_map;
 use function array_values;
-use function explode;
-use function file_get_contents;
-use function is_array;
-use function json_decode;
+use function file;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use Pest\Mutate\Mutation;
@@ -20,7 +16,6 @@ use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use Pest\Mutate\Repositories\TelemetryRepository;
 use Pest\Mutate\Support\MutationTestResult;
 
-use function rtrim;
 use function sprintf;
 
 use Symfony\Component\Finder\SplFileInfo;
@@ -97,18 +92,14 @@ final readonly class Mutations
     }
 
     /**
-     * What a results file holds, one decoded record per line.
+     * What a results file holds, one line at a time, each with its newline.
      *
-     * @return list<mixed>
+     * @return list<string>
      */
     public static function recorded(string $results): array
     {
-        $lines = explode("\n", rtrim((string) file_get_contents($results), "\n"));
+        $lines = file($results);
 
-        return array_map(static function (string $line): mixed {
-            $record = json_decode($line, associative: true);
-
-            return is_array($record) ? $record : $line;
-        }, $lines);
+        return $lines === false ? [] : $lines;
     }
 }
