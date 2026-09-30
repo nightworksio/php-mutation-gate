@@ -159,7 +159,7 @@ has to bring its result with it.
        "format": 2,
        "bases": ["5be0…64 hex…", "a7c2…64 hex…"],
        "mutators": ["Plus", "LessThan"],
-       "tests": ["Tests\\MoneyTest::testAdds"],
+       "tests": ["Tests\\MoneyTest::testAdds", "Tests\\CartTest::testTotal"],
        "proofs": {
            "9c1e…64 hex…": {
                "unit": "src/Money.php",
@@ -177,10 +177,10 @@ has to bring its result with it.
        },
        "killers": {
            "mutants": {
-               "81d0c9e2aa17": { "Tests\\MoneyTest::testAdds": 3 }
+               "81d0c9e2aa17": [[0, 3]]
            },
            "functions": {
-               "src/Money.php Money::add": { "Tests\\MoneyTest::testAdds": 5, "Tests\\CartTest::testTotal": 1 }
+               "src/Money.php": { "add": [[0, 5], [1, 1]] }
            }
        },
        "openings": {
@@ -218,18 +218,32 @@ has to bring its result with it.
      never be hit again. It keeps timings only for units that still exist.
    - Where no proof in the ledger shares the run's base, planning looks up no
      proof at all, since none can match.
-   - `killers` counts, for each mutant id and for each enclosing function, the
-     tests that killed first, keeping the five most frequent. Entries for
-     mutant ids no kept proof holds, and for functions whose unit is gone, are
-     dropped. `openings` keeps each package's newest opening-run time per
-     runner. Both only order and cut work (ADR-0013, decisions 2 and 7), so
-     losing them costs speed, never a verdict.
+   - `killers` counts, for each mutant id and for each enclosing function by
+     its file and its name, the tests that killed first, keeping the five
+     most frequent. Each is a list of `[test, kills]` pairs, most kills
+     first, `test` an index into the ledger's `tests`, which lists the tests
+     the killers name as well as those killed mutants name. Of two tests with
+     as many kills, the one that killed most recently comes first.
+   - Retention of `killers` is one fixed policy too. It keeps the mutant ids a
+     kept proof holds, and of those, and of the functions, the 20,000 mutants
+     and the 5,000 functions that most recently learned a killer. A run
+     drops the functions of files that no longer exist before it writes.
+   - Where two scopes' ledgers are read together, `killers` answers with this
+     scope's ranking for a mutant or a function both know, and the default
+     branch's for one only it knows.
+   - `openings` keeps each package's newest opening-run time per runner.
+     `killers` and `openings` only order and cut work (ADR-0013, decisions 2
+     and 7), so losing them costs speed, never a verdict. The `killers`
+     section is part of format 2.
    - Reading keeps each well-formed entry and drops anything else. An
      unreadable ledger costs a run and never a verdict. A ledger of format 1,
      or one that is not a whole gzip stream, reads as empty: a miss, never an
      error. Where any mutator name or test id in those lists is not text,
      every proof whose killed mutants point into that list is dropped, since
-     an index past it would point at the wrong one.
+     an index past it would point at the wrong one, and where any test id is
+     not text, so is all of `killers`. A `killers` pair whose index is past
+     `tests`, or whose kills are not a positive count, is dropped, and so is
+     a ranking left with none.
    - When two results for one key agree, the first is kept. When they differ,
      the mutants that differ are flaky and neither result is used (ADR-0008).
      Results are compared by status. `killedBy` is never compared, because

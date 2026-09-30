@@ -8,6 +8,10 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Order\Enclosing;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\Kills;
+use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -16,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 
@@ -160,4 +165,19 @@ it('says whether any proof it holds was established at a base', function () use 
     expect($ledger->provesAt(Digest::of(str_repeat('b', 64))))->toBeTrue()
         ->and($ledger->provesAt(Digest::of(str_repeat('c', 64))))->toBeFalse()
         ->and(Ledger::empty()->provesAt(Digest::of(str_repeat('b', 64))))->toBeFalse();
+});
+
+it('holds the kill history a run learned, reads its own before another scope\'s, and keeps the functions of files that exist', function (): void {
+    $add = Enclosing::named(Path::of('src/Money.php'), 'add');
+    $total = Enclosing::named(Path::of('src/Cart.php'), 'total');
+    $mine = KillHistory::none()->withFunction($add, Ranking::of(Kills::of(TestId::of('mine'), 1)));
+    $default = KillHistory::none()
+        ->withFunction($add, Ranking::of(Kills::of(TestId::of('default'), 3)))
+        ->withFunction($total, Ranking::of(Kills::of(TestId::of('default'), 1)));
+    $read = Ledger::empty()->withKillers($mine)->and(Ledger::empty()->withKillers($default));
+
+    expect(Ledger::empty()->killers())->toEqual(KillHistory::none())
+        ->and($read->killers())->toEqual($mine->and($default))
+        ->and($read->keepingKillersIn(Paths::of(Path::of('src/Money.php')))->killers())
+        ->toEqual($mine->and($default)->onlyIn(Paths::of(Path::of('src/Money.php'))));
 });
