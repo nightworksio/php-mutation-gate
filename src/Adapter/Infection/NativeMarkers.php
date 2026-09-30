@@ -71,12 +71,12 @@ final readonly class NativeMarkers
         $markers = Markers::none();
 
         foreach ($config->mutators()->patterns() as $found) {
-            ['key' => $key, 'regex' => $regex, 'mutator' => $mutator, 'pattern' => $pattern] = $found;
-            $replacement = $regex
-                ? sprintf(self::REPLACES_REGEX, $pattern)
-                : sprintf(self::REPLACES_IGNORE, $pattern, $mutator === '' ? self::ANY_MUTATOR : $mutator);
-            $where = sprintf('%s mutators.%s', $config->name(), $key);
-            $markers = $markers->with(Marker::of($where, $pattern, $replacement));
+            $mutator = $found->mutator() instanceof AnyMutator ? self::ANY_MUTATOR : $found->mutator();
+            $replacement = $found->isOverSource()
+                ? sprintf(self::REPLACES_REGEX, $found->pattern())
+                : sprintf(self::REPLACES_IGNORE, $found->pattern(), $mutator);
+            $where = sprintf('%s mutators.%s', $config->name(), $found->key());
+            $markers = $markers->with(Marker::of($where, $found->pattern(), $replacement));
         }
 
         return $markers;

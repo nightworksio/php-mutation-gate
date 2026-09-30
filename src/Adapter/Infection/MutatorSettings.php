@@ -54,17 +54,17 @@ final readonly class MutatorSettings
      * over names, the mutator it applies to, none where it applies to more
      * than one, and the pattern.
      *
-     * @return list<array{key: string, regex: bool, mutator: string, pattern: string}>
+     * @return list<IgnorePattern>
      */
     public function patterns(): array
     {
         $patterns = [];
 
         foreach ($this->entriesOf($this->block) as $name => $settings) {
-            $mutator = str_starts_with($name, '@') ? '' : $name;
+            $mutator = str_starts_with($name, '@') ? AnyMutator::of() : $name;
             $patterns = [...$patterns, ...match ($name) {
-                self::GLOBAL_IGNORE => $this->listed($name, '', $settings, regex: false),
-                self::GLOBAL_REGEX => $this->listed($name, '', $settings, regex: true),
+                self::GLOBAL_IGNORE => $this->listed($name, AnyMutator::of(), $settings, regex: false),
+                self::GLOBAL_REGEX => $this->listed($name, AnyMutator::of(), $settings, regex: true),
                 default => [
                     ...$this->under($name, $mutator, $settings, self::IGNORE),
                     ...$this->under($name, $mutator, $settings, self::REGEX),
@@ -137,7 +137,8 @@ final readonly class MutatorSettings
      *
      * @return list<array{key: string, regex: bool, mutator: string, pattern: string}>
      */
-    private function under(string $name, string $mutator, Node $settings, string $setting): array
+    /** @return list<IgnorePattern> */
+    private function under(string $name, string|AnyMutator $mutator, Node $settings, string $setting): array
     {
         $key = sprintf('%s.%s', $name, $setting);
 
@@ -148,14 +149,16 @@ final readonly class MutatorSettings
      * The text values of a list under a key, each as a pattern: a pattern
      * over source where the list is a regex setting.
      *
-     * @return list<array{key: string, regex: bool, mutator: string, pattern: string}>
+     * @return list<IgnorePattern>
      */
-    private function listed(string $key, string $mutator, Node $values, bool $regex): array
+    private function listed(string $key, string|AnyMutator $mutator, Node $values, bool $regex): array
     {
         $patterns = [];
 
         foreach ($this->itemsOf($values) as $value) {
-            $patterns[] = ['key' => $key, 'regex' => $regex, 'mutator' => $mutator, 'pattern' => $this->textOf($value)];
+            $patterns[] = $regex
+                ? IgnorePattern::overSource($key, $mutator, $this->textOf($value))
+                : IgnorePattern::overNames($key, $mutator, $this->textOf($value));
         }
 
         return $patterns;

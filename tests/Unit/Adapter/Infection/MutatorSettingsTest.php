@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Infection\AnyMutator;
+use NightWorksIO\MutationGate\Adapter\Infection\IgnorePattern;
 use NightWorksIO\MutationGate\Adapter\Infection\MutatorSettings;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
@@ -16,11 +18,11 @@ it('reads every pattern that hides mutants, with the key it is under and the mut
         'Minus' => false,
     ])));
 
-    expect($settings->patterns())->toBe([
-        ['key' => 'global-ignore', 'regex' => false, 'mutator' => '', 'pattern' => 'A::*'],
-        ['key' => 'global-ignore', 'regex' => false, 'mutator' => '', 'pattern' => ''],
-        ['key' => '@arithmetic.ignore', 'regex' => false, 'mutator' => '', 'pattern' => 'B'],
-        ['key' => 'Plus.ignoreSourceCodeByRegex', 'regex' => true, 'mutator' => 'Plus', 'pattern' => 'x.*'],
+    expect($settings->patterns())->toEqual([
+        IgnorePattern::overNames('global-ignore', AnyMutator::of(), 'A::*'),
+        IgnorePattern::overNames('global-ignore', AnyMutator::of(), ''),
+        IgnorePattern::overNames('@arithmetic.ignore', AnyMutator::of(), 'B'),
+        IgnorePattern::overSource('Plus.ignoreSourceCodeByRegex', 'Plus', 'x.*'),
     ]);
 });
 

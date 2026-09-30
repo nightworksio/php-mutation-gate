@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Php\Functions;
+use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -151,7 +152,7 @@ final readonly class Hint
     {
         $change = Change::of($mutant->mutation()->diff());
         $line = $mutant->location()->start();
-        $function = $source instanceof Contents ? Functions::in($source)->around($line) : '';
+        $function = $source instanceof Contents ? Functions::in($source)->around($line) : Nameless::code();
 
         return match ($mutant->mutation()->family()) {
             MutatorFamily::Boundary => sprintf(self::BOUNDARY, $change->expression()),
@@ -159,9 +160,11 @@ final readonly class Hint
             MutatorFamily::Logical => sprintf(self::LOGICAL, $change->original()),
             MutatorFamily::Arithmetic => sprintf(self::ARITHMETIC, $change->expression()),
             MutatorFamily::ReturnValue => self::about($function, self::RETURNED, self::RETURNED_HERE),
-            MutatorFamily::RemovedCall => $change->call() === ''
-                ? sprintf(self::REMOVED_HERE, $change->removed())
-                : sprintf(self::REMOVED, $change->call()),
+            MutatorFamily::RemovedCall => self::about(
+                $change->call(),
+                self::REMOVED,
+                sprintf(self::REMOVED_HERE, $change->removed()),
+            ),
             MutatorFamily::Literal => sprintf(self::LITERAL, $change->original()),
             MutatorFamily::Collection => self::COLLECTION,
             MutatorFamily::Exception => self::EXCEPTION,
@@ -174,9 +177,9 @@ final readonly class Hint
     }
 
     /** The sentence about a named function, or the one about this code where there is no name. */
-    private static function about(string $name, string $named, string $here): string
+    private static function about(string|Nameless $name, string $named, string $here): string
     {
-        return $name === '' ? $here : sprintf($named, $name);
+        return $name instanceof Nameless ? $here : sprintf($named, $name);
     }
 
     /** Up to three tests, in backticks, then how many more. */

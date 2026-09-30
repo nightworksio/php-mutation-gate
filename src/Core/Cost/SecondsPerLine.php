@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Cost;
 
 use function array_filter;
 use function array_last;
-use function mb_strlen;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -36,7 +35,7 @@ final readonly class SecondsPerLine
     /** `{"": 0.2}` */
     public static function standard(): self
     {
-        return new self([LineRate::of('', Seconds::of(self::STANDARD))]);
+        return new self([LineRate::everywhere(Seconds::of(self::STANDARD))]);
     }
 
     /** @return array<string, float> the seconds a line costs by path prefix, as `costs.secondsPerLine` writes them */
@@ -45,7 +44,7 @@ final readonly class SecondsPerLine
         $written = [];
 
         foreach ($this->rates as $rate) {
-            $written[$rate->prefix()] = $rate->perLine()->seconds();
+            $written[$rate->written()] = $rate->perLine()->seconds();
         }
 
         return $written;
@@ -61,7 +60,7 @@ final readonly class SecondsPerLine
 
         usort(
             $covering,
-            static fn(LineRate $one, LineRate $other): int => mb_strlen($one->prefix()) <=> mb_strlen($other->prefix()),
+            static fn(LineRate $one, LineRate $other): int => $one->narrowness() <=> $other->narrowness(),
         );
 
         return array_last($covering)->perLine();

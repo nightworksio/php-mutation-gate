@@ -19,6 +19,7 @@ use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Mutant\Hunks;
+use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Php\Names;
 use PhpToken;
 
@@ -133,8 +134,8 @@ final readonly class Change
         return $this->spelt($start, $end);
     }
 
-    /** The function or method the original calls where it differs, such as `save`; nothing where it calls none. */
-    public function call(): string
+    /** The function or method the original calls where it differs, such as `save`; nameless where it calls none. */
+    public function call(): string|Nameless
     {
         $tokens = array_slice($this->before, $this->from, $this->to - $this->from);
         $called = array_find_key(
@@ -144,7 +145,7 @@ final readonly class Change
                 && $tokens[$at + 1]->is('('),
         );
 
-        return is_int($called) ? $this->lastSegmentOf($tokens[$called]->text) : '';
+        return is_int($called) ? $this->lastSegmentOf($tokens[$called]->text) : Nameless::code();
     }
 
     /**
