@@ -33,7 +33,7 @@ final readonly class WeakTest
         return $this->test;
     }
 
-    /** The whole test, by its file and description, with any data set row folded in. */
+    /** The whole test, by its file and description, with any dataset row folded in. */
     public function name(): TestName
     {
         return $this->name;
@@ -45,8 +45,9 @@ final readonly class WeakTest
     }
 
     /**
-     * The style the test asserts in: that of its first assertion, so a
-     * PHPUnit class Pest runs that uses `expect()` first asserts as Pest does.
+     * The style the test asserts in: that of its first weak assertion, each
+     * of a weak test's assertions being weak, so a PHPUnit class Pest runs
+     * that uses `expect()` first asserts as Pest does.
      */
     public function style(): AssertionStyle
     {

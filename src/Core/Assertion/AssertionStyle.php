@@ -24,6 +24,12 @@ enum AssertionStyle
     /** What stands for a result where no function is around the survivor. */
     private const string RESULT = '…';
 
+    /** PHPUnit's assertion of a value, on a subject, as a PHPUnit test writes it. */
+    private const string PHPUNIT = '$this->assertSame(<expected>, %s)';
+
+    /** Pest's expectation of a value, on a subject, as a Pest test writes it. */
+    private const string PEST = 'expect(%s)->toBe(<expected>)';
+
     /**
      * The assertion of value, on the result of the function around the
      * survivors, that would kill what an assertion of existence or shape
@@ -34,9 +40,6 @@ enum AssertionStyle
         $function = $finding->function();
         $subject = $function instanceof Nameless ? self::RESULT : sprintf(self::CALLED, $function);
 
-        return match ($this) {
-            self::PhpUnit => sprintf('$this->assertSame(<expected>, %s)', $subject),
-            self::Pest => sprintf('expect(%s)->toBe(<expected>)', $subject),
-        };
+        return sprintf($this === self::PhpUnit ? self::PHPUNIT : self::PEST, $subject);
     }
 }

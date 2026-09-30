@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use NightWorksIO\MutationGate\Core\Assertion\TestFiles;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -125,5 +126,11 @@ final class Weakly
     public static function tests(): ByPath
     {
         return ByPath::none()->with(Path::of(self::TESTS), Contents::of(self::TEST_FILE));
+    }
+
+    /** The Cart's test file, read for its tests' assertions. */
+    public static function testFiles(): TestFiles
+    {
+        return TestFiles::read(self::tests(), ByPath::none());
     }
 }

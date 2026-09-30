@@ -38,6 +38,25 @@ it('classifies every assertion and expectation the installed PHPUnit declares', 
     expect($unclassified)->toBe([]);
 });
 
+it('holds every method of the installed PHPUnit\'s TestCase and Assert that is no assertion as one of its own', function (): void {
+    $unheld = [];
+
+    foreach ([TestCase::class, Assert::class] as $class) {
+        foreach (new ReflectionClass($class)->getMethods(ReflectionMethod::IS_PUBLIC | ReflectionMethod::IS_PROTECTED) as $method) {
+            $name = $method->getName();
+            $own = str_starts_with($name, 'assert') || str_starts_with($name, 'expect') || str_starts_with($name, '__');
+
+            if (! $own && ! AssertionTable::isCaseMethod(Call::of($name))) {
+                $unheld[] = $name;
+            }
+        }
+    }
+
+    expect($unheld)->toBe([])
+        ->and(AssertionTable::isCaseMethod(Call::of('CreateMock')))->toBeTrue()
+        ->and(AssertionTable::isCaseMethod(Call::of('checkTotal')))->toBeFalse();
+});
+
 it('classifies every expectation the installed Pest declares', function (): void {
     $unclassified = array_values(array_filter(
         [...methodsStarting(Expectation::class, 'to'), ...methodsStarting(Pest\Expectation::class, 'to')],
@@ -58,6 +77,8 @@ it('classifies PHPUnit\'s assertions by what they check, in any case', function 
     'not same as null' => ['assertNotSame', AssertionKind::Existence, 'NULL', '$cart'],
     'not equal to null' => ['assertNotEquals', AssertionKind::Existence, 'null', '$cart'],
     'not same as a value' => ['assertNotSame', AssertionKind::Value, '3', '$total'],
+    'not same as null, second' => ['assertNotSame', AssertionKind::Existence, '$cart', 'null'],
+    'true, qualified' => ['assertTrue', AssertionKind::Existence, '\\true'],
     'is array' => ['assertIsArray', AssertionKind::Shape, '$items'],
     'instance of' => ['assertInstanceOf', AssertionKind::Shape, 'Cart::class', '$cart'],
     'count' => ['assertCount', AssertionKind::Shape, '2', '$items'],

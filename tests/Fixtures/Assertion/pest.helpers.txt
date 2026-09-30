@@ -1,0 +1,3 @@
+<?php
+
+function checkMoney($c): void { expect($c)->toBe(1); }

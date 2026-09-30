@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Assertion;
 
+use function array_key_exists;
+use function array_slice;
 use function array_values;
 use function count;
+use function ltrim;
 use function mb_strrpos;
 use function mb_strtolower;
 use function mb_substr;
@@ -24,13 +27,13 @@ final readonly class Call
     {
     }
 
-    /** A call of a name, with its arguments as written. */
+    /** A call of a name, with its arguments as written, spelt out rather than read from tokens as `at()` reads one. */
     public static function of(string $name, string ...$arguments): self
     {
         return new self($name, array_values($arguments), keyed: false);
     }
 
-    /** A call of a name, with its arguments as written, whose first is an array with keys, such as `['total' => 3]`. */
+    /** The same, whose first argument is an array with keys, such as `['total' => 3]`. */
     public static function keyed(string $name, string ...$arguments): self
     {
         return new self($name, array_values($arguments), keyed: true);
@@ -52,8 +55,9 @@ final readonly class Call
         }
 
         $keyed = self::isKeyed($tokens, $opener + 1);
+        $written = $arguments[count($arguments) - 1] === '' ? array_slice($arguments, 0, -1) : $arguments;
 
-        return new self(self::nameAt($tokens, $at), $arguments === [''] ? [] : $arguments, $keyed);
+        return new self(self::nameAt($tokens, $at), $written, $keyed);
     }
 
     /** The name at an index as a call names it: the last segment of a qualified name. */
@@ -70,14 +74,16 @@ final readonly class Call
         return $this->name;
     }
 
-    /** The first argument as written, in lower case, as PHP reads its constants; nothing where there is none. */
+    /** The first argument as PHP reads a constant there: in lower case, unqualified; nothing where there is none. */
     public function first(): string
     {
-        foreach ($this->arguments as $argument) {
-            return mb_strtolower($argument);
-        }
+        return $this->constantAt(0);
+    }
 
-        return '';
+    /** The second argument, read as the first is. */
+    public function second(): string
+    {
+        return $this->constantAt(1);
     }
 
     public function arguments(): int
@@ -105,5 +111,11 @@ final readonly class Call
         }
 
         return false;
+    }
+
+    /** An argument as PHP reads a constant written there; nothing where there is none. */
+    private function constantAt(int $at): string
+    {
+        return array_key_exists($at, $this->arguments) ? ltrim(mb_strtolower($this->arguments[$at]), '\\') : '';
     }
 }

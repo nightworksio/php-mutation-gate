@@ -29,7 +29,7 @@ function weaklyFound(): Verdict
         Weakly::boundary(),
     );
 
-    return Verdict::of($trees->found(Weakness::findings($trees, Weakly::matrix(), Weakly::sources(), Weakly::tests())))->withMatrix(Weakly::matrix());
+    return Verdict::of($trees->found(Weakness::findings($trees, Weakly::matrix(), Weakly::sources(), Weakly::testFiles())))->withMatrix(Weakly::matrix());
 }
 
 /** A survivor outside any function, let through by both data set rows of a PHPUnit test. */

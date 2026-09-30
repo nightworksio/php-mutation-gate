@@ -112,9 +112,13 @@ decision 3). The kill matrix knows which tests cover and which kill
        expectation nor a change of subject (`->and()`, `->json()`), such
        as `->sequence()`, `->each(…)` or `->when()`, whose closures assert
        out of the scan's sight;
-     - a test that calls a function or method its own file declares, as a
-       function or on `$this`, `self` or `static`, since the helper may
-       assert what the test does not.
+     - a test that calls, as a function, a helper its own file declares, or
+       one a file that defines the runner declares, such as `tests/Pest.php`,
+       since the helper may assert what the test does not;
+     - a test that calls a method on `$this`, `self` or `static` that is
+       neither an assertion nor one of PHPUnit's own methods of `TestCase`
+       and `Assert`, such as a parent class's or a trait's helper, or a
+       framework's.
    - A table test fails when a supported PHPUnit or Pest release adds an
      assertion the table does not classify.
    - **As built.**
@@ -125,7 +129,8 @@ decision 3). The kill matrix knows which tests cover and which kill
        - `AssertionTableTest` reads the installed releases' methods and
          fails on one the table does not hold.
      - The table reads a `Call`: its name, and its arguments as written.
-       - `assertTrue(true, 'reached')` is existence by its first argument.
+       - `assertTrue(true, 'reached')` is existence by its first argument,
+         and `assertNotSame($cart, null)` by a `null` on either side.
        - A negated `toBeNull`, `toBeEmpty`, `toBeTrue` or `toBeFalse` is
          existence, whatever the same expectation is unnegated.
      - `TestAssertions` reads a file's tokens once, and holds each test's
@@ -133,8 +138,9 @@ decision 3). The kill matrix knows which tests cover and which kill
        - a PHPUnit method by its name;
        - a Pest `it` or `test` by its description, with the calls chained
          after it, so a test's `->throws()` counts as a value;
-       - a Pest test inside a `describe()` is described by it, so a bare
-         description finds only the test outside one.
+       - a Pest test inside a `describe()`, however deep and however the
+         name is qualified, is described by it, so a bare description finds
+         only the test outside every one.
        A method with no body has no assertions.
      - `AssertionScan` reads the calls:
        - `assert…` and `expect…` as methods or functions, a qualified name

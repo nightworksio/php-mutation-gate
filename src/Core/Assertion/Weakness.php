@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Assertion;
 
-use function array_key_exists;
-
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -50,23 +48,20 @@ final readonly class Weakness
 
     /**
      * What each of those survivors says of its weak tests, read from the
-     * test files `testFiles()` names, each read once, and the survivors' own
-     * files.
+     * test files `testFiles()` names and the survivors' own files.
      *
      * @param ByPath<Contents> $sources the survivors' own files
-     * @param ByPath<Contents> $tests   the test files
      */
     public static function findings(
         TreeVerdicts $verdicts,
         KillMatrix $matrix,
         ByPath $sources,
-        ByPath $tests,
+        TestFiles $tests,
     ): Findings {
         $findings = Findings::none();
-        $readers = self::readers($tests);
 
         foreach (self::seenByValue($verdicts) as $survivor) {
-            $weak = self::weakAmong(self::judging($survivor, $matrix), $matrix, $readers);
+            $weak = self::weakAmong(self::judging($survivor, $matrix), $matrix, $tests);
 
             if ($weak !== []) {
                 $finding = WeaklyAsserted::by(self::functionOf($survivor, $sources), ...$weak);
@@ -108,28 +103,8 @@ final readonly class Weakness
         return $seen;
     }
 
-    /**
-     * Each test file read for its tests' assertions, once, by its path.
-     *
-     * @param  ByPath<Contents>              $tests
-     * @return array<string, TestAssertions>
-     */
-    private static function readers(ByPath $tests): array
-    {
-        $readers = [];
-
-        foreach ($tests as $file => $contents) {
-            $readers[$file->value()] = TestAssertions::in($contents);
-        }
-
-        return $readers;
-    }
-
-    /**
-     * @param  array<string, TestAssertions> $readers
-     * @return list<WeakTest>                those of these tests that are weak, in their order
-     */
-    private static function weakAmong(TestIds $tests, KillMatrix $matrix, array $readers): array
+    /** @return list<WeakTest> those of these tests that are weak, in their order */
+    private static function weakAmong(TestIds $tests, KillMatrix $matrix, TestFiles $files): array
     {
         $weak = [];
 
@@ -140,27 +115,12 @@ final readonly class Weakness
                 continue;
             }
 
-            foreach (self::assertionsOf($named, $readers)->weakAs($test, $named) as $found) {
+            foreach ($files->assertionsOf($named)->weakAs($test, $named) as $found) {
                 $weak[] = $found;
             }
         }
 
         return $weak;
-    }
-
-    /**
-     * The assertions of a named test, read from its file; none assessed where
-     * its file was not read.
-     *
-     * @param array<string, TestAssertions> $readers
-     */
-    private static function assertionsOf(TestName $named, array $readers): Assertions
-    {
-        $file = $named->file()->value();
-
-        return array_key_exists($file, $readers)
-            ? $readers[$file]->of($named->description())
-            : Assertions::notAssessed();
     }
 
     /** @param ByPath<Contents> $files */

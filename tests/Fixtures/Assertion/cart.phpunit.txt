@@ -17,7 +17,7 @@ abstract class CartTest extends TestCase
 
     private function assertMoney($x): void { $this->assertSame(1, $x); }
 
-    public function testCallsIt(): void { $this->helper()->toArray(); assertCount(1, $x); }
+    public function testCallsIt(): void { $cart->helper()->toArray(); assertCount(1, $x); }
 
     public function testMixed(): void { expect($total)->not->toBeNull(); $this->assertIsInt($total); }
 
@@ -38,4 +38,19 @@ abstract class CartTest extends TestCase
     public function testMessage(): void { $this->assertTrue(true, 'reached'); }
 
     public function testNotSameAsNull(): void { $this->assertNotSame(null, $c); }
+
+    public function testNullSecond(): void { $this->assertNotSame($c, null); }
+
+    public function testQualifiedTrue(): void { $this->assertTrue(\true); }
+
+    public function testDelegatesToAParent(): void { $this->assertNotNull($c); $this->checkParent($c); }
+
+    public function testMocks(): void { $cart = $this->createMock(Cart::class); $cart->expects($this->once())->method('add'); $this->assertNotNull($cart); }
+
+    public function testStubs(): void { $cart = $this->createStub(Cart::class); $cart->method('total')->willReturn(3); self::assertNotNull($cart); }
+}
+
+final class OtherCartTest extends TestCase
+{
+    public function testAdds(): void { $this->assertSame(3, $total); }
 }

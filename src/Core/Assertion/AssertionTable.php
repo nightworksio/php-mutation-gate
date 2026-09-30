@@ -112,7 +112,10 @@ final readonly class AssertionTable
         'assertJson',
     ];
 
-    /** PHPUnit's assertions of a value, and its expectations of an exception or output. */
+    /**
+     * PHPUnit's assertions of a value, and its expectations of an exception
+     * or output. `AssertionStyle::PhpUnit` suggests one of them, `assertSame`.
+     */
     private const array PHPUNIT_VALUE = [
         'assertArrayIsEqualToArrayOnlyConsideringListOfKeys',
         'assertArrayIsEqualToArrayIgnoringListOfKeys',
@@ -334,7 +337,10 @@ final readonly class AssertionTable
         'toBeIntBackedEnum',
     ];
 
-    /** Pest's expectations of a value, a snapshot or an exception. */
+    /**
+     * Pest's expectations of a value, a snapshot or an exception.
+     * `AssertionStyle::Pest` suggests one of them, `toBe`.
+     */
     private const array PEST_VALUE = [
         'toBe',
         'toBeEmpty',
@@ -364,6 +370,166 @@ final readonly class AssertionTable
         'toBeBetween',
     ];
 
+    /**
+     * PHPUnit's methods of `TestCase` and `Assert` that assert nothing
+     * themselves: its hooks, its doubles, its constraints and its markers.
+     * A test case's call of any other method of its own that is no
+     * assertion is a helper's.
+     */
+    private const array PHPUNIT_CASE = [
+        'setUpBeforeClass',
+        'tearDownAfterClass',
+        'setUp',
+        'tearDown',
+        'toString',
+        'count',
+        'status',
+        'run',
+        'groups',
+        'setGroups',
+        'nameWithDataSet',
+        'name',
+        'size',
+        'hasUnexpectedOutput',
+        'output',
+        'doesNotPerformAssertions',
+        'runBare',
+        'setDependencies',
+        'setDependencyInput',
+        'dependencyInput',
+        'hasDependencyInput',
+        'setBackupGlobals',
+        'setBackupGlobalsExcludeList',
+        'setBackupStaticProperties',
+        'setBackupStaticPropertiesExcludeList',
+        'setRunTestInSeparateProcess',
+        'setPreserveGlobalState',
+        'setInIsolation',
+        'setEmptyDataProviderSkipMessage',
+        'setThrowableFromDeferredIssue',
+        'result',
+        'setResult',
+        'registerMockObject',
+        'addToAssertionCount',
+        'numberOfAssertionsPerformed',
+        'usesDataProvider',
+        'dataName',
+        'dataSetAsString',
+        'dataSetAsStringWithData',
+        'providedData',
+        'sortId',
+        'provides',
+        'requires',
+        'setData',
+        'valueObjectForEvents',
+        'wasPrepared',
+        'repetition',
+        'totalRepetitions',
+        'setRepetition',
+        'attempt',
+        'maxAttempts',
+        'setAttempt',
+        'setStatus',
+        'markSkippedForRepeatAbort',
+        'any',
+        'never',
+        'atLeast',
+        'atLeastOnce',
+        'once',
+        'exactly',
+        'atMost',
+        'throwException',
+        'getActualOutputForAssertion',
+        'getMockBuilder',
+        'registerComparator',
+        'registerObjectExporter',
+        'registerFailureType',
+        'createMock',
+        'createMockForIntersectionOfInterfaces',
+        'createConfiguredMock',
+        'createPartialMock',
+        'provideAdditionalInformation',
+        'transformException',
+        'onNotSuccessfulTest',
+        'invokeTestMethod',
+        'getStubBuilder',
+        'createStub',
+        'createStubForIntersectionOfInterfaces',
+        'createConfiguredStub',
+        'logicalAnd',
+        'logicalOr',
+        'logicalNot',
+        'logicalXor',
+        'anything',
+        'isTrue',
+        'callback',
+        'isFalse',
+        'isJson',
+        'isNull',
+        'isFinite',
+        'isInfinite',
+        'isNan',
+        'containsEqual',
+        'containsIdentical',
+        'containsOnlyArray',
+        'containsOnlyBool',
+        'containsOnlyCallable',
+        'containsOnlyFloat',
+        'containsOnlyInt',
+        'containsOnlyIterable',
+        'containsOnlyNull',
+        'containsOnlyNumeric',
+        'containsOnlyObject',
+        'containsOnlyResource',
+        'containsOnlyClosedResource',
+        'containsOnlyScalar',
+        'containsOnlyString',
+        'containsOnlyInstancesOf',
+        'arrayHasKey',
+        'isList',
+        'equalTo',
+        'equalToCanonicalizing',
+        'equalToIgnoringCase',
+        'equalToWithDelta',
+        'isEmpty',
+        'isWritable',
+        'isReadable',
+        'directoryExists',
+        'fileExists',
+        'greaterThan',
+        'greaterThanOrEqual',
+        'identicalTo',
+        'isInstanceOf',
+        'isArray',
+        'isBool',
+        'isCallable',
+        'isFloat',
+        'isInt',
+        'isIterable',
+        'isNumeric',
+        'isObject',
+        'isResource',
+        'isClosedResource',
+        'isScalar',
+        'isString',
+        'lessThan',
+        'lessThanOrEqual',
+        'matchesRegularExpression',
+        'matches',
+        'stringStartsWith',
+        'stringContains',
+        'stringEndsWith',
+        'stringEqualsStringIgnoringLineEndings',
+        'stringEqualsStringIgnoringWhitespace',
+        'countOf',
+        'objectEquals',
+        'fail',
+        'markTestIncomplete',
+        'markTestSkipped',
+        'getCount',
+        'resetCount',
+    ];
+
     /** Pest's expectations of a value whose negation asserts only that something is there. */
     private const array PEST_NEGATED_EXISTENCE = [
         'toBeNull',
@@ -375,7 +541,7 @@ final readonly class AssertionTable
     /** Pest's expectations of a value that, negated on `null`, assert only that something is there. */
     private const array PEST_NEGATED_ON_NULL = ['toBe', 'toEqual'];
 
-    /** PHPUnit's assertions that, on an expected `null`, assert only that something is there. */
+    /** PHPUnit's assertions that, on a `null` either side, assert only that something is there. */
     private const array PHPUNIT_NOT_NULL = ['assertNotSame', 'assertNotEquals'];
 
     /** Pest's expectations of a key or a property that check its value where they are handed one. */
@@ -402,7 +568,8 @@ final readonly class AssertionTable
     {
         return match (true) {
             self::holds(self::PHPUNIT_TAUTOLOGICAL, $call) && $call->first() === self::true(),
-            self::holds(self::PHPUNIT_NOT_NULL, $call) && $call->first() === self::null() => AssertionKind::Existence,
+            self::holds(self::PHPUNIT_NOT_NULL, $call)
+                && ($call->first() === self::null() || $call->second() === self::null()) => AssertionKind::Existence,
             self::holds(self::PHPUNIT_EXISTENCE, $call) => AssertionKind::Existence,
             self::holds(self::PHPUNIT_SHAPE, $call) => AssertionKind::Shape,
             self::holds(self::PHPUNIT_VALUE, $call) => AssertionKind::Value,
@@ -433,6 +600,12 @@ final readonly class AssertionTable
     public static function pestTest(Call $call): AssertionKind|Unclassified
     {
         return self::holds(self::PEST_TEST_VALUE, $call) ? AssertionKind::Value : Unclassified::assertion();
+    }
+
+    /** Whether a call on the test case itself is one of PHPUnit's own methods that asserts nothing. */
+    public static function isCaseMethod(Call $call): bool
+    {
+        return self::holds(self::PHPUNIT_CASE, $call);
     }
 
     /** Whether a call chained after `expect()` changes the subject, and checks nothing. */

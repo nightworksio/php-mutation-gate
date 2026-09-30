@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Assertion\Assertion;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
+use NightWorksIO\MutationGate\Core\Assertion\Helpers;
 use NightWorksIO\MutationGate\Core\Assertion\TestAssertions;
 use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\Assertion\WeakTest;
@@ -28,7 +29,7 @@ const PHPUNIT_CART_TEST = 'tests/Fixtures/Assertion/cart.phpunit.txt';
 function readAssertions(string $file, string $description): array
 {
     $text = is_file(Tree::at($file)) ? (string) file_get_contents(Tree::at($file)) : $file;
-    $assertions = TestAssertions::in(Contents::of($text))->of($description);
+    $assertions = TestAssertions::in(Contents::of($text), Helpers::none())->of($description);
 
     return [
         array_map(
@@ -53,7 +54,7 @@ it('reads a test as weak only when every assertion checks existence or shape', f
     'a chained exception' => [PEST_CART_TEST, 'it throws', [['->throws() value'], false]],
     'a value beside a shape' => [PEST_CART_TEST, 'it mixes', [['assertSame value', '->toBeInt() shape'], false]],
     'a description with quotes' => [PEST_CART_TEST, "it escapes 'quotes'", [['->toBeArray() shape'], true]],
-    'PHPUnit\'s existence and shape' => [PHPUNIT_CART_TEST, 'testAdds', [['assertNotNull existence', 'assertIsArray shape', 'assertTrue existence'], true]],
+    'PHPUnit\'s existence and shape, in the first of two classes with the method' => [PHPUNIT_CART_TEST, 'testAdds', [['assertNotNull existence', 'assertIsArray shape', 'assertTrue existence'], true]],
     'a comparison' => [PHPUNIT_CART_TEST, 'testValue', [['assertTrue value'], false]],
     'a function of PHPUnit, and a method named like an expectation' => [PHPUNIT_CART_TEST, 'testCallsIt', [['assertCount shape'], true]],
 ]);
@@ -72,6 +73,10 @@ it('reads what Pest chains after expect(), qualified or not, as each call checks
     'a new subject' => ['it checks both', [['->toBeInt() shape', '->not->toBeNull() existence'], true]],
     'a class declared in the test' => ['it builds a spy', [['->toBeObject() shape'], true]],
     'the undescribed test of a description a described one shares' => ['it described', [['->toBe() value'], false]],
+    'the undescribed test after a nested describe' => ['it follows a nested describe', [['->toBe() value'], false]],
+    'the undescribed test beside a qualified describe' => ['it is qualified', [['->toBe() value'], false]],
+    'a test declared by a qualified it' => ['it qualifies its own name', [['->toBeInt() shape'], true]],
+    'a key, with a trailing comma' => ['it checks a key with a trailing comma', [['->toHaveKey() existence'], true]],
 ]);
 
 it('reads PHPUnit\'s assertions however a test calls them', function (string $description, array $read): void {
@@ -82,6 +87,9 @@ it('reads PHPUnit\'s assertions however a test calls them', function (string $de
     'true, with a message' => ['testMessage', [['assertTrue existence'], true]],
     'not the same as null' => ['testNotSameAsNull', [['assertNotSame existence'], true]],
     'with a helper\'s name, on the subject' => ['testCallsTheSubject', [['assertNotNull existence'], true]],
+    'not the same as null, second' => ['testNullSecond', [['assertNotSame existence'], true]],
+    'true, qualified' => ['testQualifiedTrue', [['assertTrue existence'], true]],
+    'beside PHPUnit\'s own doubles' => ['testStubs', [['assertNotNull existence'], true]],
 ]);
 
 it('assesses no test that makes an assertion the table does not hold, makes none, or is not in the file', function (string $file, string $description): void {
@@ -99,11 +107,13 @@ it('assesses no test that makes an assertion the table does not hold, makes none
     'a helper the file declares, as a function' => [PEST_CART_TEST, 'it delegates'],
     'a helper the file declares, on $this' => [PHPUNIT_CART_TEST, 'testDelegates'],
     'a helper the file declares, on self' => [PHPUNIT_CART_TEST, 'testDelegatesStatically'],
+    'a method of its own the file does not declare, such as a parent\'s' => [PHPUNIT_CART_TEST, 'testDelegatesToAParent'],
+    'a double\'s expectation of how it is called' => [PHPUNIT_CART_TEST, 'testMocks'],
     'a file that is not PHP' => ['not php', 'it adds'],
 ]);
 
 it('tags each assertion with the style it is written in', function (string $file, string $description, AssertionStyle ...$styles): void {
-    $assertions = TestAssertions::in(Contents::of((string) file_get_contents(Tree::at($file))))->of($description);
+    $assertions = TestAssertions::in(Contents::of((string) file_get_contents(Tree::at($file))), Helpers::none())->of($description);
 
     expect(array_map(static fn(Assertion $assertion): AssertionStyle => $assertion->style(), iterator_to_array($assertions, preserve_keys: false)))
         ->toBe($styles);
@@ -117,7 +127,7 @@ it('tags each assertion with the style it is written in', function (string $file
 ]);
 
 it('suggests to a weak test in the style of its first assertion, however it mixes them', function (string $description, string $suggestion): void {
-    $weak = TestAssertions::in(Contents::of((string) file_get_contents(Tree::at(PHPUNIT_CART_TEST))))->of($description)
+    $weak = TestAssertions::in(Contents::of((string) file_get_contents(Tree::at(PHPUNIT_CART_TEST))), Helpers::none())->of($description)
         ->weakAs(TestId::of(sprintf('Tests\\CartTest::%s', $description)), TestName::in(Path::of('tests/CartTest.php'), $description));
 
     expect(array_map(
@@ -130,7 +140,7 @@ it('suggests to a weak test in the style of its first assertion, however it mixe
 ]);
 
 it('makes no weak test of assertions that check a value, or of none', function (string $file, string $description): void {
-    $assertions = TestAssertions::in(Contents::of((string) file_get_contents(Tree::at($file))))->of($description);
+    $assertions = TestAssertions::in(Contents::of((string) file_get_contents(Tree::at($file))), Helpers::none())->of($description);
 
     expect($assertions->weakAs(TestId::of('Tests\\CartTest::testIt'), TestName::in(Path::of($file), $description)))->toHaveCount(0);
 })->with([
@@ -139,9 +149,17 @@ it('makes no weak test of assertions that check a value, or of none', function (
 ]);
 
 it('reads a file once, and answers every lookup of a test from that reading', function (): void {
-    $pest = TestAssertions::in(Contents::of((string) file_get_contents(Tree::at(PEST_CART_TEST))));
-    $phpUnit = TestAssertions::in(Contents::of((string) file_get_contents(Tree::at(PHPUNIT_CART_TEST))));
+    $pest = TestAssertions::in(Contents::of((string) file_get_contents(Tree::at(PEST_CART_TEST))), Helpers::none());
+    $phpUnit = TestAssertions::in(Contents::of((string) file_get_contents(Tree::at(PHPUNIT_CART_TEST))), Helpers::none());
 
     expect($pest->of('it adds'))->toBe($pest->of('it adds'))
         ->and($phpUnit->of('testAdds'))->toBe($phpUnit->of('TESTADDS'));
+});
+
+it('reads a helper the files that define the runner declare as one, and a test that calls it as not assessed', function (): void {
+    $file = Contents::of((string) file_get_contents(Tree::at(PEST_CART_TEST)));
+    $pest = Helpers::in(Contents::of((string) file_get_contents(Tree::at('tests/Fixtures/Assertion/pest.helpers.txt'))));
+
+    expect(TestAssertions::in($file, $pest)->of('it delegates to Pest.php')->isWeak())->toBeFalse()
+        ->and(TestAssertions::in($file, Helpers::none())->of('it delegates to Pest.php')->isWeak())->toBeTrue();
 });

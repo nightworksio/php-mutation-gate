@@ -26,7 +26,7 @@ it('names properties', function () { expect($cart)->toHaveProperties(['total', '
 it('throws if', function () { $cart->add(-1); })->throwsIf(true, Exception::class);
 it('checks json', function () { expect($body)->json()->toHaveKey('total'); });
 it('checks both', function () { expect($a)->toBeInt()->and($b)->not->toBeNull(); });
-it('builds a spy', function () { $spy = new class { public function assertShape(): void {} }; expect($spy)->toBeObject(); });
+it('builds a spy', function () { $spy = new class { public function assertShape(): void {} public function &ref(): array { return $this->a; } }; expect($spy)->toBeObject(); });
 
 function checkTotal($cart) { expect($cart->total)->toBe(1); }
 
@@ -37,3 +37,20 @@ describe('cart', function () {
 });
 
 it('described', function () { expect($x)->toBe(3); });
+
+describe('A', function () {
+    describe('B', function () { it('nests', function () { expect($v)->toBeInt(); }); });
+    it('follows a nested describe', function () { expect($v)->toBeInt(); });
+});
+
+it('follows a nested describe', function () { expect($v)->toBe(3); });
+
+\describe('qualified', function () { it('is qualified', function () { expect($v)->toBeInt(); }); });
+
+it('is qualified', function () { expect($v)->toBe(3); });
+
+\it('qualifies its own name', function () { expect($v)->toBeInt(); });
+
+it('delegates to Pest.php', function () { expect($c)->not->toBeNull(); checkMoney($c); });
+
+it('checks a key with a trailing comma', function () { expect($cart)->toHaveKey('total',); });

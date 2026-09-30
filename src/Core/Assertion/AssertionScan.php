@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Assertion;
 
-use function array_key_exists;
 use function count;
 use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Core\Php\Names;
+use NightWorksIO\MutationGate\Core\Php\OwnMember;
 use NightWorksIO\MutationGate\Core\Php\Tokens;
 
 use function sprintf;
@@ -30,12 +30,6 @@ final readonly class AssertionScan
 
     private const string NOT = 'not';
 
-    /** The variable a test case calls its own methods on. */
-    private const string THIS = '$this';
-
-    /** The class a test case calls its own static methods on, besides `static`. */
-    private const string SELF = 'self';
-
     private const string PEST = '->%s()';
 
     private const string PEST_NEGATED = '->not->%s()';
@@ -46,18 +40,15 @@ final readonly class AssertionScan
      */
     private const int CALL_OPENS = 3;
 
-    /** @param array<string, true> $helpers the name of each function or method the file declares, in lower case */
-    private function __construct(private Tokens $tokens, private array $helpers)
+    private function __construct(private Tokens $tokens, private Helpers $helpers)
     {
     }
 
     /**
      * The assertions made from one index to another, among a file's tokens
-     * and the functions and methods it declares.
-     *
-     * @param array<string, true> $helpers the name of each function or method the file declares, in lower case
+     * and the helpers a test may call.
      */
-    public static function between(Tokens $tokens, array $helpers, int $from, int $to): Assertions
+    public static function between(Tokens $tokens, Helpers $helpers, int $from, int $to): Assertions
     {
         $scan = new self($tokens, $helpers);
         $assertions = Assertions::of();
@@ -121,10 +112,10 @@ final readonly class AssertionScan
         return match (true) {
             $this->declares($at) => [],
             ! $member && $name === self::EXPECT => $this->chained($this->tokens->closing($at + 1)),
-            $this->callsHelper($at, $name, $member) => [Unclassified::assertion()],
             str_starts_with($name, self::ASSERT), str_starts_with($name, self::EXPECT) => [
                 $this->phpUnit(Call::at($this->tokens, $at)),
             ],
+            $this->callsHelper($at, $name), $this->callsOwnHelper($at, $name) => [Unclassified::assertion()],
             $member => $this->pestTest(Call::at($this->tokens, $at)),
             default => [],
         };
@@ -137,23 +128,20 @@ final readonly class AssertionScan
             || ($this->tokens->is($at - 1, '&') && $this->tokens->is($at - 2, T_FUNCTION));
     }
 
-    /**
-     * Whether a call is of a helper the file declares, as a function or on
-     * the test case itself, whose own assertions a scan of the test's body
-     * does not read.
-     */
-    private function callsHelper(int $at, string $name, bool $member): bool
+    /** Whether a call at an index is of a helper function, whose own assertions a scan of the test does not read. */
+    private function callsHelper(int $at, string $name): bool
     {
-        return array_key_exists($name, $this->helpers) && (! $member || $this->isOnTheCase($at));
+        return ! self::isMember($this->tokens, $at) && $this->helpers->has($name);
     }
 
-    /** Whether the member named at an index is called on the test case: on `$this`, `self` or `static`. */
-    private function isOnTheCase(int $at): bool
+    /**
+     * Whether a call at an index, of no assertion, is of a method the test
+     * case holds that is not one of PHPUnit's own, such as a trait's or a
+     * parent class's helper, whose assertions the scan does not read.
+     */
+    private function callsOwnHelper(int $at, string $name): bool
     {
-        return $this->tokens->is($at - 1, T_OBJECT_OPERATOR)
-            ? $this->tokens->is($at - 2, T_VARIABLE) && $this->tokens->text($at - 2) === self::THIS
-            : $this->tokens->is($at - 2, T_STATIC)
-                || ($this->tokens->is($at - 2, T_STRING) && mb_strtolower($this->tokens->text($at - 2)) === self::SELF);
+        return OwnMember::calledAt($this->tokens, $at - 1) && ! AssertionTable::isCaseMethod(Call::of($name));
     }
 
     /** @return list<Assertion> the exception a call chained after a Pest test expects; none of any other member call */

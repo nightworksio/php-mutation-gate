@@ -7,10 +7,12 @@ namespace NightWorksIO\MutationGate\Core\Assertion;
 use function array_filter;
 use function array_key_exists;
 use function array_values;
+use function max;
 use function mb_strtolower;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\Tokens;
 use PhpToken;
 
@@ -40,13 +42,14 @@ final readonly class TestAssertions
     {
     }
 
-    public static function in(Contents $file): self
+    /** The tests a file holds, where a test may call the helpers the file declares and these. */
+    public static function in(Contents $file, Helpers $shared): self
     {
         $tokens = Tokens::of(array_values(array_filter(
             PhpToken::tokenize($file->text()),
             static fn(PhpToken $token): bool => ! $token->isIgnorable(),
         )));
-        $helpers = self::helpers($tokens);
+        $helpers = Helpers::declaredIn($tokens)->and($shared);
 
         return new self(self::methods($tokens, $helpers), self::pestTests($tokens, $helpers));
     }
@@ -63,27 +66,10 @@ final readonly class TestAssertions
         };
     }
 
-    /** @return array<string, true> the name of each function or method the file declares, in lower case */
-    private static function helpers(Tokens $tokens): array
-    {
-        $helpers = [];
-
-        foreach ($tokens->indicesOf(T_FUNCTION) as $at) {
-            $named = $tokens->is($at + 1, '&') ? $at + 2 : $at + 1;
-
-            if ($tokens->is($named, T_STRING)) {
-                $helpers[mb_strtolower($tokens->text($named))] = true;
-            }
-        }
-
-        return $helpers;
-    }
-
     /**
-     * @param  array<string, true>       $helpers
      * @return array<string, Assertions> each method's assertions, the first of a name, by its name in lower case
      */
-    private static function methods(Tokens $tokens, array $helpers): array
+    private static function methods(Tokens $tokens, Helpers $helpers): array
     {
         $methods = [];
 
@@ -100,18 +86,18 @@ final readonly class TestAssertions
     }
 
     /**
-     * @param  array<string, true>       $helpers
      * @return array<string, Assertions> each Pest test's assertions outside a `describe()`, by its description
      */
-    private static function pestTests(Tokens $tokens, array $helpers): array
+    private static function pestTests(Tokens $tokens, Helpers $helpers): array
     {
         $tests = [];
         $described = Tokens::NONE;
 
-        foreach ($tokens->indicesOf(T_STRING) as $at) {
-            $description = $at > $described ? self::declared($tokens, $at) : '';
-            $described = mb_strtolower($tokens->text($at)) === self::DESCRIBE && self::isDeclaring($tokens, $at)
-                ? $tokens->closing($at + 1)
+        foreach ($tokens->indicesOf(...Names::TOKENS) as $at) {
+            $function = mb_strtolower(Call::nameAt($tokens, $at));
+            $description = $at > $described ? self::declared($tokens, $at, $function) : '';
+            $described = $function === self::DESCRIBE && self::isDeclaring($tokens, $at)
+                ? max($described, $tokens->closing($at + 1))
                 : $described;
 
             if ($description !== '' && ! array_key_exists($description, $tests)) {
@@ -131,11 +117,9 @@ final readonly class TestAssertions
             && $tokens->is($at + 2, T_CONSTANT_ENCAPSED_STRING);
     }
 
-    /** The description a call at an index declares a Pest test with; nothing where it declares none. */
-    private static function declared(Tokens $tokens, int $at): string
+    /** The description a call of a function at an index declares a Pest test with; nothing where it declares none. */
+    private static function declared(Tokens $tokens, int $at, string $function): string
     {
-        $function = mb_strtolower($tokens->text($at));
-
         return array_key_exists($function, self::DECLARING) && self::isDeclaring($tokens, $at)
             ? sprintf('%s%s', self::DECLARING[$function], stripslashes(mb_substr($tokens->text($at + 2), 1, -1)))
             : '';
@@ -145,9 +129,8 @@ final readonly class TestAssertions
      * The assertions of the body declared after an index; none assessed of a
      * declaration a `;` ends bodiless.
      *
-     * @param array<string, true> $helpers
      */
-    private static function bodyAfter(Tokens $tokens, array $helpers, int $from): Assertions
+    private static function bodyAfter(Tokens $tokens, Helpers $helpers, int $from): Assertions
     {
         $opener = self::nextBrace($tokens, $from);
 
