@@ -95,14 +95,17 @@ final readonly class Seeder
             Seed::write(
                 Seed::directoryOf($this->directory, $mutant->mutated()->value()),
                 version(),
-                $history->likelyKillers($ids[$mutant->id()], $in),
+                $history->likelyKillers($ids[$mutant->key()], $in),
                 $coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()),
                 $coverage,
             );
         }
     }
 
-    /** @return list<PlannedMutant> every mutant of a suite as the recorder plans it */
+    /**
+     * @return list<PlannedMutant> every mutant of a suite as the recorder
+     *                             plans it, numbered among those sharing an id
+     */
     private function plannedIn(MutationSuite $suite): array
     {
         $planned = [];
@@ -113,6 +116,6 @@ final readonly class Seeder
             }
         }
 
-        return $planned;
+        return PlannedMutant::numbered($planned);
     }
 }

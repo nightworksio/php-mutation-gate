@@ -18,7 +18,7 @@ final readonly class Identities
 {
     /**
      * @param  list<PlannedMutant>     $planned
-     * @return array<string, MutantId> by native id
+     * @return array<string, MutantId> by each mutant's key
      */
     public static function of(Root $root, array $planned): array
     {
@@ -30,7 +30,7 @@ final readonly class Identities
             $diff = Diff::fromPest($mutant->diff());
             $key = MutantId::hash($path, $mutant->mutator(), $diff, 0)->value();
             $occurrence = array_key_exists($key, $seen) ? $seen[$key] : 0;
-            $ids[$mutant->id()] = MutantId::hash($path, $mutant->mutator(), $diff, $occurrence);
+            $ids[$mutant->key()] = MutantId::hash($path, $mutant->mutator(), $diff, $occurrence);
             $seen[$key] = $occurrence + 1;
         }
 

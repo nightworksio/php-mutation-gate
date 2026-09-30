@@ -244,6 +244,26 @@ it('cannot judge records that do not add up to Pest\'s own summary', function ()
     ));
 });
 
+it('judges each of the mutants Pest gives one id, as two changes that leave the same source share it', function () use ($mutant, $plan, $read): void {
+    [$project, $results, $root] = interpretedRun([11 => [0]], []);
+    PestRun::write($results, [
+        $plan($root, 'same', 'src/Money.php:11', 'ab'),
+        $plan($root, 'same', 'src/Money.php:11', 'ab'),
+        PestRun::made(2),
+        PestRun::killed('same', INTERPRETED_TESTS[0]),
+        PestRun::finished('same', PestStatus::Tested, 0.25),
+        PestRun::finished('same', PestStatus::Untested, 0.5),
+        PestRun::end(),
+    ]);
+
+    expect($read($project, Ran::finished(succeeded: true, output: '  Mutations: 1 untested, 1 tested'), $results))
+        ->toEqual(MutationResult::of(Mutants::of(
+            $mutant('same', 'src/Money.php:11', 'ab', MutantStatus::Killed, 0.25)
+                ->killedBy(TestIds::of(TestId::of(INTERPRETED_TESTS[0]))),
+            $mutant('same', 'src/Money.php:11', 'ab', MutantStatus::Survived, 0.5, 1),
+        ), 0));
+});
+
 it('cannot judge a run without the opening run\'s map', function () use ($six, $read): void {
     [$project, $results, $root] = interpretedRun([], []);
     PestRun::write($results, $six($root));

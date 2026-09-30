@@ -43,3 +43,12 @@ it('counts a mutant whose change differs from another only in whitespace as the 
     expect(Identities::of(Root::of('/p'), [$narrow, $wide])['wide'])
         ->toEqual(MutantId::hash(Path::of('src/A.php'), PlusToMinus::class, $diff, 1));
 });
+
+it('ids apart the mutants Pest gives one id, by how many before each share the change', function (): void {
+    $same = PestRun::mutant('same', '/p/src/A.php', 10, PlusToMinus::class, 'return $a + $b;', 'return $a - $b;');
+    $diff = Diff::fromPest(PestRun::diff('return $a + $b;', 'return $a - $b;'));
+    $id = static fn(int $occurrence): MutantId => MutantId::hash(Path::of('src/A.php'), PlusToMinus::class, $diff, $occurrence);
+
+    expect(Identities::of(Root::of('/p'), PlannedMutant::numbered([$same, $same])))
+        ->toEqual(['same' => $id(0), 'same#1' => $id(1)]);
+});
