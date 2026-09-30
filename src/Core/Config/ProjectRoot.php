@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use NightWorksIO\MutationGate\Core\File\Path;
 
 /** The origin of a preset, of the command line and of the effective config: the project itself. */
-final readonly class ProjectRoot implements Origin
+final readonly class ProjectRoot implements PathOrigin
 {
     public static function origin(): self
     {

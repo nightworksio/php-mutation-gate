@@ -82,7 +82,7 @@ final readonly class Reach implements Part
         return $this->hotPath instanceof Absent ? HotPaths::standard() : HotPaths::atShare($this->hotPath);
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return Json::object(
             Member::of(
@@ -104,7 +104,7 @@ final readonly class Reach implements Part
         );
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         $packages = $this->packages instanceof Listed
             ? [sprintf('Reach::packages(%s)', PhpCalls::literals(...WrittenPaths::globs($origin, $this->packages)))]

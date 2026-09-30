@@ -72,7 +72,7 @@ final readonly class Pest implements Part
             : $runner;
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
             'pest',
@@ -83,7 +83,7 @@ final readonly class Pest implements Part
         ));
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
             ...$this->patch instanceof Absent ? [] : [$this->patch ? 'Pest::patched()' : 'Pest::unpatched()'],

@@ -132,7 +132,7 @@ final readonly class Ci implements Part
             : Path::of(self::BUILDKITE_DEFINITION);
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
             'ci',
@@ -160,7 +160,7 @@ final readonly class Ci implements Part
         ));
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
             ...$this->plan instanceof Choice ? [PhpCalls::chosen($this->plan, 'Ci', ...self::PLANS)] : [],
@@ -197,7 +197,7 @@ final readonly class Ci implements Part
         });
     }
 
-    private function path(Origin $origin, Path|Absent $path): string|Absent
+    private function path(PathOrigin $origin, Path|Absent $path): string|Absent
     {
         return $path instanceof Path ? $origin->written($path) : $path;
     }

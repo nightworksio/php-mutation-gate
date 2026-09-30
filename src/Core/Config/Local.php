@@ -58,7 +58,7 @@ final readonly class Local implements Part
         return $this->prePushBudget instanceof Seconds ? $this->prePushBudget : Seconds::of(self::PRE_PUSH);
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
             'local',
@@ -75,7 +75,7 @@ final readonly class Local implements Part
         ));
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
             ...$this->watchBudget instanceof Seconds

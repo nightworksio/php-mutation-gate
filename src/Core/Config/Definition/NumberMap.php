@@ -9,7 +9,7 @@ use function is_int;
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Table;
 use NightWorksIO\MutationGate\Core\Cost\LineRate;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -26,7 +26,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  */
 final readonly class NumberMap implements Shape
 {
-    private function __construct(private Number $number, private Origin|Absent $origin)
+    private function __construct(private Number $number, private PathOrigin|Absent $origin)
     {
     }
 
@@ -36,7 +36,7 @@ final readonly class NumberMap implements Shape
     }
 
     /** Numbers by path prefix, each named from where the layer is, but `""`, which is every path. */
-    public static function byPrefix(Number $number, Origin $origin): self
+    public static function byPrefix(Number $number, PathOrigin $origin): self
     {
         return new self($number, $origin);
     }

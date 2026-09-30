@@ -11,7 +11,7 @@ use function count;
 use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -111,7 +111,7 @@ final readonly class Gate
     }
 
     /** The layer of config this writes, read as every other format is, its paths named from this origin. */
-    public function layer(Origin $origin): Layer|Invalid
+    public function layer(PathOrigin $origin): Layer|Invalid
     {
         return Definition::layer(Node::config($this->config->line()), $origin);
     }

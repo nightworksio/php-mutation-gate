@@ -46,7 +46,7 @@ final readonly class Definition
      *
      * @return Section<Layer>
      */
-    public static function config(Origin $origin): Section
+    public static function config(PathOrigin $origin): Section
     {
         $fields = [
             ...SetupKeys::fields($origin),
@@ -82,7 +82,7 @@ final readonly class Definition
     }
 
     /** A layer of config, read from its top, or every problem in it at once, each at its path. */
-    public static function layer(Node $config, Origin $origin): Layer|Invalid
+    public static function layer(Node $config, PathOrigin $origin): Layer|Invalid
     {
         $reading = self::config($origin)->read($config);
         $layer = $reading->value();
@@ -94,7 +94,7 @@ final readonly class Definition
      * A layer built elsewhere, such as a loader's or a preset's, read again as a file at this origin writes it:
      * the definition judges every layer, however it was built, or none could be trusted to hold its values.
      */
-    public static function judged(Layer $layer, Origin $origin): Layer|Invalid
+    public static function judged(Layer $layer, PathOrigin $origin): Layer|Invalid
     {
         return self::layer(Node::config($layer->written($origin)->line()), $origin);
     }

@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Report;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -38,7 +38,7 @@ final readonly class ReportEntry implements Shape
     {
     }
 
-    public static function choosing(Builtins $builtins, Origin $origin): self
+    public static function choosing(Builtins $builtins, PathOrigin $origin): self
     {
         $judges = Effect::JudgesOrReportsOnly;
         $use = Field::required('use', Text::of('a name or a class'), $judges);

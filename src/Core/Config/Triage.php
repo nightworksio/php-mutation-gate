@@ -113,7 +113,7 @@ final readonly class Triage implements Part
         return $this->order instanceof TestOrder ? $this->order : TestOrder::KillersFirst;
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return Json::object(
             Member::of('budget', $this->budget instanceof Seconds ? $this->budget->written() : $this->budget),
@@ -138,7 +138,7 @@ final readonly class Triage implements Part
         );
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
             ...$this->budget instanceof Seconds

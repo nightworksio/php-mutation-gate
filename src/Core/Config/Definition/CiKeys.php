@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 final readonly class CiKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(Origin $origin): array
+    public static function fields(PathOrigin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
         $plan = Field::optional('plan', Adapter::choosing(Builtins::ciPlans()), $judges);

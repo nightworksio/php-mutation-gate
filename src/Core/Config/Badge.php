@@ -57,7 +57,7 @@ final readonly class Badge implements Part
         return $colors;
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
             'badge',
@@ -67,7 +67,7 @@ final readonly class Badge implements Part
         ));
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         $calls = [];
 

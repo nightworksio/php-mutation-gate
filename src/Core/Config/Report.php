@@ -44,7 +44,7 @@ final readonly class Report
     }
 
     /** This entry as a config at this origin writes it. */
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         $chosen = $this->reporter->written();
         $written = Json::object(Member::of('use', $this->reporter->use()->value()));
@@ -58,7 +58,7 @@ final readonly class Report
     }
 
     /** This entry as the builder's `Report` writes it. */
-    public function php(Origin $origin): string
+    public function php(PathOrigin $origin): string
     {
         $named = PhpCalls::chosen($this->reporter, 'Report', ...self::NAMED);
         $path = $this->path instanceof Path ? [PhpCalls::literal($origin->written($this->path))] : [];

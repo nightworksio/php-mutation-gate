@@ -53,7 +53,7 @@ final readonly class Reports implements Part
         return $this->reports instanceof Listed ? $this->reports : Listed::of();
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::of(
             'reports',
@@ -64,7 +64,7 @@ final readonly class Reports implements Part
         ));
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         return $this->reports instanceof Listed && [...$this->reports] !== []
             ? PhpCalls::onGate(

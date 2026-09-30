@@ -139,7 +139,7 @@ final readonly class Setup implements Part
         );
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         $written = $this->extensions instanceof Listed
             ? Json::object(Member::of('extensions', Json::items(...$this->extensions)))
@@ -154,7 +154,7 @@ final readonly class Setup implements Part
             : $written;
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         $calls = $this->extensions instanceof Listed && [...$this->extensions] !== []
             ? PhpCalls::onGate(
@@ -226,7 +226,7 @@ final readonly class Setup implements Part
     }
 
     /** The tree source chosen, with the `phpunit` one's fallback paths named from the origin. */
-    private function sourceFrom(Origin $origin): Choice
+    private function sourceFrom(PathOrigin $origin): Choice
     {
         $source = $this->treeSource();
 

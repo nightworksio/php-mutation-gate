@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
@@ -23,11 +23,11 @@ final readonly class Location implements Shape
     /** What a path that goes up out of the project is not. */
     public const string INSIDE = 'a path inside the project';
 
-    private function __construct(private Origin $origin)
+    private function __construct(private PathOrigin $origin)
     {
     }
 
-    public static function path(Origin $origin): self
+    public static function path(PathOrigin $origin): self
     {
         return new self($origin);
     }

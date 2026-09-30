@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Layer;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -26,7 +26,7 @@ const FROM_CI = [
 $file = ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project'));
 
 /** @return mixed what the layer `ci/gate.json` holds writes at this origin, or its problems */
-$read = static function (Origin $origin) use ($file): mixed {
+$read = static function (PathOrigin $origin) use ($file): mixed {
     $layer = Configs::layer(FROM_CI, $file);
 
     return $layer instanceof Layer ? Configs::decoded($layer, $origin) : Configs::problems($layer);

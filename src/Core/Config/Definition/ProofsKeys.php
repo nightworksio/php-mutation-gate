@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Proofs;
 use NightWorksIO\MutationGate\Core\Config\ProofWriting;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -16,7 +16,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 final readonly class ProofsKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(Origin $origin): array
+    public static function fields(PathOrigin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
         $store = Field::optional('store', Adapter::choosing(Builtins::stores($origin)), $judges);
