@@ -23,8 +23,9 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * A mutant as the gate's files write it. The full record holds everything a
  * runner reported of it, with the reason it left one unjudged, what a time
  * budget ran out before where one did, and the tests that killed it, or the
- * static analyser's rejection that did. The killed record, which a ledger
- * keeps of a mutant tests killed, is
+ * static analyser's rejection that did, and, as {@see LimitRecord} writes
+ * them, the limit that stopped it and what its unmutated code needs of it.
+ * The killed record, which a ledger keeps of a mutant tests killed, is
  * `[id, line, mutator, killers]`, the mutator an index into the ledger's
  * list of mutator names and the killers indices into its list of tests: what
  * ignores and the tests report need of it, in as few bytes as a ledger of
@@ -44,7 +45,9 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  *     status: string,
  *     seconds?: float,
  *     limit?: float,
+ *     limitBytes?: int,
  *     testSeconds?: float,
+ *     suiteBytes?: int,
  *     reason?: string,
  *     outOfTime?: string,
  *     killedBy?: list<string>,
@@ -77,10 +80,6 @@ final readonly class MutantRecord
 
     private const string DIFF = 'diff';
 
-    private const string LIMIT = 'limit';
-
-    private const string TEST_SECONDS = 'testSeconds';
-
     private const string REASON = 'reason';
 
     /** What a time budget ran out before, where one left the mutant unjudged. */
@@ -96,8 +95,6 @@ final readonly class MutantRecord
     {
         $end = $mutant->location()->end();
         $duration = $mutant->duration();
-        $limit = $mutant->limit();
-        $judging = $mutant->judgingTime();
         $reason = $mutant->reason();
 
         return [
@@ -111,8 +108,7 @@ final readonly class MutantRecord
             self::DIFF => $mutant->mutation()->diff(),
             self::STATUS => $mutant->status()->value,
             ...$duration instanceof Seconds ? [self::SECONDS => $duration->seconds()] : [],
-            ...$limit instanceof Seconds ? [self::LIMIT => $limit->seconds()] : [],
-            ...$judging instanceof Seconds ? [self::TEST_SECONDS => $judging->seconds()] : [],
+            ...LimitRecord::of($mutant),
             ...$reason instanceof Reason ? [self::REASON => $reason->text(), ...self::outOfTime($reason)] : [],
             ...count($mutant->killers()) > 0 ? [self::KILLED_BY => self::idsOf($mutant->killers())] : [],
             ...$reason instanceof Rejection ? [self::REJECTION => self::rejection($reason)] : [],
@@ -170,12 +166,9 @@ final readonly class MutantRecord
             self::statusIn($record),
             self::secondsIn($record->field(self::SECONDS)),
         );
-        $limit = self::secondsIn($record->field(self::LIMIT));
-        $judging = self::secondsIn($record->field(self::TEST_SECONDS));
         $reason = self::reasonIn($record);
         $killers = $record->field(self::KILLED_BY);
-        $limited = $limit instanceof Seconds ? $mutant->withLimit($limit) : $mutant;
-        $limited = $judging instanceof Seconds ? $limited->withJudgingTime($judging) : $limited;
+        $limited = LimitRecord::onto($mutant, $record);
         $said = $reason instanceof Reason ? $limited->because($reason) : $limited;
         $killed = $killers->isPresent() ? $said->killedBy(self::testsIn($killers)) : $said;
 

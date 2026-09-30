@@ -201,6 +201,18 @@ it('weighs the memory_limit of the PHPUnit config the runner reads, not one it d
         ->toBeInstanceOf(CannotJudge::class);
 });
 
+it('records in the plan the peak its coverage run measured, for every shard\'s memory triage', function () use (
+    $cappedPlan,
+): void {
+    $measured = $cappedPlan(MemoryCap::of(200, MemoryUnit::Megabytes));
+    $uncounted = $cappedPlan(NotGiven::value());
+    $handed = $cappedPlan(MemoryCap::of(200, MemoryUnit::Megabytes), handedOver: true);
+
+    expect($measured instanceof Plan ? $measured->peak() : $measured)->toEqual(MemoryCap::of(200, MemoryUnit::Megabytes))
+        ->and($uncounted instanceof Plan ? $uncounted->peak() : $uncounted)->toEqual(NotGiven::value())
+        ->and($handed instanceof Plan ? $handed->peak() : $handed)->toEqual(NotGiven::value());
+});
+
 it('plans a map another job wrote, whatever this job\'s processes held', function () use ($cappedPlan): void {
     expect($cappedPlan(MemoryCap::of(600, MemoryUnit::Megabytes), handedOver: true))->toBeInstanceOf(Plan::class);
 });

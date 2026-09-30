@@ -155,6 +155,7 @@ it('carries each mutant of a counted result as it stands, or unjudged, and says 
     'a kill by static analysis at the same base, its finding\'s file unrecorded' => ['base', carryRejected(3), Carry::RejectionUnplaced],
     'a kill by static analysis at another base' => ['other base', carryRejected(3), Carry::RejectionUnplaced],
     'a timeout, which triage may count a kill' => ['base', carryMutant(3, MutantStatus::TimedOut), Carry::KillerUnknown],
+    'out of memory, which triage may count a kill' => ['base', carryMutant(3, MutantStatus::OutOfMemory), Carry::KillerUnknown],
     'a crash, which counts a kill' => ['base', carryMutant(3, MutantStatus::Errored), Carry::KillerUnknown],
     'a survivor, at another base' => ['other base', carryMutant(3, MutantStatus::Survived), Carry::Stands],
     'an uncovered mutant no test covers now' => ['base', carryMutant(3, MutantStatus::Uncovered), Carry::Stands],

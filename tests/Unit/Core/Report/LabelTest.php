@@ -17,6 +17,8 @@ it('prints each judgement in words', function (MutantJudgement $judgement, strin
     [MutantJudgement::Unjudged, 'unjudged'],
     [MutantJudgement::Flaky, 'flaky'],
     [MutantJudgement::TooSlowToJudge, 'too slow to judge'],
+    [MutantJudgement::KilledByMemoryCap, 'killed by the memory cap'],
+    [MutantJudgement::TooHeavyToJudge, 'too heavy to judge'],
     [MutantJudgement::Ignored, 'ignored'],
     [MutantJudgement::IgnoredByMarker, 'ignored by a native marker'],
     [MutantJudgement::Equivalent, 'equivalent, proven'],

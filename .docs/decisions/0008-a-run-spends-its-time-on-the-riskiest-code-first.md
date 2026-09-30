@@ -38,7 +38,7 @@ presets for Laravel, Symfony and plain libraries.
    - **The order.** Units are ordered by risk. Ties go by path.
      1. Units with changed lines, whose mutants the new-code floor judges.
      2. Units whose last recorded result has a survivor or a mutant too slow
-        to judge.
+        or too heavy to judge.
      3. Units never mutated.
      4. Units reached by a changed test or test support.
      5. Everything else, most recently changed first, by the newest commit on

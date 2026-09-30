@@ -93,8 +93,8 @@ it('writes the verdict, the project and each tree', function (): void {
         'cannotJudge' => [],
     ])
         ->and(Decoded::at($report, 'counts'))->toBe([
-            'killed' => 1, 'killed-by-static-analysis' => 1, 'errored' => 1, 'killed-by-timeout' => 1,
-            'survived' => 1, 'uncovered' => 1, 'unjudged' => 1, 'flaky' => 1, 'too-slow-to-judge' => 1, 'ignored' => 1, 'ignored-by-marker' => 1,
+            'killed' => 1, 'killed-by-static-analysis' => 1, 'errored' => 1, 'killed-by-timeout' => 1, 'killed-by-memory-cap' => 0,
+            'survived' => 1, 'uncovered' => 1, 'unjudged' => 1, 'flaky' => 1, 'too-slow-to-judge' => 1, 'too-heavy-to-judge' => 0, 'ignored' => 1, 'ignored-by-marker' => 1,
             'equivalent' => 1,
         ])
         ->and(Decoded::at($report, 'trees', 0))->toMatchArray([
@@ -124,8 +124,8 @@ it('writes the verdict, the project and each tree', function (): void {
             'score' => 0.0,
             'judgement' => 'failed',
             'counts' => [
-                'killed' => 0, 'killed-by-static-analysis' => 0, 'errored' => 0, 'killed-by-timeout' => 0,
-                'survived' => 1, 'uncovered' => 0, 'unjudged' => 0, 'flaky' => 0, 'too-slow-to-judge' => 0, 'ignored' => 0, 'ignored-by-marker' => 0,
+                'killed' => 0, 'killed-by-static-analysis' => 0, 'errored' => 0, 'killed-by-timeout' => 0, 'killed-by-memory-cap' => 0,
+                'survived' => 1, 'uncovered' => 0, 'unjudged' => 0, 'flaky' => 0, 'too-slow-to-judge' => 0, 'too-heavy-to-judge' => 0, 'ignored' => 0, 'ignored-by-marker' => 0,
                 'equivalent' => 0,
             ],
             'mutants' => [Verdicts::survivor()->mutant()->id()->value()],

@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use Pest\Mutate\Event\Facade;
@@ -36,7 +38,9 @@ use function sprintf;
  * - `planned`, every mutant with its file, lines, mutator class, diff and the
  *   mutated copy Pest serves in a mutant's own process, once they are all
  *   made, and `made`, how many there are and the opening run's seconds;
- * - `outcome`, each mutant's status as Pest decides it;
+ * - `outcome`, each mutant's status as Pest decides it, and `exhausted`, the
+ *   memory limit a caught mutant's own process ran out of, where its output
+ *   says it did;
  * - `finished`, every mutant's final status and duration, which Pest sets only
  *   after the outcome is announced, and `end`.
  */
@@ -183,6 +187,22 @@ final readonly class Recorder
     public function outcome(MutationTest $test): void
     {
         $this->write(RecordLine::outcome($test->getId(), $this->statusOf($test)));
+    }
+
+    /**
+     * The memory limit a mutant's own process ran out of, where PHP's fatal
+     * error in its output says so. Only the process that started it can tell:
+     * in the mutant's own process, Pest's and PHPUnit's handling of the fatal
+     * error runs out of memory itself, and Pest ends the process before any
+     * shutdown function a plugin registers.
+     */
+    public function exhausted(MutationTest $test): void
+    {
+        $limit = Exhaustion::in(MutantOutput::of($test));
+
+        if ($limit instanceof MemoryCap) {
+            $this->write(RecordLine::exhausted($test->mutation->modifiedSourcePath, $limit));
+        }
     }
 
     public function finished(MutationSuite $suite): void

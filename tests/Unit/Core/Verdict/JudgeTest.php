@@ -75,7 +75,7 @@ $results = UnitResults::of(
         $mutant('app/Http/Controller.php', 3, MutantStatus::Survived),
         $mutant('app/Http/Controller.php', 4, MutantStatus::TimedOut)
             ->withLimit(Seconds::of(10.0))
-            ->withJudgingTime(Seconds::of(1.0)),
+            ->withUnmutatedNeed(Seconds::of(1.0)),
     )),
     UnitResult::of(Unit::held(Path::of('app/Http/Middleware'), Group::named('holds:app/Http/Middleware')), Origin::Carried, Mutants::of(
         $mutant('app/Http/Middleware/Auth.php', 5, MutantStatus::Uncovered),

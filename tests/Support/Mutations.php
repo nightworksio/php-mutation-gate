@@ -19,6 +19,7 @@ use Pest\Mutate\Support\MutationTestResult;
 use function sprintf;
 
 use Symfony\Component\Finder\SplFileInfo;
+use Symfony\Component\Process\Process;
 
 /** pest-plugin-mutate's own objects, as a Pest run holds them, for the plugin's tests. */
 final readonly class Mutations
@@ -67,6 +68,16 @@ final readonly class Mutations
     ): MutationTest {
         $test = new MutationTest(self::mutation($file, $id, 11, $mutated));
         $test->updateResult($result);
+
+        return $test;
+    }
+
+    /** A mutant whose own process was this one, as Pest keeps it. */
+    public static function ran(MutationTest $test, Process $process): MutationTest
+    {
+        (function () use ($process): void {
+            $this->process = $process;
+        })->call($test);
 
         return $test;
     }

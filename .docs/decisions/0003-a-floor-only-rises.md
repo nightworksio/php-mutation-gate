@@ -36,7 +36,8 @@ itself, and goes up with the tests.
    | killed, errored (the mutant crashed the tests) | killed |
    | killed by static analysis: a static analyser rejects the mutant (ADR-0020) | killed |
    | timed out, and judged a kill by timeout triage (ADR-0008) | killed |
-   | survived, uncovered, unjudged, flaky; timed out or skipped and too slow to judge (ADR-0008) | not killed |
+   | out of the memory cap, and judged a kill by memory triage (ADR-0004) | killed |
+   | survived, uncovered, unjudged, flaky; timed out or skipped and too slow to judge (ADR-0008); out of the memory cap and too heavy to judge (ADR-0004) | not killed |
    | ignored, with a reason or by a native marker (ADR-0008) | left out |
    | equivalent, proven: a survivor that compiles to the original program (ADR-0013) | left out |
 

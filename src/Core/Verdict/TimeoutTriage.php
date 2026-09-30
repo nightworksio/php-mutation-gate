@@ -45,7 +45,7 @@ final readonly class TimeoutTriage
 
         foreach ($mutants as $mutant) {
             $time = $mutant->status()->ranOutOfTime() ? self::judgingTimeOf($mutant, $map) : Unmeasured::duration();
-            $timed = $timed->with($time instanceof Seconds ? $mutant->withJudgingTime($time) : $mutant);
+            $timed = $timed->with($time instanceof Seconds ? $mutant->withUnmutatedNeed($time) : $mutant);
         }
 
         return $timed;
@@ -55,7 +55,7 @@ final readonly class TimeoutTriage
     public function judged(Mutant $mutant): MutantJudgement
     {
         $limit = $mutant->limit();
-        $time = $mutant->judgingTime();
+        $time = $mutant->unmutatedNeed();
 
         return $mutant->status() === MutantStatus::TimedOut
             && $this->mode === TimeoutMode::Confirm

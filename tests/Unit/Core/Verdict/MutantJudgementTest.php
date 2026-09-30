@@ -13,18 +13,20 @@ it('spells each judgement as the reports write it', function (): void {
         'killed-by-static-analysis',
         'errored',
         'killed-by-timeout',
+        'killed-by-memory-cap',
         'survived',
         'uncovered',
         'unjudged',
         'flaky',
         'too-slow-to-judge',
+        'too-heavy-to-judge',
         'ignored',
         'ignored-by-marker',
         'equivalent',
     ]);
 });
 
-it('takes a reported status as it is, with a timeout too slow to judge until triage confirms it a kill', function (MutantStatus $status, MutantJudgement $judgement): void {
+it('takes a reported status as it is, with a timeout too slow and a mutant out of memory too heavy to judge until triage confirms either a kill', function (MutantStatus $status, MutantJudgement $judgement): void {
     expect(MutantJudgement::reported($status))->toBe($judgement);
 })->with([
     [MutantStatus::Killed, MutantJudgement::Killed],
@@ -36,6 +38,7 @@ it('takes a reported status as it is, with a timeout too slow to judge until tri
     [MutantStatus::Unjudged, MutantJudgement::Unjudged],
     [MutantStatus::IgnoredByMarker, MutantJudgement::IgnoredByMarker],
     [MutantStatus::Skipped, MutantJudgement::TooSlowToJudge],
+    [MutantStatus::OutOfMemory, MutantJudgement::TooHeavyToJudge],
 ]);
 
 it('counts each judgement in the score as the floors decide', function (MutantJudgement $judgement, Scoring $counted, Scoring $excluded): void {
@@ -46,11 +49,13 @@ it('counts each judgement in the score as the floors decide', function (MutantJu
     [MutantJudgement::KilledByStaticAnalysis, Scoring::Killed, Scoring::Killed],
     [MutantJudgement::Errored, Scoring::Killed, Scoring::Killed],
     [MutantJudgement::KilledByTimeout, Scoring::Killed, Scoring::Killed],
+    [MutantJudgement::KilledByMemoryCap, Scoring::Killed, Scoring::Killed],
     [MutantJudgement::Survived, Scoring::NotKilled, Scoring::NotKilled],
     [MutantJudgement::Uncovered, Scoring::NotKilled, Scoring::LeftOut],
     [MutantJudgement::Unjudged, Scoring::NotKilled, Scoring::NotKilled],
     [MutantJudgement::Flaky, Scoring::NotKilled, Scoring::NotKilled],
     [MutantJudgement::TooSlowToJudge, Scoring::NotKilled, Scoring::NotKilled],
+    [MutantJudgement::TooHeavyToJudge, Scoring::NotKilled, Scoring::NotKilled],
     [MutantJudgement::Ignored, Scoring::LeftOut, Scoring::LeftOut],
     [MutantJudgement::IgnoredByMarker, Scoring::LeftOut, Scoring::LeftOut],
     [MutantJudgement::Equivalent, Scoring::LeftOut, Scoring::LeftOut],

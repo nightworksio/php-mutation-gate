@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function rtrim;
@@ -63,6 +64,12 @@ final readonly class PestRun
     public static function killed(string $id, string $test): string
     {
         return self::line(RecordLine::killed(self::mutated($id), $test));
+    }
+
+    /** The memory limit the own process of the mutant with this native id ran out of. */
+    public static function exhausted(string $id, MemoryCap $limit): string
+    {
+        return self::line(RecordLine::exhausted(self::mutated($id), $limit));
     }
 
     /** A change as Pest's diff of it reads: the line removed and the line that replaces it. */

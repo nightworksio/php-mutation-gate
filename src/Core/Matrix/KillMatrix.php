@@ -145,7 +145,8 @@ final readonly class KillMatrix
         $mutant = $judged->mutant();
         $unknown = array_key_exists($mutant->id()->value(), $this->moved)
             || $judged->judgement() === MutantJudgement::Flaky
-            || $mutant->status() === MutantStatus::TimedOut;
+            || $mutant->status() === MutantStatus::TimedOut
+            || $mutant->status() === MutantStatus::OutOfMemory;
 
         return match (true) {
             ! $this->judges($judged, $test) => Outcome::NotRun,
@@ -167,7 +168,7 @@ final readonly class KillMatrix
                 $killers->has($test) => Outcome::Killed,
                 default => $afterTheKiller,
             },
-            MutantStatus::TimedOut => Outcome::Unknown,
+            MutantStatus::TimedOut, MutantStatus::OutOfMemory => Outcome::Unknown,
             MutantStatus::KilledByStaticAnalysis,
             MutantStatus::Uncovered,
             MutantStatus::Unjudged,

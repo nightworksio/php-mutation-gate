@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Php\Functions;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
+use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -104,6 +105,12 @@ final readonly class Hint
 
     private const string HOLD = 'Hold `%s` with a group of the tests that assert on it, or raise `timeouts.seconds`.';
 
+    private const string MEMORY_CAP
+        = 'It ran out of the memory cap, over twice what the unmutated suite holds, so the cap counts as a kill.';
+
+    private const string TOO_HEAVY
+        = 'The unmutated suite holds more than half the memory cap, or was not measured, so the cap says nothing. %s';
+
     private const string IGNORED = 'An ignore in the config leaves it out of the score.';
 
     private const string MARKED = 'A native ignore marker leaves it out of the score.';
@@ -123,6 +130,7 @@ final readonly class Hint
         MutantJudgement::Survived,
         MutantJudgement::Flaky,
         MutantJudgement::TooSlowToJudge,
+        MutantJudgement::TooHeavyToJudge,
         MutantJudgement::Unjudged,
     ];
 
@@ -163,6 +171,8 @@ final readonly class Hint
             MutantJudgement::KilledByStaticAnalysis => self::REJECTED,
             MutantJudgement::Errored => self::ERRORED,
             MutantJudgement::KilledByTimeout => self::TIMED_OUT,
+            MutantJudgement::KilledByMemoryCap => self::MEMORY_CAP,
+            MutantJudgement::TooHeavyToJudge => sprintf(self::TOO_HEAVY, Exhaustion::ADVICE),
             MutantJudgement::Unjudged => self::UNJUDGED,
             MutantJudgement::Flaky => self::FLAKY,
             MutantJudgement::TooSlowToJudge => sprintf(

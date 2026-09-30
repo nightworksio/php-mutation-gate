@@ -24,6 +24,8 @@ use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -34,7 +36,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
+use NightWorksIO\MutationGate\Core\Verdict\MutantTriage;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 
 /** A unit's one mutant, on its first line, ended so. */
@@ -61,7 +63,15 @@ function riskTimeout(string $unit, float $limit, float $time): Proof
 {
     return riskProofOf($unit, riskMutant($unit, MutantStatus::TimedOut)
         ->withLimit(Seconds::of($limit))
-        ->withJudgingTime(Seconds::of($time)));
+        ->withUnmutatedNeed(Seconds::of($time)));
+}
+
+/** A proof of a unit whose one reported mutant ran out of a cap of this many megabytes, under a suite that held this many. */
+function riskHeavy(string $unit, int $cap, int $peak): Proof
+{
+    return riskProofOf($unit, riskMutant($unit, MutantStatus::OutOfMemory)
+        ->withLimit(MemoryCap::of($cap, MemoryUnit::Megabytes))
+        ->withUnmutatedNeed(MemoryCap::of($peak, MemoryUnit::Megabytes)));
 }
 
 /** A proof of a unit with this one mutant. */
@@ -87,11 +97,13 @@ $order = RiskOrder::of(
         riskProof('src/Survivor.php', MutantStatus::Survived),
         riskTimeout('src/TooSlow.php', 10.0, 8.0),
         riskTimeout('src/KilledByTimeout.php', 10.0, 1.0),
+        riskHeavy('src/TooHeavy.php', 64, 40),
+        riskHeavy('src/KilledByMemoryCap.php', 64, 20),
         riskProof('src/Reached.php', MutantStatus::Killed),
         riskProof('src/Settled.php', MutantStatus::Killed),
         riskProof('src/Held', MutantStatus::Killed),
     )->newest(),
-    TimeoutTriage::under(TimeoutMode::Confirm),
+    MutantTriage::under(TimeoutMode::Confirm),
 );
 
 it('ranks a unit by the first risk it runs', function (Unit $unit, Risk $risk) use ($order): void {
@@ -101,6 +113,8 @@ it('ranks a unit by the first risk it runs', function (Unit $unit, Risk $risk) u
     'changed lines of a file a held unit holds' => [Unit::held(Path::of('src/Edited'), Group::named('holds:src/Edited')), Risk::ChangedLines],
     'a survivor last time' => [Unit::file(Path::of('src/Survivor.php')), Risk::Unsettled],
     'a mutant too slow to judge last time' => [Unit::file(Path::of('src/TooSlow.php')), Risk::Unsettled],
+    'a mutant too heavy to judge last time' => [Unit::file(Path::of('src/TooHeavy.php')), Risk::Unsettled],
+    'a kill by the memory cap, and nothing else' => [Unit::file(Path::of('src/KilledByMemoryCap.php')), Risk::Rest],
     'never mutated' => [Unit::file(Path::of('src/New.php')), Risk::NeverMutated],
     'reached by a changed test' => [Unit::file(Path::of('src/Reached.php')), Risk::Reached],
     'a timeout that killed it, and nothing else' => [Unit::file(Path::of('src/KilledByTimeout.php')), Risk::Rest],

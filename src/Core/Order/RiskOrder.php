@@ -8,6 +8,7 @@ use function array_column;
 use function array_flip;
 use function array_key_exists;
 use function array_map;
+use function in_array;
 
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -18,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
-use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
+use NightWorksIO\MutationGate\Core\Verdict\MutantTriage;
 
 use function usort;
 
@@ -29,16 +30,23 @@ use function usort;
  */
 final readonly class RiskOrder
 {
+    /** What a mutant of a unit's last result is judged that leaves the unit unsettled. */
+    private const array UNSETTLED = [
+        MutantJudgement::Survived,
+        MutantJudgement::TooSlowToJudge,
+        MutantJudgement::TooHeavyToJudge,
+    ];
+
     /** @param array<string, string> $changed when each unit last changed, as its instant is written, by its path */
     private function __construct(
         private Reach $reach,
         private NewestProofs $newest,
-        private TimeoutTriage $triage,
+        private MutantTriage $triage,
         private array $changed,
     ) {
     }
 
-    public static function of(Reach $reach, NewestProofs $newest, TimeoutTriage $triage): self
+    public static function of(Reach $reach, NewestProofs $newest, MutantTriage $triage): self
     {
         return new self($reach, $newest, $triage, []);
     }
@@ -110,13 +118,13 @@ final readonly class RiskOrder
         return Units::of(...array_column($keyed, 'unit'));
     }
 
-    /** Whether a result holds a survivor, or a mutant too slow to judge. */
+    /** Whether a result holds a survivor, or a mutant too slow or too heavy to judge. */
     private function unsettled(Proof $proof): bool
     {
         foreach ($proof->reported() as $mutant) {
             $judged = $this->triage->judged($mutant);
 
-            if ($judged === MutantJudgement::Survived || $judged === MutantJudgement::TooSlowToJudge) {
+            if (in_array($judged, self::UNSETTLED, strict: true)) {
                 return true;
             }
         }

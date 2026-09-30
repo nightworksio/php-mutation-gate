@@ -372,6 +372,8 @@ parameters:
                 - src/Adapter/Pest/Grouping/HoldsGroups.php
                 # The plugin names each test from the class Pest built for it (ADR-0014).
                 - src/Adapter/Pest/Recording/Naming.php
+                # The plugin reads a mutant's own output from the process Pest keeps to itself (ADR-0004, decision 9).
+                - src/Adapter/Pest/Recording/MutantOutput.php
 
     disallowedSuperglobals:
         # --- B6: the environment, read the other way -----------------------------

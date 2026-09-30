@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
+use NightWorksIO\MutationGate\Core\Verdict\MutantTriage;
 
 it('is the units of one package one job mutates, what they cost, and its label', function (): void {
     $units = Units::of(Unit::file(Path::of('packages/a/src/Money.php')));
@@ -59,7 +59,7 @@ it('takes its units in a risk order, keeping the rest of it', function (): void 
     $order = RiskOrder::of(
         Reach::nothing(Packages::of($trees))->withLines(Path::of('src/B.php'), Lines::of(Line::of(1))),
         Proofs::none()->newest(),
-        TimeoutTriage::under(TimeoutMode::Confirm),
+        MutantTriage::under(TimeoutMode::Confirm),
     );
     $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
     $shard = Shard::of(ShardId::of(2), Package::at(Path::root()), $units, Seconds::of(9.0), 'src')->ordered($order);

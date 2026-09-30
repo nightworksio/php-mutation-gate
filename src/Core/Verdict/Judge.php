@@ -38,7 +38,7 @@ final readonly class Judge
         private Baseline $baseline,
         private Reach $reach,
         private Uncovered $uncovered,
-        private TimeoutTriage $triage,
+        private MutantTriage $triage,
     ) {
     }
 
@@ -49,7 +49,7 @@ final readonly class Judge
         Uncovered $uncovered,
         TimeoutMode $timeouts,
     ): self {
-        return new self($trees, $baseline, $reach, $uncovered, TimeoutTriage::under($timeouts));
+        return new self($trees, $baseline, $reach, $uncovered, MutantTriage::under($timeouts));
     }
 
     /** Each tree, over every unit result it holds; a result no tree holds is judged in none. */
@@ -115,7 +115,7 @@ final readonly class Judge
     }
 
     /**
-     * Each mutant as its status reports it after timeout triage, or flaky where
+     * Each mutant as its status reports it after triage, or flaky where
      * it gave two answers, and each kill a ledger proved.
      */
     private function judged(Mutants $mutants, MutantIds $flaky, ProvedKills $kills): JudgedMutants

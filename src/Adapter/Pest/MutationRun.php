@@ -114,7 +114,8 @@ final readonly class MutationRun
         $coverage = $shared instanceof CoverageMap
             ? new HandedOver($shared, $this->project)
             : CoverageFile::at(Recorder::coverageBeside($results));
-        $result = new Interpretation($this->project, $this->patching)->of($ran, $results, $coverage);
+        $interpretation = new Interpretation($this->project, $this->patching, $request->memory());
+        $result = $interpretation->of($ran, $results, $coverage);
 
         return $result instanceof CannotJudge || $coverage instanceof CannotJudge
             ? $result

@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
@@ -61,6 +62,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -461,7 +463,7 @@ it('keeps with each timed-out mutant the time its covering tests take, from the 
     $result = $resultIn($project, 1);
     $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
     $times = array_map(
-        static fn(Mutant $mutant): string => sprintf('%s %s', $mutant->nativeId(), $mutant->judgingTime()::class),
+        static fn(Mutant $mutant): string => sprintf('%s %s', $mutant->nativeId(), $mutant->unmutatedNeed()::class),
         array_values(array_filter(
             $outcome instanceof MutationResult ? [...$outcome->mutants()] : [],
             static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::TimedOut,
@@ -469,11 +471,11 @@ it('keeps with each timed-out mutant the time its covering tests take, from the 
     );
     $timed = array_values(array_filter(
         $outcome instanceof MutationResult ? [...$outcome->mutants()] : [],
-        static fn(Mutant $mutant): bool => $mutant->judgingTime() instanceof Seconds,
+        static fn(Mutant $mutant): bool => $mutant->unmutatedNeed() instanceof Seconds,
     ));
 
     expect($times)->toBe([sprintf('Decrement-27 %s', Seconds::class)])
-        ->and($timed[0]->judgingTime())->toEqual(Seconds::of(0.2));
+        ->and($timed[0]->unmutatedNeed())->toEqual(Seconds::of(0.2));
 });
 
 it('runs each timeout its cap decided once more with the cap doubled, up to timeouts.retries', function (
@@ -601,6 +603,34 @@ it('cannot judge a shard handed no map, and mutates nothing of it, held units an
         ->toEqual(new Handoff(Directory::at($project))->read(ShardId::of(1)))
         ->and($result instanceof ShardResult ? $result->outcome() : $result)->toBeInstanceOf(CannotJudge::class);
 });
+
+it('weighs each mutant out of memory by the peak its plan measured, and leaves an older plan\'s unknown', function (
+    MemoryCap|NotGiven $peak,
+    MemoryCap|Unmeasured $weighed,
+) use ($resultIn): void {
+    $project = Flows::project();
+    $outOfMemory = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
+        'Plus-1',
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
+        MutantStatus::OutOfMemory,
+        Seconds::of(0.5),
+    )->withLimit(MemoryCap::of(64, MemoryUnit::Megabytes));
+    $scripted = ScriptedRunner::fixture()->answering(Mutants::of($outOfMemory), 0);
+
+    new Running(Flows::adapters($project, [], $scripted), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()->weighing($peak)), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
+    $mutants = $outcome instanceof MutationResult ? [...$outcome->mutants()] : [];
+
+    expect($mutants[0]->unmutatedNeed())->toEqual($weighed)
+        ->and($mutants[0]->limit())->toEqual(MemoryCap::of(64, MemoryUnit::Megabytes));
+})->with([
+    'measured' => [MemoryCap::of(20, MemoryUnit::Megabytes), MemoryCap::of(20, MemoryUnit::Megabytes)],
+    'an older plan' => [NotGiven::value(), Unmeasured::duration()],
+]);
 
 it('spends one timeouts.retries across every invocation of a shard', function (): void {
     $project = Flows::project();

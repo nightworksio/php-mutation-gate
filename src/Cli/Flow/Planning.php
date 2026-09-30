@@ -32,13 +32,14 @@ use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
+use NightWorksIO\MutationGate\Core\Verdict\MutantTriage;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 
 use function sprintf;
@@ -65,7 +66,7 @@ final readonly class Planning
     private const string OVER_CAP = <<<'SAID'
         The largest process of the suite's coverage run held %s resident, more than the %s each mutant's
         process may hold, so its mutants cannot be judged under that cap. Resident memory counts more than
-        memory_limit does. Raise runner.memory; doctor --measure says what the suite needs.
+        memory_limit does. %s
         SAID;
 
     public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
@@ -84,17 +85,17 @@ final readonly class Planning
             $coverage instanceof CoverageRun ? $coverage->withholding($this->adapters->withheld) : $coverage,
         );
 
-        $map = $map instanceof CoverageMap && $coverage instanceof CoverageRun
-            ? $this->withinTheCap($map, $this->setup->memory->peak())
-            : $map;
+        $peak = $coverage instanceof CoverageRun ? $this->setup->memory->peak() : NotGiven::value();
+        $map = $map instanceof CoverageMap ? $this->withinTheCap($map, $peak) : $map;
 
         if ($map instanceof CannotJudge) {
             return $map;
         }
 
         $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $map);
+        $planned = $keying instanceof Keying ? $this->planned($inventory, $map, $keying, $mode, $cut) : $keying;
 
-        return $keying instanceof Keying ? $this->planned($inventory, $map, $keying, $mode, $cut) : $keying;
+        return $planned instanceof Plan ? $planned->weighing($peak) : $planned;
     }
 
     /**
@@ -103,7 +104,8 @@ final readonly class Planning
      * own `memory_limit` where that lifts it; or why its mutants cannot be
      * judged under that cap (ADR-0004, decision 9). The peak is the most
      * resident memory of a process, an upper bound on what `memory_limit`
-     * counts. A peak the system does not count refuses nothing.
+     * counts. A peak the system does not count, or a map another job wrote,
+     * refuses nothing.
      */
     private function withinTheCap(CoverageMap $map, MemoryCap|NotGiven $peak): CoverageMap|CannotJudge
     {
@@ -114,7 +116,7 @@ final readonly class Planning
         );
 
         return $peak instanceof MemoryCap && $cap->isExceededBy($peak)
-            ? CannotJudge::because(sprintf(self::OVER_CAP, $peak->written(), $cap->written()))
+            ? CannotJudge::because(sprintf(self::OVER_CAP, $peak->written(), $cap->written(), Exhaustion::ADVICE))
             : $map;
     }
 
@@ -224,7 +226,7 @@ final readonly class Planning
         $order = RiskOrder::of(
             $reached->changed() instanceof Changes ? $reached->reach() : Reach::nothing(Packages::of($trees)),
             $ledgers->newest(),
-            TimeoutTriage::under($this->settings->triage()->timeouts()),
+            MutantTriage::under($this->settings->triage()->timeouts()),
         );
         $changed = $this->adapters->changes->lastChanged($order->least($units));
 

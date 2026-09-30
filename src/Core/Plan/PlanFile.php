@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\DigestsRecord;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
@@ -27,6 +28,8 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\WrittenBytes;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\TestNamesRecord;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -43,8 +46,11 @@ use stdClass;
  * the commit it was made on, the base its keys are built on, every considered
  * unit's key, and the shards, with the units it proved or carried, and the
  * lines a change added or modified with why it reached what it did, the
- * digests of the run's inputs each proof records its share of, and the
- * digest of all of that. Beside it, outside the digest since they judge
+ * digests of the run's inputs each proof records its share of, `peak`, the
+ * most bytes the unmutated suite's largest process held in the coverage run
+ * the plan was made from, where it was measured, and the digest of all of
+ * that. A plan without `peak` measured none, and every shard's memory
+ * triage reads it so. Beside it, outside the digest since they judge
  * nothing, `names` holds the names the runner gives the suite's tests, or
  * `unnamed` why it gave none; a plan with neither was made without asking.
  * A plan that cannot be read, or whose digest does not match what it holds,
@@ -73,6 +79,7 @@ use stdClass;
  *     changed?: array<string, list<int>>,
  *     reach?: list<string>,
  *     digests?: RunDigests,
+ *     peak?: int,
  * }
  */
 final readonly class PlanFile
@@ -100,6 +107,8 @@ final readonly class PlanFile
     private const string UNNAMED = 'unnamed';
 
     private const string DIGESTS = DigestsRecord::FIELD;
+
+    private const string PEAK = 'peak';
 
     public static function encode(Plan $plan): string
     {
@@ -145,7 +154,14 @@ final readonly class PlanFile
             ...self::considered($plan->considered()),
             ...self::change($plan->considered()),
             ...self::digests($plan->digests()),
+            ...self::peak($plan->peak()),
         ];
+    }
+
+    /** @return array{peak?: int} the bytes the unmutated suite's largest process held, where the plan measured them */
+    private static function peak(MemoryCap|NotGiven $peak): array
+    {
+        return $peak instanceof MemoryCap ? [self::PEAK => $peak->bytes()] : [];
     }
 
     /** @return array{digests?: RunDigests} the digests of the run's inputs, where the plan has them */
@@ -237,6 +253,7 @@ final readonly class PlanFile
             );
         $digests = $file->field(self::DIGESTS);
         $plan = $digests->isPresent() ? $plan->digesting(DigestsRecord::readRun($digests)) : $plan;
+        $plan = $plan->weighing(self::peakIn($file->field(self::PEAK)));
         $named = self::namedIn($plan, $file);
 
         return $plan->digest()->value() === $file->field(self::DIGEST)->text()
@@ -262,6 +279,12 @@ final readonly class PlanFile
             $unnamed->isPresent() => $plan->naming(CannotJudge::because($unnamed->text())),
             default => $plan,
         };
+    }
+
+    /** @throws NotInShape */
+    private static function peakIn(Node $peak): MemoryCap|NotGiven
+    {
+        return $peak->isPresent() ? WrittenBytes::read($peak) : NotGiven::value();
     }
 
     /** @throws NotInShape */

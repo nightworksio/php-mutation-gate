@@ -77,6 +77,7 @@ final readonly class MutationRun
                 $ran,
                 TextLog::at($this->project->own(Invocation::TEXT)),
                 $limits,
+                $request->memory(),
                 $this->nativeMarkersAllowed,
             );
     }

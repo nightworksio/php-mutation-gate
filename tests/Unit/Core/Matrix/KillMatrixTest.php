@@ -91,12 +91,13 @@ it('says the other covering tests of a killed mutant did not run, or passed unde
         ->and(KillMatrix::of(MatrixKind::Full, $coverage())->outcome($killed, $second))->toBe(Outcome::Passed);
 });
 
-it('does not know what a test did with a timeout, a flaky mutant, an unknown killer or moved coverage', function () use ($judged, $coverage, $first): void {
+it('does not know what a test did with a timeout, a mutant out of memory, a flaky mutant, an unknown killer or moved coverage', function () use ($judged, $coverage, $first): void {
     $matrix = KillMatrix::of(MatrixKind::Full, $coverage());
     $survivor = $judged(MutantStatus::Survived, TestIds::none());
     $flaky = JudgedMutant::of($survivor->mutant(), MutantJudgement::Flaky);
 
     expect($matrix->outcome($judged(MutantStatus::TimedOut, TestIds::of($first)), $first))->toBe(Outcome::Unknown)
+        ->and($matrix->outcome($judged(MutantStatus::OutOfMemory, TestIds::none()), $first))->toBe(Outcome::Unknown)
         ->and($matrix->outcome($flaky, $first))->toBe(Outcome::Unknown)
         ->and($matrix->outcome($judged(MutantStatus::Killed, TestIds::none()), $first))->toBe(Outcome::Unknown)
         ->and($matrix->moved($survivor->mutant()->id())->outcome($survivor, $first))->toBe(Outcome::Unknown)

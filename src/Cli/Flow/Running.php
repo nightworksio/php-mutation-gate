@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\MemoryTriage;
 use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -157,7 +158,8 @@ final readonly class Running
 
     /**
      * Every invocation's mutants, timeouts retried and timed by the map the
-     * plan handed the shard, with the survivors a second run killed, of each
+     * plan handed the shard, those out of memory weighed by the suite's peak
+     * the plan measured, with the survivors a second run killed, of each
      * unit but the held ones whose holding tests miss lines of them; or the
      * first cannot judge. A shard handed no map cannot judge at all. Under a
      * budget the units run in batches that fit the time left, and those the
@@ -191,7 +193,10 @@ final readonly class Running
             ->checked($spent->mutants, $spent->flaky);
 
         return new Mutated(
-            MutationResult::of(TimeoutTriage::timed($checked->mutants, $map), $spent->skipped),
+            MutationResult::of(
+                MemoryTriage::weighed(TimeoutTriage::timed($checked->mutants, $map), $plan->peak()),
+                $spent->skipped,
+            ),
             $spent->flaky,
             $misses,
             $spent->unjudged,

@@ -29,6 +29,23 @@ it('adds two amounts', function (): void {
         touch((string) getenv('CONTRACT_RAN'));
     }
 
+    // Where LIBRARY_HOG is set, a mutant's own process holds memory until PHP
+    // stops it: under the memory_limit LIBRARY_HOG names, or, where it is
+    // `cap`, under the one the process runs under.
+    $hog = getenv('LIBRARY_HOG');
+
+    if ($hog !== false && getenv('PEST_MUTATION_TESTING') !== false) {
+        if ($hog !== 'cap') {
+            ini_set('memory_limit', $hog);
+        }
+
+        $held = [];
+
+        while (true) {
+            $held[] = str_repeat('x', 1024);
+        }
+    }
+
     expect(new Money()->add(2, 3))->toBe(5);
 })->group('mutation-canary');
 

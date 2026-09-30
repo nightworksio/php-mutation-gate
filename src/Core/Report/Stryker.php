@@ -172,12 +172,16 @@ final readonly class Stryker
     private static function statusOf(MutantJudgement $judgement, Uncovered $uncovered): string
     {
         return match ($judgement) {
-            MutantJudgement::Killed, MutantJudgement::KilledByStaticAnalysis, MutantJudgement::Errored => 'Killed',
+            MutantJudgement::Killed,
+            MutantJudgement::KilledByStaticAnalysis,
+            MutantJudgement::Errored,
+            MutantJudgement::KilledByMemoryCap => 'Killed',
             MutantJudgement::KilledByTimeout => 'Timeout',
             MutantJudgement::Survived,
             MutantJudgement::Unjudged,
             MutantJudgement::Flaky,
-            MutantJudgement::TooSlowToJudge => 'Survived',
+            MutantJudgement::TooSlowToJudge,
+            MutantJudgement::TooHeavyToJudge => 'Survived',
             MutantJudgement::Uncovered => $uncovered === Uncovered::Exclude ? 'Ignored' : 'NoCoverage',
             MutantJudgement::Ignored, MutantJudgement::IgnoredByMarker, MutantJudgement::Equivalent => 'Ignored',
         };
