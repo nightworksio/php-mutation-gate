@@ -394,6 +394,14 @@ its parser attributes. Both change when the checkout moves.
 
      Each count must equal the number of its mutants, and `totalMutantsCount`
      must equal the sum of the counts.
+
+     A mutant under `killed` carries the tests that killed it (ADR-0014): the
+     ones PHPUnit's output, the entry's `processOutput`, lists under `There was
+     1 failure:` or `There were 2 errors:`. Each is named as the coverage map
+     names it, `<class>::<method>` with `#<data set>` for a data set's test.
+     Infection's mutant runs stop at the first defect, so that is the first
+     killer. A mutant killed by static analysis, an error or a timeout, or
+     with no such list, carries none.
    - **Coverage** comes from `vendor/bin/phpunit --coverage-xml=<dir>/coverage-xml
      --log-junit=<dir>/junit.xml`, or `phpUnit.customPath`, with
      `initialTestsPhpOptions` as PHP options, the project's

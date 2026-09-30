@@ -14,6 +14,7 @@ use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -24,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 use function sprintf;
@@ -36,15 +38,27 @@ use function usort;
  * `totalMutantsCount` equals the sum of the counts. A mutant Infection
  * ignored by a pattern of its own config counts only where `ignores.native`
  * allows such markers. Whether Infection exited with success decides
- * nothing: a finished run is judged by its logs.
+ * nothing: a finished run is judged by its logs. A mutant its tests killed
+ * carries the tests that killed it; one killed by static analysis, a
+ * timeout or an error carries none.
  *
- * @phpstan-type Found array{status: MutantStatus, file: string, line: int, mutator: string, diff: string}
+ * @phpstan-type Found array{
+ *     status: MutantStatus,
+ *     file: string,
+ *     line: int,
+ *     mutator: string,
+ *     diff: string,
+ *     killers: TestIds,
+ * }
  */
 final readonly class Results
 {
+    /** The list of the mutants tests killed, whose output names the tests that did. */
+    private const string KILLED_BY_TESTS = 'killed';
+
     /** Each list in the JSON log, with the count in `stats` that it must match and the status of its mutants. */
     private const array LISTS = [
-        'killed' => ['killedCount', MutantStatus::Killed],
+        self::KILLED_BY_TESTS => ['killedCount', MutantStatus::Killed],
         'killedByStaticAnalysis' => ['killedByStaticAnalysisCount', MutantStatus::Killed],
         'escaped' => ['escapedCount', MutantStatus::Survived],
         'errored' => ['errorCount', MutantStatus::Errored],
@@ -157,12 +171,15 @@ final readonly class Results
                     'line' => $mutator->field('originalStartLine')->integer(),
                     'mutator' => $mutator->field('mutatorName')->text(),
                     'diff' => $entry->field('diff')->text(),
+                    'killers' => $list === self::KILLED_BY_TESTS
+                        ? KillingTests::in(Lenient::text($entry->field('processOutput')))
+                        : TestIds::none(),
                 ];
             }
         }
 
         foreach ($text->under(TextLog::SKIPPED) as $skipped) {
-            $found[] = [...$skipped, 'status' => MutantStatus::Skipped];
+            $found[] = [...$skipped, 'status' => MutantStatus::Skipped, 'killers' => TestIds::none()];
         }
 
         return $found;
@@ -199,7 +216,7 @@ final readonly class Results
                 Mutation::of($mutant['mutator'], Families::of($mutant['mutator']), $mutant['diff']),
                 $mutant['status'],
                 Unmeasured::duration(),
-            );
+            )->killedBy($mutant['killers']);
             $timed = in_array($mutant['status'], self::TIMED, strict: true);
             $mutants = $mutants->with($timed ? $recorded->withLimit($limits->at($file, $line)) : $recorded);
         }
