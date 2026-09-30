@@ -67,16 +67,25 @@ final readonly class ChangeSourceFake implements ChangeSource
         return $fingerprints;
     }
 
-    public function fileAt(Path $path, Revision $revision): Contents|Missing
+    /** What a file held at a revision; git cannot tell for a revision the repository does not have. */
+    public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell
     {
-        $files = array_key_exists($revision->name(), $this->files) ? $this->files[$revision->name()] : [];
+        $files = $this->filesAt(Paths::of($path), $revision);
 
-        return array_key_exists($path->value(), $files) ? Contents::of($files[$path->value()]) : Missing::at($path);
+        return $files instanceof CannotTell ? $files : $files->at($path, Missing::at($path));
     }
 
-    /** @return ByPath<Contents|Missing> */
-    public function filesAt(Paths $paths, Revision $revision): ByPath
+    /** @return ByPath<Contents|Missing>|CannotTell */
+    public function filesAt(Paths $paths, Revision $revision): ByPath|CannotTell
     {
-        return ByPath::mapping($paths, fn(Path $path): Contents|Missing => $this->fileAt($path, $revision));
+        if (! array_key_exists($revision->name(), $this->files)) {
+            return CannotTell::because(sprintf('%s is not a revision this repository has.', $revision->name()));
+        }
+
+        $files = $this->files[$revision->name()];
+
+        return ByPath::mapping($paths, static fn(Path $path): Contents|Missing => array_key_exists($path->value(), $files)
+            ? Contents::of($files[$path->value()])
+            : Missing::at($path));
     }
 }

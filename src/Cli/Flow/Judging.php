@@ -93,6 +93,7 @@ final readonly class Judging
         $judge = Judge::of($trees, $baseline, $this->reachOf($plan, $trees), $uncovered);
         $verdicts = $judge->trees($results->units()->and($proving->proved())->and($carrying->carried()));
         $unfloored = Ratchet::unfloored($verdicts);
+        $committed = $this->committedBefore($plan);
 
         if (count($unfloored) > 0 && $this->adapters->environment->inCi()) {
             return CannotJudge::because(
@@ -100,7 +101,11 @@ final readonly class Judging
             );
         }
 
-        $verdict = $this->verdictOf($plan, $trees, $baseline, $judge, $verdicts);
+        if ($committed instanceof CannotJudge) {
+            return $committed;
+        }
+
+        $verdict = $this->verdictOf($plan, Lowering::against($committed, $baseline, $trees), $judge, $verdicts);
         $ownScopeProofs = $proving->ownScopeProofs() + $carrying->ownScopeProofs();
 
         $recorded = $this->recorded($plan, $results, $ledgers, $verdict, $ownScopeProofs);
@@ -110,10 +115,10 @@ final readonly class Judging
             : new Judged($verdict, [$recorded, ...$this->reported($verdict, $reporters)], $baseline);
     }
 
+    /** @param Failures $lowered each floor the run lowers from the default branch's without its reason */
     private function verdictOf(
         Plan $plan,
-        Trees $trees,
-        Baseline $baseline,
+        Failures $lowered,
         Judge $judge,
         TreeVerdicts $verdicts,
     ): Verdict {
@@ -122,7 +127,7 @@ final readonly class Judging
             ? $judge->newCode($verdicts, $this->settings->floors()->newCode())
             : NewCodeVerdicts::none();
         $failures = $pullRequest
-            ? $this->pullRequestFailures($plan, $trees, $baseline, $verdicts)
+            ? $this->pullRequestFailures($lowered, $verdicts)
             : Failures::none();
 
         return Verdict::of($verdicts)
@@ -133,20 +138,23 @@ final readonly class Judging
     }
 
     /** In a pull request, a raise that must be committed with it, and a floor lowered without its reason. */
-    private function pullRequestFailures(
-        Plan $plan,
-        Trees $trees,
-        Baseline $baseline,
-        TreeVerdicts $verdicts,
-    ): Failures {
-        $baselineFile = $this->settings->floors()->baseline();
+    private function pullRequestFailures(Failures $lowered, TreeVerdicts $verdicts): Failures
+    {
         $required = $this->settings->floors()->improvement() === Improvement::Require
-            ? Ratchet::required($verdicts, $baselineFile)
+            ? Ratchet::required($verdicts, $this->settings->floors()->baseline())
             : Failures::none();
-        $defaultBranch = Standing::planned($plan)->defaultBranch();
-        $onDefaultBranch = new Baselines($this->adapters, $baselineFile)->onDefaultBranch($defaultBranch);
 
-        return $required->and(Lowering::against($onDefaultBranch, $baseline, $trees));
+        return $required->and($lowered);
+    }
+
+    /** The baseline a floor lowered in a pull request is checked against; none outside one. */
+    private function committedBefore(Plan $plan): Baseline|CannotJudge
+    {
+        $baselines = new Baselines($this->adapters, $this->settings->floors()->baseline());
+
+        return $plan->runOn()->isPullRequest()
+            ? $baselines->onDefaultBranch(Standing::planned($plan)->defaultBranch())
+            : Baseline::none();
     }
 
     private function unflooredWarnings(TreeVerdicts $verdicts): Warnings

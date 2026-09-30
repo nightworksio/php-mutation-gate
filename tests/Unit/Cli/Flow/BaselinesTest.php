@@ -80,13 +80,33 @@ it('reads the baseline the default branch holds at its remote', function () use 
         ->and($baselines->onDefaultBranch(Scope::branch('release/2')))->toEqual($floors(55.0));
 });
 
-it('reads no baseline where the default branch holds none it can read', function (ChangeSourceFake $changes): void {
-    $baselines = new Baselines(Flows::adapters(Flows::project(), [], $changes), Path::of('floors.json'));
+it('reads no baseline where the default branch holds none', function () use ($remotes): void {
+    $baselines = new Baselines(Flows::adapters(Flows::project(), [], $remotes(main: '')), Path::of('elsewhere.json'));
 
     expect($baselines->onDefaultBranch(Scope::branch('main')))->toEqual(Baseline::none());
+});
+
+it('cannot judge where git cannot read the default branch, or its file is not a baseline', function (
+    ChangeSourceFake $changes,
+    string $why,
+): void {
+    $baselines = new Baselines(Flows::adapters(Flows::project(), [], $changes), Path::of('floors.json'));
+
+    expect($baselines->onDefaultBranch(Scope::branch('main')))->toEqual(CannotJudge::because(sprintf(<<<'SAID'
+        The baseline refs/remotes/origin/main holds cannot be read,
+        so a floor lowered here cannot be checked against it. %s
+        Fetch the default branch into the checkout before the verdict.
+        SAID, $why)));
 })->with([
-    'no file' => [$remotes()],
-    'a file that is not a baseline' => [$remotes(main: 'not a baseline')],
+    'a shallow checkout' => [$remotes(), 'refs/remotes/origin/main is not a revision this repository has.'],
+    'a file that is not a baseline' => [
+        $remotes(main: 'not a baseline'),
+        sprintf(
+            '%s %s',
+            'The baseline floors.json cannot be read: the file.format is missing.',
+            'Fix it, or run mutation-gate baseline --write.',
+        ),
+    ],
 ]);
 
 it('writes the baseline back into its file', function () use ($floors): void {

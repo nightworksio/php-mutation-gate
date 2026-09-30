@@ -401,6 +401,34 @@ it('fails a pull request that lowers a floor the default branch holds without a 
         SAID]);
 });
 
+it('cannot judge a pull request where git cannot read the default branch\'s baseline', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $shallow = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [
+        Revision::workingTree()->name() => Flows::FILES,
+    ]);
+    $plan = Planned::twoShards()->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
+    $store = new ProofStoreFake();
+
+    $judgement = $judged(
+        $plan,
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(30)), $shallow, $store),
+        judgingSettings(NewCodeFloor::of(0)),
+        $reporting(new ReporterFake()),
+    );
+
+    expect($judgement)->toEqual(CannotJudge::because(sprintf(
+        "%s\n%s %s\n%s",
+        'The baseline refs/remotes/origin/main holds cannot be read,',
+        'so a floor lowered here cannot be checked against it.',
+        'refs/remotes/origin/main is not a revision this repository has.',
+        'Fetch the default branch into the checkout before the verdict.',
+    )))
+        ->and($store->read(Scope::pullRequest(7)))->toEqual(Ledger::empty());
+});
+
 it('counts the proofs and the results of its own scope it took, and records how many it used', function () use (
     $tree,
     $reporting,

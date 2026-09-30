@@ -64,6 +64,9 @@ final readonly class Flows
     /** The commit the checkout is at. */
     public const string HEAD = 'head';
 
+    /** The default branch, as a checkout that fetched it holds it. */
+    public const string MAIN = 'refs/remotes/origin/main';
+
     /** The gate's setup, with no config file, at the instant every test runs at. */
     public static function setup(): Setup
     {
@@ -116,13 +119,13 @@ final readonly class Flows
         return Trees::of(Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())));
     }
 
-    /** The project as git would list it: its working tree, and nothing changed since `base`. */
+    /** The project as git would list it: its working tree, nothing changed since `base`, and `main` fetched. */
     public static function checkout(): ChangeSourceFake
     {
         return new ChangeSourceFake(
             Revision::ref('base'),
             Changes::none(),
-            [Revision::workingTree()->name() => self::FILES, 'base' => self::FILES],
+            [Revision::workingTree()->name() => self::FILES, 'base' => self::FILES, self::MAIN => self::FILES],
         );
     }
 

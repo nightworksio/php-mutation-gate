@@ -10,6 +10,7 @@ use function mb_substr;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -27,6 +28,12 @@ final readonly class Baselines
     private const string BRANCH = 'refs/heads/';
 
     private const string REMOTE = 'refs/remotes/origin/%s';
+
+    private const string UNREAD = <<<'SAID'
+        The baseline %s holds cannot be read,
+        so a floor lowered here cannot be checked against it. %s
+        Fetch the default branch into the checkout before the verdict.
+        SAID;
 
     public function __construct(private Adapters $adapters, private Path $file)
     {
@@ -52,16 +59,24 @@ final readonly class Baselines
 
     /**
      * The baseline as the default branch holds it, which a floor lowered here
-     * is checked against; none where the branch has no file or git cannot read
-     * it, since a floor is lowered only against one that was committed.
+     * is checked against; none where the branch has no file, since a floor is
+     * lowered only against one that was committed. Where git cannot read the
+     * branch, as in a shallow checkout, or its file is not a baseline, no
+     * lowered floor can be checked, and the verdict cannot judge.
      */
-    public function onDefaultBranch(Scope $defaultBranch): Baseline
+    public function onDefaultBranch(Scope $defaultBranch): Baseline|CannotJudge
     {
-        $branch = mb_substr($defaultBranch->ref(), mb_strlen(self::BRANCH));
-        $contents = $this->adapters->changes->fileAt($this->file, Revision::ref(sprintf(self::REMOTE, $branch)));
-        $read = $contents instanceof Contents ? BaselineFile::decode($contents->text(), $this->file) : Baseline::none();
+        $remote = Revision::ref(sprintf(self::REMOTE, mb_substr($defaultBranch->ref(), mb_strlen(self::BRANCH))));
+        $contents = $this->adapters->changes->fileAt($this->file, $remote);
+        $read = match (true) {
+            $contents instanceof Contents => BaselineFile::decode($contents->text(), $this->file),
+            $contents instanceof CannotTell => CannotJudge::because($contents->why()),
+            default => Baseline::none(),
+        };
 
-        return $read instanceof Baseline ? $read : Baseline::none();
+        return $read instanceof CannotJudge
+            ? CannotJudge::because(sprintf(self::UNREAD, $remote->name(), $read->why()))
+            : $read;
     }
 
     public function write(Baseline $baseline): Written|CannotJudge
