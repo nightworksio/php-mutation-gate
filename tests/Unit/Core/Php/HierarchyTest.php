@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Php\Hierarchy;
 use NightWorksIO\MutationGate\Core\Php\Names;
+use NightWorksIO\MutationGate\Core\Php\Shadowing;
 use NightWorksIO\MutationGate\Tests\Support\Php;
 
 $hierarchy = static fn(): Hierarchy => Hierarchy::of(
@@ -20,24 +21,24 @@ $hierarchy = static fn(): Hierarchy => Hierarchy::of(
 );
 
 it('reaches an owner from itself, and through what a class extends and implements', function () use ($hierarchy): void {
-    expect($hierarchy()->reaches('app\base', 'app\base', 'RATE'))->toBeTrue()
-        ->and($hierarchy()->reaches('app\cash', 'app\rated', 'LEVEL'))->toBeTrue()
-        ->and($hierarchy()->reaches('app\base', 'app\money', ''))->toBeFalse()
-        ->and($hierarchy()->reaches('other\base', 'app\base', ''))->toBeFalse()
-        ->and($hierarchy()->reaches('app\loop', 'app\base', ''))->toBeFalse();
+    expect($hierarchy()->reaches('app\base', 'app\base', Shadowing::byConstant('RATE')))->toBeTrue()
+        ->and($hierarchy()->reaches('app\cash', 'app\rated', Shadowing::byConstant('LEVEL')))->toBeTrue()
+        ->and($hierarchy()->reaches('app\base', 'app\money', Shadowing::none()))->toBeFalse()
+        ->and($hierarchy()->reaches('other\base', 'app\base', Shadowing::none()))->toBeFalse()
+        ->and($hierarchy()->reaches('app\loop', 'app\base', Shadowing::none()))->toBeFalse();
 });
 
 it('stops at a class that declares the constant anew', function () use ($hierarchy): void {
-    expect($hierarchy()->reaches('app\cash', 'app\base', 'RATE'))->toBeFalse()
-        ->and($hierarchy()->reaches('app\money', 'app\base', 'RATE'))->toBeFalse()
-        ->and($hierarchy()->reaches('app\cash', 'app\base', ''))->toBeTrue()
-        ->and($hierarchy()->reaches('app\cash', 'app\money', 'RATE'))->toBeTrue();
+    expect($hierarchy()->reaches('app\cash', 'app\base', Shadowing::byConstant('RATE')))->toBeFalse()
+        ->and($hierarchy()->reaches('app\money', 'app\base', Shadowing::byConstant('RATE')))->toBeFalse()
+        ->and($hierarchy()->reaches('app\cash', 'app\base', Shadowing::none()))->toBeTrue()
+        ->and($hierarchy()->reaches('app\cash', 'app\money', Shadowing::byConstant('RATE')))->toBeTrue();
 });
 
 it('reaches an owner from any of several names', function () use ($hierarchy): void {
-    expect($hierarchy()->anyReaches(Names::of('Other\Cash', 'App\Cash'), 'app\base', ''))->toBeTrue()
-        ->and($hierarchy()->anyReaches(Names::of('Other\Cash'), 'app\base', ''))->toBeFalse()
-        ->and($hierarchy()->anyReaches(Names::of(), 'app\base', ''))->toBeFalse();
+    expect($hierarchy()->anyReaches(Names::of('Other\Cash', 'App\Cash'), 'app\base', Shadowing::none()))->toBeTrue()
+        ->and($hierarchy()->anyReaches(Names::of('Other\Cash'), 'app\base', Shadowing::none()))->toBeFalse()
+        ->and($hierarchy()->anyReaches(Names::of(), 'app\base', Shadowing::none()))->toBeFalse();
 });
 
 it('says whether a class that reaches the owner declares its constant anew', function () use ($hierarchy): void {

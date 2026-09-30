@@ -6,10 +6,11 @@ use NightWorksIO\MutationGate\Core\Php\Executable;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\SymbolAt;
 use NightWorksIO\MutationGate\Core\Php\SymbolKind;
+use NightWorksIO\MutationGate\Core\Php\Unnamed;
 use NightWorksIO\MutationGate\Tests\Support\Php;
 
 /** What the nth token of this text in the code stands in. */
-function symbolAtToken(string $code, string $text, int $nth = 0): Symbol|Executable
+function symbolAtToken(string $code, string $text, int $nth = 0): Symbol|Unnamed|Executable
 {
     $source = Php::source($code);
 
@@ -49,9 +50,9 @@ it('reads a property\'s default, static or not', function (): void {
 });
 
 it('reads a method\'s and a closure\'s parameter default, and runs what a body holds', function (): void {
-    expect(symbolAtToken(SYMBOL_AT_CLASS, '7'))->toEqual(Symbol::unnamed(SymbolKind::MethodParameter))
-        ->and(symbolAtToken(SYMBOL_AT_CLASS, '2'))->toEqual(Symbol::unnamed(SymbolKind::MethodParameter))
-        ->and(symbolAtToken(SYMBOL_AT_CLASS, '4'))->toEqual(Symbol::unnamed(SymbolKind::ClosureParameter))
+    expect(symbolAtToken(SYMBOL_AT_CLASS, '7'))->toEqual(Unnamed::of(SymbolKind::MethodParameter))
+        ->and(symbolAtToken(SYMBOL_AT_CLASS, '2'))->toEqual(Unnamed::of(SymbolKind::MethodParameter))
+        ->and(symbolAtToken(SYMBOL_AT_CLASS, '4'))->toEqual(Unnamed::of(SymbolKind::ClosureParameter))
         ->and(symbolAtToken(SYMBOL_AT_CLASS, '5'))->toEqual(Executable::line())
         ->and(symbolAtToken(SYMBOL_AT_CLASS, '6'))->toEqual(Executable::line())
         ->and(symbolAtToken(SYMBOL_AT_CLASS, 'int', 1))->toEqual(Executable::line());
@@ -79,8 +80,8 @@ it('reads an enum case\'s value, an interface constant and an attribute\'s argum
     expect(symbolAtToken($code, "'paid'"))->toEqual(Symbol::enumCase('App\Status', 'Paid'))
         ->and(symbolAtToken($code, 'Due'))->toEqual(Executable::line())
         ->and(symbolAtToken($code, '3'))->toEqual(Symbol::constant('App\Rated', 'LEVEL'))
-        ->and(symbolAtToken($code, '1'))->toEqual(Symbol::unnamed(SymbolKind::AttributeArgument))
-        ->and(symbolAtToken($code, '4'))->toEqual(Symbol::unnamed(SymbolKind::AttributeArgument));
+        ->and(symbolAtToken($code, '1'))->toEqual(Unnamed::of(SymbolKind::AttributeArgument))
+        ->and(symbolAtToken($code, '4'))->toEqual(Unnamed::of(SymbolKind::AttributeArgument));
 });
 
 it('runs a global constant, a namespace block and an arrow function outside every class', function (): void {
@@ -88,7 +89,7 @@ it('runs a global constant, a namespace block and an arrow function outside ever
 
     expect(symbolAtToken($code, '1'))->toEqual(Executable::line())
         ->and(symbolAtToken($code, '2'))->toEqual(Executable::line())
-        ->and(symbolAtToken($code, '3'))->toEqual(Symbol::unnamed(SymbolKind::ClosureParameter));
+        ->and(symbolAtToken($code, '3'))->toEqual(Unnamed::of(SymbolKind::ClosureParameter));
 });
 
 it('reads nothing where no token stands', function (): void {

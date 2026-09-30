@@ -433,7 +433,9 @@
                             "exception",
                             "unwrap",
                             "visibility",
-                            "none"
+                            "none",
+                            "unknown",
+                            "unrecorded"
                         ]
                     },
                     "diff": {

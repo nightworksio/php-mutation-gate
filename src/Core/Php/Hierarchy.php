@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_any;
 use function array_key_exists;
+use function is_string;
 
 /**
  * The classes, interfaces, traits and enums the project declares, each with
@@ -25,7 +26,11 @@ final readonly class Hierarchy
 
         foreach ($sources as $source) {
             foreach ($source->shape()->classes() as $class) {
-                $classes = $class->key() === '' ? $classes : [...$classes, $class->key() => $class];
+                $key = $class->key();
+
+                if (is_string($key)) {
+                    $classes[$key] = $class;
+                }
             }
         }
 
@@ -34,18 +39,17 @@ final readonly class Hierarchy
 
     /**
      * Whether a class is the owner, or reaches it through what it extends or
-     * implements without passing a class that declares the constant anew. An
-     * empty constant is shadowed by nothing.
+     * implements without passing a class that shadows it.
      */
-    public function reaches(string $class, string $owner, string $constant): bool
+    public function reaches(string $class, string $owner, Shadowing $shadowing): bool
     {
-        return $this->reachedFrom([$class], $owner, $constant, []);
+        return $this->reachedFrom([$class], $owner, $shadowing, []);
     }
 
     /** Whether any of these names may be a class that reaches the owner. */
-    public function anyReaches(Names $names, string $owner, string $constant): bool
+    public function anyReaches(Names $names, string $owner, Shadowing $shadowing): bool
     {
-        return array_any($names->all(), fn(string $name): bool => $this->reaches($name, $owner, $constant));
+        return array_any($names->all(), fn(string $name): bool => $this->reaches($name, $owner, $shadowing));
     }
 
     /** Whether a class other than the owner that reaches it declares the constant anew. */
@@ -55,7 +59,7 @@ final readonly class Hierarchy
             $this->classes,
             fn(ClassLike $class, string $name): bool => $name !== $owner
                 && $class->declares($constant)
-                && $this->reaches($name, $owner, ''),
+                && $this->reaches($name, $owner, Shadowing::none()),
         );
     }
 
@@ -63,7 +67,7 @@ final readonly class Hierarchy
      * @param list<string>        $classes
      * @param array<string, true> $seen
      */
-    private function reachedFrom(array $classes, string $owner, string $constant, array $seen): bool
+    private function reachedFrom(array $classes, string $owner, Shadowing $shadowing, array $seen): bool
     {
         $next = [];
 
@@ -72,25 +76,25 @@ final readonly class Hierarchy
                 return true;
             }
 
-            $next = [...$next, ...$this->parentsOf($class, $constant, $seen)];
+            $next = [...$next, ...$this->parentsOf($class, $shadowing, $seen)];
             $seen[$class] = true;
         }
 
-        return $next !== [] && $this->reachedFrom($next, $owner, $constant, $seen);
+        return $next !== [] && $this->reachedFrom($next, $owner, $shadowing, $seen);
     }
 
     /**
-     * What a class extends and implements, unless it declares the constant
-     * anew or was followed before.
+     * What a class extends and implements, unless it shadows what is read or
+     * was followed before.
      *
      * @param  array<string, true> $seen
      * @return list<string>
      */
-    private function parentsOf(string $class, string $constant, array $seen): array
+    private function parentsOf(string $class, Shadowing $shadowing, array $seen): array
     {
         $known = array_key_exists($class, $this->classes) && ! array_key_exists($class, $seen);
 
-        return $known && ($constant === '' || ! $this->classes[$class]->declares($constant))
+        return $known && ! $shadowing->hides($this->classes[$class])
             ? $this->classes[$class]->parents()->all()
             : [];
     }

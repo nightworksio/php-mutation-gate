@@ -112,7 +112,7 @@ it('reads a killed record as a mutant of the unit it was proved in', function ()
         $id,
         '',
         Location::of(Path::of('src/Money.php'), Line::of(1), Unreported::line()),
-        Mutation::of('LessThan', MutatorFamily::None, ''),
+        Mutation::of('LessThan', MutatorFamily::Unrecorded, ''),
         MutantStatus::Killed,
         Unmeasured::duration(),
     );

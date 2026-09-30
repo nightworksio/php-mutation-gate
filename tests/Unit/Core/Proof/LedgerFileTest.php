@@ -45,12 +45,12 @@ $killedId = MutantId::hash(Path::of('src/Money.php'), 'Plus', "-+\n+-", 0);
 $minusId = MutantId::hash(Path::of('src/Money.php'), 'Minus', "-+\n+-", 0);
 $survivedId = MutantId::hash(Path::of('src/Money.php'), 'LessThan', "-<\n+<=", 0);
 
-// A killed mutant as a ledger reads it back: only its id, line and mutator.
+// A killed mutant as a ledger reads it back: only its id, line and mutator, its family unrecorded.
 $killedBy = static fn(MutantId $id, string $mutator, int $line): Mutant => Mutant::of(
     $id,
     '',
     Location::of(Path::of('src/Money.php'), Line::of($line), Unreported::line()),
-    Mutation::of($mutator, MutatorFamily::None, ''),
+    Mutation::of($mutator, MutatorFamily::Unrecorded, ''),
     MutantStatus::Killed,
     Unmeasured::duration(),
 );

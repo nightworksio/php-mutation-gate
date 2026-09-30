@@ -6,8 +6,9 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 /**
  * What a line that is not executable declares, and so what can read the value
- * a mutant there changes. Only the first five can be followed to the code that
- * reads them; the rest have no reference a token scan can follow.
+ * a mutant there changes. A named constant, case, property or plain
+ * function's parameter can be followed to the code that reads it; a method's
+ * or a closure's parameter and an attribute's argument are always unnamed.
  */
 enum SymbolKind: string
 {
@@ -20,12 +21,4 @@ enum SymbolKind: string
     case ClosureParameter = 'closure parameter';
     case AttributeArgument = 'attribute argument';
 
-    /** Whether a token scan can find what reads a value of this kind. */
-    public function isFollowable(): bool
-    {
-        return match ($this) {
-            self::MethodParameter, self::ClosureParameter, self::AttributeArgument => false,
-            self::Constant, self::EnumCase, self::StaticProperty, self::Property, self::FunctionParameter => true,
-        };
-    }
 }

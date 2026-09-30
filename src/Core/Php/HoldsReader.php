@@ -50,8 +50,8 @@ final readonly class HoldsReader
     private const array CLASS_LIKE = [T_CLASS, T_TRAIT, T_INTERFACE, T_ENUM];
 
     /**
-     * @param array<int, string> $bodies each class-like by where its body opens, fully qualified, or empty
-     *                                   when it is anonymous
+     * @param array<int, string|Nameless> $bodies each class-like by where its body opens, fully qualified,
+     *                                            or nameless when it is anonymous
      */
     private function __construct(private Tokens $tokens, private Scope $scope, private array $bodies)
     {
@@ -82,7 +82,7 @@ final readonly class HoldsReader
      * body opens: the `{` that follows its keyword at the keyword's own depth
      * before any other such keyword does.
      *
-     * @return array<int, string>
+     * @return array<int, string|Nameless>
      */
     private static function bodiesIn(Tokens $tokens, Scope $scope): array
     {
@@ -93,7 +93,7 @@ final readonly class HoldsReader
                 $tokens->inside($tokens->enclosing($at), '{', ...self::CLASS_LIKE),
                 static fn(int $next): bool => $next > $at,
             );
-            $name = $tokens->is($at + 1, T_STRING) ? $scope->declared($tokens->text($at + 1)) : '';
+            $name = $tokens->is($at + 1, T_STRING) ? $scope->declared($tokens->text($at + 1)) : Nameless::code();
             $bodies = is_int($body) && $tokens->is($body, '{') && ! $tokens->is($at - 1, T_DOUBLE_COLON)
                 ? $bodies + [$body => $name]
                 : $bodies;
@@ -175,7 +175,7 @@ final readonly class HoldsReader
                 Standing::NamedFunction,
                 $this->scope->declared($this->tokens->text($name)),
             ],
-            $this->bodies[$body] === '' => [Standing::Elsewhere, ''],
+            $this->bodies[$body] instanceof Nameless => [Standing::Elsewhere, ''],
             default => [Standing::TestMethod, sprintf('%s::%s', $this->bodies[$body], $this->tokens->text($name))],
         };
     }

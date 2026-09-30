@@ -81,7 +81,7 @@ final readonly class Source
     }
 
     /** What the token at an index stands in. */
-    public function symbolAt(int $at): Symbol|Executable
+    public function symbolAt(int $at): Symbol|Unnamed|Executable
     {
         return SymbolAt::in($this->tokens, $this->shape)->token($at);
     }

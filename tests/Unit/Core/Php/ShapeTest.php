@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Php\ClassLike;
+use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Php\Signature;
 use NightWorksIO\MutationGate\Tests\Support\Php;
 
@@ -14,7 +15,7 @@ it('finds every class-like body, but not the class a ::class names', function ()
         $shape->isClassBody(...),
     ));
 
-    expect(array_map(static fn(ClassLike $class): string => $class->name(), $shape->classes()))->toBe(['I', 'E', 'T', 'C'])
+    expect(array_map(static fn(ClassLike $class): string|Nameless => $class->name(), $shape->classes()))->toBe(['I', 'E', 'T', 'C'])
         ->and($bodies)->toBe([Php::indexOf($source, '{'), Php::indexOf($source, '{', 1), Php::indexOf($source, '{', 2), Php::indexOf($source, '{', 3)])
         ->and($shape->classOf(Php::indexOf($source, '{', 3))->name())->toBe('C');
 });

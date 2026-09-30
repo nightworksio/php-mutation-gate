@@ -12,26 +12,27 @@ use NightWorksIO\MutationGate\Core\Test\Group;
  */
 final readonly class Patching
 {
-    private function __construct(private bool $on, private Group $canary)
+    private function __construct(private Group|Unpatched $canary)
     {
     }
 
     public static function off(): self
     {
-        return new self(on: false, canary: Group::named(''));
+        return new self(Unpatched::Vendor);
     }
 
     public static function on(Group $canary): self
     {
-        return new self(on: true, canary: $canary);
+        return new self($canary);
     }
 
     public function isOn(): bool
     {
-        return $this->on;
+        return $this->canary instanceof Group;
     }
 
-    public function canary(): Group
+    /** The canary group, where the project applies the patch. */
+    public function canary(): Group|Unpatched
     {
         return $this->canary;
     }

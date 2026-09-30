@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\Codebase;
 use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
+use NightWorksIO\MutationGate\Core\Php\Unnamed;
 
 /**
  * The test files that judge a mutant of a line that is not executable: each
@@ -59,7 +60,7 @@ final readonly class Selector
     }
 
     /** Which test files judge a mutant of a file whose changed value a symbol names. */
-    public function choose(Symbol $symbol, Path $file): Choice
+    public function choose(Symbol|Unnamed $symbol, Path $file): Choice
     {
         $references = $this->codebase->references($symbol);
         $reading = Paths::none();

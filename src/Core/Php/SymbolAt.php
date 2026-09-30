@@ -26,13 +26,13 @@ final readonly class SymbolAt
     }
 
     /** What the token at an index stands in: a value coverage cannot see run, or executable code. */
-    public function token(int $at): Symbol|Executable
+    public function token(int $at): Symbol|Unnamed|Executable
     {
         return $at < 0 || $at >= $this->tokens->count() ? Executable::line() : $this->around($at);
     }
 
     /** What the innermost bracket that decides it makes of a token. */
-    private function around(int $at): Symbol|Executable
+    private function around(int $at): Symbol|Unnamed|Executable
     {
         for ($child = $at; $this->tokens->isEnclosed($child); $child = $this->tokens->enclosing($child)) {
             $opener = $this->tokens->enclosing($child);
@@ -54,10 +54,10 @@ final readonly class SymbolAt
     }
 
     /** What a bracket that decides makes of the token directly inside it that leads to the line. */
-    private function decided(int $opener, int $child): Symbol|Executable
+    private function decided(int $opener, int $child): Symbol|Unnamed|Executable
     {
         return match (true) {
-            $this->tokens->is($opener, T_ATTRIBUTE) => Symbol::unnamed(SymbolKind::AttributeArgument),
+            $this->tokens->is($opener, T_ATTRIBUTE) => Unnamed::of(SymbolKind::AttributeArgument),
             $this->shape->isBody($opener) => Executable::line(),
             $this->shape->isSignature($opener) => $this->defaultIn($opener, $child),
             default => $this->member($opener, $child),
@@ -65,7 +65,7 @@ final readonly class SymbolAt
     }
 
     /** The parameter whose default a token of a parameter list stands in, if it stands in one. */
-    private function defaultIn(int $list, int $child): Symbol|Executable
+    private function defaultIn(int $list, int $child): Symbol|Unnamed|Executable
     {
         foreach ($this->direct($list, $child) as $at) {
             if ($this->tokens->is($at, ',', '=')) {
@@ -79,7 +79,7 @@ final readonly class SymbolAt
     }
 
     /** The class member whose value a token directly inside a class-like body stands in, if any. */
-    private function member(int $body, int $child): Symbol|Executable
+    private function member(int $body, int $child): Symbol|Unnamed|Executable
     {
         $statement = $this->statement($body, $child);
         $equals = $this->first($statement, '=');

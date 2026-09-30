@@ -10,7 +10,7 @@ namespace NightWorksIO\MutationGate\Core\Php;
  */
 final readonly class Signature
 {
-    private function __construct(private SymbolKind $kind, private string $function)
+    private function __construct(private SymbolKind $kind, private string|Nameless $function)
     {
     }
 
@@ -22,19 +22,19 @@ final readonly class Signature
 
     public static function ofMethod(): self
     {
-        return new self(SymbolKind::MethodParameter, '');
+        return new self(SymbolKind::MethodParameter, Nameless::code());
     }
 
     public static function ofClosure(): self
     {
-        return new self(SymbolKind::ClosureParameter, '');
+        return new self(SymbolKind::ClosureParameter, Nameless::code());
     }
 
     /** What the default of one of its parameters is, by the parameter's name without the `$`. */
-    public function defaultOf(string $parameter): Symbol
+    public function defaultOf(string $parameter): Symbol|Unnamed
     {
-        return $this->kind === SymbolKind::FunctionParameter
-            ? Symbol::parameter($this->function, $parameter)
-            : Symbol::unnamed($this->kind);
+        return $this->function instanceof Nameless
+            ? Unnamed::of($this->kind)
+            : Symbol::parameter($this->function, $parameter);
     }
 }

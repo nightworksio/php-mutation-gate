@@ -186,10 +186,10 @@ final readonly class Families
         'SyntaxError' => MutatorFamily::None,
     ];
 
-    /** A mutator's family; one this table does not know has none. */
+    /** A mutator's family; one this table does not know has an unknown one. */
     public static function of(string $mutator): MutatorFamily
     {
-        return array_key_exists($mutator, self::FAMILIES) ? self::FAMILIES[$mutator] : MutatorFamily::None;
+        return array_key_exists($mutator, self::FAMILIES) ? self::FAMILIES[$mutator] : MutatorFamily::Unknown;
     }
 
     /** Whether this table names a mutator, with a family or explicitly with none. */

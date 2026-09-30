@@ -166,7 +166,7 @@ final readonly class MutantRecord
             self::idOf($id),
             '',
             Location::of($unit, self::lineIn($line), Unreported::line()),
-            Mutation::of(self::mutatorOf($mutator, $mutators), MutatorFamily::None, ''),
+            Mutation::of(self::mutatorOf($mutator, $mutators), MutatorFamily::Unrecorded, ''),
             MutantStatus::Killed,
             Unmeasured::duration(),
         )->killedBy(self::killersOf($killers, $tests));

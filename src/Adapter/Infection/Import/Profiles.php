@@ -108,7 +108,7 @@ final readonly class Profiles
                 $this->names,
                 static fn(string $name): bool => Families::of($name) === $family,
             ));
-            $whole = $family !== MutatorFamily::None && $members !== [] && array_diff($members, $mutators) === [];
+            $whole = $family->isKind() && $members !== [] && array_diff($members, $mutators) === [];
             $names = $whole ? [...$names, $family->value] : $names;
             $mutators = $whole ? array_values(array_diff($mutators, $members)) : $mutators;
         }
