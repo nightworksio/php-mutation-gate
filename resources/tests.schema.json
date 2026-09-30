@@ -1,0 +1,153 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://github.com/nightworksio/php-mutation-gate/blob/main/resources/tests.schema.json",
+    "title": "mutation-gate tests report",
+    "description": "The tests mutation says catch nothing, and those that can go without losing a kill (ADR-0014).",
+    "type": "object",
+    "properties": {
+        "format": {
+            "const": 1
+        },
+        "matrix": {
+            "enum": [
+                "first-killer",
+                "full"
+            ]
+        },
+        "useless": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "test": {
+                        "type": "string"
+                    },
+                    "standing": {
+                        "enum": [
+                            "kills-nothing",
+                            "never-first"
+                        ]
+                    },
+                    "covers": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "standing": {
+                                    "enum": [
+                                        "kills-nothing",
+                                        "never-first",
+                                        "useful",
+                                        "not-assessed"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "standing"
+                            ],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": [
+                    "test",
+                    "standing",
+                    "covers"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "notAssessed": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "redundant": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "needs": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "needs"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "kept": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "removable": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "test": {
+                                        "type": "string"
+                                    },
+                                    "seconds": {
+                                        "type": "number",
+                                        "minimum": 0
+                                    },
+                                    "kills": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "mutant": {
+                                                    "type": "string",
+                                                    "pattern": "^[0-9a-f]{12}$"
+                                                },
+                                                "keptBy": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "mutant",
+                                                "keptBy"
+                                            ],
+                                            "additionalProperties": false
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "test",
+                                    "kills"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    },
+                    "required": [
+                        "kept",
+                        "removable"
+                    ],
+                    "additionalProperties": false
+                }
+            ]
+        }
+    },
+    "required": [
+        "format",
+        "matrix",
+        "useless",
+        "notAssessed",
+        "redundant"
+    ],
+    "additionalProperties": false
+}

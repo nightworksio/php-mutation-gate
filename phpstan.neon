@@ -541,8 +541,6 @@ services:
                     - HIDDEN_JOB # a job name
                 'NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory':
                     - PACKAGE_ROOT # directories up to the package
-                'NightWorksIO\MutationGate\Adapter\GitHub\Escape':
-                    - FENCE # backticks
                 'NightWorksIO\MutationGate\Core\Hint\Hint':
                     - NAMED # names a hint gives
                 'NightWorksIO\MutationGate\Adapter\GitHub\Annotations':

@@ -322,6 +322,7 @@ Each reporter is registered by a name:
 | `html` | Listed in `reports` | `mutation-report.json` and a self-contained `index.html` under the `path` directory, shown with Stryker's viewer |
 | `gitlab` | Listed in `reports` | GitLab's Code Quality JSON at `path`: an issue per mutant counted as not killed, `major` in a set that failed and `minor` otherwise |
 | `kill-matrix` | Listed in `reports` | CSV at `path`: a record per mutant and covering test, with what the test did with the mutant in place |
+| `tests` | Listed in `reports` | JSON at `path`, described by [`resources/tests.schema.json`](resources/tests.schema.json), and Markdown beside it: the tests that kill nothing they judged, those never the first to kill, and, from a full kill matrix, those that can go together without losing a kill |
 | `problems` | With `--output=problems` | One `<path>:<line>:<col>: <error\|warning>: <message> [<rule>] <id>` line per result, between `mutation-gate: judging` and `mutation-gate: judged`, for an editor's problem matcher |
 | `github-annotations` | Under GitHub Actions | Up to 10 error, 10 warning and 10 notice annotations, changed lines first |
 | `github-summary` | Under GitHub Actions | The step summary, with every mutant counted as not killed in one table |
@@ -444,6 +445,7 @@ Files the gate reads and writes:
 | `.mutation-gate/baseline.measured.json` | The baseline a CI run measured for trees with no floor, to commit as `mutation-gate.baseline.json` | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | A `json`, `junit`, `sarif`, `gitlab` or `kill-matrix` report's `path` | That report | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | An `html` report's `path`: `index.html`, `mutation-report.json` | The HTML report and its data | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| A `tests` report's `path`, and the same path with `.md` | The useless and removable tests, as JSON and Markdown | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 
 ### Holding tests
 

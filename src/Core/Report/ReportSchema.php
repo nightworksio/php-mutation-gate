@@ -13,6 +13,7 @@ use function in_array;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Matrix\Standing;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -20,9 +21,12 @@ use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 
+use function sprintf;
+
 /**
- * The JSON Schema of the gate's own report, built from the same enums the
- * report is written from, and committed at `resources/report.schema.json`.
+ * The JSON Schemas of the gate's own reports, built from the same enums the
+ * reports are written from, and committed at `resources/report.schema.json`
+ * and `resources/tests.schema.json`.
  *
  * @phpstan-type Leaf array{
  *     type?: string,
@@ -50,9 +54,12 @@ use NightWorksIO\MutationGate\Core\Verdict\Origin;
 final readonly class ReportSchema
 {
     private const string ID
-        = 'https://github.com/nightworksio/php-mutation-gate/blob/main/resources/report.schema.json';
+        = 'https://github.com/nightworksio/php-mutation-gate/blob/main/resources/%s.schema.json';
 
     private const string DRAFT = 'http://json-schema.org/draft-07/schema#';
+
+    private const string TESTS
+        = 'The tests mutation says catch nothing, and those that can go without losing a kill (ADR-0014).';
 
     private const array TEXT = ['type' => 'string'];
 
@@ -72,7 +79,7 @@ final readonly class ReportSchema
     {
         return Json::encode([
             '$schema' => self::DRAFT,
-            '$id' => self::ID,
+            '$id' => sprintf(self::ID, 'report'),
             'title' => 'mutation-gate report',
             'description' => 'Everything a mutation-gate verdict decided (ADR-0009).',
             ...self::object([
@@ -97,6 +104,44 @@ final readonly class ReportSchema
                 'warnings' => self::listOf(self::TEXT),
                 'failures' => self::listOf(self::TEXT),
             ], ['score']),
+        ]);
+    }
+
+    /** The schema of the `tests` report: the tests mutation says are useless, and those that can go (ADR-0014). */
+    public static function tests(): string
+    {
+        $row = self::object(['name' => self::TEXT, 'standing' => self::oneOf(...Standing::cases())], []);
+        $test = self::object([
+            'test' => self::TEXT,
+            'standing' => self::oneOf(Standing::KillsNothing, Standing::NeverFirst),
+            'covers' => self::WHOLE,
+            'rows' => ['type' => 'array', 'items' => $row],
+        ], ['rows']);
+        $kill = self::object(['mutant' => self::ID_SPELLING, 'keptBy' => self::TEXT], []);
+        $removable = self::object([
+            'test' => self::TEXT,
+            'seconds' => self::SECONDS,
+            'kills' => ['type' => 'array', 'items' => $kill],
+        ], ['seconds']);
+
+        return Json::encode([
+            '$schema' => self::DRAFT,
+            '$id' => sprintf(self::ID, 'tests'),
+            'title' => 'mutation-gate tests report',
+            'description' => self::TESTS,
+            ...self::object([
+                'format' => ['const' => TestsReport::FORMAT],
+                'matrix' => self::oneOf(...MatrixKind::cases()),
+                'useless' => ['type' => 'array', 'items' => $test],
+                'notAssessed' => self::WHOLE,
+                'redundant' => ['oneOf' => [
+                    self::object(['needs' => self::TEXT], []),
+                    self::object([
+                        'kept' => self::listOf(self::TEXT),
+                        'removable' => ['type' => 'array', 'items' => $removable],
+                    ], []),
+                ]],
+            ], []),
         ]);
     }
 

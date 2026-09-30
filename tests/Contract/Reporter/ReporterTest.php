@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\KillMatrixFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
@@ -51,6 +52,7 @@ $reporters = [
     'SARIF for an editor' => fn(): Reporter => SarifReportFile::rootedAt(sprintf('%s/mutation.sarif', Scratch::directory()), '/work/gate'),
     'GitLab Code Quality' => fn(): Reporter => CodeQualityReportFile::at(sprintf('%s/gl-code-quality.json', Scratch::directory())),
     'the kill matrix' => fn(): Reporter => KillMatrixFile::at(sprintf('%s/kill-matrix.csv', Scratch::directory())),
+    'the tests report' => fn(): Reporter => TestsReportFile::at(sprintf('%s/tests.json', Scratch::directory())),
     'HTML' => fn(): Reporter => HtmlReportDirectory::at(
         sprintf('%s/html', Scratch::directory()),
         Scratch::directory(),
