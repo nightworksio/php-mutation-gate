@@ -4,39 +4,36 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
-use ArrayObject;
-
-use function implode;
+use NightWorksIO\MutationGate\Core\Runner\Transcript;
 
 /** A shell that keeps what each command it runs printed, for a reproduction to show. */
 final readonly class Transcribing implements Shell
 {
-    /** @param ArrayObject<int, string> $printed what each command printed, in the order they ran */
-    private function __construct(private Shell $shell, private ArrayObject $printed)
+    private function __construct(private Shell $shell, private Transcript $transcript)
     {
     }
 
     public static function over(Shell $shell): self
     {
-        return new self($shell, new ArrayObject());
+        return new self($shell, Transcript::empty());
     }
 
     public function run(Command $command): Ran
     {
         $ran = $this->shell->run($command);
-        $this->printed->append($ran->output());
+        $this->transcript->keep($ran->output());
 
         return $ran;
     }
 
     public function in(string $directory): self
     {
-        return new self($this->shell->in($directory), $this->printed);
+        return new self($this->shell->in($directory), $this->transcript);
     }
 
     /** What every command run so far printed, one after another. */
     public function printed(): string
     {
-        return implode("\n", $this->printed->getArrayCopy());
+        return $this->transcript->printed();
     }
 }
