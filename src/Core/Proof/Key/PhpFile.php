@@ -56,7 +56,11 @@ final readonly class PhpFile
         $reading = Reading::start();
 
         foreach ($tokens as $token) {
-            $reading = $reading->refused() || self::isSilent($token) ? $reading : $reading->then($token);
+            if ($reading->refused()) {
+                break;
+            }
+
+            $reading = self::isSilent($token) ? $reading : $reading->then($token);
         }
 
         return new self(
@@ -98,9 +102,14 @@ final readonly class PhpFile
         $names = [];
 
         foreach ($tokens as $token) {
-            $lower = mb_strtolower($token->text);
-            $names += $token->is(Names::TOKENS) ? self::named(self::lastSegmentOf($lower)) : [];
-            $names += $token->is(self::TEXT_TOKENS) ? self::wordsIn($lower) : [];
+            if ($token->is(Names::TOKENS)) {
+                $name = self::lastSegmentOf(mb_strtolower($token->text));
+                $names[$name] = $name;
+
+                continue;
+            }
+
+            $names += $token->is(self::TEXT_TOKENS) ? self::wordsIn(mb_strtolower($token->text)) : [];
         }
 
         return $names;

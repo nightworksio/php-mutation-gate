@@ -11,8 +11,10 @@ use function array_last;
 use function array_map;
 use function in_array;
 use function is_int;
+use function mb_stripos;
 use function mb_substr;
 
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Hold\HeldPath;
 use NightWorksIO\MutationGate\Core\Hold\HoldsAttribute;
 use NightWorksIO\MutationGate\Core\Hold\HoldsAttributes;
@@ -31,6 +33,13 @@ final readonly class HoldsReader
     /** The attribute, as the package declares it. */
     private const string HOLDS = 'NightWorksIO\MutationGate\Attribute\Holds';
 
+    /**
+     * The attribute's own name, in lower case, which any file that writes it
+     * spells in some case: PHP finds a class only by a name the file writes,
+     * inline or where it imports it.
+     */
+    private const string SPELT = 'holds';
+
     /** PHPUnit's attribute that puts a test in a group. */
     private const string GROUP = 'PHPUnit\Framework\Attributes\Group';
 
@@ -46,6 +55,12 @@ final readonly class HoldsReader
      */
     private function __construct(private Tokens $tokens, private Scope $scope, private array $bodies)
     {
+    }
+
+    /** Whether a file's text could write a `#[Holds]`: one that never spells its name writes none. */
+    public static function mayHold(Contents $contents): bool
+    {
+        return mb_stripos($contents->text(), self::SPELT) !== false;
     }
 
     public static function in(Tokens $tokens, Scope $scope): HoldsAttributes
