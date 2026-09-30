@@ -403,7 +403,7 @@ it('writes the GitHub one-step action --single asks for, and says which check to
     expect([$ran->code, $ran->output, $ran->errors])->toBe([0, sprintf("%s%s\n", INIT_CI_WROTE, implode("\n", [
         'Wrote .github/workflows/mutation.yml.',
         'It is the one-step action, as --single asks.',
-        'Require the check `mutation testing` in the protection of main.',
+        'Require the check `mutation / verdict` in the protection of main.',
         INIT_CI_UNPINNED,
     ])), ''])
         ->and($workflow)->toContain("branches: ['main']")
@@ -435,7 +435,7 @@ it('picks the GitHub definition a full run\'s estimate fits, where neither is as
     'within one shard' => [
         '0.5',
         'It is the one-step action: a full run is estimated at',
-        'mutation testing',
+        'mutation / verdict',
     ],
     'more than one shard' => [
         '1000',
@@ -566,4 +566,44 @@ it('makes the CI definition and the editor\'s files in one init', function (): v
 it('writes nothing for an editor it does not set up', function (): void {
     expect(initCiRefused(['--editor' => 'phpstorm']))
         ->toBe([2, '', "phpstorm is no editor init --editor sets up. Name vscode.\n", '']);
+});
+
+it('writes nothing for a CI where the default branch would run as code', function (string $ci): void {
+    [$project, $ran] = initCi(['--ci' => $ci], [
+        'mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "app"}], "ci": {"defaultBranch": "main$(id)"}}',
+    ]);
+
+    expect([$ran->code, $ran->output])->toBe([2, ''])
+        ->and($ran->errors)->toStartWith('The default branch "main$(id)" cannot go into a CI definition')
+        ->and(initCiFile($project, '.github/workflows/mutation.yml'))->toBe('')
+        ->and(initCiFile($project, '.gitlab/mutation-gate.yml'))->toBe('')
+        ->and(initCiFile($project, '.buildkite/mutation-gate.yml'))->toBe('');
+})->with(['github', 'gitlab', 'buildkite', 'circleci']);
+
+it('says which pipeline a config already here must name, where it names another', function (): void {
+    [, $ran] = initCi(['--ci' => 'buildkite'], [
+        'mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "app"}]}',
+    ]);
+    [, $named] = initCi(['--ci' => 'buildkite'], [
+        'mutation-gate.json' => sprintf(
+            '{"runner": "pest", "trees": [{"path": "app"}], "ci": {"buildkite": {"definition": "%s"}}}',
+            '.buildkite/mutation-gate.yml',
+        ),
+    ]);
+
+    expect($ran->output)->toEndWith(
+        "Set ci.buildkite.definition to .buildkite/mutation-gate.yml in the config: reach and the proof key read it.\n",
+    )->and($named->output)->not->toContain('Set ci.buildkite.definition');
+});
+
+it('says what it wrote before a file it could not write', function (): void {
+    [$project, $ran] = initCi(['--editor' => 'vscode'], ['.vscode/tasks.json/inside' => '']);
+
+    expect($ran->code)->toBe(2)
+        ->and($ran->errors)->toBe(sprintf(
+            "%s%s/.vscode/tasks.json could not be read.\n",
+            INIT_CI_WROTE,
+            $project,
+        ))
+        ->and(initCiFile($project, 'mutation-gate.php'))->not->toBe('');
 });

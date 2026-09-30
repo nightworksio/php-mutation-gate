@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Ci;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
+use function preg_match;
 use function sprintf;
 
 /**
@@ -23,15 +24,27 @@ final readonly class GatePin
     /** What stands for the version where none is known. */
     public const string UNKNOWN_VERSION = '<its version>';
 
+    /** A full git commit, which a definition can pin. */
+    private const string COMMIT = '/^[0-9a-f]{40}$/D';
+
+    /** A version as Composer spells one, which a comment can hold. */
+    private const string VERSION = '/^[A-Za-z0-9._+-]+$/D';
+
     private function __construct(private string $commit, private string $version, private bool $release)
     {
     }
 
-    /** The gate as Composer lists it; unknown where Composer does not list it or names no commit. */
+    /**
+     * The gate as Composer lists it; unknown where Composer does not list it, or names no full commit, as a path
+     * repository does, or a version with more than letters, digits and `.`, `_`, `+` and `-` in it.
+     */
     public static function in(Installed $installed): self
     {
         foreach ($installed->versionsOf(ThisPackage::COMPOSER) as $version) {
-            if ($version->reference() !== '') {
+            $pinned = preg_match(self::COMMIT, $version->reference()) === 1
+                && preg_match(self::VERSION, $version->version()) === 1;
+
+            if ($pinned) {
                 return new self($version->reference(), $version->version(), $version->isRelease());
             }
         }

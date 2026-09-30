@@ -3,8 +3,10 @@
 # the full run. Keep .mutation-gate/ledger between builds with a cache plugin,
 # keyed by branch, and set the agents' image to one with PHP %%php%% and pcov:
 # no official image is known to include pcov, and without it the first run
-# cannot judge. For an S3 proof store, give the agents AWS_ACCESS_KEY_ID and
-# AWS_SECRET_ACCESS_KEY from your secrets.
+# cannot judge. For an S3 proof store, give AWS_ACCESS_KEY_ID and
+# AWS_SECRET_ACCESS_KEY from your secrets to the plan and verdict steps alone,
+# never to the agents, whose environment every step and script sees: a shard
+# needs neither.
 steps:
   - label: 'mutation: plan'
     artifact_paths: '.mutation-gate/**/*'
@@ -13,5 +15,6 @@ steps:
       - |
         if [ "$BUILDKITE_PULL_REQUEST" != "false" ]; then base="--changed-since=origin/$BUILDKITE_PULL_REQUEST_BASE_BRANCH"
         elif [ "$BUILDKITE_SOURCE" = "schedule" ]; then base=""
-        else base="--changed-since=last-passed"; fi
+        elif [ "$BUILDKITE_BRANCH" = "$BUILDKITE_PIPELINE_DEFAULT_BRANCH" ]; then base="--changed-since=last-passed"
+        else base="--changed-since=origin/$BUILDKITE_PIPELINE_DEFAULT_BRANCH"; fi
         vendor/bin/mutation-gate plan --ci=buildkite $base | buildkite-agent pipeline upload

@@ -247,6 +247,11 @@ one of those values the gate can know or check.
     - The branch-protection step is printed with the exact check to require:
       `mutation testing` for the one-step action, `mutation / verdict` for
       the reusable workflow.
+    - **As built.** The one-step action's job is named for `ci.check`,
+      `mutation / verdict` by default, so its check-run is the one a merged
+      pull request's verdict is trusted by; `init` prints that check for both
+      definitions. Every value the project gives a template is checked to
+      hold no character a shell or YAML reads as code, and lands quoted.
 
 17. **The templates are checked in the package's CI.**
     - The GitHub template runs through `actionlint`, and is the shape the

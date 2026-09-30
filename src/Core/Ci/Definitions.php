@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Ci;
 
+use function is_string;
+
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
-use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /** Where the CIs the gate knows keep their definitions, from the repository's root. */
@@ -20,21 +22,41 @@ final readonly class Definitions
     /** The directory of Buildkite's pipelines. */
     public const string BUILDKITE = '.buildkite/';
 
+    /** The directory of CircleCI's config. */
+    public const string CIRCLECI_DIRECTORY = '.circleci/';
+
     /** The one config CircleCI reads. */
     public const string CIRCLECI = '.circleci/config.yml';
 
-    /** Each a file, or a directory ending in `/` whose files are definitions. */
-    public const array PLACES = [self::GITHUB, self::GITLAB, self::BUILDKITE, '.circleci/'];
-
-    /** The file or directory that shows a project runs this CI (ADR-0017 decision 1); none for plain JSON. */
-    public static function shownBy(BuiltinCiPlan $plan): Path|NotGiven
+    /**
+     * Where the CI keeps its definitions, which shows a project runs it (ADR-0017 decision 1): a file, or a
+     * directory ending in `/` whose files are definitions; none for plain JSON.
+     */
+    public static function shownBy(BuiltinCiPlan $plan): string|NotGiven
     {
         return match ($plan) {
-            BuiltinCiPlan::GitHub => Path::of(self::GITHUB),
-            BuiltinCiPlan::GitLab => Path::of(self::GITLAB),
-            BuiltinCiPlan::Buildkite => Path::of(self::BUILDKITE),
-            BuiltinCiPlan::CircleCi => Path::of(self::CIRCLECI),
+            BuiltinCiPlan::GitHub => self::GITHUB,
+            BuiltinCiPlan::GitLab => self::GITLAB,
+            BuiltinCiPlan::Buildkite => self::BUILDKITE,
+            BuiltinCiPlan::CircleCi => self::CIRCLECI_DIRECTORY,
             BuiltinCiPlan::Json => NotGiven::value(),
         };
+    }
+
+    /**
+     * Where every CI the gate knows keeps its definitions, as `shownBy()` names each.
+     *
+     * @return Listed<string>
+     */
+    public static function places(): Listed
+    {
+        $places = [];
+
+        foreach (BuiltinCiPlan::cases() as $plan) {
+            $place = self::shownBy($plan);
+            $places = is_string($place) ? [...$places, $place] : $places;
+        }
+
+        return Listed::of(...$places);
     }
 }

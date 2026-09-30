@@ -117,9 +117,7 @@ final readonly class CiRequest
             return CiTemplate::none($named);
         }
 
-        $templates = CiTemplate::for($plan, GitHubWorkflow::Single);
-
-        return $templates instanceof CannotJudge ? $templates : $plan;
+        return CiTemplate::for($plan, GitHubWorkflow::Single)->count() === 0 ? CiTemplate::none($named) : $plan;
     }
 
     private static function asked(InputInterface $input): GitHubWorkflow|NotGiven|CannotJudge
@@ -142,7 +140,7 @@ final readonly class CiRequest
 
         foreach (BuiltinCiPlan::cases() as $plan) {
             $place = Definitions::shownBy($plan);
-            $there = $place instanceof Path && file_exists(Root::of($project)->at($place)->value());
+            $there = is_string($place) && file_exists(Root::of($project)->at(Path::of($place))->value());
             $shown = $there ? [...$shown, $plan] : $shown;
         }
 

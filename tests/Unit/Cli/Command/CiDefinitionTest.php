@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Command\CiDefinition;
 use NightWorksIO\MutationGate\Cli\Command\CiRequest;
 use NightWorksIO\MutationGate\Cli\Command\Output;
+use NightWorksIO\MutationGate\Cli\Command\PreparedCi;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
@@ -31,10 +32,13 @@ it('says a template the package is missing is to be reinstalled, and why one it 
         GatePin::unknown(),
         Directory::at(sprintf('%s/%s', $project, $templates)),
     );
-    $made = $definition->made(
+    $settings = Configs::settings(['runner' => 'pest']);
+    $prepared = $definition->prepared(
         CiRequest::of(BuiltinCiPlan::CircleCi, NotGiven::value(), Output::Written),
-        Configs::settings(['runner' => 'pest']),
+        $settings,
+        kept: false,
     );
+    $made = $prepared instanceof PreparedCi ? $definition->made($prepared, $settings->ci()) : $prepared;
 
     expect($made instanceof CannotJudge ? $made->why() : $made)->toBe(sprintf($why, $project));
 })->with([
