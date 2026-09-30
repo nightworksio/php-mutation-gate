@@ -769,7 +769,7 @@ jobs:
 | `runner` | the config's, or the one installed |
 | `shard` | none: the whole gate runs |
 | `mode` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed` |
-| `changed-since` | the pull request's base on `pull_request`, `last-passed` on a push to the default branch; used when the mode is change-scoped |
+| `changed-since` | the pull request's base on `pull_request`, the default branch on any other branch, `last-passed` on the default branch; used when the mode is change-scoped |
 | `budget` | none |
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
 | `cache` | `true`: keep the ledger in the Actions cache |
