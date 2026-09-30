@@ -89,22 +89,26 @@ it('cannot judge when a package Pest mutates with is not installed', function ()
     )));
 });
 
-it('cannot judge with no manifest, one that is not JSON, or one that lists no packages', function (): void {
-    $root = Scratch::directory();
-    Scratch::write($root, 'broken.json', '{');
-    Scratch::write($root, 'empty.json', '{"packages": "none"}');
-    $missing = 'pestphp/pest, pestphp/pest-plugin-mutate, phpunit/phpunit, phpunit/php-code-coverage';
+it('cannot judge with no manifest, which lists nothing', function (): void {
+    $file = sprintf('%s/absent.json', Scratch::directory());
 
-    foreach (['absent.json', 'broken.json', 'empty.json'] as $name) {
-        $file = sprintf('%s/%s', $root, $name);
-
-        expect(Installed::versionsIn($file))->toEqual(CannotJudge::because(sprintf(
-            '%s does not list %s, so the gate cannot say which Pest judges the mutants. Run composer install.',
-            $file,
-            $missing,
-        )));
-    }
+    expect(Installed::versionsIn($file))->toEqual(CannotJudge::because(sprintf(
+        '%s does not list %s, so the gate cannot say which Pest judges the mutants. Run composer install.',
+        $file,
+        'pestphp/pest, pestphp/pest-plugin-mutate, phpunit/phpunit, phpunit/php-code-coverage',
+    )));
 });
+
+it('cannot judge with a manifest that is not JSON, or that holds no list of packages', function (string $text): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'installed.json', $text);
+    $file = sprintf('%s/installed.json', $root);
+
+    expect(Installed::versionsIn($file))->toEqual(CannotJudge::because(sprintf(
+        '%s is not the list of installed packages Composer 2 writes, so what it installed cannot be read.',
+        $file,
+    )));
+})->with(['{', '{"packages": "none"}']);
 
 it('cannot judge with a directory where the manifest should be', function (): void {
     $root = Scratch::directory();

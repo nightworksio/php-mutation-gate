@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -159,6 +160,21 @@ final readonly class Infection implements Runner
         $config = OwnConfig::in($this->project);
 
         return $config instanceof CannotJudge ? $config : NativeMarkers::in($this->project, $config, $files);
+    }
+
+    /**
+     * The project's Infection config, whichever name it has, and the PHPUnit
+     * config Infection runs with, in `phpUnit.configDir` where the project's
+     * config sets it and in the root otherwise.
+     */
+    public function definitions(): Paths
+    {
+        $config = OwnConfig::in($this->project);
+        $phpunit = $config instanceof CannotJudge
+            ? PhpUnitConfig::candidatesIn(Path::root())
+            : $config->phpUnitConfigs($this->project);
+
+        return Paths::of(...OwnConfig::files(), ...$phpunit);
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function array_key_exists;
+use function array_map;
 use function basename;
 use function file_get_contents;
 use function in_array;
@@ -14,9 +15,12 @@ use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\JsonObject;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function preg_split;
@@ -102,6 +106,12 @@ final readonly class OwnConfig
         return $settings instanceof CannotJudge ? $settings : self::refusing(new self($name, $settings));
     }
 
+    /** The files Infection reads its config from, in the order it looks for them in the project's root. */
+    public static function files(): Paths
+    {
+        return Paths::of(...array_map(Path::of(...), self::NAMES));
+    }
+
     /** The name of the file the config was read from. */
     public function name(): string
     {
@@ -124,6 +134,12 @@ final readonly class OwnConfig
     public function configDirectory(Project $project): string
     {
         return $this->pathIn($project, self::PHPUNIT_SECTION, self::CONFIG_DIR, self::HERE);
+    }
+
+    /** Where PHPUnit's config may be in the directory `configDirectory` names, spelt from the project's root. */
+    public function phpUnitConfigs(Project $project): Paths
+    {
+        return PhpUnitConfig::candidatesIn($project->relative($this->configDirectory($project)));
     }
 
     /** @return list<string> the PHP options the project's opening run takes, `initialTestsPhpOptions` */
@@ -175,17 +191,17 @@ final readonly class OwnConfig
         }
 
         $members[self::PHPUNIT_SECTION] = $this->section($project, self::PHPUNIT_SECTION, [
-            self::CONFIG_DIR => ConfigJson::value($this->configDirectory($project)),
+            self::CONFIG_DIR => JsonObject::value($this->configDirectory($project)),
         ]);
 
-        return ConfigJson::object([
+        return JsonObject::of([
             ...$members,
-            'source' => ConfigJson::object(['directories' => ConfigJson::value($directories)]),
-            'timeout' => ConfigJson::value($cap->seconds()),
-            'tmpDir' => ConfigJson::value($project->own(Invocation::TMP)),
-            'logs' => ConfigJson::object([
-                'json' => ConfigJson::value($project->own(Invocation::JSON)),
-                'text' => ConfigJson::value($project->own(Invocation::TEXT)),
+            'source' => JsonObject::of(['directories' => JsonObject::value($directories)]),
+            'timeout' => JsonObject::value($cap->seconds()),
+            'tmpDir' => JsonObject::value($project->own(Invocation::TMP)),
+            'logs' => JsonObject::of([
+                'json' => JsonObject::value($project->own(Invocation::JSON)),
+                'text' => JsonObject::value($project->own(Invocation::TEXT)),
             ]),
             ...$this->mutators()->narrowedTo($mutators),
         ]);
@@ -220,11 +236,11 @@ final readonly class OwnConfig
 
         foreach ($this->entriesOf($this->settings->field($tool)) as $key => $value) {
             $members[$key] = in_array($key, self::PATHS, strict: true) && self::textOf($value) !== ''
-                ? ConfigJson::value($this->pathIn($project, $tool, $key, self::HERE))
+                ? JsonObject::value($this->pathIn($project, $tool, $key, self::HERE))
                 : $value->json();
         }
 
-        return ConfigJson::object([...$members, ...$over]);
+        return JsonObject::of([...$members, ...$over]);
     }
 
     /** A path under a section of the config, absolute, or the fallback where it names none. */

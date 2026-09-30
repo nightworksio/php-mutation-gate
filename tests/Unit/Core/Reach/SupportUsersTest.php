@@ -30,7 +30,7 @@ function supportUsersAmong(array $files): SupportUsers
     }
 
     return SupportUsers::in(
-        Layout::standard(),
+        Layout::standard(Paths::of(Path::of('tests/Pest.php'))),
         Packages::of(Trees::of(Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root())))),
         $sources,
     );

@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Adapter\Composer;
 use function dirname;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -74,7 +76,7 @@ final readonly class ComposerTrees implements TreeSource
      */
     private function treesOf(Path $directory, Packages $packages): array|CannotJudge
     {
-        $manifest = Manifest::in($this->disk, $directory);
+        $manifest = $this->disk->manifestIn($directory);
 
         if ($manifest instanceof CannotJudge) {
             return $manifest;
@@ -82,7 +84,7 @@ final readonly class ComposerTrees implements TreeSource
 
         $trees = [];
 
-        foreach ($manifest instanceof Manifest ? $manifest->autoloaded() : [] as $path) {
+        foreach ($manifest instanceof Manifest ? $manifest->autoloaded() : Paths::none() as $path) {
             $tree = $this->treeAt($path, $packages);
 
             if ($tree instanceof CannotJudge) {
@@ -145,7 +147,7 @@ final readonly class ComposerTrees implements TreeSource
         $directory = $path;
 
         do {
-            $manifest = Manifest::in($this->disk, $directory);
+            $manifest = $this->disk->manifestIn($directory);
 
             if ($manifest instanceof CannotJudge) {
                 return $manifest;
@@ -164,7 +166,7 @@ final readonly class ComposerTrees implements TreeSource
     private function declared(array $above): Floor|Exempt|Undeclared|CannotJudge
     {
         foreach ($above as $manifest) {
-            $floor = $manifest->floor();
+            $floor = $manifest->gate()->floor();
 
             if (! $floor instanceof Undeclared) {
                 return $floor;
@@ -178,7 +180,7 @@ final readonly class ComposerTrees implements TreeSource
     private function newCode(array $above): Floor|Undeclared|CannotJudge
     {
         foreach ($above as $manifest) {
-            $floor = $manifest->newCodeFloor();
+            $floor = $manifest->gate()->newCodeFloor();
 
             if (! $floor instanceof Undeclared) {
                 return $floor;

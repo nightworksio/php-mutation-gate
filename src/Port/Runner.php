@@ -67,4 +67,11 @@ interface Runner
      * ahead with them is the verdict's to decide (ADR-0008).
      */
     public function markers(Paths $files): Markers|CannotJudge;
+
+    /**
+     * The files that define how the runner runs, such as its own config and
+     * the PHPUnit config it runs with, as paths from the project's root: a
+     * change to one reaches everything, and every content key reads them.
+     */
+    public function definitions(): Paths;
 }

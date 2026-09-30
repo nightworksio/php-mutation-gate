@@ -5,14 +5,19 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Composer;
 
 use function array_any;
+use function array_filter;
 use function array_key_exists;
+use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\Composer\Names;
+use NightWorksIO\MutationGate\Core\Composer\Unnamed;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Tree\Package;
-
-use function sprintf;
 
 /**
  * The packages of a repository: the project at its root, each directory a
@@ -22,12 +27,6 @@ use function sprintf;
  */
 final readonly class Packages
 {
-    /** What a package declares itself in. */
-    private const string MANIFEST = 'composer.json';
-
-    /** What a package's PHPUnit config may be called. */
-    private const array PHPUNIT = ['phpunit.xml', 'phpunit.xml.dist', 'phpunit.dist.xml'];
-
     /** @param list<Package> $packages the root's first */
     private function __construct(private array $packages)
     {
@@ -36,16 +35,16 @@ final readonly class Packages
     /** @param list<string> $globs the directories of packages, as shell globs from the root */
     public static function in(Disk $disk, array $globs): self|CannotJudge
     {
-        $root = Manifest::in($disk, Path::root());
+        $root = $disk->manifestIn(Path::root());
         $directories = [Path::root()];
 
         foreach ($globs as $glob) {
-            $directories = [...$directories, ...self::withAny($disk, $disk->directories($glob), [self::MANIFEST])];
+            $directories = [...$directories, ...self::withManifest($disk, $disk->directories($glob))];
         }
 
-        foreach ($root instanceof Manifest ? $root->pathRepositories() : [] as $repository) {
-            $manifested = self::withAny($disk, $disk->directories($repository), [self::MANIFEST]);
-            $directories = [...$directories, ...self::withAny($disk, $manifested, self::PHPUNIT)];
+        foreach ($root instanceof Manifest ? $root->pathRepositories() : Paths::none() as $repository) {
+            $manifested = self::withManifest($disk, $disk->directories($repository->value()));
+            $directories = [...$directories, ...self::withPhpUnitConfig($disk, $manifested)];
         }
 
         return self::related($disk, $directories);
@@ -87,7 +86,7 @@ final readonly class Packages
         $manifests = [];
 
         foreach ($directories as $directory) {
-            $manifest = Manifest::in($disk, $directory);
+            $manifest = $disk->manifestIn($directory);
 
             if ($manifest instanceof CannotJudge) {
                 return $manifest;
@@ -117,7 +116,8 @@ final readonly class Packages
         $named = [];
 
         foreach ($manifests as [$directory, $manifest]) {
-            $named = $manifest instanceof Manifest ? [...$named, $manifest->name() => $directory] : $named;
+            $name = $manifest instanceof Manifest ? $manifest->name() : Unnamed::package();
+            $named = $name instanceof Unnamed ? $named : [...$named, $name => $directory];
         }
 
         return $named;
@@ -132,7 +132,7 @@ final readonly class Packages
     {
         $package = Package::at($directory);
 
-        foreach ($manifest instanceof Manifest ? $manifest->requires() : [] as $required) {
+        foreach ($manifest instanceof Manifest ? $manifest->requires() : Names::of() as $required) {
             $package = array_key_exists($required, $named) ? $package->dependingOn($named[$required]) : $package;
         }
 
@@ -140,29 +140,33 @@ final readonly class Packages
     }
 
     /**
-     * The directories that hold any of some files.
+     * The directories that hold a `composer.json`.
      *
-     * @param  list<Path>   $directories
-     * @param  list<string> $files
+     * @param  list<Path> $directories
      * @return list<Path>
      */
-    private static function withAny(Disk $disk, array $directories, array $files): array
+    private static function withManifest(Disk $disk, array $directories): array
     {
-        $found = [];
-
-        foreach ($directories as $directory) {
-            $found = self::holdsAny($disk, $directory, $files) ? [...$found, $directory] : $found;
-        }
-
-        return $found;
+        return array_values(array_filter(
+            $directories,
+            static fn(Path $directory): bool => $disk->isFile(Manifest::fileIn($directory)),
+        ));
     }
 
-    /** @param list<string> $files */
-    private static function holdsAny(Disk $disk, Path $directory, array $files): bool
+    /**
+     * The directories that hold a PHPUnit config, whichever name it has.
+     *
+     * @param  list<Path> $directories
+     * @return list<Path>
+     */
+    private static function withPhpUnitConfig(Disk $disk, array $directories): array
     {
-        return array_any(
-            $files,
-            static fn(string $file): bool => $disk->isFile(Path::of(sprintf('%s/%s', $directory->value(), $file))),
-        );
+        return array_values(array_filter(
+            $directories,
+            static fn(Path $directory): bool => array_any(
+                [...PhpUnitConfig::candidatesIn($directory)],
+                $disk->isFile(...),
+            ),
+        ));
     }
 }

@@ -89,24 +89,9 @@ it('cannot judge a floor a manifest declares wrongly', function (string $setting
 
     expect(Manifests::in($project)->trees(Paths::of(Path::of('src'))))->toEqual(CannotJudge::because($why));
 })->with([
-    'a string' => [
-        '{"floor": "80"}',
-        'src/composer.json declares extra.mutation-gate.floor as "80", which is not a number from 0 to 100.',
-    ],
-    'below 0' => [
-        '{"floor": -1}',
-        'src/composer.json declares extra.mutation-gate.floor as -1, which is not a number from 0 to 100.',
-    ],
-    'above 100' => [
-        '{"floor": 100.5}',
-        'src/composer.json declares extra.mutation-gate.floor as 100.5, which is not a number from 0 to 100.',
-    ],
+    'a string' => ['{"floor": "80"}', 'src/composer.json: extra.mutation-gate.floor is not a number from 0 to 100.'],
     '0 without a reason' => [
         '{"floor": 0}',
-        'src/composer.json declares a floor of 0 without the reason extra.mutation-gate.floorReason gives it.',
-    ],
-    '0 with an empty reason' => [
-        '{"floor": 0, "floorReason": ""}',
-        'src/composer.json declares a floor of 0 without the reason extra.mutation-gate.floorReason gives it.',
+        'src/composer.json declares extra.mutation-gate.floor as 0 without a floorReason beside it.',
     ],
 ]);

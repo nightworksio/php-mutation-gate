@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -51,6 +52,9 @@ final readonly class Pest implements Runner
 
     /** Where the adapter keeps what it writes. */
     private const string WORKSPACE = '.mutation-gate';
+
+    /** The file Pest loads before any test, in the test directory it runs with, which the gate leaves at `tests`. */
+    private const string BOOT_FILE = 'tests/Pest.php';
 
     private const string BY_GROUP_ALONE
         = 'Pest selects held tests by the holds: groups its plugin adds for #[Holds], not by the filter %s.';
@@ -190,6 +194,12 @@ final readonly class Pest implements Runner
     public function markers(Paths $files): Markers
     {
         return NativeMarkers::in($this->project, $files);
+    }
+
+    /** `tests/Pest.php`, and the PHPUnit config in the project's root, whichever name it has. */
+    public function definitions(): Paths
+    {
+        return Paths::of(Path::of(self::BOOT_FILE), ...PhpUnitConfig::candidatesIn(Path::root()));
     }
 
     /**

@@ -138,18 +138,22 @@ final class Library
      * @param array<string, array{string, MutatorFamily}> $vocabulary
      * @param bool                                         $endsReported whether the runner reports the line a mutant ends on,
      *                                                                   and how long each mutant it ran took
+     * @param Paths                                        $defining     the files of the library that define its runner
      */
     private function __construct(
         private readonly string $name,
         private readonly Runner $runner,
         private readonly array $vocabulary,
         private readonly bool $endsReported,
+        private readonly Paths $defining,
     ) {
     }
 
     public static function fake(): self
     {
-        return new self('fake', RunnerFake::ofTheFixture(), self::FAKE, endsReported: true);
+        $defining = Paths::of(Path::of('tests/Pest.php'), Path::of('phpunit.xml'));
+
+        return new self('fake', RunnerFake::ofTheFixture(), self::FAKE, endsReported: true, defining: $defining);
     }
 
     /**
@@ -162,7 +166,10 @@ final class Library
         $project = InfectionProject::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
         $runner = new Infection($project, new InfectionShell($root, getenv()), $cap, nativeMarkersAllowed: false);
 
-        return new self(sprintf('infection %.1F', $cap->seconds()), $runner, self::INFECTION, endsReported: false);
+        $name = sprintf('infection %.1F', $cap->seconds());
+        $defining = Paths::of(Path::of('infection.json5'), Path::of('phpunit.xml'));
+
+        return new self($name, $runner, self::INFECTION, endsReported: false, defining: $defining);
     }
 
     public static function isInfectionInstalled(): bool
@@ -178,7 +185,10 @@ final class Library
 
         $name = sprintf('pest %s', $patching->isOn() ? 'patched' : 'unpatched');
 
-        return new self($name, new Pest($project, new ProcessShell($root), $patching), self::PEST, endsReported: true);
+        $runner = new Pest($project, new ProcessShell($root), $patching);
+        $defining = Paths::of(Path::of('tests/Pest.php'), Path::of('phpunit.xml'));
+
+        return new self($name, $runner, self::PEST, endsReported: true, defining: $defining);
     }
 
     public static function isInstalled(): bool
@@ -195,6 +205,12 @@ final class Library
     public function runner(): Runner
     {
         return $this->runner;
+    }
+
+    /** The files of the library that define its runner, from the library's root. */
+    public function defining(): Paths
+    {
+        return $this->defining;
     }
 
     /** Whether the runner reports how long each mutant it ran took; Infection's logs do not. */

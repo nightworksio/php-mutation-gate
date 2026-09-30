@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Composer\Disk;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Tests\Support\Project;
@@ -29,6 +30,15 @@ it('cannot judge a file it cannot read', function (): void {
     chmod(sprintf('%s/composer.json', $root), 0o644);
 
     expect($read)->toEqual(CannotJudge::because('composer.json could not be read.'));
+});
+
+it('reads the manifest of a directory, and names one that is not there', function (): void {
+    $disk = Disk::at(Project::with(['modules/billing/composer.json' => '{"name": "acme/billing"}', 'broken/composer.json' => '[']));
+    $manifest = $disk->manifestIn(Path::of('modules/billing'));
+
+    expect($manifest instanceof Manifest ? $manifest->name() : $manifest)->toBe('acme/billing')
+        ->and($disk->manifestIn(Path::root()))->toEqual(Missing::at(Path::of('composer.json')))
+        ->and($disk->manifestIn(Path::of('broken')))->toEqual(CannotJudge::because('broken/composer.json is not a JSON object.'));
 });
 
 it('knows which paths are files', function (): void {

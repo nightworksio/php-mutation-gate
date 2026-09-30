@@ -10,12 +10,12 @@ use function count;
 use function file_get_contents;
 use function is_array;
 use function is_file;
-use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -43,8 +43,7 @@ final readonly class PhpUnitTrees implements TreeSource
     private const string ALL_EXCLUDED
         = 'phpunit.xml excludes every path its <source> includes, so no tree is left; list trees in the config.';
 
-    /** The files PHPUnit reads its configuration from, in the order it looks for them. */
-    private const array CONFIGS = ['phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist'];
+    private const string NOT_XML = '%s is not XML, so the trees and tests in it cannot be read.';
 
     private const string INCLUDED = '/phpunit/source/include/directory | /phpunit/source/include/file';
 
@@ -137,20 +136,23 @@ final readonly class PhpUnitTrees implements TreeSource
 
     private function xml(): SimpleXMLElement|Absent|CannotJudge
     {
-        $config = array_find(self::CONFIGS, fn(string $name): bool => is_file(sprintf('%s/%s', $this->root, $name)));
+        $config = array_find(
+            [...PhpUnitConfig::candidatesIn(Path::root())],
+            fn(Path $candidate): bool => is_file(sprintf('%s/%s', $this->root, $candidate->value())),
+        );
 
-        if (! is_string($config)) {
+        if (! $config instanceof Path) {
             return Absent::setting();
         }
 
         $xml = simplexml_load_string(
-            sprintf('%s', file_get_contents(sprintf('%s/%s', $this->root, $config))),
+            sprintf('%s', file_get_contents(sprintf('%s/%s', $this->root, $config->value()))),
             options: LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING,
         );
 
         return $xml instanceof SimpleXMLElement
             ? $xml
-            : CannotJudge::because(sprintf('%s is not XML, so the trees and tests in it cannot be read.', $config));
+            : CannotJudge::because(sprintf(self::NOT_XML, $config->value()));
     }
 
     private function paths(SimpleXMLElement|Absent $xml, string $query): Paths

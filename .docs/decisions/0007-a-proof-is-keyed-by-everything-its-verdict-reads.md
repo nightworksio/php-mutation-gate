@@ -91,8 +91,8 @@ has to bring its result with it.
    6. **Every file in the repository outside the test directories**, by the git
       blob id of its content as it is on disk. That means tracked files and
       untracked files git does not ignore. It includes source, `composer.json`,
-      `composer.lock`, the PHPUnit and runner configs, templates, translations
-      and documentation. Five exceptions:
+      `composer.lock`, the PHPUnit config, the files that define the runner
+      (ADR-0004), templates, translations and documentation. Five exceptions:
       - **The gate's config file** is left out, because item 3 already holds
         what of it affects results. Each `composer.json` is hashed with its
         `extra.mutation-gate` entry removed, for the same reason.
