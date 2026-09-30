@@ -33,3 +33,8 @@ it('makes text from outside one plain line, with no control character and valid 
         ->and(Fit::plain("\e[31mred\e[0m\x07"))->toBe('[31mred[0m')
         ->and(Fit::plain("ok\xC3(\u{85}"))->toBe('ok?(');
 });
+
+it('drops every format character, so no text it is shown in is reordered or hidden', function (): void {
+    expect(Fit::plain("it adds\u{202E}lave\u{202C}"))->toBe('it addslave')
+        ->and(Fit::plain("it\u{200B} adds"))->toBe('it adds');
+});

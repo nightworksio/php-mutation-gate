@@ -508,10 +508,10 @@ services:
             coincidences:
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
                     - UNRELEASED # the package's own branch, in a link to its guide
-                'NightWorksIO\MutationGate\Core\Assertion\AssertionTable':
-                    - TAUTOLOGY # the PHP literal an assertTrue is handed
+                'NightWorksIO\MutationGate\Core\Php\OwnMember':
+                    - PARENT # PHP's keyword, not php-parser's attribute
                 'NightWorksIO\MutationGate\Core\Assertion\AssertionScan':
-                    - CALL_OPENS # tokens from a `->` to its call's bracket
+                    - CALL_OPENS # tokens from what a link is chained to, to its call's bracket
                 'NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment':
                     - PAGE # comments a page
                     - PAGES # pages read

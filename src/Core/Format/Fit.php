@@ -31,8 +31,11 @@ final readonly class Fit
     /** Any run of white space, which a plain line holds as one space. */
     private const string SPACE = '/\s+/u';
 
-    /** A control character: an escape, a bell, a carriage return and the like. */
-    private const string CONTROL = '/\p{Cc}/u';
+    /**
+     * A control or format character: an escape, a bell, a carriage return, a
+     * bidirectional override, a zero-width space and the like.
+     */
+    private const string CONTROL = '/[\p{Cc}\p{Cf}]/u';
 
     /**
      * As many of these lines, one to a line, as fit in this many characters with a line saying how many are left out.
@@ -65,8 +68,9 @@ final readonly class Fit
 
     /**
      * Text from outside as one plain line: invalid UTF-8 replaced, every run
-     * of white space a single space, and every control character dropped,
-     * so an answer can start no workflow command and colour no terminal.
+     * of white space a single space, and every control and format character
+     * dropped, so an answer can start no workflow command, colour no
+     * terminal and reorder no text it is shown in.
      */
     public static function plain(string $text): string
     {

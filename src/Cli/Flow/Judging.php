@@ -8,6 +8,7 @@ use function count;
 use function implode;
 use function is_array;
 
+use NightWorksIO\MutationGate\Core\Assertion\TestFiles;
 use NightWorksIO\MutationGate\Core\Assertion\Weakness;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
@@ -193,9 +194,12 @@ final readonly class Judging
     {
         $sources = Sources::ofSurvivors($judged, $this->adapters->project);
         $clustered = $judged->clustered($sources);
-        $tests = Sources::of(Weakness::testFiles($clustered, $matrix), $this->adapters->project);
+        $tests = TestFiles::read(
+            Sources::of(Weakness::testFiles($clustered, $matrix), $this->adapters->project),
+            Sources::of($this->adapters->runner->definitions(), $this->adapters->project),
+        );
 
-        return $clustered->found(Weakness::findings($clustered, $matrix, $sources->and($tests)));
+        return $clustered->found(Weakness::findings($clustered, $matrix, $sources, $tests));
     }
 
     /**

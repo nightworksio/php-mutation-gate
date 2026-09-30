@@ -78,13 +78,12 @@ final readonly class StaticReads
     {
         $tokens = $this->source->tokens();
         $left = $colon - 1;
-        $said = mb_strtolower($tokens->text($left));
         $around = $this->source->classAround($colon);
 
         return match (true) {
             $tokens->is($left, T_STATIC) => $this->fromStatic($colon, $around),
-            $said === 'self' => $this->reachedBy($around->names(), $colon),
-            $said === 'parent' => $this->reachedBy($around->parents(), $colon),
+            OwnMember::isSelf($tokens, $left) => $this->reachedBy($around->names(), $colon),
+            OwnMember::isParent($tokens, $left) => $this->reachedBy($around->parents(), $colon),
             $tokens->is($left, ...Names::TOKENS) => $this->reachedBy(
                 $this->source->scope()->resolve($tokens->text($left)),
                 $colon,

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Assertion;
 
-use function in_array;
+use function array_change_key_case;
+use function array_flip;
+use function array_key_exists;
+use function mb_strtolower;
+use function var_export;
 
 /**
  * The fixed table of assertions, by what they check: that something is
@@ -46,6 +50,8 @@ final readonly class AssertionTable
 
     /** PHPUnit's assertions of a type, a class or a size. */
     private const array PHPUNIT_SHAPE = [
+        'assertContainsOnly',
+        'assertNotContainsOnly',
         'assertIsList',
         'assertContainsOnlyArray',
         'assertContainsOnlyBool',
@@ -108,7 +114,10 @@ final readonly class AssertionTable
         'assertJson',
     ];
 
-    /** PHPUnit's assertions of a value, and its expectations of an exception or output. */
+    /**
+     * PHPUnit's assertions of a value, and its expectations of an exception
+     * or output. `AssertionStyle::PhpUnit` suggests one of them, `assertSame`.
+     */
     private const array PHPUNIT_VALUE = [
         'assertArrayIsEqualToArrayOnlyConsideringListOfKeys',
         'assertArrayIsEqualToArrayIgnoringListOfKeys',
@@ -330,7 +339,10 @@ final readonly class AssertionTable
         'toBeIntBackedEnum',
     ];
 
-    /** Pest's expectations of a value, a snapshot or an exception. */
+    /**
+     * Pest's expectations of a value, a snapshot or an exception.
+     * `AssertionStyle::Pest` suggests one of them, `toBe`.
+     */
     private const array PEST_VALUE = [
         'toBe',
         'toBeEmpty',
@@ -360,6 +372,156 @@ final readonly class AssertionTable
         'toBeBetween',
     ];
 
+    /**
+     * PHPUnit's methods of `TestCase` and `Assert` that assert nothing
+     * themselves, in every supported release: its hooks, its doubles, its
+     * constraints and its markers. A test case's call of any other method of
+     * its own that is no assertion is a helper's, or one of a release's own
+     * the others lack, and leaves the test not assessed.
+     */
+    private const array PHPUNIT_CASE = [
+        'addToAssertionCount',
+        'any',
+        'anything',
+        'arrayHasKey',
+        'assertPostConditions',
+        'assertPreConditions',
+        'atLeast',
+        'atLeastOnce',
+        'atMost',
+        'callback',
+        'containsEqual',
+        'containsIdentical',
+        'containsOnlyArray',
+        'containsOnlyBool',
+        'containsOnlyCallable',
+        'containsOnlyClosedResource',
+        'containsOnlyFloat',
+        'containsOnlyInstancesOf',
+        'containsOnlyInt',
+        'containsOnlyIterable',
+        'containsOnlyNull',
+        'containsOnlyNumeric',
+        'containsOnlyObject',
+        'containsOnlyResource',
+        'containsOnlyScalar',
+        'containsOnlyString',
+        'count',
+        'countOf',
+        'createConfiguredMock',
+        'createConfiguredStub',
+        'createMock',
+        'createMockForIntersectionOfInterfaces',
+        'createPartialMock',
+        'createStub',
+        'createStubForIntersectionOfInterfaces',
+        'dataName',
+        'dataSetAsString',
+        'dataSetAsStringWithData',
+        'dependencyInput',
+        'directoryExists',
+        'doesNotPerformAssertions',
+        'equalTo',
+        'equalToCanonicalizing',
+        'equalToIgnoringCase',
+        'equalToWithDelta',
+        'exactly',
+        'fail',
+        'fileExists',
+        'getActualOutputForAssertion',
+        'getCount',
+        'getMockBuilder',
+        'getStubBuilder',
+        'greaterThan',
+        'greaterThanOrEqual',
+        'groups',
+        'hasDependencyInput',
+        'hasUnexpectedOutput',
+        'identicalTo',
+        'isArray',
+        'isBool',
+        'isCallable',
+        'isClosedResource',
+        'isEmpty',
+        'isFalse',
+        'isFinite',
+        'isFloat',
+        'isInfinite',
+        'isInstanceOf',
+        'isInt',
+        'isIterable',
+        'isJson',
+        'isList',
+        'isNan',
+        'isNull',
+        'isNumeric',
+        'isObject',
+        'isReadable',
+        'isResource',
+        'isScalar',
+        'isString',
+        'isTrue',
+        'isWritable',
+        'lessThan',
+        'lessThanOrEqual',
+        'logicalAnd',
+        'logicalNot',
+        'logicalOr',
+        'logicalXor',
+        'markTestIncomplete',
+        'markTestSkipped',
+        'matches',
+        'matchesRegularExpression',
+        'name',
+        'nameWithDataSet',
+        'never',
+        'numberOfAssertionsPerformed',
+        'objectEquals',
+        'once',
+        'onNotSuccessfulTest',
+        'output',
+        'provideAdditionalInformation',
+        'providedData',
+        'provides',
+        'registerComparator',
+        'registerFailureType',
+        'registerMockObject',
+        'requires',
+        'resetCount',
+        'result',
+        'run',
+        'runBare',
+        'setBackupGlobals',
+        'setBackupGlobalsExcludeList',
+        'setBackupStaticProperties',
+        'setBackupStaticPropertiesExcludeList',
+        'setData',
+        'setDependencies',
+        'setDependencyInput',
+        'setGroups',
+        'setInIsolation',
+        'setPreserveGlobalState',
+        'setResult',
+        'setRunTestInSeparateProcess',
+        'setUp',
+        'setUpBeforeClass',
+        'size',
+        'sortId',
+        'status',
+        'stringContains',
+        'stringEndsWith',
+        'stringEqualsStringIgnoringLineEndings',
+        'stringStartsWith',
+        'tearDown',
+        'tearDownAfterClass',
+        'throwException',
+        'toString',
+        'transformException',
+        'usesDataProvider',
+        'valueObjectForEvents',
+        'wasPrepared',
+    ];
+
     /** Pest's expectations of a value whose negation asserts only that something is there. */
     private const array PEST_NEGATED_EXISTENCE = [
         'toBeNull',
@@ -368,33 +530,101 @@ final readonly class AssertionTable
         'toBeFalse',
     ];
 
-    /** The literal whose truth `assertTrue` checks only that the test got there. */
-    private const string TAUTOLOGY = 'true';
+    /** Pest's expectations of a value that, negated on `null`, assert only that something is there. */
+    private const array PEST_NEGATED_ON_NULL = ['toBe', 'toEqual'];
+
+    /** PHPUnit's assertions that, on a `null` either side, assert only that something is there. */
+    private const array PHPUNIT_NOT_NULL = ['assertNotSame', 'assertNotEquals'];
+
+    /** Pest's expectations of a key or a property that check its value where they are handed one. */
+    private const array PEST_VALUE_WITH_SECOND = ['toHaveKey', 'toHaveProperty'];
+
+    /** Pest's expectations of properties that check their values where they are handed them by name. */
+    private const array PEST_VALUE_WHEN_KEYED = ['toHaveProperties'];
+
+    /** The calls a Pest test chains after itself that expect an exception. */
+    private const array PEST_TEST_VALUE = ['throws', 'throwsIf', 'throwsUnless'];
+
+    /** Pest's calls that change the subject the expectations after them check, and check nothing. */
+    private const array PEST_SUBJECTS = ['and', 'json'];
+
+    /** The assertion whose argument `true` checks only that the test got there. */
+    private const array PHPUNIT_TAUTOLOGICAL = ['assertTrue'];
 
     /**
-     * What one of PHPUnit's assertions checks; `assertTrue(true)` checks only
-     * that the test got there.
+     * What one of PHPUnit's assertions checks. `assertTrue(true)` checks only
+     * that the test got there, and `assertNotSame(null, …)` only that
+     * something is.
      */
-    public static function phpUnit(string $assertion, string $argument): AssertionKind|Unclassified
+    public static function phpUnit(Call $call): AssertionKind|Unclassified
     {
         return match (true) {
-            $assertion === 'assertTrue' && $argument === self::TAUTOLOGY => AssertionKind::Existence,
-            in_array($assertion, self::PHPUNIT_EXISTENCE, strict: true) => AssertionKind::Existence,
-            in_array($assertion, self::PHPUNIT_SHAPE, strict: true) => AssertionKind::Shape,
-            in_array($assertion, self::PHPUNIT_VALUE, strict: true) => AssertionKind::Value,
+            self::holds(self::PHPUNIT_TAUTOLOGICAL, $call) && $call->first() === self::true(),
+            self::holds(self::PHPUNIT_NOT_NULL, $call)
+                && ($call->first() === self::null() || $call->second() === self::null()) => AssertionKind::Existence,
+            self::holds(self::PHPUNIT_EXISTENCE, $call) => AssertionKind::Existence,
+            self::holds(self::PHPUNIT_SHAPE, $call) => AssertionKind::Shape,
+            self::holds(self::PHPUNIT_VALUE, $call) => AssertionKind::Value,
             default => Unclassified::assertion(),
         };
     }
 
-    /** What one of Pest's expectations checks, written after `->not` or without it. */
-    public static function pest(string $expectation, bool $negated): AssertionKind|Unclassified
+    /**
+     * What one of Pest's expectations checks, written after `->not` or
+     * without it. A key or a property handed its value checks the value.
+     */
+    public static function pest(Call $call, bool $negated): AssertionKind|Unclassified
     {
         return match (true) {
-            $negated && in_array($expectation, self::PEST_NEGATED_EXISTENCE, strict: true) => AssertionKind::Existence,
-            in_array($expectation, self::PEST_EXISTENCE, strict: true) => AssertionKind::Existence,
-            in_array($expectation, self::PEST_SHAPE, strict: true) => AssertionKind::Shape,
-            in_array($expectation, self::PEST_VALUE, strict: true) => AssertionKind::Value,
+            $negated && self::holds(self::PEST_NEGATED_EXISTENCE, $call),
+            $negated && self::holds(self::PEST_NEGATED_ON_NULL, $call) && $call->first() === self::null()
+                => AssertionKind::Existence,
+            self::holds(self::PEST_VALUE_WITH_SECOND, $call) && $call->arguments() > 1 => AssertionKind::Value,
+            self::holds(self::PEST_VALUE_WHEN_KEYED, $call) && $call->isFirstKeyed() => AssertionKind::Value,
+            self::holds(self::PEST_EXISTENCE, $call) => AssertionKind::Existence,
+            self::holds(self::PEST_SHAPE, $call) => AssertionKind::Shape,
+            self::holds(self::PEST_VALUE, $call) => AssertionKind::Value,
             default => Unclassified::assertion(),
         };
+    }
+
+    /** What a call a Pest test chains after itself checks: an expected exception, or nothing the table holds. */
+    public static function pestTest(Call $call): AssertionKind|Unclassified
+    {
+        return self::holds(self::PEST_TEST_VALUE, $call) ? AssertionKind::Value : Unclassified::assertion();
+    }
+
+    /** Whether a call on the test case itself is one of PHPUnit's own methods that asserts nothing. */
+    public static function isCaseMethod(Call $call): bool
+    {
+        return self::holds(self::PHPUNIT_CASE, $call);
+    }
+
+    /** Whether a call chained after `expect()` changes the subject, and checks nothing. */
+    public static function isSubject(Call $call): bool
+    {
+        return self::holds(self::PEST_SUBJECTS, $call);
+    }
+
+    /**
+     * Whether a list holds a call's name, in any case, as PHP calls methods and functions.
+     *
+     * @param list<string> $names
+     */
+    private static function holds(array $names, Call $call): bool
+    {
+        return array_key_exists(mb_strtolower($call->name()), array_change_key_case(array_flip($names)));
+    }
+
+    /** PHP's `true`, as a test writes it and `Call::first()` reads it. */
+    private static function true(): string
+    {
+        return mb_strtolower(var_export(value: true, return: true));
+    }
+
+    /** PHP's `null`, as a test writes it and `Call::first()` reads it. */
+    private static function null(): string
+    {
+        return mb_strtolower(var_export(value: null, return: true));
     }
 }

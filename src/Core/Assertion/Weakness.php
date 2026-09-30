@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Assertion;
 
-use function array_key_exists;
-
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -13,7 +11,6 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Php\Functions;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
-use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Verdict\Findings;
@@ -51,20 +48,23 @@ final readonly class Weakness
 
     /**
      * What each of those survivors says of its weak tests, read from the
-     * test files and the survivors' own files among these.
+     * test files `testFiles()` names and the survivors' own files.
      *
-     * @param ByPath<Contents> $files
+     * @param ByPath<Contents> $sources the survivors' own files
      */
-    public static function findings(TreeVerdicts $verdicts, KillMatrix $matrix, ByPath $files): Findings
-    {
+    public static function findings(
+        TreeVerdicts $verdicts,
+        KillMatrix $matrix,
+        ByPath $sources,
+        TestFiles $tests,
+    ): Findings {
         $findings = Findings::none();
-        $readers = self::readers(self::testFiles($verdicts, $matrix), $files);
 
         foreach (self::seenByValue($verdicts) as $survivor) {
-            $weak = self::weakAmong(self::judging($survivor, $matrix), $matrix, $readers);
+            $weak = self::weakAmong(self::judging($survivor, $matrix), $matrix, $tests);
 
             if ($weak !== []) {
-                $finding = WeaklyAsserted::by(self::functionOf($survivor, $files), ...$weak);
+                $finding = WeaklyAsserted::by(self::functionOf($survivor, $sources), ...$weak);
                 $findings = $findings->with($survivor->mutant()->id(), $finding);
             }
         }
@@ -103,57 +103,24 @@ final readonly class Weakness
         return $seen;
     }
 
-    /**
-     * Each test file read for its tests' assertions, by its path.
-     *
-     * @param  ByPath<Contents>              $files
-     * @return array<string, TestAssertions>
-     */
-    private static function readers(Paths $tests, ByPath $files): array
-    {
-        $readers = [];
-
-        foreach ($tests as $file) {
-            $contents = $files->at($file, Missing::at($file));
-            $readers[$file->value()] = TestAssertions::in($contents instanceof Contents ? $contents : Contents::of(''));
-        }
-
-        return $readers;
-    }
-
-    /**
-     * @param  array<string, TestAssertions> $readers
-     * @return list<WeakTest>                those of these tests that are weak, in their order
-     */
-    private static function weakAmong(TestIds $tests, KillMatrix $matrix, array $readers): array
+    /** @return list<WeakTest> those of these tests that are weak, in their order */
+    private static function weakAmong(TestIds $tests, KillMatrix $matrix, TestFiles $files): array
     {
         $weak = [];
 
         foreach ($tests as $test) {
             $named = $matrix->names()->testOf($test);
-            $assertions = self::assertionsOf($named, $readers);
 
-            if ($named instanceof TestName && $assertions->isWeak()) {
-                $weak[] = WeakTest::of($test, $named, $assertions);
+            if (! $named instanceof TestName) {
+                continue;
+            }
+
+            foreach ($files->assertionsOf($named)->weakAs($test, $named) as $found) {
+                $weak[] = $found;
             }
         }
 
         return $weak;
-    }
-
-    /**
-     * The assertions of a named test, read from its file; none assessed of a
-     * test the runner named no file for, or whose file was not read.
-     *
-     * @param array<string, TestAssertions> $readers
-     */
-    private static function assertionsOf(TestName|TestId $named, array $readers): Assertions
-    {
-        $file = $named instanceof TestName ? $named->file()->value() : '';
-
-        return $named instanceof TestName && array_key_exists($file, $readers)
-            ? $readers[$file]->of($named->description())
-            : Assertions::notAssessed();
     }
 
     /** @param ByPath<Contents> $files */

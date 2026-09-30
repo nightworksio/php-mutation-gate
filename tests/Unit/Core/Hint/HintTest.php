@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Assertion\Assertion;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionKind;
-use NightWorksIO\MutationGate\Core\Assertion\Assertions;
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\Assertion\WeakTest;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -120,15 +120,17 @@ it('names no test of a mutant that was killed, left out or never run', function 
     MutantJudgement::Equivalent,
 ]);
 
-it('names the first weak test that lets a survivor through, each assertion it makes once, and how many more', function (int $more, string $second, string ...$written) use ($source): void {
+it('names the first weak test that lets a survivor through, each assertion it makes once, and how many more', function (int $more, string $second, string $first, string ...$written) use ($source): void {
     $mutant = Verdicts::mutant('src/Money.php:9', 'Mutator', MutatorFamily::Literal, Verdicts::diff('return 3;', 'return 4;'));
-    $weak = static fn(string $test, string ...$written): WeakTest => WeakTest::of(
+    $shape = static fn(string $assertion): Assertion => Assertion::of($assertion, AssertionKind::Shape, AssertionStyle::PhpUnit);
+    $weak = static fn(string $test, string $first, string ...$written): WeakTest => WeakTest::of(
         TestId::of(sprintf('Tests\\MoneyTest::%s', $test)),
         TestName::in(Path::of('tests/MoneyTest.php'), $test),
-        Assertions::of(...array_map(static fn(string $assertion): Assertion => Assertion::of($assertion, AssertionKind::Shape), $written)),
+        $shape($first),
+        ...array_map($shape, $written),
     );
     $others = array_map(static fn(int $other): WeakTest => $weak(sprintf('testOther%d', $other), 'assertIsInt'), $more === 0 ? [] : range(1, $more));
-    $finding = WeaklyAsserted::by('fits', $weak('testFits', ...$written), ...$others);
+    $finding = WeaklyAsserted::by('fits', $weak('testFits', $first, ...$written), ...$others);
 
     expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding)->text())
         ->toBe(sprintf('No test depends on this value being `3`. %s', $second));
@@ -143,7 +145,7 @@ it('names a weak test on one plain line, whatever its description holds', functi
     $finding = WeaklyAsserted::by('fits', WeakTest::of(
         TestId::of('P\\Tests\\MoneyTest::__pest_evaluable_it_fits'),
         TestName::in(Path::of('tests/MoneyTest.php'), "it fits\n::error::forged"),
-        Assertions::of(Assertion::of('->toBeInt()', AssertionKind::Shape)),
+        Assertion::of('->toBeInt()', AssertionKind::Shape, AssertionStyle::Pest),
     ));
 
     expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding)->text())->not->toContain("\n");

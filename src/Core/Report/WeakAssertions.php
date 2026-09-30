@@ -12,13 +12,11 @@ use function implode;
 use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\Assertion\WeakTest;
 use NightWorksIO\MutationGate\Core\Format\Fit;
-use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
 use function sprintf;
-use function str_starts_with;
 
 /**
  * The `tests` report's third section: each weak test that let survivors
@@ -36,17 +34,6 @@ final readonly class WeakAssertions
     public const string MEANS
         = 'Each asserts only that something is there, or its shape, and let through what a value would kill.';
 
-    /** How Pest's expectations are written, which tells a Pest test from a PHPUnit one. */
-    private const string PEST_MARK = '->';
-
-    private const string PEST = 'expect(%s)->toBe(<expected>)';
-
-    private const string PHPUNIT = '$this->assertSame(<expected>, %s)';
-
-    private const string CALLED = '%s(…)';
-
-    /** What stands for a result where no function is around the survivor. */
-    private const string RESULT = '…';
 
     /** @return list<WeakEntry> each weak test, its rows folded in, in the order its first survivor was reported */
     public static function of(Verdict $verdict): array
@@ -115,21 +102,16 @@ final readonly class WeakAssertions
     private static function entry(WeakTest $weak, WeaklyAsserted $finding): array
     {
         $written = [];
-        $pest = false;
 
         foreach ($weak->assertions() as $assertion) {
             $written[] = $assertion->written();
-            $pest = $pest || str_starts_with($assertion->written(), self::PEST_MARK);
         }
-
-        $function = $finding->function();
-        $result = $function instanceof Nameless ? self::RESULT : sprintf(self::CALLED, $function);
 
         return [
             'test' => $weak->name()->value(),
             'assertions' => $written,
             'survivors' => [],
-            'assert' => sprintf($pest ? self::PEST : self::PHPUNIT, $result),
+            'assert' => $weak->style()->suggestion($finding),
         ];
     }
 

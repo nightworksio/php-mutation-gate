@@ -88,40 +88,91 @@ decision 3). The kill matrix knows which tests cover and which kill
 ### Weak assertions
 
 5. **A fixed table classifies assertions, read from a test's tokens.**
-   - **Existence:** `assertNotNull`, `assertNotEmpty`, `assertTrue(true)`,
-     Pest's `->not->toBeNull()`, `->toBeTruthy()` and `->not->toBeEmpty()`.
+   - **Existence:**
+     - `assertNotNull`, `assertNotEmpty`, `assertTrue(true)` and
+       `assertNotSame(null, …)`;
+     - Pest's `->not->toBeNull()`, `->not->toBe(null)`, `->toBeTruthy()`,
+       `->not->toBeEmpty()`, and `->toHaveKey()` without a value.
    - **Shape:** `assertIsArray`, `assertIsString`, `assertInstanceOf`,
      `assertCount`, and Pest's `->toBeArray()`, `->toBeInstanceOf()` and
      `->toHaveCount()`.
-   - **Value:** `assertSame`, `assertEquals`, Pest's `->toBe()` and
-     `->toEqual()`, snapshots and expected exceptions.
+   - **Value:**
+     - `assertSame`, `assertEquals`, and Pest's `->toBe()` and `->toEqual()`;
+     - a key or a property handed its value, such as `->toHaveKey('total',
+       100)`;
+     - snapshots, and expected exceptions, a test's `->throwsIf()` among
+       them.
    - A test is **weak** when every assertion it makes is of existence or
-     shape. An assertion the table does not hold, such as a project's own,
-     leaves its test *not assessed*.
-   - A table test fails when a supported PHPUnit or Pest release adds an
-     assertion the table does not classify.
+     shape.
+   - **Not assessed.** Some tests can't be judged from their own body, so
+     they are not assessed:
+     - a test that makes an assertion the table does not hold, such as a
+       project's own;
+     - a test that chains a call after `expect()` that is neither an
+       expectation nor a change of subject (`->and()`, `->json()`), such
+       as `->sequence()`, `->each(…)` or `->when()`, whose closures assert
+       out of the scan's sight;
+     - a test that calls, as a function, a helper its own file declares, or
+       one a file that defines the runner declares, such as `tests/Pest.php`,
+       since the helper may assert what the test does not;
+     - a test that calls a method on `$this`, `self`, `static` or `parent`
+       that is neither an assertion nor one of the methods of PHPUnit's
+       `TestCase` and `Assert` that every supported release declares, such
+       as a parent class's or a trait's helper, or a framework's.
+   - **What the scan does not see.** A helper reached any other way is not
+     seen: a function a file other than the test's own and the runner's
+     definitions declares, a helper class's static method such as
+     `CartChecks::total()`, or a helper object such as
+     `$this->checks->total()`. A test that checks a value only through one
+     may be named weak.
+   - A table test fails when a supported PHPUnit release declares an
+     assertion the table does not classify, or when the installed Pest
+     does.
    - **As built.**
-     - `Core\Assertion\AssertionTable` holds the table, by name: every
-       assertion of PHPUnit's `Assert` and `TestCase`, its `expect…`
-       methods among them, and every Pest expectation. `assertTrue(true)`
-       is existence. A negated `toBeNull`, `toBeEmpty`, `toBeTrue` or
-       `toBeFalse` is existence, whatever the same expectation is
-       unnegated. `AssertionTableTest` reads the installed releases'
-       methods and fails on one the table does not hold.
-     - `TestAssertions` finds a test in its file's tokens: a PHPUnit method
-       by its name, and a Pest `it` or `test` by its description, with the
-       calls chained after it, so a test's `->throws()` counts as a value.
-       A method with no body has no assertions. `AssertionScan` reads the
-       calls: `assert…` and `expect…` as methods or functions, and each
-       expectation chained after `expect()`, where `->and()` ends a
-       negation.
+     - `Core\Assertion\AssertionTable` holds the table, by name in any
+       case, as PHP calls methods and functions:
+       - every assertion of PHPUnit's `Assert` and `TestCase`, its
+         `expect…` methods among them, and every Pest expectation;
+       - `AssertionTableTest` reads PHPUnit's methods from a file pinned
+         per supported release, 12.5.8, 12.5.37, 13.0.0 and 13.3.4, and
+         the installed PHPUnit and Pest by reflection. It fails on an
+         assertion the table does not hold, on a method held as PHPUnit's
+         own that some pinned release lacks, and on one every pinned
+         release declares that the table does not hold.
+     - The table reads a `Call`: its name, and its arguments as written.
+       - `assertTrue(true, 'reached')` is existence by its first argument,
+         and `assertNotSame($cart, null)` by a `null` on either side.
+       - A negated `toBeNull`, `toBeEmpty`, `toBeTrue` or `toBeFalse` is
+         existence, whatever the same expectation is unnegated.
+     - `TestAssertions` reads a file's tokens once, and holds each test's
+       assertions:
+       - a PHPUnit method by its name;
+       - a Pest `it` or `test` by its description, with the calls chained
+         after it, so a test's `->throws()` counts as a value;
+       - a Pest test inside a `describe()`, however deep and however the
+         name is qualified, is described by it, so a bare description finds
+         only the test outside every one.
+       A method with no body has no assertions.
+     - `AssertionScan` reads the calls:
+       - `assert…` and `expect…` as methods or functions, a qualified name
+         such as `\PHPUnit\Framework\assertSame` by its last segment;
+       - each call chained after `expect()`, where `->not` negates the
+         expectation after it.
+       A function or method declared inside a test's body, such as an
+       anonymous class's, is not a call.
 
 6. **A weak test is reported only beside the survivors it let through.** It is
    reported when it is a judging test of a survivor in the Return value,
    Literal, Arithmetic, Collection or Unwrap family, which an assertion of
    value would see. The report pairs the test with those survivors and the
-   assertion that would kill them (`assertSame(<expected>, …)` on the
-   enclosing function's result), and `stub` offers it (ADR-0015 decision 1).
+   assertion of value that would kill them, on the enclosing function's
+   result, and `stub` offers it (ADR-0015 decision 1).
+   - **The assertion is written in the test's own style.** A PHPUnit
+     assertion gets `$this->assertSame(<expected>, <subject>)`, and a Pest
+     expectation gets `expect(<subject>)->toBe(<expected>)`. The style belongs
+     to each assertion, not to the runner, since Pest runs PHPUnit classes
+     too. A test that mixes both, such as a PHPUnit class that calls
+     `expect()`, gets the style of its first weak assertion.
    - **As built.**
      - `Core\Assertion\Weakness` decides it over the verdict's survivors
        judged *survived*. A survivor's judging tests are those the kill
@@ -129,10 +180,10 @@ decision 3). The kill matrix knows which tests cover and which kill
        that holds its unit. Only a test the runner names is read, from the
        file its name gives, so a weak test is named by its file and
        description, its data set rows folded in (ADR-0014 decision 6).
-     - The suggested assertion is in the test's own style:
-       `$this->assertSame(<expected>, fits(…))` beside a PHPUnit test, and
-       `expect(fits(…))->toBe(<expected>)` beside a Pest one. Outside any
-       function its subject is `…`.
+     - `AssertionScan` tags each assertion with the `AssertionStyle` it
+       reads it in, and that enum holds both suggestions. The subject is the
+       enclosing function's call, such as `fits(…)`, or `…` outside any
+       function.
      - `Cli\Flow\Judging` builds the kill matrix before it reads the
        trees, reads the test files it names through the project's
        `Directory`, and hands each survivor its finding with

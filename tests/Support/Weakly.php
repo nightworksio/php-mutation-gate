@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use NightWorksIO\MutationGate\Core\Assertion\TestFiles;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -52,7 +53,7 @@ final class Weakly
 
         PHP;
 
-    /** What the tests report suggests to a PHPUnit test outside any function. */
+    /** What a PHPUnit test is told to assert on a result outside any function. */
     public const string PHPUNIT_OUTSIDE = '$this->assertSame(<expected>, …)';
 
     public static function weakTest(): TestId
@@ -115,9 +116,21 @@ final class Weakly
         ));
     }
 
-    /** The Cart's source and its test file, by their paths. */
-    public static function files(): ByPath
+    /** The Cart's source, by its path. */
+    public static function sources(): ByPath
     {
-        return Clustered::sources()->with(Path::of(self::TESTS), Contents::of(self::TEST_FILE));
+        return Clustered::sources();
+    }
+
+    /** The Cart's test file, by its path. */
+    public static function tests(): ByPath
+    {
+        return ByPath::none()->with(Path::of(self::TESTS), Contents::of(self::TEST_FILE));
+    }
+
+    /** The Cart's test file, read for its tests' assertions. */
+    public static function testFiles(): TestFiles
+    {
+        return TestFiles::read(self::tests(), ByPath::none());
     }
 }
