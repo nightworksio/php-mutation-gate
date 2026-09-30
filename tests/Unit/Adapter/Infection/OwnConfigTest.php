@@ -142,7 +142,9 @@ it('sets the PHPUnit config directory to the root where the project names none',
             'json' => '/project/.gate/infection/logs/infection.json',
             'text' => '/project/.gate/infection/logs/infection.log',
         ],
-    ])->and(ownGenerated(ownConfig('{"phpStan": {}}'), Mutators::all())['phpStan'])->toBe([]);
+    ])->and(ownGenerated(ownConfig('{"phpStan": {}}'), Mutators::all())['phpStan'])->toBe([])
+        ->and(ownGenerated(ownConfig('{"mago": {"configDir": "", "customPath": "bin/mago"}}'), Mutators::all())['mago'])
+        ->toBe(['configDir' => '', 'customPath' => '/project/bin/mago']);
 });
 
 it('narrows the mutators to those named, with the project\'s settings for each and its global ignores', function (): void {
