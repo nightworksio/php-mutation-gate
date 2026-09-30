@@ -34,6 +34,13 @@ it('keeps one proof per key, the first of two', function () use ($proof, $units)
         ->and($proofs)->toHaveCount(2);
 });
 
+it('keeps the proof it holds when one more proves the same key', function () use ($proof, $units): void {
+    $proofs = Proofs::of($proof('b', 'src/B.php'));
+
+    expect($proofs->with($proof('b', 'src/C.php')))->toBe($proofs)
+        ->and($units($proofs->with($proof('1', 'src/A.php'))))->toBe(['src/B.php', 'src/A.php']);
+});
+
 it('adds a proof without changing the proofs it came from', function () use ($proof): void {
     $proofs = Proofs::none();
 
