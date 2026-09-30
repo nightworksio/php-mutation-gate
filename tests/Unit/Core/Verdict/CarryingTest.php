@@ -152,8 +152,8 @@ it('carries each mutant of a counted result as it stands, or unjudged, and says 
     'a kill by a test file the run no longer has' => ['base', carryKill(3, TestId::of('RateTest::rates')), Carry::KillerChanged],
     'a kill by a deleted test the run cannot name' => ['base', carryKill(3, TestId::of('GoneTest::adds')), Carry::KillerUnknown],
     'a kill no test is known for' => ['base', carryKill(3), Carry::KillerUnknown],
-    'a kill by static analysis at the same base' => ['base', carryRejected(3), Carry::Stands],
-    'a kill by static analysis at another base' => ['other base', carryRejected(3), Carry::OtherBase],
+    'a kill by static analysis at the same base, its finding\'s file unrecorded' => ['base', carryRejected(3), Carry::RejectionUnplaced],
+    'a kill by static analysis at another base' => ['other base', carryRejected(3), Carry::RejectionUnplaced],
     'a timeout, which triage may count a kill' => ['base', carryMutant(3, MutantStatus::TimedOut), Carry::KillerUnknown],
     'a crash, which counts a kill' => ['base', carryMutant(3, MutantStatus::Errored), Carry::KillerUnknown],
     'a survivor, at another base' => ['other base', carryMutant(3, MutantStatus::Survived), Carry::Stands],
@@ -169,8 +169,6 @@ it('carries no kill where the run cannot name its tests, nor a proof without dig
 
     expect(Carrying::against($now, carryDigest('base'), CannotJudge::because('Unnamed.'), $map)->carry(carryProof('base', $recorded), $kill))
         ->toBe(Carry::KillerUnknown)
-        ->and(Carrying::against($now, carryDigest('base'), CannotJudge::because('Unnamed.'), $map)->carry(carryProof('base', $recorded), carryRejected(3)))
-        ->toBe(Carry::Stands)
         ->and(Carrying::against($now, carryDigest('base'), $names, $map)->carry(carryProof('base', Undigested::proof()), $kill))
         ->toBe(Carry::KillerChanged)
         ->and(Carrying::against(Undigested::proof(), carryDigest('base'), $names, $map)->carry(carryProof('base', $recorded), $kill))

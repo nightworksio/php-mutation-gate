@@ -96,13 +96,17 @@ final readonly class Mutant
         ]);
     }
 
-    /** This mutant, killed by a static analyser that rejected it, and so by no test anyone knows. */
+    /**
+     * This mutant, killed by a static analyser that rejected it: so by no
+     * test anyone knows, and for no reason but the rejection.
+     */
     public function rejected(Rejection $rejection): self
     {
         return clone($this, [
             'status' => MutantStatus::KilledByStaticAnalysis,
             'rejection' => $rejection,
             'killers' => TestIds::none(),
+            'reason' => Unreported::reason(),
         ]);
     }
 

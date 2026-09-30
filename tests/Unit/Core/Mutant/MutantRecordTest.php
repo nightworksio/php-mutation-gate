@@ -204,3 +204,16 @@ it('writes and reads back a rejected mutant left unjudged as unjudged, with no r
     expect(MutantRecord::full($left))->not->toHaveKey('rejection')
         ->and(MutantRecord::readFull($read(MutantRecord::full($left))))->toEqual($left);
 });
+
+it('refuses a record that gives a rejection a reason or a time budget beside it, saying where', function (array $beside) use ($unjudged, $read): void {
+    $record = [
+        ...MutantRecord::full($unjudged->rejected(Rejection::by('phpstan', Finding::error('return.type', 'No.')))),
+        ...$beside,
+    ];
+
+    expect(static fn(): Mutant => MutantRecord::readFull($read($record)))
+        ->toThrow(NotInShape::at('the file.rejection', 'a rejection with no reason beside it'));
+})->with([
+    'a reason' => [['reason' => 'The runner said so.']],
+    'a time budget' => [['outOfTime' => 'before-mutating']],
+]);

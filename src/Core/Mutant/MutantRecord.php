@@ -221,8 +221,10 @@ final readonly class MutantRecord
 
     /**
      * The mutant, rejected as the record says a static analyser rejected it.
-     * A rejection belongs only to a mutant killed by static analysis, so a
-     * record that gives one any other status contradicts itself.
+     * A rejection belongs only to a mutant killed by static analysis, and is
+     * its whole reason, so a record that gives one any other status, or a
+     * reason or what a time budget ran out before beside it, contradicts
+     * itself.
      *
      * @throws NotInShape
      */
@@ -236,6 +238,8 @@ final readonly class MutantRecord
                 $rejection->at(),
                 'a rejection only on a mutant killed by static analysis',
             ),
+            $record->field(self::REASON)->isPresent() || $record->field(self::OUT_OF_TIME)->isPresent()
+                => throw NotInShape::at($rejection->at(), 'a rejection with no reason beside it'),
             default => $mutant->rejected(Rejection::by(
                 $rejection->field(self::ANALYSER)->text(),
                 Finding::error($rejection->field(self::CODE)->text(), $rejection->field(self::MESSAGE)->text()),

@@ -135,6 +135,8 @@ it('keeps no rejection once a budget leaves it unjudged, and no killer once an a
     $rejected = $mutant->rejected(Rejection::by('phpstan', Finding::error('return.type', 'No.')));
 
     expect($rejected->killers())->toEqual(TestIds::none())
+        ->and($mutant->unjudged(OutOfTime::BeforeMutating)->rejected(Rejection::by('phpstan', Finding::error('return.type', 'No.')))->reason())
+        ->toEqual(Unreported::reason())
         ->and($rejected->unjudged(OutOfTime::BeforeMutating)->rejection())->toEqual(Unreported::rejection())
         ->and($rejected->unjudged(OutOfTime::BeforeMutating)->status())->toBe(MutantStatus::Unjudged);
 });

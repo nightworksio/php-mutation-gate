@@ -6,10 +6,9 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_filter;
 use function array_values;
-use function ltrim;
+use function preg_match;
 use function preg_split;
 use function str_contains;
-use function str_starts_with;
 
 /** The lines of printed text a CI runner would read a command from: GitHub's `::` and `##[`, and Azure's `##vso[`. */
 final class LogCommands
@@ -21,7 +20,7 @@ final class LogCommands
 
         return array_values(array_filter(
             $lines === false ? [$printed] : $lines,
-            static fn(string $line): bool => str_starts_with(ltrim($line), '::')
+            static fn(string $line): bool => preg_match('/^\s*::/u', $line) === 1
                 || str_contains($line, '##[')
                 || str_contains($line, '##vso['),
         ));

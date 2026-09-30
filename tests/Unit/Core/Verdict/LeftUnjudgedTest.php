@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -16,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
+use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -117,4 +120,14 @@ it('counts nothing and fails nothing where the budget left no unit unjudged', fu
 
     expect($none->results())->toHaveCount(0)
         ->and($none->failures())->toHaveCount(0);
+});
+
+it('carries a kill by static analysis as unjudged, with no rejection, though its result is of this base', function () use ($proofOf, $carrying, $timedOut): void {
+    $rejected = $timedOut->rejected(Rejection::by('phpstan', Finding::error('return.type', 'Method Money::sub() should return int.')));
+    $newest = Proofs::of($proofOf('src/Money.php', 'money', Mutants::of($rejected), ProvedKills::none()))->newest();
+    $results = [...LeftUnjudged::of(Units::of(Unit::file(Path::of('src/Money.php'))), $newest, $carrying)->results()];
+    $carried = $results === [] ? [] : [...$results[0]->mutants()];
+
+    expect($carried)->toEqual([$rejected->unjudged(OutOfTime::BeforeMutating)])
+        ->and($carried === [] ? $carried : $carried[0]->rejection())->toEqual(Unreported::rejection());
 });

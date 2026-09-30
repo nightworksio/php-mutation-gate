@@ -30,7 +30,10 @@ final readonly class Inert
     /** A command that starts anywhere in a line: GitHub's older form, and Azure's two. */
     private const string ANYWHERE = '/##(vso)?\[/';
 
-    /** Every end of a line a runner reads, which .NET's `ReadLine` ends a line at: `\r\n`, `\r` and `\n`. */
+    /**
+     * Every end of a line a runner reads, which .NET's `ReadLine` ends a line
+     * at: `\r\n`, `\r` and `\n`. Each is kept, and holds nothing to make inert.
+     */
     private const string LINE_END = '/(\r\n|\r|\n)/';
 
     public static function text(string $text): string
@@ -39,8 +42,8 @@ final readonly class Inert
         $parts = preg_split(self::LINE_END, $scrubbed, -1, PREG_SPLIT_DELIM_CAPTURE);
         $inert = [];
 
-        foreach ($parts === false ? [$scrubbed] : $parts as $at => $part) {
-            $inert[] = $at % 2 === 1 ? $part : self::line($part);
+        foreach ($parts === false ? [$scrubbed] : $parts as $part) {
+            $inert[] = self::line($part);
         }
 
         return implode('', $inert);
