@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Score;
 
-/** A tree the baseline holds no floor for. */
+/** Nothing recorded for a tree: no floor in the baseline, or no score read from the base. */
 final readonly class Unrecorded
 {
     public static function floor(): self

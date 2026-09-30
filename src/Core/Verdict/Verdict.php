@@ -21,35 +21,49 @@ final readonly class Verdict
         private Reasons $reach,
         private Warnings $warnings,
         private Failures $failures,
+        private bool $cutShort,
     ) {
     }
 
     /** A verdict over these trees, with no new-code set, no reach, no warning and no other failure. */
     public static function of(TreeVerdicts $trees): self
     {
-        return new self($trees, NewCodeVerdicts::none(), Reasons::of(), Warnings::none(), Failures::none());
+        return new self(
+            $trees,
+            NewCodeVerdicts::none(),
+            Reasons::of(),
+            Warnings::none(),
+            Failures::none(),
+            cutShort: false,
+        );
     }
 
     /** This verdict, with the new-code sets a change-scoped run judged. */
     public function withNewCode(NewCodeVerdicts $newCode): self
     {
-        return new self($this->trees, $newCode, $this->reach, $this->warnings, $this->failures);
+        return clone($this, ['newCode' => $newCode]);
     }
 
     /** This verdict, with the reasons for what the change reached. */
     public function withReach(Reasons $reach): self
     {
-        return new self($this->trees, $this->newCode, $reach, $this->warnings, $this->failures);
+        return clone($this, ['reach' => $reach]);
     }
 
     public function withWarnings(Warnings $warnings): self
     {
-        return new self($this->trees, $this->newCode, $this->reach, $warnings, $this->failures);
+        return clone($this, ['warnings' => $warnings]);
     }
 
     public function withFailures(Failures $failures): self
     {
-        return new self($this->trees, $this->newCode, $this->reach, $this->warnings, $failures);
+        return clone($this, ['failures' => $failures]);
+    }
+
+    /** This verdict, from a run a budget or a deadline stopped before it judged every mutant. */
+    public function cutShort(): self
+    {
+        return clone($this, ['cutShort' => true]);
     }
 
     public function trees(): TreeVerdicts
@@ -101,6 +115,12 @@ final readonly class Verdict
     public function failures(): Failures
     {
         return $this->failures;
+    }
+
+    /** Whether a budget or a deadline stopped the run before it judged every mutant. */
+    public function wasCutShort(): bool
+    {
+        return $this->cutShort;
     }
 
     /** Failed when any tree or new-code set failed, or anything else did; passed otherwise. */

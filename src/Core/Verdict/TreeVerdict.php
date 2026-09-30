@@ -27,6 +27,7 @@ final readonly class TreeVerdict
         private JudgedUnits $units,
         private JudgedMutants $mutants,
         private Uncovered $uncovered,
+        private Score|NothingToMutate|Unrecorded $base,
     ) {
     }
 
@@ -37,7 +38,13 @@ final readonly class TreeVerdict
         JudgedMutants $mutants,
         Uncovered $uncovered,
     ): self {
-        return new self($tree, $baseline, $units, $mutants, $uncovered);
+        return new self($tree, $baseline, $units, $mutants, $uncovered, Unrecorded::floor());
+    }
+
+    /** This verdict, with the score the tree had on the base, for the change against it. */
+    public function comparedWith(Score|NothingToMutate $base): self
+    {
+        return clone($this, ['base' => $base]);
     }
 
     /** The tree, with the floor it declares. */
@@ -66,6 +73,12 @@ final readonly class TreeVerdict
         }
 
         return $declared;
+    }
+
+    /** The score the tree had on the base; unrecorded where the base's results were not read. */
+    public function base(): Score|NothingToMutate|Unrecorded
+    {
+        return $this->base;
     }
 
     public function units(): JudgedUnits

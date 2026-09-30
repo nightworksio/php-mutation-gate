@@ -53,7 +53,17 @@ it('holds its trees, and nothing else to begin with', function () use ($passed):
         ->and($verdict->newCode())->toHaveCount(0)
         ->and($verdict->reach())->toHaveCount(0)
         ->and($verdict->warnings())->toHaveCount(0)
-        ->and($verdict->failures())->toHaveCount(0);
+        ->and($verdict->failures())->toHaveCount(0)
+        ->and($verdict->wasCutShort())->toBeFalse();
+});
+
+it('says when a budget or a deadline cut the run short, and keeps everything else', function () use ($passed): void {
+    $trees = TreeVerdicts::of($passed);
+    $verdict = Verdict::of($trees)->cutShort();
+
+    expect($verdict->wasCutShort())->toBeTrue()
+        ->and($verdict->trees())->toBe($trees)
+        ->and($verdict->withFailures(Failures::none())->wasCutShort())->toBeTrue();
 });
 
 it('takes the new-code sets, the reach, the warnings and the failures, each without losing the others', function () use ($passed, $newCode): void {

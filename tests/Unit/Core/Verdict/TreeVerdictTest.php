@@ -44,7 +44,19 @@ it('holds the tree, its baseline floor, its units and its mutants', function () 
         ->and($verdict->units())->toBe($units)
         ->and($verdict->mutants())->toBe($mutants)
         ->and($verdict->uncovered())->toBe(Uncovered::Exclude)
-        ->and($verdict->counts()->number(MutantJudgement::Killed))->toBe(1);
+        ->and($verdict->counts()->number(MutantJudgement::Killed))->toBe(1)
+        ->and($verdict->base())->toEqual(Unrecorded::floor());
+});
+
+it('is compared with the score the tree had on the base, and judged the same', function () use ($judged, $threeOfFour): void {
+    $verdict = $judged(Floor::of(80), Unrecorded::floor(), $threeOfFour);
+    $base = Score::ofHundredths(7_000);
+    $compared = $verdict->comparedWith($base);
+
+    expect($compared->base())->toBe($base)
+        ->and($compared->score())->toEqual($verdict->score())
+        ->and($compared->judgement())->toBe(Judgement::Failed)
+        ->and($verdict->base())->toEqual(Unrecorded::floor());
 });
 
 it('is held to the higher of its declared floor and its baseline', function (
