@@ -468,9 +468,23 @@ it('writes Buildkite\'s pipeline, names it as the definition in the config, and 
 
     expect($ran->code)->toBe(0)
         ->and($ran->output)->toContain("Wrote .buildkite/mutation-gate.yml.\nAdd this to the pipeline Buildkite runs:\n\n")
-        ->and($ran->output)->toContain('buildkite-agent pipeline upload .buildkite/mutation-gate.yml')
+        ->and($ran->output)->toContain("buildkite-agent pipeline upload '.buildkite/mutation-gate.yml'")
         ->and(initCiFile($project, '.buildkite/mutation-gate.yml'))->toContain("label: 'mutation: plan'")
+        ->and($ran->output)->not->toContain('Set ci.buildkite.definition')
         ->and(initCiFile($project, 'mutation-gate.json'))->toContain('"definition": ".buildkite/mutation-gate.yml"');
+});
+
+it('writes Azure\'s template, names it and the default branch in the config, and prints the line that takes it in', function (): void {
+    [$project, $ran] = initCi(['--ci' => 'azure', '--format' => 'json']);
+    $config = json_decode(initCiFile($project, 'mutation-gate.json'), associative: true);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toEndWith(
+            "Wrote .azure/mutation-gate.yml.\nAdd this to azure-pipelines.yml:\n\njobs:\n  - template: '.azure/mutation-gate.yml'\n\n",
+        )
+        ->and(initCiFile($project, '.azure/mutation-gate.yml'))->toContain("  - job: mutation_plan\n")
+        ->and(is_array($config) ? $config['ci'] : null)
+        ->toBe(['defaultBranch' => 'main', 'azure' => ['definition' => '.azure/mutation-gate.yml']]);
 });
 
 it('prints CircleCI\'s config to add to .circleci/config.yml, and writes none', function (): void {
@@ -501,7 +515,7 @@ it('writes for the one CI the project\'s files show, where --ci names none', fun
 it('writes nothing where --ci names no CI it writes for, or where the files show none or several', function (): void {
     $refused = initCiRefused(...);
     $nothing = static fn(string $why): array => [2, '', sprintf("%s\n", $why), ''];
-    $unwritten = 'init --ci writes a definition for github, gitlab, buildkite or circleci, not %s.';
+    $unwritten = 'init --ci writes a definition for each of github, gitlab, buildkite, circleci, azure, and none for %s.';
 
     expect($refused(['--ci' => null]))
         ->toBe($nothing('No CI is detected here, so init writes nothing. Name one with --ci=<name>.'))
@@ -577,24 +591,34 @@ it('writes nothing for a CI where the default branch would run as code', functio
         ->and($ran->errors)->toStartWith('The default branch "main$(id)" cannot go into a CI definition')
         ->and(initCiFile($project, '.github/workflows/mutation.yml'))->toBe('')
         ->and(initCiFile($project, '.gitlab/mutation-gate.yml'))->toBe('')
-        ->and(initCiFile($project, '.buildkite/mutation-gate.yml'))->toBe('');
-})->with(['github', 'gitlab', 'buildkite', 'circleci']);
+        ->and(initCiFile($project, '.buildkite/mutation-gate.yml'))->toBe('')
+        ->and(initCiFile($project, '.azure/mutation-gate.yml'))->toBe('');
+})->with(['github', 'gitlab', 'buildkite', 'circleci', 'azure']);
 
-it('says which pipeline a config already here must name, where it names another', function (): void {
-    [, $ran] = initCi(['--ci' => 'buildkite'], [
+it('says which file of the gate\'s jobs a config already here must name, where it names another', function (
+    string $ci,
+    string $written,
+): void {
+    [, $ran] = initCi(['--ci' => $ci], [
         'mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "app"}]}',
     ]);
-    [, $named] = initCi(['--ci' => 'buildkite'], [
+    [, $named] = initCi(['--ci' => $ci], [
         'mutation-gate.json' => sprintf(
-            '{"runner": "pest", "trees": [{"path": "app"}], "ci": {"buildkite": {"definition": "%s"}}}',
-            '.buildkite/mutation-gate.yml',
+            '{"runner": "pest", "trees": [{"path": "app"}], "ci": {"%s": {"definition": "%s"}}}',
+            $ci,
+            $written,
         ),
     ]);
 
-    expect($ran->output)->toEndWith(
-        "Set ci.buildkite.definition to .buildkite/mutation-gate.yml in the config: reach and the proof key read it.\n",
-    )->and($named->output)->not->toContain('Set ci.buildkite.definition');
-});
+    expect($ran->output)->toEndWith(sprintf(
+        "Set ci.%s.definition to %s in the config: reach and the proof key read it.\n",
+        $ci,
+        $written,
+    ))->and($named->output)->not->toContain(sprintf('Set ci.%s.definition', $ci));
+})->with([
+    'Buildkite' => ['buildkite', '.buildkite/mutation-gate.yml'],
+    'Azure DevOps' => ['azure', '.azure/mutation-gate.yml'],
+]);
 
 it('says what it wrote before a file it could not write', function (): void {
     [$project, $ran] = initCi(['--editor' => 'vscode'], ['.vscode/tasks.json/inside' => '']);

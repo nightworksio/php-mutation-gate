@@ -29,6 +29,11 @@ it('is in CI where CI is set to anything, and not where it is unset or empty', f
         ->and(Variables::of([])->inCi())->toBeFalse();
 });
 
+it('is in CI on Azure Pipelines, which sets TF_BUILD and not CI', function (): void {
+    expect(Variables::of(['TF_BUILD' => 'True'])->inCi())->toBeTrue()
+        ->and(Variables::of(['TF_BUILD' => ''])->inCi())->toBeFalse();
+});
+
 it('is on GitHub Actions only where GITHUB_ACTIONS is true', function (): void {
     expect(Variables::of(['GITHUB_ACTIONS' => 'true'])->onGitHubActions())->toBeTrue()
         ->and(Variables::of(['GITHUB_ACTIONS' => 'false'])->onGitHubActions())->toBeFalse()

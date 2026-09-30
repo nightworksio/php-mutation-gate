@@ -22,6 +22,9 @@ final readonly class Definitions
     /** The directory of Buildkite's pipelines. */
     public const string BUILDKITE = '.buildkite/';
 
+    /** The pipeline Azure DevOps runs where none is named: `ci.azure.definition`'s default. */
+    public const string AZURE = 'azure-pipelines.yml';
+
     /** The directory of CircleCI's config. */
     public const string CIRCLECI_DIRECTORY = '.circleci/';
 
@@ -39,6 +42,7 @@ final readonly class Definitions
             BuiltinCiPlan::GitLab => self::GITLAB,
             BuiltinCiPlan::Buildkite => self::BUILDKITE,
             BuiltinCiPlan::CircleCi => self::CIRCLECI_DIRECTORY,
+            BuiltinCiPlan::Azure => self::AZURE,
             BuiltinCiPlan::Json => NotGiven::value(),
         };
     }

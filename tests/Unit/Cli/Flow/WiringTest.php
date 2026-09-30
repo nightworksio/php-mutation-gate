@@ -66,6 +66,7 @@ function wiringEveryCi(): Withheld
         'BUILDKITE_AGENT_ACCESS_TOKEN',
         'BUILDKITE_AGENT_TOKEN',
         'CIRCLE_OIDC_TOKEN*',
+        'SYSTEM_ACCESSTOKEN',
     );
 }
 

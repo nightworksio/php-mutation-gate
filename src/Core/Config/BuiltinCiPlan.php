@@ -15,6 +15,8 @@ enum BuiltinCiPlan: string
 
     case CircleCi = 'circleci';
 
+    case Azure = 'azure';
+
     case Json = 'json';
 
     public function named(): Name

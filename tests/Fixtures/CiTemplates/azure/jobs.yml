@@ -1,0 +1,127 @@
+# Written by `mutation-gate init --ci=azure`, for the gate dev-main.
+# The pipeline Azure DevOps runs takes these jobs in with a `- template:` line
+# among its jobs. Run it for pull requests and pushes, and schedule it on
+# trunk twice a week, with `always: true`, for the full run. The jobs run
+# on ubuntu-latest: give each a container with PHP 8.5 and pcov, or install
+# them in a step before composer install. No hosted image is known to include
+# pcov, and without it the first run cannot judge.
+# For an S3 proof store, map AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from
+# secret variables into the env of the plan and verdict steps alone: a shard
+# needs neither.
+jobs:
+  - job: mutation_plan
+    displayName: 'mutation: plan'
+    pool:
+      vmImage: ubuntu-latest
+    variables:
+      MUTATION_GATE_DEFAULT_BRANCH: 'trunk'
+    steps:
+      - checkout: self
+        fetchDepth: '0'
+      - bash: |
+          mkdir -p .mutation-gate
+          if [ "$BUILD_REASON" = "PullRequest" ]; then echo "refs/pull/$SYSTEM_PULLREQUEST_PULLREQUESTID"
+          else echo "$BUILD_SOURCEBRANCH"; fi > .mutation-gate/scope
+          echo "refs/heads/$MUTATION_GATE_DEFAULT_BRANCH" > .mutation-gate/default-scope
+        displayName: 'mutation: scope'
+      - task: Cache@2
+        displayName: 'mutation: the ledger'
+        inputs:
+          key: '"mutation-gate-ledger" | .mutation-gate/scope | "$(Build.BuildId)" | "planned"'
+          restoreKeys: |
+            "mutation-gate-ledger" | .mutation-gate/scope
+            "mutation-gate-ledger" | .mutation-gate/default-scope
+          path: .mutation-gate/ledger
+      - bash: composer install --no-interaction --no-progress
+        displayName: 'mutation: composer install'
+      - bash: |
+          target="${SYSTEM_PULLREQUEST_TARGETBRANCH#refs/heads/}"
+          if [ "$BUILD_REASON" = "Schedule" ]; then base=""
+          elif [ "$BUILD_REASON" = "PullRequest" ]; then base="--changed-since=origin/$target"
+          elif [ "$BUILD_SOURCEBRANCH" = "refs/heads/$MUTATION_GATE_DEFAULT_BRANCH" ]; then base="--changed-since=last-passed"
+          else base="--changed-since=origin/$MUTATION_GATE_DEFAULT_BRANCH"; fi
+          vendor/bin/mutation-gate plan --ci=azure $base
+        name: gate
+        displayName: 'mutation: plan'
+      - publish: .mutation-gate
+        artifact: mutation-plan
+        displayName: 'mutation: keep the plan'
+
+  - job: mutation
+    displayName: 'mutation: shard'
+    dependsOn: mutation_plan
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      matrix: $[ dependencies.mutation_plan.outputs['gate.matrix'] ]
+    steps:
+      - checkout: self
+        condition: ne(variables.SHARD, '')
+      - download: current
+        artifact: mutation-plan
+        condition: ne(variables.SHARD, '')
+      - bash: |
+          mkdir -p .mutation-gate
+          cp -R "$PIPELINE_WORKSPACE/mutation-plan/." .mutation-gate/
+          composer install --no-interaction --no-progress
+          vendor/bin/mutation-gate run --ci=azure --plan=.mutation-gate/plan.json
+        condition: ne(variables.SHARD, '')
+        displayName: 'mutation: run the shard'
+      - publish: .mutation-gate/results
+        artifact: mutation-results-$(SHARD)
+        condition: and(succeededOrFailed(), ne(variables.SHARD, ''))
+        displayName: 'mutation: keep the results'
+
+  - job: mutation_verdict
+    displayName: 'mutation: verdict'
+    dependsOn:
+      - mutation_plan
+      - mutation
+    condition: succeededOrFailed()
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - checkout: self
+      - download: current
+        patterns: |
+          mutation-plan/**
+          mutation-results-*/**
+      - bash: |
+          mkdir -p .mutation-gate/results
+          cp -R "$PIPELINE_WORKSPACE/mutation-plan/." .mutation-gate/
+          find "$PIPELINE_WORKSPACE" -path '*/mutation-results-*/*.json' -exec cp {} .mutation-gate/results/ \;
+        displayName: 'mutation: gather the results'
+      - bash: composer install --no-interaction --no-progress
+        displayName: 'mutation: composer install'
+      - bash: vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
+        displayName: 'mutation: verdict'
+      - publish: .mutation-gate/ledger
+        artifact: mutation-ledger
+        condition: succeededOrFailed()
+        displayName: 'mutation: keep the ledger'
+
+  - job: mutation_ledger
+    displayName: 'mutation: cache the ledger'
+    dependsOn: mutation_verdict
+    condition: succeededOrFailed()
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - checkout: none
+      - download: current
+        patterns: |
+          mutation-plan/scope
+          mutation-ledger/**
+      - bash: |
+          mkdir -p .mutation-gate
+          cp "$PIPELINE_WORKSPACE/mutation-plan/scope" .mutation-gate/scope
+        displayName: 'mutation: scope'
+      - task: Cache@2
+        displayName: 'mutation: the ledger'
+        inputs:
+          key: '"mutation-gate-ledger" | .mutation-gate/scope | "$(Build.BuildId)" | "judged"'
+          path: .mutation-gate/ledger
+      - bash: |
+          mkdir -p .mutation-gate/ledger
+          cp -R "$PIPELINE_WORKSPACE/mutation-ledger/." .mutation-gate/ledger/
+        displayName: 'mutation: the verdict''s ledger'

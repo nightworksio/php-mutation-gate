@@ -14,6 +14,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
 use NightWorksIO\MutationGate\Adapter\Alert\Channel;
+use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
@@ -104,6 +105,12 @@ final readonly class FirstParty implements Extension
                 CircleCiPlan::fromOptions(...),
                 CircleCiPlan::withheld(),
                 CircleCiPlan::marker(),
+            )
+            ->withCiPlan(
+                BuiltinCiPlan::Azure->named(),
+                AzurePlan::fromOptions(...),
+                AzurePlan::withheld(),
+                AzurePlan::marker(),
             )
             ->withCiPlan(
                 BuiltinCiPlan::Json->named(),

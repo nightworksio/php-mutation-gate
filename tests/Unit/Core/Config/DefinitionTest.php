@@ -69,6 +69,7 @@ it('declares every setting as affecting results or as judging or reporting only'
         'ci.gitlab.template' => $results,
         'ci.buildkite.step' => $judges,
         'ci.buildkite.definition' => $results,
+        'ci.azure.definition' => $results,
         'proofs.store' => $judges,
         'proofs.store.with.path' => $judges,
         'proofs.store.with.bucket' => $judges,

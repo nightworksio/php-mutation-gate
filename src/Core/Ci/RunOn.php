@@ -50,6 +50,17 @@ final readonly class RunOn
         return new self($scope, $defaultBranch, Unnamed::commit());
     }
 
+    /**
+     * The run on a full ref, as a CI names it: under the scope the ref spells, and detached for a tag or any
+     * other ref no proof is kept under.
+     */
+    public static function onRef(string $ref, Scope|CannotTell $defaultBranch): self
+    {
+        $scope = Scope::parse($ref);
+
+        return $scope instanceof Scope ? self::at($scope, $defaultBranch) : self::detached($defaultBranch);
+    }
+
     /** A run on a detached `HEAD`, which is never a pull request. */
     public static function detached(Scope|CannotTell $defaultBranch): self
     {

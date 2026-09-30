@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use Symfony\Component\Yaml\Yaml;
 
@@ -23,13 +24,15 @@ use Symfony\Component\Yaml\Yaml;
  * - gitlab-ci.json: gitlab.com/gitlab-org/gitlab, app/assets/javascripts/editor/schema/ci.json (MIT);
  * - buildkite.json: github.com/buildkite/pipeline-schema, schema.json (MIT);
  * - circleci.json: github.com/CircleCI-Public/circleci-yaml-language-server, schema.json (Apache-2.0);
- * - github-workflow.json: json.schemastore.org/github-workflow.json (Apache-2.0), beside actionlint in CI.
+ * - github-workflow.json: json.schemastore.org/github-workflow.json (Apache-2.0), beside actionlint in CI;
+ * - azure-pipelines.json: github.com/microsoft/azure-pipelines-vscode, service-schema.json (MIT).
  */
 const CI_SCHEMAS = [
     'github' => 'github-workflow',
     'gitlab' => 'gitlab-ci',
     'buildkite' => 'buildkite',
     'circleci' => 'circleci',
+    'azure' => 'azure-pipelines',
 ];
 
 /** A rendered template's YAML, as the JSON a schema validates. */
@@ -52,17 +55,20 @@ function ciTemplateGate(): GatePin
     return $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();
 }
 
-/** A template, as a project on PHP 8.5, with the default branch trunk, the runner pest and every default, fills it in. */
+/**
+ * A template, as a project on PHP 8.5, with the default branch trunk, the runner pest and every default, fills it
+ * in for the CI whose directory holds it.
+ */
 function ciTemplateRendered(CiTemplate $template): string
 {
+    [$ci] = explode('/', $template->value);
     $values = TemplateValues::of(
         '8.5',
         'trunk',
         ciTemplateGate(),
         'pest',
-        Ci::none()->gitlabTemplate()->value(),
         Ci::none()->check(),
-        CiTemplate::buildkitePipeline()->value(),
+        CiTemplate::included(BuiltinCiPlan::from($ci), Ci::none()),
     );
     $text = (string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value)));
 
@@ -78,7 +84,19 @@ it('renders each CI\'s templates, the GitHub one as the estimate or the request 
         ->and(CiTemplate::for(BuiltinCiPlan::Buildkite, $single))
         ->toEqual(Listed::of(CiTemplate::BuildkitePipeline, CiTemplate::BuildkiteUpload))
         ->and(CiTemplate::for(BuiltinCiPlan::CircleCi, $single))->toEqual(Listed::of(CiTemplate::CircleCi))
+        ->and(CiTemplate::for(BuiltinCiPlan::Azure, $single))->toEqual(Listed::of(CiTemplate::AzureJobs, CiTemplate::AzureInclude))
         ->and(CiTemplate::for(BuiltinCiPlan::Json, $single))->toEqual(Listed::of());
+});
+
+it('names the file of the gate\'s jobs that the lines it prints pull in, where the CI\'s definition is more than one', function (): void {
+    $ci = Ci::of(gitlabTemplate: Path::of('ci/gate.yml'));
+
+    expect(array_map(
+        static fn(BuiltinCiPlan $plan): string => ($included = CiTemplate::included($plan, $ci)) instanceof Path
+            ? $included->value()
+            : 'none',
+        BuiltinCiPlan::cases(),
+    ))->toBe(['none', 'ci/gate.yml', '.buildkite/mutation-gate.yml', 'none', '.azure/mutation-gate.yml', 'none']);
 });
 
 it('writes a definition to a file of its own, and prints one that belongs in a file the CI reads', function (): void {
@@ -97,6 +115,8 @@ it('writes a definition to a file of its own, and prints one that belongs in a f
         '.buildkite/mutation-gate.yml',
         'printed into the pipeline Buildkite runs',
         'printed into .circleci/config.yml',
+        '.azure/mutation-gate.yml',
+        'printed into azure-pipelines.yml',
     ]);
 });
 
@@ -149,7 +169,7 @@ it('refuses a value a shell or YAML would read as code, from whichever setting i
     string $check,
     string $why,
 ): void {
-    expect(TemplateValues::of('8.5', $branch, GatePin::unknown(), $runner, $template, $check, 'x.yml'))
+    expect(TemplateValues::of('8.5', $branch, GatePin::unknown(), $runner, $check, Path::of($template)))
         ->toEqual(CannotJudge::because(sprintf(
             '%s cannot go into a CI definition, where a shell or YAML reads it as code. %s',
             ...explode(' | ', $why),
@@ -165,8 +185,15 @@ it('refuses a value a shell or YAML would read as code, from whichever setting i
 ]);
 
 it('takes a runner a class names, and a check with spaces', function (): void {
-    expect(TemplateValues::of('8.5', 'release/2.x', GatePin::unknown(), '\\Acme\\Runner', 'ci/gate.yml', 'mutation / verdict', 'x.yml'))
+    expect(TemplateValues::of('8.5', 'release/2.x', GatePin::unknown(), '\\Acme\\Runner', 'mutation / verdict', Path::of('ci/gate.yml')))
         ->toBeInstanceOf(TemplateValues::class);
+});
+
+it('leaves the file of the gate\'s jobs unchecked and unfilled where the CI\'s definition is one file', function (): void {
+    $values = TemplateValues::of('8.5', 'main', GatePin::unknown(), 'pest', 'c', NotGiven::value());
+
+    expect($values)->toBeInstanceOf(TemplateValues::class)
+        ->and($values instanceof TemplateValues ? $values->rendered('%%included%% %%runner%%') : '')->toBe('%%included%% pest');
 });
 
 it('quotes every value a project gives wherever a template holds it, and runs none in a shell line', function (
@@ -174,7 +201,7 @@ it('quotes every value a project gives wherever a template holds it, and runs no
 ): void {
     $lines = explode("\n", (string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value))));
     $unquoted = array_filter($lines, static fn(string $line): bool => ! str_starts_with(trim($line), '#')
-        && preg_match("/(?<!')%%(branch|runner|template|check)%%|%%(branch|runner|template|check)%%(?!')/", $line) === 1);
+        && preg_match("/(?<!')%%(branch|runner|included|check)%%|%%(branch|runner|included|check)%%(?!')/", $line) === 1);
 
     expect(array_values($unquoted))->toBe([]);
 })->with(CiTemplate::cases());

@@ -21,7 +21,10 @@ final readonly class Variables
     /** Set to `true` by CircleCI in every job it runs. */
     public const string CIRCLECI = 'CIRCLECI';
 
-    /** Set by every supported CI, and unset on a developer's machine. */
+    /** Set, to `True`, by Azure Pipelines in every job it runs. */
+    public const string TF_BUILD = 'TF_BUILD';
+
+    /** Set by every supported CI but Azure Pipelines, and unset on a developer's machine. */
     private const string CI = 'CI';
 
     /** @param array<string, string> $values by name */
@@ -40,10 +43,10 @@ final readonly class Variables
         return array_key_exists($name, $this->values) && $this->values[$name] !== '';
     }
 
-    /** Whether the run is in CI, as every supported CI says by setting `CI`. */
+    /** Whether the run is in CI, as every supported CI says by setting `CI`, and Azure Pipelines by `TF_BUILD`. */
     public function inCi(): bool
     {
-        return $this->has(self::CI);
+        return $this->has(self::CI) || $this->has(self::TF_BUILD);
     }
 
     /** Whether GitHub Actions runs the job. */

@@ -149,6 +149,14 @@ documentation, are these.
    are validated offline against each provider's published schema.
    Jenkins publishes no schema for a Jenkinsfile, so its template is held by
    its snapshot test alone. This amends ADR-0015 decisions 13 to 17.
+   - **Azure DevOps.** `init --ci=azure` writes the gate's jobs as a template,
+     `.azure/mutation-gate.yml`, and prints the `- template:` line that takes
+     them into the pipeline Azure runs, which it never edits (ADR-0015
+     decision 13). A config `init` writes names that template as
+     `ci.azure.definition`, as it names Buildkite's pipeline, and where a
+     config is kept, `init` says to. `Cache@2` saves only from a job that
+     succeeds, so a last job, run whatever the verdict decided, saves the
+     ledger the verdict wrote.
 
 ### Comments beyond GitHub
 

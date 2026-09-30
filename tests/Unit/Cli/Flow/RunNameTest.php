@@ -23,12 +23,12 @@ it('names the run as its CI numbers it, or by its time where no CI does', functi
     expect(RunName::of($environment, $at, $base))->toEqual(Run::of($name, $at, $base));
 })->with([
     'GitHub' => [
-        Variables::of(['GITHUB_RUN_ID' => '5813', 'GITHUB_RUN_ATTEMPT' => '2', 'CI_PIPELINE_ID' => '9']),
+        Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_RUN_ID' => '5813', 'GITHUB_RUN_ATTEMPT' => '2']),
         'github:5813/2',
     ],
-    'GitLab' => [Variables::of(['CI_PIPELINE_ID' => '9', 'BUILDKITE_BUILD_ID' => 'b']), 'gitlab:9'],
-    'Buildkite' => [Variables::of(['BUILDKITE_BUILD_ID' => 'b-1', 'CIRCLE_WORKFLOW_ID' => 'c']), 'buildkite:b-1'],
-    'CircleCI' => [Variables::of(['CIRCLE_WORKFLOW_ID' => 'c-1']), 'circleci:c-1'],
+    'GitLab' => [Variables::of(['GITLAB_CI' => 'true', 'CI_PIPELINE_ID' => '9']), 'gitlab:9'],
+    'Azure DevOps' => [Variables::of(['TF_BUILD' => 'True', 'BUILD_BUILDID' => '42']), 'azure:42'],
     'no CI' => [Variables::of([]), 'local:2026-09-30T12:00:00Z'],
-    'a CI variable set empty' => [Variables::of(['GITHUB_RUN_ID' => '']), 'local:2026-09-30T12:00:00Z'],
+    'a CI that numbers no run' => [Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_RUN_ID' => '']), 'local:2026-09-30T12:00:00Z'],
+    'a CI the gate cannot read' => [Variables::of(['CI' => 'true', 'GITHUB_RUN_ID' => '5813']), 'local:2026-09-30T12:00:00Z'],
 ]);

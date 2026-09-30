@@ -29,6 +29,13 @@ final readonly class CiKeys
         $template = Field::optional('template', Location::path($origin), $results);
         $step = Field::optional('step', StepTemplate::buildkite(), $judges);
         $definition = Field::optional('definition', Location::path($origin), $results);
+        $azure = Field::section(
+            'azure',
+            Section::single(
+                Field::optional('definition', Location::path($origin), $results),
+                static fn(Path|Absent $path): Ci => Ci::of(azureDefinition: $path),
+            ),
+        );
         $gitlab = Field::section(
             'gitlab',
             Section::single(
@@ -60,16 +67,16 @@ final readonly class CiKeys
         return [Field::section(
             'ci',
             Section::of(
-                static function (Node $ci) use ($plan, $branch, $check, $gitlab, $buildkite): Layer|Invalid {
+                static function (Node $ci) use ($plan, $branch, $check, $gitlab, $buildkite, $azure): Layer|Invalid {
                     $readings = [$plan->read($ci), $branch->read($ci), $check->read($ci)];
-                    $inner = [$gitlab->read($ci), $buildkite->read($ci)];
+                    $inner = [$gitlab->read($ci), $buildkite->read($ci), $azure->read($ci)];
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Ci::of(
                             plan: $readings[0]->value(),
                             defaultBranch: $readings[1]->value(),
                             check: $readings[2]->value(),
-                        )->over($inner[0]->must())->over($inner[1]->must())),
+                        )->over($inner[0]->must())->over($inner[1]->must())->over($inner[2]->must())),
                         ...$readings,
                         ...$inner,
                     );
@@ -79,6 +86,7 @@ final readonly class CiKeys
                 $check,
                 $gitlab,
                 $buildkite,
+                $azure,
             ),
         )];
     }

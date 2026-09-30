@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -183,7 +184,13 @@ final readonly class Init
             ! $settings instanceof Settings => $settings,
             $existing instanceof Path
                 => sprintf(self::KEPT, $existing->relativeTo(Path::of($setting->project))->value()),
-            default => ConfigWriting::written($setting, $settings, $destination, $from, CiDefinition::configOf($ci)),
+            default => ConfigWriting::written(
+                $setting,
+                $settings,
+                $destination,
+                $from,
+                $prepared instanceof PreparedCi ? $prepared->config() : Layer::none(),
+            ),
         };
 
         if (! is_string($config) || ! $settings instanceof Settings) {

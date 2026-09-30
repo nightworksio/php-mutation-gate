@@ -77,6 +77,9 @@ const DEFAULTS = <<<'JSON'
             "buildkite": {
                 "step": {},
                 "definition": ".buildkite/pipeline.yml"
+            },
+            "azure": {
+                "definition": "azure-pipelines.yml"
             }
         },
         "proofs": {
@@ -157,6 +160,7 @@ const EVERYTHING = [
         'check' => 'gate / verdict',
         'gitlab' => ['template' => '.gitlab/gate.yml'],
         'buildkite' => ['step' => ['agents' => ['queue' => 'mutation']], 'definition' => '.buildkite/mutation.yml'],
+        'azure' => ['definition' => 'ci/azure.yml'],
     ],
     'proofs' => [
         'store' => ['use' => 's3', 'with' => ['bucket' => 'proofs', 'endpoint' => 'https://r2.example.com']],
@@ -395,12 +399,14 @@ it('leaves an ignore without an end date open when nothing limits it', function 
 
 it('serialises the settings that affect results canonically, and only those', function (): void {
     expect(Configs::settings(['runner' => 'pest'])->canonical())->toBe(
-        '{"ci":{"buildkite":{"definition":".buildkite/pipeline.yml"},"gitlab":{"template":".gitlab/mutation-gate.yml"}},'
+        '{"ci":{"azure":{"definition":"azure-pipelines.yml"},"buildkite":{"definition":".buildkite/pipeline.yml"},'
+        . '"gitlab":{"template":".gitlab/mutation-gate.yml"}},'
         . '"flaky":{"confirmSurvivors":true},"packages":[],"pest":{"canary":"mutation-canary","patch":false},'
         . '"runner":"pest","staticCheck":{"tool":"auto"},"tests":{"order":"killers-first"},'
         . '"timeouts":{"retries":20,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
     )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
-        '{"ci":{"buildkite":{"definition":".buildkite/mutation.yml"},"gitlab":{"template":".gitlab/gate.yml"}},'
+        '{"ci":{"azure":{"definition":"ci/azure.yml"},"buildkite":{"definition":".buildkite/mutation.yml"},'
+        . '"gitlab":{"template":".gitlab/gate.yml"}},'
         . '"flaky":{"confirmSurvivors":false},"packages":["packages/*"],"pest":{"canary":"canary","patch":true},'
         . '"runner":"infection","staticCheck":{"config":"phpstan.dist.neon","tool":"phpstan"},'
         . '"tests":{"order":"killers-first"},"timeouts":{"retries":0,"seconds":30},'
