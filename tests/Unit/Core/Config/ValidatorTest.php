@@ -623,6 +623,15 @@ it('reads an adapter written as an object, checking a built-in one\'s options st
         ->toBe(['runner: expected a name, a class, or an object with use and with, got ""']);
 });
 
+it('refuses an adapter written as neither a name nor an object', function (string $key, array $config): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', ...$config])))
+        ->toBe([sprintf('%s: expected a name, a class, or an object with use and with, got 5', $key)]);
+})->with([
+    'the tree source' => ['treeSource', ['treeSource' => 5]],
+    'the CI plan' => ['ci.plan', ['ci' => ['plan' => 5]]],
+    'the proof store' => ['proofs.store', ['proofs' => ['store' => 5]]],
+]);
+
 it('leaves the options of a class or another extension\'s adapter to it', function (): void {
     $settings = Configs::settings([
         'runner' => ['use' => 'Acme\\Gate\\Runner', 'with' => ['workers' => 4]],
