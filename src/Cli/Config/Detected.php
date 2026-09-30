@@ -20,12 +20,13 @@ use function sprintf;
  */
 final readonly class Detected
 {
+    /** The package whose installation makes Pest the runner. */
+    public const string PEST = 'pestphp/pest-plugin-mutate';
+
+    /** The package whose installation makes Infection the runner. */
+    public const string INFECTION = 'infection/infection';
     /** The package that says each preset fits, in the order they are asked about (ADR-0008). */
     private const array PRESETS = ['laravel' => 'laravel/framework', 'symfony' => 'symfony/framework-bundle'];
-
-    private const string PEST = 'pestphp/pest-plugin-mutate';
-
-    private const string INFECTION = 'infection/infection';
 
     public function __construct(private Directory $project, private Directory $vendor)
     {
@@ -55,15 +56,22 @@ final readonly class Detected
     /** `pest` when Pest's mutation plugin is installed, `infection` when Infection is; both is a choice to make. */
     public function runner(): string|CannotJudge
     {
+        $installed = $this->installed();
+
+        return $installed instanceof CannotJudge ? $installed : $this->runnerIn($installed);
+    }
+
+    /** What Composer installed in the vendor directory, as its `installed.json` lists it. */
+    public function installed(): Installed|CannotJudge
+    {
         $file = Installed::fileIn(Path::root());
         $contents = $this->vendor->read($file);
-        $installed = match (true) {
+
+        return match (true) {
             $contents instanceof Contents => Installed::decode($contents, $file),
             $contents instanceof CannotJudge => $contents,
             default => Installed::missingAt($file),
         };
-
-        return $installed instanceof CannotJudge ? $installed : $this->runnerIn($installed);
     }
 
     private function runnerIn(Installed $installed): string|CannotJudge

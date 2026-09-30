@@ -8,6 +8,7 @@ use function array_values;
 use function get_declared_classes;
 use function get_included_files;
 use function getenv;
+use function ini_get;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Grouping\HoldsGroups;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Reordering;
@@ -16,8 +17,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\Opcache;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use Pest\Contracts\Plugins\Bootable;
 use Pest\Contracts\Plugins\HandlesArguments;
 use Pest\TestSuite;
@@ -72,7 +73,8 @@ final class Plugin implements Bootable, HandlesArguments
     public function finish(): void
     {
         if ($this->guard instanceof Guard) {
-            $this->guard->write(get_included_files(), Opcache::current());
+            $opcache = Opcache::of(ini_get('opcache.enable_cli'), ini_get('opcache.file_cache'));
+            $this->guard->write(get_included_files(), $opcache);
         }
 
         if ($this->naming instanceof Naming) {

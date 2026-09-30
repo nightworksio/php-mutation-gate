@@ -53,15 +53,18 @@ use function sprintf;
  */
 final readonly class ReportSchema
 {
-    private const string ID
+    /** Where each of the gate's JSON Schemas is published, by its name. */
+    public const string ID
         = 'https://github.com/nightworksio/php-mutation-gate/blob/main/resources/%s.schema.json';
 
-    private const string DRAFT = 'http://json-schema.org/draft-07/schema#';
+    /** The JSON Schema draft the gate's schemas are written in. */
+    public const string DRAFT = 'http://json-schema.org/draft-07/schema#';
+
+    /** A string, as a schema allows one. */
+    public const array TEXT = ['type' => 'string'];
 
     private const string TESTS
         = 'The tests mutation says catch nothing, and those that can go without losing a kill (ADR-0014).';
-
-    private const array TEXT = ['type' => 'string'];
 
     private const array WHOLE = ['type' => 'integer', 'minimum' => 0];
 

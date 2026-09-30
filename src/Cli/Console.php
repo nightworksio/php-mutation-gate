@@ -7,13 +7,21 @@ namespace NightWorksIO\MutationGate\Cli;
 use function class_exists;
 
 use DateTimeImmutable;
+
+use function getenv;
+
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Runtime\PhpProbe;
 use NightWorksIO\MutationGate\Cli\Command\ConfigSchema;
 use NightWorksIO\MutationGate\Cli\Command\ConfigShow;
+use NightWorksIO\MutationGate\Cli\Command\Doctor;
 use NightWorksIO\MutationGate\Cli\Command\Init;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
+use NightWorksIO\MutationGate\Cli\Doctor\Observed;
+use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Input\InputOption;
@@ -85,6 +93,11 @@ final readonly class Console
         $application->addCommand(Init::command($project, $extensions, $effective, $formats));
         $application->addCommand(ConfigShow::command($effective, $formats));
         $application->addCommand(ConfigSchema::command());
+        $installed = $detected->installed();
+        $application->addCommand(Doctor::command(
+            new Observed($project, $extensions, $effective, $detected, PhpProbe::of(PHP_BINARY, getenv())),
+            $installed instanceof Installed ? Guide::installedIn($installed) : Guide::unreleased(),
+        ));
         $application->setDefaultCommand(self::DEFAULT);
 
         return $application;

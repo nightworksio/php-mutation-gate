@@ -202,12 +202,24 @@ would have cost without them.
      - the troubleshooting slug and link of ADR-0018.
    - It exits 1 when any finding will fail, and 0 otherwise.
      `--format=text|json` chooses the output. The JSON is public API
-     (ADR-0011 decision 7).
+     (ADR-0011 decision 7): `{"format": 1, "failsARun", "findings": [{"slug",
+     "severity", "found", "why", "fix", "seconds", "link"}]}`, where `seconds`
+     is the time at stake and only a *slow* finding has it. Its schema is
+     generated from the same enums and committed at
+     `resources/doctor.schema.json`.
+   - Beside the checks of decision 10, it finds a config every command
+     refuses (`config-refused`) and a runner's PHP that cannot describe itself
+     (`php-not-read`), both *will fail*.
+   - `--measure` and `--online` are not accepted until each is built.
    - It never edits a file, as `hook install` never overwrites a hook
      (ADR-0010 decision 3).
    - `plan` and a one-process run begin with the same checks, one line for
      each *will fail* and *slow* finding. Users meet them without knowing
-     `doctor` exists.
+     `doctor` exists. The checks are the core's `Diagnosis`, over what an
+     adapter observed of the project without running its code.
+   - The PHP the runner uses is described by `php -m` and `php -i`, run with
+     the runner's own options (Infection's `initialTestsPhpOptions`), never
+     seeing a variable withheld.
 
 10. **The checks.** Each has a detector with no false positive on the
     benchmark's projects, a contract test of its detection and message, and

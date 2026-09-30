@@ -4,12 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
-use function array_flip;
-use function array_key_exists;
-use function array_map;
 use function basename;
 use function dirname;
-use function explode;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
@@ -31,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\GitIgnore;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -48,8 +45,6 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-use function trim;
-
 /**
  * `init`: a config file holding exactly what zero-config found, so adopting
  * one changes nothing until somebody edits it (ADR-0002): the preset, the
@@ -57,8 +52,6 @@ use function trim;
  */
 final readonly class Init
 {
-    private const string GITIGNORE = '.gitignore';
-
     public static function command(
         string $project,
         Extensions $extensions,
@@ -198,23 +191,19 @@ final readonly class Init
     /** Whether `.mutation-gate/` had to be added to `.gitignore`, as `init` adds it. */
     private static function ignore(Directory $project): bool|CannotJudge
     {
-        $gitignore = $project->read(Path::of(self::GITIGNORE));
+        $gitignore = $project->read(Path::of(GitIgnore::FILE));
         $text = $gitignore instanceof Contents ? $gitignore->text() : '';
-        $lines = array_flip(array_map(
-            static fn(string $line): string => trim(trim($line), '/'),
-            explode("\n", $text),
-        ));
 
         if ($gitignore instanceof CannotJudge) {
             return $gitignore;
         }
 
-        if (array_key_exists(Workspace::root()->value(), $lines)) {
+        if (GitIgnore::of($text)->names(Workspace::root())) {
             return false;
         }
 
         $added = $project->write(
-            Path::of(self::GITIGNORE),
+            Path::of(GitIgnore::FILE),
             Contents::of(
                 sprintf(
                     '%s%s%s',

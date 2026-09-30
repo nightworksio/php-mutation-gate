@@ -1,0 +1,75 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://github.com/nightworksio/php-mutation-gate/blob/main/resources/doctor.schema.json",
+    "title": "mutation-gate doctor",
+    "description": "What would fail, or run slowly, before a run does (ADR-0017, decision 9).",
+    "type": "object",
+    "properties": {
+        "format": {
+            "const": 1
+        },
+        "failsARun": {
+            "type": "boolean"
+        },
+        "findings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "enum": [
+                            "no-coverage-driver",
+                            "xdebug-slows-tests",
+                            "opcache-on-the-command-line",
+                            "two-runners",
+                            "no-tree",
+                            "config-refused",
+                            "php-not-read",
+                            "workspace-not-ignored",
+                            "infection-config-to-import"
+                        ]
+                    },
+                    "severity": {
+                        "enum": [
+                            "will-fail",
+                            "slow",
+                            "advice"
+                        ]
+                    },
+                    "found": {
+                        "type": "string"
+                    },
+                    "why": {
+                        "type": "string"
+                    },
+                    "fix": {
+                        "type": "string"
+                    },
+                    "seconds": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "link": {
+                        "type": "string",
+                        "format": "uri"
+                    }
+                },
+                "required": [
+                    "slug",
+                    "severity",
+                    "found",
+                    "why",
+                    "fix",
+                    "link"
+                ],
+                "additionalProperties": false
+            }
+        }
+    },
+    "required": [
+        "format",
+        "failsARun",
+        "findings"
+    ],
+    "additionalProperties": false
+}

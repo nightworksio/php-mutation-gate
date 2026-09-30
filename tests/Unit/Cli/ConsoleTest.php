@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Tests\Support\Commands;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Printed;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -31,7 +32,18 @@ it('offers every command the README lists', function (string $command) use ($con
     'config:show',
     'config:schema',
     'pest:patch',
+    'doctor',
 ]);
+
+it('says what would fail a run in a project, before a run does', function (): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/TwoRunners');
+    $tester = new ApplicationTester(Commands::console($project));
+    $code = $tester->run(['command' => 'doctor', '--format' => 'json']);
+    $slugs = Decoded::column(Printed::by($tester->getOutput()), 'slug', 'findings');
+
+    expect($code)->toBe(1)
+        ->and($slugs)->toContain('two-runners');
+});
 
 it('runs the whole gate when no command is named', function () use ($console): void {
     $tester = new ApplicationTester($console());

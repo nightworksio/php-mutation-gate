@@ -474,7 +474,7 @@ services:
                 - src/Adapter/Infection/OwnConfig.php # infection.json's sections
                 - src/Adapter/Pest/Families.php # Pest's mutator names
                 - src/Adapter/Pest/Interpretation.php # Pest's status words
-                - src/Adapter/Pest/Recording/Opcache.php # PHP's ini switches
+                - src/Core/Runner/Opcache.php # PHP's ini switches, as the Pest plugin and doctor's probe read them
                 - src/Core/File/Glob.php # the glob grammar
             # Closed sets still to become enums, by the builder whose area holds them.
             awaiting:
