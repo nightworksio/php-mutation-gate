@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\InstalledRunners;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
@@ -20,7 +21,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 it('gives nothing it was not given', function (): void {
     $none = Observations::none();
 
-    expect([$none->php(), $none->runners(), $none->settings(), $none->trees(), $none->markers(), $none->ledgers(), $none->now()])
+    expect([$none->php(), $none->runners(), $none->settings(), $none->trees(), $none->markers(), $none->ledgers(), $none->run()])
         ->toEqual(array_fill(0, 7, NotGiven::value()))
         ->and($none->files())->toEqual(ProjectFiles::none());
 });
@@ -32,9 +33,9 @@ it('keeps each part it is given, whatever order they come in', function (): void
     $markers = Markers::of(Marker::of('infection.json5 mutators.global-ignore', 'App\\Money', '{}'));
     $files = ProjectFiles::none()->withGitIgnore(GitIgnore::of('/vendor/'));
     $ledgers = KeptLedgers::of(KeptLedger::of(Path::of('.mutation-gate/ledger/refs/heads/main/ledger.json.gz'), 120));
-    $now = new DateTimeImmutable(Configs::NOW);
+    $run = DoctorRun::of(new DateTimeImmutable(Configs::NOW), 134_217_728);
     $observed = Observations::none()
-        ->at($now)
+        ->in($run)
         ->withLedgers($ledgers)
         ->withFiles($files)
         ->withMarkers($markers)
@@ -43,8 +44,8 @@ it('keeps each part it is given, whatever order they come in', function (): void
         ->withRunners($runners)
         ->withPhp($php);
 
-    expect([$observed->php(), $observed->runners(), $observed->settings(), $observed->markers(), $observed->files(), $observed->ledgers(), $observed->now()])
-        ->toBe([$php, $runners, $settings, $markers, $files, $ledgers, $now])
+    expect([$observed->php(), $observed->runners(), $observed->settings(), $observed->markers(), $observed->files(), $observed->ledgers(), $observed->run()])
+        ->toBe([$php, $runners, $settings, $markers, $files, $ledgers, $run])
         ->and($observed->trees())->toEqual(Trees::none())
         ->and(Observations::none()->withPhp(CannotJudge::because('no PHP'))->php())->toEqual(CannotJudge::because('no PHP'));
 });

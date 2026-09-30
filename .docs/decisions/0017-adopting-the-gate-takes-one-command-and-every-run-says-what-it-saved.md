@@ -256,6 +256,7 @@ would have cost without them.
     | Pest with more than one shard in the recorded timings, and no `pest.patch` | slow: the opening run × (shards − 1) |
     | A hot path nothing holds (ADR-0005 decision 11), under `--measure` | slow: its units' timings, or else its covering tests' time |
     | A ledger past the compressed limit a run reads (ADR-0013 decision 13), or at its proof cap with under 50% hits over its last 10 runs | slow |
+    | The gate's own `memory_limit` under what its ledgers may need (ADR-0013 decision 13), where its command could not raise it | will fail |
     | One file outside the tests that invalidated most proofs in recent runs, found by comparing the digests of each item of the key, which every proof keeps (ADR-0007 decision 3) | slow |
     | A GitHub workflow that checks out without `fetch-depth: 0` | slow: everything is reached |
     | A GitHub workflow with no `schedule`, `cache: false` on the directory store, the action pinned by tag, or `persist-credentials` left on | advice |

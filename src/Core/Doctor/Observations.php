@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Doctor;
 
-use DateTimeImmutable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -29,7 +28,7 @@ final readonly class Observations
         private ProjectFiles $files,
         private KeptLedgers|NotGiven $ledgers,
         private Asked $asked,
-        private DateTimeImmutable|NotGiven $now,
+        private DoctorRun|NotGiven $run,
     ) {
     }
 
@@ -87,10 +86,10 @@ final readonly class Observations
         return clone($this, ['asked' => $asked]);
     }
 
-    /** These, as of the instant they were read. */
-    public function at(DateTimeImmutable $now): self
+    /** These, as doctor's own run read them: when, and with what memory. */
+    public function in(DoctorRun $run): self
     {
-        return clone($this, ['now' => $now]);
+        return clone($this, ['run' => $run]);
     }
 
     public function php(): RunnerPhp|CannotJudge|NotGiven
@@ -133,8 +132,8 @@ final readonly class Observations
         return $this->asked;
     }
 
-    public function now(): DateTimeImmutable|NotGiven
+    public function run(): DoctorRun|NotGiven
     {
-        return $this->now;
+        return $this->run;
     }
 }

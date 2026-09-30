@@ -32,12 +32,12 @@ final readonly class EncodedLedger
         $retention = LedgerRetention::standard();
         $retained = count($retention->proofsOf($ledger));
         $kept = $retained;
-        $text = LedgerFile::text($ledger, $retention);
+        $text = LedgerJson::text($ledger, $retention);
         $bytes = Gzip::pack($text);
 
         while ($kept > 0 && ! $limits->admitsWritten($text, $bytes)) {
             $kept = $limits->fitting($kept, $text, $bytes);
-            $text = LedgerFile::text($ledger, $retention->keepingAtMost($kept));
+            $text = LedgerJson::text($ledger, $retention->keepingAtMost($kept));
             $bytes = Gzip::pack($text);
         }
 

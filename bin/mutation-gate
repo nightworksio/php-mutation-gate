@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Gate;
+use NightWorksIO\MutationGate\Core\Proof\LedgerMemory;
 use Symfony\Component\Console\Input\ArgvInput;
 use NightWorksIO\MutationGate\Adapter\Console\InertOutput;
 
@@ -11,6 +12,14 @@ $autoload = array_key_exists('_composer_autoload_path', $GLOBALS) && is_string($
     ? $GLOBALS['_composer_autoload_path']
     : sprintf('%s/vendor/autoload.php', dirname(__DIR__));
 require $autoload;
+
+// The gate's own process, and no other, is given the memory its ledgers may need (ADR-0013 decision 13), where
+// PHP lets it set its own; doctor says where it does not.
+$memory = LedgerMemory::standard();
+
+if (! $memory->admits(ini_parse_quantity(ini_get('memory_limit'))) && function_exists('ini_set')) {
+    ini_set('memory_limit', sprintf('%d', $memory->bytes()));
+}
 
 $output = new InertOutput();
 

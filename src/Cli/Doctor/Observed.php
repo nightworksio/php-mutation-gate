@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Doctor;
 
-use DateTimeImmutable;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\OwnConfig;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
@@ -20,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\InstalledRunners;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\RunnerPhp;
@@ -49,7 +49,7 @@ final readonly class Observed
         private Effective $effective,
         private Detected $detected,
         private PhpProbe $php,
-        private DateTimeImmutable $now,
+        private DoctorRun $run,
     ) {
     }
 
@@ -57,7 +57,7 @@ final readonly class Observed
     {
         $settings = $this->effective->settings($given);
         $observed = Observations::none()
-            ->at($this->now)
+            ->in($this->run)
             ->withSettings($settings)
             ->withPhp($this->phpOf($settings))
             ->withFiles(Files::in($this->project)->of($settings));

@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\HotPath;
 use NightWorksIO\MutationGate\Core\Doctor\Check\IgnoresExpiring;
 use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionImport;
 use NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize;
+use NightWorksIO\MutationGate\Core\Doctor\Check\MemoryLimit;
 use NightWorksIO\MutationGate\Core\Doctor\Check\MirroredRepository;
 use NightWorksIO\MutationGate\Core\Doctor\Check\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Doctor\Check\OnlineRead;
@@ -43,6 +44,7 @@ final readonly class Diagnosis
             TreesFound::in($observed),
             TreeFloors::in($observed),
             LedgerSize::in($observed),
+            MemoryLimit::in($observed),
             NativeMarkers::in($observed),
             MirroredRepository::in($observed),
             Workspace::in($observed),

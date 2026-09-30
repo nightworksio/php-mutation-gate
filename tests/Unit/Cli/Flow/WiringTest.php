@@ -46,6 +46,7 @@ use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Component\Process\Process;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -107,12 +108,48 @@ it('keeps a local run\'s proofs on the machine, and a CI run\'s in the store the
         ->toEqual(LedgerDirectory::at('cache/ledger'));
 });
 
+/**
+ * What runs in a new git repository whose origin names this default branch, or none where it is empty.
+ *
+ * @template T
+ *
+ * @param  Closure(): T $run
+ * @return T
+ */
+function wiringInRepository(string $originHead, Closure $run): mixed
+{
+    $here = getcwd();
+    $repository = Scratch::directory();
+    $git = static fn(string ...$arguments): int => new Process(['git', ...$arguments], $repository)->run();
+    $git('init', '--quiet');
+
+    if ($originHead !== '') {
+        $git('symbolic-ref', 'refs/remotes/origin/HEAD', sprintf('refs/remotes/origin/%s', $originHead));
+    }
+
+    chdir($repository);
+
+    try {
+        return $run();
+    } finally {
+        chdir(is_string($here) ? $here : $repository);
+    }
+}
+
 it('opens the store read-only for a CI job without its credentials, reading the default branch\'s scope alone', function (
     Settings $settings,
+    string $gitLabDefault,
+    string $originHead,
     string $branch,
 ): void {
     $unset = ['AWS_ACCESS_KEY_ID' => null, 'AWS_SECRET_ACCESS_KEY' => null];
-    $ci = Environment::during($unset, static fn(): Adapters => wiredOf($settings, Variables::of(['CI' => 'true'])));
+    $environment = $gitLabDefault === ''
+        ? []
+        : ['GITLAB_CI' => 'true', 'CI_DEFAULT_BRANCH' => $gitLabDefault, 'CI_COMMIT_REF_NAME' => 'feature'];
+    $ci = wiringInRepository($originHead, static fn(): Adapters => Environment::during(
+        [...$unset, ...$environment],
+        static fn(): Adapters => wiredOf($settings, Variables::of(['CI' => 'true', ...$environment])),
+    ));
 
     expect($ci->proofs)->toEqual(
         PublicLedger::at(HttpClient::create(), 'https://ledgers.example.com', 'mutation-gate')
@@ -121,10 +158,26 @@ it('opens the store read-only for a CI job without its credentials, reading the 
 })->with([
     'the branch the config names' => [
         Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::json(), Ci::defaultBranch('trunk')),
+        '',
+        'stable',
         'trunk',
     ],
-    'where the CI names none, the one git names' => [
+    'where the config names none, the one the CI names' => [
+        Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::gitlab()),
+        'develop',
+        'stable',
+        'develop',
+    ],
+    'where neither names one, the one git names' => [
         Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::json()),
+        '',
+        'stable',
+        'stable',
+    ],
+    'where nothing names one, main' => [
+        Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::json()),
+        '',
+        '',
         'main',
     ],
 ]);

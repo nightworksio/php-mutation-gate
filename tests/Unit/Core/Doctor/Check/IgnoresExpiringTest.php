@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Doctor\Check\IgnoresExpiring;
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
@@ -22,7 +23,7 @@ $ignoring = static fn(string ...$expires): Observations => Observations::none()-
 ]));
 
 it('lists each ignore that has expired or expires within 14 days, by its path and day', function () use ($ignoring): void {
-    $observed = $ignoring('2026-09-29', '2026-09-30', '2026-10-14', '2026-10-15')->at(new DateTimeImmutable(Configs::NOW));
+    $observed = $ignoring('2026-09-29', '2026-09-30', '2026-10-14', '2026-10-15')->in(DoctorRun::of(new DateTimeImmutable(Configs::NOW), -1));
 
     expect(IgnoresExpiring::in($observed))->toEqual(Findings::of(Finding::of(
         Slug::IgnoresExpiring,
@@ -34,7 +35,7 @@ it('lists each ignore that has expired or expires within 14 days, by its path an
 });
 
 it('finds nothing where every ignore lasts longer, or it does not know the day', function () use ($ignoring): void {
-    expect(IgnoresExpiring::in($ignoring('2026-10-15')->at(new DateTimeImmutable(Configs::NOW))))->toEqual(Findings::none())
+    expect(IgnoresExpiring::in($ignoring('2026-10-15')->in(DoctorRun::of(new DateTimeImmutable(Configs::NOW), -1))))->toEqual(Findings::none())
         ->and(IgnoresExpiring::in($ignoring('2026-09-29')))->toEqual(Findings::none())
-        ->and(IgnoresExpiring::in(Observations::none()->at(new DateTimeImmutable(Configs::NOW))))->toEqual(Findings::none());
+        ->and(IgnoresExpiring::in(Observations::none()->in(DoctorRun::of(new DateTimeImmutable(Configs::NOW), -1))))->toEqual(Findings::none());
 });

@@ -10,6 +10,7 @@ use DateTimeImmutable;
 
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\GitHub\GitHubSettings;
@@ -48,7 +49,8 @@ final readonly class ScheduleRunning
     public static function in(Observations $observed): Findings
     {
         $gitHub = $observed->asked()->gitHub();
-        $now = $observed->now();
+        $run = $observed->run();
+        $now = $run instanceof DoctorRun ? $run->now() : $run;
 
         return $gitHub instanceof GitHubSettings && $now instanceof DateTimeImmutable
             ? self::scheduled($gitHub, Instant::at($now->modify(self::WITHIN)))

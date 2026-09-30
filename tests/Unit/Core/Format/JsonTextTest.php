@@ -17,3 +17,19 @@ it('writes compactly on one line, with slashes, text and whole-number floats as 
     expect(JsonText::compact(['path' => 'src/Ärger.php', 'seconds' => 2.0, 'lines' => [1], 'diff' => "a\xB1b"]))
         ->toBe("{\"path\":\"src/Ärger.php\",\"seconds\":2.0,\"lines\":[1],\"diff\":\"a\u{FFFD}b\"}");
 });
+
+it('writes an object a member at a time from JSON text, as the whole would be written compactly', function (): void {
+    $members = static function (): Generator {
+        yield 'path' => JsonText::compact(['src/Ärger.php']);
+        yield 'seconds' => '2.0';
+        yield '12' => JsonText::compact(['one' => 1]);
+    };
+
+    expect(JsonText::object($members()))->toBe(JsonText::compact([
+        'path' => ['src/Ärger.php'],
+        'seconds' => 2.0,
+        '12' => ['one' => 1],
+    ]))
+        ->and(JsonText::object([]))->toBe('{}')
+        ->and(JsonText::object(['a' => '1', '12' => '2']))->toBe('{"a":1,"12":2}');
+});

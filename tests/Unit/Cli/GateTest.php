@@ -68,3 +68,18 @@ it('runs from its binary, with exit code 2 for a command not built', function ()
     expect($process->getExitCode())->toBe(2)
         ->and($process->getOutput())->toBe("mutation-gate triage is not built yet, so it cannot judge anything.\n");
 });
+
+it('raises its own memory_limit to what its ledgers may need, and doctor says where PHP will not let it', function (): void {
+    $doctor = static function (string ...$settings): string {
+        $process = new Process([PHP_BINARY, ...$settings, 'bin/mutation-gate', 'doctor', '--format=json'], Tree::root());
+        $process->run();
+
+        return $process->getOutput();
+    };
+
+    $raised = $doctor('-d', 'memory_limit=64M');
+
+    expect($raised)->toContain('"findings"')
+        ->and(str_contains($raised, 'memory-limit-low'))->toBeFalse()
+        ->and($doctor('-d', 'memory_limit=64M', '-d', 'disable_functions=ini_set'))->toContain('"slug": "memory-limit-low"');
+});

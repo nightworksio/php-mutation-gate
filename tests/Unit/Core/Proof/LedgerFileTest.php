@@ -492,3 +492,60 @@ it('writes a full ledger of proved kills in time linear in its proofs', function
     expect(LedgerFile::decode($write(10)())->proofs())->toHaveCount(10)
         ->and(Growth::of(2500, $write))->toBeLessThan(Growth::LINEAR);
 });
+
+/** A ledger of so many proofs of kills alone, the shape that takes the most memory per byte of its text. */
+function ledgerFileOfKills(int $proofs): Ledger
+{
+    $base = Digest::of(str_repeat('e', 64));
+    $run = Run::of('github:1/1', Moment::at('2026-09-30T12:00:00Z'), $base);
+    $held = [];
+
+    for ($at = 0; $at < $proofs; $at++) {
+        $unit = Path::of(sprintf('src/Unit%04d.php', $at % 200));
+        $kills = [];
+
+        for ($kill = 0; $kill < 8; $kill++) {
+            $kills[] = ProvedKill::of(
+                MutantId::hash($unit, 'Plus', sprintf('%d-%d', $at, $kill), $kill),
+                $unit,
+                Line::of(10 + $kill),
+                'Plus',
+                TestIds::of(
+                    TestId::of(sprintf('T%03d::t%d', $at % 100, $kill)),
+                    TestId::of(sprintf('T%03d::t%d', ($at + 1) % 100, $kill)),
+                ),
+            );
+        }
+
+        $held[] = Proof::held(Digest::sha256Of(sprintf('key %d', $at)), $unit, Mutants::none(), ProvedKills::of(...$kills), $run);
+    }
+
+    return Ledger::empty()->withProofs(Proofs::of(...$held))->atBase($base);
+}
+
+it('shares among its proofs each unit, run, set of killers and line it reads', function (): void {
+    $proofs = [...LedgerFile::decode(LedgerFile::encode(ledgerFileOfKills(201)))->proofs()];
+    [$first, $again] = array_values(array_filter(
+        $proofs,
+        static fn(Proof $proof): bool => $proof->unit()->value() === $proofs[0]->unit()->value(),
+    ));
+    $kills = [...$first->kills()];
+    $sameKills = [...$again->kills()];
+
+    expect($again->unit())->toBe($first->unit())
+        ->and($again->run())->toBe($first->run())
+        ->and($sameKills[0]->location())->toBe($kills[0]->location())
+        ->and($sameKills[0]->killers())->toBe($kills[0]->killers())
+        ->and(count(array_unique(array_map(static fn(Proof $proof): int => spl_object_id($proof->run()), $proofs))))->toBe(1);
+});
+
+it('reads a ledger at a peak of no more than twelve bytes of memory for each byte of its text', function (): void {
+    $bytes = LedgerFile::encode(ledgerFileOfKills(2_000));
+    $text = Gzip::unpack($bytes, 'the ledger');
+    $before = memory_get_usage();
+    memory_reset_peak_usage();
+    $read = LedgerFile::decode($bytes);
+
+    expect(memory_get_peak_usage() - $before)->toBeLessThan(12 * strlen(is_string($text) ? $text : ''))
+        ->and($read->proofs())->toHaveCount(2_000);
+});
