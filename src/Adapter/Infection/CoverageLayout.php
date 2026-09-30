@@ -43,10 +43,7 @@ final readonly class CoverageLayout
     private const string WHOLE = '100';
 
     /** How a coverage id names a data set's test: its method, and the data set's number or name. */
-    private const string DATA_SET = '/^(?<method>[^#]+)#(?<set>.*)$/sD';
-
-    /** A data set's number. */
-    private const string NUMBER = '/^\d+$/D';
+    private const string DATA_SET = '/^(?<method>[^#]+)#(?:(?<number>\d+)|(?<name>.*))$/sD';
 
     private const string NO_TEST_FILE
         = 'The coverage map names the test class %s, and no test file declares it, so Infection cannot run its tests.';
@@ -224,13 +221,13 @@ final readonly class CoverageLayout
     /** A test's name as PHPUnit logs it: a data set's test as `<method> with data set #<n>` or `… "<name>"`. */
     private static function loggedName(string $method): string
     {
-        if (preg_match(self::DATA_SET, $method, $named) !== 1) {
+        if (preg_match(self::DATA_SET, $method, $named, PREG_UNMATCHED_AS_NULL) !== 1) {
             return $method;
         }
 
-        return preg_match(self::NUMBER, $named['set']) === 1
-            ? sprintf('%s with data set #%s', $named['method'], $named['set'])
-            : sprintf('%s with data set "%s"', $named['method'], $named['set']);
+        return $named['name'] === null
+            ? sprintf('%s with data set #%s', $named['method'], $named['number'])
+            : sprintf('%s with data set "%s"', $named['method'], $named['name']);
     }
 
     private static function secondsOf(CoverageMap $map, TestId $test): float

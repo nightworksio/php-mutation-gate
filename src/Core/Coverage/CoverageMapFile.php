@@ -63,10 +63,20 @@ final readonly class CoverageMapFile
 
     private const string METHODS = 'methods';
 
+    /** Why a job finds no map to read: it reads only the gate's own, never a map a runner wrote. */
+    private const string MISSING
+        = 'The gate wrote no coverage map at %s, and reads no runner\'s map another job wrote.';
+
     /** Where the map stands in the directory a job hands it over in. */
     public static function in(Path $directory): Path
     {
         return Path::of(sprintf('%s/%s', $directory->value(), self::NAME));
+    }
+
+    /** Why there is no map to read at a file: the gate wrote none there. */
+    public static function missingAt(string $file): CannotJudge
+    {
+        return CannotJudge::because(sprintf(self::MISSING, $file));
     }
 
     public static function encode(CoverageMap $map): string

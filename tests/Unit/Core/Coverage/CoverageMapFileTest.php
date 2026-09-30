@@ -139,8 +139,11 @@ it('writes and reads a map in time linear in its entries', function (): void {
         ->and(Growth::of(300, $read))->toBeLessThan(Growth::LINEAR);
 });
 
-it('is found in the directory a job hands on', function (): void {
-    expect(CoverageMapFile::in(Path::of('.mutation-gate/coverage')))->toEqual(Path::of('.mutation-gate/coverage/map.json.gz'));
+it('is found in the directory a job hands on, and says so where the gate wrote none', function (): void {
+    expect(CoverageMapFile::in(Path::of('.mutation-gate/coverage')))->toEqual(Path::of('.mutation-gate/coverage/map.json.gz'))
+        ->and(CoverageMapFile::missingAt('/work/nowhere/map.json.gz'))->toEqual(CannotJudge::because(
+            'The gate wrote no coverage map at /work/nowhere/map.json.gz, and reads no runner\'s map another job wrote.',
+        ));
 });
 
 it('keeps a shard\'s files\' executed methods, and reads a map without methods as one with none', function () use ($map, $file, $written): void {

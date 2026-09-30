@@ -20,14 +20,12 @@ use function sprintf;
  */
 final readonly class HandedMap
 {
-    private const string NONE = 'The gate wrote no coverage map at %s, and reads no runner\'s map another job wrote.';
-
     public static function in(Project $project, Path $directory): CoverageMap|CannotJudge
     {
         $file = $project->absolute(CoverageMapFile::in($directory));
 
         return is_file($file)
             ? CoverageMapFile::decode(sprintf('%s', file_get_contents($file)))
-            : CannotJudge::because(sprintf(self::NONE, $file));
+            : CoverageMapFile::missingAt($file);
     }
 }
