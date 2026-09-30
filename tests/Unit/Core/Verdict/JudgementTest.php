@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 
 it('spells each judgement as the reports write it', function (): void {
     expect(array_map(static fn(Judgement $judgement): string => $judgement->value, Judgement::cases()))
-        ->toBe(['passed', 'failed', 'nothing-to-mutate', 'exempt']);
+        ->toBe(['passed', 'failed', 'nothing-to-mutate', 'exempt', 'cannot-judge']);
 });
 
 it('holds a score to its floor', function (Floor|Exempt|Undeclared $floor, Score|NothingToMutate $score, Judgement $judgement): void {

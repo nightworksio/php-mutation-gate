@@ -27,7 +27,7 @@ final readonly class TestTable
         $tests = TestIds::none();
         $places = [];
 
-        foreach ($verdict->mutants() as $judged) {
+        foreach ($verdict->trees()->mutants() as $judged) {
             foreach ($verdict->matrix()->coveredBy($judged) as $test) {
                 if ($tests->has($test)) {
                     continue;

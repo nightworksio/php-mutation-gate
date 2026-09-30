@@ -116,7 +116,7 @@ final readonly class ReportSchema
             'description' => 'Everything a mutation-gate verdict decided (ADR-0009).',
             ...self::object([
                 'format' => ['const' => JsonReport::FORMAT],
-                'judgement' => self::oneOf(Judgement::Passed, Judgement::Failed),
+                'judgement' => self::oneOf(Judgement::Passed, Judgement::Failed, Judgement::CannotJudge),
                 'cutShort' => self::FLAG,
                 'uncovered' => self::oneOf(...Uncovered::cases()),
                 'score' => self::PERCENT,
@@ -135,6 +135,7 @@ final readonly class ReportSchema
                 'reach' => self::listOf(self::TEXT),
                 'warnings' => self::listOf(self::TEXT),
                 'failures' => self::listOf(self::TEXT),
+                'cannotJudge' => self::listOf(self::TEXT),
                 'run' => $run,
                 'cost' => self::object([
                     'planned' => $figure,

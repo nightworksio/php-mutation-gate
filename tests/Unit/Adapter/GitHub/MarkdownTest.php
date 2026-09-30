@@ -62,6 +62,16 @@ it('writes the sticky comment: the verdict, trees, new code, survivors on change
     ]));
 });
 
+it('says the run cannot judge, and why, before its failures', function (): void {
+    $comment = Markdown::comment(Verdicts::named('cannot judge'), '');
+
+    expect($comment)->toStartWith("<!-- mutation-gate -->\n\n## mutation-gate: cannot-judge\n")
+        ->and($comment)->toContain(sprintf(
+            "### Cannot judge\n\n- %s\n\n### Failures\n\n- The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.",
+            Verdicts::UNJUDGED,
+        ));
+});
+
 it('writes the comment of a passing run, with the floors that can rise and a run cut short', function (): void {
     expect(Markdown::comment(Verdicts::passing()->cutShort(), ''))->toBe(implode("\n\n", [
         '<!-- mutation-gate -->',

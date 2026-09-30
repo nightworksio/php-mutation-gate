@@ -44,7 +44,14 @@ it('writes everything in the verdict, and what the committed schema describes', 
     $json = JsonReport::encode(Verdicts::named($verdict));
 
     expect(Schema::errors($json, Schema::at('resources/report.schema.json')))->toBe([]);
-})->with(['failing', 'passing', 'empty', 'with a matrix']);
+})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge']);
+
+it('says the run cannot judge, and why', function (): void {
+    $report = JsonReport::encode(Verdicts::named('cannot judge'));
+
+    expect(Decoded::at($report, 'judgement'))->toBe('cannot-judge')
+        ->and(Decoded::at($report, 'cannotJudge'))->toBe([Verdicts::UNJUDGED]);
+});
 
 it('lists the tests once, and points each mutant at those that cover and killed it', function (): void {
     $report = JsonReport::encode(Verdicts::named('with a matrix'));
@@ -80,6 +87,7 @@ it('writes the verdict, the project and each tree', function (): void {
         'reach' => ['src/Money.php changed, so it is reached.'],
         'warnings' => ['src/Kernel.php is run by 412 of 430 tests and nothing holds it.'],
         'failures' => ['The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.'],
+        'cannotJudge' => [],
     ])
         ->and(Decoded::at($report, 'counts'))->toBe([
             'killed' => 1, 'errored' => 1, 'killed-by-timeout' => 1, 'survived' => 1, 'uncovered' => 1,

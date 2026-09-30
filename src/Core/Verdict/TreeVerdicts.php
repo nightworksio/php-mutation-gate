@@ -41,6 +41,30 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
         return new self([...$this->verdicts, $verdict]);
     }
 
+    /** Every unit of every tree, tree by tree. */
+    public function units(): JudgedUnits
+    {
+        $units = JudgedUnits::none();
+
+        foreach ($this->verdicts as $tree) {
+            $units = $units->and($tree->units());
+        }
+
+        return $units;
+    }
+
+    /** Every mutant of every tree, tree by tree. */
+    public function mutants(): JudgedMutants
+    {
+        $mutants = JudgedMutants::none();
+
+        foreach ($this->verdicts as $tree) {
+            $mutants = $mutants->and($tree->mutants());
+        }
+
+        return $mutants;
+    }
+
     public function count(): int
     {
         return count($this->verdicts);

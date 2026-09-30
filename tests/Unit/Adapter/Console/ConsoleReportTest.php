@@ -93,6 +93,18 @@ it('says a run was cut short, and which floors can rise', function () use ($prin
     ]));
 });
 
+it('says the run cannot judge, and why, before its trees', function () use ($printed): void {
+    expect($printed(Verdicts::named('cannot judge')))->toStartWith(implode("\n", [
+        'mutation-gate: cannot-judge',
+        'The project scores 37.50%.',
+        '',
+        'Cannot judge',
+        sprintf('  %s', Verdicts::UNJUDGED),
+        '',
+        'Trees',
+    ]));
+});
+
 it('never prints nothing to mutate as a percentage', function () use ($printed): void {
     $empty = $printed(Verdicts::empty());
 

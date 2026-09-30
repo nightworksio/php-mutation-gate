@@ -70,7 +70,7 @@ final readonly class Problems
     {
         $marks = [];
 
-        foreach ($verdict->units() as $unit) {
+        foreach ($verdict->trees()->units() as $unit) {
             $marks[$unit->unit()->path()->value()] = self::mark($unit);
         }
 

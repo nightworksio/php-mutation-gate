@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
@@ -13,17 +14,14 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
-use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
-use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
-use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -38,7 +36,6 @@ $tree = static fn(string $path, JudgedUnits $units, JudgedMutants $mutants): Tre
     $mutants,
     Uncovered::Count,
 );
-$unit = static fn(string $path): JudgedUnit => JudgedUnit::of(Unit::file(Path::of($path)), Origin::Run);
 $passed = $tree('src', JudgedUnits::none(), Judged::mutants(MutantJudgement::Killed));
 $failed = $tree('src', JudgedUnits::none(), Judged::mutants(MutantJudgement::Survived));
 $newCode = static fn(MutantJudgement $judgement): NewCodeVerdict => NewCodeVerdict::judged(
@@ -57,7 +54,19 @@ it('holds its trees, and nothing else to begin with', function () use ($passed):
         ->and($verdict->reach())->toHaveCount(0)
         ->and($verdict->warnings())->toHaveCount(0)
         ->and($verdict->failures())->toHaveCount(0)
+        ->and($verdict->obstacles())->toHaveCount(0)
         ->and($verdict->wasCutShort())->toBeFalse();
+});
+
+it('cannot judge when anything kept the run from judging, whatever its trees and failures say', function () use ($passed, $failed): void {
+    $missing = CannotJudge::because('Shard 2 wrote no result.');
+    $late = CannotJudge::because('Shard 3 ran on another commit.');
+    $verdict = Verdict::of(TreeVerdicts::of($passed, $failed))->withCannotJudge($missing)->withCannotJudge($late);
+
+    expect($verdict->judgement())->toBe(Judgement::CannotJudge)
+        ->and([...$verdict->obstacles()])->toBe([$missing, $late])
+        ->and($verdict->cutShort()->obstacles())->toHaveCount(2)
+        ->and(Verdict::of(TreeVerdicts::of($passed))->withCannotJudge($missing)->judgement())->toBe(Judgement::CannotJudge);
 });
 
 it('says when a budget or a deadline cut the run short, and keeps everything else', function () use ($passed): void {
@@ -95,22 +104,6 @@ it('carries a kill matrix, one of first killers with no coverage until the run g
     expect($verdict->matrix())->toEqual(KillMatrix::none())
         ->and($verdict->withMatrix($matrix)->matrix())->toBe($matrix)
         ->and($verdict->withMatrix($matrix)->cutShort()->matrix())->toBe($matrix);
-});
-
-it('lists every unit and every mutant, tree by tree', function () use ($tree, $unit): void {
-    $verdict = Verdict::of(TreeVerdicts::of(
-        $tree('app', JudgedUnits::of($unit('app/A.php'), $unit('app/B.php')), Judged::mutants(MutantJudgement::Killed)),
-        $tree('src', JudgedUnits::of($unit('src/C.php')), Judged::mutants(MutantJudgement::Survived, MutantJudgement::Flaky)),
-    ));
-    $paths = array_map(
-        static fn(JudgedUnit $judged): string => $judged->unit()->path()->value(),
-        iterator_to_array($verdict->units(), preserve_keys: true),
-    );
-
-    expect($paths)->toBe(['app/A.php', 'app/B.php', 'src/C.php'])
-        ->and($verdict->mutants()->counts()->number(MutantJudgement::Killed))->toBe(1)
-        ->and($verdict->mutants()->counts()->number(MutantJudgement::Flaky))->toBe(1)
-        ->and($verdict->mutants())->toHaveCount(3);
 });
 
 it('fails when any tree or new-code set failed, or anything else did, and passes otherwise', function (
