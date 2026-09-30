@@ -8,6 +8,8 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -68,4 +70,14 @@ it('reads a pull request from its address, and a branch otherwise', function ():
 
     expect(CircleCiPlan::printing('', $pullRequest)->runOn())->toEqual(RunOn::pullRequest('31', $unnamed))
         ->and(CircleCiPlan::printing('', $branch)->runOn())->toEqual(RunOn::branch('feature', $unnamed));
+});
+
+it('gives no scope to a tag, which is no branch the gate writes for', function (): void {
+    expect(CircleCiPlan::printing('', Variables::of(['CIRCLE_TAG' => 'v1']))->runOn())->toEqual(RunOn::detached(
+        CannotTell::because('CircleCI does not name the default branch. Set ci.defaultBranch.'),
+    ));
+});
+
+it('is run by the config CircleCI reads from the repository', function (): void {
+    expect(CircleCiPlan::printing('', Variables::of([]))->definitions())->toEqual(Paths::of(Path::of('.circleci/config.yml')));
 });

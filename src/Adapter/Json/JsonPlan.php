@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Written;
@@ -59,5 +60,11 @@ final readonly class JsonPlan implements CiPlan, Configurable
     public function runOn(): CannotTell
     {
         return CannotTell::because('The JSON plan knows nothing of the run, so git names its branch.');
+    }
+
+    /** None: the JSON plan runs no definition of its own. */
+    public function definitions(): Paths
+    {
+        return Paths::none();
     }
 }
