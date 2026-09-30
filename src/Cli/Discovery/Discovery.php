@@ -13,6 +13,7 @@ use function is_a;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -29,8 +30,6 @@ use function sprintf;
  */
 final readonly class Discovery
 {
-    private const string INSTALLED = 'composer/installed.json';
-
     public function __construct(private Directory $project, private Directory $vendor)
     {
     }
@@ -54,7 +53,7 @@ final readonly class Discovery
     private function declared(): array|CannotJudge
     {
         $root = $this->read($this->project, Manifest::fileIn(Path::root())->value(), Manifests::root(...));
-        $installed = $this->read($this->vendor, self::INSTALLED, Manifests::installed(...));
+        $installed = $this->read($this->vendor, Installed::fileIn(Path::root())->value(), Manifests::installed(...));
 
         return match (true) {
             $root instanceof CannotJudge => $root,

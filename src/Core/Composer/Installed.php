@@ -38,6 +38,9 @@ use Traversable;
  */
 final readonly class Installed implements IteratorAggregate
 {
+    /** Where Composer lists what it installed, in its vendor directory. */
+    private const string FILE = 'composer/installed.json';
+
     /** Where a package's source reference is, in the order Composer prefers them. */
     private const array ORIGINS = ['source', 'dist'];
 
@@ -53,6 +56,12 @@ final readonly class Installed implements IteratorAggregate
      */
     private function __construct(private Path $file, private array $packages, private array $versions)
     {
+    }
+
+    /** Where Composer lists what it installed in a vendor directory. */
+    public static function fileIn(Path $vendor): Path
+    {
+        return Path::of(sprintf('%s/%s', $vendor->value(), self::FILE));
     }
 
     /** The list in a file, from its text, or why it cannot be read: it is not the one Composer 2 writes. */

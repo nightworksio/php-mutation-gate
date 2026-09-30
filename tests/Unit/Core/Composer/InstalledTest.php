@@ -69,3 +69,8 @@ it('cannot judge text that is not JSON, or that holds no list of packages', func
         'vendor/composer/installed.json is not the list of installed packages Composer 2 writes, so what it installed cannot be read.',
     ));
 })->with(['{', '', '{"packages": "none"}', '{"packages": {"a": {}}}', '[]']);
+
+it('is listed in composer/installed.json of a vendor directory', function (): void {
+    expect(Installed::fileIn(Path::of('lib/vendor')))->toEqual(Path::of('lib/vendor/composer/installed.json'))
+        ->and(Installed::fileIn(Path::root()))->toEqual(Path::of('composer/installed.json'));
+});

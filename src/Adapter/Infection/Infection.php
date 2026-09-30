@@ -9,6 +9,8 @@ use function explode;
 use function getenv;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
+use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -44,7 +46,6 @@ final readonly class Infection implements Runner
 {
     private const string RUNNER = 'infection';
 
-    private const string MANIFEST = 'vendor/composer/installed.json';
 
     /** Where the gate works, as the flows spell it. */
     private const string WORKSPACE = '.mutation-gate';
@@ -81,7 +82,7 @@ final readonly class Infection implements Runner
     public function identity(): Identity|CannotJudge
     {
         $config = OwnConfig::in($this->project);
-        $manifest = $this->project->absolute(Path::of(self::MANIFEST));
+        $manifest = $this->project->absolute(ComposerInstalled::fileIn(Path::of(Manifest::VENDOR)));
         $versions = $config instanceof CannotJudge
             ? $config
             : Installed::versionsIn($manifest, ...$config->staticAnalysis());

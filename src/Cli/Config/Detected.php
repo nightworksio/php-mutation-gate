@@ -27,9 +27,6 @@ final readonly class Detected
 
     private const string INFECTION = 'infection/infection';
 
-    /** Where Composer lists what it installed, in the vendor directory. */
-    private const string INSTALLED = 'composer/installed.json';
-
     public function __construct(private Directory $project, private Directory $vendor)
     {
     }
@@ -58,7 +55,7 @@ final readonly class Detected
     /** `pest` when Pest's mutation plugin is installed, `infection` when Infection is; both is a choice to make. */
     public function runner(): string|CannotJudge
     {
-        $file = Path::of(self::INSTALLED);
+        $file = Installed::fileIn(Path::root());
         $contents = $this->vendor->read($file);
         $installed = match (true) {
             $contents instanceof Contents => Installed::decode($contents, $file),

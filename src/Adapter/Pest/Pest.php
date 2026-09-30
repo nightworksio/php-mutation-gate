@@ -9,6 +9,7 @@ use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -43,9 +44,6 @@ use function sprintf;
 final readonly class Pest implements Runner
 {
     private const string RUNNER = 'pest';
-
-    /** Where Composer lists what it installed, in the vendor directory. */
-    private const string MANIFEST = '%s/composer/installed.json';
 
     /** Where the gate runs Pest: the project's root, which the gate runs in. */
     private const string ROOT = '.';
@@ -96,7 +94,7 @@ final readonly class Pest implements Runner
     public function identity(): Identity|CannotJudge
     {
         $versions = Installed::versionsIn(
-            $this->project->absolute(Path::of(sprintf(self::MANIFEST, $this->project->vendor()->value()))),
+            $this->project->absolute(ComposerInstalled::fileIn($this->project->vendor())),
         );
 
         if ($versions instanceof CannotJudge) {
