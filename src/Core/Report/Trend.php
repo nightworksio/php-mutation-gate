@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Score\Score;
@@ -111,7 +111,7 @@ final readonly class Trend
 
     public function json(): string
     {
-        return Json::encode(['format' => self::FORMAT, 'runs' => $this->runs]);
+        return JsonText::encode(['format' => self::FORMAT, 'runs' => $this->runs]);
     }
 
     /**

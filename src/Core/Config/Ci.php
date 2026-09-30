@@ -6,17 +6,9 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function implode;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Adapter;
-use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
-use NightWorksIO\MutationGate\Core\Config\Definition\Field;
-use NightWorksIO\MutationGate\Core\Config\Definition\Location;
-use NightWorksIO\MutationGate\Core\Config\Definition\OpenObject;
-use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
-use NightWorksIO\MutationGate\Core\Config\Definition\Section;
-use NightWorksIO\MutationGate\Core\Config\Definition\Text;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 use function sprintf;
 
@@ -69,70 +61,6 @@ final readonly class Ci implements Part
             buildkiteStep: $none->buildkiteStep(),
             buildkiteDefinition: $none->buildkiteDefinition(),
         );
-    }
-
-    /** @return list<Field<Layer>> */
-    public static function fields(Origin $origin): array
-    {
-        $judges = Effect::JudgesOrReportsOnly;
-        $plan = Field::optional('plan', Adapter::choosing(Builtins::ciPlans()), $judges);
-        $branch = Field::optional('defaultBranch', Text::of('a branch name'), $judges);
-        $check = Field::optional('check', Text::of('a check-run name'), $judges);
-        $template = Field::optional('template', Location::path($origin), $judges);
-        $step = Field::optional('step', OpenObject::any(), $judges);
-        $definition = Field::optional('definition', Location::path($origin), $judges);
-        $gitlab = Field::section(
-            'gitlab',
-            Section::single(
-                $template,
-                static fn(Path|Absent $path): self => self::of(gitlabTemplate: $path),
-            ),
-        );
-        $buildkite = Field::section(
-            'buildkite',
-            Section::of(
-                static function (Node $buildkite) use ($step, $definition): self|Invalid {
-                    $keys = $step->read($buildkite);
-                    $pipeline = $definition->read($buildkite);
-
-                    return Reading::built(
-                        static fn(): self => self::of(
-                            buildkiteStep: $keys->value(),
-                            buildkiteDefinition: $pipeline->value(),
-                        ),
-                        $keys,
-                        $pipeline,
-                    );
-                },
-                $step,
-                $definition,
-            ),
-        );
-
-        return [Field::section(
-            'ci',
-            Section::of(
-                static function (Node $ci) use ($plan, $branch, $check, $gitlab, $buildkite): Layer|Invalid {
-                    $readings = [$plan->read($ci), $branch->read($ci), $check->read($ci)];
-                    $inner = [$gitlab->read($ci), $buildkite->read($ci)];
-
-                    return Reading::built(
-                        static fn(): Layer => Layer::of(self::of(
-                            plan: $readings[0]->value(),
-                            defaultBranch: $readings[1]->value(),
-                            check: $readings[2]->value(),
-                        )->over($inner[0]->must())->over($inner[1]->must())),
-                        ...$readings,
-                        ...$inner,
-                    );
-                },
-                $plan,
-                $branch,
-                $check,
-                $gitlab,
-                $buildkite,
-            ),
-        )];
     }
 
     public function over(Part $later): self
@@ -199,28 +127,31 @@ final readonly class Ci implements Part
 
     public function written(Origin $origin): Json
     {
-        $ci = Json::object();
-        $ci = $this->plan instanceof Choice ? $ci->with('plan', $this->plan->written()) : $ci;
-        $ci = $this->defaultBranch instanceof Absent ? $ci : $ci->with('defaultBranch', $this->defaultBranch);
-        $ci = $this->check instanceof Absent ? $ci : $ci->with('check', $this->check);
-        $ci = $this->gitlabTemplate instanceof Path
-            ? $ci->with('gitlab', Json::object()->with('template', $origin->written($this->gitlabTemplate)))
-            : $ci;
-        $buildkite = $this->buildkiteStep instanceof Json
-            ? Json::object()->with('step', $this->buildkiteStep)
-            : Json::object();
-        $buildkite = $this->buildkiteDefinition instanceof Path
-            ? $buildkite->with('definition', $origin->written($this->buildkiteDefinition))
-            : $buildkite;
-        $ci = $buildkite->isEmpty() ? $ci : $ci->with('buildkite', $buildkite);
-
-        return $ci->isEmpty() ? Json::object() : Json::object()->with('ci', $ci);
+        return Json::object(Member::unlessEmpty(
+            'ci',
+            Json::object(
+                Member::of('plan', $this->plan instanceof Choice ? $this->plan->written() : $this->plan),
+                Member::of('defaultBranch', $this->defaultBranch),
+                Member::of('check', $this->check),
+                Member::unlessEmpty(
+                    'gitlab',
+                    Json::object(Member::of('template', self::path($origin, $this->gitlabTemplate))),
+                ),
+                Member::unlessEmpty(
+                    'buildkite',
+                    Json::object(
+                        Member::of('step', $this->buildkiteStep),
+                        Member::of('definition', self::path($origin, $this->buildkiteDefinition)),
+                    ),
+                ),
+            ),
+        ));
     }
 
     public function php(Origin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
-            ...$this->plan instanceof Choice ? [$this->plan->php('Ci', self::PLANS)] : [],
+            ...$this->plan instanceof Choice ? [PhpCalls::chosen($this->plan, 'Ci', ...self::PLANS)] : [],
             ...$this->defaultBranch instanceof Absent
                 ? []
                 : [sprintf('Ci::defaultBranch(%s)', PhpCalls::literal($this->defaultBranch))],
@@ -236,5 +167,10 @@ final readonly class Ci implements Part
                 PhpCalls::literal($origin->written($this->buildkiteDefinition)),
             )] : [],
         ]);
+    }
+
+    private static function path(Origin $origin, Path|Absent $path): string|Absent
+    {
+        return $path instanceof Path ? $origin->written($path) : $path;
     }
 }

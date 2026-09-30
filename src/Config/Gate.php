@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
@@ -55,9 +56,9 @@ final readonly class Gate
     /** `runner.withhold`, where a preset or another layer chooses the runner: `Withheld::of('DEPLOY_*')`. */
     public function withholding(Withheld $withheld): self
     {
-        $withhold = Json::object()->with('withhold', Json::items([...$withheld]));
+        $withhold = Json::object(Member::of('withhold', Json::items(...$withheld)));
 
-        return $this->merge(Json::object()->with('runner', $withhold));
+        return $this->merge(Json::object(Member::of('runner', $withhold)));
     }
 
     public function treeSource(Source $source): self
@@ -74,7 +75,7 @@ final readonly class Gate
     /** `newCode.floor` */
     public function newCode(Floor $floor): self
     {
-        return $this->merge(Json::object()->with('newCode', Json::object()->with('floor', $floor->percent())));
+        return $this->merge(Json::object(Member::of('newCode', Json::object(Member::of('floor', $floor->percent())))));
     }
 
     /** `ignores.entries`, added to those already given. */
@@ -82,7 +83,7 @@ final readonly class Gate
     {
         $entries = $this->each($ignores, static fn(Ignore $ignore): Json => $ignore->written());
 
-        return $this->merge(Json::object()->with('ignores', Json::object()->with('entries', $entries)));
+        return $this->merge(Json::object(Member::of('ignores', Json::object(Member::of('entries', $entries)))));
     }
 
     /** `reports` */
@@ -117,7 +118,7 @@ final readonly class Gate
 
     private function set(string $key, Json|string $value): self
     {
-        return new self($this->config->with($key, $value));
+        return new self($this->config->with(Member::of($key, $value)));
     }
 
     private function merge(Json $part): self
@@ -139,6 +140,6 @@ final readonly class Gate
             $each[] = $json($value);
         }
 
-        return Json::items($each);
+        return Json::items(...$each);
     }
 }

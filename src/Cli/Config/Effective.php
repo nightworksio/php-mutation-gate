@@ -173,7 +173,7 @@ final readonly class Effective
         }
 
         return Layer::of(Setup::of(
-            presets: $preset === '' ? Absent::setting() : Listed::of([$preset]),
+            presets: $preset === '' ? Absent::setting() : Listed::of($preset),
             runner: $runner === '' ? Absent::setting() : Choice::of($runner, Json::object()),
         ));
     }

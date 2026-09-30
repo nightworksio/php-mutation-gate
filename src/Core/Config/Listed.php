@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_key_exists;
+use function array_values;
 
 use ArrayIterator;
 use Closure;
@@ -30,14 +31,14 @@ final readonly class Listed implements Countable, IteratorAggregate
     }
 
     /**
-     * @template U
+     * @template U of object|string|int|float|bool
      *
-     * @param  list<U>   $entries
+     * @param  U         ...$entries
      * @return self<U>
      */
-    public static function of(array $entries): self
+    public static function of(object|string|int|float|bool ...$entries): self
     {
-        return new self($entries);
+        return new self(array_values($entries));
     }
 
     /**

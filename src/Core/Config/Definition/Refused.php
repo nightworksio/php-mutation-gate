@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
@@ -37,7 +38,7 @@ final readonly class Refused implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with('not', Json::object())->with('description', $this->instead);
+        return Json::object(Member::of('not', Json::object()))->with(Member::of('description', $this->instead));
     }
 
     public function effects(): array

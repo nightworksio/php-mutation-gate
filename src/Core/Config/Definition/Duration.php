@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -38,8 +39,8 @@ final readonly class Duration implements Shape
     public function schema(): Json
     {
         return Json::object()
-            ->with('type', 'string')
-            ->with('pattern', '^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$');
+            ->with(Member::of('type', 'string'))
+            ->with(Member::of('pattern', '^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$'));
     }
 
     public function effects(): array

@@ -8,7 +8,7 @@ use function array_map;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
@@ -40,7 +40,7 @@ final readonly class ShardResultFile
     {
         $outcome = $result->outcome();
 
-        return Json::encode([
+        return JsonText::encode([
             'format' => self::FORMAT,
             'plan' => $result->plan()->value(),
             'shard' => $result->shard()->number(),

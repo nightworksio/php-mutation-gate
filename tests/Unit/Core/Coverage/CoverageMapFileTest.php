@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
@@ -30,7 +30,7 @@ $map = static fn(): CoverageMap => CoverageMap::empty()
 $unreadable = CannotJudge::because('The coverage map is not one this gate writes, so no line of it can be read.');
 
 // A map's file as data, to change one entry of and write back.
-$written = static fn(array $file): string => Gzip::pack(Json::compact($file));
+$written = static fn(array $file): string => Gzip::pack(JsonText::compact($file));
 $file = static fn(): array => [
     'format' => 1,
     'tests' => [['id' => 'MoneyTest::adds', 'seconds' => 0.25], ['id' => 'MoneyTest::subtracts'], ['id' => 'IdleTest::waits', 'seconds' => 1.5]],
@@ -38,7 +38,7 @@ $file = static fn(): array => [
 ];
 
 it('writes compact JSON, gzipped: each test once with its seconds, and each line\'s tests by their place, in the order covered', function () use ($map): void {
-    expect(Gzip::unpack(CoverageMapFile::encode($map()), 'the map'))->toBe(Json::compact([
+    expect(Gzip::unpack(CoverageMapFile::encode($map()), 'the map'))->toBe(JsonText::compact([
         'format' => 1,
         'tests' => [
             ['id' => 'MoneyTest::adds', 'seconds' => 0.25],

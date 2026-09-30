@@ -11,7 +11,10 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Table;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+
+use function sprintf;
 
 /**
  * An object whose keys are data, such as path prefixes or colour names, and
@@ -36,7 +39,7 @@ final readonly class NumberMap implements Shape
             return Reading::refused($at->mismatch($this->expected()));
         }
 
-        $numbers = [];
+        $numbers = Table::none();
         $readings = [];
 
         foreach ($at->entries() as $key => $entry) {
@@ -45,13 +48,13 @@ final readonly class NumberMap implements Shape
             $readings[] = $reading;
 
             if (is_int($number) || is_float($number)) {
-                $numbers[$key] = $number;
+                $numbers = $numbers->merged(Table::row(sprintf('%s', $key), $number));
             }
         }
 
         $problems = Reading::problemsIn(...$readings);
 
-        return $problems instanceof Invalid ? Reading::invalid($problems) : Reading::of(Table::of($numbers));
+        return $problems instanceof Invalid ? Reading::invalid($problems) : Reading::of($numbers);
     }
 
     public function expected(): string
@@ -61,7 +64,9 @@ final readonly class NumberMap implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with('type', 'object')->with('additionalProperties', $this->number->schema());
+        return Json::object(
+            Member::of('type', 'object'),
+        )->with(Member::of('additionalProperties', $this->number->schema()));
     }
 
     public function effects(): array

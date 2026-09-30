@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
@@ -89,7 +90,7 @@ final readonly class Formats
     public function file(Layer $layer, Format $format, ConfigFile $file): string|CannotJudge
     {
         $written = $layer->written($file);
-        $schema = Json::object()->with('$schema', $file->written(Path::of(self::SCHEMA)));
+        $schema = Json::object(Member::of('$schema', $file->written(Path::of(self::SCHEMA))));
 
         return $this->rendered($layer, $format === Format::Json ? $schema->merged($written) : $written, $format, $file);
     }

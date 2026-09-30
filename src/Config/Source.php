@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Config;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 /** `treeSource`: where the trees come from when the config lists none (ADR-0005). */
 final readonly class Source
@@ -23,9 +24,11 @@ final readonly class Source
     {
         return $fallback === []
             ? new self('phpunit')
-            : new self(Json::object()->with('use', 'phpunit')->with(
-                'with',
-                Json::object()->with('fallback', Json::items(array_values($fallback))),
+            : new self(Json::object(Member::of('use', 'phpunit'))->with(
+                Member::of(
+                    'with',
+                    Json::object(Member::of('fallback', Json::items(...array_values($fallback)))),
+                ),
             ));
     }
 

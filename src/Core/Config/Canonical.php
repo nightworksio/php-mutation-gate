@@ -10,6 +10,7 @@ use function ksort;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
@@ -63,8 +64,8 @@ final readonly class Canonical
     {
         return match ($at->kind()) {
             Kind::Map => $this->chosen($this->members($at, $path, whole: true)),
-            Kind::List => Json::items($this->items($at, $path, whole: true)),
-            Kind::Empty => Json::items([]),
+            Kind::List => Json::items(...$this->items($at, $path, whole: true)),
+            Kind::Empty => Json::items(),
             Kind::Text => $at->text(),
             Kind::Integer => $at->integer(),
             Kind::Number => $at->number(),
@@ -78,7 +79,7 @@ final readonly class Canonical
     {
         $parts = match ($at->kind()) {
             Kind::Map => $this->members($at, $path, whole: false),
-            Kind::List => Json::items($this->items($at, $path, whole: false)),
+            Kind::List => Json::items(...$this->items($at, $path, whole: false)),
             Kind::Empty, Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null, Kind::Nothing
                 => Json::object(),
         };
@@ -101,7 +102,7 @@ final readonly class Canonical
                 $whole => $this->whole($member, $under),
                 default => $this->kept($member, $under),
             };
-            $members = $kept instanceof Absent ? $members : $members->with($key, $kept);
+            $members = $members->with(Member::of(sprintf('%s', $key), $kept));
         }
 
         return $members;
@@ -127,10 +128,10 @@ final readonly class Canonical
     /** An adapter chosen by an object that holds only its name is chosen by its name. */
     private function chosen(Json $object): Json|string
     {
-        $use = $object->member(self::USE);
-        $keys = array_keys(Node::config($object->line())->entries());
+        $chosen = Node::config($object->line());
+        $use = $chosen->field(self::USE);
 
-        return $use instanceof Json && $keys === [self::USE] ? Node::config($use->line())->text() : $object;
+        return array_keys($chosen->entries()) === [self::USE] && $use->kind() === Kind::Text ? $use->text() : $object;
     }
 
     private function effect(string $path): Effect|Absent

@@ -441,6 +441,7 @@ services:
             decoders:
                 - src/Core/Format/Node.php
                 - src/Core/Format/Json.php
+                - src/Core/Format/JsonText.php
                 - src/Core/Config/Parsed.php
                 - src/Adapter/Php/PhpConfig.php
                 - src/Cli/CommandLine.php

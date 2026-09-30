@@ -14,6 +14,7 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
@@ -61,12 +62,14 @@ final readonly class Enumerated implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with(
-            'enum',
-            Json::items(array_map(
-                static fn(BackedEnum $case): int|string => $case->value,
-                $this->cases,
-            )),
+        return Json::object(
+            Member::of(
+                'enum',
+                Json::items(...array_map(
+                    static fn(BackedEnum $case): int|string => $case->value,
+                    $this->cases,
+                )),
+            ),
         );
     }
 

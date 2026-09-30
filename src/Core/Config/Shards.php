@@ -8,17 +8,10 @@ use function array_keys;
 use function array_map;
 use function intval;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Duration;
-use NightWorksIO\MutationGate\Core\Config\Definition\Field;
-use NightWorksIO\MutationGate\Core\Config\Definition\Integer;
-use NightWorksIO\MutationGate\Core\Config\Definition\Number;
-use NightWorksIO\MutationGate\Core\Config\Definition\NumberMap;
-use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
-use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Cost\LineRate;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
@@ -77,71 +70,8 @@ final readonly class Shards implements Part
             seconds: $none->seconds(),
             max: $none->max(),
             setup: $none->setup(),
-            secondsPerLine: Table::of(SecondsPerLine::standard()->written()),
+            secondsPerLine: self::table(SecondsPerLine::standard()),
         );
-    }
-
-    /** @return list<Field<Layer>> */
-    public static function fields(): array
-    {
-        $judges = Effect::JudgesOrReportsOnly;
-        $seconds = Field::optional('seconds', Integer::atLeast(1), $judges);
-        $max = Field::optional('max', Integer::atLeast(1), $judges);
-        $target = Field::optional('target', Duration::written(), $judges);
-        $setup = Field::optional('setup', Duration::written(), $judges);
-        $perLine = Field::optional('secondsPerLine', NumberMap::of(Number::atLeast(0)), $judges);
-        $perMinute = Field::optional('perRunnerMinute', Price::shape(), $judges);
-
-        return [
-            Field::section(
-                'shards',
-                Section::of(
-                    static function (Node $shards) use ($seconds, $max, $target, $setup): Layer|Invalid {
-                        $cut = $seconds->read($shards);
-                        $most = $max->read($shards);
-                        $fit = $target->read($shards);
-                        $before = $setup->read($shards);
-
-                        return Reading::built(
-                            static fn(): Layer => Layer::of(self::of(
-                                seconds: self::secondsOf($cut->value()),
-                                max: $most->value(),
-                                target: $fit->value(),
-                                setup: $before->value(),
-                            )),
-                            $cut,
-                            $most,
-                            $fit,
-                            $before,
-                        );
-                    },
-                    $seconds,
-                    $max,
-                    $target,
-                    $setup,
-                )->atMostOne(['seconds', 'target']),
-            ),
-            Field::section(
-                'costs',
-                Section::of(
-                    static function (Node $costs) use ($perLine, $perMinute): Layer|Invalid {
-                        $lines = $perLine->read($costs);
-                        $minutes = $perMinute->read($costs);
-
-                        return Reading::built(
-                            static fn(): Layer => Layer::of(self::of(
-                                secondsPerLine: $lines->value(),
-                                perRunnerMinute: $minutes->value(),
-                            )),
-                            $lines,
-                            $minutes,
-                        );
-                    },
-                    $perLine,
-                    $perMinute,
-                ),
-            ),
-        ];
     }
 
     /** Where a later layer sets `target` or `seconds`, the one it sets replaces the other. */
@@ -206,23 +136,37 @@ final readonly class Shards implements Part
 
     public function written(Origin $origin): Json
     {
-        $shards = Json::object();
-        $shards = $this->seconds instanceof Seconds
-            ? $shards->with('seconds', intval($this->seconds->seconds()))
-            : $shards;
-        $shards = $this->max instanceof Absent ? $shards : $shards->with('max', $this->max);
-        $shards = $this->target instanceof Seconds ? $shards->with('target', $this->target->written()) : $shards;
-        $shards = $this->setup instanceof Seconds ? $shards->with('setup', $this->setup->written()) : $shards;
-        $costs = Json::object();
-        $costs = $this->secondsPerLine instanceof Table
-            ? $costs->with('secondsPerLine', $this->secondsPerLine->written())
-            : $costs;
-        $costs = $this->perRunnerMinute instanceof Price
-            ? $costs->with('perRunnerMinute', $this->perRunnerMinute->written())
-            : $costs;
-        $written = $shards->isEmpty() ? Json::object() : Json::object()->with('shards', $shards);
-
-        return $costs->isEmpty() ? $written : $written->with('costs', $costs);
+        return Json::object(
+            Member::unlessEmpty(
+                'shards',
+                Json::object(
+                    Member::of(
+                        'seconds',
+                        $this->seconds instanceof Seconds ? intval($this->seconds->seconds()) : $this->seconds,
+                    ),
+                    Member::of('max', $this->max),
+                    Member::of('target', $this->target instanceof Seconds ? $this->target->written() : $this->target),
+                    Member::of('setup', $this->setup instanceof Seconds ? $this->setup->written() : $this->setup),
+                ),
+            ),
+            Member::unlessEmpty(
+                'costs',
+                Json::object(
+                    Member::of(
+                        'secondsPerLine',
+                        $this->secondsPerLine instanceof Table
+                            ? $this->secondsPerLine->written()
+                            : $this->secondsPerLine,
+                    ),
+                    Member::of(
+                        'perRunnerMinute',
+                        $this->perRunnerMinute instanceof Price
+                            ? $this->perRunnerMinute->written()
+                            : $this->perRunnerMinute,
+                    ),
+                ),
+            ),
+        );
     }
 
     public function php(Origin $origin): PhpCalls
@@ -263,8 +207,15 @@ final readonly class Shards implements Part
         )] : $calls;
     }
 
-    private static function secondsOf(int|Absent $seconds): Seconds|Absent
+    /** Seconds per line by path prefix, as a table of them. */
+    private static function table(SecondsPerLine $rates): Table
     {
-        return $seconds instanceof Absent ? $seconds : Seconds::of($seconds);
+        $table = Table::none();
+
+        foreach ($rates as $prefix => $seconds) {
+            $table = $table->merged(Table::row($prefix, $seconds));
+        }
+
+        return $table;
     }
 }

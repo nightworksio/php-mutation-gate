@@ -16,25 +16,25 @@ final readonly class Timeouts implements Setting
     /** A timeout is a kill when the covering tests normally finish in under half the limit. */
     public static function confirmed(): self
     {
-        return new self(Json::decoded(['timeouts' => ['mode' => 'confirm']]));
+        return new self(Json::at('timeouts.mode', 'confirm'));
     }
 
     /** A timeout is always too slow to judge. */
     public static function unjudged(): self
     {
-        return new self(Json::decoded(['timeouts' => ['mode' => 'unjudged']]));
+        return new self(Json::at('timeouts.mode', 'unjudged'));
     }
 
     /** `timeouts.seconds` */
     public static function seconds(int $seconds): self
     {
-        return new self(Json::decoded(['timeouts' => ['seconds' => $seconds]]));
+        return new self(Json::at('timeouts.seconds', $seconds));
     }
 
     /** `timeouts.retries` */
     public static function retries(int $mutants): self
     {
-        return new self(Json::decoded(['timeouts' => ['retries' => $mutants]]));
+        return new self(Json::at('timeouts.retries', $mutants));
     }
 
     public function written(): Json

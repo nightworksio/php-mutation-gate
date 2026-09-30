@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 
@@ -36,7 +37,7 @@ final readonly class Identifier implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with('type', 'string')->with('pattern', '^[0-9a-f]{12}$');
+        return Json::object(Member::of('type', 'string'))->with(Member::of('pattern', '^[0-9a-f]{12}$'));
     }
 
     public function effects(): array

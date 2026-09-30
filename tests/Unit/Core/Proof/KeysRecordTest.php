@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
@@ -17,7 +17,7 @@ $keys = Keys::none()
     ->with(Path::of('src/B.php'), Unkeyed::because('There is no coverage map.'));
 
 it('writes each unit\'s key, and why a unit has none', function () use ($keys): void {
-    expect(Json::encode(['keys' => KeysRecord::of($keys)]))->toBe(<<<'JSON'
+    expect(JsonText::encode(['keys' => KeysRecord::of($keys)]))->toBe(<<<'JSON'
         {
             "keys": {
                 "src/A.php": "9c1e",
@@ -30,11 +30,11 @@ it('writes each unit\'s key, and why a unit has none', function () use ($keys): 
 });
 
 it('writes no keys as an empty map', function (): void {
-    expect(Json::encode(['keys' => KeysRecord::of(Keys::none())]))->toBe("{\n    \"keys\": {}\n}");
+    expect(JsonText::encode(['keys' => KeysRecord::of(Keys::none())]))->toBe("{\n    \"keys\": {}\n}");
 });
 
 it('reads back the keys it wrote', function () use ($keys): void {
-    $read = KeysRecord::read(Node::decode(Json::encode(['keys' => KeysRecord::of($keys)]))->field('keys'));
+    $read = KeysRecord::read(Node::decode(JsonText::encode(['keys' => KeysRecord::of($keys)]))->field('keys'));
 
     expect($read)->toEqual($keys);
 });
@@ -56,7 +56,7 @@ it('reads and writes keys in time linear in their number', function (): void {
             $written[sprintf('src/F%d.php', $at)] = hash('sha256', sprintf('%d', $at));
         }
 
-        $json = Json::encode($written);
+        $json = JsonText::encode($written);
 
         return static function () use ($json): Keys {
             $read = KeysRecord::read(Node::decode($json));

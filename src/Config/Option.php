@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Config;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 /**
  * One option written beside an adapter, under `with`: `Option::of('channel', '#ci')`.
@@ -25,7 +26,7 @@ final readonly class Option
 
     public static function list(string $key, string|int|float|bool ...$values): self
     {
-        return new self($key, Json::items(array_values($values)));
+        return new self($key, Json::items(...array_values($values)));
     }
 
     /** An option whose value is an object of options. */
@@ -40,7 +41,7 @@ final readonly class Option
         $object = Json::object();
 
         foreach ($options as $option) {
-            $object = $object->with($option->key, $option->value);
+            $object = $object->with(Member::of($option->key, $option->value));
         }
 
         return $object;
@@ -49,6 +50,8 @@ final readonly class Option
     /** An adapter as a setting chooses it: its name alone, or `{"use": …, "with": …}` when it has options. */
     public static function choice(string $use, self ...$options): Json|string
     {
-        return $options === [] ? $use : Json::object()->with('use', $use)->with('with', self::object(...$options));
+        return $options === []
+            ? $use
+            : Json::object(Member::of('use', $use))->with(Member::of('with', self::object(...$options)));
     }
 }

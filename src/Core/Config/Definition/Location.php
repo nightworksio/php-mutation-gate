@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
@@ -32,7 +33,7 @@ final readonly class Location implements Shape
         $written = $at->kind() === Kind::Text ? $at->text() : '';
 
         return $written !== ''
-            ? Reading::of($this->origin->path($written))
+            ? Reading::of($this->origin->path(Path::of($written)))
             : Reading::refused($at->mismatch($this->expected()));
     }
 
@@ -43,7 +44,7 @@ final readonly class Location implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with('type', 'string')->with('minLength', 1);
+        return Json::object(Member::of('type', 'string'))->with(Member::of('minLength', 1));
     }
 
     public function effects(): array

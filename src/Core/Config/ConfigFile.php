@@ -9,6 +9,8 @@ use function mb_strlen;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function pathinfo;
 use function sprintf;
@@ -54,9 +56,19 @@ final readonly class ConfigFile implements Origin
         return pathinfo($this->file->value(), PATHINFO_EXTENSION);
     }
 
-    public function path(string $written): Path
+    /**
+     * A config this file holds, decoded from its format into JSON, read into its layer of config with every path
+     * named from this file's directory, or every problem in it at once, each at its path. A config loader, the
+     * gate's own or an extension's, reads every file through this.
+     */
+    public function read(Json $config): Layer|Invalid
     {
-        return ConfigPath::of($written, $this->directory)->path();
+        return Definition::layer(Node::config($config->line()), $this);
+    }
+
+    public function path(Path $written): Path
+    {
+        return ConfigPath::of($written->value(), $this->directory)->path();
     }
 
     public function written(Path $path): string

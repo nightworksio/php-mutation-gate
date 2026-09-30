@@ -4,12 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Duration;
-use NightWorksIO\MutationGate\Core\Config\Definition\Field;
-use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
-use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
@@ -44,32 +40,6 @@ final readonly class Local implements Part
         return self::of($none->watchBudget(), $none->prePushBudget());
     }
 
-    /** @return list<Field<Layer>> */
-    public static function fields(): array
-    {
-        $judges = Effect::JudgesOrReportsOnly;
-        $watch = Field::optional('watchBudget', Duration::written(), $judges);
-        $prePush = Field::optional('prePushBudget', Duration::written(), $judges);
-
-        return [Field::section(
-            'local',
-            Section::of(
-                static function (Node $local) use ($watch, $prePush): Layer|Invalid {
-                    $watching = $watch->read($local);
-                    $pushing = $prePush->read($local);
-
-                    return Reading::built(
-                        static fn(): Layer => Layer::of(self::of($watching->value(), $pushing->value())),
-                        $watching,
-                        $pushing,
-                    );
-                },
-                $watch,
-                $prePush,
-            ),
-        )];
-    }
-
     public function over(Part $later): self
     {
         return $later instanceof self
@@ -92,14 +62,19 @@ final readonly class Local implements Part
 
     public function written(Origin $origin): Json
     {
-        $local = $this->watchBudget instanceof Seconds
-            ? Json::object()->with('watchBudget', $this->watchBudget->written())
-            : Json::object();
-        $local = $this->prePushBudget instanceof Seconds
-            ? $local->with('prePushBudget', $this->prePushBudget->written())
-            : $local;
-
-        return $local->isEmpty() ? $local : Json::object()->with('local', $local);
+        return Json::object(Member::unlessEmpty(
+            'local',
+            Json::object(
+                Member::of(
+                    'watchBudget',
+                    $this->watchBudget instanceof Seconds ? $this->watchBudget->written() : $this->watchBudget,
+                ),
+                Member::of(
+                    'prePushBudget',
+                    $this->prePushBudget instanceof Seconds ? $this->prePushBudget->written() : $this->prePushBudget,
+                ),
+            ),
+        ));
     }
 
     public function php(Origin $origin): PhpCalls

@@ -4,13 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_flip;
-use function array_key_exists;
-use function implode;
-
 use NightWorksIO\MutationGate\Core\Format\Json;
-
-use function sprintf;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 /**
  * An adapter a setting chooses (ADR-0002): a name an extension registered,
@@ -45,23 +40,7 @@ final readonly class Choice
     {
         return $this->options->isEmpty()
             ? $this->use
-            : Json::object()->with('use', $this->use)->with('with', $this->options);
+            : Json::object(Member::of('use', $this->use))->with(Member::of('with', $this->options));
     }
 
-    /**
-     * As the builder writes it: the method of a builder class for a name it has one for, else `uses()` with each
-     * option.
-     *
-     * @param list<string> $named the names the class has a method of its own for
-     */
-    public function php(string $class, array $named): string
-    {
-        return $this->options->isEmpty() && array_key_exists($this->use, array_flip($named))
-            ? sprintf('%s::%s()', $class, $this->use)
-            : sprintf(
-                '%s::uses(%s)',
-                $class,
-                implode(', ', [PhpCalls::literal($this->use), ...PhpOptions::of($this->options)]),
-            );
-    }
 }

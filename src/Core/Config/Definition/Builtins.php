@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
@@ -50,7 +51,7 @@ final readonly class Builtins
     {
         return self::of([
             'phpunit' => Section::options(
-                Json::object()->with('fallback', Json::items([])),
+                Json::object(Member::of('fallback', Json::items())),
                 Field::optional('fallback', Items::of(Location::path(ProjectRoot::origin())), Effect::AffectsResults),
             ),
             'composer' => Section::options(Json::object()),
@@ -63,11 +64,11 @@ final readonly class Builtins
 
         return self::of([
             'directory' => Section::options(
-                Json::object()->with('path', '.mutation-gate/ledger'),
+                Json::object(Member::of('path', '.mutation-gate/ledger')),
                 Field::optional('path', Location::path(ProjectRoot::origin()), $judges),
             ),
             's3' => Section::options(
-                Json::object()->with('prefix', 'mutation-gate')->with('region', 'us-east-1'),
+                Json::object(Member::of('prefix', 'mutation-gate'))->with(Member::of('region', 'us-east-1')),
                 Field::required('bucket', Text::of('a bucket name'), $judges),
                 Field::optional('prefix', Text::of('a key prefix'), $judges),
                 Field::optional('region', Text::of('a region'), $judges),
@@ -87,7 +88,7 @@ final readonly class Builtins
         $judges = Effect::JudgesOrReportsOnly;
         $variable = Text::of('an environment variable name');
         $chat = static fn(string $url, Json $defaults, Field ...$more): Section => Section::options(
-            Json::object()->with('urlEnv', $url)->merged($defaults),
+            Json::object(Member::of('urlEnv', $url))->merged($defaults),
             Field::optional('urlEnv', $variable, $judges),
             Field::optional('url', Refused::because(sprintf(self::CREDENTIAL, $url)), $judges),
             ...$more,
@@ -99,7 +100,7 @@ final readonly class Builtins
             'discord' => $chat('MUTATION_GATE_DISCORD_URL', Json::object()),
             'webhook' => $chat(
                 'MUTATION_GATE_WEBHOOK_URL',
-                Json::object()->with('secretEnv', 'MUTATION_GATE_WEBHOOK_SECRET'),
+                Json::object(Member::of('secretEnv', 'MUTATION_GATE_WEBHOOK_SECRET')),
                 Field::optional('secretEnv', $variable, $judges),
             ),
             'otlp' => Section::options(Json::object(), Field::optional('endpoint', Url::https(), $judges)),
@@ -158,30 +159,32 @@ final readonly class Builtins
 
         foreach ($this->options as $name => $options) {
             $own = array_key_exists($name, $bare);
-            $properties = Json::object()->with('use', Json::object()->with('const', $name));
+            $properties = Json::object(Member::of('use', Json::object(Member::of('const', $name))));
             $properties = $own ? $properties : $properties->merged($also);
             $schemas[] = Json::object()
-                ->with('type', 'object')
-                ->with('properties', $properties->with('with', $options->schema()))
-                ->with('required', Json::items(['use', ...$own ? [] : $alsoRequired]))
-                ->with('additionalProperties', value: false);
+                ->with(Member::of('type', 'object'))
+                ->with(Member::of('properties', $properties->with(Member::of('with', $options->schema()))))
+                ->with(Member::of('required', Json::items('use', ...$own ? [] : $alsoRequired)))
+                ->with(Member::of('additionalProperties', value: false));
         }
 
         $use = Json::object()
-            ->with('type', 'string')
-            ->with('minLength', 1)
-            ->with('not', Json::object()->with('enum', Json::items(array_keys($this->options))));
+            ->with(Member::of('type', 'string'))
+            ->with(Member::of('minLength', 1))
+            ->with(Member::of('not', Json::object(Member::of('enum', Json::items(...array_keys($this->options))))));
         $schemas[] = Json::object()
-            ->with('type', 'object')
+            ->with(Member::of('type', 'object'))
             ->with(
-                'properties',
-                Json::object()
-                    ->with('use', $use)
+                Member::of(
+                    'properties',
+                    Json::object()
+                    ->with(Member::of('use', $use))
                     ->merged($also)
-                    ->with('with', Json::object()->with('type', 'object')),
+                    ->with(Member::of('with', Json::object(Member::of('type', 'object')))),
+                ),
             )
-            ->with('required', Json::items(['use']))
-            ->with('additionalProperties', value: false);
+            ->with(Member::of('required', Json::items('use')))
+            ->with(Member::of('additionalProperties', value: false));
 
         return $schemas;
     }

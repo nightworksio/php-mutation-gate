@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Time\Day;
 
@@ -39,9 +40,13 @@ final readonly class IgnoredMutant implements Ignored
 
     public function written(): Json
     {
-        $written = Json::object()->with('mutant', $this->mutant->value())->with('reason', $this->reason);
+        $written = Json::object(
+            Member::of('mutant', $this->mutant->value()),
+        )->with(Member::of('reason', $this->reason));
 
-        return $this->expires instanceof Day ? $written->with('expires', $this->expires->value()) : $written;
+        return $this->expires instanceof Day
+            ? $written->with(Member::of('expires', $this->expires->value()))
+            : $written;
     }
 
     public function php(): string

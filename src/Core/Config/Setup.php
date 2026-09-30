@@ -13,16 +13,10 @@ use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Config\Definition\Adapter;
-use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
-use NightWorksIO\MutationGate\Core\Config\Definition\Field;
-use NightWorksIO\MutationGate\Core\Config\Definition\Into;
-use NightWorksIO\MutationGate\Core\Config\Definition\Items;
 use NightWorksIO\MutationGate\Core\Config\Definition\Presets;
-use NightWorksIO\MutationGate\Core\Config\Definition\RunnerChoice;
-use NightWorksIO\MutationGate\Core\Config\Definition\Text;
-use NightWorksIO\MutationGate\Core\Config\Definition\Unchecked;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
@@ -35,9 +29,6 @@ use function sprintf;
  */
 final readonly class Setup implements Part
 {
-    /** What the `$schema` key of a config file is for. */
-    private const string SCHEMA_KEY = 'The JSON Schema an editor checks this file by.';
-
     /** The tree source when no layer names one. */
     private const string TREE_SOURCE = 'phpunit';
 
@@ -63,16 +54,21 @@ final readonly class Setup implements Part
     /**
      * @param Listed<string>|Absent $extensions
      * @param Listed<string>|Absent $presets
-     * @param list<string>          $withhold
      */
     public static function of(
         Listed|Absent $extensions = new Absent(),
         Listed|Absent $presets = new Absent(),
         Choice|Absent $runner = new Absent(),
-        array $withhold = [],
+        Withheld|Absent $withhold = new Absent(),
         Choice|Absent $treeSource = new Absent(),
     ): self {
-        return new self($extensions, $presets, $runner, $withhold, $treeSource);
+        return new self(
+            $extensions,
+            $presets,
+            $runner,
+            $withhold instanceof Withheld ? [...$withhold] : [],
+            $treeSource,
+        );
     }
 
     public static function none(): self
@@ -85,56 +81,6 @@ final readonly class Setup implements Part
         $none = self::none();
 
         return self::of(extensions: $none->extensions(), treeSource: $none->treeSource());
-    }
-
-    /** @return list<Field<Layer>> */
-    public static function fields(): array
-    {
-        $judges = Effect::JudgesOrReportsOnly;
-        $results = Effect::AffectsResults;
-
-        return [
-            Field::optional(
-                '$schema',
-                Into::of(
-                    Unchecked::describedAs(self::SCHEMA_KEY),
-                    static fn(): Layer => Layer::none(),
-                ),
-                $judges,
-            ),
-            Field::optional(
-                'extensions',
-                Into::of(
-                    Items::of(Text::of('a class name')),
-                    static fn(Listed $classes): Layer => Layer::of(self::of(extensions: $classes)),
-                ),
-                $judges,
-            ),
-            Field::optional(
-                'preset',
-                Into::of(
-                    Presets::named(),
-                    static fn(Listed $names): Layer => Layer::of(self::of(presets: $names)),
-                ),
-                $judges,
-            ),
-            Field::optional(
-                'runner',
-                Into::of(
-                    RunnerChoice::choosing(Builtins::runners()),
-                    static fn(Setup $runner): Layer => Layer::of($runner),
-                ),
-                $results,
-            ),
-            Field::optional(
-                'treeSource',
-                Into::of(
-                    Adapter::choosing(Builtins::treeSources()),
-                    static fn(Choice $source): Layer => Layer::of(self::of(treeSource: $source)),
-                ),
-                $results,
-            ),
-        ];
     }
 
     /** Presets and extensions add to an earlier layer's; a runner or a tree source is chosen whole. */
@@ -154,7 +100,7 @@ final readonly class Setup implements Part
     /** @return Listed<string> the extension classes the config loads, beside those Composer names */
     public function extensions(): Listed
     {
-        return $this->extensions instanceof Listed ? $this->extensions : Listed::of([]);
+        return $this->extensions instanceof Listed ? $this->extensions : Listed::of();
     }
 
     /** @return Listed<string>|Absent the presets a layer names, in order, or none, for zero-config to choose */
@@ -183,21 +129,24 @@ final readonly class Setup implements Part
     /** The `phpunit` tree source, whose trees are these paths where `phpunit.xml` has no `<source>`. */
     public static function phpunit(string ...$fallback): Choice
     {
-        return Choice::of(self::TREE_SOURCE, Json::object()->with('fallback', Json::items(array_values($fallback))));
+        return Choice::of(
+            self::TREE_SOURCE,
+            Json::object(Member::of('fallback', Json::items(...array_values($fallback)))),
+        );
     }
 
     public function written(Origin $origin): Json
     {
         $written = $this->extensions instanceof Listed
-            ? Json::object()->with('extensions', Json::items([...$this->extensions]))
+            ? Json::object(Member::of('extensions', Json::items(...$this->extensions)))
             : Json::object();
         $written = $this->presets instanceof Listed
-            ? $written->with('preset', self::presetsWritten($this->presets))
+            ? $written->with(Member::of('preset', self::presetsWritten($this->presets)))
             : $written;
         $written = $this->runnerWritten($written);
 
         return $this->treeSource instanceof Choice
-            ? $written->with('treeSource', $this->treeSource->written())
+            ? $written->with(Member::of('treeSource', $this->treeSource->written()))
             : $written;
     }
 
@@ -228,27 +177,29 @@ final readonly class Setup implements Part
         $chosen = $this->runner instanceof Choice ? $this->runner->written() : Json::object();
 
         if ($this->withhold === []) {
-            return $this->runner instanceof Choice ? $written->with('runner', $chosen) : $written;
+            return $this->runner instanceof Choice ? $written->with(Member::of('runner', $chosen)) : $written;
         }
 
-        $runner = $chosen instanceof Json ? $chosen : Json::object()->with('use', $chosen);
+        $runner = $chosen instanceof Json ? $chosen : Json::object(Member::of('use', $chosen));
 
-        return $written->with('runner', $runner->with('withhold', Json::items($this->withhold)));
+        return $written->with(
+            Member::of('runner', $runner->with(Member::of('withhold', Json::items(...$this->withhold)))),
+        );
     }
 
     /** The runner as the builder chooses it, with `->withholding()` where it withholds anything. */
     private function runnerPhp(): PhpCalls
     {
-        $withheld = sprintf('Withheld::of(%s)', PhpCalls::literals($this->withhold));
+        $withheld = sprintf('Withheld::of(%s)', PhpCalls::literals(...$this->withhold));
 
         return match (true) {
             $this->runner instanceof Choice && $this->withhold === [] => PhpCalls::onGate(
                 'runner',
-                $this->runner->php('Runner', self::RUNNERS),
+                PhpCalls::chosen($this->runner, 'Runner', ...self::RUNNERS),
             ),
             $this->runner instanceof Choice => PhpCalls::onGate(
                 'runner',
-                sprintf('%s->withholding(%s)', $this->runner->php('Runner', self::RUNNERS), $withheld),
+                sprintf('%s->withholding(%s)', PhpCalls::chosen($this->runner, 'Runner', ...self::RUNNERS), $withheld),
             ),
             $this->withhold === [] => PhpCalls::none(),
             default => PhpCalls::onGate('withholding', $withheld),
@@ -260,7 +211,7 @@ final readonly class Setup implements Part
     {
         $names = [...$presets];
 
-        return count($names) === 1 ? $names[0] : Json::items($names);
+        return count($names) === 1 ? $names[0] : Json::items(...$names);
     }
 
     private static function preset(string $name): string
@@ -281,12 +232,12 @@ final readonly class Setup implements Part
         return $source->use() === self::TREE_SOURCE && ($onlyFallback || $source->options()->isEmpty())
             ? sprintf(
                 'Source::phpunit(%s)',
-                PhpCalls::literals(array_map(
+                PhpCalls::literals(...array_map(
                     static fn(Node $path): string => $path->text(),
                     $paths,
                 )),
             )
-            : $source->php('Source', ['composer']);
+            : PhpCalls::chosen($source, 'Source', 'composer');
     }
 
     /**

@@ -165,7 +165,7 @@ final readonly class Init
                 presets: $settings->presets(),
                 runner: Choice::of($settings->runner()->choice()->use(), Json::object()),
             ),
-            Floors::of(trees: Listed::of($declared)),
+            Floors::of(trees: Listed::of(...$declared)),
         );
     }
 
@@ -177,7 +177,7 @@ final readonly class Init
         return DeclaredTree::of(
             $tree->path(),
             $declared instanceof Exempt ? $declared : Undeclared::floor(),
-            Listed::of([]),
+            Listed::of(),
         );
     }
 

@@ -16,13 +16,13 @@ final readonly class Flaky implements Setting
     /** Each survivor is run once more, alone, before it counts. */
     public static function confirmingSurvivors(): self
     {
-        return new self(Json::decoded(['flaky' => ['confirmSurvivors' => true]]));
+        return new self(Json::at('flaky.confirmSurvivors', value: true));
     }
 
     /** A survivor counts as it first ran. */
     public static function notConfirmingSurvivors(): self
     {
-        return new self(Json::decoded(['flaky' => ['confirmSurvivors' => false]]));
+        return new self(Json::at('flaky.confirmSurvivors', value: false));
     }
 
     public function written(): Json

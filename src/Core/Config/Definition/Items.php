@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
@@ -59,7 +60,7 @@ final readonly class Items implements Shape
 
         $problems = Reading::problemsIn(...$readings);
 
-        return $problems instanceof Invalid ? Reading::invalid($problems) : Reading::of(Listed::of($values));
+        return $problems instanceof Invalid ? Reading::invalid($problems) : Reading::of(Listed::of(...$values));
     }
 
     public function expected(): string
@@ -69,7 +70,7 @@ final readonly class Items implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with('type', 'array')->with('items', $this->item->schema());
+        return Json::object(Member::of('type', 'array'))->with(Member::of('items', $this->item->schema()));
     }
 
     public function effects(): array

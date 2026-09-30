@@ -13,10 +13,10 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
-use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Registering;
@@ -87,7 +87,7 @@ it('names every name two packages both register', function (): void {
 });
 
 it('holds presets, layers of config with a name', function (): void {
-    $fragment = Layer::of(Floors::of(trees: Listed::of([DeclaredTree::of(Path::of('app'), Undeclared::floor(), Listed::of([]))])));
+    $fragment = Layer::of(Floors::of(trees: Listed::of(DeclaredTree::of(Path::of('app'), Undeclared::floor(), Listed::of()))));
     $registry = new Extensions(Origin::of('acme/a'))->withPreset(Name::of('laravel'), $fragment);
 
     expect(Lookup::in($registry)->preset(Name::of('laravel')))->toBe($fragment)

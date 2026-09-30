@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -50,7 +50,7 @@ $unjudged = Mutant::of(
     Unmeasured::duration(),
 )->because(Reason::that('No test references the constant it changes.'));
 
-$read = static fn(array $record): Node => Node::decode(Json::encode($record));
+$read = static fn(array $record): Node => Node::decode(JsonText::encode($record));
 
 it('writes everything a runner reported of a mutant in the full record', function () use ($timedOut, $id): void {
     expect(MutantRecord::full($timedOut))->toBe([

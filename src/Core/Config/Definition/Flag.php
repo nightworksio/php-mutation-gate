@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
@@ -34,7 +35,7 @@ final readonly class Flag implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with('type', 'boolean');
+        return Json::object(Member::of('type', 'boolean'));
     }
 
     public function effects(): array

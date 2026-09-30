@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
@@ -36,7 +37,7 @@ final readonly class Unchecked implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with('description', $this->description);
+        return Json::object(Member::of('description', $this->description));
     }
 
     public function effects(): array

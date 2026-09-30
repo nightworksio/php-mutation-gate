@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
@@ -38,7 +39,7 @@ final readonly class Text implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with('type', 'string')->with('minLength', 1);
+        return Json::object(Member::of('type', 'string'))->with(Member::of('minLength', 1));
     }
 
     public function effects(): array

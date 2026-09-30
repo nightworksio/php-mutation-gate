@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Config;
 
-use function array_map;
-use function count;
-use function implode;
-
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 
 use function preg_match;
@@ -56,12 +52,7 @@ final readonly class Php
 
     public static function render(PhpCalls $calls): string
     {
-        $gate = array_map(
-            static fn(array $call): string => self::call($call[0], $call[1]),
-            $calls->gateCalls(),
-        );
-        $with = $calls->withCalls() === [] ? [] : [self::call('with', $calls->withCalls())];
-        $code = implode('', [...$gate, ...$with]);
+        $code = $calls->code();
         $imports = '';
 
         foreach (self::CLASSES as $class => $namespace) {
@@ -72,15 +63,4 @@ final readonly class Php
         return sprintf("<?php\n\ndeclare(strict_types=1);\n\n%s\nreturn Gate::configure()%s;\n", $imports, $code);
     }
 
-    /** @param list<string> $arguments */
-    private static function call(string $method, array $arguments): string
-    {
-        $lines = array_map(static fn(string $argument): string => sprintf("\n        %s,", $argument), $arguments);
-
-        return match (count($arguments)) {
-            0 => sprintf("\n    ->%s()", $method),
-            1 => sprintf("\n    ->%s(%s)", $method, $arguments[0]),
-            default => sprintf("\n    ->%s(%s\n    )", $method, implode('', $lines)),
-        };
-    }
 }

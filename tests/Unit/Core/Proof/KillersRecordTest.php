@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
@@ -26,11 +26,11 @@ it('names every test a history holds, once, in the order it first names it', fun
 it('writes each ranking as index and kills pairs, most kills first, and reads back what it wrote', function () use ($history, $mutant): void {
     $written = KillersRecord::of($history, ['a' => 0, 'b' => 1, 'c' => 2]);
 
-    expect(Json::compact($written))->toBe(Json::compact([
+    expect(JsonText::compact($written))->toBe(JsonText::compact([
         'mutants' => [$mutant->value() => [[0, 2], [1, 1]]],
         'functions' => ['src/Money.php' => ['add' => [[2, 4]]]],
     ]))
-        ->and(KillersRecord::read(Node::decode(Json::compact($written)), ['a', 'b', 'c']))->toEqual($history)
-        ->and(Json::compact(KillersRecord::of(KillHistory::none(), [])))->toBe('{"mutants":{},"functions":{}}')
+        ->and(KillersRecord::read(Node::decode(JsonText::compact($written)), ['a', 'b', 'c']))->toEqual($history)
+        ->and(JsonText::compact(KillersRecord::of(KillHistory::none(), [])))->toBe('{"mutants":{},"functions":{}}')
         ->and(KillersRecord::read(Node::decode('{}'), []))->toEqual(KillHistory::none());
 });

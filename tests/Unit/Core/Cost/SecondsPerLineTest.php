@@ -40,6 +40,6 @@ it('costs a path under no prefix nothing', function (): void {
 it('writes its rates by prefix as costs.secondsPerLine does', function (): void {
     $perLine = SecondsPerLine::of(LineRate::of('src/Domain/', Seconds::of(0.5)), LineRate::of('', Seconds::of(0.1)));
 
-    expect($perLine->written())->toBe(['src/Domain' => 0.5, '' => 0.1])
-        ->and(SecondsPerLine::standard()->written())->toBe(['' => 0.2]);
+    expect(iterator_to_array($perLine, preserve_keys: true))->toBe(['src/Domain' => 0.5, '' => 0.1])
+        ->and(iterator_to_array(SecondsPerLine::standard(), preserve_keys: true))->toBe(['' => 0.2]);
 });

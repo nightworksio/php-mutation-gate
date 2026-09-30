@@ -16,19 +16,19 @@ final readonly class Baseline implements Setting
     /** `baseline.path` */
     public static function at(string $path): self
     {
-        return new self(Json::decoded(['baseline' => ['path' => $path]]));
+        return new self(Json::at('baseline.path', $path));
     }
 
     /** An improvement fails a pull request until the raised floor is committed. */
     public static function requiringImprovement(): self
     {
-        return new self(Json::decoded(['baseline' => ['improvement' => 'require']]));
+        return new self(Json::at('baseline.improvement', 'require'));
     }
 
     /** An improvement passes, and the summary shows how to raise the floor. */
     public static function reportingImprovement(): self
     {
-        return new self(Json::decoded(['baseline' => ['improvement' => 'report']]));
+        return new self(Json::at('baseline.improvement', 'report'));
     }
 
     public function written(): Json

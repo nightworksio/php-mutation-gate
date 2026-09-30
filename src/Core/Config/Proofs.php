@@ -9,16 +9,9 @@ use function array_map;
 use function array_values;
 use function implode;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Adapter;
-use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
-use NightWorksIO\MutationGate\Core\Config\Definition\Enumerated;
-use NightWorksIO\MutationGate\Core\Config\Definition\Field;
-use NightWorksIO\MutationGate\Core\Config\Definition\Items;
-use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
-use NightWorksIO\MutationGate\Core\Config\Definition\Section;
-use NightWorksIO\MutationGate\Core\Config\Definition\Text;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
@@ -62,40 +55,6 @@ final readonly class Proofs implements Part
         return self::of($none->store(), $none->ignore(), $none->write());
     }
 
-    /** @return list<Field<Layer>> */
-    public static function fields(): array
-    {
-        $judges = Effect::JudgesOrReportsOnly;
-        $store = Field::optional('store', Adapter::choosing(Builtins::stores()), $judges);
-        $ignore = Field::optional('ignore', Items::of(Text::of('a glob')), $judges);
-        $write = Field::optional('write', Enumerated::of(ProofWriting::cases()), $judges);
-
-        return [Field::section(
-            'proofs',
-            Section::of(
-                static function (Node $proofs) use ($store, $ignore, $write): Layer|Invalid {
-                    $kept = $store->read($proofs);
-                    $left = $ignore->read($proofs);
-                    $writing = $write->read($proofs);
-
-                    return Reading::built(
-                        static fn(): Layer => Layer::of(self::of(
-                            $kept->value(),
-                            $left->value(),
-                            $writing->value(),
-                        )),
-                        $kept,
-                        $left,
-                        $writing,
-                    );
-                },
-                $store,
-                $ignore,
-                $write,
-            ),
-        )];
-    }
-
     /** A store is chosen whole; the globs a later layer ignores add to an earlier one's. */
     public function over(Part $later): self
     {
@@ -116,13 +75,13 @@ final readonly class Proofs implements Part
     {
         return $this->store instanceof Choice
             ? $this->store
-            : Choice::of(self::STORE, Json::object()->with('path', self::LEDGERS));
+            : Choice::of(self::STORE, Json::object(Member::of('path', self::LEDGERS)));
     }
 
     /** @return Listed<string> the globs of the files no test reads */
     public function ignore(): Listed
     {
-        return $this->ignore instanceof Listed ? $this->ignore : Listed::of([]);
+        return $this->ignore instanceof Listed ? $this->ignore : Listed::of();
     }
 
     public function write(): ProofWriting
@@ -132,15 +91,14 @@ final readonly class Proofs implements Part
 
     public function written(Origin $origin): Json
     {
-        $proofs = $this->store instanceof Choice
-            ? Json::object()->with('store', $this->store->written())
-            : Json::object();
-        $proofs = $this->ignore instanceof Listed
-            ? $proofs->with('ignore', Json::items([...$this->ignore]))
-            : $proofs;
-        $proofs = $this->write instanceof ProofWriting ? $proofs->with('write', $this->write->value) : $proofs;
-
-        return $proofs->isEmpty() ? Json::object() : Json::object()->with('proofs', $proofs);
+        return Json::object(Member::unlessEmpty(
+            'proofs',
+            Json::object(
+                Member::of('store', $this->store instanceof Choice ? $this->store->written() : $this->store),
+                Member::of('ignore', $this->ignore instanceof Listed ? Json::items(...$this->ignore) : $this->ignore),
+                Member::of('write', $this->write instanceof ProofWriting ? $this->write->value : $this->write),
+            ),
+        ));
     }
 
     public function php(Origin $origin): PhpCalls
@@ -148,7 +106,7 @@ final readonly class Proofs implements Part
         return PhpCalls::inWith(...[
             ...$this->store instanceof Choice ? [self::storeCall($this->store)] : [],
             ...$this->ignore instanceof Listed
-                ? [sprintf('Proofs::ignore(%s)', PhpCalls::literals([...$this->ignore]))]
+                ? [sprintf('Proofs::ignore(%s)', PhpCalls::literals(...$this->ignore))]
                 : [],
             ...$this->write instanceof ProofWriting ? [match ($this->write) {
                 ProofWriting::Auto => 'Proofs::writing()',
@@ -166,7 +124,7 @@ final readonly class Proofs implements Part
         return match ($store->use()) {
             self::STORE => sprintf(
                 'Proofs::directory(%s)',
-                PhpCalls::literals(array_map(
+                PhpCalls::literals(...array_map(
                     static fn(Node $option): string => $option->text(),
                     array_values($entries),
                 )),
@@ -186,7 +144,7 @@ final readonly class Proofs implements Part
                     ),
                 ),
             ),
-            default => $store->php('Proofs', []),
+            default => PhpCalls::chosen($store, 'Proofs'),
         };
     }
 }

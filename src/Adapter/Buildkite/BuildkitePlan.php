@@ -23,7 +23,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -114,7 +114,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
             ),
         ];
 
-        return file_put_contents($this->to, Json::encode(['steps' => $steps])) === false
+        return file_put_contents($this->to, JsonText::encode(['steps' => $steps])) === false
             ? CannotJudge::because(sprintf('%s could not be written.', $this->to))
             : Written::to($this->to);
     }

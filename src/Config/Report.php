@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 /** A `reports` entry (ADR-0009): a reporter, and where it writes its file. */
 final readonly class Report
@@ -37,10 +38,10 @@ final readonly class Report
     /** A reporter another extension registers by name, or a class, with its options; `''` for no file. */
     public static function uses(string $reporter, string $path = '', Option ...$options): self
     {
-        $report = Json::object()->with('use', $reporter);
-        $report = $path === '' ? $report : $report->with('path', $path);
+        $report = Json::object(Member::of('use', $reporter));
+        $report = $path === '' ? $report : $report->with(Member::of('path', $path));
 
-        return new self($options === [] ? $report : $report->with('with', Option::object(...$options)));
+        return new self($options === [] ? $report : $report->with(Member::of('with', Option::object(...$options))));
     }
 
     /** This entry, as JSON. */

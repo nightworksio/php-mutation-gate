@@ -7,17 +7,16 @@ namespace NightWorksIO\MutationGate\Adapter\Neon;
 use function file_get_contents;
 use function is_file;
 use function is_string;
+use function json_decode;
 
 use Nette\Neon\Exception;
 use Nette\Neon\Neon;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
-use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Parsed;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 
 use function sprintf;
@@ -45,12 +44,16 @@ final readonly class NeonConfig implements ConfigLoader
             return CannotJudge::because(sprintf('%s is not NEON: %s', $path, $exception->getMessage()));
         }
 
-        return $json instanceof Json ? Definition::layer(Node::config($json->line()), $file) : $json;
+        return $json instanceof Json ? $file->read($json) : $json;
     }
 
     /** A config written as NEON, as `init` and `config:show` write it. */
     public function render(Json $config): string
     {
-        return Neon::encode($config->plain(), blockMode: true, indentation: self::INDENT);
+        return Neon::encode(
+            json_decode($config->line(), associative: true),
+            blockMode: true,
+            indentation: self::INDENT,
+        );
     }
 }

@@ -51,7 +51,7 @@ final readonly class Presets
         foreach (self::SHIPPED as $name => $preset) {
             $layer = Layer::of(
                 Setup::of(treeSource: Setup::phpunit(...$preset['fallback'])),
-                Reach::of(everything: Listed::of($preset['everything'])),
+                Reach::of(everything: Listed::of(...$preset['everything'])),
             );
             $presets = $presets->withPreset(
                 Name::of($name),

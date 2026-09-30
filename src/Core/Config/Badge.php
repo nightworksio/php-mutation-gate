@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Field;
-use NightWorksIO\MutationGate\Core\Config\Definition\Number;
-use NightWorksIO\MutationGate\Core\Config\Definition\NumberMap;
-use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 use function sprintf;
 
@@ -37,18 +34,6 @@ final readonly class Badge implements Part
         return self::of(self::none()->colors());
     }
 
-    /** @return list<Field<Layer>> */
-    public static function fields(): array
-    {
-        return [Field::section(
-            'badge',
-            Section::single(
-                Field::optional('colors', NumberMap::of(Number::percent()), Effect::JudgesOrReportsOnly),
-                static fn(Table|Absent $colors): Layer => Layer::of(self::of($colors)),
-            ),
-        )];
-    }
-
     /** A later layer's colours are laid over an earlier one's, by colour. */
     public function over(Part $later): self
     {
@@ -64,14 +49,27 @@ final readonly class Badge implements Part
     /** `badge.colors`: the lowest score of each shields.io colour, red below them all. */
     public function colors(): Table
     {
-        return $this->colors instanceof Table ? $this->colors : Table::of(self::COLORS);
+        if ($this->colors instanceof Table) {
+            return $this->colors;
+        }
+
+        $colors = Table::none();
+
+        foreach (self::COLORS as $color => $lowest) {
+            $colors = $colors->merged(Table::row($color, $lowest));
+        }
+
+        return $colors;
     }
 
     public function written(Origin $origin): Json
     {
-        return $this->colors instanceof Table
-            ? Json::object()->with('badge', Json::object()->with('colors', $this->colors->written()))
-            : Json::object();
+        return Json::object(Member::unlessEmpty(
+            'badge',
+            Json::object(
+                Member::of('colors', $this->colors instanceof Table ? $this->colors->written() : $this->colors),
+            ),
+        ));
     }
 
     public function php(Origin $origin): PhpCalls

@@ -7,9 +7,9 @@ namespace NightWorksIO\MutationGate\Config;
 use function array_filter;
 use function array_keys;
 use function array_map;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 /** Where proofs are kept, and what they leave out (ADR-0007): `proofs`. */
 final readonly class Proofs implements Setting
@@ -44,28 +44,30 @@ final readonly class Proofs implements Setting
     /** A proof store another extension registers by name, or a class, with its options. */
     public static function uses(string $store, Option ...$options): self
     {
-        return new self(Json::object()->with(
-            'proofs',
-            Json::object()->with('store', Option::choice($store, ...$options)),
+        return new self(Json::object(
+            Member::of(
+                'proofs',
+                Json::object(Member::of('store', Option::choice($store, ...$options))),
+            ),
         ));
     }
 
     /** `proofs.ignore`: the globs of the files no test reads. */
     public static function ignore(string ...$globs): self
     {
-        return new self(Json::decoded(['proofs' => ['ignore' => array_values($globs)]]));
+        return new self(Json::at('proofs.ignore', Json::items(...$globs)));
     }
 
     /** The verdict writes the run's own scope. */
     public static function writing(): self
     {
-        return new self(Json::decoded(['proofs' => ['write' => 'auto']]));
+        return new self(Json::at('proofs.write', 'auto'));
     }
 
     /** Nothing is written: the store is read-only. */
     public static function readOnly(): self
     {
-        return new self(Json::decoded(['proofs' => ['write' => 'never']]));
+        return new self(Json::at('proofs.write', 'never'));
     }
 
     public function written(): Json

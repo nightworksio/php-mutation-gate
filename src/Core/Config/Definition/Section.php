@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
@@ -116,7 +117,11 @@ final readonly class Section implements Shape
 
                 return $problems instanceof Invalid
                     ? $problems
-                    : $defaults->merged($with->kind() === Kind::Nothing ? Json::object() : $with->value());
+                    : $defaults->merged(
+                        $with->kind() === Kind::Nothing || $with->kind() === Kind::Empty
+                            ? Json::object()
+                            : $with->value(),
+                    );
             },
             $checked,
             [],
@@ -190,31 +195,33 @@ final readonly class Section implements Shape
     /** Its JSON Schema, with the value each of its settings takes when every layer leaves it out. */
     public function schemaUnder(Json|Absent $defaults): Json
     {
-        $schema = Json::object()->with('type', 'object');
+        $schema = Json::object(Member::of('type', 'object'));
         $properties = Json::object();
 
         foreach ($this->fields as $field) {
-            $default = $defaults instanceof Json ? $defaults->member($field->key()) : $defaults;
-            $properties = $properties->with($field->key(), $field->schema($default));
+            $default = $defaults instanceof Json ? self::member($defaults, $field->key()) : $defaults;
+            $properties = $properties->with(Member::of($field->key(), $field->schema($default)));
         }
 
         $required = array_values(array_map(
             static fn(Field $field): string => $field->key(),
             array_filter($this->fields, static fn(Field $field): bool => $field->isRequired()),
         ));
-        $schema = $this->fields === [] ? $schema : $schema->with('properties', $properties);
-        $schema = $required === [] ? $schema : $schema->with('required', Json::items($required));
-        $schema = $schema->with('additionalProperties', value: false);
+        $schema = $this->fields === [] ? $schema : $schema->with(Member::of('properties', $properties));
+        $schema = $required === [] ? $schema : $schema->with(Member::of('required', Json::items(...$required)));
+        $schema = $schema->with(Member::of('additionalProperties', value: false));
         $schema = $this->exclusive === []
             ? $schema
-            : $schema->with('not', Json::object()->with('required', Json::items($this->exclusive)));
+            : $schema->with(Member::of('not', Json::object(Member::of('required', Json::items(...$this->exclusive)))));
 
         return $this->alternatives === [] ? $schema : $schema->with(
-            'oneOf',
-            Json::items(array_map(
-                static fn(array $set): Json => Json::object()->with('required', Json::items($set)),
-                $this->alternatives,
-            )),
+            Member::of(
+                'oneOf',
+                Json::items(...array_map(
+                    static fn(array $set): Json => Json::object(Member::of('required', Json::items(...$set))),
+                    $this->alternatives,
+                )),
+            ),
         );
     }
 
@@ -239,6 +246,18 @@ final readonly class Section implements Shape
         }
 
         return $settings;
+    }
+
+    /** What an object holds under a key, or nothing. */
+    private static function member(Json $object, string $key): Json|Absent
+    {
+        foreach ($object as $name => $value) {
+            if ($name === $key) {
+                return $value;
+            }
+        }
+
+        return Absent::setting();
     }
 
     /** Whether a place holds an object, or nothing, which reads as an object with every setting left out. */

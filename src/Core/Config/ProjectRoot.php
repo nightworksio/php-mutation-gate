@@ -14,9 +14,9 @@ final readonly class ProjectRoot implements Origin
         return new self();
     }
 
-    public function path(string $written): Path
+    public function path(Path $written): Path
     {
-        return ConfigPath::of($written, '')->path();
+        return ConfigPath::of($written->value(), '')->path();
     }
 
     public function written(Path $path): string

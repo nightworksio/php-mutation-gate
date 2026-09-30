@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 /** `runner`: the tool that mutates (ADR-0004). */
@@ -36,9 +37,9 @@ final readonly class Runner
      */
     public function withholding(Withheld $withheld): self
     {
-        $runner = $this->json instanceof Json ? $this->json : Json::object()->with('use', $this->json);
+        $runner = $this->json instanceof Json ? $this->json : Json::object(Member::of('use', $this->json));
 
-        return new self($runner->with('withhold', Json::items([...$withheld])));
+        return new self($runner->with(Member::of('withhold', Json::items(...$withheld))));
     }
 
     public function written(): Json|string

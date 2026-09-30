@@ -9,7 +9,7 @@ use function getenv;
 use function is_string;
 use function is_subclass_of;
 
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use Pest\Contracts\HasPrintableTestCaseName;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -68,7 +68,7 @@ final readonly class Naming
             $tests = is_subclass_of($class, TestCase::class) ? [...$tests, ...$this->testsOf($class)] : $tests;
         }
 
-        file_put_contents($this->file, Json::compact($tests));
+        file_put_contents($this->file, JsonText::compact($tests));
     }
 
     /**

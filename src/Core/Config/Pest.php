@@ -4,13 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Field;
-use NightWorksIO\MutationGate\Core\Config\Definition\Flag;
-use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
-use NightWorksIO\MutationGate\Core\Config\Definition\Section;
-use NightWorksIO\MutationGate\Core\Config\Definition\Text;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Test\Group;
 
 use function sprintf;
@@ -41,36 +36,6 @@ final readonly class Pest implements Part
         return self::of($none->patch(), $none->canary());
     }
 
-    /** @return list<Field<Layer>> */
-    public static function fields(): array
-    {
-        $results = Effect::AffectsResults;
-        $patch = Field::optional('patch', Flag::boolean(), $results);
-        $canary = Field::optional('canary', Text::of('a group name'), $results);
-
-        return [Field::section(
-            'pest',
-            Section::of(
-                static function (Node $pest) use ($patch, $canary): Layer|Invalid {
-                    $patched = $patch->read($pest);
-                    $group = $canary->read($pest);
-                    $named = $group->value();
-
-                    return Reading::built(
-                        static fn(): Layer => Layer::of(self::of(
-                            $patched->value(),
-                            $named instanceof Absent ? $named : Group::named($named),
-                        )),
-                        $patched,
-                        $group,
-                    );
-                },
-                $patch,
-                $canary,
-            ),
-        )];
-    }
-
     public function over(Part $later): self
     {
         return $later instanceof self
@@ -92,10 +57,13 @@ final readonly class Pest implements Part
 
     public function written(Origin $origin): Json
     {
-        $pest = $this->patch instanceof Absent ? Json::object() : Json::object()->with('patch', $this->patch);
-        $pest = $this->canary instanceof Group ? $pest->with('canary', $this->canary->name()) : $pest;
-
-        return $pest->isEmpty() ? $pest : Json::object()->with('pest', $pest);
+        return Json::object(Member::unlessEmpty(
+            'pest',
+            Json::object(
+                Member::of('patch', $this->patch),
+                Member::of('canary', $this->canary instanceof Group ? $this->canary->name() : $this->canary),
+            ),
+        ));
     }
 
     public function php(Origin $origin): PhpCalls

@@ -4,9 +4,22 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use NightWorksIO\MutationGate\Core\Config\Definition\BadgeKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\CiKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\FloorsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\IgnoresKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\LocalKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\PestKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\ProofsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\ReachKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
+use NightWorksIO\MutationGate\Core\Config\Definition\ReportsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Section;
+use NightWorksIO\MutationGate\Core\Config\Definition\SetupKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\ShardsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\TriageKeys;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
@@ -34,18 +47,18 @@ final readonly class Definition
     public static function config(Origin $origin): Section
     {
         $fields = [
-            ...Setup::fields(),
-            ...Floors::fields($origin),
-            ...Reach::fields(),
-            ...Shards::fields(),
-            ...Ci::fields($origin),
-            ...Proofs::fields(),
-            ...Triage::fields(),
-            ...Ignores::fields(),
-            ...Reports::fields($origin),
-            ...Badge::fields(),
-            ...Pest::fields(),
-            ...Local::fields(),
+            ...SetupKeys::fields(),
+            ...FloorsKeys::fields($origin),
+            ...ReachKeys::fields(),
+            ...ShardsKeys::fields(),
+            ...CiKeys::fields($origin),
+            ...ProofsKeys::fields(),
+            ...TriageKeys::fields(),
+            ...IgnoresKeys::fields(),
+            ...ReportsKeys::fields($origin),
+            ...BadgeKeys::fields(),
+            ...PestKeys::fields(),
+            ...LocalKeys::fields(),
         ];
 
         return Section::of(static function (Node $config) use ($fields): Layer|Invalid {
@@ -80,10 +93,10 @@ final readonly class Definition
         $origin = ProjectRoot::origin();
 
         return Json::object()
-            ->with('$schema', self::SCHEMA)
-            ->with('$id', self::PUBLISHED)
-            ->with('title', 'mutation-gate')
-            ->with('description', self::DESCRIPTION)
+            ->with(Member::of('$schema', self::SCHEMA))
+            ->with(Member::of('$id', self::PUBLISHED))
+            ->with(Member::of('title', 'mutation-gate'))
+            ->with(Member::of('description', self::DESCRIPTION))
             ->merged(self::config($origin)->schemaUnder(Layer::standard()->written($origin)))
             ->pretty();
     }

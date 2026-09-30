@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
@@ -33,7 +33,7 @@ final readonly class CodeQuality
             $issues[] = self::issue($mutant, $overview->isFailing($mutant));
         }
 
-        return Json::encode($issues);
+        return JsonText::encode($issues);
     }
 
     /** @return Issue */

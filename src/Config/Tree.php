@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 
 /**
@@ -20,10 +21,10 @@ final readonly class Tree
 
     public static function at(string $path, int|float|Undeclared $floor = new Undeclared(), string $because = ''): self
     {
-        $tree = Json::object()->with('path', $path);
-        $tree = $floor instanceof Undeclared ? $tree : $tree->with('floor', $floor);
+        $tree = Json::object(Member::of('path', $path));
+        $tree = $floor instanceof Undeclared ? $tree : $tree->with(Member::of('floor', $floor));
 
-        return new self($because === '' ? $tree : $tree->with('reason', $because));
+        return new self($because === '' ? $tree : $tree->with(Member::of('reason', $because)));
     }
 
     /** This tree, but for the files these globs from the repository root match: `trees[].exclude`. */
@@ -35,7 +36,7 @@ final readonly class Tree
             $excluded[] = $glob->value();
         }
 
-        return new self($this->json->with('exclude', Json::items($excluded)));
+        return new self($this->json->with(Member::of('exclude', Json::items(...$excluded))));
     }
 
     public function written(): Json

@@ -10,6 +10,7 @@ use function array_map;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
@@ -35,7 +36,7 @@ final readonly class Presets implements Shape
 
         return array_any($names, static fn(string $name): bool => $name === '')
             ? Reading::refused($at->mismatch($this->expected()))
-            : Reading::of(Listed::of($names));
+            : Reading::of(Listed::of(...$names));
     }
 
     public function expected(): string
@@ -45,11 +46,16 @@ final readonly class Presets implements Shape
 
     public function schema(): Json
     {
-        $name = Json::object()->with('type', 'string')->with('minLength', 1);
+        $name = Json::object(Member::of('type', 'string'))->with(Member::of('minLength', 1));
 
         return Json::object()
-            ->with('description', 'Chosen from what composer.json requires when no layer names one.')
-            ->with('anyOf', Json::items([$name, Json::object()->with('type', 'array')->with('items', $name)]));
+            ->with(Member::of('description', 'Chosen from what composer.json requires when no layer names one.'))
+            ->with(
+                Member::of(
+                    'anyOf',
+                    Json::items($name, Json::object(Member::of('type', 'array'))->with(Member::of('items', $name))),
+                ),
+            );
     }
 
     public function effects(): array

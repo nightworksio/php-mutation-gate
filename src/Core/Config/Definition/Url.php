@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function str_starts_with;
@@ -40,7 +41,7 @@ final readonly class Url implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with('type', 'string')->with('pattern', '^https://.');
+        return Json::object(Member::of('type', 'string'))->with(Member::of('pattern', '^https://.'));
     }
 
     public function effects(): array

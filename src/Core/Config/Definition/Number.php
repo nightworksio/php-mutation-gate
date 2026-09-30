@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 
@@ -62,9 +63,9 @@ final readonly class Number implements Shape
 
     public function schema(): Json
     {
-        $schema = Json::object()->with('type', 'number')->with('minimum', $this->least);
+        $schema = Json::object(Member::of('type', 'number'))->with(Member::of('minimum', $this->least));
 
-        return $this->most instanceof Absent ? $schema : $schema->with('maximum', $this->most);
+        return $this->most instanceof Absent ? $schema : $schema->with(Member::of('maximum', $this->most));
     }
 
     public function effects(): array

@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function array_flip;
+use function array_key_exists;
 use function array_map;
 use function array_values;
+use function count;
 use function implode;
+use function sprintf;
 use function var_export;
 
 /**
@@ -47,14 +51,25 @@ final readonly class PhpCalls
         return var_export($value, return: true);
     }
 
-    /**
-     * Values as PHP writes them, as the arguments of one call.
-     *
-     * @param list<string|int|float|bool> $values
-     */
-    public static function literals(array $values): string
+    /** Values as PHP writes them, as the arguments of one call. */
+    public static function literals(string|int|float|bool ...$values): string
     {
         return implode(', ', array_map(self::literal(...), $values));
+    }
+
+    /**
+     * An adapter as the builder chooses it: the method of a builder class for a name it has one for, else
+     * `uses()` with each option.
+     */
+    public static function chosen(Choice $choice, string $class, string ...$named): string
+    {
+        return $choice->options()->isEmpty() && array_key_exists($choice->use(), array_flip($named))
+            ? sprintf('%s::%s()', $class, $choice->use())
+            : sprintf(
+                '%s::uses(%s)',
+                $class,
+                implode(', ', [self::literal($choice->use()), ...PhpOptions::of($choice->options())]),
+            );
     }
 
     /** These calls, then more. */
@@ -63,15 +78,23 @@ final readonly class PhpCalls
         return new self([...$this->gate, ...$more->gate], [...$this->with, ...$more->with]);
     }
 
-    /** @return list<array{string, list<string>}> the calls on `Gate`, in order, each its method and arguments */
-    public function gateCalls(): array
+    /** The calls after `Gate::configure()`, one per line: those on `Gate`, then every other setting in `with()`. */
+    public function code(): string
     {
-        return $this->gate;
+        $calls = array_map(static fn(array $call): string => self::call($call[0], $call[1]), $this->gate);
+
+        return implode('', $this->with === [] ? $calls : [...$calls, self::call('with', $this->with)]);
     }
 
-    /** @return list<string> the settings `with()` takes, in order */
-    public function withCalls(): array
+    /** @param list<string> $arguments */
+    private static function call(string $method, array $arguments): string
     {
-        return $this->with;
+        $lines = array_map(static fn(string $argument): string => sprintf("\n        %s,", $argument), $arguments);
+
+        return match (count($arguments)) {
+            0 => sprintf("\n    ->%s()", $method),
+            1 => sprintf("\n    ->%s(%s)", $method, $arguments[0]),
+            default => sprintf("\n    ->%s(%s\n    )", $method, implode('', $lines)),
+        };
     }
 }

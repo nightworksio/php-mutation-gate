@@ -12,7 +12,9 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 /**
  * The `runner` key: an adapter chosen as any other is, and in its object
@@ -79,20 +81,23 @@ final readonly class RunnerChoice implements Shape
 
     public function schema(): Json
     {
-        $withhold = Json::object()->with('withhold', Items::of(Text::of('a variable name or a glob'))->schema());
+        $withhold = Json::object(Member::of('withhold', Items::of(Text::of('a variable name or a glob'))->schema()));
 
-        return Json::object()->with(
+        return Json::object(Member::of(
             'anyOf',
-            Json::items([
-                Json::object()->with('type', 'string')->with('minLength', 1),
+            Json::items(
+                Json::object(Member::of('type', 'string'), Member::of('minLength', 1)),
                 ...$this->builtins->schemas($withhold, [], []),
-                Json::object()
-                    ->with('type', 'object')
-                    ->with('properties', $withhold)
-                    ->with('required', Json::items(['withhold']))
-                    ->with('additionalProperties', value: false),
-            ]),
-        );
+                ...[
+                    Json::object(
+                        Member::of('type', 'object'),
+                        Member::of('properties', $withhold),
+                        Member::of('required', Json::items('withhold')),
+                        Member::of('additionalProperties', value: false),
+                    ),
+                ],
+            ),
+        ));
     }
 
     public function effects(): array
@@ -107,7 +112,7 @@ final readonly class RunnerChoice implements Shape
         string|Absent $use,
         Listed|Absent $withhold,
     ): Setup|Invalid {
-        $withheld = $withhold instanceof Absent ? [] : [...$withhold];
+        $withheld = $withhold instanceof Absent ? Withheld::nothing() : Withheld::of(...$withhold);
         $options = $at->field('with');
 
         return match (true) {
@@ -119,8 +124,7 @@ final readonly class RunnerChoice implements Shape
         };
     }
 
-    /** @param list<string> $withhold */
-    private static function chosen(Choice|Invalid $choice, array $withhold): Setup|Invalid
+    private static function chosen(Choice|Invalid $choice, Withheld $withhold): Setup|Invalid
     {
         return $choice instanceof Choice ? Setup::of(runner: $choice, withhold: $withhold) : $choice;
     }

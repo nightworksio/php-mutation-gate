@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 /** Whether a mutant the optimizer compiles as its original is proven equivalent (ADR-0013): `equivalence.static`. */
 final readonly class Equivalence implements Setting
@@ -26,6 +27,6 @@ final readonly class Equivalence implements Setting
 
     public function written(): Json
     {
-        return Json::object()->with('equivalence', Json::object()->with('static', $this->proven));
+        return Json::object(Member::of('equivalence', Json::object(Member::of('static', $this->proven))));
     }
 }

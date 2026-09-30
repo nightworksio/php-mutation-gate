@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Report;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
@@ -77,13 +78,20 @@ final readonly class ReportEntry implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with(
-            'anyOf',
-            Json::items($this->builtins->schemas(
-                Json::object()->with('path', Json::object()->with('type', 'string')->with('minLength', 1)),
-                ['path'],
-                self::SENDING,
-            )),
+        return Json::object(
+            Member::of(
+                'anyOf',
+                Json::items(...$this->builtins->schemas(
+                    Json::object(
+                        Member::of(
+                            'path',
+                            Json::object(Member::of('type', 'string'))->with(Member::of('minLength', 1)),
+                        ),
+                    ),
+                    ['path'],
+                    self::SENDING,
+                )),
+            ),
         );
     }
 

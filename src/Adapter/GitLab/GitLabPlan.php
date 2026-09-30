@@ -22,7 +22,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -103,7 +103,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
 
         $directory = dirname($this->pipeline);
         $written = is_dir($directory) || mkdir($directory, recursive: true)
-            ? file_put_contents($this->pipeline, Json::encode($this->pipelineOf($plan, $planJob)))
+            ? file_put_contents($this->pipeline, JsonText::encode($this->pipelineOf($plan, $planJob)))
             : false;
 
         return $written === false

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use ArrayIterator;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 use function sprintf;
 
@@ -25,10 +26,15 @@ final readonly class Table implements IteratorAggregate
     {
     }
 
-    /** @param array<string, int|float> $numbers */
-    public static function of(array $numbers): self
+    public static function none(): self
     {
-        return new self($numbers);
+        return new self([]);
+    }
+
+    /** One number by its name: `Table::row('src/Legacy', 2)`. */
+    public static function row(string $name, int|float $number): self
+    {
+        return new self([$name => $number]);
     }
 
     /** This table with a later layer's entries laid over its own, by key. */
@@ -49,7 +55,7 @@ final readonly class Table implements IteratorAggregate
         $written = Json::object();
 
         foreach ($this->numbers as $key => $number) {
-            $written = $written->with(sprintf('%s', $key), $number);
+            $written = $written->with(Member::of(sprintf('%s', $key), $number));
         }
 
         return $written;

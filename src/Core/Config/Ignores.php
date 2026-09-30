@@ -7,19 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use function array_map;
 
 use DateTimeImmutable;
-use NightWorksIO\MutationGate\Core\Config\Definition\Date;
-use NightWorksIO\MutationGate\Core\Config\Definition\Enumerated;
-use NightWorksIO\MutationGate\Core\Config\Definition\Field;
-use NightWorksIO\MutationGate\Core\Config\Definition\Flag;
-use NightWorksIO\MutationGate\Core\Config\Definition\Identifier;
-use NightWorksIO\MutationGate\Core\Config\Definition\Integer;
-use NightWorksIO\MutationGate\Core\Config\Definition\Items;
-use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
-use NightWorksIO\MutationGate\Core\Config\Definition\Section;
-use NightWorksIO\MutationGate\Core\Config\Definition\Text;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Time\Day;
 
 use function sprintf;
@@ -68,49 +57,6 @@ final readonly class Ignores implements Part
         );
     }
 
-    /** @return list<Field<Layer>> */
-    public static function fields(): array
-    {
-        $judges = Effect::JudgesOrReportsOnly;
-        $entries = Field::optional('entries', Items::of(self::entry()), $judges);
-        $maxDays = Field::optional('maxDays', Integer::atLeast(1), $judges);
-        $native = Field::optional('native', Enumerated::of(NativeMarkers::cases()), $judges);
-
-        return [
-            Field::section(
-                'ignores',
-                Section::of(
-                    static function (Node $ignores) use ($entries, $maxDays, $native): Layer|Invalid {
-                        $ignored = $entries->read($ignores);
-                        $days = $maxDays->read($ignores);
-                        $markers = $native->read($ignores);
-
-                        return Reading::built(
-                            static fn(): Layer => Layer::of(self::of(
-                                $ignored->value(),
-                                $days->value(),
-                                $markers->value(),
-                            )),
-                            $ignored,
-                            $days,
-                            $markers,
-                        );
-                    },
-                    $entries,
-                    $maxDays,
-                    $native,
-                ),
-            ),
-            Field::section(
-                'equivalence',
-                Section::single(
-                    Field::optional('static', Flag::boolean(), $judges),
-                    static fn(bool|Absent $proven): Layer => Layer::of(self::of(staticEquivalence: $proven)),
-                ),
-            ),
-        ];
-    }
-
     public function over(Part $later): self
     {
         return $later instanceof self
@@ -133,7 +79,7 @@ final readonly class Ignores implements Part
     /** @return Listed<Ignored> each an IgnoredMutant or an IgnoredPattern */
     public function entries(): Listed
     {
-        return $this->entries instanceof Listed ? $this->entries : Listed::of([]);
+        return $this->entries instanceof Listed ? $this->entries : Listed::of();
     }
 
     /** How many days from a run every entry must expire within, or none, when entries may never expire. */
@@ -156,12 +102,11 @@ final readonly class Ignores implements Part
     /**
      * Every entry that does not expire within `maxDays` of now, at its path.
      *
-     * @return list<Problem>
      */
-    public function late(DateTimeImmutable $now): array
+    public function late(DateTimeImmutable $now): Invalid|Absent
     {
         if ($this->maxDays instanceof Absent) {
-            return [];
+            return Absent::setting();
         }
 
         $latest = Day::on($now->modify(sprintf('+%d days', $this->maxDays)));
@@ -182,25 +127,27 @@ final readonly class Ignores implements Part
             }
         }
 
-        return $late;
+        return $late === [] ? Absent::setting() : Invalid::because(...$late);
     }
 
     public function written(Origin $origin): Json
     {
-        $ignores = $this->entries instanceof Listed ? Json::object()->with(
-            'entries',
-            Json::items(array_map(
-                static fn(Ignored $ignored): Json => $ignored->written(),
-                [...$this->entries],
-            )),
-        ) : Json::object();
-        $ignores = $this->maxDays instanceof Absent ? $ignores : $ignores->with('maxDays', $this->maxDays);
-        $ignores = $this->native instanceof NativeMarkers ? $ignores->with('native', $this->native->value) : $ignores;
-        $written = $ignores->isEmpty() ? Json::object() : Json::object()->with('ignores', $ignores);
+        $entries = $this->entries instanceof Listed ? Json::items(...array_map(
+            static fn(Ignored $ignored): Json => $ignored->written(),
+            [...$this->entries],
+        )) : $this->entries;
 
-        return $this->staticEquivalence instanceof Absent
-            ? $written
-            : $written->with('equivalence', Json::object()->with('static', $this->staticEquivalence));
+        return Json::object(
+            Member::unlessEmpty(
+                'ignores',
+                Json::object(
+                    Member::of('entries', $entries),
+                    Member::of('maxDays', $this->maxDays),
+                    Member::of('native', $this->native instanceof NativeMarkers ? $this->native->value : $this->native),
+                ),
+            ),
+            Member::unlessEmpty('equivalence', Json::object(Member::of('static', $this->staticEquivalence))),
+        );
     }
 
     public function php(Origin $origin): PhpCalls
@@ -224,70 +171,5 @@ final readonly class Ignores implements Part
                 $this->staticEquivalence ? 'Equivalence::provenStatically()' : 'Equivalence::notProvenStatically()',
             ],
         ]));
-    }
-
-    /**
-     * An `ignores.entries` entry: one mutant by its id, or a mutator in the paths a glob matches.
-     *
-     * @return Section<Ignored>
-     */
-    private static function entry(): Section
-    {
-        $judges = Effect::JudgesOrReportsOnly;
-        $mutant = Field::optional('mutant', Identifier::mutant(), $judges);
-        $path = Field::optional('path', Text::of('a glob'), $judges);
-        $mutator = Field::optional('mutator', Text::of('a mutator or a family of them'), $judges);
-        $reason = Field::required('reason', Text::of('a reason'), $judges);
-        $expires = Field::optional('expires', Date::written(), $judges);
-
-        return Section::of(
-            static function (Node $entry) use ($mutant, $path, $mutator, $reason, $expires): Ignored|Invalid {
-                $id = $mutant->read($entry);
-                $glob = $path->read($entry);
-                $family = $mutator->read($entry);
-                $why = $reason->read($entry);
-                $until = $expires->read($entry);
-
-                return Reading::built(
-                    static fn(): Ignored|Invalid => self::ignored(
-                        $entry,
-                        $id->value(),
-                        $glob->value(),
-                        $family->value(),
-                        $why->must(),
-                        $until->value(),
-                    ),
-                    $id,
-                    $glob,
-                    $family,
-                    $why,
-                    $until,
-                );
-            },
-            $mutant,
-            $path,
-            $mutator,
-            $reason,
-            $expires,
-        )->oneOf([['mutant'], ['path', 'mutator']]);
-    }
-
-    private static function ignored(
-        Node $entry,
-        MutantId|Absent $mutant,
-        string|Absent $path,
-        string|Absent $mutator,
-        string $reason,
-        Day|Absent $expires,
-    ): Ignored|Invalid {
-        return match (true) {
-            $mutant instanceof MutantId && $path instanceof Absent && $mutator instanceof Absent
-                => IgnoredMutant::of($mutant, $reason, $expires),
-            $mutant instanceof Absent && ! $path instanceof Absent && ! $mutator instanceof Absent
-                => IgnoredPattern::of($path, $mutator, $reason, $expires),
-            default => Invalid::because(
-                Problem::at($entry->at(), 'expected either mutant, or path and mutator, but not both'),
-            ),
-        };
     }
 }

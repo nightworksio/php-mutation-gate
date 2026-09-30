@@ -16,7 +16,7 @@ final readonly class Budget implements Setting
     /** A duration, `90s`, `15m` or `1h30m`. */
     public static function of(string $duration): self
     {
-        return new self(Json::decoded(['budget' => $duration]));
+        return new self(Json::at('budget', $duration));
     }
 
     public function written(): Json

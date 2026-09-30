@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -73,7 +73,7 @@ it('writes the pipeline as JSON, which GitLab reads as YAML', function () use ($
     $pipeline = sprintf('%s/pipeline.yml', Scratch::directory());
     GitLabPlan::writing($pipeline, '.gitlab/mutation-gate.yml', $planJob('plan'))->publish(ShardedPlan::of(0));
 
-    expect(file_get_contents($pipeline))->toBe(Json::encode([
+    expect(file_get_contents($pipeline))->toBe(JsonText::encode([
         'include' => [['local' => '.gitlab/mutation-gate.yml']],
         'mutation-gate-verdict' => [
             'extends' => '.mutation-gate',

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
@@ -40,7 +41,7 @@ final readonly class Integer implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with('type', 'integer')->with('minimum', $this->least);
+        return Json::object(Member::of('type', 'integer'))->with(Member::of('minimum', $this->least));
     }
 
     public function effects(): array

@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use Symfony\Component\Console\Input\InputInterface;
 
@@ -65,21 +66,21 @@ final readonly class CommandLine
     public function written(): Json
     {
         $layer = Json::object();
-        $layer = $this->runner === '' ? $layer : $layer->with('runner', $this->runner);
+        $layer = $this->runner === '' ? $layer : $layer->with(Member::of('runner', $this->runner));
         $layer = $this->reports === []
             ? $layer
-            : $layer->with('reports', Json::items(array_map(self::report(...), $this->reports)));
-        $layer = $this->budget === '' ? $layer : $layer->with('budget', $this->budget);
+            : $layer->with(Member::of('reports', Json::items(...array_map(self::report(...), $this->reports))));
+        $layer = $this->budget === '' ? $layer : $layer->with(Member::of('budget', $this->budget));
 
-        return $this->ci === '' ? $layer : $layer->with('ci', Json::object()->with('plan', $this->ci));
+        return $this->ci === '' ? $layer : $layer->with(Member::of('ci', Json::object(Member::of('plan', $this->ci))));
     }
 
     private static function report(string $report): Json
     {
         $parts = explode(':', $report, 2);
-        $written = Json::object()->with('use', $parts[0]);
+        $written = Json::object(Member::of('use', $parts[0]));
 
-        return array_key_exists(1, $parts) ? $written->with('path', $parts[1]) : $written;
+        return array_key_exists(1, $parts) ? $written->with(Member::of('path', $parts[1])) : $written;
     }
 
     private static function option(InputInterface $input, string $name): mixed

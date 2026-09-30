@@ -6,16 +6,8 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function intval;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Duration;
-use NightWorksIO\MutationGate\Core\Config\Definition\Enumerated;
-use NightWorksIO\MutationGate\Core\Config\Definition\Field;
-use NightWorksIO\MutationGate\Core\Config\Definition\Flag;
-use NightWorksIO\MutationGate\Core\Config\Definition\Integer;
-use NightWorksIO\MutationGate\Core\Config\Definition\Into;
-use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
-use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
@@ -71,66 +63,6 @@ final readonly class Triage implements Part
         );
     }
 
-    /** @return list<Field<Layer>> */
-    public static function fields(): array
-    {
-        $judges = Effect::JudgesOrReportsOnly;
-        $results = Effect::AffectsResults;
-        $mode = Field::optional('mode', Enumerated::of(TimeoutMode::cases()), $judges);
-        $seconds = Field::optional('seconds', Integer::atLeast(1), $results);
-        $retries = Field::optional('retries', Integer::atLeast(0), $results);
-
-        return [
-            Field::optional(
-                'budget',
-                Into::of(
-                    Duration::written(),
-                    static fn(Seconds $budget): Layer => Layer::of(self::of(budget: $budget)),
-                ),
-                $judges,
-            ),
-            Field::section(
-                'timeouts',
-                Section::of(
-                    static function (Node $timeouts) use ($mode, $seconds, $retries): Layer|Invalid {
-                        $timedOut = $mode->read($timeouts);
-                        $limit = $seconds->read($timeouts);
-                        $again = $retries->read($timeouts);
-                        $cap = $limit->value();
-
-                        return Reading::built(
-                            static fn(): Layer => Layer::of(self::of(
-                                mode: $timedOut->value(),
-                                limit: $cap instanceof Absent ? $cap : Seconds::of($cap),
-                                retries: $again->value(),
-                            )),
-                            $timedOut,
-                            $limit,
-                            $again,
-                        );
-                    },
-                    $mode,
-                    $seconds,
-                    $retries,
-                ),
-            ),
-            Field::section(
-                'flaky',
-                Section::single(
-                    Field::optional('confirmSurvivors', Flag::boolean(), $results),
-                    static fn(bool|Absent $confirm): Layer => Layer::of(self::of(confirmSurvivors: $confirm)),
-                ),
-            ),
-            Field::section(
-                'tests',
-                Section::single(
-                    Field::optional('order', Enumerated::of(TestOrder::cases()), $results),
-                    static fn(TestOrder|Absent $order): Layer => Layer::of(self::of(order: $order)),
-                ),
-            ),
-        ];
-    }
-
     public function over(Part $later): self
     {
         return $later instanceof self
@@ -183,24 +115,27 @@ final readonly class Triage implements Part
 
     public function written(Origin $origin): Json
     {
-        $written = $this->budget instanceof Seconds
-            ? Json::object()->with('budget', $this->budget->written())
-            : Json::object();
-        $timeouts = $this->mode instanceof TimeoutMode
-            ? Json::object()->with('mode', $this->mode->value)
-            : Json::object();
-        $timeouts = $this->limit instanceof Seconds
-            ? $timeouts->with('seconds', intval($this->limit->seconds()))
-            : $timeouts;
-        $timeouts = $this->retries instanceof Absent ? $timeouts : $timeouts->with('retries', $this->retries);
-        $written = $timeouts->isEmpty() ? $written : $written->with('timeouts', $timeouts);
-        $written = $this->confirmSurvivors instanceof Absent
-            ? $written
-            : $written->with('flaky', Json::object()->with('confirmSurvivors', $this->confirmSurvivors));
-
-        return $this->order instanceof TestOrder
-            ? $written->with('tests', Json::object()->with('order', $this->order->value))
-            : $written;
+        return Json::object(
+            Member::of('budget', $this->budget instanceof Seconds ? $this->budget->written() : $this->budget),
+            Member::unlessEmpty(
+                'timeouts',
+                Json::object(
+                    Member::of('mode', $this->mode instanceof TimeoutMode ? $this->mode->value : $this->mode),
+                    Member::of(
+                        'seconds',
+                        $this->limit instanceof Seconds ? intval($this->limit->seconds()) : $this->limit,
+                    ),
+                    Member::of('retries', $this->retries),
+                ),
+            ),
+            Member::unlessEmpty('flaky', Json::object(Member::of('confirmSurvivors', $this->confirmSurvivors))),
+            Member::unlessEmpty(
+                'tests',
+                Json::object(
+                    Member::of('order', $this->order instanceof TestOrder ? $this->order->value : $this->order),
+                ),
+            ),
+        );
     }
 
     public function php(Origin $origin): PhpCalls

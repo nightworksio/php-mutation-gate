@@ -16,19 +16,19 @@ final readonly class Ignores implements Setting
     /** Every ignore must expire within this many days of a run. */
     public static function within(int $days): self
     {
-        return new self(Json::decoded(['ignores' => ['maxDays' => $days]]));
+        return new self(Json::at('ignores.maxDays', $days));
     }
 
     /** The runners' own ignore markers are allowed, while a project moves them into the config. */
     public static function allowingNativeMarkers(): self
     {
-        return new self(Json::decoded(['ignores' => ['native' => 'allow']]));
+        return new self(Json::at('ignores.native', 'allow'));
     }
 
     /** The runners' own ignore markers stop the run. */
     public static function refusingNativeMarkers(): self
     {
-        return new self(Json::decoded(['ignores' => ['native' => 'refuse']]));
+        return new self(Json::at('ignores.native', 'refuse'));
     }
 
     public function written(): Json

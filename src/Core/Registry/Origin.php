@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Extension;
+namespace NightWorksIO\MutationGate\Core\Registry;
 
 /** Where an extension came from: the Composer package that names it. */
 final readonly class Origin

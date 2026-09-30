@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 /** The CI the plan is written for (ADR-0006): `ci`. */
 final readonly class Ci implements Setting
@@ -15,56 +16,62 @@ final readonly class Ci implements Setting
 
     public static function github(): self
     {
-        return new self(Json::decoded(['ci' => ['plan' => 'github']]));
+        return new self(Json::at('ci.plan', 'github'));
     }
 
     public static function gitlab(): self
     {
-        return new self(Json::decoded(['ci' => ['plan' => 'gitlab']]));
+        return new self(Json::at('ci.plan', 'gitlab'));
     }
 
     public static function buildkite(): self
     {
-        return new self(Json::decoded(['ci' => ['plan' => 'buildkite']]));
+        return new self(Json::at('ci.plan', 'buildkite'));
     }
 
     public static function circleci(): self
     {
-        return new self(Json::decoded(['ci' => ['plan' => 'circleci']]));
+        return new self(Json::at('ci.plan', 'circleci'));
     }
 
     /** The plan as JSON, for any other CI. */
     public static function json(): self
     {
-        return new self(Json::decoded(['ci' => ['plan' => 'json']]));
+        return new self(Json::at('ci.plan', 'json'));
     }
 
     /** A CI plan another extension registers by name, or a class, with its options. */
     public static function uses(string $plan, Option ...$options): self
     {
-        return new self(Json::object()->with('ci', Json::object()->with('plan', Option::choice($plan, ...$options))));
+        return new self(
+            Json::object(Member::of('ci', Json::object(Member::of('plan', Option::choice($plan, ...$options))))),
+        );
     }
 
     /** `ci.defaultBranch` */
     public static function defaultBranch(string $branch): self
     {
-        return new self(Json::decoded(['ci' => ['defaultBranch' => $branch]]));
+        return new self(Json::at('ci.defaultBranch', $branch));
     }
 
     /** `ci.gitlab.template`: the file whose hidden `.mutation-gate` job the generated jobs extend. */
     public static function gitlabTemplate(string $path): self
     {
-        return new self(Json::decoded(['ci' => ['gitlab' => ['template' => $path]]]));
+        return new self(Json::at('ci.gitlab.template', $path));
     }
 
     /** `ci.buildkite.step`: the step every generated Buildkite step is built from. */
     public static function buildkiteStep(Option ...$keys): self
     {
-        return new self(Json::object()->with(
-            'ci',
-            Json::object()->with(
-                'buildkite',
-                Json::object()->with('step', Option::object(...$keys)),
+        return new self(Json::object(
+            Member::of(
+                'ci',
+                Json::object(
+                    Member::of(
+                        'buildkite',
+                        Json::object(Member::of('step', Option::object(...$keys))),
+                    ),
+                ),
             ),
         ));
     }
@@ -72,15 +79,17 @@ final readonly class Ci implements Setting
     /** `ci.check`: the check-run name the verdict reports under. */
     public static function check(string $name): self
     {
-        return new self(Json::object()->with('ci', Json::object()->with('check', $name)));
+        return new self(Json::object(Member::of('ci', Json::object(Member::of('check', $name)))));
     }
 
     /** `ci.buildkite.definition`: the pipeline file that runs the gate under Buildkite. */
     public static function buildkiteDefinition(string $path): self
     {
-        return new self(Json::object()->with(
-            'ci',
-            Json::object()->with('buildkite', Json::object()->with('definition', $path)),
+        return new self(Json::object(
+            Member::of(
+                'ci',
+                Json::object(Member::of('buildkite', Json::object(Member::of('definition', $path)))),
+            ),
         ));
     }
 

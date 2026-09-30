@@ -8,6 +8,7 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 use function sprintf;
 
@@ -41,17 +42,19 @@ final readonly class Report
     public function written(Origin $origin): Json
     {
         $chosen = $this->reporter->written();
-        $written = Json::object()->with('use', $this->reporter->use());
-        $written = $this->path instanceof Path ? $written->with('path', $origin->written($this->path)) : $written;
+        $written = Json::object(Member::of('use', $this->reporter->use()));
+        $written = $this->path instanceof Path
+            ? $written->with(Member::of('path', $origin->written($this->path)))
+            : $written;
 
-        return $chosen instanceof Json ? $written->with('with', $this->reporter->options()) : $written;
+        return $chosen instanceof Json ? $written->with(Member::of('with', $this->reporter->options())) : $written;
     }
 
     /** This entry as the builder's `Report` writes it. */
     public function php(Origin $origin): string
     {
         $path = $this->path instanceof Path ? $origin->written($this->path) : '';
-        $named = $this->reporter->php('Report', self::NAMED);
+        $named = PhpCalls::chosen($this->reporter, 'Report', ...self::NAMED);
 
         return $path !== '' && $named === sprintf('Report::%s()', $this->reporter->use())
             ? sprintf('Report::%s(%s)', $this->reporter->use(), PhpCalls::literal($path))

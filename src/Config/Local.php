@@ -16,13 +16,13 @@ final readonly class Local implements Setting
     /** `local.watchBudget` */
     public static function watchBudget(string $duration): self
     {
-        return new self(Json::decoded(['local' => ['watchBudget' => $duration]]));
+        return new self(Json::at('local.watchBudget', $duration));
     }
 
     /** `local.prePushBudget` */
     public static function prePushBudget(string $duration): self
     {
-        return new self(Json::decoded(['local' => ['prePushBudget' => $duration]]));
+        return new self(Json::at('local.prePushBudget', $duration));
     }
 
     public function written(): Json

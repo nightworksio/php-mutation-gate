@@ -14,9 +14,11 @@ use function is_array;
 use function is_finite;
 use function is_float;
 use function is_object;
+use function json_encode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 
 use function sprintf;
 use function var_export;
@@ -42,7 +44,7 @@ final readonly class Parsed
     {
         $plain = self::plain($tree, $file);
 
-        return $plain instanceof CannotJudge ? $plain : Json::decoded($plain);
+        return $plain instanceof CannotJudge ? $plain : Json::parse(json_encode($plain, JsonText::FLAGS));
     }
 
     private static function plain(mixed $value, string $file): mixed

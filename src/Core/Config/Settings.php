@@ -27,11 +27,12 @@ final readonly class Settings
     public static function settled(Layer $layer, DateTimeImmutable $now): self|Invalid
     {
         $runner = $layer->setup()->runner();
+        $late = $layer->ignores()->late($now);
         $problems = [
             ...$runner instanceof Choice
                 ? []
                 : [Problem::at('runner', sprintf('expected %s, got nothing', Adapter::EXPECTED))],
-            ...$layer->ignores()->late($now),
+            ...$late instanceof Invalid ? [...$late] : [],
         ];
 
         return $runner instanceof Choice && $problems === []
@@ -50,7 +51,7 @@ final readonly class Settings
     {
         $presets = $this->layer->setup()->presets();
 
-        return $presets instanceof Listed ? $presets : Listed::of([]);
+        return $presets instanceof Listed ? $presets : Listed::of();
     }
 
     /** The runner chosen, and what it withholds from the project's tests besides what every run withholds. */

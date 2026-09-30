@@ -13,8 +13,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
  */
 interface Origin
 {
-    /** A path as this layer writes it, from the project. */
-    public function path(string $written): Path;
+    /** A path as this layer writes it, `../src` from `ci/`, as the path from the project it names. */
+    public function path(Path $written): Path;
 
     /** A path from the project, as this layer would write it. */
     public function written(Path $path): string;

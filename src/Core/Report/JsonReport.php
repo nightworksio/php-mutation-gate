@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use NightWorksIO\MutationGate\Core\File\Line;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
@@ -92,7 +92,7 @@ final readonly class JsonReport
         $overview = Overview::of($verdict);
         $table = TestTable::of($verdict);
 
-        return Json::encode([
+        return JsonText::encode([
             'format' => self::FORMAT,
             'judgement' => $verdict->judgement()->value,
             'cutShort' => $verdict->wasCutShort(),

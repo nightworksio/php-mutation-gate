@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
@@ -84,12 +85,14 @@ final readonly class Adapter implements Shape
 
     public function schema(): Json
     {
-        return Json::object()->with(
-            'anyOf',
-            Json::items([
-                Json::object()->with('type', 'string')->with('minLength', 1),
-                ...$this->builtins->schemas(Json::object(), [], []),
-            ]),
+        return Json::object(
+            Member::of(
+                'anyOf',
+                Json::items(
+                    Json::object(Member::of('type', 'string'))->with(Member::of('minLength', 1)),
+                    ...$this->builtins->schemas(Json::object(), [], []),
+                ),
+            ),
         );
     }
 

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 /** The order each mutant's covering tests run in (ADR-0008): `tests.order`. */
 final readonly class Tests implements Setting
@@ -28,6 +29,6 @@ final readonly class Tests implements Setting
 
     public function written(): Json
     {
-        return Json::object()->with('tests', Json::object()->with('order', $this->order->value));
+        return Json::object(Member::of('tests', Json::object(Member::of('order', $this->order->value))));
     }
 }

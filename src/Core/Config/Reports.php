@@ -6,12 +6,8 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_map;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
-use NightWorksIO\MutationGate\Core\Config\Definition\Field;
-use NightWorksIO\MutationGate\Core\Config\Definition\Into;
-use NightWorksIO\MutationGate\Core\Config\Definition\Items;
-use NightWorksIO\MutationGate\Core\Config\Definition\ReportEntry;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 /** The reports a run writes or sends (ADR-0009): `reports`, which each layer adds to. */
 final readonly class Reports implements Part
@@ -34,20 +30,7 @@ final readonly class Reports implements Part
 
     public static function standard(): self
     {
-        return self::of(Listed::of([]));
-    }
-
-    /** @return list<Field<Layer>> */
-    public static function fields(Origin $origin): array
-    {
-        return [Field::optional(
-            'reports',
-            Into::of(
-                Items::of(ReportEntry::choosing(Builtins::reporters(), $origin)),
-                static fn(Listed $reports): Layer => Layer::of(self::of($reports)),
-            ),
-            Effect::JudgesOrReportsOnly,
-        )];
+        return self::of(Listed::of());
     }
 
     public function over(Part $later): self
@@ -67,18 +50,18 @@ final readonly class Reports implements Part
     /** @return Listed<Report> */
     public function reports(): Listed
     {
-        return $this->reports instanceof Listed ? $this->reports : Listed::of([]);
+        return $this->reports instanceof Listed ? $this->reports : Listed::of();
     }
 
     public function written(Origin $origin): Json
     {
-        return $this->reports instanceof Listed ? Json::object()->with(
+        return Json::object(Member::of(
             'reports',
-            Json::items(array_map(
+            $this->reports instanceof Listed ? Json::items(...array_map(
                 static fn(Report $report): Json => $report->written($origin),
                 [...$this->reports],
-            )),
-        ) : Json::object();
+            )) : $this->reports,
+        ));
     }
 
     public function php(Origin $origin): PhpCalls

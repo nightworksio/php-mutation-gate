@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use NightWorksIO\MutationGate\Core\File\Line;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
@@ -67,7 +67,7 @@ final readonly class Sarif
             $results[] = self::result($mutant, $overview->isFailing($mutant));
         }
 
-        return Json::encode([
+        return JsonText::encode([
             '$schema' => self::SCHEMA,
             'version' => self::VERSION,
             'runs' => [[

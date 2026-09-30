@@ -8,10 +8,9 @@ use function array_key_exists;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
-use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
-use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 
 use function sprintf;
@@ -37,8 +36,10 @@ final readonly class ConfigLoaderFake implements ConfigLoader
     {
         $path = $file->file()->value();
 
-        return array_key_exists($path, $this->files)
-            ? Definition::layer(Node::config($this->files[$path]), $file)
+        $json = array_key_exists($path, $this->files)
+            ? Json::parse($this->files[$path])
             : CannotJudge::because(sprintf('%s is not there.', $path));
+
+        return $json instanceof Json ? $file->read($json) : $json;
     }
 }

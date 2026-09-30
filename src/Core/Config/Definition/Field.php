@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
@@ -113,7 +114,7 @@ final readonly class Field
     {
         return match (true) {
             $this->shape instanceof Section => $this->shape->schemaUnder($default),
-            $default instanceof Json => $this->shape->schema()->with('default', $default),
+            $default instanceof Json => $this->shape->schema()->with(Member::of('default', $default)),
             default => $this->shape->schema(),
         };
     }

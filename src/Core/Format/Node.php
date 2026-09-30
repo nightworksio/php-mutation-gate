@@ -14,6 +14,7 @@ use function is_string;
 use function json_decode;
 use function json_encode;
 
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 
 use function sprintf;
@@ -206,7 +207,9 @@ final readonly class Node
      */
     public function value(): Json
     {
-        return $this->present ? Json::decoded($this->value) : throw NotInShape::missing($this->at);
+        $json = $this->present ? Json::parse(json_encode($this->value, self::FLAGS)) : Absent::setting();
+
+        return $json instanceof Json ? $json : throw NotInShape::missing($this->at);
     }
 
     /** What this place holds, as a problem says it: a value as JSON writes it, a list or an object, or nothing. */

@@ -6,17 +6,9 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_map;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Enumerated;
-use NightWorksIO\MutationGate\Core\Config\Definition\Field;
-use NightWorksIO\MutationGate\Core\Config\Definition\Into;
-use NightWorksIO\MutationGate\Core\Config\Definition\Items;
-use NightWorksIO\MutationGate\Core\Config\Definition\Location;
-use NightWorksIO\MutationGate\Core\Config\Definition\Percent;
-use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
-use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 
 use function sprintf;
@@ -67,60 +59,6 @@ final readonly class Floors implements Part
         );
     }
 
-    /** @return list<Field<Layer>> */
-    public static function fields(Origin $origin): array
-    {
-        $judges = Effect::JudgesOrReportsOnly;
-        $floor = Field::optional('floor', Percent::floor(), $judges);
-        $path = Field::optional('path', Location::path($origin), $judges);
-        $improvement = Field::optional('improvement', Enumerated::of(Improvement::cases()), $judges);
-
-        return [
-            Field::entries(
-                'trees',
-                Into::of(
-                    Items::of(DeclaredTree::shape($origin)),
-                    static fn(Listed $trees): Layer => Layer::of(self::of(trees: $trees)),
-                ),
-            ),
-            Field::section(
-                'newCode',
-                Section::single(
-                    $floor,
-                    static fn(Floor|Absent $newCode): Layer => Layer::of(self::of(newCode: $newCode)),
-                ),
-            ),
-            Field::optional(
-                'uncovered',
-                Into::of(
-                    Enumerated::of(UncoveredMutants::cases()),
-                    static fn(UncoveredMutants $uncovered): Layer => Layer::of(self::of(uncovered: $uncovered)),
-                ),
-                $judges,
-            ),
-            Field::section(
-                'baseline',
-                Section::of(
-                    static function (Node $baseline) use ($path, $improvement): Layer|Invalid {
-                        $at = $path->read($baseline);
-                        $improving = $improvement->read($baseline);
-
-                        return Reading::built(
-                            static fn(): Layer => Layer::of(self::of(
-                                baseline: $at->value(),
-                                improvement: $improving->value(),
-                            )),
-                            $at,
-                            $improving,
-                        );
-                    },
-                    $path,
-                    $improvement,
-                ),
-            ),
-        ];
-    }
-
     public function over(Part $later): self
     {
         return $later instanceof self
@@ -165,29 +103,37 @@ final readonly class Floors implements Part
 
     public function written(Origin $origin): Json
     {
-        $written = Json::object();
-        $baseline = Json::object();
-        $written = $this->trees instanceof Listed ? $written->with(
-            'trees',
-            Json::items(array_map(
-                static fn(DeclaredTree $tree): Json => $tree->written($origin),
-                [...$this->trees],
-            )),
-        ) : $written;
-        $written = $this->newCode instanceof Floor
-            ? $written->with('newCode', Json::object()->with('floor', $this->newCode->written()))
-            : $written;
-        $written = $this->uncovered instanceof UncoveredMutants
-            ? $written->with('uncovered', $this->uncovered->value)
-            : $written;
-        $baseline = $this->baseline instanceof Path
-            ? $baseline->with('path', $origin->written($this->baseline))
-            : $baseline;
-        $baseline = $this->improvement instanceof Improvement
-            ? $baseline->with('improvement', $this->improvement->value)
-            : $baseline;
+        $trees = $this->trees instanceof Listed ? Json::items(...array_map(
+            static fn(DeclaredTree $tree): Json => $tree->written($origin),
+            [...$this->trees],
+        )) : $this->trees;
 
-        return $baseline->isEmpty() ? $written : $written->with('baseline', $baseline);
+        return Json::object(
+            Member::of('trees', $trees),
+            Member::unlessEmpty(
+                'newCode',
+                Json::object(
+                    Member::of('floor', $this->newCode instanceof Floor ? $this->newCode->written() : $this->newCode),
+                ),
+            ),
+            Member::of(
+                'uncovered',
+                $this->uncovered instanceof UncoveredMutants ? $this->uncovered->value : $this->uncovered,
+            ),
+            Member::unlessEmpty(
+                'baseline',
+                Json::object(
+                    Member::of(
+                        'path',
+                        $this->baseline instanceof Path ? $origin->written($this->baseline) : $this->baseline,
+                    ),
+                    Member::of(
+                        'improvement',
+                        $this->improvement instanceof Improvement ? $this->improvement->value : $this->improvement,
+                    ),
+                ),
+            ),
+        );
     }
 
     public function php(Origin $origin): PhpCalls

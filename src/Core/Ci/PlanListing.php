@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Ci;
 
 use function array_map;
 
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 
@@ -33,7 +33,7 @@ final readonly class PlanListing
             ];
         }
 
-        return Json::encode([
+        return JsonText::encode([
             'plan' => $plan->digest()->value(),
             'commit' => $plan->commit()->name(),
             'shards' => $shards,

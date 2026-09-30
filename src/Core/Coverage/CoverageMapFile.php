@@ -14,7 +14,7 @@ use function intval;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -100,7 +100,7 @@ final readonly class CoverageMapFile
 
         $methods = self::methodsOf($map);
 
-        return Gzip::pack(Json::compact([
+        return Gzip::pack(JsonText::compact([
             'format' => self::FORMAT,
             'tests' => $tests,
             'files' => $files === [] ? new stdClass() : $files,
