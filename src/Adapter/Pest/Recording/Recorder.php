@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
 use function copy;
+use function dirname;
 use function file_put_contents;
 use function getenv;
+use function is_dir;
 use function is_string;
 use function json_encode;
+use function mkdir;
 
 use Pest\Mutate\Event\Facade;
 use Pest\Mutate\MutationSuite;
@@ -108,6 +111,33 @@ final readonly class Recorder
     public function keepCoverage(): void
     {
         copy($this->coverage, self::coverageBeside($this->results));
+    }
+
+    /**
+     * Where the mutated copy of a mutant Pest ran no test on is kept, in the
+     * directory of a results file.
+     *
+     * @return non-empty-string
+     */
+    public static function mutantBeside(string $results, string $id): string
+    {
+        return sprintf('%s/mutants/%s.php', dirname($results), $id);
+    }
+
+    /**
+     * Keeps the mutated copy of a mutant Pest ran no test on, which the
+     * adapter judges by the tests that read its value where its line is not
+     * executable.
+     */
+    public function keepMutant(MutationTest $test): void
+    {
+        $kept = self::mutantBeside($this->results, $test->getId());
+
+        if (! is_dir(dirname($kept))) {
+            mkdir(dirname($kept), recursive: true);
+        }
+
+        copy($test->mutation->modifiedSourcePath, $kept);
     }
 
     /**

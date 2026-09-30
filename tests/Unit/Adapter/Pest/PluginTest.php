@@ -3,12 +3,33 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Plugin;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
-it('records nothing until Pest boots it', function (): void {
-    expect(new Plugin()->recorder())->toBe(Off::Recording);
+it('records and guards nothing until Pest boots it', function (): void {
+    expect(new Plugin()->recorder())->toBe(Off::Recording)
+        ->and(new Plugin()->guard())->toBe(Off::Guarding);
+});
+
+it('guards a run the adapter starts on one mutant, writing what it saw when the run ends', function (): void {
+    $variables = ['PEST_MUTATION_TESTING' => getenv('PEST_MUTATION_TESTING'), 'MUTATION_GATE_GUARD' => false];
+    $guard = sprintf('%s/mutation-gate-plugin-guard.json', sys_get_temp_dir());
+    $plugin = new Plugin();
+
+    try {
+        putenv(sprintf('PEST_MUTATION_TESTING=%s', __FILE__));
+        putenv(sprintf('MUTATION_GATE_GUARD=%s', $guard));
+        $plugin->boot();
+    } finally {
+        foreach ($variables as $name => $value) {
+            putenv(is_string($value) ? sprintf('%s=%s', $name, $value) : $name);
+        }
+    }
+
+    expect($plugin->guard())->toBeInstanceOf(Guard::class)
+        ->and($plugin->recorder())->toBe(Off::Recording);
 });
 
 it('records nothing when Pest boots it outside the adapter\'s runs', function (): void {
