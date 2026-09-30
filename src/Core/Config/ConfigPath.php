@@ -4,17 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_last;
-use function array_pop;
-use function array_slice;
-use function count;
-use function explode;
-use function implode;
-
 use NightWorksIO\MutationGate\Core\File\Path;
 
 use function sprintf;
-use function str_repeat;
 use function str_starts_with;
 
 /**
@@ -24,10 +16,6 @@ use function str_starts_with;
  */
 final readonly class ConfigPath
 {
-    private const string UP = '..';
-
-    private const string CURRENT = '.';
-
     /** @param string $directory where it is written from, from the project; '' for the project itself */
     private function __construct(private string $written, private string $directory)
     {
@@ -39,61 +27,13 @@ final readonly class ConfigPath
         return new self($written, $directory);
     }
 
-    /**
-     * A path as a directory spells it, both spelt from the same place, the project or the file system's root:
-     * `src` from `ci` is `../src`, and `/project/src` from `/project` is `src`. A path spelt from the other place
-     * is answered as it is.
-     *
-     * @param string $directory the directory, spelt as the path is; '' for the place itself
-     */
-    public static function from(Path $path, string $directory): string
-    {
-        $from = Path::of($directory);
-
-        if ($from->isAbsolute() !== $path->isAbsolute()) {
-            return $path->value();
-        }
-
-        $target = self::segments($path);
-        $base = self::segments($from);
-        $shared = 0;
-
-        while ($shared < count($base) && $shared < count($target) && $base[$shared] === $target[$shared]) {
-            $shared++;
-        }
-
-        $up = str_repeat(sprintf('%s/', self::UP), count($base) - $shared);
-        $down = implode('/', array_slice($target, $shared));
-
-        return Path::of(sprintf('%s%s', $up, $down))->value();
-    }
-
     /** The path from the project, each `..` taking back the directory before it. */
     public function path(): Path
     {
         $joined = $this->directory === '' || str_starts_with($this->written, '/')
             ? $this->written
             : sprintf('%s/%s', $this->directory, $this->written);
-        $segments = [];
 
-        foreach (explode('/', Path::of($joined)->value()) as $segment) {
-            $last = $segments === [] ? self::UP : array_last($segments);
-
-            if ($segment === self::UP && $last !== self::UP && $last !== '') {
-                array_pop($segments);
-
-                continue;
-            }
-
-            $segments[] = $segment;
-        }
-
-        return Path::of(implode('/', $segments));
-    }
-
-    /** @return list<string> a path's segments, none for the root */
-    private static function segments(Path $path): array
-    {
-        return $path->value() === self::CURRENT ? [] : explode('/', $path->value());
+        return Path::of($joined)->collapsed();
     }
 }

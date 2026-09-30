@@ -133,7 +133,7 @@ final readonly class Shards implements Part
             $perLine = $perLine->with(Member::of($prefix, $seconds));
         }
 
-        return Options::of(Json::object(Member::of('secondsPerLine', $perLine)));
+        return Options::of(Json::object(Member::of(SecondsPerLine::KEY, $perLine)));
     }
 
     /** `shards.target`: the wall time the count is cut to fit, in place of `shards.seconds` (ADR-0013). */
@@ -167,7 +167,7 @@ final readonly class Shards implements Part
                 'costs',
                 Json::object(
                     Member::of(
-                        'secondsPerLine',
+                        SecondsPerLine::KEY,
                         $this->secondsPerLine instanceof Table
                             ? $this->perLineFrom($origin)->written()
                             : $this->secondsPerLine,

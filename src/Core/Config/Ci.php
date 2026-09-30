@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function array_map;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
@@ -22,15 +23,6 @@ final readonly class Ci implements Part
     private const string GITLAB_TEMPLATE = '.gitlab/mutation-gate.yml';
 
     private const string BUILDKITE_DEFINITION = '.buildkite/pipeline.yml';
-
-    /** The CI plans the builder has a method of its own for. */
-    private const array PLANS = [
-        BuiltinCiPlan::GitHub->value,
-        BuiltinCiPlan::GitLab->value,
-        BuiltinCiPlan::Buildkite->value,
-        BuiltinCiPlan::CircleCi->value,
-        BuiltinCiPlan::Json->value,
-    ];
 
     private function __construct(
         private Choice|Absent $plan,
@@ -171,7 +163,7 @@ final readonly class Ci implements Part
     public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
-            ...$this->plan instanceof Choice ? [PhpCalls::chosen($this->plan, 'Ci', ...self::PLANS)] : [],
+            ...$this->plan instanceof Choice ? [PhpCalls::chosen($this->plan, 'Ci', ...$this->builtins())] : [],
             ...$this->defaultBranch instanceof Absent
                 ? []
                 : [sprintf('Ci::defaultBranch(%s)', PhpCalls::literal($this->defaultBranch))],
@@ -208,5 +200,11 @@ final readonly class Ci implements Part
     private function path(PathOrigin $origin, Path|Absent $path): string|Absent
     {
         return $path instanceof Path ? $origin->written($path) : $path;
+    }
+
+    /** @return list<string> the names of the CI plans built in, each with a builder method of its own */
+    private function builtins(): array
+    {
+        return array_map(static fn(BuiltinCiPlan $plan): string => $plan->value, BuiltinCiPlan::cases());
     }
 }

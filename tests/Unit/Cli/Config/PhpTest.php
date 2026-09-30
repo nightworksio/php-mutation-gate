@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
 use NightWorksIO\MutationGate\Cli\Config\Php;
+use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
@@ -126,6 +127,16 @@ it('writes a config that reads back into the same effective config', function (a
         'reports' => [['use' => 'json', 'path' => 'build/mutation.json']],
     ]],
 ]);
+
+it('writes each built-in CI plan by the builder method of its name, which reads back as that plan', function (
+    BuiltinCiPlan $plan,
+) use ($php, $roundTrip): void {
+    $config = ['runner' => 'pest', 'ci' => ['plan' => $plan->value]];
+    $settings = Configs::settings($config);
+
+    expect($php($config))->toContain(sprintf('Ci::%s()', $plan->value))
+        ->and($roundTrip($settings))->toBe(Configs::effective($settings));
+})->with(BuiltinCiPlan::cases());
 
 it('writes a layer that reads back into the same layer', function () use ($php): void {
     $config = [

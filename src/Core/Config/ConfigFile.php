@@ -67,13 +67,13 @@ final readonly class ConfigFile implements PathOrigin
     {
         $landed = ConfigPath::of($written->value(), $this->directory->value())->path();
 
-        return $written->isAbsolute() ? $written : Path::of(ConfigPath::from($landed, $this->project->value()));
+        return $written->isAbsolute() ? $written : $landed->from($this->project);
     }
 
     public function written(Path $path): string
     {
         $from = ConfigPath::of($path->value(), $this->project->value())->path();
 
-        return $path->isAbsolute() ? $path->value() : ConfigPath::from($from, $this->directory->value());
+        return $path->isAbsolute() ? $path->value() : $from->from($this->directory)->value();
     }
 }

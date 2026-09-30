@@ -45,8 +45,6 @@ use function scandir;
  */
 final readonly class MeasuredCosts implements Configurable, CostModel
 {
-    private const string PER_LINE = 'secondsPerLine';
-
     private function __construct(private Root $root, private SecondsPerLine $perLine)
     {
     }
@@ -60,10 +58,10 @@ final readonly class MeasuredCosts implements Configurable, CostModel
     /** `{"secondsPerLine": {"": 0.2, "src/Http": 0.5}}`, as `costs.secondsPerLine`, read from the working directory. */
     public static function fromOptions(Options $options): self|Invalid
     {
-        $perLine = $options->object(Key::of(self::PER_LINE));
+        $perLine = $options->object(Key::of(SecondsPerLine::KEY));
 
         if ($perLine instanceof NotGiven) {
-            return Invalid::because(Problem::at(self::PER_LINE, 'expected the seconds a line costs, got nothing'));
+            return Invalid::because(Problem::at(SecondsPerLine::KEY, 'expected the seconds a line costs, got nothing'));
         }
 
         if ($perLine instanceof Problem) {

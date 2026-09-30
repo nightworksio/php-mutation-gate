@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Config\Shards;
+use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -25,7 +26,7 @@ final readonly class ShardsKeys
         $max = Field::optional('max', Integer::atLeast(1), $judges);
         $target = Field::optional('target', Duration::written(), $judges);
         $setup = Field::optional('setup', Duration::written(), $judges);
-        $perLine = Field::optional('secondsPerLine', NumberMap::byPrefix(Number::atLeast(0), $origin), $judges);
+        $perLine = Field::optional(SecondsPerLine::KEY, NumberMap::byPrefix(Number::atLeast(0), $origin), $judges);
         $perMinute = Field::optional('perRunnerMinute', self::price(), $judges);
 
         return [

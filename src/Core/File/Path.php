@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\File;
 
+use function array_fill;
 use function array_filter;
+use function array_last;
+use function array_pop;
+use function array_slice;
 use function basename;
+use function count;
 use function explode;
 use function implode;
+use function in_array;
 use function mb_strlen;
 use function mb_substr;
-use function preg_match;
 use function sprintf;
 use function str_ends_with;
 use function str_replace;
@@ -22,8 +27,11 @@ use function str_starts_with;
  */
 final readonly class Path
 {
-    /** A `..` segment, which goes up out of the directory it is in. */
-    private const string UP = '#(?:^|/)\.\.(?:/|$)#';
+    /** The segment that goes up out of the directory it is in. */
+    private const string UP = '..';
+
+    /** Where an absolute path is spelt from: the file system's root. */
+    private const string FILE_SYSTEM = '/';
 
     /** How the name of a PHP file ends. */
     private const string PHP = '.php';
@@ -45,7 +53,7 @@ final readonly class Path
 
         return new self(match (true) {
             $normalised === '' => self::ROOT,
-            str_starts_with($path, '/') => sprintf('/%s', $normalised),
+            str_starts_with($path, self::FILE_SYSTEM) => sprintf('%s%s', self::FILE_SYSTEM, $normalised),
             default => $normalised,
         });
     }
@@ -54,6 +62,7 @@ final readonly class Path
     {
         return new self(self::ROOT);
     }
+
 
     /** @return non-empty-string */
     public function value(): string
@@ -103,12 +112,76 @@ final readonly class Path
     /** Whether this path leads out of the directory it is spelt from: it is absolute, or goes up through `..`. */
     public function escapes(): bool
     {
-        return $this->isAbsolute() || preg_match(self::UP, $this->value) === 1;
+        return $this->isAbsolute() || in_array(self::UP, $this->segments(), strict: true);
     }
 
     /** Whether this path is spelt from the file system's root rather than from a directory. */
     public function isAbsolute(): bool
     {
-        return str_starts_with($this->value, '/');
+        return str_starts_with($this->value, self::FILE_SYSTEM);
+    }
+
+    /** Where this path is spelt from, as a directory names it: `/` for an absolute path, `.` for any other. */
+    public function base(): string
+    {
+        return $this->isAbsolute() ? self::FILE_SYSTEM : self::ROOT;
+    }
+
+    /** This path as its base spells it: `/tmp/report.json` is `tmp/report.json`, and a relative path is itself. */
+    public function fromBase(): self
+    {
+        return $this->isAbsolute() ? self::of(mb_substr($this->value, mb_strlen(self::FILE_SYSTEM))) : $this;
+    }
+
+    /**
+     * The path with each `..` taking back the directory before it: `ci/../src` is `src`. A `..` with nothing
+     * before it to take back, at the start of a relative path or right after the file system's root, stays.
+     */
+    public function collapsed(): self
+    {
+        $segments = [];
+
+        foreach (explode('/', $this->value) as $segment) {
+            $last = $segments === [] ? self::UP : array_last($segments);
+
+            if ($segment === self::UP && $last !== self::UP && $last !== '') {
+                array_pop($segments);
+
+                continue;
+            }
+
+            $segments[] = $segment;
+        }
+
+        return self::of(implode('/', $segments));
+    }
+
+    /**
+     * This path as a directory spells it, both spelt from the same base: `src` from `ci` is `../src`, and
+     * `/project/src` from `/project` is `src`. A path spelt from the other base is itself.
+     */
+    public function from(self $directory): self
+    {
+        if ($this->isAbsolute() !== $directory->isAbsolute()) {
+            return $this;
+        }
+
+        $target = $this->segments();
+        $base = $directory->segments();
+        $shared = 0;
+
+        while ($shared < count($base) && $shared < count($target) && $base[$shared] === $target[$shared]) {
+            $shared++;
+        }
+
+        $up = self::of(implode('/', array_fill(0, count($base) - $shared, self::UP)));
+
+        return $up->child(self::of(implode('/', array_slice($target, $shared))));
+    }
+
+    /** @return list<string> the path's segments, none for the root; an absolute path's first is `''` */
+    private function segments(): array
+    {
+        return $this->value === self::ROOT ? [] : explode('/', $this->value);
     }
 }
