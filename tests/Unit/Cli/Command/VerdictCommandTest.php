@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
+use NightWorksIO\MutationGate\Cli\Command\Printing;
 use NightWorksIO\MutationGate\Cli\Command\RunCommand;
 use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
@@ -141,7 +143,7 @@ it('cannot judge with a config it cannot read', function (): void {
 it('prints what was said beside a verdict, then the verdict, and exits as it does', function (): void {
     $output = new BufferedOutput();
 
-    $code = VerdictCommand::printed(new Judged(Verdicts::passing(), ['Wrote a.json.', 'The disk is full.'], Baseline::none()), $output);
+    $code = VerdictCommand::printed(new Judged(Verdicts::passing(), ['Wrote a.json.', 'The disk is full.'], Baseline::none()), $output, Printing::console(), Directory::at(Scratch::directory()));
 
     expect($code)->toBe(0)
         ->and($output->fetch())->toStartWith("Wrote a.json.\nThe disk is full.\nmutation-gate: passed\n");
@@ -150,7 +152,7 @@ it('prints what was said beside a verdict, then the verdict, and exits as it doe
 it('prints why there is no verdict, and exits 2', function (CannotJudge|Invalid $why, string $said): void {
     $output = new BufferedOutput();
 
-    expect(VerdictCommand::printed($why, $output))->toBe(2)
+    expect(VerdictCommand::printed($why, $output, Printing::console(), Directory::at(Scratch::directory())))->toBe(2)
         ->and($output->fetch())->toBe($said);
 })->with([
     'cannot judge' => [CannotJudge::because('The runner failed.'), "The runner failed.\n"],

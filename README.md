@@ -897,6 +897,17 @@ vendor/bin/mutation-gate hook install --pre-commit   # also shows the score chan
 vendor/bin/mutation-gate init --editor=vscode        # survivors as problems in VS Code
 ```
 
+In VS Code, the task `init --editor=vscode` writes shows each survivor in
+the Problems list, beside its line. In PhpStorm, add an External Tool
+(*Settings | Tools | External Tools*):
+
+- **Program:** `vendor/bin/mutation-gate`
+- **Arguments:** `run --output=problems --only=changed`
+- **Working directory:** `$ProjectFileDir$`
+- **Output filter** (*Advanced Options*): `$FILE_PATH$:$LINE$:$COLUMN$`
+
+Each survivor in the Run window then links to its line.
+
 `.mutation-gate/` holds local results and proofs. It belongs in `.gitignore`,
 and `init` adds it there.
 

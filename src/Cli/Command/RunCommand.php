@@ -25,13 +25,14 @@ use Symfony\Component\Console\Output\OutputInterface;
  * did. Without `--plan` it plans, runs every shard and judges them in one
  * process, as `mutation-gate` with no command does; run in full outside CI,
  * it then writes every floor it raised, and every missing one, into the
- * baseline, and says which lines to commit.
+ * baseline, and says which lines to commit. With `--output=problems` it
+ * prints the verdict as one line per result, for an editor.
  */
 final readonly class RunCommand
 {
     public static function command(Composition $composition): Command
     {
-        return FlowOptions::planning(new Command('run'))
+        return FlowOptions::editing(FlowOptions::planning(new Command('run')))
             ->setDescription('Plan, run and judge in one process; or, with --plan, run one shard of a plan')
             ->addOption(FlowOptions::PLAN, mode: InputOption::VALUE_REQUIRED, description: 'Run one shard of this plan')
             ->addOption(FlowOptions::SHARD, mode: InputOption::VALUE_REQUIRED, description: 'The shard to run')
@@ -74,6 +75,13 @@ final readonly class RunCommand
 
     private static function allInOne(Composed $composed, InputInterface $input, OutputInterface $output): int
     {
+        $printing = FlowOptions::printing($input);
+
+        if ($printing instanceof CannotJudge) {
+            return Failed::because($output, $printing);
+        }
+
+        $printing->begin($output, $composed->adapters->project);
         $plan = PlanCommand::planOf($composed, $input);
         $results = FlowOptions::path($input, FlowOptions::RESULTS, Workspace::results());
         $running = new Running($composed->adapters, $composed->settings, $composed->setup);
@@ -87,6 +95,8 @@ final readonly class RunCommand
         return VerdictCommand::printed(
             $judged instanceof Judged && $local ? self::raised($composed, $judged) : $judged,
             $output,
+            $printing,
+            $composed->adapters->project,
         );
     }
 
