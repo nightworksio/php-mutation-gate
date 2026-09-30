@@ -180,7 +180,14 @@ final class Git implements ChangeSource, Repository
 
     public function isClean(): bool|CannotTell
     {
-        $status = $this->git->run(['--no-optional-locks', 'status', '--porcelain', '-z', '--untracked-files=all']);
+        $status = $this->git->run([
+            '--no-optional-locks',
+            'status',
+            '--porcelain',
+            '-z',
+            '--untracked-files=all',
+            ...OutsideTheWorkspace::pathspec(),
+        ]);
         $flagged = $this->git->run(['ls-files', '-v', '-z']);
 
         return match (true) {

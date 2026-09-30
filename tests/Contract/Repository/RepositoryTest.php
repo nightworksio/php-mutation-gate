@@ -95,6 +95,9 @@ it('says a working tree that holds nothing but its commit and what git ignores i
 })->with([
     'the fake' => fn(): Repository => RepositoryFake::onMain(Revision::ref(str_repeat('5e', 20))),
     'git' => fn(): Repository => Git::at($committed()->root),
+    'git, with only the gate workspace written' => fn(): Repository => Git::at(
+        $committed()->write('.mutation-gate/proofs/run.json', '{}')->root,
+    ),
     'git, through GitHub' => fn(): Repository => PassedPullRequests::over(
         Git::at($committed()->root),
         $github(),
