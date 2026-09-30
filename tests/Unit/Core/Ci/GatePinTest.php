@@ -28,14 +28,15 @@ it('pins the commit Composer installed the gate from, with its version', functio
         ['name' => 'nightworksio/mutation-gate', 'version' => 'v1.2.0', 'source' => ['reference' => '0123abcd']],
     ]);
 
-    expect([$pin->commit(), $pin->version(), $pin->isKnown()])->toBe(['0123abcd', 'v1.2.0', true]);
+    expect([$pin->commit(), $pin->version(), $pin->isKnown(), $pin->pin()])
+        ->toBe(['0123abcd', 'v1.2.0', true, '0123abcd # v1.2.0']);
 });
 
 it('pins nothing it can name where Composer does not list the gate, or names no commit', function (
     GatePin $pin,
 ): void {
-    expect([$pin->commit(), $pin->version(), $pin->isKnown()])
-        ->toBe(['<the commit of a release>', '<its version>', false]);
+    expect([$pin->commit(), $pin->version(), $pin->isKnown(), $pin->pin()])
+        ->toBe(['<the commit of a release>', '<its version>', false, '<the commit of a release>']);
 })->with([
     'not listed' => [gatePinOf([['name' => 'acme/other', 'version' => 'v9.0.0', 'source' => ['reference' => 'ffff']]])],
     'no commit' => [gatePinOf([['name' => 'nightworksio/mutation-gate', 'version' => 'dev-main']])],
@@ -44,3 +45,13 @@ it('pins nothing it can name where Composer does not list the gate, or names no 
     ])],
     'unknown' => [GatePin::unknown()],
 ]);
+
+it('pins a branch Composer installed by its commit alone, since its version names no tag', function (
+    string $version,
+): void {
+    $pin = gatePinOf([
+        ['name' => 'nightworksio/mutation-gate', 'version' => $version, 'source' => ['reference' => '0123abcd']],
+    ]);
+
+    expect([$pin->isKnown(), $pin->pin()])->toBe([true, '0123abcd']);
+})->with(['a branch' => ['dev-main'], 'an aliased branch' => ['2.x-dev']]);

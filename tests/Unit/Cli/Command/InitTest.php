@@ -409,7 +409,7 @@ it('writes the GitHub one-step action --single asks for, and says which check to
         ->and($workflow)->toContain("branches: ['main']")
         ->and($workflow)->toContain("php-version: '8.5'")
         ->and($workflow)->toContain("runner: 'pest'")
-        ->and($workflow)->toContain('nightworksio/php-mutation-gate@<the commit of a release> # <its version>')
+        ->and($workflow)->toContain("nightworksio/php-mutation-gate@<the commit of a release>\n")
         ->and($workflow)->not->toContain('%%');
 });
 

@@ -9,7 +9,7 @@ use function strtr;
 /**
  * What `init --ci` fills into a CI definition's template (ADR-0015 decision
  * 16), each where the template writes `%%<name>%%`: the PHP version, the
- * default branch, the gate's commit and version, the runner and GitLab's
+ * default branch, the gate's pin and version, the runner and GitLab's
  * template file.
  */
 final readonly class TemplateValues
@@ -29,7 +29,7 @@ final readonly class TemplateValues
         return new self([
             '%%php%%' => $php,
             '%%branch%%' => $branch,
-            '%%gate%%' => $gate->commit(),
+            '%%pin%%' => $gate->pin(),
             '%%version%%' => $gate->version(),
             '%%runner%%' => $runner,
             '%%template%%' => $template,

@@ -1,4 +1,4 @@
-# Written by `mutation-gate init --ci=github`, for the gate v1.2.0.
+# Written by `mutation-gate init --ci=github`, for the gate dev-main.
 # Require the check `mutation / verdict` in the default branch's protection rule.
 # For an S3 proof store, pass AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as
 # secrets to the job below.
@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   mutation:
-    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@0123456789abcdef0123456789abcdef01234567 # v1.2.0
+    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@eea11e875234b32127cf23dde00d149b04c6ac4c
     permissions:
       contents: write # used only by the default-branch publish job
       actions: read

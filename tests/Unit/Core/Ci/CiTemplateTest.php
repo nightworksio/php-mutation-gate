@@ -38,13 +38,15 @@ function ciTemplateJson(string $yaml): string
     return (string) json_encode(Yaml::parse($yaml));
 }
 
-/** A release of the gate, as Composer lists it installed. */
+/**
+ * The gate as Composer lists it installed from a commit of its main branch, the one
+ * tests/Fixtures/CiTemplates/installed.json names: the snapshots pin it, and a pin must name a real commit.
+ */
 $gate = static function (): GatePin {
-    $installed = Installed::decode(Contents::of((string) json_encode(['packages' => [[
-        'name' => 'nightworksio/mutation-gate',
-        'version' => 'v1.2.0',
-        'source' => ['reference' => '0123456789abcdef0123456789abcdef01234567'],
-    ]]])), Path::of('vendor/composer/installed.json'));
+    $installed = Installed::decode(
+        Contents::of((string) file_get_contents(Schema::at('tests/Fixtures/CiTemplates/installed.json'))),
+        Path::of('vendor/composer/installed.json'),
+    );
 
     return $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();
 };
@@ -124,7 +126,7 @@ it('pins each action a template uses by the commit the package\'s own workflows 
     $text = (string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value)));
     preg_match_all('/uses: ([\w.-]+\/[\w.-]+)@(\S+ # \S+)/', $text, $templated, PREG_SET_ORDER);
     $others = array_filter($templated, static fn(array $use): bool => $use[1] !== 'nightworksio/php-mutation-gate');
-    $gate = substr_count($text, '@%%gate%% # %%version%%');
+    $gate = substr_count($text, '@%%pin%%');
 
     expect(count($others) + $gate)->toBe(substr_count($text, 'uses: '));
 

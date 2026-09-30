@@ -1,0 +1,13 @@
+{
+    "packages": [
+        {
+            "name": "nightworksio/mutation-gate",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/nightworksio/php-mutation-gate.git",
+                "reference": "eea11e875234b32127cf23dde00d149b04c6ac4c"
+            }
+        }
+    ]
+}

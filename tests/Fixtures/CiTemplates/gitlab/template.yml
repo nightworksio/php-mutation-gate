@@ -1,4 +1,4 @@
-# Written by `mutation-gate init --ci=gitlab`, for the gate v1.2.0.
+# Written by `mutation-gate init --ci=gitlab`, for the gate dev-main.
 # The jobs `mutation-gate plan --ci=gitlab` generates extend this hidden job,
 # and so does the plan job in .gitlab-ci.yml. For an S3 proof store, set
 # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as masked CI/CD variables.

@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Ci;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
+use function sprintf;
+
 /**
  * The gate's own release as a CI definition pins it (ADR-0015 decision 14):
  * the commit Composer installed it from, with its version, read from the
@@ -21,7 +23,7 @@ final readonly class GatePin
     /** What stands for the version where none is known. */
     public const string UNKNOWN_VERSION = '<its version>';
 
-    private function __construct(private string $commit, private string $version)
+    private function __construct(private string $commit, private string $version, private bool $release)
     {
     }
 
@@ -30,7 +32,7 @@ final readonly class GatePin
     {
         foreach ($installed->versionsOf(ThisPackage::COMPOSER) as $version) {
             if ($version->reference() !== '') {
-                return new self($version->reference(), $version->version());
+                return new self($version->reference(), $version->version(), $version->isRelease());
             }
         }
 
@@ -39,7 +41,7 @@ final readonly class GatePin
 
     public static function unknown(): self
     {
-        return new self(self::UNKNOWN_COMMIT, self::UNKNOWN_VERSION);
+        return new self(self::UNKNOWN_COMMIT, self::UNKNOWN_VERSION, release: false);
     }
 
     public function commit(): string
@@ -50,6 +52,15 @@ final readonly class GatePin
     public function version(): string
     {
         return $this->version;
+    }
+
+    /**
+     * The gate as a definition pins it: its commit, with the version in a comment where the version is a
+     * release, whose tag names that commit; a branch Composer installed, such as `dev-main`, names no tag.
+     */
+    public function pin(): string
+    {
+        return $this->release ? sprintf('%s # %s', $this->commit, $this->version) : $this->commit;
     }
 
     /** Whether the commit is known, so a definition that names it runs as written. */

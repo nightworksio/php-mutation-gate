@@ -27,7 +27,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: nightworksio/php-mutation-gate@%%gate%% # %%version%%
+      - uses: nightworksio/php-mutation-gate@%%pin%%
         with:
           php-version: '%%php%%'
           runner: '%%runner%%'

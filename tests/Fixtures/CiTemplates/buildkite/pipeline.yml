@@ -1,4 +1,4 @@
-# Written by `mutation-gate init --ci=buildkite`, for the gate v1.2.0.
+# Written by `mutation-gate init --ci=buildkite`, for the gate dev-main.
 # Upload it from your pipeline, and schedule that pipeline twice a week for
 # the full run. Keep .mutation-gate/ledger between builds with a cache plugin,
 # keyed by branch, and set the agents' image to one with PHP 8.5 and pcov:

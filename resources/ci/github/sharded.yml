@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   mutation:
-    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@%%gate%% # %%version%%
+    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@%%pin%%
     permissions:
       contents: write # used only by the default-branch publish job
       actions: read
