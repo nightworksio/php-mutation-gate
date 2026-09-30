@@ -8,6 +8,7 @@ use function getcwd;
 use function getenv;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Sarif;
 use NightWorksIO\MutationGate\Core\Report\SourceRoot;
@@ -15,7 +16,6 @@ use NightWorksIO\MutationGate\Core\Report\Unrooted;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Reporter;
 
 /**

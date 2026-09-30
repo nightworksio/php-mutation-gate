@@ -42,12 +42,14 @@ final readonly class Report
     public function written(Origin $origin): Json
     {
         $chosen = $this->reporter->written();
-        $written = Json::object(Member::of('use', $this->reporter->use()));
+        $written = Json::object(Member::of('use', $this->reporter->use()->value()));
         $written = $this->path instanceof Path
             ? $written->with(Member::of('path', $origin->written($this->path)))
             : $written;
 
-        return $chosen instanceof Json ? $written->with(Member::of('with', $this->reporter->options())) : $written;
+        return $chosen instanceof Json
+            ? $written->with(Member::of('with', $this->reporter->options()->written()))
+            : $written;
     }
 
     /** This entry as the builder's `Report` writes it. */
@@ -56,15 +58,15 @@ final readonly class Report
         $named = PhpCalls::chosen($this->reporter, 'Report', ...self::NAMED);
         $path = $this->path instanceof Path ? [PhpCalls::literal($origin->written($this->path))] : [];
 
-        return $path !== [] && $named === sprintf('Report::%s()', $this->reporter->use())
-            ? sprintf('Report::%s(%s)', $this->reporter->use(), $path[0])
+        return $path !== [] && $named === sprintf('Report::%s()', $this->reporter->use()->value())
+            ? sprintf('Report::%s(%s)', $this->reporter->use()->value(), $path[0])
             : sprintf(
                 'Report::%s(%s)',
                 $path === [] ? 'uses' : 'writing',
                 implode(', ', [
-                    PhpCalls::literal($this->reporter->use()),
+                    PhpCalls::literal($this->reporter->use()->value()),
                     ...$path,
-                    ...PhpOptions::of($this->reporter->options()),
+                    ...PhpOptions::of($this->reporter->options()->written()),
                 ]),
             );
     }

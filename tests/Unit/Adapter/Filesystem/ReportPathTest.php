@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\ReportPath;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -15,12 +16,12 @@ afterEach(function (): void {
 });
 
 it('reads the path an entry names, or takes the one it may leave out', function (): void {
-    expect(ReportPath::from(Options::ofJson('{"path": "build/mutation.json"}'), '', 'needed'))->toEqual(ReportPath::at('build/mutation.json'))
+    expect(ReportPath::from(Configs::options('{"path": "build/mutation.json"}'), '', 'needed'))->toEqual(ReportPath::at('build/mutation.json'))
         ->and(ReportPath::from(Options::none(), '.mutation-gate/publish', 'needed'))->toEqual(ReportPath::at('.mutation-gate/publish'));
 });
 
 it('refuses an entry with no path it needs, or one that is not text', function (string $options): void {
-    expect(ReportPath::from(Options::ofJson($options), '', 'The report needs a path.'))
+    expect(ReportPath::from(Configs::options($options), '', 'The report needs a path.'))
         ->toEqual(Invalid::because(Problem::at('path', 'The report needs a path.')));
 })->with([
     'none' => ['{}'],
@@ -50,7 +51,7 @@ it('reads nothing where there is no file, and says why it could not write one', 
 });
 
 it('asks an entry for the file a report is written to', function (): void {
-    expect(ReportPath::ofFile(Options::ofJson('{"path": "build/matrix.csv"}'), 'The kill matrix'))->toEqual(ReportPath::at('build/matrix.csv'))
+    expect(ReportPath::ofFile(Configs::options('{"path": "build/matrix.csv"}'), 'The kill matrix'))->toEqual(ReportPath::at('build/matrix.csv'))
         ->and(ReportPath::ofFile(Options::none(), 'The kill matrix'))
         ->toEqual(Invalid::because(Problem::at('path', 'The kill matrix is written to a file, whose `path` the entry names.')));
 });

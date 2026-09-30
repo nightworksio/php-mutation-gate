@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
@@ -29,7 +29,7 @@ use Symfony\Component\HttpClient\Response\MockResponse;
  */
 function otlpReporter(Variables $environment, array $answers, string $options = '{}'): OtlpReporter|Invalid
 {
-    return OtlpReporter::inEnvironment(Options::ofJson($options), $environment, new MockHttpClient($answers), new StoppedClock('2026-09-30T12:00:00Z'));
+    return OtlpReporter::inEnvironment(Configs::options($options), $environment, new MockHttpClient($answers), new StoppedClock('2026-09-30T12:00:00Z'));
 }
 
 /** What the reporter answers of this verdict; not written where it could not be made. */
@@ -127,13 +127,13 @@ it('says not written, tries nothing again, where the collector refuses or cannot
 });
 
 it('refuses an endpoint that is not text', function (): void {
-    expect(otlpReporter(Variables::of([]), [], '{"endpoint": 3}'))->toEqual(Invalid::because(Problem::at('endpoint', 'The endpoint is a URL, as text.')));
+    expect(otlpReporter(Variables::of([]), [], '{"endpoint": 3}'))->toEqual(Invalid::because(Problem::at('endpoint', 'expected text, got 3')));
 });
 
 it('reads its own environment and posts over the network', function (): void {
     $reporter = Environment::during(
         ['OTEL_EXPORTER_OTLP_ENDPOINT' => null],
-        static fn(): OtlpReporter|Invalid => OtlpReporter::configured(Options::ofJson('{"endpoint": "http://127.0.0.1:9"}'), new StoppedClock('2026-09-30T12:00:00Z')),
+        static fn(): OtlpReporter|Invalid => OtlpReporter::configured(Configs::options('{"endpoint": "http://127.0.0.1:9"}'), new StoppedClock('2026-09-30T12:00:00Z')),
     );
 
     expect($reporter)->toBeInstanceOf(OtlpReporter::class);

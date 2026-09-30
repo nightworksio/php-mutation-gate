@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\NotWritten;
@@ -15,7 +16,7 @@ use NightWorksIO\MutationGate\Core\Report\TrendSvg;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -65,7 +66,7 @@ it('says why it could not write', function (string $blocked) use ($clock): void 
 })->with(['badge.json', 'trend.json', 'trend.svg', 'savings.json']);
 
 it('reads its directory, its colours and its commit from its options', function () use ($clock): void {
-    $options = Options::ofJson('{"path": "out", "colors": {"blue": 50}, "commit": "def456"}');
+    $options = Configs::options('{"path": "out", "colors": {"blue": 50}, "commit": "def456"}');
 
     expect(BadgeDirectory::configured($options, $clock()))->toEqual(BadgeDirectory::at('out', BadgeColors::of(['blue' => 50]), 'def456', $clock()));
 });
@@ -80,14 +81,14 @@ it('publishes to .mutation-gate/publish with the default colours and the commit 
 it('reads the commit of each CI it knows, and none elsewhere', function (string $variable) use ($clock): void {
     $none = ['GITHUB_SHA' => null, 'CI_COMMIT_SHA' => null, 'BUILDKITE_COMMIT' => null, 'CIRCLE_SHA1' => null];
     $set = $variable === '' ? $none : [...$none, $variable => 'fedcba9'];
-    $read = static fn(): BadgeDirectory|Invalid => BadgeDirectory::configured(Options::ofJson('{"commit": 7}'), $clock());
+    $read = static fn(): BadgeDirectory|Invalid => BadgeDirectory::configured(Configs::options('{"commit": 7}'), $clock());
 
     expect(Environment::during($set, $read))
         ->toEqual(BadgeDirectory::at('.mutation-gate/publish', BadgeColors::defaults(), $variable === '' ? '' : 'fedcba9', $clock()));
 })->with(['GITHUB_SHA', 'CI_COMMIT_SHA', 'BUILDKITE_COMMIT', 'CIRCLE_SHA1', '']);
 
 it('refuses colours that are not a map of scores, and a directory that is not text', function (string $options, string $at, string $message) use ($clock): void {
-    expect(BadgeDirectory::configured(Options::ofJson($options), $clock()))->toEqual(Invalid::because(Problem::at($at, $message)));
+    expect(BadgeDirectory::configured(Configs::options($options), $clock()))->toEqual(Invalid::because(Problem::at($at, $message)));
 })->with([
     'a colour as text' => ['{"colors": {"green": "high"}}', 'colors', 'Each badge colour maps to the lowest score that earns it.'],
     'colours as a number' => ['{"colors": 80}', 'colors', 'Each badge colour maps to the lowest score that earns it.'],

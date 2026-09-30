@@ -9,12 +9,15 @@ use function array_key_exists;
 use DateInterval;
 
 use function getenv;
+use function is_float;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Badge;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
@@ -25,7 +28,6 @@ use NightWorksIO\MutationGate\Core\Report\TrendSvg;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Reporter;
 use Psr\Clock\ClockInterface;
 
@@ -51,6 +53,8 @@ final readonly class BadgeDirectory implements Reporter
     public const string SPARKLINE = 'trend.svg';
 
     public const string SAVINGS = 'savings.json';
+    /** What `colors` holds, where it holds anything else. */
+    private const string BANDS = 'Each badge colour maps to the lowest score that earns it.';
 
     /** The variables CIs name the commit they run in, in the order they are asked. */
     private const array COMMITS = ['GITHUB_SHA', 'CI_COMMIT_SHA', 'BUILDKITE_COMMIT', 'CIRCLE_SHA1'];
@@ -77,13 +81,13 @@ final readonly class BadgeDirectory implements Reporter
     public static function configured(Options $options, ClockInterface $clock): self|Invalid
     {
         $path = ReportPath::from($options, self::PATH, 'The badge and trend are written to a directory, as text.');
-        $colors = self::colorsIn(Node::decode($options->json())->field('colors'));
-        $commit = Node::decode($options->json())->field('commit');
+        $colors = self::colorsIn($options);
+        $commit = $options->text(Key::of('commit'));
 
         return match (true) {
             $path instanceof Invalid => $path,
             $colors instanceof Invalid => $colors,
-            default => new self($path, $colors, self::commitFrom($commit), $clock),
+            default => new self($path, $colors, is_string($commit) ? $commit : self::commitOfCi(getenv()), $clock),
         };
     }
 
@@ -113,32 +117,29 @@ final readonly class BadgeDirectory implements Reporter
         return Written::to($this->path->value());
     }
 
-    private static function colorsIn(Node $colors): BadgeColors|Invalid
+    private static function colorsIn(Options $options): BadgeColors|Invalid
     {
-        if (! $colors->isPresent()) {
+        $colors = $options->object(Key::of('colors'));
+
+        if ($colors instanceof NotGiven) {
             return BadgeColors::defaults();
         }
 
-        try {
-            $lowest = [];
+        $lowest = [];
 
-            foreach ($colors->entries() as $color => $score) {
-                $lowest[$color] = $score->number();
+        foreach ($colors as $color) {
+            $score = $colors->number($color);
+
+            if (! is_float($score)) {
+                return Invalid::because(Problem::at('colors', self::BANDS));
             }
 
-            return BadgeColors::of($lowest);
-        } catch (NotInShape) {
-            return Invalid::because(Problem::at('colors', 'Each badge colour maps to the lowest score that earns it.'));
+            $lowest[$color->value()] = $score;
         }
-    }
 
-    private static function commitFrom(Node $commit): string
-    {
-        try {
-            return $commit->isPresent() ? $commit->text() : self::commitOfCi(getenv());
-        } catch (NotInShape) {
-            return self::commitOfCi(getenv());
-        }
+        return [...$colors->problems()] === []
+            ? BadgeColors::of($lowest)
+            : Invalid::because(Problem::at('colors', self::BANDS));
     }
 
     /** @param array<string, string> $environment */

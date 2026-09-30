@@ -462,7 +462,6 @@ services:
                 - tests/Support/Commands.php
                 - tests/Support/PhpstanNeon.php
             allowIn:
-                - src/Adapter/Buildkite/BuildkitePlan.php
                 - src/Adapter/GitHub/Answer.php
                 - src/Adapter/GitLab/GitLabPlan.php
                 - tests/Support/Configs.php

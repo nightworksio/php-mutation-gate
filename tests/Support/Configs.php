@@ -13,16 +13,19 @@ use function is_string;
 use function json_decode;
 use function json_encode;
 
+use LogicException;
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Definition;
+use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use RuntimeException;
 
@@ -115,11 +118,19 @@ final readonly class Configs
     }
 
     /** An adapter's options, as a config that writes them is read. */
-    public static function options(string $json): Json
+    public static function options(string $json): Options
     {
-        $options = Node::config($json);
+        $options = Json::parse($json);
 
-        return $options->kind() === Kind::Empty ? Json::object() : $options->value();
+        return $options instanceof Json ? Options::of($options) : throw new LogicException($options->why());
+    }
+
+    /** A built-in adapter's options, as the definition reads what a config writes beside it: every default filled in. */
+    public static function builtin(Builtins $builtins, string $use, string $with = '{}'): Options
+    {
+        $choice = $builtins->choose($use, Node::config(sprintf('{"with": %s}', $with))->field('with'))->value();
+
+        return $choice instanceof Choice ? $choice->options() : throw new LogicException(sprintf('%s reads', $with));
     }
 
     /** What the effective config shows under these keys. */

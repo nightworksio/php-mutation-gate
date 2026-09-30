@@ -121,6 +121,18 @@ final readonly class Shards implements Part
             : SecondsPerLine::standard();
     }
 
+    /** The options the gate hands the cost model it builds in, `learned`: the seconds a line costs, by prefix. */
+    public function costOptions(): Options
+    {
+        $perLine = Json::object();
+
+        foreach ($this->secondsPerLine() as $prefix => $seconds) {
+            $perLine = $perLine->with(Member::of($prefix, $seconds));
+        }
+
+        return Options::of(Json::object(Member::of('secondsPerLine', $perLine)));
+    }
+
     /** `shards.target`: the wall time the count is cut to fit, in place of `shards.seconds` (ADR-0013). */
     public function target(): Seconds|Absent
     {

@@ -6,17 +6,18 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
 use function basename;
 use function dirname;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
 
 use function sprintf;
 
@@ -49,13 +50,12 @@ final readonly class ReportPath
     /** The path an entry names, or the path it may leave out; with neither, why the entry is invalid. */
     public static function from(Options $options, string $otherwise, string $what): self|Invalid
     {
-        $path = Node::decode($options->json())->field(self::KEY);
-
-        try {
-            $named = $path->isPresent() ? $path->text() : $otherwise;
-        } catch (NotInShape) {
-            $named = '';
-        }
+        $path = $options->text(Key::of(self::KEY));
+        $named = match (true) {
+            $path instanceof NotGiven => $otherwise,
+            is_string($path) => $path,
+            default => '',
+        };
 
         return $named === '' ? Invalid::because(Problem::at(self::KEY, $what)) : new self($named);
     }

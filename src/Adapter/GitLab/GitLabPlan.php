@@ -18,21 +18,20 @@ use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
-use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
 use function sprintf;
@@ -51,7 +50,6 @@ final readonly class GitLabPlan implements CiPlan, Configurable
 {
     /** Where the child pipeline is written. */
     public const string PIPELINE = '.mutation-gate/pipeline.yml';
-
 
     /** The pipeline GitLab runs where `CI_CONFIG_PATH` names no other. */
     private const string PIPELINE_DEFINITION = '.gitlab-ci.yml';
@@ -76,18 +74,18 @@ final readonly class GitLabPlan implements CiPlan, Configurable
         return new self($variables, $template, $pipeline);
     }
 
-    /** `{"template": "<path>"}` */
+    /** `{"template": "<path>"}`, as `ci.gitlab.template` gives it. */
     public static function fromOptions(Options $options): self|Invalid
     {
-        $template = Node::decode($options->json())->field('template');
+        $template = $options->text(Key::of('template'));
 
-        try {
-            $file = $template->isPresent() ? $template->text() : Ci::none()->gitlabTemplate()->value();
-
-            return self::writing(self::PIPELINE, $file, Variables::of(getenv()));
-        } catch (NotInShape) {
-            return Invalid::because(Problem::at('template', 'The template is a path, written as text.'));
-        }
+        return match (true) {
+            $template instanceof Problem => Invalid::because($template),
+            $template instanceof NotGiven => Invalid::because(
+                Problem::at('template', 'expected the file that defines the hidden .mutation-gate job, got nothing'),
+            ),
+            default => self::writing(self::PIPELINE, $template, Variables::of(getenv())),
+        };
     }
 
     public function publish(Plan $plan): Written|CannotJudge

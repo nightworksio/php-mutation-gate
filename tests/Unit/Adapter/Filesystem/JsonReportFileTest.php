@@ -6,10 +6,11 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
@@ -19,7 +20,7 @@ afterEach(function (): void {
 
 it('writes the JSON report to the path its entry names', function (): void {
     $file = sprintf('%s/build/mutation.json', Scratch::directory());
-    $reporter = JsonReportFile::fromOptions(Options::ofJson((string) json_encode(['path' => $file])));
+    $reporter = JsonReportFile::fromOptions(Configs::options((string) json_encode(['path' => $file])));
 
     expect($reporter)->toEqual(JsonReportFile::at($file))
         ->and(JsonReportFile::at($file)->report(Verdicts::failing()))->toEqual(Written::to($file))

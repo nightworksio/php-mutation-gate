@@ -11,12 +11,13 @@ use function getenv;
 use NightWorksIO\MutationGate\Core\Ci\CiRun;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Http\Origin;
 use NightWorksIO\MutationGate\Core\Http\Reply;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Telemetry\Metrics;
@@ -24,7 +25,6 @@ use NightWorksIO\MutationGate\Core\Telemetry\Trace;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Reporter;
 use Psr\Clock\ClockInterface;
 
@@ -48,7 +48,6 @@ final readonly class OtlpReporter implements Reporter
     /** The longest one post may take, in seconds. */
     private const float TIMEOUT = 5.0;
 
-    private const string ENDPOINT = 'The endpoint is a URL, as text.';
 
     private function __construct(
         private HttpClientInterface $client,
@@ -65,15 +64,18 @@ final readonly class OtlpReporter implements Reporter
         HttpClientInterface $client,
         ClockInterface $clock,
     ): self|Invalid {
-        $endpoint = Node::decode($options->json())->field('endpoint');
+        $endpoint = $options->text(Key::of('endpoint'));
 
-        try {
-            $named = $endpoint->isPresent() ? $endpoint->text() : OtelEnvironment::of($environment)->endpoint();
-        } catch (NotInShape) {
-            return Invalid::because(Problem::at('endpoint', self::ENDPOINT));
-        }
-
-        return self::to($environment, $client, $clock, $named);
+        return match (true) {
+            $endpoint instanceof Problem => Invalid::because($endpoint),
+            $endpoint instanceof NotGiven => self::to(
+                $environment,
+                $client,
+                $clock,
+                OtelEnvironment::of($environment)->endpoint(),
+            ),
+            default => self::to($environment, $client, $clock, $endpoint),
+        };
     }
 
     /** The reporter reading this environment, posting with this client under this endpoint. */

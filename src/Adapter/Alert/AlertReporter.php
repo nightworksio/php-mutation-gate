@@ -12,14 +12,14 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiRun;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\NoTrend;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Reporter;
 use Psr\Clock\ClockInterface;
 
@@ -36,8 +36,6 @@ final readonly class AlertReporter implements Reporter
 {
     /** The variable that holds the webhook's secret unless `with.secretEnv` names another. */
     public const string SECRET_ENV = 'MUTATION_GATE_WEBHOOK_SECRET';
-
-    private const string NAMED = 'This names the environment variable to read, as text.';
 
     private const string NO_URL = '%s is not set, so no alert goes to %s.';
 
@@ -67,10 +65,8 @@ final readonly class AlertReporter implements Reporter
         Delivery $delivery,
         ClockInterface $clock,
     ): self|Invalid {
-        $with = Node::decode($options->json());
-
-        $urlEnv = self::named($with, 'urlEnv', $channel->urlEnv());
-        $secretEnv = self::named($with, 'secretEnv', self::SECRET_ENV);
+        $urlEnv = self::named($options, 'urlEnv', $channel->urlEnv());
+        $secretEnv = self::named($options, 'secretEnv', self::SECRET_ENV);
 
         return match (true) {
             $urlEnv instanceof Problem => Invalid::because($urlEnv),
@@ -141,14 +137,10 @@ final readonly class AlertReporter implements Reporter
     }
 
     /** The variable an option names, this one where it names none, or why what it holds names none. */
-    private static function named(Node $with, string $option, string $otherwise): string|Problem
+    private static function named(Options $options, string $option, string $otherwise): string|Problem
     {
-        $variable = $with->field($option);
+        $variable = $options->text(Key::of($option));
 
-        try {
-            return $variable->isPresent() ? $variable->text() : $otherwise;
-        } catch (NotInShape) {
-            return Problem::at($option, self::NAMED);
-        }
+        return $variable instanceof NotGiven ? $otherwise : $variable;
     }
 }

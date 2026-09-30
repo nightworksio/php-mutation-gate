@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Analysis\BuiltInAnalyser;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Origin;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Workspace;
@@ -34,12 +35,12 @@ final readonly class Builtins
     private const string CREDENTIAL
         = 'expected no url: a webhook URL is a credential; set %s, or name another variable in urlEnv';
 
-    /** @param array<string, Section<Json>> $options the options of each built-in adapter, by its name */
+    /** @param array<string, Section<Options>> $options the options of each built-in adapter, by its name */
     private function __construct(private array $options)
     {
     }
 
-    /** @param array<string, Section<Json>> $options */
+    /** @param array<string, Section<Options>> $options */
     public static function of(array $options): self
     {
         return new self($options);
@@ -134,18 +135,24 @@ final readonly class Builtins
             $options = $this->options[$use]->read($with);
             $read = $options->value();
 
-            return $read instanceof Json ? Reading::of(Choice::of($use, $read)) : Reading::invalid(
+            return $read instanceof Options ? Reading::of(Choice::of($use, $read)) : Reading::invalid(
                 Invalid::because(...$options->problems()),
             );
         }
 
         return match ($with->kind()) {
-            Kind::Nothing, Kind::Empty => Reading::of(Choice::of($use, Json::object())),
-            Kind::Map => Reading::of(Choice::of($use, $with->value())),
+            Kind::Nothing, Kind::Empty => Reading::of(Choice::of($use, Options::none())),
+            Kind::Map => Reading::of(Choice::of($use, Options::of($with->value()))),
             Kind::List, Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null => Reading::refused(
                 $with->mismatch('an object'),
             ),
         };
+    }
+
+    /** A built-in adapter, with none of its options written: each takes its default. */
+    public function standard(string $use): Choice
+    {
+        return $this->choose($use, Node::config(Json::object()->line())->field('with'))->must();
     }
 
     public function has(string $use): bool
@@ -219,7 +226,7 @@ final readonly class Builtins
         return self::of(self::bare(...$names));
     }
 
-    /** @return array<string, Section<Json>> the options of adapters that take none, by name */
+    /** @return array<string, Section<Options>> the options of adapters that take none, by name */
     private static function bare(string ...$names): array
     {
         return array_map(static fn(): Section => Section::options(Json::object()), array_flip($names));

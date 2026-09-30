@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function count;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Extension\Options;
+
+use function sprintf;
 
 /**
  * The options the flows build the Infection adapter with: `timeout`, the
@@ -38,17 +40,20 @@ final readonly class Setup
 
     public static function of(Options $options): self|Invalid
     {
-        $read = Node::decode($options->json());
+        $tests = $options->paths(Key::of(self::TESTS));
+        $timeout = $options->number(Key::of('timeout'));
+        $allowed = self::allowedIn($options->text(Key::of(self::MARKERS)));
 
-        try {
-            return new self(
-                self::testsIn($read->field(self::TESTS)),
-                self::capIn($read->field('timeout')),
-                self::allowedIn($read->field(self::MARKERS)),
-            );
-        } catch (NotInShape $shape) {
-            return Invalid::because(Problem::at('runner', $shape->getMessage()));
-        }
+        return match (true) {
+            $tests instanceof Problem => Invalid::because($tests),
+            $timeout instanceof Problem => Invalid::because($timeout),
+            $allowed instanceof Problem => Invalid::because($allowed),
+            default => new self(
+                $tests instanceof Paths && count($tests) > 0 ? $tests : Paths::of(TestsDirectory::conventional()),
+                Seconds::of($timeout instanceof NotGiven ? self::TIMEOUT : $timeout),
+                $allowed,
+            ),
+        };
     }
 
     public function tests(): Paths
@@ -66,31 +71,16 @@ final readonly class Setup
         return $this->nativeMarkersAllowed;
     }
 
-    /** @throws NotInShape */
-    private static function testsIn(Node $tests): Paths
+    private static function allowedIn(string|NotGiven|Problem $markers): bool|Problem
     {
-        $paths = Paths::none();
-
-        foreach ($tests->isPresent() ? $tests->items() : [] as $test) {
-            $paths = $paths->with(Path::of($test->text()));
+        if (! is_string($markers)) {
+            return $markers instanceof Problem ? $markers : false;
         }
 
-        return count($paths) === 0 ? Paths::of(TestsDirectory::conventional()) : $paths;
-    }
-
-    /** @throws NotInShape */
-    private static function capIn(Node $timeout): Seconds
-    {
-        return Seconds::of($timeout->isPresent() ? $timeout->number() : self::TIMEOUT);
-    }
-
-    /** @throws NotInShape */
-    private static function allowedIn(Node $markers): bool
-    {
-        return match ($markers->isPresent() ? NativeMarkers::tryFrom($markers->text()) : NativeMarkers::Refuse) {
+        return match (NativeMarkers::tryFrom($markers)) {
             NativeMarkers::Allow => true,
             NativeMarkers::Refuse => false,
-            default => throw NotInShape::at($markers->at(), '"refuse" or "allow"'),
+            null => Problem::at(self::MARKERS, sprintf('expected "refuse" or "allow", got "%s"', $markers)),
         };
     }
 }

@@ -57,7 +57,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\InfectionRun;
@@ -527,9 +527,9 @@ it('cannot root itself in a directory that installs no Infection', function (): 
 });
 
 it('is built from the options the flows write, or is invalid', function (): void {
-    expect(Infection::fromOptions(Options::ofJson('{"timeout": 30, "nativeMarkers": "allow"}')))->toBeInstanceOf(Infection::class)
-        ->and(Infection::fromOptions(Options::ofJson('{"nativeMarkers": "sometimes"}')))
-        ->toEqual(Invalid::because(Problem::at('runner', 'the file.nativeMarkers is not "refuse" or "allow".')));
+    expect(Infection::fromOptions(Configs::options('{"timeout": 30, "nativeMarkers": "allow"}')))->toBeInstanceOf(Infection::class)
+        ->and(Infection::fromOptions(Configs::options('{"nativeMarkers": "sometimes"}')))
+        ->toEqual(Invalid::because(Problem::at('nativeMarkers', 'expected "refuse" or "allow", got "sometimes"')));
 });
 
 it('cannot judge a run whose earlier reports or logs cannot be removed, or whose reused coverage is not there', function (): void {

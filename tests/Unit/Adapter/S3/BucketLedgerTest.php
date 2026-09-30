@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
+use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -16,8 +18,8 @@ use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\Bucket;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 const IN_THE_BUCKET = 'https://ledgers.s3.eu-west-1.amazonaws.com/mutation-gate/refs/heads/main/ledger.json.gz';
 
@@ -108,7 +110,10 @@ it('neither reads nor writes a scope that is not a ref', function () use ($prove
 });
 
 it('is built from its options, which require a bucket', function (): void {
-    expect(BucketLedger::fromOptions(Options::ofJson('{"bucket": "ledgers"}')))->toBeInstanceOf(BucketLedger::class)
-        ->and(BucketLedger::fromOptions(Options::none()))
-        ->toEqual(Invalid::because(Problem::at('bucket', 'The bucket the ledgers are kept in is required.')));
+    $stores = Builtins::stores(ProjectRoot::origin());
+
+    expect(BucketLedger::fromOptions(Configs::builtin($stores, 's3', '{"bucket": "ledgers"}')))
+        ->toBeInstanceOf(BucketLedger::class)
+        ->and(BucketLedger::fromOptions(Configs::options('{"prefix": "p", "region": "r"}')))
+        ->toEqual(Invalid::because(Problem::at('bucket', 'expected the bucket, got nothing')));
 });

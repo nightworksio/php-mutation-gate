@@ -11,11 +11,12 @@ use NightWorksIO\MutationGate\Core\Alert\SlackMessage;
 use NightWorksIO\MutationGate\Core\Alert\WebhookPayload;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Previous;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
@@ -41,7 +42,7 @@ function alertReporter(Channel $channel, Variables $environment, array $answers,
 {
     return AlertReporter::inEnvironment(
         $channel,
-        Options::ofJson($options),
+        Configs::options($options),
         $environment,
         Delivery::over(new MockHttpClient($answers), new StoppedClock('2026-09-30T12:00:00Z'), Pause::for(...)),
         new StoppedClock('2026-09-30T12:00:00Z'),
@@ -152,8 +153,8 @@ it('sends nothing, and says why, where there is nothing to send or nowhere to se
 it('refuses a variable that is not named in text', function (string $options, Invalid $invalid): void {
     expect(alertReporter(Channel::Discord, Variables::of([]), [], $options))->toEqual($invalid);
 })->with([
-    'a URL variable as a number' => ['{"urlEnv": 3}', Invalid::because(Problem::at('urlEnv', 'This names the environment variable to read, as text.'))],
-    'a secret variable as a list' => ['{"secretEnv": []}', Invalid::because(Problem::at('secretEnv', 'This names the environment variable to read, as text.'))],
+    'a URL variable as a number' => ['{"urlEnv": 3}', Invalid::because(Problem::at('urlEnv', 'expected text, got 3'))],
+    'a secret variable as a list' => ['{"secretEnv": []}', Invalid::because(Problem::at('secretEnv', 'expected text, got a list'))],
 ]);
 
 it('reads its own environment and posts over the network', function (): void {

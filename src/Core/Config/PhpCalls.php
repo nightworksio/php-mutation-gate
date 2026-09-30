@@ -63,12 +63,15 @@ final readonly class PhpCalls
      */
     public static function chosen(Choice $choice, string $class, string ...$named): string
     {
-        return $choice->options()->isEmpty() && array_key_exists($choice->use(), array_flip($named))
-            ? sprintf('%s::%s()', $class, $choice->use())
+        return $choice->options()->written()->isEmpty() && array_key_exists($choice->use()->value(), array_flip($named))
+            ? sprintf('%s::%s()', $class, $choice->use()->value())
             : sprintf(
                 '%s::uses(%s)',
                 $class,
-                implode(', ', [self::literal($choice->use()), ...PhpOptions::of($choice->options())]),
+                implode(
+                    ', ',
+                    [self::literal($choice->use()->value()), ...PhpOptions::of($choice->options()->written())],
+                ),
             );
     }
 

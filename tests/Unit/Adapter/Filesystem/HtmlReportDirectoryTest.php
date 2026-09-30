@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Stryker;
 use NightWorksIO\MutationGate\Core\Report\StrykerPage;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -46,7 +47,7 @@ it('carries the viewer at the version it names, with its licence', function (): 
 
 it('finds the viewer in the package from its options, and needs a directory', function (): void {
     $html = sprintf('%s/html', Scratch::directory());
-    $reporter = HtmlReportDirectory::fromOptions(Options::ofJson((string) json_encode(['path' => $html])));
+    $reporter = HtmlReportDirectory::fromOptions(Configs::options((string) json_encode(['path' => $html])));
 
     expect($reporter)->toEqual(HtmlReportDirectory::at($html, '.', Schema::at('resources/mutation-testing-elements')))
         ->and(HtmlReportDirectory::fromOptions(Options::none()))->toEqual(Invalid::because(Problem::at(

@@ -9,9 +9,12 @@ use function count;
 use function file_get_contents;
 use function getenv;
 use function is_file;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotWritten;
@@ -19,7 +22,6 @@ use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Reporter;
 
 use function sprintf;
@@ -112,13 +114,8 @@ final readonly class PullRequestComment implements Configurable, Reporter
         $eventPath = array_key_exists('GITHUB_EVENT_PATH', $environment) ? $environment['GITHUB_EVENT_PATH'] : '';
         $event = $eventPath !== '' && is_file($eventPath) ? file_get_contents($eventPath) : '';
 
-        $identity = Node::decode($options->json())->field('identity');
-
-        try {
-            $named = $identity->isPresent() ? $identity->text() : '';
-        } catch (NotInShape) {
-            $named = '';
-        }
+        $identity = $options->text(Key::of('identity'));
+        $named = is_string($identity) ? $identity : '';
 
         return self::inRun($environment, $event === false ? '' : $event, HttpClient::create(), $named);
     }

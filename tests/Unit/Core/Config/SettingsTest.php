@@ -233,7 +233,7 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->ci()->defaultBranch())->toEqual(Absent::setting())
         ->and($settings->ci()->check())->toBe('mutation / verdict')
         ->and($settings->ci()->gitlabTemplate())->toEqual(Path::of('.gitlab/mutation-gate.yml'))
-        ->and($settings->ci()->buildkiteStep()->line())->toBe('{}')
+        ->and($settings->ci()->buildkiteStep()->json()->line())->toBe('{}')
         ->and($settings->ci()->buildkiteDefinition())->toEqual(Path::of('.buildkite/pipeline.yml'))
         ->and($settings->runner()->withhold())->toEqual(Withheld::nothing())
         ->and($settings->proofs()->store())->toEqual(Choice::of('directory', Configs::options('{"path":".mutation-gate/ledger"}')))
@@ -294,7 +294,7 @@ it('reads every setting a config writes into its type', function (): void {
         ->and($ci->defaultBranch())->toBe('trunk')
         ->and($ci->check())->toBe('gate / verdict')
         ->and($ci->gitlabTemplate())->toEqual(Path::of('.gitlab/gate.yml'))
-        ->and($ci->buildkiteStep()->line())->toBe('{"agents":{"queue":"mutation"}}')
+        ->and($ci->buildkiteStep()->json()->line())->toBe('{"agents":{"queue":"mutation"}}')
         ->and($ci->buildkiteDefinition())->toEqual(Path::of('.buildkite/mutation.yml'))
         ->and($proofs->store())->toEqual(Choice::of(
             's3',
@@ -825,7 +825,7 @@ it('reads the file reporters, the chat reporters with their variables, and OpenT
             'with' => ['urlEnv' => 'MUTATION_GATE_WEBHOOK_URL', 'secretEnv' => 'MUTATION_GATE_WEBHOOK_SECRET'],
         ],
         ['use' => 'otlp', 'with' => ['endpoint' => 'https://otel.example.com']],
-    ])->and(array_map(static fn(Report $report): string => $report->reporter()->options()->line(), [...$settings->reports()]))
+    ])->and(array_map(static fn(Report $report): string => $report->reporter()->options()->written()->line(), [...$settings->reports()]))
         ->toBe([
             '{}',
             '{}',

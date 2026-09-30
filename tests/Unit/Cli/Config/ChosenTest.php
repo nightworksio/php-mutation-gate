@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -16,7 +17,6 @@ use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -172,10 +172,13 @@ it('suggests the registered name a misspelt one most likely meant', function () 
         ->toEqual(CannotJudge::because('No runner is registered as "pickey". Did you mean "picky"?'));
 });
 
-it('builds a class in the global namespace a config names without a backslash', function () use ($classes): void {
-    expect($classes()->runner(Choice::of('ArrayObject', Configs::options('{}'))))->toEqual(CannotJudge::because(sprintf(
-        'ArrayObject is not a class that implements %s and %s, so a config cannot choose it.',
+it('takes a class in the global namespace by its leading backslash, and a word without one as a name', function () use (
+    $classes,
+): void {
+    expect($classes()->runner(Choice::of('\\ArrayObject', Configs::options('{}'))))->toEqual(CannotJudge::because(sprintf(
+        '\\ArrayObject is not a class that implements %s and %s, so a config cannot choose it.',
         Runner::class,
         Configurable::class,
-    )));
+    )))->and($classes()->runner(Choice::of('ArrayObject', Configs::options('{}'))))
+        ->toEqual(CannotJudge::because('No runner is registered as "ArrayObject".'));
 });
