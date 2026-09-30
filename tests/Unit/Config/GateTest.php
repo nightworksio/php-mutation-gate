@@ -220,37 +220,48 @@ it('writes each other way to choose an adapter or a word', function (): void {
     ]);
 });
 
-it('names each built-in adapter by a method of its own', function (Gate $gate, array $written): void {
-    expect(Configs::written($gate))->toBe($written);
+it('names each built-in adapter by a method of its own', function (Closure $gate, array $written): void {
+    $built = $gate();
+
+    expect($built instanceof Gate ? Configs::written($built) : $built)->toBe($written);
 })->with([
-    'pest' => [Gate::configure()->runner(Runner::pest()), ['runner' => 'pest']],
-    'a runner by name' => [Gate::configure()->runner(Runner::uses('acme')), ['runner' => 'acme']],
-    'phpunit' => [Gate::configure()->treeSource(Source::phpunit()), ['treeSource' => 'phpunit']],
+    'pest' => [fn(): Gate => Gate::configure()->runner(Runner::pest()), ['runner' => 'pest']],
+    'a runner by name' => [fn(): Gate => Gate::configure()->runner(Runner::uses('acme')), ['runner' => 'acme']],
+    'phpunit' => [fn(): Gate => Gate::configure()->treeSource(Source::phpunit()), ['treeSource' => 'phpunit']],
     'a tree source by name' => [
-        Gate::configure()->treeSource(Source::uses('acme', Option::of('depth', 2))),
+        fn(): Gate => Gate::configure()->treeSource(Source::uses('acme', Option::of('depth', 2))),
         ['treeSource' => ['use' => 'acme', 'with' => ['depth' => 2]]],
     ],
-    'github' => [Gate::configure()->with(Ci::github()), ['ci' => ['plan' => 'github']]],
-    'circleci' => [Gate::configure()->with(Ci::circleci()), ['ci' => ['plan' => 'circleci']]],
-    'the JSON plan' => [Gate::configure()->with(Ci::json()), ['ci' => ['plan' => 'json']]],
+    'github' => [fn(): Gate => Gate::configure()->with(Ci::github()), ['ci' => ['plan' => 'github']]],
+    'circleci' => [fn(): Gate => Gate::configure()->with(Ci::circleci()), ['ci' => ['plan' => 'circleci']]],
+    'the JSON plan' => [fn(): Gate => Gate::configure()->with(Ci::json()), ['ci' => ['plan' => 'json']]],
     'a CI plan by name' => [
-        Gate::configure()->with(Ci::uses('acme', Option::of('x', 'y'))),
+        fn(): Gate => Gate::configure()->with(Ci::uses('acme', Option::of('x', 'y'))),
         ['ci' => ['plan' => ['use' => 'acme', 'with' => ['x' => 'y']]]],
     ],
-    'the default directory' => [Gate::configure()->with(Proofs::directory()), ['proofs' => ['store' => 'directory']]],
+    'the default directory' => [
+        fn(): Gate => Gate::configure()->with(Proofs::directory()),
+        ['proofs' => ['store' => 'directory']],
+    ],
     's3 with its defaults' => [
-        Gate::configure()->with(Proofs::s3('bucket')),
+        fn(): Gate => Gate::configure()->with(Proofs::s3('bucket')),
         ['proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'bucket']]]],
     ],
     's3 with every option' => [
-        Gate::configure()->with(Proofs::s3('b', 'p', 'r', 'e')),
+        fn(): Gate => Gate::configure()->with(Proofs::s3('b', 'p', 'r', 'e')),
         ['proofs' => ['store' => [
             'use' => 's3',
             'with' => ['bucket' => 'b', 'prefix' => 'p', 'region' => 'r', 'endpoint' => 'e'],
         ]]],
     ],
-    'a proof store by name' => [Gate::configure()->with(Proofs::uses('acme')), ['proofs' => ['store' => 'acme']]],
-    'no Buildkite step' => [Gate::configure()->with(Ci::buildkiteStep()), ['ci' => ['buildkite' => ['step' => []]]]],
+    'a proof store by name' => [
+        fn(): Gate => Gate::configure()->with(Proofs::uses('acme')),
+        ['proofs' => ['store' => 'acme']],
+    ],
+    'no Buildkite step' => [
+        fn(): Gate => Gate::configure()->with(Ci::buildkiteStep()),
+        ['ci' => ['buildkite' => ['step' => []]]],
+    ],
 ]);
 
 it('lays each setting over those before it', function (): void {

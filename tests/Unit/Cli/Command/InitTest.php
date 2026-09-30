@@ -201,3 +201,12 @@ it('writes nothing in a format it does not know', function () use ($init, $file)
         ->and($file($project, 'mutation-gate.toml'))->toBe('')
         ->and($file($project, '.gitignore'))->toBe('');
 });
+
+it('says so where it cannot read .gitignore', function () use ($init): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
+    mkdir(sprintf('%s/.gitignore', $project));
+    $ran = $init($project);
+
+    expect([$ran->code, $ran->output])->toBe([2, ''])
+        ->and($ran->errors)->toEndWith("/.gitignore could not be read.\n");
+});

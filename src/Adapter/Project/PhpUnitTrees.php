@@ -131,10 +131,10 @@ final readonly class PhpUnitTrees implements TreeSource
             return Absent::setting();
         }
 
-        $text = file_get_contents(sprintf('%s/%s', $this->root, $config));
-        $xml = is_string($text)
-            ? simplexml_load_string($text, options: LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING)
-            : false;
+        $xml = simplexml_load_string(
+            sprintf('%s', file_get_contents(sprintf('%s/%s', $this->root, $config))),
+            options: LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING,
+        );
 
         return $xml instanceof SimpleXMLElement
             ? $xml

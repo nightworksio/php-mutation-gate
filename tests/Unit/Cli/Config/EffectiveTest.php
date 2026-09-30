@@ -206,3 +206,16 @@ it('reads the config file --config names', function () use ($effective, $shown):
     expect($shown($effective($project)->settings(new Given('ci/gate.neon', '', [], '', '', firstPartyOnly: false))))
         ->toMatchArray(['runner' => 'pest', 'budget' => '90s']);
 });
+
+it('cannot judge a project whose composer.json it cannot read, where it must choose the preset', function () use (
+    $effective,
+    $nothing,
+): void {
+    $project = Scratch::directory();
+    mkdir(sprintf('%s/composer.json', $project));
+    Scratch::write($project, 'mutation-gate.json', '{"runner": "pest"}');
+
+    expect($effective($project)->settings($nothing()))->toBeInstanceOf(CannotJudge::class)
+        ->and(Configs::problems($effective($project)->settings($nothing()))[0])
+        ->toEndWith('/composer.json could not be read.');
+});

@@ -72,3 +72,23 @@ it('finds no runner in a vendor directory without the list of what is installed'
     expect(new Detected(Directory::at($project), Directory::at($project))->runner())
         ->toBeInstanceOf(CannotJudge::class);
 });
+
+it('reads only the packages installed.json names by a string', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'vendor/composer/installed.json', (string) json_encode(['packages' => [
+        ['name' => ['pestphp/pest-plugin-mutate']],
+        ['name' => 'infection/infection'],
+        ['version' => '1.0.0'],
+    ]]));
+
+    expect(new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)))->runner())
+        ->toBe('infection');
+});
+
+it('cannot judge a composer.json it cannot read', function (): void {
+    $project = Scratch::directory();
+    mkdir(sprintf('%s/composer.json', $project));
+
+    expect(new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)))->preset())
+        ->toBeInstanceOf(CannotJudge::class);
+});
