@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
  * A mutant as the gate's files write it. The full record holds everything a
- * runner reported of it; the brief one, which a ledger keeps of a killed
+ * runner reported of it, with the reason it left one unjudged; the brief one, which a ledger keeps of a killed
  * mutant, holds its id, its line, its mutator and its status, which is what
  * ignores need of it.
  *
@@ -38,12 +38,15 @@ final readonly class MutantRecord
 
     private const string LIMIT = 'limit';
 
+    private const string REASON = 'reason';
+
     /** @return array<string, int|float|string> */
     public static function full(Mutant $mutant): array
     {
         $end = $mutant->location()->end();
         $duration = $mutant->duration();
         $limit = $mutant->limit();
+        $reason = $mutant->reason();
 
         return [
             self::ID => $mutant->id()->value(),
@@ -57,6 +60,7 @@ final readonly class MutantRecord
             self::STATUS => $mutant->status()->value,
             ...$duration instanceof Seconds ? [self::SECONDS => $duration->seconds()] : [],
             ...$limit instanceof Seconds ? [self::LIMIT => $limit->seconds()] : [],
+            ...$reason instanceof Reason ? [self::REASON => $reason->text()] : [],
         ];
     }
 
@@ -91,8 +95,10 @@ final readonly class MutantRecord
             self::secondsIn($record->field(self::SECONDS)),
         );
         $limit = self::secondsIn($record->field(self::LIMIT));
+        $reason = $record->field(self::REASON);
+        $limited = $limit instanceof Seconds ? $mutant->withLimit($limit) : $mutant;
 
-        return $limit instanceof Seconds ? $mutant->withLimit($limit) : $mutant;
+        return $reason->isPresent() ? $limited->because(Reason::that($reason->text())) : $limited;
     }
 
     /**

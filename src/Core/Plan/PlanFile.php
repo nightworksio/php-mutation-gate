@@ -7,13 +7,16 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 use function array_map;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\UnitRecord;
@@ -33,6 +36,10 @@ final readonly class PlanFile
     private const int FORMAT = 1;
 
     private const string DIGEST = 'digest';
+
+    private const string REF = 'ref';
+
+    private const string DEFAULT_BRANCH = 'defaultBranch';
 
     public static function encode(Plan $plan): string
     {
@@ -63,8 +70,21 @@ final readonly class PlanFile
         return [
             'format' => self::FORMAT,
             'commit' => $plan->commit()->name(),
+            ...self::runOn($plan->runOn()),
             'keys' => KeysRecord::of($plan->keys()),
             'shards' => array_map(self::shard(...), [...$plan]),
+        ];
+    }
+
+    /** @return array<string, string> the ref and the default branch, each where there is one */
+    private static function runOn(RunOn $runOn): array
+    {
+        $scope = $runOn->scope();
+        $defaultBranch = $runOn->defaultBranch();
+
+        return [
+            ...$scope instanceof Scope ? [self::REF => $scope->ref()] : [],
+            ...$defaultBranch instanceof Scope ? [self::DEFAULT_BRANCH => $defaultBranch->ref()] : [],
         ];
     }
 
@@ -97,13 +117,33 @@ final readonly class PlanFile
             Revision::ref($file->field('commit')->text()),
             KeysRecord::read($file->field('keys')),
             $shards,
-        );
+        )->on(self::runOnIn($file));
 
         return $plan->digest()->value() === $file->field(self::DIGEST)->text()
             ? $plan
             : CannotJudge::because(
                 'The plan does not match its digest, so it was changed after it was made. Plan again.',
             );
+    }
+
+    /** @throws NotInShape */
+    private static function runOnIn(Node $file): RunOn
+    {
+        $named = $file->field(self::DEFAULT_BRANCH);
+        $defaultBranch = $named->isPresent()
+            ? self::scopeIn($named)
+            : CannotTell::because('The plan names no default branch.');
+        $ref = $file->field(self::REF);
+
+        return $ref->isPresent() ? RunOn::at(self::scopeIn($ref), $defaultBranch) : RunOn::detached($defaultBranch);
+    }
+
+    /** @throws NotInShape */
+    private static function scopeIn(Node $ref): Scope
+    {
+        $scope = Scope::parse($ref->text());
+
+        return $scope instanceof CannotJudge ? throw NotInShape::at($ref->at(), 'a scope') : $scope;
     }
 
     /** @throws NotInShape */

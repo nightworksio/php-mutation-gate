@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -37,6 +38,15 @@ $killed = Mutant::of(
     MutantStatus::Killed,
     Unmeasured::duration(),
 );
+
+$unjudged = Mutant::of(
+    $id,
+    '18',
+    Location::of(Path::of('src/Money.php'), Line::of(7), Unreported::line()),
+    Mutation::of('LessThan', MutatorFamily::Boundary, "-<\n+<="),
+    MutantStatus::Unjudged,
+    Unmeasured::duration(),
+)->because(Reason::that('No test references the constant it changes.'));
 
 $read = static fn(array $record): Node => Node::decode(Json::encode($record));
 
@@ -69,13 +79,18 @@ it('leaves out of the full record what the runner did not report', function () u
     ]);
 });
 
+it('writes the reason a runner left a mutant unjudged in the full record', function () use ($unjudged): void {
+    expect(MutantRecord::full($unjudged))->toMatchArray(['status' => 'unjudged', 'reason' => 'No test references the constant it changes.']);
+});
+
 it('writes a killed mutant briefly: its id, line, mutator and status', function () use ($killed, $id): void {
     expect(MutantRecord::brief($killed))->toBe(['id' => $id->value(), 'line' => 1, 'mutator' => 'LessThan', 'status' => 'killed']);
 });
 
-it('reads back the mutant it wrote in full', function () use ($timedOut, $killed, $read): void {
+it('reads back the mutant it wrote in full', function () use ($timedOut, $killed, $unjudged, $read): void {
     expect(MutantRecord::readFull($read(MutantRecord::full($timedOut))))->toEqual($timedOut)
-        ->and(MutantRecord::readFull($read(MutantRecord::full($killed))))->toEqual($killed);
+        ->and(MutantRecord::readFull($read(MutantRecord::full($killed))))->toEqual($killed)
+        ->and(MutantRecord::readFull($read(MutantRecord::full($unjudged))))->toEqual($unjudged);
 });
 
 it('reads a brief record as a mutant of the unit it was proved in', function () use ($killed, $id, $read): void {
@@ -107,6 +122,7 @@ it('refuses a record that does not hold a mutant, saying where', function (array
     'seconds that are not a number' => [['seconds' => 'long'], NotInShape::at('the file.seconds', 'a number')],
     'a limit that is not a number' => [['limit' => 'long'], NotInShape::at('the file.limit', 'a number')],
     'a native id that is not text' => [['native' => 7], NotInShape::at('the file.native', 'text')],
+    'a reason that is not text' => [['reason' => 7], NotInShape::at('the file.reason', 'text')],
 ]);
 
 it('refuses a brief record that does not hold a mutant', function () use ($killed, $read): void {

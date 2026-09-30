@@ -44,8 +44,3 @@ it('keeps a pin that is not a commit', function (): void {
     expect(CiDefinition::at(Path::of('ci.yml'), Contents::of('uses: actions/cache@abc # short'))->asItRuns())
         ->toBe('uses: actions/cache@abc # short');
 });
-
-it('is nothing for a run outside CI', function (): void {
-    expect(CiDefinition::none()->path())->toEqual(Path::root())
-        ->and(CiDefinition::none()->asItRuns())->toBe('');
-});

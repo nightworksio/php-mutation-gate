@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\Detached;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -12,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -44,12 +48,14 @@ $planWith = static fn(string $secondLabel): Plan => Plan::of(
             $secondLabel,
         ),
     ),
-);
+)->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')));
 
 $body = <<<'JSON'
 {
     "format": 1,
     "commit": "5eeca8f",
+    "ref": "refs/pull/12",
+    "defaultBranch": "refs/heads/main",
     "keys": {
         "src/A.php": "aaa",
         "src/B.php": {
@@ -88,7 +94,7 @@ $body = <<<'JSON'
 }
 JSON;
 
-it('writes the commit, every key, the shards and the digest of all of them', function () use ($planWith, $body): void {
+it('writes the commit, the ref and the default branch, every key, the shards and the digest of all of them', function () use ($planWith, $body): void {
     expect(PlanFile::encode($planWith('src, part 2 of 2')))
         ->toBe(sprintf("%s,\n    \"digest\": \"%s\"\n}", mb_substr($body, 0, -2), hash('sha256', $body)));
 });
@@ -110,6 +116,23 @@ it('reads back the plan it wrote', function () use ($planWith): void {
     $plan = $planWith('src, part 2 of 2');
 
     expect(PlanFile::decode(PlanFile::encode($plan)))->toEqual($plan);
+});
+
+it('reads back a plan for a detached HEAD, with or without a default branch', function (RunOn $runOn): void {
+    $plan = Plan::of(Revision::ref('5eeca8f'), Keys::none(), Shards::none())->on($runOn);
+
+    expect(PlanFile::decode(PlanFile::encode($plan)))->toEqual($plan);
+})->with([
+    'a default branch' => [RunOn::detached(Scope::branch('main'))],
+    'none' => [RunOn::detached(CannotTell::because('The plan names no default branch.'))],
+]);
+
+it('reads a plan that names no default branch as one that cannot tell it', function (): void {
+    $plan = PlanFile::decode(PlanFile::encode(Plan::of(Revision::ref('5eeca8f'), Keys::none(), Shards::none())));
+
+    expect($plan instanceof Plan ? $plan->runOn()->defaultBranch() : $plan)
+        ->toEqual(CannotTell::because('The plan names no default branch.'))
+        ->and($plan instanceof Plan ? $plan->runOn()->scope() : $plan)->toEqual(Detached::head());
 });
 
 it('refuses a plan changed after it was made', function () use ($planWith): void {
@@ -137,5 +160,13 @@ it('refuses what is not a plan, saying where it went wrong', function (string $j
         'the file.shards[0].label is missing.',
     ],
     'no commit' => ['{"format": 1, "shards": []}', 'the file.commit is missing.'],
+    'a ref that is not a scope' => [
+        '{"format": 1, "commit": "5eeca8f", "ref": "main", "keys": {}, "shards": []}',
+        'the file.ref is not a scope.',
+    ],
+    'a default branch that is not a scope' => [
+        '{"format": 1, "commit": "5eeca8f", "defaultBranch": "main", "keys": {}, "shards": []}',
+        'the file.defaultBranch is not a scope.',
+    ],
     'no digest' => ['{"format": 1, "commit": "5eeca8f", "keys": {}, "shards": []}', 'the file.digest is missing.'],
 ]);

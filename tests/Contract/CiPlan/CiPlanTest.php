@@ -61,5 +61,5 @@ it('cannot judge a plan that does not hold this job', function (CiPlan $ci): voi
 it('says what it can of the run, or that it cannot tell', function (CiPlan $ci): void {
     $run = $ci->runOn();
 
-    expect($run instanceof RunOn ? $run->scope()->ref() : $run->why())->toBeString();
+    expect($run instanceof RunOn || $run->why() !== '')->toBeTrue();
 })->with($plans);
