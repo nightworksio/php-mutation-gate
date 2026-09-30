@@ -61,7 +61,7 @@ it('cannot tell where git cannot be fed in the directory', function (): void {
 
 it('leaves none of the files it hands git its input through', function (): void {
     $scratch = static function (): array {
-        $found = glob(sprintf('%s/mutation-gate-git-*', sys_get_temp_dir()));
+        $found = glob(sprintf('%s/mutation-gate-git-%d-*', sys_get_temp_dir(), getmypid()));
 
         return is_array($found) ? $found : [];
     };
