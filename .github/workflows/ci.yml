@@ -99,14 +99,16 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py scripts
 
-  # Workflow lint, spelling, links and Markdown, over every change.
+  # Workflow lint and audit, spelling, links and Markdown, over every change.
+  # The two calls below keep the `./` form, which zizmor's self-repository
+  # audit would change to `$/`: actionlint 1.7.12 refuses `$/`.
   hygiene:
-    uses: ./.github/workflows/hygiene.yml
+    uses: ./.github/workflows/hygiene.yml # zizmor: ignore[self-repository]
 
   # Secrets in the history, and known vulnerabilities in what the lock file
   # installs.
   security:
-    uses: ./.github/workflows/security.yml
+    uses: ./.github/workflows/security.yml # zizmor: ignore[self-repository]
 
   # R1 — the rules, before anything slower gets a chance to hide a broken
   # boundary. The Arch suite reads ARCHITECTURE.md against the code, so it runs

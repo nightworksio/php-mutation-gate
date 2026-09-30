@@ -3,6 +3,10 @@
 
 version: 2
 
+# In every ecosystem a release waits seven days before it is offered, so a
+# revision pulled shortly after publication is one somebody else has already
+# run. Security updates are never held by a cooldown.
+
 updates:
   - package-ecosystem: composer
     directory: /
@@ -10,6 +14,8 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       # The analysis toolchain moves together and breaks together: a new PHPStan
       # minor and a new rule package are one change to review.
@@ -47,7 +53,7 @@ updates:
       interval: weekly
       day: monday
     cooldown:
-      default-days: 3
+      default-days: 7
     groups:
       markdownlint:
         patterns: ['*']
@@ -61,11 +67,8 @@ updates:
       interval: daily
       time: "05:00"
       timezone: Europe/Amsterdam
-    # A release waits three days before it is offered, so a revision pulled
-    # shortly after publication is one somebody else has already run. Security
-    # updates are never held by a cooldown.
     cooldown:
-      default-days: 3
+      default-days: 7
     groups:
       # `init`, `analyze` and `upload-sarif` are one action, and CodeQL refuses
       # a run whose parts are different revisions of it.

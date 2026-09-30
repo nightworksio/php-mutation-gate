@@ -1,7 +1,7 @@
-# Workflow lint, spelling, links and Markdown, over the whole tree. Called by
-# ci.yml; each tool reads its configuration from the repository root, reports
-# in its structured form into evidence/raw, and the evidence step shows every
-# finding as an annotation (ADR-0019, decision 5).
+# Workflow lint and audit, spelling, links and Markdown, over the whole tree.
+# Called by ci.yml; each tool reads its configuration from the repository
+# root, reports in its structured form into evidence/raw, and the evidence
+# step shows every finding as an annotation (ADR-0019, decision 5).
 name: hygiene
 
 on:
@@ -49,6 +49,49 @@ jobs:
       - name: what failed
         if: failure()
         run: python3 .github/scripts/gate_summary.py hygiene/actionlint
+
+  # The workflows and Dependabot's configuration, audited for the ways a
+  # workflow is attacked (ADR-0019, decision 3). The release binary, pinned by
+  # version and by the SHA-256 GitHub lists for the asset. It runs online with
+  # the job's read-only token, so the audits that ask GitHub about a pinned
+  # action run too.
+  zizmor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ZIZMOR_VERSION: "1.30.1"
+      ZIZMOR_SHA256: "e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/raw
+          url="https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/zizmor-x86_64-unknown-linux-gnu.tar.gz"
+          curl -sSfL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 --retry-all-errors \
+            -o "${RUNNER_TEMP}/zizmor.tar.gz" "$url"
+          sha256sum --check --strict <<<"${ZIZMOR_SHA256}  ${RUNNER_TEMP}/zizmor.tar.gz"
+          tar xzf "${RUNNER_TEMP}/zizmor.tar.gz" -C "${RUNNER_TEMP}" zizmor
+          "${RUNNER_TEMP}/zizmor" --format=json . > evidence/raw/zizmor.json
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py hygiene/zizmor
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-hygiene-zizmor
+          path: evidence/hygiene-zizmor*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py hygiene/zizmor
 
   # typos.toml turns hidden files on, so `.docs` and `.github` are read. The
   # CLI rather than the action, so it can write JSON: typos' releases list no
