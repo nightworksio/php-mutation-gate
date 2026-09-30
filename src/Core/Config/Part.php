@@ -19,7 +19,7 @@ interface Part
     /** A part that sets every setting to the value it takes when every layer leaves it out. */
     public static function standard(): self;
 
-    /** This part with a later layer's laid over it: what the later one sets wins, and lists only grow. */
+    /** This part with a later layer's laid over it: what the later one sets wins, and a list grows, but for `trees`. */
     public function over(self $later): self;
 
     /** What this part sets, as a config written at this origin writes it. */

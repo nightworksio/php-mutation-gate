@@ -24,7 +24,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
  * Every setting of the config, with its type and what it can change, as the
- * parts of a layer declare them. Every layer is read through this
+ * keys of each part of a layer declare them. Every layer is read through this
  * definition, and the JSON Schema is written from it, with the value each
  * setting takes when every layer leaves it out, so the two cannot drift
  * (ADR-0002).

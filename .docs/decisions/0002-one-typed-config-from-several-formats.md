@@ -50,8 +50,9 @@ cannot.
      layer, paths named from the file's directory, the gate's own problems for
      an invalid file, and a file that is not there not judged.
    - A preset an extension registers is a layer, `withPreset(Name, Layer)`,
-     which it can build with the PHP builder: `Gate::configure()->…->layer(ProjectRoot::origin())`, its
-     paths named from the project.
+     which it can build with the PHP builder:
+     `Gate::configure()->…->layer(ProjectRoot::origin())`, its paths named
+     from the project.
 
 2. **Where the config is found.**
    - `--config=<path>`, accepted by every command, names it.
@@ -111,7 +112,7 @@ cannot.
    - **JSON**. The schema ships in the package at
      `resources/mutation-gate.schema.json` and is published at
      `https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v1/resources/mutation-gate.schema.json`,
-     so an editor completes and checks the file. The validator accepts the
+     so an editor completes and checks the file. The definition accepts the
      `$schema` key and ignores its value:
 
      ```json
@@ -144,9 +145,9 @@ cannot.
      - **Dates need no quotes.** The YAML loader parses with
        `Yaml::PARSE_DATETIME`, and NEON reads a date as a date by itself. Each
        loader turns such a value back into the `YYYY-MM-DD` string the
-       validator expects.
+       definition expects.
      - **Mutant ids are always quoted.** Both parsers read an unquoted id such
-       as `12e456789012` as a number. The validator refuses a mutant id that is
+       as `12e456789012` as a number. The definition refuses a mutant id that is
        not a string, and its message says to quote it.
 
 4. **How a setting names an adapter or an extension.** Wherever a setting
@@ -228,8 +229,8 @@ cannot.
    until that page is built (ADR-0018).
 
 7. **The schema is generated, not written.** `mutation-gate config:schema`
-   prints JSON Schema (draft 2020-12) from the same definitions the validator
-   uses. The committed `resources/mutation-gate.schema.json` must equal that
+   prints JSON Schema (draft 2020-12) from the same definition every layer is
+   read through. The committed `resources/mutation-gate.schema.json` must equal that
    output, and a test fails when the two differ.
 
 ## Alternatives considered
@@ -237,8 +238,8 @@ cannot.
 | Option | Why it lost |
 |--------|-------------|
 | **PHP only** | Simplest, and it is what Rector and Pint's PHP configs do. The approved scope has more, and JSON with a schema is what editors and CI templates can read, check and write without running PHP. |
-| **Each format with its own loader producing `Config` directly** | Four implementations of every rule, and a setting drifts in one of them. One tree and one validator make the formats equivalent by construction. |
-| **A hand-written JSON Schema as the source of truth** | The schema cannot express every rule (a tree path that exists, an expiry within `ignores.maxDays`), so the validator would still be needed, and the two would drift. Generating the schema from the validator's definitions keeps one source. |
+| **Each format with its own loader producing `Config` directly** | Four implementations of every rule, and a setting drifts in one of them. One JSON form and one definition make the formats equivalent by construction. |
+| **A hand-written JSON Schema as the source of truth** | The schema cannot express every rule (a tree path that exists, an expiry within `ignores.maxDays`), so a reader would still be needed, and the two would drift. Generating the schema from the definition every layer is read through keeps one source. |
 | **`mutation.php` (and `mutation.json`, …)** | A generic name a project may already use for something else, as the in-house gate's own script does. `mutation-gate.*` matches the package and the binary, and cannot be mistaken for another tool's file. |
 | **Precedence when several config files exist** (as `phpunit.xml` over `phpunit.xml.dist`) | Invites a forgotten local file that silently wins. The gate is a CI decision, and one file is one answer. |
 | **Silently ignoring unknown keys** | The most common config mistake is a typo, and ignoring it makes a stricter setting quietly not apply. |
@@ -251,7 +252,7 @@ cannot.
 `phpunit.xml` `<source>` and Pest installed plans, runs and reports.
 
 **Every format can say everything.** A setting added to the builder is in the
-tree, the validator and the generated schema at once, and the test that compares
+JSON, the definition and the generated schema at once, and the test that compares
 the committed schema fails until it is regenerated.
 
 **YAML and NEON cost nothing unless used.** The package's `require` stays small.

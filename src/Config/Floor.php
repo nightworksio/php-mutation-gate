@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
-/** A floor, from 0 to 100, as written: `Floor::of(100)`. The validator checks its range. */
+/** A floor, from 0 to 100, as written: `Floor::of(100)`. The config's definition checks its range. */
 final readonly class Floor
 {
     private function __construct(private int|float $percent)

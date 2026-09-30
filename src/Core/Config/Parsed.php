@@ -25,10 +25,10 @@ use function sprintf;
 use function var_export;
 
 /**
- * A config a YAML or NEON parser read, made into the tree every format
- * shares. A date the parser read as a date is written `YYYY-MM-DD` again,
+ * A config a YAML or NEON parser read, made into the JSON every format
+ * reads into. A date the parser read as a date is written `YYYY-MM-DD` again,
  * and one with a time of day is refused. A number JSON cannot hold, such as
- * an unquoted mutant id read as an infinite float, becomes text the validator
+ * an unquoted mutant id read as an infinite float, becomes text the definition
  * can name. Any other object is refused: config is data (ADR-0002).
  */
 final readonly class Parsed
