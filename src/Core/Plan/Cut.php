@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_map;
+use function array_merge;
 use function array_pad;
 use function array_sum;
-use function ceil;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -60,11 +60,13 @@ final readonly class Cut
 
         $runs = [];
 
-        foreach ($this->countsFor($packages) as $package => $count) {
-            $runs = [...$runs, ...Runs::into($packages[$package], $count)];
+        foreach ($this->countsFor($packages) as $at => $count) {
+            $runs[] = $packages[$at]->runs($count);
         }
 
-        return Labels::of($this->exact ? array_pad($runs, $this->most, []) : $runs, $trees);
+        $cut = array_merge(...$runs);
+
+        return Labels::of($trees, ...$this->exact ? array_pad($cut, $this->most, Run::of()) : $cut);
     }
 
     /**
@@ -72,12 +74,12 @@ final readonly class Cut
      * the most there may be, every shard is made larger, until it fits or
      * every package has one shard.
      *
-     * @param  array<string, list<Weighed>> $packages
-     * @return array<string, int>
+     * @param  list<PackageWork> $packages
+     * @return list<int>
      */
     private function countsFor(array $packages): array
     {
-        $size = $this->exact ? array_sum(array_map(Runs::costOf(...), $packages)) / $this->most : $this->seconds;
+        $size = $this->exact ? $this->costOf($packages) / $this->most : $this->seconds;
         $counts = $this->countsAt($packages, $size);
 
         while (array_sum($counts) > $this->most && array_sum($counts) > count($packages)) {
@@ -89,15 +91,17 @@ final readonly class Cut
     }
 
     /**
-     * @param  array<string, list<Weighed>> $packages
-     * @return array<string, int>
+     * @param  list<PackageWork> $packages
+     * @return list<int>
      */
     private function countsAt(array $packages, float $size): array
     {
-        return array_map(static function (array $units) use ($size): int {
-            $cost = Runs::costOf($units);
+        return array_map(static fn(PackageWork $package): int => $package->shardsAt($size), $packages);
+    }
 
-            return $cost > 0.0 && $size > 0.0 ? (int) ceil($cost / $size) : 1;
-        }, $packages);
+    /** @param list<PackageWork> $packages */
+    private function costOf(array $packages): float
+    {
+        return array_sum(array_map(static fn(PackageWork $package): float => $package->cost()->seconds(), $packages));
     }
 }

@@ -15,12 +15,14 @@ use stdClass;
  * key, where a unit with no key holds why.
  *
  * @internal the shape of the plan and shard result files
+ *
+ * @phpstan-type Written array<string, string|array{unkeyed: string}>
  */
 final readonly class KeysRecord
 {
     private const string UNKEYED = 'unkeyed';
 
-    /** @return array<string, string|array<string, string>>|stdClass */
+    /** @return Written|stdClass */
     public static function of(Keys $keys): array|stdClass
     {
         $written = [];

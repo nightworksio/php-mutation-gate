@@ -30,6 +30,22 @@ use function sprintf;
  * many thousands of them can take.
  *
  * @internal the shape of the plan, shard result and ledger files
+ *
+ * @phpstan-type Full array{
+ *     id: string,
+ *     native: string,
+ *     file: string,
+ *     line: int,
+ *     end?: int,
+ *     mutator: string,
+ *     family: string,
+ *     diff: string,
+ *     status: string,
+ *     seconds?: float,
+ *     limit?: float,
+ *     reason?: string,
+ *     killedBy?: list<string>,
+ * }
  */
 final readonly class MutantRecord
 {
@@ -56,7 +72,7 @@ final readonly class MutantRecord
 
     private const string KILLED_BY = 'killedBy';
 
-    /** @return array<string, int|float|string|list<string>> */
+    /** @return Full */
     public static function full(Mutant $mutant): array
     {
         $end = $mutant->location()->end();

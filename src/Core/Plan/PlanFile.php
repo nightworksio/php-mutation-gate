@@ -23,6 +23,8 @@ use NightWorksIO\MutationGate\Core\Unit\UnitRecord;
 
 use function sprintf;
 
+use stdClass;
+
 /**
  * A plan as `.mutation-gate/plan.json` holds it, `"format": 1`: the commit it
  * was made on, every considered unit's key, and the shards, with the digest
@@ -30,6 +32,20 @@ use function sprintf;
  * what it holds, is refused: a shard never guesses at its units.
  *
  * @internal the shape of the plan file
+ *
+ * @phpstan-import-type Written from KeysRecord as KeysWritten
+ * @phpstan-import-type Written from UnitRecord as UnitWritten
+ *
+ * @phpstan-type RunOnWritten array{ref?: string, defaultBranch?: string}
+ * @phpstan-type ShardWritten array{id: int, label: string, seconds: float, package: string, units: list<UnitWritten>}
+ * @phpstan-type Body array{
+ *     format: int,
+ *     commit: string,
+ *     ref?: string,
+ *     defaultBranch?: string,
+ *     keys: KeysWritten|stdClass,
+ *     shards: list<ShardWritten>,
+ * }
  */
 final readonly class PlanFile
 {
@@ -64,7 +80,7 @@ final readonly class PlanFile
         return Digest::sha256Of(Json::encode(self::body($plan)));
     }
 
-    /** @return array<string, mixed> */
+    /** @return Body */
     private static function body(Plan $plan): array
     {
         return [
@@ -76,7 +92,7 @@ final readonly class PlanFile
         ];
     }
 
-    /** @return array<string, string> the ref and the default branch, each where there is one */
+    /** @return RunOnWritten the ref and the default branch, each where there is one */
     private static function runOn(RunOn $runOn): array
     {
         $scope = $runOn->scope();
@@ -88,7 +104,7 @@ final readonly class PlanFile
         ];
     }
 
-    /** @return array<string, mixed> */
+    /** @return ShardWritten */
     private static function shard(Shard $shard): array
     {
         return [

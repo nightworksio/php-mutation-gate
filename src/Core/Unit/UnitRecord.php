@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Test\Group;
  * that holds it where it is held.
  *
  * @internal the shape of the plan and shard result files
+ *
+ * @phpstan-type Written array{path: string, group?: string, filter?: string}
  */
 final readonly class UnitRecord
 {
@@ -26,13 +28,13 @@ final readonly class UnitRecord
 
     private const string FILTER = 'filter';
 
-    /** @return list<array<string, string>> */
+    /** @return list<Written> */
     public static function all(Units $units): array
     {
         return array_map(self::one(...), [...$units]);
     }
 
-    /** @return array<string, string> */
+    /** @return Written */
     public static function one(Unit $unit): array
     {
         $by = $unit->judgedBy();
