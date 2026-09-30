@@ -68,6 +68,11 @@ final readonly class Checkout implements ChangeSource, Repository
         return $this->repository->head();
     }
 
+    public function isClean(): bool|CannotTell
+    {
+        return $this->repository->isClean();
+    }
+
     public function branch(): Scope|Detached|CannotTell
     {
         return $this->repository->branch();

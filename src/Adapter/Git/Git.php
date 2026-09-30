@@ -42,9 +42,10 @@ use function trim;
  * The repository as git sees it from a directory: what changed from the merge
  * base of a revision and HEAD to what is on disk, every file that is not
  * ignored with its blob id, and a file as it was at a revision. Uncommitted
- * changes and untracked files count. It also says the commit HEAD is at, the
- * branch it is on, the branch the remote calls its default, and the URL
- * that remote fetches from.
+ * changes and untracked files count. It also says the commit HEAD is at,
+ * whether the working tree holds anything it does not, the branch it is on,
+ * the branch the remote calls its default, and the URL that remote fetches
+ * from.
  *
  * A revision is resolved to its commit once, the first time a file is read
  * at it, so every file read at it is read at the same commit, and the files
@@ -155,6 +156,13 @@ final class Git implements ChangeSource, Repository
         return $commit instanceof Commit ? $commit->revision() : $commit;
     }
 
+    public function isClean(): bool|CannotTell
+    {
+        $status = $this->git->run(['--no-optional-locks', 'status', '--porcelain', '-z', '--untracked-files=all']);
+
+        return $status instanceof CannotTell ? $status : $status === '';
+    }
+
     public function branch(): Scope|Detached|CannotTell
     {
         $name = $this->git->run(['rev-parse', '--abbrev-ref', 'HEAD']);
@@ -184,16 +192,18 @@ final class Git implements ChangeSource, Repository
     }
 
     /**
-     * The commit a revision names, resolved the first time it is asked for. A
-     * name that begins with `-` is refused, since git would read it as an
-     * option, and `--end-of-options` keeps any other from being read as one.
+     * The commit a revision names, resolved the first time it is asked for,
+     * git asked for that commit and for nothing else. A name that begins with
+     * `-` is refused, since git would read it as an option, and
+     * `--end-of-options` keeps any other from being read as one.
      */
     private function commitOf(Revision $revision): string|CannotTell
     {
         $name = $revision->name();
+        $resolving = ['rev-parse', '--verify', '--quiet', '--end-of-options', sprintf('%s^{commit}', $name)];
 
         if (! array_key_exists($name, $this->commits)) {
-            $printed = str_starts_with($name, '-') ? $name : $this->git->run($this->resolving($name));
+            $printed = str_starts_with($name, '-') ? $name : $this->git->run($resolving);
             $parsed = $printed instanceof CannotTell ? $printed : Commit::parse(trim($printed));
             $this->commits[$name] = $parsed instanceof Commit
                 ? $parsed->id()
@@ -201,16 +211,6 @@ final class Git implements ChangeSource, Repository
         }
 
         return $this->commits[$name];
-    }
-
-    /**
-     * What asks git for the commit a name resolves to, and for nothing else.
-     *
-     * @return list<string>
-     */
-    private function resolving(string $name): array
-    {
-        return ['rev-parse', '--verify', '--quiet', '--end-of-options', sprintf('%s^{commit}', $name)];
     }
 
     private function changesFrom(string $commit): Changes|CannotTell

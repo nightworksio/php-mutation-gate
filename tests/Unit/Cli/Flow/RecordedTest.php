@@ -412,7 +412,7 @@ it('learns each killed mutant\'s first killer in its function, and forgets funct
         ->and($killers->likelyKillers($unseen, $gone))->toEqual(TestIds::none());
 });
 
-it('records with each proof its share of the plan\'s digests, with each test file that killed a mutant of it', function () use (
+it('records with each proof its share of the plan\'s digests, with each test file that killed a mutant of it and the commit they were taken at', function () use (
     $map,
     $run,
     $ledgers,
@@ -422,7 +422,8 @@ it('records with each proof its share of the plan\'s digests, with each test fil
     $digests = Digests::of(Digest::sha256Of('mutation'))
         ->withSource(Path::of('src/Money.php'), Digest::sha256Of('money source'))
         ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test'))
-        ->withTest(Path::of('tests/TaxTest.php'), Digest::sha256Of('tax test'));
+        ->withTest(Path::of('tests/TaxTest.php'), Digest::sha256Of('tax test'))
+        ->takenAt(Revision::ref(str_repeat('c0', 20)));
     $plan = Planned::twoShards()
         ->digesting($digests)
         ->naming(TestNames::none()
@@ -454,7 +455,8 @@ it('records with each proof its share of the plan\'s digests, with each test fil
 
     expect($money instanceof Proof ? $money->inputs() : $money)->toEqual(
         Inputs::of(Digest::sha256Of('money source'), Digest::sha256Of('mutation'))
-            ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test')),
+            ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test'))
+            ->takenAt(Revision::ref(str_repeat('c0', 20))),
     )
         ->and($held instanceof Proof ? $held->inputs() : $held)->toEqual(Undigested::proof());
 });

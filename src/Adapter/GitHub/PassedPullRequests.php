@@ -135,6 +135,11 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
         return $this->source->head();
     }
 
+    public function isClean(): bool|CannotTell
+    {
+        return $this->source->isClean();
+    }
+
     public function branch(): Scope|Detached|CannotTell
     {
         return $this->source->branch();

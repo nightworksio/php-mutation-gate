@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
+use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -59,6 +60,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
@@ -532,5 +534,18 @@ it('hands the plan the digests of the run\'s inputs, with each unit it runs', fu
     expect($digests)->toBeInstanceOf(Digests::class)
         ->and($digests instanceof Digests ? $digests->sources()->paths() : $digests)
         ->toEqual(Paths::of(Path::of('src/Held.php'), Path::of('src/Money.php')))
-        ->and($digests instanceof Digests ? count($digests->tests()) : $digests)->toBeGreaterThan(0);
+        ->and($digests instanceof Digests ? count($digests->tests()) : $digests)->toBeGreaterThan(0)
+        ->and($digests instanceof Digests ? $digests->commit() : $digests)->toEqual(Revision::ref(Flows::HEAD));
 });
+
+it('takes the digests at no commit where the working tree holds what HEAD does not, or git cannot say', function (
+    RepositoryFake $repository,
+) use ($plan): void {
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $repository);
+    $digests = $planned instanceof Plan ? $planned->digests() : $planned;
+
+    expect($digests instanceof Digests ? $digests->commit() : $digests)->toEqual(Uncommitted::tree());
+})->with([
+    'a changed working tree' => fn(): RepositoryFake => RepositoryFake::onMain(Revision::ref(Flows::HEAD))->changed(),
+    'git cannot say' => fn(): RepositoryFake => RepositoryFake::onMain(Revision::ref(Flows::HEAD))->unsure(),
+]);

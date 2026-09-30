@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -13,8 +14,10 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 /**
  * The digests of a run's inputs, as its plan was made (ADR-0008, decision 1):
  * what decides every unit's mutant set besides its source, each unit's
- * source, and each test file with the support it reads. A proof records its
- * share of them, and a result of other code is judged against them.
+ * source, and each test file with the support it reads, and the commit they
+ * were taken at, where the working tree held nothing that commit does not. A
+ * proof records its share of them, and a result of other code is judged
+ * against them.
  */
 final readonly class Digests
 {
@@ -22,24 +25,43 @@ final readonly class Digests
      * @param ByPath<Digest> $sources each unit's source digest, by its path
      * @param ByPath<Digest> $tests   each test file's digest, with what it reads, by its path
      */
-    private function __construct(private Digest $mutation, private ByPath $sources, private ByPath $tests)
-    {
+    private function __construct(
+        private Digest $mutation,
+        private ByPath $sources,
+        private ByPath $tests,
+        private Revision|Uncommitted $commit,
+    ) {
     }
 
-    /** A run's digests, with what decides its mutant sets besides their sources, and no unit or test file yet. */
+    /**
+     * A run's digests, with what decides its mutant sets besides their
+     * sources, no unit or test file yet, and no commit they stand for.
+     */
     public static function of(Digest $mutation): self
     {
-        return new self($mutation, ByPath::none(), ByPath::none());
+        return new self($mutation, ByPath::none(), ByPath::none(), Uncommitted::tree());
     }
 
     public function withSource(Path $unit, Digest $digest): self
     {
-        return new self($this->mutation, $this->sources->with($unit, $digest), $this->tests);
+        return clone($this, ['sources' => $this->sources->with($unit, $digest)]);
     }
 
     public function withTest(Path $file, Digest $digest): self
     {
-        return new self($this->mutation, $this->sources, $this->tests->with($file, $digest));
+        return clone($this, ['tests' => $this->tests->with($file, $digest)]);
+    }
+
+    /** These digests, taken at this commit from a working tree that held nothing it does not. */
+    public function takenAt(Revision $commit): self
+    {
+        return clone($this, ['commit' => $commit]);
+    }
+
+    /** The commit these digests were taken at, or none where the working tree held more. */
+    public function commit(): Revision|Uncommitted
+    {
+        return $this->commit;
     }
 
     /** What decides every unit's mutant set besides its source. */
@@ -84,7 +106,9 @@ final readonly class Digests
             return Undigested::proof();
         }
 
-        $inputs = Inputs::of($source, $this->mutation);
+        $inputs = $this->commit instanceof Revision
+            ? Inputs::of($source, $this->mutation)->takenAt($this->commit)
+            : Inputs::of($source, $this->mutation);
 
         foreach ($killers as $file) {
             $digest = $this->testOf($file);

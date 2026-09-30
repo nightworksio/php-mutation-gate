@@ -83,10 +83,55 @@ it('says a detached HEAD is on no branch, and cannot tell a default branch no re
     ),
 ]);
 
+$committed = static fn(): Fixture => Fixture::ofTheFixture()
+    ->write('.gitignore', "/build/\n")
+    ->commit('Everything on disk.')
+    ->write('build/cache.txt', 'ignored');
+
+it('says a working tree that holds nothing but its commit and what git ignores is clean', function (
+    Repository $repository,
+): void {
+    expect($repository->isClean())->toBeTrue();
+})->with([
+    'the fake' => fn(): Repository => RepositoryFake::onMain(Revision::ref(str_repeat('5e', 20))),
+    'git' => fn(): Repository => Git::at($committed()->root),
+    'git, through GitHub' => fn(): Repository => PassedPullRequests::over(
+        Git::at($committed()->root),
+        $github(),
+        GITHUB_RUN,
+        'mutation / verdict',
+    ),
+]);
+
+it('says a working tree with a change, staged or not, or a file git neither tracks nor ignores, is not clean', function (
+    Repository $repository,
+): void {
+    expect($repository->isClean())->toBeFalse();
+})->with([
+    'the fake' => fn(): Repository => RepositoryFake::onMain(Revision::ref(str_repeat('5e', 20)))->changed(),
+    'a change git does not track yet' => fn(): Repository => Git::at(
+        $committed()->write('src/Money.php', "<?php\nreturn 3;\n")->root,
+    ),
+    'a staged change' => function () use ($committed): Repository {
+        $fixture = $committed()->write('src/Money.php', "<?php\nreturn 3;\n");
+        $fixture->git('add', 'src/Money.php');
+
+        return Git::at($fixture->root);
+    },
+    'an untracked file' => fn(): Repository => Git::at($committed()->write('src/Rate.php', "<?php\n")->root),
+    'git, through GitHub' => fn(): Repository => PassedPullRequests::over(
+        Git::at(Fixture::ofTheFixture()->root),
+        $github(),
+        GITHUB_RUN,
+        'mutation / verdict',
+    ),
+]);
+
 it('cannot tell where a directory that is no repository stands', function (): void {
     $git = Git::at(Scratch::directory());
 
     expect($git->head())->toBeInstanceOf(CannotTell::class)
+        ->and($git->isClean())->toBeInstanceOf(CannotTell::class)
         ->and($git->branch())->toBeInstanceOf(CannotTell::class)
         ->and($git->defaultBranch())->toBeInstanceOf(CannotTell::class);
 });

@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
+use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -94,8 +95,9 @@ $adds = TestIds::of(TestId::of('MoneyTest::adds'));
 $both = TestIds::of(TestId::of('CartTest::totals'), TestId::of('MoneyTest::adds'));
 // The ledger as a run leaves it: every mutant in full.
 // What the proof of src/Money.php records of its inputs.
-$inputs = Inputs::of(Digest::of(str_repeat('1', 64)), Digest::of(str_repeat('2', 64)))
+$uncommitted = Inputs::of(Digest::of(str_repeat('1', 64)), Digest::of(str_repeat('2', 64)))
     ->withTest(Path::of('tests/MoneyTest.php'), Digest::of(str_repeat('3', 64)));
+$inputs = $uncommitted->takenAt(Revision::ref(str_repeat('4', 40)));
 $ledger = $ledgerOf(Proof::of(Digest::of($keyA), Path::of('src/Money.php'), Mutants::of(
     $killed->killedBy($adds),
     $survived,
@@ -158,6 +160,7 @@ it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tup
                     'source' => str_repeat('1', 64),
                     'mutation' => str_repeat('2', 64),
                     'tests' => ['tests/MoneyTest.php' => str_repeat('3', 64)],
+                    'commit' => str_repeat('4', 40),
                 ],
             ],
         ],
@@ -252,6 +255,17 @@ it('reads a file of another format, or no ledger at all, as an empty ledger', fu
     'nothing' => [''],
 ]);
 
+it('writes no commit for inputs that stand for none, and reads them back so', function () use ($run, $keyA, $base, $uncommitted): void {
+    $proof = Proof::of(Digest::of($keyA), Path::of('src/Money.php'), Mutants::of(), $run('github:1/1', '2026-09-29T20:48:17Z'))
+        ->withInputs($uncommitted);
+    $written = LedgerFile::encode(Ledger::empty()->withProof($proof)->atBase(Digest::of($base)));
+    $read = LedgerFile::decode($written)->proofs()->proofFor(Digest::of($keyA));
+
+    expect($read instanceof Proof ? $read->inputs() : $read)->toEqual($uncommitted)
+        ->and($uncommitted->commit())->toEqual(Uncommitted::tree())
+        ->and(Gzip::unpack($written, 'the ledger'))->not->toContain('"commit"');
+});
+
 it('drops a proof that is not well formed and keeps the rest', function (Closure $spoil) use ($data, $written, $ledger, $keyA, $keyB): void {
     $file = $data();
     $file['proofs'] = $spoil($file['proofs'], $keyA);
@@ -272,6 +286,8 @@ it('drops a proof that is not well formed and keeps the rest', function (Closure
     'a source digest that is not a SHA-256' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['source' => 'abc']]])],
     'a mutation digest that is not text' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['mutation' => null]]])],
     'a test digest that is not a SHA-256' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['tests' => ['tests/MoneyTest.php' => 'abc']]]])],
+    'a commit that is not a full commit id' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['commit' => 'HEAD']]])],
+    'a commit that is not text' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['commit' => 4]]])],
     'test digests that are not a map' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['tests' => 'none']]])],
     'a killed mutant whose id is not one' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [0 => 'xyz']]]])],
     'a killed mutant on no line' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [1 => 0]]]])],

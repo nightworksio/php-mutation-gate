@@ -191,7 +191,8 @@ has to bring its result with it.
                "digests": {
                    "source": "…64 hex…",
                    "mutation": "…64 hex…",
-                   "tests": { "tests/MoneyTest.php": "…64 hex…" }
+                   "tests": { "tests/MoneyTest.php": "…64 hex…" },
+                   "commit": "<commit sha>"
                }
            }
        },
@@ -230,7 +231,11 @@ has to bring its result with it.
      runner, and what of the test directories every key reads; and `tests`,
      each test
      file that killed one of its mutants, by the digest of that file with the
-     support it reads outside what every key reads. The plan carries the same
+     support it reads outside what every key reads. `commit` is the commit
+     HEAD was at when the plan took the digests, recorded only where the
+     working tree then held nothing that commit does not: no change, staged
+     or not, and no file git neither tracks nor ignores. Digests taken from
+     any other working tree record no commit. The plan carries the same
      digests of the run it was made for, which the verdict compares against.
    - A mutant that was not killed keeps its full record, so reports can show a
      proved survivor. A timed-out or skipped mutant also keeps its limit

@@ -369,6 +369,19 @@ it('writes the digests of the run\'s inputs within its digest, and reads them ba
         ->and(PlanFile::encode(planFileEmpty()))->not->toContain('"digests"');
 });
 
+it('writes the commit the run\'s digests were taken at, and reads it back', function (): void {
+    $commit = Revision::ref(str_repeat('c0', 20));
+    $plan = planFileEmpty()->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))
+        ->digesting(Digests::of(Digest::sha256Of('mutation'))->takenAt($commit));
+    $read = PlanFile::decode(PlanFile::encode($plan));
+
+    expect($read)->toEqual($plan)
+        ->and($read instanceof Plan ? $read->digests() : $read)->toEqual(Digests::of(Digest::sha256Of('mutation'))->takenAt($commit))
+        ->and(PlanFile::encode($plan))->toContain(sprintf('"commit": "%s"', str_repeat('c0', 20)))
+        ->and(PlanFile::decode(str_replace(str_repeat('c0', 20), 'HEAD', PlanFile::encode($plan))))
+        ->toBeInstanceOf(CannotJudge::class);
+});
+
 it('refuses a plan whose digests are not well formed', function (): void {
     $plan = planFileEmpty()->digesting(Digests::of(Digest::sha256Of('mutation')));
     $spoiled = str_replace(Digest::sha256Of('mutation')->value(), 'abc', PlanFile::encode($plan));

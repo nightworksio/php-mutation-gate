@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
+use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 
 $digests = Digests::of(Digest::sha256Of('mutation'))
@@ -32,4 +34,18 @@ it('gives a proof of a unit its share, with each killing test file it has a dige
 
 it('gives no inputs to a proof of a unit whose source it has no digest of', function () use ($digests): void {
     expect($digests->inputsOf(Path::of('src/Tax.php'), Paths::none()))->toEqual(Undigested::proof());
+});
+
+it('stands for no commit until it is taken at one, and gives every proof that commit', function () use ($digests): void {
+    $commit = Revision::ref(str_repeat('c0', 20));
+    $taken = $digests->takenAt($commit);
+
+    expect($digests->commit())->toEqual(Uncommitted::tree())
+        ->and($digests->inputsOf(Path::of('src/Money.php'), Paths::none()))
+        ->toEqual(Inputs::of(Digest::sha256Of('money'), Digest::sha256Of('mutation')))
+        ->and($taken->commit())->toBe($commit)
+        ->and($taken->inputsOf(Path::of('src/Money.php'), Paths::none()))
+        ->toEqual(Inputs::of(Digest::sha256Of('money'), Digest::sha256Of('mutation'))->takenAt($commit))
+        ->and($taken->withSource(Path::of('src/Tax.php'), Digest::sha256Of('tax'))->commit())->toBe($commit)
+        ->and($taken->withTest(Path::of('tests/Tax.php'), Digest::sha256Of('tax test'))->commit())->toBe($commit);
 });

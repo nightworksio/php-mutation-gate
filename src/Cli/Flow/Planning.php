@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Plan\Workload;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -112,6 +113,7 @@ final readonly class Planning
         );
         $shards = $shards instanceof Shards ? $this->opening($shards, $opening) : $shards;
         $changed = $this->newCode($inventory->standing, $reached);
+        $digests = $this->committed($keying->digestsOf($proving->toRun()), $inventory->standing->head());
 
         return match (true) {
             $shards instanceof CannotJudge => $shards,
@@ -119,7 +121,7 @@ final readonly class Planning
             default => $this->handed(
                 Plan::of($inventory->standing->head(), $keying->base(), $keys, $shards)
                     ->on($inventory->standing->runOn())
-                    ->digesting($keying->digestsOf($proving->toRun()))
+                    ->digesting($digests)
                     ->considering(
                         Considered::everything()
                             ->reaching($changed, $reached->reach()->reasons())
@@ -151,6 +153,16 @@ final readonly class Planning
             : $unmarked;
 
         return $shards instanceof Shards ? $this->rooted($shards, $order) : $shards;
+    }
+
+    /**
+     * The run's digests, taken at the commit the checkout is at where the
+     * working tree holds nothing that commit does not, as read once every key
+     * is built: a file changed while they were built is then read as a change.
+     */
+    private function committed(Digests $digests, Revision $head): Digests
+    {
+        return $this->adapters->repository->isClean() === true ? $digests->takenAt($head) : $digests;
     }
 
     /**

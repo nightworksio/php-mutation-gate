@@ -194,7 +194,7 @@ final readonly class Flows
     {
         $lost = CannotTell::because('git is not installed.');
 
-        return new RepositoryFake($lost, $lost, $lost);
+        return new RepositoryFake($lost, $lost, $lost, $lost);
     }
 
     /**
