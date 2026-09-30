@@ -45,10 +45,12 @@ cannot.
    builder's own values is refused. Code that has to run belongs in an
    extension (ADR-0001).
    - An extension's loader reads its files the same way, and
-     `ConfigLoaderContract::failures()` holds it, on two fixture files in its
+     `ConfigLoaderContract::failures()` holds it, on fixture files in its
      format, to what every loader answers: the config read into the gate's own
-     layer, paths named from the file's directory, the gate's own problems for
-     an invalid file, and a file that is not there not judged.
+     layer, paths named from the file's directory, one that goes up from it
+     named from the project, a date read back as `YYYY-MM-DD`, the gate's own
+     problems for an invalid file and for a mutant id the format reads as a
+     number, and a file that is broken or not there not judged.
    - A preset an extension registers is a layer, `withPreset(Name, Layer)`,
      which it can build with the PHP builder:
      `Gate::configure()->…->layer(ProjectRoot::origin())`, its paths named
