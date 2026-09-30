@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 it('records, guards, names no killer and no test, and orders nothing until Pest boots it', function (): void {
@@ -19,7 +20,7 @@ it('records, guards, names no killer and no test, and orders nothing until Pest 
 
 it('names the tests of a run that lists them for the adapter, writing the names when the run ends', function (): void {
     $before = getenv('MUTATION_GATE_NAMES');
-    $names = sprintf('%s/mutation-gate-plugin-names.json', sys_get_temp_dir());
+    $names = sprintf('%s/names.json', Scratch::untilExit());
     $plugin = new Plugin();
 
     try {
@@ -27,10 +28,6 @@ it('names the tests of a run that lists them for the adapter, writing the names 
         $plugin->boot();
     } finally {
         putenv(is_string($before) ? sprintf('MUTATION_GATE_NAMES=%s', $before) : 'MUTATION_GATE_NAMES');
-    }
-
-    if (is_file($names)) {
-        unlink($names);
     }
 
     $plugin->finish();
@@ -49,7 +46,7 @@ it('leaves the arguments of a process that is no mutant\'s as they are', functio
 
 it('guards a run the adapter starts on one mutant, writing what it saw when the run ends', function (): void {
     $variables = ['PEST_MUTATION_TESTING' => getenv('PEST_MUTATION_TESTING'), 'MUTATION_GATE_GUARD' => false];
-    $guard = sprintf('%s/mutation-gate-plugin-guard.json', sys_get_temp_dir());
+    $guard = sprintf('%s/guard.json', Scratch::untilExit());
     $plugin = new Plugin();
 
     try {
@@ -60,10 +57,6 @@ it('guards a run the adapter starts on one mutant, writing what it saw when the 
         foreach ($variables as $name => $value) {
             putenv(is_string($value) ? sprintf('%s=%s', $name, $value) : $name);
         }
-    }
-
-    if (is_file($guard)) {
-        unlink($guard);
     }
 
     new Plugin()->finish();
