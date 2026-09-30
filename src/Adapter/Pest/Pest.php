@@ -9,6 +9,7 @@ use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -27,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Runner;
 
 use function sprintf;
@@ -44,8 +46,14 @@ final readonly class Pest implements Runner
 
     private const string VENDOR = 'vendor';
 
+    /** Where the gate runs Pest: the project's root, which the gate runs in. */
+    private const string ROOT = '.';
+
+    /** Where the adapter keeps what it writes. */
+    private const string WORKSPACE = '.mutation-gate';
+
     private const string BY_GROUP_ALONE
-        = 'Pest selects holding tests by group alone, so it cannot judge by the filter %s. Use a holds: group.';
+        = 'Pest selects held tests by the holds: groups its plugin adds for #[Holds], not by the filter %s.';
 
     private const string COVERAGE_FAILED = "Pest's coverage run failed. Pest said:\n%s";
 
@@ -62,6 +70,20 @@ final readonly class Pest implements Runner
 
     public function __construct(private Project $project, private Shell $shell, private Patching $patching)
     {
+    }
+
+    /** Pest in the project the gate runs in, as the `pest` runner's options configure it. */
+    public static function fromOptions(Options $options): self|Invalid
+    {
+        $read = PestOptions::read($options);
+
+        if ($read instanceof Invalid) {
+            return $read;
+        }
+
+        $project = Project::at(self::ROOT, $read->tests(), Path::of(self::WORKSPACE));
+
+        return new self($project, new ProcessShell($project->root()), $read->patching());
     }
 
     public function identity(): Identity|CannotJudge

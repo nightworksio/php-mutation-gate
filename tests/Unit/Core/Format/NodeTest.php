@@ -75,3 +75,11 @@ it('writes what a place holds back out as JSON, and refuses a place that holds n
         ->and(static fn(): string => $file()->field('absent')->json())
         ->toThrow(NotInShape::class, 'the file.absent is missing.');
 });
+
+it('reads true or false where it is, and refuses anything else', function (): void {
+    $node = Node::decode('{"on": true, "off": false, "word": "yes"}');
+
+    expect($node->field('on')->boolean())->toBeTrue()
+        ->and($node->field('off')->boolean())->toBeFalse()
+        ->and(fn(): bool => $node->field('word')->boolean())->toThrow(NotInShape::at('the file.word', 'true or false'));
+});

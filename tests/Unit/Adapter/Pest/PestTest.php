@@ -9,11 +9,14 @@ use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Ran;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -42,6 +45,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\PestRun;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -246,7 +250,7 @@ it('refuses to judge by a filter, which Pest cannot select held tests by', funct
     $request = MutationRequest::of(Paths::of(Path::of('src/Kernel.php')), Filter::matching('KernelTest'));
 
     expect(new Pest(adapterProject(), $shell, Patching::off())->mutate($request))->toEqual(CannotJudge::because(
-        'Pest selects holding tests by group alone, so it cannot judge by the filter KernelTest. Use a holds: group.',
+        'Pest selects held tests by the holds: groups its plugin adds for #[Holds], not by the filter KernelTest.',
     ))->and($shell->commands())->toBe([]);
 });
 
@@ -467,4 +471,14 @@ it('finds every @pest-mutate-ignore in the files asked for, running nothing', fu
     expect(array_map(static fn(Marker $marker): string => $marker->where(), iterator_to_array($markers, preserve_keys: false)))
         ->toBe(['src/Money.php:3'])
         ->and($shell->commands())->toBe([]);
+});
+
+it('is Pest in the project the gate runs in, as its options say, or the options\' problem', function (): void {
+    expect(Pest::fromOptions(Options::none()))->toEqual(new Pest(
+        Project::at('.', Paths::of(Path::of('tests')), Path::of('.mutation-gate')),
+        new ProcessShell(Project::at('.', Paths::none(), Path::of('.mutation-gate'))->root()),
+        Patching::off(),
+    ))->and(Pest::fromOptions(Options::ofJson('{"patch": 1}')))->toEqual(Invalid::because(
+        Problem::at('patch', 'Whether the project applies pest:patch is true or false.'),
+    ));
 });

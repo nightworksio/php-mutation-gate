@@ -340,6 +340,8 @@ parameters:
             allowIn:
                 - tests/*
                 - phpstan/*
+                # Pest's filter reads #[Holds] from the closures Pest hands it (ADR-0004).
+                - src/Adapter/Pest/Grouping/HoldsGroups.php
 
     disallowedSuperglobals:
         # --- B6: the environment, read the other way -----------------------------

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Format;
 use function array_is_list;
 use function array_key_exists;
 use function is_array;
+use function is_bool;
 use function is_float;
 use function is_int;
 use function is_string;
@@ -60,6 +61,12 @@ final readonly class Node
     public function text(): string
     {
         return is_string($this->value) ? $this->value : throw $this->refused('text');
+    }
+
+    /** @throws NotInShape */
+    public function boolean(): bool
+    {
+        return is_bool($this->value) ? $this->value : throw $this->refused('true or false');
     }
 
     /** @throws NotInShape */

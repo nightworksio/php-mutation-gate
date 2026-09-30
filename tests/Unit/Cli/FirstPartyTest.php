@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
+use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
 use NightWorksIO\MutationGate\Adapter\Project\AutoloadTrees;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
@@ -89,4 +90,8 @@ it('registers a loader for every config format, the tree sources and the presets
 it('registers Infection as a runner, built from the options the flows write', function () use ($registry): void {
     expect(Lookup::in($registry())->runner(Name::of('infection'), Options::none()))->toBeInstanceOf(Infection::class)
         ->and(Lookup::in($registry())->runner(Name::of('infection'), Options::ofJson('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
+});
+
+it('registers Pest as a runner', function () use ($registry): void {
+    expect($registry()->runner(Name::of('pest'), Options::none()))->toBeInstanceOf(Pest::class);
 });
