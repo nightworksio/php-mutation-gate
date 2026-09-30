@@ -175,6 +175,7 @@ final readonly class Infection implements Runner
             return $config;
         }
 
+        $this->held->forget();
         $coverage = $this->coverageFor($config, $request);
 
         return $coverage instanceof CannotJudge
@@ -251,8 +252,8 @@ final readonly class Infection implements Runner
     }
 
     /**
-     * The coverage directory a run reads, which the adapter writes unless an
-     * earlier run in this process left the same there: for a run judged by
+     * The coverage directory a run reads, which the adapter writes unless the
+     * mutation run a run again follows left the same there: for a run judged by
      * the whole suite that reuses the map another job handed on, that map in
      * Infection's layout; otherwise PHPUnit's run of the tests that judge it.
      * A held path never reads a map of the whole suite.

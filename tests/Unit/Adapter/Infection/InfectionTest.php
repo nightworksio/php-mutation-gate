@@ -444,7 +444,7 @@ it('runs mutants again on the map the planning job handed the invocation, and ru
         ->and(infectionRan($again)[0])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()));
 });
 
-it('runs a retry, and each later run judged by the same tests, on the coverage the first left, and runs it again for others', function (): void {
+it('runs a retry on the coverage its mutation run left, and collects it again for other tests and for each mutation run', function (): void {
     $at = infectionProject();
     $money = sprintf('%s/src/Money.php', $at->root());
     $shell = infectionShell($at, ['timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')]]);
@@ -454,16 +454,19 @@ it('runs a retry, and each later run judged by the same tests, on the coverage t
         infectionRan($shell),
         static fn(array $arguments): bool => array_any($arguments, static fn(string $argument): bool => str_starts_with($argument, '--coverage-xml=')),
     ));
+    $retried = static function (MutationRequest $asked) use ($infection, $request, $coverageRuns): int {
+        $first = $infection->mutate($request);
+        $infection->retry($asked, $first instanceof MutationResult ? $first->mutants() : Mutants::none(), Seconds::of(12.0));
 
-    $first = $infection->mutate($request);
-    $infection->retry($request, $first instanceof MutationResult ? $first->mutants() : Mutants::none(), Seconds::of(12.0));
-    $infection->mutate($request->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('Plus')));
-    $once = $coverageRuns();
-    $infection->mutate($request->withholding(Withheld::of('DEPLOY_*')));
-    $withholding = $coverageRuns();
-    $infection->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
+        return $coverageRuns();
+    };
 
-    expect([$once, $withholding, $coverageRuns()])->toBe([1, 2, 3]);
+    expect([
+        $retried($request),
+        $retried($request->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('Plus'))),
+        $retried(MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Held.php'))),
+        $retried($request->withholding(Withheld::of('DEPLOY_*'))),
+    ])->toBe([1, 2, 4, 6]);
 });
 
 it('ends the runs of a retry, one after another, by the deadline its request set', function (): void {

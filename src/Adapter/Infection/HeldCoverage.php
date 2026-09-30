@@ -17,17 +17,24 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use function sprintf;
 
 /**
- * What the adapter's own coverage directory holds, as the runs of one process
- * wrote it: PHPUnit's run of some tests under coverage, or a map another job
- * handed on. A run that reads the same again reads it where it is, so a run
- * again, or a later batch judged by the same tests, runs no suite under
- * coverage a second time. Neither the sources nor the tests change while the
- * gate runs.
+ * What the adapter's own coverage directory holds since its last mutation
+ * run began: PHPUnit's run of some tests under coverage, or a map another job
+ * handed on. A run again that reads the same reads it where it is, so it runs
+ * no suite under coverage a second time. Each mutation run forgets it and
+ * collects its own, so coverage never outlives an edit between runs, as
+ * `watch` makes. The key is the command and what it withheld; a cap on the
+ * coverage run, were there one, would belong in it too.
  */
 final class HeldCoverage
 {
     /** @var array<string, DiskPath> the directory by what it holds: nothing yet, or one entry */
     private array $holding = [];
+
+    /** Holds nothing, so the next run fills the directory afresh. */
+    public function forget(): void
+    {
+        $this->holding = [];
+    }
 
     /**
      * The directory, once PHPUnit has run this command into it, unless it
