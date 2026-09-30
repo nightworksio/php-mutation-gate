@@ -71,6 +71,15 @@ it('withholds another run\'s variables and what the command withholds, and tells
     ]));
 });
 
+it('unsets the variables the gate sets for its extension and wrapper, even where only $_ENV holds one', function (): void {
+    $_ENV[Variable::Guard->value] = 'leaked';
+    $prints = 'foreach (["MUTATION_GATE_GUARD", "MUTATION_GATE_MUTANT", "MUTATION_GATE_RESULTS"] as $n) { echo $n, "=", var_export(getenv($n), true), "\n"; }';
+    $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', $prints)->telling(Variable::Results, 'told'));
+    unset($_ENV[Variable::Guard->value]);
+
+    expect($ran->output())->toBe("MUTATION_GATE_GUARD=false\nMUTATION_GATE_MUTANT=false\nMUTATION_GATE_RESULTS='told'\n");
+});
+
 it('stops a program at its deadline, with every process it started', function (): void {
     $pids = sprintf('%s/child.pid', Scratch::directory());
     $script = sprintf(

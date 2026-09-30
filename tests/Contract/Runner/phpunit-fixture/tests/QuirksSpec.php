@@ -18,6 +18,7 @@ use function is_file;
 use function is_link;
 
 use Library\Money;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use SplFileObject;
@@ -85,6 +86,15 @@ final class QuirksSpec extends TestCase
         new Money()->count();
 
         self::markTestSkipped('a project skips a test');
+    }
+
+    #[Test]
+    #[RequiresPhpExtension('an_extension_no_php_has')]
+    public function needsAnExtensionNoPhpHas(): void
+    {
+        new Money()->count();
+
+        self::assertTrue(true);
     }
 
     #[Test]

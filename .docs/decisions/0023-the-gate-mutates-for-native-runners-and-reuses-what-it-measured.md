@@ -203,13 +203,18 @@ manual.
      The gate refuses an override whose path PHP's command line would read
      as ini syntax.
    - The extension subscribes to `Test\PreparationStarted`, `Test\Failed`,
-     `Test\Errored`, `Test\Passed` and `Test\Finished`, and appends each
-     test that starts, and how each test ended, to the file
-     `MUTATION_GATE_RESULTS` names.
+     `Test\Errored`, `Test\Passed`, `Test\Skipped`,
+     `Test\MarkedIncomplete`, `TestSuite\Skipped` and `Test\Finished`, and
+     appends each test that starts, and how each test ended, to the file
+     `MUTATION_GATE_RESULTS` names. A test skipped or marked incomplete, in
+     its body, in `setUp`, for a requirement or with its whole class, has
+     ended.
    - A test that fails or errors kills the mutant, and so does a test that
-     started and never finished, whose process died. A run PHPUnit fails
-     with no test failing, such as for a warning the project fails on,
-     leaves the mutant unjudged, with what PHPUnit said.
+     started and neither finished nor was skipped or marked incomplete, whose
+     process died. A run PHPUnit fails with no test failing, such as for a
+     warning the project fails on, leaves the mutant unjudged, with what
+     PHPUnit said, and so does one where every test was skipped or marked
+     incomplete.
    - The gate enforces the timeout on the process.
    - The runner supports PHPUnit 13.2.0 and later, the first release with
      `--test-id-filter-file`: PHPUnit 12, 13.0 and 13.1 refuse the option.

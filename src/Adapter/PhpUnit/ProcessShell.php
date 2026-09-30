@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
+use function array_fill_keys;
 use function array_key_exists;
+use function array_map;
 use function hrtime;
 use function is_int;
 
@@ -53,7 +55,7 @@ final readonly class ProcessShell implements Shell
         $process = new Process(
             $command->arguments(),
             $this->directory,
-            [...$this->scrubbed($command->withheld()), ...$command->environment()],
+            [...$this->scrubbed($command->withheld()), ...$this->unset(), ...$command->environment()],
             timeout: null,
         );
 
@@ -87,6 +89,21 @@ final readonly class ProcessShell implements Shell
         $environment[SearchPath::VARIABLE] = SearchPath::phpFirst($inherited);
 
         return $environment;
+    }
+
+    /**
+     * The variables the gate sets for its extension and its wrapper, each
+     * unset whether or not the environment holds it, since a process also
+     * inherits what `$_ENV` holds, which `getenv()` does not show. Only the
+     * command that needs one sets it.
+     *
+     * @return array<string, false>
+     */
+    private function unset(): array
+    {
+        $names = array_map(static fn(Variable $variable): string => $variable->value, Variable::cases());
+
+        return array_fill_keys($names, value: false);
     }
 
     private function since(int|float $started): Seconds

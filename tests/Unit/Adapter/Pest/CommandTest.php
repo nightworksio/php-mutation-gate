@@ -52,6 +52,16 @@ it('puts that PHP first on Pest\'s path, and hands Pest none of another run\'s o
         ->toHaveKey('MUTATION_GATE_RESULTS', '/r');
 });
 
+it('hands Pest none of the variables the gate sets for its plugin, even where the environment shows none', function (): void {
+    expect(Command::pest('pest', Withheld::standard())->environment())->toMatchArray([
+        'MUTATION_GATE_RESULTS' => false,
+        'MUTATION_GATE_GUARD' => false,
+        'MUTATION_GATE_ONLY' => false,
+        'PEST_MUTATION_TESTING' => false,
+        'PEST_MUTATION_FILE' => false,
+    ]);
+});
+
 it('adds to its environment, a later value replacing an earlier one', function (): void {
     $command = Command::of('pest')->with(['A' => '1', 'B' => '2'])->with(['B' => '3']);
 

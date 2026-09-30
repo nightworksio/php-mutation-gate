@@ -330,6 +330,27 @@ it('raises only PHP\'s own warning for a file that is not there', function (): v
         ->and(array_slice($served[1], 0, 2))->toBe(array_slice($native[1], 0, 2));
 });
 
+it('opens a bare relative path from the working directory, whatever the include path holds', function (string $includePath): void {
+    [$native, $served] = nativeThenServed(static function (string $directory) use ($includePath): array {
+        file_put_contents(sprintf('%s/relative.txt', $directory), 'here');
+        $before = [getcwd(), set_include_path($includePath)];
+        chdir($directory);
+        $handle = fopen('relative.txt', 'rb');
+        $read = is_resource($handle) ? fread($handle, 10) : false;
+        chdir(is_string($before[0]) ? $before[0] : '/');
+        set_include_path(is_string($before[1]) ? $before[1] : '.');
+        unlink(sprintf('%s/relative.txt', $directory));
+
+        return [$read, file_exists('relative.txt')];
+    });
+
+    expect($served)->toBe($native)
+        ->and($native)->toBe([['here', false], []]);
+})->with([
+    'with the working directory on it' => ['.'],
+    'without it' => ['/nowhere-the-gate-looks'],
+]);
+
 it('opens a file by the include path', function (): void {
     $directory = servedIn();
     Scratch::write($directory, 'on/path.txt', 'found');

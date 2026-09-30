@@ -18,9 +18,9 @@ use function str_contains;
 
 /**
  * The tests the extension recorded for one mutant: which started, and how
- * each that finished ended. The tests that killed it are those that failed or
- * errored, and each that started and never finished, since its process died
- * as it ran.
+ * each that ended ended, finished, skipped or marked incomplete. The tests
+ * that killed it are those that failed or errored, and each that started and
+ * never ended, since its process died as it ran.
  */
 final readonly class Recorded
 {
@@ -50,7 +50,7 @@ final readonly class Recorded
         return $recorded;
     }
 
-    /** Every test that failed or errored, and every test that started and never finished. */
+    /** Every test that failed or errored, and every test that started and never ended. */
     public function killers(): TestIds
     {
         $killers = $this->failed;

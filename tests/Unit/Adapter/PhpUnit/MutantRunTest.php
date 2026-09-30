@@ -174,7 +174,19 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
         records(Outcome::Started->line('T::skips'), Outcome::Neither->line('T::skips')),
         Ran::finished(succeeded: true, output: ''),
         "served\n",
-        [MutantStatus::Unjudged, [], 'PHPUnit skipped every test that covers it.'],
+        [MutantStatus::Unjudged, [], 'PHPUnit skipped, or marked incomplete, every test that covers it.'],
+    ],
+    'unjudged where every test was set aside, even where PHPUnit fails the run' => [
+        records(Outcome::Started->line('T::skips'), Outcome::Neither->line('T::skips')),
+        Ran::finished(succeeded: false, output: 'failOnSkipped'),
+        '',
+        [MutantStatus::Unjudged, [], 'PHPUnit skipped, or marked incomplete, every test that covers it.'],
+    ],
+    'unjudged, with what PHPUnit said, where it failed before any test started or the mutated file ran' => [
+        '',
+        Ran::finished(succeeded: false, output: 'No such configuration'),
+        '',
+        [MutantStatus::Unjudged, [], "PHPUnit failed the run, though no test that ran failed. PHPUnit said:\nNo such configuration"],
     ],
     'unjudged where the mutated file never ran, whatever the tests did' => [
         records(Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails')),

@@ -151,8 +151,9 @@ final class MutantFile
         $serving = ($options & self::FOR_INCLUDE) !== 0 && $this->isServed($path);
         $opened = $serving ? self::$mutated : $path;
         $usePath = ($options & STREAM_USE_PATH) !== 0;
-        $there = strpbrk($mode, self::WRITING) !== false
-            || $this->natively(static fn(): bool => stream_resolve_include_path($opened) !== false);
+        $there = strpbrk($mode, self::WRITING) !== false || $this->natively(
+            static fn(): bool => file_exists($opened) || stream_resolve_include_path($opened) !== false,
+        );
         $handle = $there ? $this->natively(static fn(): mixed => fopen($opened, $mode, $usePath)) : false;
 
         return is_resource($handle) && $this->opened($handle, $serving);
@@ -171,7 +172,7 @@ final class MutantFile
         return is_resource($this->handle) ? fwrite($this->handle, $data) : false;
     }
 
-    /** Whether the open file is at its end: once a read got nothing, as PHP's own wrapper has it, until a seek. */
+    /** Whether the open file is at its end: once its last read got nothing, as PHP's own wrapper has it. */
     public function stream_eof(): bool
     {
         return $this->drained;
@@ -192,8 +193,6 @@ final class MutantFile
 
     public function stream_seek(int $offset, int $whence): bool
     {
-        $this->drained = false;
-
         return is_resource($this->handle) && fseek($this->handle, $offset, $whence) === 0;
     }
 
@@ -343,7 +342,7 @@ final class MutantFile
     /** Whether a path PHP includes names the file served: the same device and inode, whatever the path's spelling. */
     private function isServed(string $path): bool
     {
-        $stat = is_file($path) ? stat($path) : false;
+        $stat = $this->natively(static fn(): array|false => is_file($path) ? stat($path) : false);
 
         return is_array($stat) && [$stat['dev'], $stat['ino']] === self::$served;
     }

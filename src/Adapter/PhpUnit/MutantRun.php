@@ -29,21 +29,24 @@ use function str_contains;
  *   served the mutated file in any of the run's processes, it is unjudged:
  *   the run says nothing of the mutant (ADR-0004 decision 8).
  * - A test that fails or errors kills it, and so does a test that started and
- *   never finished, whose process died as it ran.
+ *   neither finished nor was skipped or marked incomplete, whose process died
+ *   as it ran.
  * - A run stopped at its limit timed out.
  * - A run that fails before any test started errored: the mutant broke
  *   PHPUnit itself, such as by a fatal error as its file loaded.
  * - A run that fails with no test failing is unjudged, with what PHPUnit
  *   said: PHPUnit failed it for something else, such as a warning the project
  *   fails on.
- * - A run that passes with no test run, or with every test skipped, is
- *   unjudged.
+ * - A run that passes with no test run is unjudged, and so is a run with
+ *   every test skipped or marked incomplete, however it ends, and a run that
+ *   fails before any test started or the mutated file ran, with what PHPUnit
+ *   said.
  */
 final readonly class MutantRun
 {
     private const string NO_TEST_RAN = 'PHPUnit ran none of the %d tests that cover it: no id matched a test.';
 
-    private const string SKIPPED = 'PHPUnit skipped every test that covers it.';
+    private const string SKIPPED = 'PHPUnit skipped, or marked incomplete, every test that covers it.';
 
     private const string UNLISTABLE
         = 'Every test that covers it has a line break in its name, which PHPUnit cannot select by id.';
@@ -105,7 +108,8 @@ final readonly class MutantRun
         return match (true) {
             $guard->cached() => Reason::that(self::CACHED),
             $ran->succeeded() && ! $recorded->ranAny() => Reason::that(sprintf(self::NO_TEST_RAN, $listed)),
-            $ran->succeeded() && $recorded->skippedEach() => Reason::that(self::SKIPPED),
+            $recorded->skippedEach() => Reason::that(self::SKIPPED),
+            ! $recorded->ranAny() && ! $guard->served() => Reason::that(sprintf(self::NO_KILLER, $ran->output())),
             ! $guard->served() => Reason::that(self::NEVER_SERVED),
             default => $this->judgement($ran, $recorded),
         };

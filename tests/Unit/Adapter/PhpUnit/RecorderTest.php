@@ -43,6 +43,30 @@ it('records a test as it starts, and as it finishes how it ended: failed, errore
     'a skip' => [static fn(Facade $events): Facade => $events, 'neither'],
 ]);
 
+it('records a test skipped or marked incomplete as ended, whether or not it finishes', function (Closure $setAside): void {
+    $results = sprintf('%s/results.txt', Scratch::directory());
+    $events = new Facade();
+    Recorder::listening($results, $events);
+
+    PhpUnitEvents::started($events);
+    $setAside($events);
+
+    expect(recordedLines($results))->toBe(['started <test>', 'neither <test>']);
+})->with([
+    'a skip' => [PhpUnitEvents::skipped(...)],
+    'an incomplete' => [PhpUnitEvents::incomplete(...)],
+]);
+
+it('records every test of a suite skipped whole as ended, though none of them started', function (): void {
+    $results = sprintf('%s/results.txt', Scratch::directory());
+    $events = new Facade();
+    Recorder::listening($results, $events);
+
+    PhpUnitEvents::suiteSkipped($events);
+
+    expect(recordedLines($results))->toBe(['neither <test>']);
+});
+
 it('writes no test\'s outcome against the next test to start', function (): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();

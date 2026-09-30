@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_fill_keys;
 use function array_filter;
+use function array_map;
 use function array_values;
 use function getenv;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\Runner\SearchPath;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
@@ -57,6 +60,7 @@ final readonly class Command
                 Withholding::of($withheld->and(Withheld::otherRuns()), getenv()),
                 static fn(string|false $value): bool => $value === false,
             ),
+            ...self::unset(),
             SearchPath::VARIABLE => SearchPath::phpFirst(sprintf('%s', getenv(SearchPath::VARIABLE))),
         ]);
     }
@@ -87,5 +91,20 @@ final readonly class Command
     public function deadline(): Seconds|Unlimited
     {
         return $this->deadline;
+    }
+
+    /**
+     * The variables the gate sets for its plugin and pest-plugin-mutate's own,
+     * each unset whether or not the environment holds it, since a process
+     * also inherits what `$_ENV` holds, which `getenv()` does not show. Only
+     * the command that needs one sets it.
+     *
+     * @return array<string, false>
+     */
+    private static function unset(): array
+    {
+        $gate = array_map(static fn(GateVariable $variable): string => $variable->value, GateVariable::cases());
+
+        return array_fill_keys([...$gate, Recorder::MUTANT, Recorder::MUTATED], value: false);
     }
 }

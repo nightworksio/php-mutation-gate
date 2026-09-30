@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use Exception;
+use PHPUnit\Event\Code\TestCollection;
 use PHPUnit\Event\Code\TestMethodBuilder;
 use PHPUnit\Event\Code\ThrowableBuilder;
 use PHPUnit\Event\Emitter;
 use PHPUnit\Event\Facade;
+use PHPUnit\Event\TestSuite\TestSuiteWithName;
 
 /**
  * PHPUnit's own events, emitted through a facade of their own for the
@@ -22,6 +24,33 @@ final readonly class PhpUnitEvents
     {
         $events->seal();
         self::emitterOf($events)->testPreparationStarted(TestMethodBuilder::fromCallStack());
+    }
+
+    /** Emits that the test running it was skipped. */
+    public static function skipped(Facade $events): void
+    {
+        $events->seal();
+        self::emitterOf($events)->testSkipped(TestMethodBuilder::fromCallStack(), 'skipped');
+    }
+
+    /** Emits that the test running it was marked incomplete. */
+    public static function incomplete(Facade $events): void
+    {
+        $events->seal();
+        self::emitterOf($events)->testMarkedAsIncomplete(
+            TestMethodBuilder::fromCallStack(),
+            ThrowableBuilder::from(new Exception('incomplete')),
+        );
+    }
+
+    /** Emits that the suite of the test running it was skipped whole. */
+    public static function suiteSkipped(Facade $events): void
+    {
+        $events->seal();
+        self::emitterOf($events)->testSuiteSkipped(
+            new TestSuiteWithName('skipped whole', 1, TestCollection::fromArray([TestMethodBuilder::fromCallStack()])),
+            'skipped',
+        );
     }
 
     /** Emits that the test running it failed. */

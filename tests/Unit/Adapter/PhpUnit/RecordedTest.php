@@ -41,6 +41,7 @@ it('says every test that ran was skipped only where none passed, failed or died'
 })->with([
     'every one skipped' => [implode('', [Outcome::Started->line('T::a'), Outcome::Neither->line('T::a')]), true],
     'one passed' => [implode('', [Outcome::Neither->line('T::a'), Outcome::Passed->line('T::b')]), false],
+    'one skipped before it was prepared' => [implode('', [Outcome::Started->line('T::a'), Outcome::Neither->line('T::a')]), true],
     'one died' => [implode('', [Outcome::Neither->line('T::a'), Outcome::Started->line('T::b')]), false],
     'none ran' => ['', false],
 ]);
