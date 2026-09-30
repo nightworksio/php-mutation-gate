@@ -103,3 +103,38 @@ it('leaves room for what a suite needed where it holds twice that, as no cap alw
         ->and(MemoryCap::none()->leavesRoomFor(MemoryCap::of(8, MemoryUnit::Gigabytes)))->toBeTrue()
         ->and(MemoryCap::of(600, MemoryUnit::Megabytes)->withRoom()->written())->toBe('1200M');
 });
+
+it('keeps every ini file and extension PHP loads from its own scan directory, or the one the gate inherited', function (): void {
+    $capDirectory = Scratch::directory();
+    $capFile = sprintf('%s/%s', $capDirectory, MemoryCap::FILE);
+    file_put_contents($capFile, MemoryCap::of(256, MemoryUnit::Megabytes)->ini());
+    $inherited = Scratch::directory();
+    file_put_contents(sprintf('%s/project.ini', $inherited), "precision=7\n");
+
+    /**
+     * The ini files a PHP process with this scan directory scanned, its extensions, and two of its settings.
+     *
+     * @return list<string>
+     */
+    $described = static function (string|false $scanDirectory): array {
+        $php = new Process([PHP_BINARY, '-r', <<<'PHP'
+            echo implode("\n", [
+                str_replace([",\n", "\n"], ',', trim((string) php_ini_scanned_files())),
+                implode(',', get_loaded_extensions()),
+                ini_get('precision'),
+                ini_get('memory_limit'),
+            ]);
+            PHP], env: [MemoryCap::SCAN_DIR => $scanDirectory]);
+        $php->mustRun();
+
+        return explode("\n", $php->getOutput());
+    };
+    $own = $described(scanDirectory: false);
+    $capped = $described(MemoryCap::scanning(inherited: false, directory: $capDirectory));
+    $project = $described(MemoryCap::scanning($inherited, $capDirectory));
+
+    expect($capped[1])->toBe($own[1])
+        ->and($capped[0])->toBe(ltrim(sprintf('%s,%s', $own[0], $capFile), ','))
+        ->and($capped[3])->toBe('256M')
+        ->and($project)->toBe([sprintf('%s/project.ini,%s', $inherited, $capFile), $own[1], '7', '256M']);
+});
