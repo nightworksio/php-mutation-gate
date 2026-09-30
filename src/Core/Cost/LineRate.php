@@ -63,6 +63,6 @@ final readonly class LineRate
 
     private function isEverywhere(): bool
     {
-        return $this->prefix->value() === Path::root()->value();
+        return $this->prefix->equals(Path::root());
     }
 }

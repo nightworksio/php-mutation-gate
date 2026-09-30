@@ -8,9 +8,11 @@ use function array_map;
 use function class_exists;
 
 use Closure;
+use Error;
 
 use function is_a;
 
+use LogicException;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Choice;
@@ -27,6 +29,7 @@ use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Port\TreeSource;
+use RuntimeException;
 
 use function sprintf;
 
@@ -98,14 +101,25 @@ final readonly class Chosen
 
     private function extended(Extensions $registry, string $class, string $file): Extensions|CannotJudge
     {
-        return is_a($class, Extension::class, allow_string: true)
-            ? $registry->merge(new $class()->extend(new Extensions(Origin::of($file))))
-            : CannotJudge::because(sprintf(
+        if (! is_a($class, Extension::class, allow_string: true)) {
+            return CannotJudge::because(sprintf(
                 '%s names %s in extensions, and it is not a class that implements %s.',
                 $file,
                 $class,
                 Extension::class,
             ));
+        }
+
+        try {
+            return $registry->merge(new $class()->extend(new Extensions(Origin::of($file))));
+        } catch (Error|LogicException|RuntimeException $failed) {
+            return CannotJudge::because(sprintf(
+                '%s names %s in extensions, and it failed as it started: %s',
+                $file,
+                $class,
+                $failed->getMessage(),
+            ));
+        }
     }
 
     /**
