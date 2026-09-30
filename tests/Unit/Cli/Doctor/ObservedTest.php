@@ -31,14 +31,12 @@ afterEach(function () use ($here): void {
     Scratch::sweep();
 });
 
-$given = static fn(string $runner = ''): CommandLine => new CommandLine('', $runner, [], '', '', firstPartyOnly: false);
-
-it('observes the config, the runner, the trees, .gitignore, the Infection config and the runner\'s PHP', function () use ($given): void {
+it('observes the config, the runner, the trees, .gitignore, the Infection config and the runner\'s PHP', function (): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Library');
     Scratch::write($project, '.gitignore', ".mutation-gate/\n");
     Scratch::write($project, 'infection.json5', '{minMsi: 80, initialTestsPhpOptions: "-d memory_limit=1G"}');
     $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], ['extension_dir' => '/nowhere']));
-    $observed = Doctored::observed($project, sprintf('%s/php', $php))->of($given());
+    $observed = Doctored::observed($project, sprintf('%s/php', $php))->of(CommandLine::nothing());
     $trees = $observed->trees();
 
     expect($observed->settings())->toBeInstanceOf(Settings::class)
@@ -50,7 +48,7 @@ it('observes the config, the runner, the trees, .gitignore, the Infection config
         ->and(trim((string) file_get_contents(sprintf('%s/arguments.txt', $php))))->toBe(sprintf('-d memory_limit=1G -r %s', Platform::describing()[1]));
 });
 
-it('observes the markers the chosen runner finds in the trees, and the path repositories that copy their packages', function () use ($given): void {
+it('observes the markers the chosen runner finds in the trees, and the path repositories that copy their packages', function (): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Library');
     Scratch::write($project, 'src/Held.php', "<?php\n// @infection-ignore-all\n");
     Scratch::write($project, 'packages/money/README.md', 'Money');
@@ -65,7 +63,7 @@ it('observes the markers the chosen runner finds in the trees, and the path repo
         }
         JSON);
     $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
-    $observed = Doctored::observed($project, sprintf('%s/php', $php))->of($given());
+    $observed = Doctored::observed($project, sprintf('%s/php', $php))->of(CommandLine::nothing());
     $markers = $observed->markers();
 
     expect($markers instanceof Markers ? array_map(static fn(Marker $marker): string => $marker->where(), [...$markers]) : [])
@@ -79,9 +77,9 @@ it('observes no markers where the chosen runner cannot be built, and nothing of 
     Scratch::write($project, 'mutation-gate.json', '{"runner": "\\\\Acme\\\\Missing"}');
     $bare = Scratch::directory();
     $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
-    $bareObserved = Doctored::observed($bare, $php)->of(new CommandLine('', 'infection', [], '', '', firstPartyOnly: false));
+    $bareObserved = Doctored::observed($bare, $php)->of(CommandLine::nothing()->withRunner('infection'));
 
-    $observed = Doctored::observed($project, $php)->of(new CommandLine('', '', [], '', '', firstPartyOnly: false));
+    $observed = Doctored::observed($project, $php)->of(CommandLine::nothing());
 
     expect($observed->settings())->toBeInstanceOf(Settings::class)
         ->and($observed->trees())->toBeInstanceOf(Trees::class)
@@ -89,10 +87,10 @@ it('observes no markers where the chosen runner cannot be built, and nothing of 
         ->and($bareObserved->composer())->toEqual(NotGiven::value());
 });
 
-it('observes both runners left to choose, and no trees where the config cannot be used', function () use ($given): void {
+it('observes both runners left to choose, and no trees where the config cannot be used', function (): void {
     $project = Scratch::copy('tests/Fixtures/Projects/TwoRunners');
     $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
-    $observed = Doctored::observed($project, sprintf('%s/php', $php))->of($given());
+    $observed = Doctored::observed($project, sprintf('%s/php', $php))->of(CommandLine::nothing());
 
     expect($observed->runners())->toEqual(InstalledRunners::of(pest: true, infection: true, chosen: false))
         ->and($observed->settings())->toBeInstanceOf(CannotJudge::class)
@@ -102,15 +100,15 @@ it('observes both runners left to choose, and no trees where the config cannot b
         ->and(trim((string) file_get_contents(sprintf('%s/arguments.txt', $php))))->toBe(sprintf('-r %s', Platform::describing()[1]));
 });
 
-it('observes a runner the command line chooses, and none installed where Composer lists nothing', function () use ($given): void {
+it('observes a runner the command line chooses, and none installed where Composer lists nothing', function (): void {
     $two = Scratch::copy('tests/Fixtures/Projects/TwoRunners');
     $none = Scratch::directory();
     Scratch::write($none, 'composer.json', '{}');
     $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
 
-    expect(Doctored::observed($two, $php)->of($given('pest'))->runners())
+    expect(Doctored::observed($two, $php)->of(CommandLine::nothing()->withRunner('pest'))->runners())
         ->toEqual(InstalledRunners::of(pest: true, infection: true, chosen: true))
-        ->and(Doctored::observed($none, $php)->of($given())->runners())
+        ->and(Doctored::observed($none, $php)->of(CommandLine::nothing())->runners())
         ->toEqual(InstalledRunners::of(pest: false, infection: false, chosen: false));
 });
 
@@ -120,7 +118,7 @@ it('hands the runner\'s PHP none of the CI plan\'s credentials, nor those the ru
     $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
     $environment = ['CI_JOB_TOKEN' => 'job', 'DEPLOY_KEY' => 'key', 'GITHUB_TOKEN' => 'token', 'KEPT' => 'yes'];
     Doctored::observed($project, sprintf('%s/php', $php), $environment)
-        ->of(new CommandLine('', '', [], '', 'gitlab', firstPartyOnly: false));
+        ->of(CommandLine::nothing()->withCi('gitlab'));
     $seen = (string) file_get_contents(sprintf('%s/environment.txt', $php));
 
     expect(array_map(static fn(string $name): bool => str_contains($seen, sprintf('%s=', $name)), array_keys($environment)))

@@ -16,37 +16,45 @@ final readonly class Report
 
     public static function json(string $path): self
     {
-        return self::uses('json', $path);
+        return self::writing('json', $path);
     }
 
     public static function junit(string $path): self
     {
-        return self::uses('junit', $path);
+        return self::writing('junit', $path);
     }
 
     public static function sarif(string $path): self
     {
-        return self::uses('sarif', $path);
+        return self::writing('sarif', $path);
     }
 
     /** The HTML report, written into a directory. */
     public static function html(string $path): self
     {
-        return self::uses('html', $path);
+        return self::writing('html', $path);
     }
 
-    /** A reporter another extension registers by name, or a class, with its options; `''` for no file. */
-    public static function uses(string $reporter, string $path = '', Option ...$options): self
+    /** A reporter another extension registers by name, or a class, with its options, writing no file. */
+    public static function uses(string $reporter, Option ...$options): self
     {
-        $report = Json::object(Member::of('use', $reporter));
-        $report = $path === '' ? $report : $report->with(Member::of('path', $path));
+        return self::with(Json::object(Member::of('use', $reporter)), ...$options);
+    }
 
-        return new self($options === [] ? $report : $report->with(Member::of('with', Option::object(...$options))));
+    /** A reporter another extension registers by name, or a class, with its options, writing its file at a path. */
+    public static function writing(string $reporter, string $path, Option ...$options): self
+    {
+        return self::with(Json::object(Member::of('use', $reporter), Member::of('path', $path)), ...$options);
     }
 
     /** This entry, as JSON. */
     public function written(): Json
     {
         return $this->json;
+    }
+
+    private static function with(Json $report, Option ...$options): self
+    {
+        return new self($options === [] ? $report : $report->with(Member::of('with', Option::object(...$options))));
     }
 }

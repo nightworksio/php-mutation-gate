@@ -3,10 +3,11 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Config\ConfigLocation;
+use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -22,14 +23,14 @@ it('finds the one config file in the project', function (string $name): void {
     $project = Scratch::directory();
     Scratch::write($project, $name, '');
 
-    expect(ConfigLocation::in($project, ''))->toEqual(Path::of(sprintf('%s/%s', $project, $name)));
+    expect(ConfigLocation::in($project, NotGiven::value()))->toEqual(Path::of(sprintf('%s/%s', $project, $name)));
 })->with(Format::fileNames());
 
 it('is zero-config where there is none', function (): void {
     $project = Scratch::directory();
     Scratch::write($project, 'mutation.php', '');
 
-    expect(ConfigLocation::in($project, ''))->toEqual(Absent::setting());
+    expect(ConfigLocation::in($project, NotGiven::value()))->toEqual(NoConfigFile::there());
 });
 
 it('refuses two config files, as two answers', function (): void {
@@ -38,7 +39,7 @@ it('refuses two config files, as two answers', function (): void {
     Scratch::write($project, 'mutation-gate.yml', '');
     Scratch::write($project, 'mutation-gate.neon', '');
 
-    expect(ConfigLocation::in($project, ''))->toEqual(CannotJudge::because(
+    expect(ConfigLocation::in($project, NotGiven::value()))->toEqual(CannotJudge::because(
         'More than one config file is here: mutation-gate.json, mutation-gate.yml, mutation-gate.neon. '
         . 'Keep one, or name one with --config.',
     ));

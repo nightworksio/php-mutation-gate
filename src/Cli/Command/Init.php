@@ -13,9 +13,9 @@ use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
+use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
@@ -81,7 +81,7 @@ final readonly class Init
                 }
 
                 $existing = $destination->existing();
-                $settings = $existing instanceof Absent
+                $settings = $existing instanceof NoConfigFile
                     ? $effective->settings($given->withoutConfig())
                     : self::refused($existing);
                 $written = self::written($project, $extensions, $settings, $formats, $destination);
