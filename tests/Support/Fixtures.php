@@ -574,6 +574,7 @@ final readonly class Fixtures
         return [
             Fixture::edit('V1', '.github/gates.json', '"scope": {', '"scoped": {', 'has an entry in gates.json for every CI job', 'scope has no entry'),
             Fixture::edit('V2', '.github/workflows/pr.yml', "        run: python3 .github/scripts/gate_summary.py commitlint\n", "        run: echo\n", 'leaves evidence from every CI job', 'commitlint does not end by explaining its failure'),
+            Fixture::edit('V2', '.github/workflows/hygiene.yml', "        run: python3 .github/scripts/gate_summary.py hygiene/actionlint\n", "        run: echo\n", 'leaves evidence from every CI job', 'hygiene/actionlint does not end by explaining its failure'),
             Fixture::edit('V3', '.github/gates.json', '"typo": "A word typos', '"typing": "A word typos', 'explains every rule the recorded evidence names', 'typos: typo'),
             Fixture::edit('V4', '.github/bot/rules/pint.json', '"says": "All classes must be final', '"says": "Every class is final', 'holds the generated rule tables to what the locked tools say', 'pint.json is not what the locked tool says'),
             Fixture::edit('V5', '.github/workflows/bot-commands.yml', "        run: python3 .github/scripts/bot_command.py docs\n", "        run: python3 .github/scripts/bot_command.py docs \"\${{ github.event.comment.body }}\"\n", 'runs no pull request content where it can write', 'bot-commands.yml: docs runs'),

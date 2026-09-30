@@ -188,7 +188,7 @@ jobs:
       contents: write
       actions: read
       pull-requests: write
-    uses: ./.github/workflows/mutation-gate.yml
+    uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
     with:
       mode: full
 

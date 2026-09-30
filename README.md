@@ -815,6 +815,12 @@ OpenTelemetry. Its outputs are `verdict`, `scores` and `plan`, and it uploads th
 reports as the artifact `mutation-gate-reports`, and a baseline measured for
 trees with no floor as `mutation-gate-baseline`.
 
+The reusable workflow reaches S3 with those key secrets only. To assume an AWS
+role through OIDC instead, call the one-step action in a job of your own: give
+that job `id-token: write`, add `aws-actions/configure-aws-credentials` before
+the action, and trust the role as described above: an environment only the
+default branch may deploy to, or the job's `job_workflow_ref`.
+
 Here is what the examples rely on:
 
 - **Branch protection** should require the verdict's check. In the one-step
