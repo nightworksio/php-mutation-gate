@@ -18,7 +18,6 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
-use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -44,13 +43,11 @@ final readonly class PhpUnitTrees implements TreeSource
     private const string ALL_EXCLUDED
         = 'phpunit.xml excludes every path its <source> includes, so no tree is left; list trees in the config.';
 
-    private const string NOT_XML = '%s is not XML, so the trees and tests in it cannot be read.';
+    private const string NOT_XML = '%s is not XML, so the trees in it cannot be read.';
 
     private const string INCLUDED = '/phpunit/source/include/directory | /phpunit/source/include/file';
 
     private const string EXCLUDED = '/phpunit/source/exclude/directory | /phpunit/source/exclude/file';
-
-    private const string TESTS = '/phpunit/testsuites/testsuite/directory';
 
     private function __construct(private Root $root, private Paths $fallback, private Manifests $manifests)
     {
@@ -86,25 +83,6 @@ final readonly class PhpUnitTrees implements TreeSource
         $xml = $this->xml();
 
         return $xml instanceof CannotJudge ? $xml : $this->paths($xml, self::INCLUDED);
-    }
-
-    /**
-     * The `<directory>` of every `<testsuite>`, where the tests are, each with
-     * the suffix it tells its files of test cases by.
-     *
-     * @return list<SuiteDirectory>|CannotJudge
-     */
-    public function testDirectories(): array|CannotJudge
-    {
-        $xml = $this->xml();
-        $nodes = $xml instanceof SimpleXMLElement ? $xml->xpath(self::TESTS) : [];
-        $directories = [];
-
-        foreach (is_array($nodes) ? $nodes : [] as $node) {
-            $directories[] = SuiteDirectory::of(Path::of(trim((string) $node)), (string) $node->attributes()?->suffix);
-        }
-
-        return $xml instanceof CannotJudge ? $xml : $directories;
     }
 
     /** The paths that are, or are not, inside one of the others. */

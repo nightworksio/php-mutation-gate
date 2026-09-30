@@ -154,3 +154,56 @@ it('keeps each test file as what it holds', function () use ($listed): void {
         Contents::of("<?php\nfinal class MoneyTest {}\n"),
     ));
 });
+
+it('reads the tests the PHPUnit config declares, and leaves out what it excludes, #[Holds] and all', function () use (
+    $listed,
+): void {
+    $config = <<<'XML'
+        <?xml version="1.0"?>
+        <phpunit>
+            <testsuites>
+                <testsuite name="Unit">
+                    <directory>tests</directory>
+                    <exclude>tests/Contract/fixture</exclude>
+                </testsuite>
+                <testsuite name="Specs"><directory>spec</directory></testsuite>
+            </testsuites>
+        </phpunit>
+        XML;
+    $held = <<<'PHP'
+        <?php
+
+        use NightWorksIO\MutationGate\Attribute\Holds;
+
+        #[Holds('src/Shapes.php')]
+        final class ShapesCaseSpec {}
+
+        PHP;
+    $read = suiteOf(
+        [
+            'phpunit.xml' => $config,
+            'tests/MoneyTest.php' => "<?php\n",
+            'tests/Contract/fixture/tests/ShapesCaseSpec.php' => $held,
+            'spec/LimitSpec.php' => "<?php\n",
+        ],
+        $listed('tests/MoneyTest.php', 'tests/Contract/fixture/tests/ShapesCaseSpec.php', 'spec/LimitSpec.php'),
+    );
+
+    expect(array_map(static fn(TestFile $file): string => $file->fingerprint()->path()->value(), [...$read->files()]))
+        ->toBe(['tests/MoneyTest.php', 'spec/LimitSpec.php'])
+        ->and($read->holdings()->anyByAttribute())->toBeFalse()
+        ->and($read->directories())
+        ->toEqual(Paths::of(Path::of('tests'), Path::of('spec'), Path::of('packages/a/tests')));
+});
+
+it('cannot judge a suite whose PHPUnit config cannot be read', function () use ($listed): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'phpunit.xml', '<phpunit><testsuites>');
+    $unreadable = Scratch::directory();
+    mkdir(sprintf('%s/phpunit.xml', $unreadable));
+
+    expect(Suite::read(Flows::trees(), $listed(), Directory::at($project)))
+        ->toEqual(CannotJudge::because('phpunit.xml is not XML, so the test suite it declares cannot be read.'))
+        ->and(Suite::read(Flows::trees(), $listed(), Directory::at($unreadable)))
+        ->toEqual(CannotJudge::because(sprintf('%s/phpunit.xml could not be read.', $unreadable)));
+});

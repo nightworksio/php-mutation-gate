@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
@@ -17,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 use NightWorksIO\MutationGate\Core\Reach\Sources;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -43,33 +45,9 @@ final readonly class Suite
 
     public static function read(Trees $trees, Fingerprints $files, Directory $project): self|CannotJudge
     {
-        $directories = self::directoriesOf($trees);
-        $read = [];
-        $contentsOf = [];
-        $sources = Sources::none();
-        $outside = Fingerprints::none();
+        $configured = self::configured($project);
 
-        foreach ($files as $file) {
-            if (! self::isWithin($file->path(), $directories)) {
-                $outside = $outside->with($file);
-
-                continue;
-            }
-
-            $contents = $project->read($file->path());
-
-            if ($contents instanceof CannotJudge) {
-                return $contents;
-            }
-
-            if ($contents instanceof Contents) {
-                $read[] = self::testFile($file, $contents);
-                $contentsOf[$file->path()->value()] = $contents;
-                $sources = $sources->withNow($file->path(), $contents);
-            }
-        }
-
-        return new self($directories, TestFiles::of(...$read), $sources, $outside, $contentsOf);
+        return $configured instanceof PhpUnitSuite ? self::readIn($trees, $files, $project, $configured) : $configured;
     }
 
     /** Each package's test directory. */
@@ -146,14 +124,73 @@ final readonly class Suite
         return $holdings;
     }
 
-    private static function directoriesOf(Trees $trees): Paths
+    /** The suite, of the test files the PHPUnit config declares and those of every other package's tests. */
+    private static function readIn(
+        Trees $trees,
+        Fingerprints $files,
+        Directory $project,
+        PhpUnitSuite $configured,
+    ): self|CannotJudge {
+        $packages = self::packageTestsOf($trees);
+        $read = [];
+        $contentsOf = [];
+        $sources = Sources::none();
+        $outside = Fingerprints::none();
+
+        foreach ($files as $file) {
+            if (! $configured->holds($file->path()) && ! self::isWithin($file->path(), $packages)) {
+                $outside = $outside->with($file);
+
+                continue;
+            }
+
+            $contents = $project->read($file->path());
+
+            if ($contents instanceof CannotJudge) {
+                return $contents;
+            }
+
+            if ($contents instanceof Contents) {
+                $read[] = self::testFile($file, $contents);
+                $contentsOf[$file->path()->value()] = $contents;
+                $sources = $sources->withNow($file->path(), $contents);
+            }
+        }
+
+        return new self(
+            Paths::of(...$configured->directories(), ...$packages),
+            TestFiles::of(...$read),
+            $sources,
+            $outside,
+            $contentsOf,
+        );
+    }
+
+    /** The suite the first PHPUnit config the project has declares; the conventional one where it has none. */
+    private static function configured(Directory $project): PhpUnitSuite|CannotJudge
+    {
+        foreach (PhpUnitConfig::candidatesIn(Path::root()) as $candidate) {
+            $contents = $project->read($candidate);
+
+            if ($contents instanceof Contents || $contents instanceof CannotJudge) {
+                return $contents instanceof Contents ? PhpUnitSuite::declaredIn($contents, $candidate) : $contents;
+            }
+        }
+
+        return PhpUnitSuite::conventional();
+    }
+
+    /** The test directory of each package other than the project's root. */
+    private static function packageTestsOf(Trees $trees): Paths
     {
         $tests = TestsDirectory::conventional();
-        $directories = Paths::of($tests);
+        $directories = Paths::none();
 
         foreach ($trees as $tree) {
-            $package = $tree->package()->path()->value();
-            $directories = $directories->with(Path::of(sprintf('%s/%s', $package, $tests->value())));
+            $package = $tree->package()->path();
+            $directories = $package->equals(Path::root())
+                ? $directories
+                : $directories->with(Path::of(sprintf('%s/%s', $package->value(), $tests->value())));
         }
 
         return $directories;
