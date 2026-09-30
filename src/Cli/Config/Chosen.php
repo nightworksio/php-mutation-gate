@@ -68,7 +68,12 @@ final readonly class Chosen
     /** The reporter of the `reports` entry at this index. */
     public function reporter(Choice $choice, int $index): Reporter|Invalid|CannotJudge
     {
-        return $this->built(sprintf('reports[%d]', $index), Reporter::class, $choice, Lookup::in($this->extensions)->reporter(...));
+        return $this->built(
+            sprintf('reports[%d]', $index),
+            Reporter::class,
+            $choice,
+            Lookup::in($this->extensions)->reporter(...),
+        );
     }
 
     /**
