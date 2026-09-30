@@ -40,25 +40,31 @@ sees the same verdict.
    - failures that belong to no floor: stale ignores (ADR-0008) and held paths
      their group does not cover (ADR-0005).
 
-   Which reporters run:
-   - **The console** always. With `--output=problems` it prints one line per
-     result for editors instead of its table (ADR-0015, decision 6).
+   Which reporters run, each registered by its name in the package's own
+   extension (ADR-0001):
+   - **The console** (`console`) always. With `--output=problems` it prints
+     one line per result for editors instead of its table (ADR-0015,
+     decision 6).
    - **File reports**, listed in `reports` (ADR-0002): each entry is
      `{"use": <name or class>, "path": <file or directory>, "with": <options>}`.
      The built-in names are `json`, `junit`, `sarif`, `html`, `tests` and
      `kill-matrix` (ADR-0014), and `gitlab`, GitLab's Code Quality JSON
      (ADR-0016), each needing a `path`. `reports` is empty by default, and `--report=<name>:<path>` adds
      one for a single command.
-   - **GitHub annotations and the step summary** (written to
-     `GITHUB_STEP_SUMMARY`) whenever `GITHUB_ACTIONS` is set.
-   - **The sticky PR comment** under GitHub Actions on a `pull_request` event
-     when `GITHUB_TOKEN` is set, as the package's action and reusable workflow
-     set it.
-   - **The badge and the trend** when the verdict runs in CI on the default
-     branch (decision 5).
+   - **GitHub annotations** (`github-annotations`) and **the step summary**
+     (`github-summary`, written to `GITHUB_STEP_SUMMARY`) whenever
+     `GITHUB_ACTIONS` is set.
+   - **The sticky PR comment** (`github-comment`) under GitHub Actions on a
+     `pull_request` event when `GITHUB_TOKEN` is set, as the package's action
+     and reusable workflow set it.
+   - **The badge and the trend** (`badge`) when the verdict runs in CI on the
+     default branch (decision 5).
    - **Chat alerts,** `slack`, `discord` and `webhook`, when listed in
      `reports` and the verdict runs in CI on the default branch and changes
      its state, and **OpenTelemetry**, `otlp`, when listed (ADR-0016).
+
+   A file report reads the `path` of its entry from its options, beside
+   `with`.
 
    A reporter that fails to write says so, and it does not change the verdict's
    exit code.
@@ -71,7 +77,26 @@ sees the same verdict.
      `equivalent`, and each killed mutant names the test that killed it first,
      where one is known (ADR-0013). It lists the tests once, in a `tests`
      table, and gives each mutant `coveredBy` and `killedBy` as indices into
-     it (ADR-0014).
+     it (ADR-0014). Beside those:
+     - At the top: `format`, `judgement`, `cutShort`, `uncovered`, the
+       project's `score` and `counts` by judgement, then `trees`, `newCode`,
+       `mutants`, `reach`, `warnings` and `failures`.
+     - Each tree has its `path` and `package`; its `declared` floor or the
+       reason it is `exempt`; its `baseline`, `floor`, `score`, the `base`'s
+       score and the floor it `raised` to, where each is known; its
+       `judgement` and `counts`; its `units`, each with its `path`, the
+       `group` or `filter` that holds it, and its `origin`; and the ids of its
+       `mutants`.
+     - Each new-code set has its `package`, `floor`, `score` where it has one,
+       `judgement`, `counts` and the ids of its `mutants`.
+     - Each mutant is written once, at the top: `id`, `file`, `line`, `end`,
+       `mutator`, `family`, `diff`, the runner's `status`, the gate's
+       `judgement`, the `reason` its record gives, `changedLine`, its judging
+       `tests`, its `hint`, its `reproduce` command, and the `seconds` it ran
+       and the `limit` it was allowed where the runner says.
+     - A value that is not known is left out, never written as null.
+     - Every score and floor is a percentage: a number from 0 to 100 with at
+       most two decimals, truncated from hundredths, as `83.41` or `100.0`.
    - **JUnit XML** (`junit`). One `<testsuite>` per tree, and one for new code.
      In each suite, one `<testcase>` stands for its floor. It fails exactly
      when the gate fails that tree, and the failure body lists every mutant it
@@ -80,6 +105,13 @@ sees the same verdict.
      as a failed test. One more suite, `run`, holds a `<testcase>` for each
      failure that belongs to no floor. JUnit failures match gate failures one
      to one.
+     - A tree's suite is named by its path, and its test case is
+       `name="floor"` with the tree's path as `classname`, so a CI's history
+       follows it from run to run.
+     - The `new code` suite has a test case per package, named by its path.
+     - An exempt tree's test case is skipped, with its reason.
+     - The `run` suite names each test case by its failure, and is left out
+       when there is none.
    - **SARIF 2.1.0** (`sarif`).
      - One run, with the tool named `mutation-gate`. Paths are relative to
        the repository. A local run (`CI` unset) also gives the absolute root
@@ -90,7 +122,7 @@ sees the same verdict.
      - Each result is at the mutant's file and lines. Its level is `error` when
        the mutant is in a set that failed (new code, or a tree below its floor)
        and `warning` otherwise.
-     - Each result carries a digest of the gate's id as
+     - Each result carries the gate's id, itself a digest (ADR-0004), as
        `partialFingerprints.primaryLocationLineHash`, the one fingerprint
        GitHub code scanning reads. Code scanning can then match a result across
        commits when code above the mutant moves.
@@ -105,18 +137,22 @@ sees the same verdict.
      ::error file=src/Money.php,line=42,title=Mutant survived%3A LessThan::No test uses a value at the boundary of `$amount < $limit`. Reproduce: vendor/bin/mutation-gate reproduce 3f9a1c2b7d04
      ```
 
-     Errors mark mutants in a failing set, and warnings mark the rest. GitHub
+     Errors mark mutants in a failing set, and warnings mark the rest; the
+     title names the gate's judgement and the mutator, as *Mutant survived:
+     LessThan*. Each warning of the verdict (decision 1) is a notice. GitHub
      keeps at most 10 error, 10 warning and 10 notice annotations per step, and
      50 per job, and drops the rest silently. So the gate writes all its
-     annotations from one step, ranked: changed lines first, then trees that
-     failed. The Infection adapter turns Infection's own annotations off
+     annotations from one step, at most 10 of each, ranked: changed lines
+     first, then sets that failed. The Infection adapter turns Infection's own annotations off
      (ADR-0004), so they do not use up that step's share. The step summary
      always carries the full table.
    - **The sticky PR comment.**
      - **Where it lives.** One comment per pull request, found by the hidden
-       marker `<!-- mutation-gate -->` among comments by the token's identity. It
-       is updated in place on every run, passing runs included, so an old
-       failure never lingers. The token needs `pull-requests: write`.
+       marker `<!-- mutation-gate -->` among comments by the token's identity:
+       the user GitHub's `/user` names, or `github-actions[bot]` for
+       `GITHUB_TOKEN`, which cannot read `/user`. The option `identity` names
+       another. It is updated in place on every run, passing runs included, so
+       an old failure never lingers. The token needs `pull-requests: write`.
      - **Planned, then judged.** The `plan` job posts it first, in a
        *planned* state: the units to be mutated, the estimate (ADR-0017), and
        the changed lines no test covers, read from the coverage map the plan
@@ -133,6 +169,24 @@ sees the same verdict.
        - floors that must or can rise (ADR-0003);
        - a link to the run and its HTML report;
        - the run's cost, collapsed (ADR-0016).
+
+       In that order: the marker; a heading with the verdict and the
+       project's score; the line saying what the run saved; a table of the
+       trees (tree, floor, score, change against the base, result); a line for
+       each new-code set; each survivor on a changed line as a folded block
+       with its diff, hint and reproduce command; a table of the unjudged and
+       flaky mutants; the failures; the warnings; the floors that can rise
+       with `vendor/bin/mutation-gate baseline --write`; the link; and the
+       cost. A list longer than 20 says how many more there are.
+     - **The step summary** has the same layout without the marker, and lists
+       every mutant counted as not killed in one table. A step's summary holds
+       at most 1 MiB, so a table that does not fit is cut and says how many
+       rows the JSON report holds beyond it.
+     - **What the project wrote stays text.** Paths, diffs, test names and
+       reasons come from the project under test, so every one is escaped
+       where it lands: no markup, link, mention or table cell in Markdown, and
+       a diff's fence is longer than any run of its fence character inside
+       it.
      - **Fork pull requests.** The token GitHub gives a `pull_request` run from
        a fork is read-only, so no comment is written. The step summary carries
        the same content, and the reporter says why without failing. The README's
@@ -173,6 +227,17 @@ sees the same verdict.
    (Apache-2.0) is shipped with it, and every generated page names the
    viewer, its version and its licence in a comment (ADR-0018).
 
+   - **The files.** Under its `path`, the reporter writes
+     `mutation-report.json` (`schemaVersion` 2, Stryker's own thresholds of
+     80 and 60) and `index.html`.
+   - **The viewer** is `mutation-testing-elements` 3.9.0, carried in
+     `resources/mutation-testing-elements` with its licence and a test that
+     pins its checksum. The page holds the licence's text in a comment above
+     the viewer.
+   - **The report in the page** is JSON data in its own script element, with
+     every `&`, `<` and `>` escaped, and the page reads it with `JSON.parse`.
+     Nothing a diff or a test name holds can end the element.
+
 5. **The badge and the trend on the default branch.**
    - **The badge.** The verdict writes `badge.json` for shields.io's endpoint
      badge:
@@ -191,10 +256,18 @@ sees the same verdict.
      - red below the lowest.
    - **The trend.** `trend.json` gets one entry per run on the default branch:
      commit, time, the verdict, the project's score, each tree's score, and
-     the run's runner time and full-run time (ADR-0017).
-     The verdict is what chat alerts compare against (ADR-0016). It keeps the
-     newest 500. The verdict also draws `trend.svg`, a plain sparkline with no
-     script, which the step summary and the HTML report show.
+     the run's runner time and full-run time (ADR-0017). The verdict is what
+     chat alerts compare against (ADR-0016). It keeps the newest 500. Its
+     commit, time and scores are written so:
+
+     ```json
+     { "format": 1, "runs": [ { "commit": "3f9a1c2", "time": "2026-09-30T10:00:00Z", "score": 87.41, "trees": { "src": 87.41 } } ] }
+     ```
+
+     A score a set does not have is left out, and an entry that is not in
+     that shape is dropped when the file is read. The verdict also draws
+     `trend.svg`, a plain sparkline with no script, 240 by 40 pixels on a
+     scale of 0 to 100, which the step summary and the HTML report show.
    - **Where they are written.** Only a verdict in CI (the `CI` environment
      variable is set) on the default branch writes them, into
      `--publish-dir=<dir>`, an option of `verdict` and of a one-process run,
@@ -223,9 +296,11 @@ sees the same verdict.
 
 6. **Every survivor has a one-line reproduce command.** In every report it is
    `vendor/bin/mutation-gate reproduce <id>`. It works on any machine with the
-   same code, because the id holds no absolute path (ADR-0004). The console,
-   HTML and JSON reports also give `vendor/bin/mutation-gate explain <id>`,
-   which explains it without running anything (ADR-0014).
+   same code, because the id holds no absolute path (ADR-0004). Every mutant
+   the score counts as not killed has one, so it is also the command that
+   judges an unjudged mutant (ADR-0008). The console, HTML and JSON reports
+   also give `vendor/bin/mutation-gate explain <id>`, which explains it
+   without running anything (ADR-0014).
 
 7. **Every survivor says what the tests miss.** Each runner adapter maps its
    native mutator names to a family. Each family has one sentence, filled in
@@ -252,6 +327,24 @@ sees the same verdict.
    N, but none fails when it becomes `<mutated line>`.* A table test fails when
    a mutator of a supported runner version has no family and is not explicitly
    marked as having none.
+
+   A mutant the gate judged otherwise than survived gets the sentence of its
+   judgement. The sentence of every mutant counted as not killed names its
+   judging tests: a survivor's, and a flaky, unjudged or too slow mutant's,
+   whose tests are the suspects.
+
+   | Judgement | What the hint says |
+   |-----------|--------------------|
+   | Flaky | Its tests killed it on one run and let it survive on another, so they are the suspects. |
+   | Too slow to judge | Its tests take half its time limit or more, so a timeout says nothing about it. Hold `<file>` with a group of the tests that assert on it, or raise `timeouts.seconds`. |
+   | Unjudged | Nothing judged it before the run stopped, so it counts as not killed. |
+   | Ignored | An ignore in the config leaves it out of the score. |
+   | Ignored by a native marker | A native ignore marker leaves it out of the score. |
+   | Killed | A test fails with it in place. |
+   | Errored | It crashes its tests, which counts as killed. |
+   | Killed by timeout | Its tests ran far past their usual time with it in place, so the timeout counts as a kill. |
+
+   The judging tests are named as *It is judged by `A`, `B`, `C` and n more.*
 
 ## Alternatives considered
 
