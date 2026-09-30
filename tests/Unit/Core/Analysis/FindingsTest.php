@@ -5,7 +5,11 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
+use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 it('rejects a mutant by an error its original does not have', function (): void {
     $original = Findings::of(Finding::error('return.type', 'Method add() should return int but returns string.'));
@@ -47,4 +51,18 @@ it('names an analyser by its name, its version and its config\'s digest', functi
     expect($identity->analyser())->toBe('phpstan')
         ->and($identity->version())->toBe('2.2.16')
         ->and($identity->config())->toEqual(Digest::sha256Of('includes: []'));
+});
+
+it('asks about a mutant alone, without what every run withholds, unless told more', function (): void {
+    $check = MutantCheck::of(Path::of('src/Money.php'), Path::of('/tmp/mutant.php'));
+    $told = $check->withDependents(Paths::of(Path::of('src/Wallet.php')))->withholding(Withheld::of('DEPLOY_*'));
+
+    expect([$check->original(), $check->mutant(), $check->dependents(), $check->withheld()])
+        ->toEqual([Path::of('src/Money.php'), Path::of('/tmp/mutant.php'), Paths::none(), Withheld::standard()])
+        ->and([$told->original(), $told->mutant(), $told->dependents(), $told->withheld()])->toEqual([
+            Path::of('src/Money.php'),
+            Path::of('/tmp/mutant.php'),
+            Paths::of(Path::of('src/Wallet.php')),
+            Withheld::of('DEPLOY_*'),
+        ]);
 });

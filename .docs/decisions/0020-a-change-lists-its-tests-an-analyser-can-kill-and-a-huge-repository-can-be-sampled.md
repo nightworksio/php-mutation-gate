@@ -127,14 +127,18 @@ needs remain, and the runners' own behaviour shapes each answer.
 
 6. **A tenth port, `StaticChecker`, asks a static analyser about one
    mutant.**
-   - `identity(): AnalyserIdentity|CannotJudge` gives the analyser, its
-     version and its config's digest.
+   - `identity(Withheld): AnalyserIdentity|CannotJudge` gives the analyser,
+     its version and its config's digest.
    - `findings(Paths, Withheld): Findings|CannotJudge` gives the original
      files' findings, from one warm-up run.
-   - `check(Path original, Path mutant, Withheld): Findings|CannotJudge`
-     checks one mutant, and a finding therefore always belongs to that
-     mutant. A check that cannot run leaves the mutant to its tests. It never
-     kills it.
+   - `check(MutantCheck): Findings|CannotJudge` checks one mutant. The
+     request holds the original, the mutant, the dependents to analyse
+     again unchanged against it (none by default), and what is withheld. So
+     a finding always belongs to that mutant or to one of those dependents.
+     A check that cannot run leaves the mutant to its tests. It never kills
+     it.
+   - Every process an adapter starts, its version command included, runs
+     without what the runner withholds (decision 18).
    - `Core` compares findings. The port has a fake in `tests/Fakes` and one
      contract suite, run against the fake and every adapter.
    - Its adapters are `Adapter\Mago`, `Adapter\PhpStan` and
