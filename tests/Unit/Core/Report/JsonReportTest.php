@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\Removing;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
@@ -305,4 +306,17 @@ it('lists each cluster with its kind, members and representative, and names the 
         ->and(Decoded::at($report, 'mutants', 6, 'cluster'))->toBe($gap->id()->value())
         ->and(Decoded::at($report, 'mutants', 3))->not->toHaveKey('cluster')
         ->and(Decoded::at(JsonReport::encode(Verdicts::failing()), 'clusters'))->toBe([]);
+});
+
+it('marks the removal whose callee may be deleted, and no other mutant, as the schema describes', function (): void {
+    $json = JsonReport::encode(Removing::verdict());
+    $decoded = json_decode($json, associative: true);
+    $removable = [];
+
+    foreach (is_array($decoded) && is_array($decoded['mutants']) ? $decoded['mutants'] : [] as $mutant) {
+        $removable[] = is_array($mutant) && array_key_exists('removable', $mutant) ? $mutant['removable'] : 'absent';
+    }
+
+    expect(Schema::errors($json, Schema::at('resources/report.schema.json')))->toBe([])
+        ->and($removable)->toBe([true, 'absent', 'absent', 'absent', 'absent', 'absent', 'absent']);
 });

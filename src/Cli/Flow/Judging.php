@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
+use NightWorksIO\MutationGate\Core\Removal\Removals;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -185,10 +186,10 @@ final readonly class Judging
     }
 
     /**
-     * The trees, with their survivors of one cause clustered and each
-     * survivor a weak test let through marked, from the survivors' own files
-     * and their tests' files, read once (ADR-0022 decision 15, ADR-0025
-     * decisions 5 to 7).
+     * The trees, with their survivors of one cause clustered, each survivor
+     * a weak test let through marked, and each removal whose callee may be
+     * deleted, from the survivors' own files and their tests' files, each
+     * read once (ADR-0022 decision 15, ADR-0025 decisions 5 to 7, 11 and 12).
      */
     private function read(KillMatrix $matrix, TreeVerdicts $judged): TreeVerdicts
     {
@@ -198,8 +199,9 @@ final readonly class Judging
             Sources::of(Weakness::testFiles($clustered, $matrix), $this->adapters->project),
             Sources::of($this->adapters->runner->definitions(), $this->adapters->project),
         );
+        $weak = Weakness::findings($clustered, $matrix, $sources, $tests);
 
-        return $clustered->found(Weakness::findings($clustered, $matrix, $sources, $tests));
+        return $clustered->found($weak->and(Removals::findings($clustered, $matrix, $sources, $tests)));
     }
 
     /**

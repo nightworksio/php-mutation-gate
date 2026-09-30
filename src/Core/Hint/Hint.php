@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Php\Functions;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
+use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -54,6 +55,13 @@ final readonly class Hint
     private const string REMOVED = 'Every test passes without the call to `%s()`, so nothing asserts on its effect.';
 
     private const string REMOVED_HERE = 'Every test passes without `%s`, so nothing asserts on its effect.';
+
+    /** The second sentence of a surviving removal whose callee is pseudo-tested, its tests asserting other things. */
+    private const string REMOVABLE
+        = '%s No test depends on this call, and nothing `%s()` does is checked either: %s';
+
+    /** How that sentence ends. */
+    private const string DELETABLE = 'if nothing outside the tests needs `%s()`, it can be deleted.';
 
     private const string LITERAL = 'No test depends on this value being `%s`.';
 
@@ -146,7 +154,7 @@ final readonly class Hint
         MutantJudgement $judgement,
         TestIds $tests,
         Contents|Missing $source,
-        WeaklyAsserted|NoFinding $finding,
+        WeaklyAsserted|Removable|NoFinding $finding,
     ): self {
         $sentence = match ($judgement) {
             MutantJudgement::Survived => self::missed($mutant, $source),
@@ -165,7 +173,16 @@ final readonly class Hint
             MutantJudgement::IgnoredByMarker => self::MARKED,
             MutantJudgement::Equivalent => self::EQUIVALENT,
         };
-        $sentence = $finding instanceof WeaklyAsserted ? self::weak($sentence, $finding) : $sentence;
+        $sentence = match (true) {
+            $finding instanceof WeaklyAsserted => self::weak($sentence, $finding),
+            $finding instanceof Removable => sprintf(
+                self::REMOVABLE,
+                $sentence,
+                $finding->name(),
+                sprintf(self::DELETABLE, $finding->name()),
+            ),
+            default => $sentence,
+        };
         $naming = in_array($judgement, self::NAMING, strict: true) && count($tests) > 0;
 
         return new self($naming ? sprintf(self::JUDGED_BY, $sentence, self::named($tests)) : $sentence);

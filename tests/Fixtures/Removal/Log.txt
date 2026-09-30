@@ -1,0 +1,16 @@
+<?php
+
+namespace App\Audit;
+
+final class Log
+{
+    public static function write(int $amount): void
+    {
+        echo $amount;
+    }
+}
+
+interface Sink
+{
+    public function write(int $amount): void;
+}

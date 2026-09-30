@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Removing;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('heads a mutant with where it is, its mutator, its judgement and its id', function (): void {
@@ -92,4 +93,15 @@ it('starts no workflow command from a rejection that holds one, encoded or not',
 
     expect(array_values(array_filter($lines, static fn(string $line): bool => str_starts_with(ltrim($line), '::'))))->toBe([])
         ->and($lines)->toContain('    Rejected by phpstan: a,b:c%0A ::error::code: one, two: three%0A ::error file=x,line=1::message ##[error]older');
+});
+
+it('names the callee a removal may be deleted with in its block, and nothing of any other mutant', function (): void {
+    $blocks = [];
+
+    foreach (Removing::verdict()->trees()->mutants() as $judged) {
+        $blocks[] = $judged instanceof JudgedMutant ? MutantText::block($judged, TestNames::none()) : '';
+    }
+
+    expect($blocks[0])->toContain(sprintf("\n%sRemovable: record()\n", MutantText::INDENT))
+        ->and(implode("\n", array_slice($blocks, 1)))->not->toContain('Removable:');
 });

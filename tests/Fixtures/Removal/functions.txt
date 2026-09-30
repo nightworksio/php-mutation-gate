@@ -1,0 +1,11 @@
+<?php
+
+function tally(int $amount): int
+{
+    return $amount - 1;
+}
+
+function total(int $amount): int
+{
+    return $amount * 2;
+}

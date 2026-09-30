@@ -112,6 +112,7 @@ it('assesses no test that makes an assertion the table does not hold, makes none
     'a helper the file declares, on self' => [PHPUNIT_CART_TEST, 'testDelegatesStatically'],
     'a method of its own the file does not declare, such as a parent\'s' => [PHPUNIT_CART_TEST, 'testDelegatesToAParent'],
     'a parent\'s method, on parent' => [PHPUNIT_CART_TEST, 'testDelegatesUpward'],
+    'a parent\'s method, on parent in another case' => [PHPUNIT_CART_TEST, 'testDelegatesUpwardLoudly'],
     'a method of its own, on static' => [PHPUNIT_CART_TEST, 'testDelegatesLate'],
     'a helper the file declares, on self in another case' => [PHPUNIT_CART_TEST, 'testDelegatesLoudly'],
     'a double\'s expectation of how it is called' => [PHPUNIT_CART_TEST, 'testMocks'],
