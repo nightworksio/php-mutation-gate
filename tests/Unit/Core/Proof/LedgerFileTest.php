@@ -368,7 +368,7 @@ it('reads a full ledger and joins it to another in time linear in its proofs', f
     };
 
     expect($read(10)()->proofs())->toHaveCount(10)
-        ->and(Growth::of(1250, $read))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(625, $read))->toBeLessThan(Growth::LINEAR);
 });
 
 it('writes a full ledger of proved kills in time linear in its proofs', function () use ($run, $killedId, $base): void {
@@ -397,5 +397,5 @@ it('writes a full ledger of proved kills in time linear in its proofs', function
     };
 
     expect(LedgerFile::decode($write(10)())->proofs())->toHaveCount(10)
-        ->and(Growth::of(5000, $write))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(2500, $write))->toBeLessThan(Growth::LINEAR);
 });

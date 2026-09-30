@@ -86,5 +86,5 @@ it('builds, merges and trims timings in time linear in their number', function (
 
     expect($kept(10)())->toHaveCount(10)
         ->and($kept(10)()->secondsFor(Path::of('src/F1.php')))->toEqual(Seconds::of(2.0))
-        ->and(Growth::of(1250, $kept))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(625, $kept))->toBeLessThan(Growth::LINEAR);
 });

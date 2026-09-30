@@ -116,5 +116,5 @@ it('reads a new file and a hunk in time linear in their lines', function (): voi
     expect($whole)->toHaveCount(10)
         ->and($gained->at(Path::of('src/A.php'), Lines::none()))->toHaveCount(10)
         ->and($gained->at(Path::of('src/A.php'), Lines::none())->has(Line::of(10)))->toBeTrue()
-        ->and(Growth::of(5000, $read))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(2500, $read))->toBeLessThan(Growth::LINEAR);
 });

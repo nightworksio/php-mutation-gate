@@ -88,5 +88,5 @@ it('checks a held file in time linear in its lines', function () use ($kernel): 
         $kernel(),
         "holds:src/Kernel.php does not cover src/Kernel.php, so its mutants cannot be judged by it.\nNot reached: src/Kernel.php:10\nAdd the test that runs them to the group.",
     ))
-        ->and(Growth::of(1250, $checked))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(625, $checked))->toBeLessThan(Growth::LINEAR);
 });

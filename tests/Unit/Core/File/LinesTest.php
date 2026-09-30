@@ -40,5 +40,5 @@ it('collects lines in time linear in their number, sorting once', function (): v
 
     expect($lines(10)())->toHaveCount(10)
         ->and([...$lines(10)()][0])->toEqual(Line::of(1))
-        ->and(Growth::of(5000, $lines))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(2500, $lines))->toBeLessThan(Growth::LINEAR);
 });

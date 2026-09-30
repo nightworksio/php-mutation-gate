@@ -68,7 +68,7 @@ it('reads a file in time linear in the names it mentions', function (): void {
     };
 
     expect($read(10)()->mentioned()->all())->toHaveCount(24)
-        ->and(Growth::of(5000, $read))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(2500, $read))->toBeLessThan(Growth::LINEAR);
 });
 
 it('only declares when loading it runs nothing, a closing tag at its end among it', function () use ($support): void {

@@ -149,7 +149,7 @@ it('builds and reads a map in time linear in its entries', function (): void {
     };
 
     expect($read(10)())->toBe(410 + 10 * 80)
-        ->and(Growth::of(1250, $read))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(625, $read))->toBeLessThan(Growth::LINEAR);
 });
 
 it('times the whole suite, test after test, adding nothing for a test it did not time', function (): void {

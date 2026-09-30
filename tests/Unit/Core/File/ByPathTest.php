@@ -77,5 +77,5 @@ it('joins others in time linear in their paths', function (): void {
     };
 
     expect($joined(10)())->toHaveCount(10)
-        ->and(Growth::of(2500, $joined))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(1250, $joined))->toBeLessThan(Growth::LINEAR);
 });

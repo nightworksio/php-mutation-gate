@@ -468,7 +468,7 @@ it('keys units in time linear in the test files that judge them', function (): v
 
     expect($keyed())->toHaveCount(50)
         ->and($keyed()->keyOf(Path::of('src/F1.php')))->toEqual($keys->keyOf(Unit::file(Path::of('src/F1.php')), Paths::of(...$judges), CoverageMap::empty()))
-        ->and(Growth::of(500, static fn(int $size): Closure => $keying($size)[2]))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(250, static fn(int $size): Closure => $keying($size)[2]))->toBeLessThan(Growth::LINEAR);
 });
 
 it('names the base every key of a run is built on: the digest of what every key reads', function () use ($bare, $framed): void {

@@ -8,6 +8,9 @@ use function array_key_exists;
 
 use Closure;
 
+use function gc_collect_cycles;
+use function gc_disable;
+use function gc_enable;
 use function getrusage;
 use function is_array;
 use function is_int;
@@ -21,21 +24,23 @@ use function sprintf;
 /**
  * How a piece of work grows with its size, for the tests that keep a hot path
  * linear. The work runs at a size and at {@see SCALE} times it, and what is
- * compared is how many times as long the larger took: about four times for
- * linear work, sixteen for quadratic. No number of seconds decides anything.
+ * compared is how many times as long the larger took: about eight times for
+ * linear work, sixty-four for quadratic. No number of seconds decides anything.
  *
  * Each run is timed by the CPU time the process spent, which a busy machine
- * does not add to while the process waits its turn. The sizes run
- * alternately, {@see RUNS} times each, and the fastest run of each size
+ * does not add to while the process waits its turn. PHP's cycle collector is
+ * run before each run and held off during it: left on, it runs more often the
+ * more objects a run makes, and its cost grows faster than the work. The sizes
+ * run alternately, {@see RUNS} times each, and the fastest run of each size
  * counts, since other work can only slow a run.
  */
 final class Growth
 {
     /** How many times the larger size is the smaller. */
-    public const int SCALE = 4;
+    public const int SCALE = 8;
 
-    /** How many times as long work at the larger size may take: linear is 4, quadratic 16. */
-    public const float LINEAR = 8.0;
+    /** How many times as long work at the larger size may take: linear is 8, quadratic 64, and this is between them. */
+    public const float LINEAR = 22.6;
 
     private const int RUNS = 3;
 
@@ -79,10 +84,14 @@ final class Growth
      */
     private static function seconds(Closure $work): float
     {
+        gc_collect_cycles();
+        gc_disable();
         $started = self::spent();
         $work();
+        $spent = self::spent() - $started;
+        gc_enable();
 
-        return self::spent() - $started;
+        return $spent;
     }
 
     /** The CPU seconds this process has spent, in user and system time. */

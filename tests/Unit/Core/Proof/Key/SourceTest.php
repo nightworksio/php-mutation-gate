@@ -47,7 +47,7 @@ it('reads files in time linear in their number', function (): void {
 
     expect($source(10)()->files())->toHaveCount(10)
         ->and($source(10)()->files()->digestOf(Path::of('src/F10.php')))->toEqual(Digest::of('10'))
-        ->and(Growth::of(5000, $source))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(2500, $source))->toBeLessThan(Growth::LINEAR);
 });
 
 it('reads the files that define the runner, though proofs.ignore matches them', function () use ($fingerprint): void {

@@ -52,7 +52,7 @@ it('answers the files each test file judges in time linear in their number', fun
     };
 
     expect($run(20)())->toBe(200)
-        ->and(Growth::of(750, $run))->toBeLessThan(Growth::LINEAR);
+        ->and(Growth::of(375, $run))->toBeLessThan(Growth::LINEAR);
 });
 
 it('keeps a covered file judged again where it was first judged', function (): void {

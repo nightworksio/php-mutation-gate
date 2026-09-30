@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function microtime;
-
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
@@ -27,13 +25,14 @@ final readonly class ProcessShell implements Shell
     /** How long it waits between looks at a running process, in seconds. */
     private const float POLL = 0.05;
 
-    public function __construct(private string $directory)
+    /** A shell running each command in a directory, its deadline measured on this clock. */
+    public function __construct(private string $directory, private Clock $clock = new WallClock())
     {
     }
 
     public function in(string $directory): self
     {
-        return new self($directory);
+        return new self($directory, $this->clock);
     }
 
     public function run(Command $command): Ran
@@ -51,10 +50,10 @@ final readonly class ProcessShell implements Shell
 
     private function awaited(Process $process, Seconds|Unlimited $deadline): Ran
     {
-        $until = $deadline instanceof Seconds ? microtime(as_float: true) + $deadline->seconds() : INF;
+        $until = $deadline instanceof Seconds ? $this->clock->seconds() + $deadline->seconds() : INF;
 
         while ($process->isRunning()) {
-            if (microtime(as_float: true) >= $until) {
+            if ($this->clock->seconds() >= $until) {
                 ProcessTree::of($process)->stop();
 
                 return Ran::stopped($this->outputOf($process));
