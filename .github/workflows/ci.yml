@@ -462,6 +462,30 @@ jobs:
         run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-highest-13.xml
         env:
           RUNNER_CONTRACTS: infection
+      # The analysers the static checkers drive are a project of their own
+      # too, installed at the lowest and the highest Mago and PHPStan the
+      # adapters support. Mago's package downloads its binary the first time
+      # it runs, which the gate itself never does (ADR-0020, decision 18).
+      - name: install the lowest Mago and PHPStan into the analysers' fixture
+        working-directory: tests/Contract/StaticChecker/fixture
+        run: |
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
+          vendor/bin/mago --version
+          composer show | grep -E '^(carthage-software/mago|phpstan/phpstan) '
+      - id: analysers-lowest
+        run: vendor/bin/pest --testsuite=Contract --filter='StaticChecker' --log-junit=evidence/raw/analysers-lowest.xml
+        env:
+          ANALYSER_CONTRACTS: '1'
+      - name: install the highest Mago and PHPStan into the analysers' fixture
+        working-directory: tests/Contract/StaticChecker/fixture
+        run: |
+          composer update --no-interaction --no-progress
+          vendor/bin/mago --version
+          composer show | grep -E '^(carthage-software/mago|phpstan/phpstan) '
+      - id: analysers-highest
+        run: vendor/bin/pest --testsuite=Contract --filter='StaticChecker' --log-junit=evidence/raw/analysers-highest.xml
+        env:
+          ANALYSER_CONTRACTS: '1'
       # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
       - name: evidence
         if: ${{ !cancelled() }}

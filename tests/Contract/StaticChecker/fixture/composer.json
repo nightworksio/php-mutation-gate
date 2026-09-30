@@ -1,0 +1,20 @@
+{
+    "name": "nightworksio/static-checker-fixture",
+    "description": "The project the static checker contract suite analyses, with the analysers the gate has adapters for.",
+    "license": "MIT",
+    "require-dev": {
+        "carthage-software/mago": "^1.50",
+        "phpstan/phpstan": "^2.2.16"
+    },
+    "autoload": {
+        "psr-4": {
+            "StaticCheckFixture\\": "src/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "carthage-software/mago": true
+        },
+        "sort-packages": true
+    }
+}

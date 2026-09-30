@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Core\Analysis;
+namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -13,11 +13,16 @@ use NightWorksIO\MutationGate\Core\File\Paths;
  * (ADR-0020, decision 8): Mago leads, being the fastest to check one mutant
  * with. An extension may register others by names of its own.
  */
-enum BuiltInAnalyser: string
+enum BuiltinAnalyser: string
 {
     case Mago = 'mago';
     case PhpStan = 'phpstan';
     case Psalm = 'psalm';
+
+    public function named(): Name
+    {
+        return Name::of($this->value);
+    }
 
     /** The config files at a project's root that say it runs this analyser, each where the analyser looks. */
     public function configs(): Paths

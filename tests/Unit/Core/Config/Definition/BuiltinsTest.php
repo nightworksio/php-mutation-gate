@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Core\Analysis\BuiltInAnalyser;
+use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -29,7 +29,7 @@ it('checks the options of every built-in runner, tree source, store, CI plan, re
         ->and($has(Builtins::stores($origin), ...BuiltinStore::cases()))->toBeTrue()
         ->and($has(Builtins::ciPlans($origin), ...BuiltinCiPlan::cases()))->toBeTrue()
         ->and($has(Builtins::reporters($origin), ...BuiltinReporter::cases()))->toBeTrue()
-        ->and($has(Builtins::staticCheckers($origin), ...BuiltInAnalyser::cases()))->toBeTrue();
+        ->and($has(Builtins::staticCheckers($origin), ...BuiltinAnalyser::cases()))->toBeTrue();
 });
 
 it('hands a built-in adapter options that reach outside the project only where its layer may', function (): void {

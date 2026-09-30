@@ -129,8 +129,10 @@ needs remain, and the runners' own behaviour shapes each answer.
    mutant.**
    - `identity(Withheld): AnalyserIdentity|CannotJudge` gives the analyser,
      its version and its config's digest.
-   - `findings(Paths, Withheld): Findings|CannotJudge` gives the original
-     files' findings, from one warm-up run.
+   - `findings(Paths, Withheld): Findings|CannotJudge` gives the findings
+     of every file the analyser analyses, which must hold these files, from
+     one warm-up run. Each check reports on the whole of that scope too, so
+     a finding the originals already had is never read as new.
    - `check(MutantCheck): Findings|CannotJudge` checks one mutant. The
      request holds the original, the mutant, the dependents to analyse
      again unchanged against it (none by default), and what is withheld. So
@@ -151,12 +153,22 @@ needs remain, and the runners' own behaviour shapes each answer.
    - **Mago:** `mago --config=<config> --colors=never --threads=1 analyze
      --reporting-format=json --substitute <original>=<mutant>`, with both
      paths absolute. The config is passed on every run, so no check reads
-     another. A mutant of a file outside Mago's configured `paths` is left
-     unchecked, and the run says so.
+     another. Mago analyses the whole workspace in each check, so a mutant
+     that breaks a file depending on it is found there. Mago analyses a
+     substitute outside its configured `paths` too, so the adapter checks
+     the original against `mago list-files` first: a mutant of a file
+     outside them is left unchecked, and the run says so. The gate runs the
+     binary Composer's package downloaded, under
+     `vendor/carthage-software/mago/composer/bin/<version>/`, rather than
+     `vendor/bin/mago`, whose first run downloads it.
    - **PHPStan:** `analyse --tmp-file=<mutant> --instead-of=<original>
      --error-format=json --no-progress`, with a config for the check that
      includes the project's and sets `maximumNumberOfProcesses: 1` and
-     `reportUnmatchedIgnoredErrors: false`.
+     `reportUnmatchedIgnoredErrors: false`. The gate keeps that config in
+     `.mutation-gate/phpstan/check.neon`. The warm-up saves PHPStan's result
+     cache, so each check reanalyses the mutant and the files whose view of
+     it changed, and saves nothing. A mutant of a file outside PHPStan's
+     paths cannot be judged.
    - **Psalm:** one `psalm --language-server` per worker. Each mutant is sent
      as the original file's changed content (`textDocument/didChange`), the
      findings are read from `publishDiagnostics`, and the original content is
@@ -179,8 +191,9 @@ needs remain, and the runners' own behaviour shapes each answer.
      2. PHPStan: `vendor/bin/phpstan`, and a `phpstan.neon`,
         `phpstan.neon.dist` or `phpstan.dist.neon`;
      3. Psalm: `vendor/bin/psalm`, and a `psalm.xml` or `psalm.xml.dist`.
-   - `staticCheck.config` is a path, or the analyser's own discovery by
-     default.
+   - `staticCheck.config` is a path, or by default the first of the config
+     files `auto` looks for. The gate hands it to the analyser it builds as
+     the option `config`, which a user never sets under `with`.
    - Both keys **affect results**, and are in key item 3 (ADR-0007
      decision 2.3). Checking one mutant pays off only when a check is fast,
      which is why Mago leads.

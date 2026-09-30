@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_map;
 
-use NightWorksIO\MutationGate\Core\Analysis\BuiltInAnalyser;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -94,7 +93,7 @@ final readonly class StaticCheck implements Part
         return [
             self::AUTO,
             self::NONE,
-            ...array_map(static fn(BuiltInAnalyser $analyser): string => $analyser->value, BuiltInAnalyser::cases()),
+            ...array_map(static fn(BuiltinAnalyser $analyser): string => $analyser->value, BuiltinAnalyser::cases()),
         ];
     }
 }

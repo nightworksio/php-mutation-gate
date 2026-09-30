@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_fill_keys;
-use function array_keys;
+use function array_filter;
 use function array_map;
 use function array_values;
 use function dirname;
@@ -13,10 +13,10 @@ use function getenv;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
-use function preg_match;
 use function sprintf;
 
 /**
@@ -63,8 +63,11 @@ final readonly class Command
     public static function php(Withheld $withheld, string ...$arguments): self
     {
         return self::of(PHP_BINARY, ...$arguments)->with([
+            ...array_filter(
+                Withholding::of($withheld, getenv()),
+                static fn(string|false $value): bool => $value === false,
+            ),
             ...self::uninherited(),
-            ...self::withheldFrom(getenv(), $withheld),
             'PATH' => sprintf('%s%s%s', dirname(PHP_BINARY), PATH_SEPARATOR, getenv('PATH')),
         ]);
     }
@@ -109,24 +112,5 @@ final readonly class Command
         $gate = array_map(static fn(GateVariable $variable): string => $variable->value, GateVariable::cases());
 
         return array_fill_keys([...self::PEST_OWN, ...$gate], value: false);
-    }
-
-    /**
-     * Every withheld variable among these, as one the command does not inherit.
-     *
-     * @param array<string, string> $variables
-     * @return array<string, false>
-     */
-    private static function withheldFrom(array $variables, Withheld $withheld): array
-    {
-        $kept = [];
-
-        foreach (array_keys($variables) as $name) {
-            if (preg_match($withheld->pattern(), $name) === 1) {
-                $kept[$name] = false;
-            }
-        }
-
-        return $kept;
     }
 }

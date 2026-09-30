@@ -7,11 +7,11 @@ namespace NightWorksIO\MutationGate\Cli\Config;
 use function array_any;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
-use NightWorksIO\MutationGate\Core\Analysis\BuiltInAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Composer\Names;
+use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -79,7 +79,7 @@ final readonly class Detected
      */
     public function staticChecker(): Name
     {
-        foreach (BuiltInAnalyser::cases() as $analyser) {
+        foreach (BuiltinAnalyser::cases() as $analyser) {
             if ($this->installs($analyser->value) && $this->hasAny($analyser->configs())) {
                 return Name::of($analyser->value);
             }

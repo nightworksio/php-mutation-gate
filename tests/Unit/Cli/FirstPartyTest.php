@@ -26,9 +26,11 @@ use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
+use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
+use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\Project\AutoloadTrees;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
@@ -244,4 +246,11 @@ it('keeps GitHub Actions for github where an extension claims it too, and detect
         ->toEqual(BuiltinCiPlan::GitHub->named())
         ->and($registry instanceof Extensions ? $registry->detectedCiPlan(CiEnvironment::of(Variables::of(['ACME_BUILD' => '42']))->shows(...)) : $registry)
         ->toEqual(Name::of('acme-own'));
+});
+
+it('registers Mago and PHPStan as static analysers, reading the config the gate hands them', function () use ($registry): void {
+    expect(Lookup::in($registry())->staticChecker(Name::of('mago'), Options::none()))->toBeInstanceOf(Mago::class)
+        ->and(Lookup::in($registry())->staticChecker(Name::of('phpstan'), Options::none()))->toBeInstanceOf(PhpStan::class)
+        ->and(Lookup::in($registry())->staticChecker(Name::of('phpstan'), Configs::options('{"config": 5}')))
+        ->toBeInstanceOf(Invalid::class);
 });
