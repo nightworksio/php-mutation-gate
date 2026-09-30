@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_map;
+use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
@@ -23,7 +26,8 @@ use function sprintf;
 
 /**
  * A shard's result as `.mutation-gate/results/<id>.json` holds it,
- * `"format": 1`. A result that cannot be read is refused, and the verdict
+ * `"format": 1`, with `flaky` listing the ids of the mutants that gave two
+ * answers where there are any. A result that cannot be read is refused, and the verdict
  * reads that shard as having left no result.
  *
  * @internal the shape of the shard result file
@@ -35,6 +39,8 @@ final readonly class ShardResultFile
     private const string CANNOT_JUDGE = 'cannotJudge';
 
     private const string MEASURED = 'measured';
+
+    private const string FLAKY = 'flaky';
 
     public static function encode(ShardResult $result): string
     {
@@ -57,6 +63,10 @@ final readonly class ShardResultFile
                 ),
                 'skipped' => $outcome->skipped(),
             ],
+            ...count($result->flaky()) > 0 ? [self::FLAKY => array_map(
+                static fn(MutantId $id): string => $id->value(),
+                [...$result->flaky()],
+            )] : [],
         ]);
     }
 
@@ -84,7 +94,7 @@ final readonly class ShardResultFile
             KeysRecord::read($file->field('units')),
             self::outcomeIn($file),
             self::measuredIn($file->field(self::MEASURED)),
-        );
+        )->withFlaky(self::flakyIn($file->field(self::FLAKY)));
     }
 
     /** @throws NotInShape */
@@ -101,6 +111,19 @@ final readonly class ShardResultFile
         }
 
         return MutationResult::of(Mutants::of(...$mutants), $file->field('skipped')->integer());
+    }
+
+    /** @throws NotInShape */
+    private static function flakyIn(Node $flaky): MutantIds
+    {
+        $ids = [];
+
+        foreach ($flaky->isPresent() ? $flaky->items() : [] as $item) {
+            $id = MutantId::parse($item->text());
+            $ids[] = $id instanceof MutantId ? $id : throw NotInShape::at($item->at(), 'a mutant id');
+        }
+
+        return MutantIds::of(...$ids);
     }
 
     /** @throws NotInShape */

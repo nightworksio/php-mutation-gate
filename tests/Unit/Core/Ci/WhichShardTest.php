@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Proof\Keys;
 
 $plan = Plan::of(
     Revision::ref('5eeca8f'),
+    Digest::sha256Of('base'),
     Keys::none(),
     Shards::of(Shard::empty(ShardId::of(1)), Shard::empty(ShardId::of(2)), Shard::empty(ShardId::of(3))),
 );

@@ -41,6 +41,12 @@ final readonly class UnitResults implements Countable, IteratorAggregate
         return new self([...$this->results, $result]);
     }
 
+    /** These results, then those. */
+    public function and(self $those): self
+    {
+        return new self([...$this->results, ...$those->results]);
+    }
+
     public function count(): int
     {
         return count($this->results);

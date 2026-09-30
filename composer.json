@@ -33,6 +33,7 @@
         "ext-simplexml": "*",
         "ext-tokenizer": "*",
         "ext-zlib": "*",
+        "composer-runtime-api": "^2.2",
         "psr/clock": "^1.0",
         "symfony/console": "^7.4 || ^8.0",
         "symfony/http-client": "^7.4 || ^8.0",

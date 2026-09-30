@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -46,7 +47,7 @@ it('appends the shards, by id and label, to the file GitHub reads a step\'s outp
 it('writes a label as it is, slashes and all', function (): void {
     $output = sprintf('%s/output', Scratch::directory());
     $label = 'src/Http, part 1 of 2 — naïve';
-    $plan = Plan::of(Revision::ref('5eeca8f'), Keys::none(), Shards::of(
+    $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::of(
         Shard::of(ShardId::of(1), Package::at(Path::root()), Units::none(), Seconds::of(1.0), $label),
     ));
     GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => $output]))->publish($plan);

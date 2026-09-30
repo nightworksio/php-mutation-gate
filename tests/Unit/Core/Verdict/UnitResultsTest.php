@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
@@ -19,6 +21,19 @@ it('is a unit, where its result came from and its mutants', function (): void {
 
     expect($result->unit())->toBe($unit)
         ->and($result->origin())->toBe(Origin::Carried)
+        ->and($result->mutants())->toBe($mutants)
+        ->and($result->flaky())->toHaveCount(0);
+});
+
+it('takes the ids of its flaky mutants, keeping everything else', function (): void {
+    $unit = Unit::file(Path::of('src/Money.php'));
+    $mutants = Mutants::none();
+    $flaky = MutantIds::of(MutantId::hash(Path::of('src/Money.php'), 'Plus', 'diff', 0));
+    $result = UnitResult::of($unit, Origin::Run, $mutants)->withFlaky($flaky);
+
+    expect($result->flaky())->toBe($flaky)
+        ->and($result->unit())->toBe($unit)
+        ->and($result->origin())->toBe(Origin::Run)
         ->and($result->mutants())->toBe($mutants);
 });
 
@@ -35,4 +50,13 @@ it('adds a result without changing the results it came from', function () use ($
 
     expect($paths($results->with($result('b'))))->toBe(['a', 'b'])
         ->and($results)->toHaveCount(1);
+});
+
+it('joins these results and those, these first, without changing either', function () use ($result, $paths): void {
+    $these = UnitResults::of($result('a'));
+    $those = UnitResults::of($result('b'), $result('c'));
+
+    expect($paths($these->and($those)))->toBe(['a', 'b', 'c'])
+        ->and($these)->toHaveCount(1)
+        ->and($those)->toHaveCount(2);
 });

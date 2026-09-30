@@ -1,0 +1,134 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Cli\Flow\Measured;
+use NightWorksIO\MutationGate\Core\Baseline\Baseline;
+use NightWorksIO\MutationGate\Core\Baseline\Entry;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Score;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Tree\Tree;
+use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
+use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
+use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
+
+/** A proof of a file of the fixture, with the mutants the fake runner finds in it, established at this instant. */
+$proofOf = static fn(string $file, string $at): Proof => Proof::of(
+    Digest::sha256Of(sprintf('%s %s', $file, $at)),
+    Path::of($file),
+    RunnerFake::ofTheFixture()->mutate(MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests()))->mutants(),
+    Run::of('local', Moment::at($at), Digest::sha256Of('base')),
+);
+
+/** @return list<string> each tree judged, with its score in hundredths */
+$scores = static fn(Measured $measured): array => array_map(
+    static fn(TreeVerdict $tree): string => sprintf(
+        '%s %s',
+        $tree->tree()->path()->value(),
+        $tree->score() instanceof Score ? $tree->score()->hundredths() : 'nothing',
+    ),
+    [...$measured->trees()],
+);
+
+it('judges every tree over the newest result of each of its units', function () use ($proofOf, $scores): void {
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()
+        ->withProof($proofOf('src/Money.php', '2026-09-29T10:00:00Z'))
+        ->withProof($proofOf('src/Held.php', '2026-09-29T10:00:00Z')));
+
+    $measured = Measured::of(Flows::adapters(Flows::project(), [], $store), Configs::flows(), Baseline::none());
+
+    expect($measured instanceof Measured ? $scores($measured) : $measured)->toBe(['src 4000'])
+        ->and($measured instanceof Measured ? [...$measured->unmeasured()] : $measured)->toBe([]);
+});
+
+it('takes the run\'s own scope\'s newer results, and judges them against the baseline', function () use (
+    $proofOf,
+): void {
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()->withProof($proofOf('src/Money.php', '2026-09-29T10:00:00Z')));
+    $store->write(Scope::branch('feature'), Ledger::empty()
+        ->withProof(Proof::of(Digest::sha256Of('newer'), Path::of('src/Money.php'), Mutants::none(), Run::of(
+            'local',
+            Moment::at('2026-09-30T10:00:00Z'),
+            Digest::sha256Of('base'),
+        )))
+        ->withProof($proofOf('src/Held.php', '2026-09-29T10:00:00Z')));
+    $ci = new CiPlanFake(ShardId::of(1), RunOn::at(Scope::branch('feature'), Scope::branch('main')));
+    $baseline = Baseline::of(Entry::of(Path::of('src'), Floor::of(12.5)));
+
+    $measured = Measured::of(Flows::adapters(Flows::project(), [], $store, $ci), Configs::flows(), $baseline);
+    $trees = $measured instanceof Measured ? [...$measured->trees()] : [];
+
+    expect(count($trees))->toBe(1)
+        ->and($trees[0]->score() instanceof Score ? $trees[0]->score()->hundredths() : $trees[0]->score())->toBe(0)
+        ->and($trees[0]->baseline())->toEqual(Floor::of(12.5));
+});
+
+it('leaves a tree with a unit that has no result yet unmeasured', function () use ($proofOf): void {
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()->withProof($proofOf('src/Money.php', '2026-09-29T10:00:00Z')));
+    $root = Package::at(Path::root());
+    $trees = new TreeSourceFake(Trees::of(
+        Tree::at(Path::of('src/Money.php'), Floor::of(50), $root),
+        Tree::at(Path::of('src/Held.php'), Floor::of(50), $root),
+    ));
+
+    $adapters = Flows::adapters(Flows::project(), [], $store, $trees);
+    $measured = Measured::of($adapters, Configs::flows(), Baseline::none());
+
+    expect($measured instanceof Measured ? array_map(
+        static fn(TreeVerdict $tree): string => $tree->tree()->path()->value(),
+        [...$measured->trees()],
+    ) : $measured)->toBe(['src/Money.php'])
+        ->and($measured instanceof Measured ? [...$measured->unmeasured()] : $measured)
+        ->toEqual([Path::of('src/Held.php')]);
+});
+
+it('scores the results with uncovered mutants left out where the config says so', function () use (
+    $proofOf,
+    $scores,
+): void {
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()
+        ->withProof($proofOf('src/Money.php', '2026-09-29T10:00:00Z'))
+        ->withProof($proofOf('src/Held.php', '2026-09-29T10:00:00Z')));
+
+    $measured = Measured::of(
+        Flows::adapters(Flows::project(), [], $store),
+        Configs::flows(['uncovered' => 'exclude']),
+        Baseline::none(),
+    );
+
+    expect($measured instanceof Measured ? $scores($measured) : $measured)->toBe(['src 5000']);
+});
+
+it('cannot judge where it cannot tell where the run stands', function (): void {
+    expect(Measured::of(Flows::adapters(Flows::project(), [], Flows::lost()), Configs::flows(), Baseline::none()))
+        ->toBeInstanceOf(CannotJudge::class);
+});

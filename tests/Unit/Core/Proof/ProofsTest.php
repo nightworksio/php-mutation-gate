@@ -5,12 +5,14 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Proof\NeverProved;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Unproved;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
 
 $proof = static fn(string $key, string $unit): Proof => Proof::of(
     Digest::of($key),
@@ -83,4 +85,25 @@ it('collects proofs in time linear in their number, keeping the first of a key',
     expect($proofs(10)())->toHaveCount(10)
         ->and($proofs(10)()->proofFor(Digest::of(hash('sha256', '1'))))->toEqual($made(1, 'src/First.php')[0])
         ->and(Growth::of(5000, $proofs))->toBeLessThan(Growth::LINEAR);
+});
+
+it('answers the newest proof of a path whatever its key, the first of two as new, and none for a path never proved', function (): void {
+    $at = static fn(string $key, string $unit, string $instant): Proof => Proof::of(
+        Digest::of($key),
+        Path::of($unit),
+        Mutants::none(),
+        Run::of($key, Moment::at($instant), Digest::of(str_repeat('b', 64))),
+    );
+    $proofs = Proofs::of(
+        $at('old', 'src/A.php', '2026-09-28T10:00:00Z'),
+        $at('new', 'src/A.php', '2026-09-29T10:00:00Z'),
+        $at('same', 'src/A.php', '2026-09-29T10:00:00Z'),
+        $at('older', 'src/A.php', '2026-09-27T10:00:00Z'),
+        $at('other', 'src/B.php', '2026-09-30T10:00:00Z'),
+    );
+    $newest = $proofs->newestOf(Path::of('src/A.php'));
+
+    expect($newest instanceof Proof ? $newest->key() : $newest)->toEqual(Digest::of('new'))
+        ->and($proofs->newestOf(Path::of('src/C.php')))->toEqual(NeverProved::unit(Path::of('src/C.php')))
+        ->and(NeverProved::unit(Path::of('src/C.php'))->path())->toEqual(Path::of('src/C.php'));
 });

@@ -1,0 +1,79 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Core\Plan;
+
+use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Proofs;
+use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
+use NightWorksIO\MutationGate\Core\Proof\Unproved;
+use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Origin;
+use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
+use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
+
+/**
+ * Of the units a run considers, those a proof whose key still matches
+ * already covers, and those left to run. The default branch's proof is taken
+ * before the run's own scope's. A unit with no key always runs.
+ */
+final readonly class Proving
+{
+    private function __construct(private UnitResults $proved, private Units $toRun, private int $ownScope)
+    {
+    }
+
+    /**
+     * @param Proofs $defaultBranch the proofs of the default branch's ledger
+     * @param Proofs $own           the proofs of the run's own scope, where that is not the default branch
+     */
+    public static function of(Units $considered, Keys $keys, Proofs $defaultBranch, Proofs $own): self
+    {
+        $proved = UnitResults::none();
+        $toRun = Units::none();
+        $ownScope = 0;
+
+        foreach ($considered as $unit) {
+            $proof = self::proofOf($keys->keyOf($unit->path()), $defaultBranch, $own);
+
+            if ($proof instanceof Proof) {
+                $proved = $proved->with(UnitResult::of($unit, Origin::Proved, $proof->mutants()));
+                $ownScope += $defaultBranch->has($proof->key()) ? 0 : 1;
+
+                continue;
+            }
+
+            $toRun = $toRun->with($unit);
+        }
+
+        return new self($proved, $toRun, $ownScope);
+    }
+
+    public function proved(): UnitResults
+    {
+        return $this->proved;
+    }
+
+    public function toRun(): Units
+    {
+        return $this->toRun;
+    }
+
+    /** How many proofs it takes come from the run's own scope rather than the default branch's. */
+    public function ownScopeProofs(): int
+    {
+        return $this->ownScope;
+    }
+
+    private static function proofOf(Digest|Unkeyed $key, Proofs $defaultBranch, Proofs $own): Proof|Unproved|Unkeyed
+    {
+        return match (true) {
+            ! $key instanceof Digest => $key,
+            $defaultBranch->has($key) => $defaultBranch->proofFor($key),
+            default => $own->proofFor($key),
+        };
+    }
+}

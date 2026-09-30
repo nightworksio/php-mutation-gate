@@ -5,24 +5,29 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli;
 
 use function class_exists;
-
-use DateTimeImmutable;
-
 use function getenv;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Runtime\PhpProbe;
+use NightWorksIO\MutationGate\Cli\Command\BaselineCommand;
 use NightWorksIO\MutationGate\Cli\Command\ConfigSchema;
 use NightWorksIO\MutationGate\Cli\Command\ConfigShow;
+use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
 use NightWorksIO\MutationGate\Cli\Command\Doctor;
 use NightWorksIO\MutationGate\Cli\Command\Init;
+use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
+use NightWorksIO\MutationGate\Cli\Command\RunCommand;
+use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
+use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Extension\Extensions;
+use Psr\Clock\ClockInterface;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Input\InputOption;
 
@@ -33,11 +38,8 @@ final readonly class Console
 
     private const string DEFAULT = 'run';
 
-    private const array COMMANDS = [
-        'run' => 'Plan, run and judge in one process',
-        'plan' => 'Work out the reach, drop proved units, cut shards and print the plan for a CI',
-        'verdict' => 'Merge every shard\'s results, judge the floors, write reports and the ledger',
-        'baseline' => 'Show, or write, floors raised to what was measured',
+    /** The commands the README lists that are not built yet, each of which says so. */
+    private const array NOT_BUILT = [
         'reproduce' => 'Run one mutant again and show why it survives',
         'triage' => 'Run a file n times and list every mutant whose result varied',
         'watch' => 'Re-judge what each save reaches',
@@ -47,13 +49,14 @@ final readonly class Console
 
     /**
      * The command line of a project, with the extensions found for it, the vendor directory it was installed
-     * into and the instant it runs at.
+     * into, the clock it reads the time from and the environment it was started in.
      */
     public static function application(
         Extensions $extensions,
         string $project,
         string $vendor,
-        DateTimeImmutable $now,
+        ClockInterface $clock,
+        Variables $environment,
     ): Application {
         $application = new Application(self::NAME);
         $application->setAutoExit(boolean: false);
@@ -81,22 +84,30 @@ final readonly class Console
         ));
         $definition->addOption(new InputOption('ci', mode: InputOption::VALUE_REQUIRED, description: 'Set ci.plan'));
 
-        foreach (self::COMMANDS as $name => $description) {
+        foreach (self::NOT_BUILT as $name => $description) {
             $application->addCommand(NotBuilt::command($name, $description));
         }
 
         $application->addCommand(PestPatch::command(ComposerVendor::on($project)));
 
         $detected = new Detected(Directory::at($project), Directory::at($vendor));
+        $now = $clock->now();
         $effective = new Effective($project, $extensions, $detected, $now);
+        $composition = new Composition($effective, $extensions, $project, $vendor, $clock, $environment);
+        $application->addCommand(RunCommand::command($composition));
+        $application->addCommand(PlanCommand::command($composition));
+        $application->addCommand(VerdictCommand::command($composition));
+        $application->addCommand(BaselineCommand::command($composition));
+        $application->addCommand(CoverageCommand::command($composition));
         $formats = new Formats(class_exists(...));
         $application->addCommand(Init::command($project, $extensions, $effective, $formats, $now));
         $application->addCommand(Init::import($project, $extensions, $effective, $formats, $now));
         $application->addCommand(ConfigShow::command($effective, $formats));
         $application->addCommand(ConfigSchema::command());
         $installed = $detected->installed();
+        $probe = PhpProbe::of(PHP_BINARY, getenv());
         $application->addCommand(Doctor::command(
-            new Observed($project, $extensions, $effective, $detected, PhpProbe::of(PHP_BINARY, getenv()), $now),
+            new Observed($project, $extensions, $effective, $detected, $probe, $now),
             $installed instanceof Installed ? Guide::installedIn($installed) : Guide::unreleased(),
         ));
         $application->setDefaultCommand(self::DEFAULT);

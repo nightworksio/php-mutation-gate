@@ -81,3 +81,12 @@ it('is spelt as it is from a directory it is not inside, the root among them', f
         ->and(Path::of('src/Money.php')->relativeTo(Path::root())->value())->toBe('src/Money.php')
         ->and(Path::of('packages/moneyed/a.php')->relativeTo(Path::of('packages/money'))->value())->toBe('packages/moneyed/a.php');
 });
+
+it('names a file of test cases by the Test.php its name ends in', function (string $path, bool $cases): void {
+    expect(Path::of($path)->isTestCase())->toBe($cases);
+})->with([
+    'a test case' => ['tests/MoneyTest.php', true],
+    'support' => ['tests/Support/Money.php', false],
+    'a name with Test inside' => ['tests/TestMoney.php', false],
+    'another suffix' => ['tests/MoneyTest.phpt', false],
+]);

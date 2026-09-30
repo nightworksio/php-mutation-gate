@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
@@ -31,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -140,4 +142,28 @@ it('judges one empty new-code set, which passes and says so, when no changed lin
         ->and($sets[0]->package()->path())->toEqual(Path::root())
         ->and($sets[0]->floor())->toEqual(Floor::of(90))
         ->and($sets[0]->judgement())->toBe(Judgement::NothingToMutate);
+});
+
+it('judges a mutant flaky where its unit\'s result names it so, and every other as reported', function () use (
+    $trees,
+    $reach,
+): void {
+    $apart = static fn(int $occurrence, MutantStatus $status): Mutant => Mutant::of(
+        MutantId::hash(Path::of('app/Kernel.php'), 'LessThan', '', $occurrence),
+        sprintf('app/Kernel.php:%d', $occurrence),
+        Location::of(Path::of('app/Kernel.php'), Line::of(1), Line::of(1)),
+        Mutation::of('LessThan', MutatorFamily::Boundary, ''),
+        $status,
+        Unmeasured::duration(),
+    );
+    $flaky = $apart(0, MutantStatus::Survived);
+    $killed = $apart(1, MutantStatus::Killed);
+    $survived = $apart(2, MutantStatus::Survived);
+    $mutants = Mutants::of($flaky, $killed, $survived);
+    $result = UnitResult::of(Unit::file(Path::of('app/Kernel.php')), Origin::Run, $mutants)
+        ->withFlaky(MutantIds::of($flaky->id()));
+    [$app] = [...Judge::of($trees, Baseline::none(), $reach, Uncovered::Count)->trees(UnitResults::of($result))];
+
+    expect(array_map(static fn(JudgedMutant $judged): MutantJudgement => $judged->judgement(), [...$app->mutants()]))
+        ->toBe([MutantJudgement::Flaky, MutantJudgement::Killed, MutantJudgement::Survived]);
 });

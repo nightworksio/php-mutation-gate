@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Port\TreeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -43,6 +44,11 @@ $registry = static fn(): Extensions => new Extensions(Origin::of('acme/gate'))
     ->withRunner(
         Name::of('picky'),
         static fn(): Invalid => Invalid::because(Problem::at('workers', 'expected a number')),
+    )
+    ->withReporter(Name::of('it'), static fn(): Reporter => new ReporterFake())
+    ->withReporter(
+        Name::of('picky'),
+        static fn(): Invalid => Invalid::because(Problem::at('colors', 'expected a map of colours')),
     );
 
 /** Nothing registered, so only a class can be chosen. */
@@ -66,6 +72,18 @@ it('cannot judge with a name nothing registered', function () use ($registry): v
 it('puts the problems a registered adapter has with its options under with', function () use ($registry): void {
     expect(new Chosen($registry())->runner(Choice::of('picky', Configs::options('{"workers": "4"}'))))
         ->toEqual(Invalid::because(Problem::at('runner.with.workers', 'expected a number')));
+});
+
+it('builds a reporter the run chooses itself, putting its problems under what chose it', function () use (
+    $registry,
+): void {
+    $chosen = new Chosen($registry());
+
+    expect($chosen->reporterChosenBy('badge', Choice::of('it', '{}')))->toBeInstanceOf(ReporterFake::class)
+        ->and($chosen->reporterChosenBy('badge', Choice::of('picky', '{}')))
+        ->toEqual(Invalid::because(Problem::at('badge.with.colors', 'expected a map of colours')))
+        ->and($chosen->reporterChosenBy('GITHUB_ACTIONS', Choice::of('github', '{}')))
+        ->toEqual(CannotJudge::because('No reporter is registered as "github".'));
 });
 
 it('builds a class a config names from its options', function () use ($classes): void {

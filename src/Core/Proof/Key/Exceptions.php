@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Proof\Key;
 use function array_any;
 
 use NightWorksIO\MutationGate\Core\Ci\Definitions;
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -28,7 +29,7 @@ final readonly class Exceptions
     private const string OWN = '.mutation-gate';
 
     private function __construct(
-        private Path $config,
+        private Path|Absent $config,
         private Path $baseline,
         private Ignored $ignored,
         private Paths $definitions,
@@ -36,8 +37,11 @@ final readonly class Exceptions
     ) {
     }
 
-    /** @param Paths $definitions the files that define the runner, which no exception leaves out */
-    public static function of(Path $config, Path $baseline, Ignored $ignored, Paths $definitions): self
+    /**
+     * @param Path|Absent $config      the config file, or none under zero-config
+     * @param Paths       $definitions the files that define the runner, which no exception leaves out
+     */
+    public static function of(Path|Absent $config, Path $baseline, Ignored $ignored, Paths $definitions): self
     {
         return new self($config, $baseline, $ignored, $definitions, Paths::of(Path::of(self::OWN)));
     }
@@ -56,7 +60,7 @@ final readonly class Exceptions
     {
         return ! $this->definitions->has($path)
             && (
-                $path->equals($this->config)
+                $this->config instanceof Path && $path->equals($this->config)
                 || $path->equals($this->baseline)
                 || $this->ignored->matches($path)
                 || $this->isCiDefinition($path)

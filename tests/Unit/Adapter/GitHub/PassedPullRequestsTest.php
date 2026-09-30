@@ -11,7 +11,13 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Port\ChangeSource;
+use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Checkout;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -28,9 +34,11 @@ const PULL_REQUESTS_API = 'https://api.github.com/repos/octo/gate';
 const PULL_REQUESTS_RUN = [
     'GITHUB_REPOSITORY' => 'octo/gate',
     'GITHUB_SHA' => 'head',
-    'GITHUB_WORKFLOW_REF' => 'octo/gate/.github/workflows/gate.yml@refs/heads/main',
     'GITHUB_TOKEN' => 'secret',
 ];
+
+/** The check-run the verdict reports under, as `ci.check` names it. */
+const PULL_REQUESTS_CHECK = 'mutation / verdict';
 
 $uncommitted = static fn(): Changes => Changes::of(Change::modified(Path::of('src/Money.php'), Lines::none()));
 
@@ -56,9 +64,47 @@ function answering(array $answers): MockHttpClient
         : new MockResponse('{"message": "Not Found"}', ['http_code' => 404]));
 }
 
+/** Where GitHub lists the verdict's check-runs on a commit. */
+function checkRuns(string $commit): string
+{
+    return sprintf('%s/commits/%s/check-runs?check_name=mutation%%20%%2F%%20verdict&status=completed', PULL_REQUESTS_API, $commit);
+}
+
+/**
+ * The ledgers of pull requests numbered from one, each of which records its
+ * head `pr-<commit>` as passed under the check, with none of its own proofs.
+ *
+ * @param list<string> $commits
+ */
+function passedLedgers(array $commits): ProofStoreFake
+{
+    $ledgers = new ProofStoreFake();
+
+    foreach ($commits as $at => $commit) {
+        $ledgers->write(
+            Scope::pullRequest($at + 1),
+            Ledger::empty()->withPassed(Passed::of(Revision::ref(sprintf('pr-%s', $commit)), PULL_REQUESTS_CHECK, 0)),
+        );
+    }
+
+    return $ledgers;
+}
+
+/**
+ * GitHub's source over the other, reading pull requests' ledgers from this store.
+ *
+ * @param array<string, string> $environment
+ */
+function trusting(Checkout $source, MockHttpClient $github, ProofStoreFake $ledgers, array $environment = PULL_REQUESTS_RUN): ChangeSource&Repository
+{
+    $over = PassedPullRequests::over($source, $github, $environment, PULL_REQUESTS_CHECK);
+
+    return $over instanceof PassedPullRequests ? $over->trusting($ledgers) : $over;
+}
+
 /**
  * What GitHub says of commits each of which is the tree of a merged pull
- * request whose run of the workflow passed.
+ * request whose verdict passed on its head.
  *
  * @param  list<string>         $commits
  * @return array<string, mixed>
@@ -70,13 +116,13 @@ function provedCommits(array $commits, int $total = -1): array
         'commits' => array_map(static fn(string $commit): array => ['sha' => $commit, 'commit' => ['tree' => ['sha' => sprintf('tree-%s', $commit)]]], $commits),
     ]];
 
-    foreach ($commits as $commit) {
-        $answers[sprintf('%s/commits/%s/pulls', PULL_REQUESTS_API, $commit)] = [['merged_at' => '2026-09-30T10:00:00Z', 'head' => ['sha' => sprintf('pr-%s', $commit)]]];
+    foreach ($commits as $at => $commit) {
+        $answers[sprintf('%s/commits/%s/pulls', PULL_REQUESTS_API, $commit)] = [['number' => $at + 1, 'merged_at' => '2026-09-30T10:00:00Z', 'head' => ['sha' => sprintf('pr-%s', $commit)]]];
         $answers[sprintf('%s/git/commits/pr-%s', PULL_REQUESTS_API, $commit)] = ['tree' => ['sha' => sprintf('tree-%s', $commit)]];
-        $answers[sprintf('%s/actions/runs?head_sha=pr-%s&event=pull_request&status=success', PULL_REQUESTS_API, $commit)] = [
-            'workflow_runs' => [
-                ['path' => '.github/workflows/lint.yml', 'conclusion' => 'failure'],
-                ['path' => '.github/workflows/gate.yml', 'conclusion' => 'success'],
+        $answers[checkRuns(sprintf('pr-%s', $commit))] = [
+            'check_runs' => [
+                ['name' => 'lint', 'conclusion' => 'failure'],
+                ['name' => PULL_REQUESTS_CHECK, 'conclusion' => 'success'],
             ],
         ];
     }
@@ -85,20 +131,27 @@ function provedCommits(array $commits, int $total = -1): array
 }
 
 it('reads only what is uncommitted when every commit since the base is the tree of a pull request whose run passed', function () use ($source, $uncommitted): void {
-    $proved = PassedPullRequests::over($source(), answering(provedCommits(['one', 'two'])), PULL_REQUESTS_RUN);
+    $proved = trusting($source(), answering(provedCommits(['one', 'two'])), passedLedgers(['one', 'two']));
 
     expect($proved->changesSince(Revision::ref('base')))->toEqual($uncommitted());
 });
 
+it('proves nothing without the pull requests\' ledgers to read', function () use ($source): void {
+    $untrusted = PassedPullRequests::over($source(), answering(provedCommits(['one'])), PULL_REQUESTS_RUN, PULL_REQUESTS_CHECK);
+
+    expect($untrusted->changesSince(Revision::ref('base')))
+        ->toEqual(CannotTell::because('base is not a revision this repository has.'));
+});
+
 it('reads only what is uncommitted when the base is the head', function () use ($source, $uncommitted): void {
-    $proved = PassedPullRequests::over($source(), answering(provedCommits([])), PULL_REQUESTS_RUN);
+    $proved = trusting($source(), answering(provedCommits([])), passedLedgers([]));
 
     expect($proved->changesSince(Revision::ref('base')))->toEqual($uncommitted());
 });
 
 it('asks about twenty commits, and no more', function (int $commits, bool $proved) use ($source): void {
     $names = array_map(static fn(int $commit): string => sprintf('c%d', $commit), range(1, $commits));
-    $changes = PassedPullRequests::over($source(), answering(provedCommits($names)), PULL_REQUESTS_RUN)->changesSince(Revision::ref('base'));
+    $changes = trusting($source(), answering(provedCommits($names)), passedLedgers($names))->changesSince(Revision::ref('base'));
 
     expect($changes instanceof Changes)->toBe($proved);
 })->with([
@@ -123,10 +176,11 @@ function spoilt(string $how, array $answers): array
         'the pull request says nothing of a merge' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [['head' => ['sha' => 'pr-two']]]],
         'its head is another tree' => [...$answers, sprintf('%s/git/commits/pr-two', PULL_REQUESTS_API) => ['tree' => ['sha' => 'tree-other']]],
         'its head cannot be read' => array_diff_key($answers, [sprintf('%s/git/commits/pr-two', PULL_REQUESTS_API) => true]),
-        'no run is known' => array_diff_key($answers, [sprintf('%s/actions/runs?head_sha=pr-two&event=pull_request&status=success', PULL_REQUESTS_API) => true]),
-        'no run of this workflow passed' => [...$answers, sprintf('%s/actions/runs?head_sha=pr-two&event=pull_request&status=success', PULL_REQUESTS_API) => [
-            'workflow_runs' => [['path' => '.github/workflows/lint.yml', 'conclusion' => 'success'], ['path' => '.github/workflows/gate.yml', 'conclusion' => 'failure']],
+        'no check-run is known' => array_diff_key($answers, [checkRuns('pr-two') => true]),
+        'the check failed' => [...$answers, checkRuns('pr-two') => [
+            'check_runs' => [['name' => 'lint', 'conclusion' => 'success'], ['name' => PULL_REQUESTS_CHECK, 'conclusion' => 'failure']],
         ]],
+        'the pull request has no number' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [['merged_at' => '2026-09-30T10:00:00Z', 'head' => ['sha' => 'pr-two']]]],
         'the commit names no tree' => [
             ...$answers,
             sprintf('%s/compare/base...head', PULL_REQUESTS_API) => ['total_commits' => 1, 'commits' => [['sha' => 'one', 'commit' => []]]],
@@ -137,7 +191,7 @@ function spoilt(string $how, array $answers): array
 }
 
 it('reads everything since the base when a commit cannot be proved', function (string $how) use ($source): void {
-    $changes = PassedPullRequests::over($source(), answering(spoilt($how, provedCommits(['one', 'two']))), PULL_REQUESTS_RUN)
+    $changes = trusting($source(), answering(spoilt($how, provedCommits(['one', 'two']))), passedLedgers(['one', 'two']))
         ->changesSince(Revision::ref('base'));
 
     expect($changes)->toEqual(CannotTell::because('base is not a revision this repository has.'));
@@ -149,16 +203,30 @@ it('reads everything since the base when a commit cannot be proved', function (s
     'the pull request says nothing of a merge',
     'its head is another tree',
     'its head cannot be read',
-    'no run is known',
-    'no run of this workflow passed',
+    'no check-run is known',
+    'the check failed',
+    'the pull request has no number',
     'the commit names no tree',
+]);
+
+it('reads everything since the base when a pull request\'s ledger does not vouch for its head', function (Ledger $ledger) use ($source): void {
+    $ledgers = passedLedgers(['one', 'two']);
+    $ledgers->write(Scope::pullRequest(2), $ledger);
+
+    expect(trusting($source(), answering(provedCommits(['one', 'two'])), $ledgers)->changesSince(Revision::ref('base')))
+        ->toEqual(CannotTell::because('base is not a revision this repository has.'));
+})->with([
+    'no pass recorded' => [Ledger::empty()],
+    'another head passed' => [Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-other'), PULL_REQUESTS_CHECK, 0))],
+    'another check passed' => [Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-two'), 'lint', 0))],
+    'its own proofs were used' => [Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 1))],
 ]);
 
 it('asks GitHub where GITHUB_API_URL says, with GITHUB_TOKEN', function () use ($source, $uncommitted): void {
     $response = new JsonMockResponse(['total_commits' => 0, 'commits' => []]);
     $run = [...PULL_REQUESTS_RUN, 'GITHUB_API_URL' => 'https://github.example/api/v3'];
 
-    $changes = PassedPullRequests::over($source(), new MockHttpClient($response), $run)->changesSince(Revision::ref('base'));
+    $changes = trusting($source(), new MockHttpClient($response), passedLedgers([]), $run)->changesSince(Revision::ref('base'));
 
     expect($changes)->toEqual($uncommitted())
         ->and($response->getRequestUrl())->toBe('https://github.example/api/v3/repos/octo/gate/compare/base...head')
@@ -169,35 +237,42 @@ it('is the source underneath where the environment lacks what names a run', func
     $underneath = $source();
     $environment = array_diff_key(PULL_REQUESTS_RUN, [$name => true]);
 
-    expect(PassedPullRequests::over($underneath, answering([]), $environment))->toBe($underneath);
-})->with(['GITHUB_REPOSITORY', 'GITHUB_SHA', 'GITHUB_WORKFLOW_REF']);
+    expect(PassedPullRequests::over($underneath, answering([]), $environment, PULL_REQUESTS_CHECK))->toBe($underneath);
+})->with(['GITHUB_REPOSITORY', 'GITHUB_SHA']);
 
 it('is the source underneath where the environment names no run', function (string $name, string $value) use ($source): void {
     $underneath = $source();
     $environment = [...PULL_REQUESTS_RUN, $name => $value];
 
-    expect(PassedPullRequests::over($underneath, answering([]), $environment))->toBe($underneath);
+    expect(PassedPullRequests::over($underneath, answering([]), $environment, PULL_REQUESTS_CHECK))->toBe($underneath);
 })->with([
     'an empty repository' => ['GITHUB_REPOSITORY', ''],
-    'a workflow spelt some other way' => ['GITHUB_WORKFLOW_REF', 'gate.yml'],
+    'an empty commit' => ['GITHUB_SHA', ''],
 ]);
+
+it('is the source underneath where no check names the verdict', function () use ($source): void {
+    $underneath = $source();
+
+    expect(PassedPullRequests::over($underneath, answering([]), PULL_REQUESTS_RUN, ''))->toBe($underneath);
+});
 
 it('asks GitHub at its own address with no token where the environment names neither', function () use ($source): void {
     $response = new JsonMockResponse(['total_commits' => 0, 'commits' => []]);
     $run = array_diff_key(PULL_REQUESTS_RUN, ['GITHUB_TOKEN' => true]);
 
-    PassedPullRequests::over($source(), new MockHttpClient($response), $run)->changesSince(Revision::ref('base'));
+    trusting($source(), new MockHttpClient($response), passedLedgers([]), $run)->changesSince(Revision::ref('base'));
 
     expect($response->getRequestUrl())->toBe('https://api.github.com/repos/octo/gate/compare/base...head')
         ->and($response->getRequestOptions()['headers'])->not->toContain('Authorization: Bearer secret');
 });
 
 it('is a source of its own where the environment names the run', function () use ($source): void {
-    expect(PassedPullRequests::over($source(), answering([]), PULL_REQUESTS_RUN))->toBeInstanceOf(PassedPullRequests::class);
+    expect(PassedPullRequests::over($source(), answering([]), PULL_REQUESTS_RUN, PULL_REQUESTS_CHECK))
+        ->toBeInstanceOf(PassedPullRequests::class);
 });
 
 it('reads files and fingerprints from the source underneath', function () use ($source): void {
-    $proved = PassedPullRequests::over($source(), answering([]), PULL_REQUESTS_RUN);
+    $proved = trusting($source(), answering([]), passedLedgers([]));
 
     expect($proved->fileAt(Path::of('src/Money.php'), Revision::ref('base')))->toEqual(Contents::of('base'))
         ->and($proved->filesAt(Paths::of(Path::of('src/Money.php')), Revision::ref('base')))->toEqual($source()->filesAt(Paths::of(Path::of('src/Money.php')), Revision::ref('base')))
@@ -206,7 +281,7 @@ it('reads files and fingerprints from the source underneath', function () use ($
 
 it('says where the checkout stands as the source underneath says', function (): void {
     $underneath = Checkout::of(ChangeSourceFake::ofTheFixture(), RepositoryFake::detachedAt(Revision::ref('5eeca8f')));
-    $proved = PassedPullRequests::over($underneath, answering([]), PULL_REQUESTS_RUN);
+    $proved = trusting($underneath, answering([]), passedLedgers([]));
 
     expect($proved->head())->toEqual(Revision::ref('5eeca8f'))
         ->and($proved->branch())->toEqual($underneath->branch())

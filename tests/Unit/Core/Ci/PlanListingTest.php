@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -16,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 it('lists the plan, its commit and each shard with its label, whole seconds and units', function (): void {
-    $plan = Plan::of(Revision::ref('5eeca8f'), Keys::none(), Shards::of(
+    $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::of(
         Shard::of(
             ShardId::of(1),
             Package::at(Path::root()),
@@ -68,7 +69,7 @@ it('lists the plan, its commit and each shard with its label, whole seconds and 
 });
 
 it('lists a plan with no shards', function (): void {
-    $plan = Plan::of(Revision::ref('5eeca8f'), Keys::none(), Shards::none());
+    $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::none());
 
     expect(PlanListing::of($plan))->toBe(sprintf(
         "{\n    \"plan\": \"%s\",\n    \"commit\": \"5eeca8f\",\n    \"shards\": []\n}",

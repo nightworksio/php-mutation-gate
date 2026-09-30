@@ -30,6 +30,9 @@ final readonly class Path
 
     private const string ROOT = '.';
 
+    /** How the name of a file of test cases ends. */
+    private const string TEST_CASES = 'Test.php';
+
     /** @param non-empty-string $value */
     private function __construct(private string $value)
     {
@@ -64,6 +67,12 @@ final readonly class Path
     public function equals(self $other): bool
     {
         return $this->value === $other->value;
+    }
+
+    /** Whether it names a file of test cases, as PHPUnit and Pest name them by default: ending in `Test.php`. */
+    public function isTestCase(): bool
+    {
+        return str_ends_with($this->value, self::TEST_CASES);
     }
 
     /** Whether this path is a directory's own path or a path inside it. Every path is inside the root. */

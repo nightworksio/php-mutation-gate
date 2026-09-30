@@ -36,9 +36,11 @@ Two parts of that do not carry over to a public package.
    - **`mutation-gate plan`** does the preparation:
      - reads the config and the trees;
      - takes the coverage map, either by running the suite or from
-       `--coverage=<dir>`, where an earlier job wrote the gate's own map
-       (ADR-0004). A PHP coverage map, such as Pest's, is code that reading it
-       runs, so a PHP coverage map is read only when this same job wrote it;
+       `--coverage=<dir>`: the gate's own map, `<dir>/map.json.gz`, which an
+       earlier job wrote with `mutation-gate coverage --into=<dir>`. That
+       command runs the suite under coverage and writes the map. A PHP
+       coverage map, such as Pest's, is code that reading it runs, so a PHP
+       coverage map is read only when this same job wrote it;
      - works out the reach (ADR-0005) and each considered unit's content key
        (ADR-0007), and drops every unit a proof already covers;
      - weighs the rest with the cost model and cuts the shards.
@@ -47,12 +49,15 @@ Two parts of that do not carry over to a public package.
      `.mutation-gate/coverage/`, and prints the plan in the CI's format.
      Coverage leaves the job that read it only as the gate's own map,
      `map.json.gz` in the directory `--coverage=<dir>` names: `"format": 1`,
-     compact JSON, gzipped, data that reading never runs. Each shard's map
-     holds only the lines of the files that shard mutates, with every test
-     and its duration. Where the runner's report states them, as Infection's
-     does, it also holds each of those files' methods some test ran, with the
-     lines the report gives them. A shard's runner writes the map back into
-     its own layout in its own job (ADR-0004).
+     compact JSON, gzipped, data that reading never runs. Each shard's map,
+     `.mutation-gate/coverage/shard-<id>/map.json.gz`, holds only the lines of
+     the files that shard mutates, with every test and its duration. Where the
+     runner's report states them, as Infection's does, it also holds each of
+     those files' methods some test ran, with the lines the report gives them.
+     A shard's runner writes the map back into its own layout in its own job
+     (ADR-0004), and the verdict learns what each shard cost from it; a verdict
+     whose shard map is missing cannot judge, because the jobs were not handed
+     what the plan wrote.
    - **`mutation-gate run --plan=<file>`** mutates one shard's units and writes
      `.mutation-gate/results/<id>.json`. That file holds every mutant's record,
      each unit's content key and what the shard measured.

@@ -44,7 +44,7 @@ use function sprintf;
  */
 final readonly class Pest implements Runner
 {
-    private const string RUNNER = 'pest';
+    public const string RUNNER = 'pest';
 
     /** Where the gate runs Pest: the project's root, which the gate runs in. */
     private const string ROOT = '.';

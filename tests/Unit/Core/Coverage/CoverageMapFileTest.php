@@ -51,6 +51,11 @@ it('writes compact JSON, gzipped: each test once with its seconds, and each line
     ]));
 });
 
+it('is map.json.gz in the directory a job hands on', function (): void {
+    expect(CoverageMapFile::in(Path::of('.mutation-gate/coverage/shard-2')))
+        ->toEqual(Path::of('.mutation-gate/coverage/shard-2/map.json.gz'));
+});
+
 it('writes an empty map as no tests and no files', function (): void {
     expect(Gzip::unpack(CoverageMapFile::encode(CoverageMap::empty()), 'the map'))->toBe('{"format":1,"tests":[],"files":{}}');
 });

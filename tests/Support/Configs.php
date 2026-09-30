@@ -80,6 +80,16 @@ final readonly class Configs
         return $layer instanceof Layer ? Settings::settled($layer, new DateTimeImmutable(self::NOW)) : $layer;
     }
 
+    /**
+     * The settings of a config the flows run on, which names the fake runner, and of these settings besides.
+     *
+     * @param array<mixed> $config
+     */
+    public static function flows(array $config = []): Settings
+    {
+        return self::settings(['runner' => 'fake', ...$config]);
+    }
+
     /** @param array<mixed>|string $config */
     public static function settings(array|string $config): Settings
     {

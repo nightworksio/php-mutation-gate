@@ -6,14 +6,15 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 
 /**
  * What one shard left for the verdict: the plan it followed, its units with
- * their keys, every mutant's record or the runner's cannot judge, and what it
- * measured.
+ * their keys, every mutant's record or the runner's cannot judge, what it
+ * measured, and the mutants that gave two answers.
  */
 final readonly class ShardResult
 {
@@ -23,6 +24,7 @@ final readonly class ShardResult
         private Keys $units,
         private MutationResult|CannotJudge $outcome,
         private Measurement $measured,
+        private MutantIds $flaky,
     ) {
     }
 
@@ -33,7 +35,13 @@ final readonly class ShardResult
         MutationResult|CannotJudge $outcome,
         Measurement $measured,
     ): self {
-        return new self($plan, $shard, $units, $outcome, $measured);
+        return new self($plan, $shard, $units, $outcome, $measured, MutantIds::none());
+    }
+
+    /** This result, with the survivors a second run killed, which are flaky (ADR-0008). */
+    public function withFlaky(MutantIds $flaky): self
+    {
+        return new self($this->plan, $this->shard, $this->units, $this->outcome, $this->measured, $flaky);
     }
 
     /** The digest of the plan the shard followed. */
@@ -62,5 +70,11 @@ final readonly class ShardResult
     public function measured(): Measurement
     {
         return $this->measured;
+    }
+
+    /** The mutants that survived once and were killed when run again. */
+    public function flaky(): MutantIds
+    {
+        return $this->flaky;
     }
 }

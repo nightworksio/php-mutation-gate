@@ -26,7 +26,6 @@ afterEach(function (): void {
 const GITHUB_RUN = [
     'GITHUB_REPOSITORY' => 'octo/gate',
     'GITHUB_SHA' => 'head',
-    'GITHUB_WORKFLOW_REF' => 'octo/gate/.github/workflows/gate.yml@refs/heads/main',
 ];
 
 $github = static fn(): MockHttpClient => new MockHttpClient(
@@ -61,6 +60,7 @@ it('names the commit the checkout is at, the branch it is on and the default bra
         Git::at($onMain()->root),
         $github(),
         GITHUB_RUN,
+        'mutation / verdict',
     ),
 ]);
 
@@ -79,6 +79,7 @@ it('says a detached HEAD is on no branch, and cannot tell a default branch no re
         Git::at($detached()->root),
         $github(),
         GITHUB_RUN,
+        'mutation / verdict',
     ),
 ]);
 

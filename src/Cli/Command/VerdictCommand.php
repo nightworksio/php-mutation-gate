@@ -1,0 +1,101 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Cli\Command;
+
+use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
+use NightWorksIO\MutationGate\Cli\Flow\Composed;
+use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Cli\Flow\Judged;
+use NightWorksIO\MutationGate\Cli\Flow\Judging;
+use NightWorksIO\MutationGate\Cli\Flow\Results;
+use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlanFile;
+
+use function sprintf;
+
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+
+/**
+ * `mutation-gate verdict --plan=<file> --results=<dir>`: merges every shard's
+ * result with the proved and carried ones, judges the floors, and writes the
+ * reports and the ledger. Exit code 0 passes, 1 fails and 2 cannot judge.
+ */
+final readonly class VerdictCommand
+{
+    private const string NO_PLAN = 'There is no plan at %s. Run mutation-gate plan, and hand its plan to every job.';
+
+    public static function command(Composition $composition): Command
+    {
+        return new Command('verdict')
+            ->setDescription('Merge every shard\'s results, judge the floors, write reports and the ledger')
+            ->addOption(FlowOptions::PLAN, mode: InputOption::VALUE_REQUIRED, description: 'The plan the shards ran')
+            ->addOption(
+                FlowOptions::RESULTS,
+                mode: InputOption::VALUE_REQUIRED,
+                description: 'The directory the shards left their results in',
+            )
+            ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
+                $composed = $composition->compose($input);
+
+                if (! $composed instanceof Composed) {
+                    return Failed::because($output, $composed);
+                }
+
+                $plan = self::planIn($composed, FlowOptions::path($input, FlowOptions::PLAN, Workspace::plan()));
+                $results = FlowOptions::path($input, FlowOptions::RESULTS, Workspace::results());
+
+                return $plan instanceof Plan
+                    ? self::printed(self::judgedOf($composed, $plan, $results), $output)
+                    : Failed::because($output, $plan);
+            });
+    }
+
+    /** The plan a file holds, or why it cannot be followed. */
+    public static function planIn(Composed $composed, Path $file): Plan|CannotJudge
+    {
+        $contents = $composed->adapters->project->read($file);
+
+        return match (true) {
+            $contents instanceof Contents => PlanFile::decode($contents->text()),
+            $contents instanceof CannotJudge => $contents,
+            default => CannotJudge::because(sprintf(self::NO_PLAN, $file->value())),
+        };
+    }
+
+    /** A plan's results judged, with what was written, or why they cannot be. */
+    public static function judgedOf(Composed $composed, Plan $plan, Path $results): Judged|Invalid|CannotJudge
+    {
+        $read = Results::read($plan, $results, $composed->adapters->project);
+
+        return $read instanceof Results
+            ? new Judging($composed->adapters, $composed->settings, $composed->setup, $composed->reporting)
+                ->verdict($plan, $read)
+            : $read;
+    }
+
+    /** Say what was written and the verdict, and exit as the verdict does; or say why there is none. */
+    public static function printed(Judged|Invalid|CannotJudge $judged, OutputInterface $output): int
+    {
+        if (! $judged instanceof Judged) {
+            return Failed::because($output, $judged);
+        }
+
+        foreach ($judged->said as $line) {
+            $output->writeln($line, OutputInterface::OUTPUT_RAW);
+        }
+
+        ConsoleReport::to($output)->report($judged->verdict);
+
+        return $judged->exitCode()->value;
+    }
+}

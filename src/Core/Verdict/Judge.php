@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -90,7 +91,7 @@ final readonly class Judge
             }
 
             $units[] = JudgedUnit::of($result->unit(), $result->origin());
-            $mutants[] = [...$this->judged($result->mutants())];
+            $mutants[] = [...$this->judged($result->mutants(), $result->flaky())];
         }
 
         $verdict = TreeVerdict::judged(
@@ -106,12 +107,16 @@ final readonly class Judge
         return $lowering instanceof Lowered ? $verdict->withLowering($lowering) : $verdict;
     }
 
-    private function judged(Mutants $mutants): JudgedMutants
+    /** Each mutant as its status reports it, or flaky where it gave two answers. */
+    private function judged(Mutants $mutants, MutantIds $flaky): JudgedMutants
     {
         $judged = [];
 
         foreach ($mutants as $mutant) {
-            $judged[] = JudgedMutant::of($mutant, MutantJudgement::reported($mutant->status()));
+            $judged[] = JudgedMutant::of(
+                $mutant,
+                $flaky->has($mutant->id()) ? MutantJudgement::Flaky : MutantJudgement::reported($mutant->status()),
+            );
         }
 
         return JudgedMutants::of(...$judged)->within($this->reach);

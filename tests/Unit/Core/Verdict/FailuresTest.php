@@ -21,3 +21,17 @@ it('adds a failure without changing the failures it came from', function () use 
     expect($texts($failures->with(Failure::that('b'))))->toBe(['a', 'b'])
         ->and($failures)->toHaveCount(1);
 });
+
+it('joins these failures and those, these first, without changing either', function () use ($texts): void {
+    $these = Failures::of(Failure::that('a'));
+    $those = Failures::of(Failure::that('b'), Failure::that('c'));
+
+    expect($texts($these->and($those)))->toBe(['a', 'b', 'c'])
+        ->and($these)->toHaveCount(1)
+        ->and($those)->toHaveCount(2);
+});
+
+it('says every failure, one to a line, and nothing where there is none', function (): void {
+    expect(Failures::of(Failure::that('a'), Failure::that("b\nc"))->text())->toBe("a\nb\nc")
+        ->and(Failures::none()->text())->toBe('');
+});
