@@ -32,8 +32,6 @@ use function sprintf;
  */
 final readonly class SharedCoverage
 {
-    private const string NONE = 'The gate wrote no coverage map at %s, and reads no runner\'s map another job wrote.';
-
     /** What a map says of how it was made, as php-code-coverage checks it: by the gate, from another job's map. */
     private const array BUILT = [
         'timestamp' => 'written by mutation-gate from the map another job handed over',
@@ -60,7 +58,7 @@ final readonly class SharedCoverage
         $file = $project->absolute(CoverageMapFile::in($directory));
         $bytes = is_file($file) ? file_get_contents($file) : false;
 
-        return is_string($bytes) ? CoverageMapFile::decode($bytes) : CannotJudge::because(sprintf(self::NONE, $file));
+        return is_string($bytes) ? CoverageMapFile::decode($bytes) : CoverageMapFile::missingAt($file);
     }
 
     /** How long the map's tests took, one after another. */

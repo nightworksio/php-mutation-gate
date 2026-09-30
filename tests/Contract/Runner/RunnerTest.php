@@ -235,6 +235,31 @@ it('names the test that killed a mutant, as the coverage map names it, with Infe
     expect($killers)->toBe([11 => ['Tests\\MoneySpec::addsTwoAmounts'], 16 => [], 21 => [], 27 => []]);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
+it('judges a mutant on a method\'s signature by the map the planning job handed over as by its own coverage, with Infection', function (): void {
+    $library = Library::infection(Seconds::of(10.0));
+    $handedOver = Path::of('.mutation-gate/planned');
+    $planned = $library->runner()->coverage(CoverageRequest::running(WholeSuite::tests(), $handedOver));
+    file_put_contents(
+        Tree::at(sprintf('%s/%s', Library::INFECTION_DIRECTORY, CoverageMapFile::in($handedOver)->value())),
+        CoverageMapFile::encode($planned instanceof CoverageMap ? $planned : CoverageMap::empty()),
+    );
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->onlyMutators(Mutators::named('PublicVisibility'));
+    $own = $library->mutate('signatures', $request);
+    $reused = $library->mutate('signatures reused', $request->reusingCoverage($handedOver));
+    $killed = [];
+
+    foreach ($reused instanceof MutationResult ? $reused->mutants() : Mutants::none() as $mutant) {
+        $killed = $mutant->status() === MutantStatus::Killed
+            ? [...$killed, $mutant->location()->start()->number()]
+            : $killed;
+    }
+
+    expect($reused instanceof MutationResult ? Library::records($reused->mutants()) : $reused)
+        ->toEqualCanonicalizing($own instanceof MutationResult ? Library::records($own->mutants()) : $own)
+        ->and($killed)->toContain(9);
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
 it('reports a mutant Infection skips, allowed the cap, and judges it when run again at a higher cap', function (): void {
     $library = Library::infection(Seconds::of(1.0));
     $request = MutationRequest::of(Paths::of(Path::of('src/Slow.php')), WholeSuite::tests())

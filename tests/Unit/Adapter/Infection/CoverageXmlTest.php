@@ -6,6 +6,8 @@ use NightWorksIO\MutationGate\Adapter\Infection\CoverageXml;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
+use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -34,6 +36,44 @@ it('reads which tests cover which line of each file, as the project spells it, a
         ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.25))
         ->timed(TestId::of('Tests\MoneyTest::large'), Seconds::of(0.125)));
 });
+
+/** A coverage directory of one file's report, holding these classes and traits, each with its methods. */
+function coverageXmlOfUnits(string $root, string $units): string
+{
+    Scratch::write($root, 'coverage/coverage-xml/index.xml', sprintf(
+        '<?xml version="1.0"?><phpunit xmlns="https://schema.phpunit.de/coverage/1.0"><project source="%s"><directory name="/"><file name="A.php" href="A.php.xml"/></directory></project></phpunit>',
+        $root,
+    ));
+    Scratch::write($root, 'coverage/coverage-xml/A.php.xml', sprintf(
+        '<?xml version="1.0"?><phpunit xmlns="https://schema.phpunit.de/coverage/1.0"><file name="A.php" path="/">%s<coverage><line nr="3"><covered by="T::a"/></line></coverage></file></phpunit>',
+        $units,
+    ));
+    Scratch::write($root, 'coverage/junit.xml', '<testsuites/>');
+
+    return sprintf('%s/coverage', $root);
+}
+
+it('reads the methods of a file\'s classes some test ran, as Infection reads them', function (string $units, ExecutedMethod ...$expected): void {
+    $root = (string) realpath(Scratch::directory());
+    $map = CoverageXml::read(Project::at($root, Paths::none(), Path::of('.gate')), coverageXmlOfUnits($root, $units));
+
+    expect($map instanceof CoverageMap ? $map->methods()->at(Path::of('A.php'), ExecutedMethods::none()) : $map)->toEqual(ExecutedMethods::of(...$expected));
+})->with([
+    'a class\'s methods, less one under one percent' => [
+        '<class name="A"><method name="add" start="3" end="5" coverage="100"/><method name="few" start="6" end="9" coverage="0.5"/>'
+        . '<method name="none" start="10" end="12" coverage="0"/><method name="half" start="13" end="20" coverage="50.00"/></class>',
+        ExecutedMethod::of('add', 3, 5),
+        ExecutedMethod::of('half', 13, 20),
+    ],
+    'a trait\'s, where the classes have no method' => [
+        '<class name="A"/><trait name="T"><method name="use" start="2" end="4" coverage="100"/></trait>',
+        ExecutedMethod::of('use', 2, 4),
+    ],
+    'no trait\'s, where a class has a method no test ran' => [
+        '<class name="A"><method name="none" start="10" end="12" coverage="0"/></class><trait name="T"><method name="use" start="2" end="4" coverage="100"/></trait>',
+    ],
+    'none outside a class or trait' => ['<function name="f" start="1" end="2" coverage="100"/><method name="loose" start="1" end="2" coverage="100"/>'],
+]);
 
 it('cannot judge coverage whose index names a file report that is not there', function (): void {
     $root = (string) realpath(Scratch::directory());

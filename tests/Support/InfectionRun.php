@@ -11,6 +11,7 @@ use function count;
 use function dirname;
 use function explode;
 use function file_put_contents;
+use function htmlspecialchars;
 use function implode;
 use function is_dir;
 use function json_encode;
@@ -163,7 +164,9 @@ final readonly class InfectionRun
 
             foreach ($tests as $test => $time) {
                 [$owner, $name] = explode('::', $test, 2);
-                $cases .= $owner === $class ? sprintf('<testcase name="%s" class="%s" time="%F"/>', $name, $owner, $time) : '';
+                $cases .= $owner === $class
+                    ? sprintf('<testcase name="%s" class="%s" time="%F"/>', htmlspecialchars($name), $owner, $time)
+                    : '';
             }
 
             $suites .= sprintf('<testsuite name="%s" file="tests/%s.php" time="%F">%s</testsuite>', $class, $class, $seconds, $cases);

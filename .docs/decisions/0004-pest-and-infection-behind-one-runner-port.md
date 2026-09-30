@@ -323,12 +323,18 @@ its parser attributes. Both change when the checkout moves.
 
      - `--log-verbosity` is left at its default, and never `none`.
      - Infection never runs an opening suite of its own. It always reads a
-       coverage directory the gate chose: the one the planning job wrote, for a
-       run judged by the whole suite, or one the adapter writes first by
-       running PHPUnit under coverage (the **Coverage** item below). The
-       adapter reads each mutant's limit from that directory's JUnit log, which
-       is what Infection sums, and Infection deletes its own opening run's log
-       when it finishes.
+       coverage directory the adapter wrote in its own job. For a run judged
+       by the whole suite that reuses the planning job's coverage, the adapter
+       writes the gate's map that job handed on (ADR-0006) into the layout
+       below. That covers each file's lines and the tests that ran them, the
+       methods its report says some test ran, with their lines, and a JUnit
+       log with a suite for each test class, holding the file its tokens say
+       declares it and its tests' times. Otherwise the adapter writes the
+       directory by running PHPUnit under coverage (the **Coverage** item
+       below). No report another job wrote is read. The adapter reads each
+       mutant's limit from that directory's JUnit log, which is what
+       Infection sums, and Infection deletes its own opening run's log when it
+       finishes.
      - Infection and PHPUnit run on the PHP that runs the gate, with that PHP's
        directory first on the `PATH`, because Infection starts PHPUnit for each
        mutant through the script's `#!` line. They inherit no variable of
@@ -412,7 +418,11 @@ its parser attributes. Both change when the checkout moves.
      `initialTestsPhpOptions` as PHP options, the project's
      `testFrameworkExtraArgs` and, for a held path, its group or filter. That
      is the layout `--coverage` expects, and the gate reads its per-line
-     `covered by` entries as its own map, so one run serves both. Groups come
+     `covered by` entries as its own map, so one run serves both. The map
+     also keeps the methods Infection finds a signature mutant's tests by:
+     each method of the report's classes or, where they have none, of its
+     traits, with the start and end lines the report gives it, less each
+     whose coverage Infection reads as none (under one percent). Groups come
      from `vendor/bin/phpunit --list-groups`.
    - **Limits.** A timed-out or skipped mutant's limit is `min(5 s + 5 × T, timeout)`, where `T`
      is the sum of the JUnit times of the test classes covering its first

@@ -101,11 +101,19 @@ final readonly class Infection implements Runner
             );
     }
 
+    /**
+     * The map PHPUnit writes running the suite or a group under coverage, or
+     * the gate's own map another job handed on.
+     */
     public function coverage(CoverageRequest $request): CoverageMap|CannotJudge
     {
+        if (! $request->runs()) {
+            return HandedMap::in($this->project, $request->directory());
+        }
+
         $config = OwnConfig::in($this->project);
         $directory = $this->project->directory($request->directory());
-        $covered = $config instanceof CannotJudge || ! $request->runs()
+        $covered = $config instanceof CannotJudge
             ? $config
             : $this->covered($config, $request->tests(), $request->withheld(), $directory);
 
@@ -179,17 +187,26 @@ final readonly class Infection implements Runner
     }
 
     /**
-     * The coverage directory a run reads: the one the request names for a run
-     * judged by the whole suite, or one the adapter writes by running the
-     * tests that judge it. A held path never reads a map of the whole suite.
+     * The coverage directory a run reads, which the adapter always writes: for
+     * a run judged by the whole suite that reuses the map another job handed
+     * on, that map in Infection's layout; otherwise PHPUnit's run of the tests
+     * that judge it. A held path never reads a map of the whole suite.
      */
     private function coverageFor(OwnConfig $config, MutationRequest $request): string|CannotJudge
     {
         $reused = $request->coverage();
 
         return $reused instanceof Path && $request->judgedBy() instanceof WholeSuite
-            ? $this->project->absolute($reused)
+            ? $this->handedOn($reused)
             : $this->covered($config, $request->judgedBy(), $request->withheld(), $this->ownCoverage());
+    }
+
+    /** The map another job handed on in a directory, written into Infection's layout. */
+    private function handedOn(Path $directory): string|CannotJudge
+    {
+        $map = HandedMap::in($this->project, $directory);
+
+        return $map instanceof CannotJudge ? $map : CoverageLayout::write($this->project, $map, $this->ownCoverage());
     }
 
     /**
@@ -202,7 +219,7 @@ final readonly class Infection implements Runner
         Withheld $withheld,
         string $directory,
     ): string|CannotJudge {
-        foreach ([sprintf('%s/index.xml', Invocation::XML), Invocation::JUNIT] as $report) {
+        foreach ([sprintf('%s/%s', Invocation::XML, CoverageXml::INDEX), Invocation::JUNIT] as $report) {
             $fresh = $this->project->fresh(sprintf('%s/%s', $directory, $report));
 
             if ($fresh instanceof CannotJudge) {

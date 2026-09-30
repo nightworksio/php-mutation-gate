@@ -10,6 +10,7 @@ use function array_keys;
 use function array_map;
 use function array_values;
 
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -24,8 +25,9 @@ use function strval;
 use Traversable;
 
 /**
- * Which tests ran which line of which file, and how long each test took. A
- * test the map knows need not cover anything.
+ * Which tests ran which line of which file, how long each test took, and,
+ * where the run's report states them, the methods of each file some test ran
+ * and the lines they span. A test the map knows need not cover anything.
  *
  * Each test is held once, and a line holds the ids of the tests that ran it,
  * so a test that ran many lines is one value however many lines hold it.
@@ -38,14 +40,19 @@ final readonly class CoverageMap
      *                                                                    by itself, in the order they ran it
      * @param array<string, TestId>                            $tests     every test the map knows, by id
      * @param array<string, Seconds>                           $durations each timed test's duration, by id
+     * @param ByPath<ExecutedMethods>                          $methods   each file's executed methods
      */
-    private function __construct(private array $lines, private array $tests, private array $durations)
-    {
+    private function __construct(
+        private array $lines,
+        private array $tests,
+        private array $durations,
+        private ByPath $methods,
+    ) {
     }
 
     public static function empty(): self
     {
-        return new self([], [], []);
+        return new self([], [], [], ByPath::none());
     }
 
     /** A map of the tests that ran these lines, built at once; a line read twice holds the tests of both. */
@@ -66,7 +73,7 @@ final readonly class CoverageMap
             }
         }
 
-        return new self($lines, $tests, []);
+        return new self($lines, $tests, [], ByPath::none());
     }
 
     /** This map, with a test covering a line. */
@@ -75,7 +82,7 @@ final readonly class CoverageMap
         $lines = $this->lines;
         $lines[$file->value()][$line->number()][$test->value()] = $test->value();
 
-        return new self($lines, $this->tests + [$test->value() => $test], $this->durations);
+        return new self($lines, $this->tests + [$test->value() => $test], $this->durations, $this->methods);
     }
 
     /** This map, with how long a test took. */
@@ -96,7 +103,7 @@ final readonly class CoverageMap
             $durations[$test->value()] = $each->seconds();
         }
 
-        return new self($this->lines, $tests, $durations);
+        return new self($this->lines, $tests, $durations, $this->methods);
     }
 
     /** This map, covering only these files: every test it knows and how long each took, and the lines of these. */
@@ -108,7 +115,40 @@ final readonly class CoverageMap
             $kept[$file->value()] = true;
         }
 
-        return new self(array_intersect_key($this->lines, $kept), $this->tests, $this->durations);
+        return new self(
+            array_intersect_key($this->lines, $kept),
+            $this->tests,
+            $this->durations,
+            $this->methodsIn($kept),
+        );
+    }
+
+    /** This map, with these methods of a file executed, after any it already holds for it. */
+    public function executing(Path $file, ExecutedMethod ...$methods): self
+    {
+        if ($methods === []) {
+            return $this;
+        }
+
+        $held = $this->methods->at($file, ExecutedMethods::none());
+
+        return new self(
+            $this->lines,
+            $this->tests,
+            $this->durations,
+            $this->methods->with($file, ExecutedMethods::of(...$held, ...$methods)),
+        );
+    }
+
+    /**
+     * The methods of each file some test ran, for the files whose report
+     * states them.
+     *
+     * @return ByPath<ExecutedMethods>
+     */
+    public function methods(): ByPath
+    {
+        return $this->methods;
     }
 
     /**
@@ -173,6 +213,21 @@ final readonly class CoverageMap
     private function testsOf(array $ids): TestIds
     {
         return TestIds::of(...array_map(fn(string $id): TestId => $this->tests[$id], array_values($ids)));
+    }
+
+    /**
+     * @param  array<string, true>     $kept the files kept, by path
+     * @return ByPath<ExecutedMethods>
+     */
+    private function methodsIn(array $kept): ByPath
+    {
+        $methods = ByPath::none();
+
+        foreach ($this->methods as $file => $executed) {
+            $methods = array_key_exists($file->value(), $kept) ? $methods->with($file, $executed) : $methods;
+        }
+
+        return $methods;
     }
 
     /** @return array<int, array<string, string>> */

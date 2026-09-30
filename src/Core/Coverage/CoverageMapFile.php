@@ -31,7 +31,9 @@ use function strval;
  * A coverage map as the gate carries it between jobs: `"format": 1`, compact
  * JSON, gzipped. Every test is listed once, with its seconds where it was
  * timed, and each covered line of each file names its tests by their place
- * in that list.
+ * in that list. Where the report of the run that measured it states them,
+ * `methods` lists each file's executed methods with the lines they span,
+ * `{"name", "start", "end"}`; a map without them is whole.
  *
  * It is data, never code: a runner's own map may be PHP that reading runs,
  * and is read only by the job that wrote it.
@@ -42,6 +44,7 @@ use function strval;
  * @internal the shape of the coverage file the plan hands each shard
  *
  * @phpstan-type TestRecord array{id: string, seconds?: float}
+ * @phpstan-type MethodRecord array{name: string, start: int, end: int}
  */
 final readonly class CoverageMapFile
 {
@@ -58,10 +61,22 @@ final readonly class CoverageMapFile
 
     private const string SECONDS = 'seconds';
 
+    private const string METHODS = 'methods';
+
+    /** Why a job finds no map to read: it reads only the gate's own, never a map a runner wrote. */
+    private const string MISSING
+        = 'The gate wrote no coverage map at %s, and reads no runner\'s map another job wrote.';
+
     /** Where the map stands in the directory a job hands it over in. */
     public static function in(Path $directory): Path
     {
         return Path::of(sprintf('%s/%s', $directory->value(), self::NAME));
+    }
+
+    /** Why there is no map to read at a file: the gate wrote none there. */
+    public static function missingAt(string $file): CannotJudge
+    {
+        return CannotJudge::because(sprintf(self::MISSING, $file));
     }
 
     public static function encode(CoverageMap $map): string
@@ -83,10 +98,13 @@ final readonly class CoverageMapFile
             );
         }
 
+        $methods = self::methodsOf($map);
+
         return Gzip::pack(Json::compact([
             'format' => self::FORMAT,
             'tests' => $tests,
             'files' => $files === [] ? new stdClass() : $files,
+            ...($methods === [] ? [] : [self::METHODS => $methods]),
         ]));
     }
 
@@ -106,10 +124,54 @@ final readonly class CoverageMapFile
             $covered[] = self::coveredIn(Path::of(strval($path)), $lines, $tests);
         }
 
-        return CoverageMap::of(...array_merge(...$covered))->timedEach(...array_filter(
+        $map = CoverageMap::of(...array_merge(...$covered))->timedEach(...array_filter(
             array_merge(...$tests),
             static fn(TimedTest|TestId $test): bool => $test instanceof TimedTest,
         ));
+
+        foreach (self::entriesOf($file->field(self::METHODS)) as $path => $methods) {
+            $listed = array_merge(...array_map(self::methodIn(...), self::itemsOf($methods)));
+            $map = $map->executing(Path::of(strval($path)), ...$listed);
+        }
+
+        return $map;
+    }
+
+    /** @return array<string, list<MethodRecord>> each file's executed methods, by path */
+    private static function methodsOf(CoverageMap $map): array
+    {
+        $methods = [];
+
+        foreach ($map->methods() as $file => $executed) {
+            foreach ($executed as $method) {
+                $methods[$file->value()][] = [
+                    'name' => $method->name(),
+                    'start' => $method->first()->number(),
+                    'end' => $method->last()->number(),
+                ];
+            }
+        }
+
+        return $methods;
+    }
+
+    /**
+     * A listed method, where it names itself and spans lines that begin
+     * after the file does and end no sooner than they begin; none otherwise.
+     *
+     * @return list<ExecutedMethod>
+     */
+    private static function methodIn(Node $method): array
+    {
+        try {
+            $name = $method->field('name')->text();
+            $start = $method->field('start')->integer();
+            $end = $method->field('end')->integer();
+        } catch (NotInShape) {
+            return [];
+        }
+
+        return $name !== '' && $start >= 1 && $end >= $start ? [ExecutedMethod::of($name, $start, $end)] : [];
     }
 
     /** @return TestRecord */

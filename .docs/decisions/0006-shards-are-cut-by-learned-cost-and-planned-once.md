@@ -45,10 +45,14 @@ Two parts of that do not carry over to a public package.
 
      It writes `.mutation-gate/plan.json`, keeps the coverage it used under
      `.mutation-gate/coverage/`, and prints the plan in the CI's format.
-     Coverage leaves the job that read it only as the gate's own map:
-     `"format": 1`, compact JSON, gzipped, data that reading never runs. Each
-     shard's map holds only the lines of the files that shard mutates, with
-     every test and its duration.
+     Coverage leaves the job that read it only as the gate's own map,
+     `map.json.gz` in the directory `--coverage=<dir>` names: `"format": 1`,
+     compact JSON, gzipped, data that reading never runs. Each shard's map
+     holds only the lines of the files that shard mutates, with every test
+     and its duration. Where the runner's report states them, as Infection's
+     does, it also holds each of those files' methods some test ran, with the
+     lines the report gives them. A shard's runner writes the map back into
+     its own layout in its own job (ADR-0004).
    - **`mutation-gate run --plan=<file>`** mutates one shard's units and writes
      `.mutation-gate/results/<id>.json`. That file holds every mutant's record,
      each unit's content key and what the shard measured.

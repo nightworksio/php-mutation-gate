@@ -8,6 +8,7 @@ use DOMDocument;
 use DOMElement;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -23,7 +24,8 @@ use function sprintf;
  */
 final readonly class CoverageXml
 {
-    private const string INDEX = 'index.xml';
+    /** The index of every file's report, in the directory of PHPUnit's XML coverage. */
+    public const string INDEX = 'index.xml';
 
     private const string UNREADABLE
         = '%s is not there or is not PHPUnit XML coverage, so the gate cannot say which tests run which line.';
@@ -83,9 +85,50 @@ final readonly class CoverageXml
             foreach ($file->getElementsByTagName('line') as $line) {
                 $map = self::coveredLine($map, $path, $line);
             }
+
+            $map = $map->executing($path, ...self::executedIn($file));
         }
 
         return $map;
+    }
+
+    /**
+     * The methods of a file's report some test ran, as Infection reads them:
+     * the methods of its classes or, where its classes have none, of its
+     * traits, less each whose coverage is under one percent.
+     *
+     * @return list<ExecutedMethod>
+     */
+    private static function executedIn(DOMElement $file): array
+    {
+        $methods = self::methodsUnder($file, 'class');
+        $methods = $methods === [] ? self::methodsUnder($file, 'trait') : $methods;
+        $executed = [];
+
+        foreach ($methods as $method) {
+            $executed = (int) $method->getAttribute('coverage') === 0 ? $executed : [...$executed, ExecutedMethod::of(
+                $method->getAttribute('name'),
+                (int) $method->getAttribute('start'),
+                (int) $method->getAttribute('end'),
+            )];
+        }
+
+        return $executed;
+    }
+
+    /** @return list<DOMElement> the methods of a file's classes, or of its traits */
+    private static function methodsUnder(DOMElement $file, string $kind): array
+    {
+        $methods = [];
+
+        foreach ($file->getElementsByTagName('method') as $method) {
+            $unit = $method->parentNode;
+            $methods = $unit instanceof DOMElement && $unit->localName === $kind && $unit->parentNode === $file
+                ? [...$methods, $method]
+                : $methods;
+        }
+
+        return $methods;
     }
 
     private static function coveredLine(CoverageMap $map, Path $path, DOMElement $line): CoverageMap
