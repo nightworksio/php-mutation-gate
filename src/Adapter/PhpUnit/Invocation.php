@@ -13,9 +13,12 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use function sprintf;
 
 /**
- * PHPUnit, started for one mutant (ADR-0023 decision 9): the override
- * prepended, the extension recording each test, only the covering tests
- * selected by their ids, and stopped at the first test that fails or errors.
+ * PHPUnit, started for one mutant (ADR-0023 decision 9): opcache off, so no
+ * cached original runs in the mutated file's place and no mutated file is
+ * cached for a later run; the override prepended; the extension recording
+ * each test; only the covering tests selected by their ids; and stopped at
+ * the first test that fails or errors, and not at one that is only risky or
+ * warns.
  */
 final readonly class Invocation
 {
@@ -31,17 +34,22 @@ final readonly class Invocation
     ): Command {
         return Command::php(
             '-d',
+            'opcache.enable_cli=0',
+            '-d',
             sprintf('auto_prepend_file=%s', $this->override),
             $this->project->phpunit(),
             '--extension',
             Extension::class,
             sprintf('--test-id-filter-file=%s', $files->ids()),
-            '--stop-on-defect',
-            '--no-output',
+            '--stop-on-error',
+            '--stop-on-failure',
+            '--no-progress',
             ...$this->judgedBy($judgedBy),
         )
             ->telling(Variable::Results, $files->results())
-            ->telling(Variable::Mutant, sprintf('%s%s%s', $files->original(), MutantFile::PAIR, $files->mutated()))
+            ->telling(Variable::Guard, $files->guard())
+            ->telling(Variable::Mutant, $files->original())
+            ->telling(Variable::Mutated, $files->mutated())
             ->withholding($withheld)
             ->within($limit);
     }

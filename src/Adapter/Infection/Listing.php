@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 

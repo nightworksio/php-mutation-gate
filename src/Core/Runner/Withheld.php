@@ -32,6 +32,21 @@ final readonly class Withheld implements IteratorAggregate
     /** AWS's credentials, the Actions runtime's, GitHub's token and SonarCloud's. */
     private const array STANDARD = ['AWS_*', 'ACTIONS_*', 'GITHUB_TOKEN', 'SONAR_TOKEN'];
 
+    /**
+     * What makes a process a worker or a mutant's run of another run, or has
+     * a plugin act for the gate: the gate's own variables, Infection's,
+     * pest-plugin-mutate's, paratest's and Laravel's parallel testing's.
+     */
+    private const array OTHER_RUNS = [
+        'MUTATION_GATE_*',
+        'INFECTION_*',
+        'PEST_MUTATION_*',
+        'PARATEST*',
+        'TEST_TOKEN*',
+        'UNIQUE_TEST_TOKEN*',
+        'LARAVEL_PARALLEL_TESTING*',
+    ];
+
     /** @param list<string> $globs */
     private function __construct(private array $globs)
     {
@@ -56,6 +71,16 @@ final readonly class Withheld implements IteratorAggregate
         }
 
         return $withheld->and($runner);
+    }
+
+    /**
+     * The variables a process the gate starts never inherits from the gate,
+     * whatever the config: those that would make it another run's worker or
+     * mutant. What its command sets, it still gets.
+     */
+    public static function otherRuns(): self
+    {
+        return new self(self::OTHER_RUNS);
     }
 
     public static function nothing(): self

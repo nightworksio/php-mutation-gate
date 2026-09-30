@@ -17,6 +17,9 @@ use function fopen;
 use function ftruncate;
 use function fwrite;
 use function getmypid;
+
+use Library\Money;
+
 use function mkdir;
 
 use PHPUnit\Framework\Attributes\Test;
@@ -35,6 +38,7 @@ final class FilesSpec extends TestCase
     #[Test]
     public function locksTruncatesTouchesAndListsFiles(): void
     {
+        new Money()->count();
         $directory = sprintf('%s/files-spec-%d', sys_get_temp_dir(), getmypid());
         mkdir($directory);
         $file = sprintf('%s/notes.txt', $directory);

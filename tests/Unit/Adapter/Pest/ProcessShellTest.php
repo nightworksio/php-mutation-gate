@@ -5,8 +5,9 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Clock;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
-use NightWorksIO\MutationGate\Adapter\Pest\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\Measured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -19,20 +20,20 @@ it('runs a program in its directory, with its environment, and keeps both of its
         ->with(['GATE' => 'on']);
     $ran = new ProcessShell($directory)->run($command);
 
-    expect($ran)->toEqual(Ran::finished(succeeded: true, output: sprintf('%s on!', $directory))->taking($ran->took()));
+    expect($ran)->toEqual(Ran::finished(succeeded: true, output: sprintf('%s on!', $directory))->took(Measured::of($ran)));
 });
 
 it('runs a program in another directory once moved there', function (): void {
     $directory = (string) realpath(Scratch::directory());
     $ran = new ProcessShell('/')->in($directory)->run(Command::of(PHP_BINARY, '-r', 'echo getcwd();'));
 
-    expect($ran)->toEqual(Ran::finished(succeeded: true, output: $directory)->taking($ran->took()));
+    expect($ran)->toEqual(Ran::finished(succeeded: true, output: $directory)->took(Measured::of($ran)));
 });
 
 it('says a program that exits with a failure did not succeed', function (): void {
     $ran = new ProcessShell(Scratch::directory())->run(Command::of(PHP_BINARY, '-r', 'echo "no"; exit(3);'));
 
-    expect($ran)->toEqual(Ran::finished(succeeded: false, output: 'no')->taking($ran->took()));
+    expect($ran)->toEqual(Ran::finished(succeeded: false, output: 'no')->took(Measured::of($ran)));
 });
 
 it('stops a program at its deadline, keeping what it printed', function (): void {
@@ -53,7 +54,7 @@ it('stops a program at its deadline, keeping what it printed', function (): void
 
     $ran = new ProcessShell($directory, $clock)->run($command);
 
-    expect($ran)->toEqual(Ran::stopped('started')->taking($ran->took()));
+    expect($ran)->toEqual(Ran::stopped('started')->took(Measured::of($ran)));
 });
 
 it('measures a deadline on the system\'s clock', function (): void {
@@ -61,7 +62,7 @@ it('measures a deadline on the system\'s clock', function (): void {
 
     $ran = new ProcessShell(Scratch::directory())->run($command);
 
-    expect($ran)->toEqual(Ran::stopped('')->taking($ran->took()));
+    expect($ran)->toEqual(Ran::stopped('')->took(Measured::of($ran)));
 });
 
 it('measures how long a program ran on its clock, from its start to its end', function (): void {
@@ -79,7 +80,7 @@ it('measures how long a program ran on its clock, from its start to its end', fu
     };
     $ran = new ProcessShell(Scratch::directory(), $clock)->run(Command::of(PHP_BINARY, '-r', 'echo "ok";'));
 
-    expect($ran->took())->toEqual(Seconds::of(2.5))
+    expect(Measured::of($ran))->toEqual(Seconds::of(2.5))
         ->and($ran->output())->toBe('ok');
 });
 
@@ -98,7 +99,7 @@ it('measures how long a program ran until it was stopped', function (): void {
 
     // Started at 1; the deadline, at 3, has passed at the look that reads 3; the time taken is read at 4.
     expect($ran->wasStopped())->toBeTrue()
-        ->and($ran->took())->toEqual(Seconds::of(3.0));
+        ->and(Measured::of($ran))->toEqual(Seconds::of(3.0));
 });
 
 it('says a program that cannot be started did not succeed, and why', function (): void {

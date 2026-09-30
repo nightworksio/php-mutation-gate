@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
@@ -201,7 +202,7 @@ final readonly class Pest implements Runner
             Invocation::installedIn($this->project->vendor())->startingUp($withheld, $original, $copy),
         );
 
-        return $ran->succeeded() ? $ran->took() : CannotJudge::because(sprintf(self::NOT_STARTED, $ran->output()));
+        return $ran->succeeded() ? $ran->timed() : CannotJudge::because(sprintf(self::NOT_STARTED, $ran->output()));
     }
 
     /** Every mutant of the requested files, where there are any to mutate: Pest's `--path` never names none. */

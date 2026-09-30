@@ -184,7 +184,7 @@ final readonly class Infection implements Runner
 
         return match (true) {
             $ran instanceof CannotJudge => $ran,
-            $ran->succeeded() => $ran->took(),
+            $ran->succeeded() => $ran->timed(),
             default => CannotJudge::because(sprintf(self::NOT_STARTED, $ran->output())),
         };
     }

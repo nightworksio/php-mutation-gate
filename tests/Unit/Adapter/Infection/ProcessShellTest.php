@@ -5,9 +5,10 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Infection\Clock;
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell;
-use NightWorksIO\MutationGate\Adapter\Infection\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\Measured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -31,7 +32,7 @@ it('runs a script in its directory, and keeps both of its outputs', function ():
     $directory = (string) realpath(Scratch::directory());
     $ran = new ProcessShell($directory, ['PATH' => '/usr/bin'])->run(Command::php('-r', 'echo getcwd(); fwrite(STDERR, "!");'));
 
-    expect($ran)->toEqual(Ran::finished(succeeded: true, output: sprintf('%s!', $directory))->taking($ran->took()));
+    expect($ran)->toEqual(Ran::finished(succeeded: true, output: sprintf('%s!', $directory))->took(Measured::of($ran)));
 });
 
 it('runs a script in another directory once moved there, on the PATH it had', function (): void {
@@ -42,7 +43,7 @@ it('runs a script in another directory once moved there, on the PATH it had', fu
     expect($ran)->toEqual(Ran::finished(
         succeeded: true,
         output: sprintf('%s %s%s/usr/bin', $directory, dirname(PHP_BINARY), PATH_SEPARATOR),
-    )->taking($ran->took()));
+    )->took(Measured::of($ran)));
 });
 
 it('puts the running PHP first on the PATH, so every PHP it starts is the same', function (): void {
@@ -83,7 +84,7 @@ it('withholds every variable the command withholds', function (): void {
 it('says a script that exits with a failure did not succeed', function (): void {
     $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'echo "no"; exit(3);'));
 
-    expect($ran)->toEqual(Ran::finished(succeeded: false, output: 'no')->taking($ran->took()));
+    expect($ran)->toEqual(Ran::finished(succeeded: false, output: 'no')->took(Measured::of($ran)));
 });
 
 it('answers a process that cannot start as a failure, with the reason', function (): void {
@@ -118,7 +119,7 @@ it('stops a script at its deadline with every process it started, keeping what i
     $alive = fopen(sprintf('%s/alive', $directory), 'c');
     $ended = $alive !== false && flock($alive, LOCK_EX);
 
-    expect($ran)->toEqual(Ran::stopped('started')->taking($ran->took()))
+    expect($ran)->toEqual(Ran::stopped('started')->took(Measured::of($ran)))
         ->and($ended)->toBeTrue()
         ->and(is_file(sprintf('%s/outlived', $directory)))->toBeFalse();
 });
@@ -126,13 +127,13 @@ it('stops a script at its deadline with every process it started, keeping what i
 it('measures a deadline on the system\'s clock', function (): void {
     $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'sleep(20);')->within(Seconds::of(0.0)));
 
-    expect($ran)->toEqual(Ran::stopped('')->taking($ran->took()));
+    expect($ran)->toEqual(Ran::stopped('')->took(Measured::of($ran)));
 });
 
 it('waits for a script that ends before its deadline', function (): void {
     $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'echo "done";')->within(Seconds::of(10.0)));
 
-    expect($ran)->toEqual(Ran::finished(succeeded: true, output: 'done')->taking($ran->took()));
+    expect($ran)->toEqual(Ran::finished(succeeded: true, output: 'done')->took(Measured::of($ran)));
 });
 
 it('measures how long a script ran on its clock, from its start to its end', function (): void {
@@ -150,6 +151,14 @@ it('measures how long a script ran on its clock, from its start to its end', fun
     };
     $ran = new ProcessShell(Scratch::directory(), [], $clock)->run(Command::php('-r', 'echo "ok";'));
 
-    expect($ran->took())->toEqual(Seconds::of(2.5))
+    expect(Measured::of($ran))->toEqual(Seconds::of(2.5))
         ->and($ran->output())->toBe('ok');
+});
+
+it('unsets the variables that make a process another run\'s worker, even where only $_ENV holds one', function (): void {
+    $_ENV['PARATEST'] = '1';
+    $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'var_export(getenv("PARATEST"));'));
+    unset($_ENV['PARATEST']);
+
+    expect($ran->output())->toBe('false');
 });

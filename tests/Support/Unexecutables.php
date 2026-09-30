@@ -12,7 +12,6 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
-use NightWorksIO\MutationGate\Adapter\Pest\Ran;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -23,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use Pest\Mutate\Mutators\Number\IncrementInteger;
 

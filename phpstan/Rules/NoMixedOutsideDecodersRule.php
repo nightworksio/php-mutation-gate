@@ -25,7 +25,9 @@ use function str_ends_with;
  *
  * A value arrives untyped in a few places: a JSON or YAML decoder, a file PHP
  * `require`s, a command line. Each is a decoder, named in `decoders`, and it
- * hands on typed values. Anywhere else, `mixed` in a native type or a doc
+ * hands on typed values. A class whose signatures a PHP protocol fixes holds
+ * what PHP hands it, such as a resource, which has no native type; each is
+ * named in `protocols`. Anywhere else, `mixed` in a native type or a doc
  * block, a private member's, a closure's or inside a generic, is a value
  * nobody typed. The files that still hold one are named in `allowIn`, which
  * only shrinks. It reads `src` and `tests/Support`.
@@ -40,11 +42,15 @@ final class NoMixedOutsideDecodersRule implements Rule
     private string $file = '';
 
     /**
-     * @param list<string> $decoders files, relative to the repository, that read untrusted input into typed values
-     * @param list<string> $allowIn  files, relative to the repository, that hold a `mixed` still to be typed
+     * @param list<string> $decoders  files, relative to the repository, that read untrusted input into typed values
+     * @param list<string> $allowIn   files, relative to the repository, that hold a `mixed` still to be typed
+     * @param list<string> $protocols files, relative to the repository, of classes whose signatures a PHP protocol fixes
      */
-    public function __construct(private readonly array $decoders = [], private readonly array $allowIn = [])
-    {
+    public function __construct(
+        private readonly array $decoders = [],
+        private readonly array $allowIn = [],
+        private readonly array $protocols = [],
+    ) {
     }
 
     public function getNodeType(): string
@@ -84,7 +90,7 @@ final class NoMixedOutsideDecodersRule implements Rule
     {
         $inScope = (str_contains($file, '/src/') && ! str_contains($file, '/tests/')) || str_contains($file, '/tests/Support/');
 
-        return $inScope && ! $this->isNamedIn([...$this->decoders, ...$this->allowIn], $file);
+        return $inScope && ! $this->isNamedIn([...$this->decoders, ...$this->allowIn, ...$this->protocols], $file);
     }
 
     /** @param list<string> $files */

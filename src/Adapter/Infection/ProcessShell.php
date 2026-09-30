@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
-use function array_any;
+use function array_fill_keys;
+use function array_filter;
 use function array_key_exists;
-use function array_keys;
-use function array_map;
-use function array_shift;
-use function dirname;
 use function is_int;
 
+use NightWorksIO\MutationGate\Core\Runner\Polling;
+use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\SearchPath;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Withholding;
+use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
-use function preg_match;
-use function preg_match_all;
 use function sprintf;
-use function str_starts_with;
 
 use Symfony\Component\Process\Exception\ExceptionInterface;
 use Symfony\Component\Process\Process;
@@ -43,24 +43,6 @@ use function usleep;
  */
 final readonly class ProcessShell implements Shell
 {
-    private const string PATH = 'PATH';
-
-    /** The prefixes of the inherited variables that make a process another run's worker, which are removed. */
-    private const array WITHHELD = [
-        'INFECTION_',
-        'MUTATION_GATE_',
-        'PEST_MUTATION_',
-        'PARATEST',
-        'TEST_TOKEN',
-        'UNIQUE_TEST_TOKEN',
-    ];
-
-    /** How long the shell waits between looks at a running process, in microseconds. */
-    private const int POLL = 20000;
-
-    /** Each process and the one that started it, as `ps` lists them. */
-    private const string PARENTS = '/^\s*(?<pid>\d+)\s+(?<parent>\d+)\s*$/m';
-
     /**
      * @param array<string, string> $inherited the environment the gate runs in
      * @param Clock                 $clock     what a deadline is measured on
@@ -98,25 +80,27 @@ final readonly class ProcessShell implements Shell
         $output = sprintf('%s%s', $process->getOutput(), $process->getErrorOutput());
         $ran = $stopped ? Ran::stopped($output) : Ran::finished(succeeded: $process->isSuccessful(), output: $output);
 
-        return $ran->taking(Seconds::of(($this->clock->nanoseconds() - $started) / Seconds::NANOSECONDS));
+        return $ran->took(Seconds::of(($this->clock->nanoseconds() - $started) / Seconds::NANOSECONDS));
     }
 
-    /** @return array<string, string|false> each variable the process gets, or false for one it must not inherit */
+    /**
+     * Each variable the process must not inherit as false, those that make a
+     * process another run's worker whether or not the environment shows them,
+     * and its `PATH`.
+     *
+     * @return array<string, string|false>
+     */
     private function environment(Withheld $withheld): array
     {
-        $environment = [];
-
-        foreach (array_keys($this->inherited) as $name) {
-            if (
-                preg_match($withheld->pattern(), $name) === 1
-                || array_any(self::WITHHELD, static fn(string $prefix): bool => str_starts_with($name, $prefix))
-            ) {
-                $environment[$name] = false;
-            }
-        }
-
-        $path = array_key_exists(self::PATH, $this->inherited) ? $this->inherited[self::PATH] : '';
-        $environment[self::PATH] = sprintf('%s%s%s', dirname(PHP_BINARY), PATH_SEPARATOR, $path);
+        $environment = [
+            ...array_filter(
+                Withholding::of($withheld->and(Withheld::otherRuns()), $this->inherited),
+                static fn(string|false $value): bool => $value === false,
+            ),
+            ...array_fill_keys(WorkerVariable::names(), value: false),
+        ];
+        $path = array_key_exists(SearchPath::VARIABLE, $this->inherited) ? $this->inherited[SearchPath::VARIABLE] : '';
+        $environment[SearchPath::VARIABLE] = SearchPath::phpFirst($path);
 
         return $environment;
     }
@@ -133,7 +117,7 @@ final readonly class ProcessShell implements Shell
         $end = $this->clock->nanoseconds() + $deadline->nanoseconds();
 
         while ($process->isRunning() && $this->clock->nanoseconds() < $end) {
-            usleep(self::POLL);
+            usleep(Polling::interval()->microseconds());
         }
 
         return $process->isRunning() && $this->stopped($process);
@@ -143,44 +127,16 @@ final readonly class ProcessShell implements Shell
     private function stopped(Process $process): bool
     {
         $pid = $process->getPid();
-        $started = is_int($pid) ? $this->startedBy($pid) : [];
+        $listing = new Process(ProcessTable::LISTING);
+        $listing->run();
+        $started = is_int($pid) ? ProcessTable::parse($listing->getOutput())->descendantsOf($pid) : [];
 
         if ($started !== []) {
-            new Process(['kill', '-KILL', ...array_map(static fn(int $each): string => sprintf('%d', $each), $started)])
-                ->run();
+            new Process(ProcessTable::killing(...$started))->run();
         }
 
         $process->stop(0);
 
         return true;
-    }
-
-    /**
-     * Every process a process started, and every process those started, as `ps` lists them.
-     *
-     * @return list<int>
-     */
-    private function startedBy(int $pid): array
-    {
-        $listing = new Process(['ps', '-A', '-o', 'pid=', '-o', 'ppid=']);
-        $listing->run();
-        preg_match_all(self::PARENTS, $listing->getOutput(), $rows);
-        $children = [];
-
-        foreach ($rows['pid'] as $index => $child) {
-            $children[(int) $rows['parent'][$index]][] = (int) $child;
-        }
-
-        $found = [];
-        $waiting = [$pid];
-
-        while ($waiting !== []) {
-            $parent = array_shift($waiting);
-            $mine = array_key_exists($parent, $children) ? $children[$parent] : [];
-            $found = [...$found, ...$mine];
-            $waiting = [...$waiting, ...$mine];
-        }
-
-        return $found;
     }
 }

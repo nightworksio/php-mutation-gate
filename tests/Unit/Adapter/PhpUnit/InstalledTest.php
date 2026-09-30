@@ -24,12 +24,12 @@ function installedPhpUnit(string $version): string
     return sprintf('%s/installed.json', $root);
 }
 
-it('answers the versions of PHPUnit and its code coverage, from PHPUnit 13.2.0 on', function (string $version): void {
+it('answers the versions of PHPUnit and its code coverage, from PHPUnit 13.2.0 on, and on any branch as it is', function (string $version): void {
     expect(Installed::versionsIn(installedPhpUnit($version)))->toEqual(Versions::of(
         Version::of('phpunit/phpunit', $version, 'abc'),
         Version::of('phpunit/php-code-coverage', '14.3.0', 'def'),
     ));
-})->with(['13.2.0', 'v13.3.4', '14.0.0', 'dev-main']);
+})->with(['13.2.0', 'v13.3.4', '14.0.0', 'dev-main', '13.2.x-dev', '13.1.x-dev']);
 
 it('cannot judge a PHPUnit older than 13.2.0, which has no --test-id-filter-file', function (string $version, string $said): void {
     $manifest = installedPhpUnit($version);

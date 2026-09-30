@@ -9,8 +9,8 @@ use Closure;
 use function count;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
-use NightWorksIO\MutationGate\Adapter\Pest\Ran;
 use NightWorksIO\MutationGate\Adapter\Pest\Shell;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 
 /**
  * A shell that runs nothing: it keeps every command it is given and answers

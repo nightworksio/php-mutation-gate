@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Command;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Ending;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
+use NightWorksIO\MutationGate\Core\Runner\Ending;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -27,7 +27,7 @@ it('runs PHP in its directory, keeps both outputs, and says it succeeded and how
     $ran = new ProcessShell($directory, ['PATH' => '/usr/bin'])->run(Command::php('-r', 'echo getcwd(); fwrite(STDERR, "!");'));
 
     expect([$ran->ending(), $ran->output()])->toBe([Ending::Succeeded, sprintf('%s!', $directory)])
-        ->and($ran->took()->seconds())->toBeGreaterThan(0.0);
+        ->and($ran->duration() instanceof Seconds ? $ran->duration()->seconds() : -1.0)->toBeGreaterThan(0.0);
 });
 
 it('runs PHP in another directory once moved there, with the running PHP first on the PATH', function (): void {
@@ -71,6 +71,17 @@ it('withholds another run\'s variables and what the command withholds, and tells
     ]));
 });
 
+it('unsets the variables the gate sets for its extension and wrapper, even where only $_ENV holds one', function (): void {
+    $_ENV[Variable::Guard->value] = 'leaked';
+    $_ENV['LARAVEL_PARALLEL_TESTING'] = '1';
+    $prints = 'foreach (["MUTATION_GATE_GUARD", "MUTATION_GATE_MUTANT", "LARAVEL_PARALLEL_TESTING", "MUTATION_GATE_RESULTS"] as $n)'
+        . ' { echo $n, "=", var_export(getenv($n), true), "\n"; }';
+    $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', $prints)->telling(Variable::Results, 'told'));
+    unset($_ENV[Variable::Guard->value], $_ENV['LARAVEL_PARALLEL_TESTING']);
+
+    expect($ran->output())->toBe("MUTATION_GATE_GUARD=false\nMUTATION_GATE_MUTANT=false\nLARAVEL_PARALLEL_TESTING=false\nMUTATION_GATE_RESULTS='told'\n");
+});
+
 it('stops a program at its deadline, with every process it started', function (): void {
     $pids = sprintf('%s/child.pid', Scratch::directory());
     $script = sprintf(
@@ -81,6 +92,6 @@ it('stops a program at its deadline, with every process it started', function ()
     exec(sprintf('ps -o stat= -p %d', (int) file_get_contents($pids)), $state);
 
     expect($ran->ending())->toBe(Ending::Stopped)
-        ->and($ran->took()->seconds())->toBeLessThan(20.0)
+        ->and($ran->duration() instanceof Seconds ? $ran->duration()->seconds() : 99.0)->toBeLessThan(20.0)
         ->and(array_filter($state, static fn(string $line): bool => ! str_starts_with(trim($line), 'Z')))->toBe([]);
 });

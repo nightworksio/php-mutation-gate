@@ -51,3 +51,17 @@ it('composes what every run withholds, each CI plan\'s credentials and the runne
     )])->toBe([...Withheld::standard(), 'CI_JOB_TOKEN', 'BUILDKITE_AGENT_TOKEN', 'DEPLOY_*'])
         ->and([...Withheld::composed(Withheld::nothing())])->toBe([...Withheld::standard()]);
 });
+
+it('withholds what makes a process another run\'s worker or mutant', function (string $name, bool $withheld) use ($withholds): void {
+    expect($withholds(Withheld::otherRuns(), $name))->toBe($withheld);
+})->with([
+    'the gate\'s own' => ['MUTATION_GATE_RESULTS', true],
+    'Infection\'s' => ['INFECTION_MUTANT', true],
+    'pest-plugin-mutate\'s' => ['PEST_MUTATION_TESTING', true],
+    'paratest\'s' => ['PARATEST', true],
+    'a paratest worker\'s token' => ['TEST_TOKEN', true],
+    'a paratest worker\'s unique token' => ['UNIQUE_TEST_TOKEN', true],
+    'Laravel\'s parallel testing' => ['LARAVEL_PARALLEL_TESTING', true],
+    'a name that only ends in one' => ['MY_TEST_TOKEN', false],
+    'the path' => ['PATH', false],
+]);

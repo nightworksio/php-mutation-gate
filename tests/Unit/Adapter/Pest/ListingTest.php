@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Listing;
-use NightWorksIO\MutationGate\Adapter\Pest\Ran;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 
