@@ -137,7 +137,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
     }
 
     /** The job's token and its signed identity, and the registry's and deploy tokens' passwords. */
-    public function withheld(): Withheld
+    public static function withheld(): Withheld
     {
         return Withheld::of(
             'CI_JOB_TOKEN',

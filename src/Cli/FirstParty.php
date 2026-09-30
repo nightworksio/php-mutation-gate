@@ -9,6 +9,7 @@ use function class_exists;
 use Closure;
 
 use function getenv;
+use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
 use NightWorksIO\MutationGate\Adapter\Alert\Channel;
@@ -40,15 +41,16 @@ use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
+use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
+use NightWorksIO\MutationGate\Core\Config\BuiltinVersionControl;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\Config\Name;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
-use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\ChangeSource;
@@ -74,12 +76,12 @@ final readonly class FirstParty implements Extension
         return Registered::config($extensions, class_exists(...))
             ->withProofStore(BuiltinStore::Directory->named(), LedgerDirectory::fromOptions(...))
             ->withProofStore(BuiltinStore::S3->named(), BucketLedger::fromOptions(...))
-            ->withCostModel(Name::of('learned'), MeasuredCosts::fromOptions(...))
-            ->withCiPlan(BuiltinCiPlan::GitHub->named(), GitHubPlan::fromOptions(...))
-            ->withCiPlan(BuiltinCiPlan::GitLab->named(), GitLabPlan::fromOptions(...))
-            ->withCiPlan(BuiltinCiPlan::Buildkite->named(), BuildkitePlan::fromOptions(...))
-            ->withCiPlan(BuiltinCiPlan::CircleCi->named(), CircleCiPlan::fromOptions(...))
-            ->withCiPlan(BuiltinCiPlan::Json->named(), JsonPlan::fromOptions(...))
+            ->withCostModel(BuiltinCostModel::Learned->named(), MeasuredCosts::fromOptions(...))
+            ->withCiPlan(BuiltinCiPlan::GitHub->named(), GitHubPlan::fromOptions(...), GitHubPlan::withheld())
+            ->withCiPlan(BuiltinCiPlan::GitLab->named(), GitLabPlan::fromOptions(...), GitLabPlan::withheld())
+            ->withCiPlan(BuiltinCiPlan::Buildkite->named(), BuildkitePlan::fromOptions(...), BuildkitePlan::withheld())
+            ->withCiPlan(BuiltinCiPlan::CircleCi->named(), CircleCiPlan::fromOptions(...), CircleCiPlan::withheld())
+            ->withCiPlan(BuiltinCiPlan::Json->named(), JsonPlan::fromOptions(...), JsonPlan::withheld())
             ->withRunner(
                 BuiltinRunner::Pest->named(),
                 static fn(Options $options): Pest|Invalid => Pest::fromOptions(
@@ -116,10 +118,22 @@ final readonly class FirstParty implements Extension
                 BuiltinReporter::Otlp->named(),
                 static fn(Options $options): Reporter|Invalid => OtlpReporter::configured($options, new SystemClock()),
             )
-            ->withChangeSource(Name::of('git'), static fn(Options $options): ChangeSource => self::git($options))
-            ->withRepository(Name::of('git'), static fn(Options $options): Repository => self::git($options))
-            ->withChangeSource(Name::of('github'), static fn(Options $options): ChangeSource => self::github($options))
-            ->withRepository(Name::of('github'), static fn(Options $options): Repository => self::github($options))
+            ->withChangeSource(
+                BuiltinVersionControl::Git->named(),
+                static fn(Options $options): ChangeSource => self::git($options),
+            )
+            ->withRepository(
+                BuiltinVersionControl::Git->named(),
+                static fn(Options $options): Repository => self::git($options),
+            )
+            ->withChangeSource(
+                BuiltinVersionControl::GitHub->named(),
+                static fn(Options $options): ChangeSource => self::github($options),
+            )
+            ->withRepository(
+                BuiltinVersionControl::GitHub->named(),
+                static fn(Options $options): Repository => self::github($options),
+            )
             ->withRunner(BuiltinRunner::Infection->named(), Infection::fromOptions(...));
     }
 
@@ -144,13 +158,14 @@ final readonly class FirstParty implements Extension
      */
     private static function github(Options $options): ChangeSource&Repository
     {
-        try {
-            $check = Node::decode($options->json())->field('check')->text();
-        } catch (NotInShape) {
-            $check = '';
-        }
+        $check = $options->text(Key::of('check'));
 
-        return PassedPullRequests::over(self::git($options), HttpClient::create(), getenv(), $check);
+        return PassedPullRequests::over(
+            self::git($options),
+            HttpClient::create(),
+            getenv(),
+            is_string($check) ? $check : '',
+        );
     }
 
     /**
@@ -160,16 +175,11 @@ final readonly class FirstParty implements Extension
      */
     private static function git(Options $options): Git
     {
-        $withheld = Withheld::standard();
+        $withhold = $options->texts(Key::of('withhold'));
 
-        try {
-            foreach (Node::decode($options->json())->field('withhold')->items() as $name) {
-                $withheld = $withheld->and(Withheld::of($name->text()));
-            }
-        } catch (NotInShape) {
-            return Git::withholding(self::HERE, Withheld::standard());
-        }
-
-        return Git::withholding(self::HERE, $withheld);
+        return Git::withholding(
+            self::HERE,
+            $withhold instanceof Listed ? Withheld::standard()->and(Withheld::of(...$withhold)) : Withheld::standard(),
+        );
     }
 }

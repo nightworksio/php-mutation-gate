@@ -85,5 +85,5 @@ it('is run by the config CircleCI reads from the repository', function (): void 
 });
 
 it('withholds the job\'s OpenID Connect tokens', function (): void {
-    expect(CircleCiPlan::printing('', Variables::of([]))->withheld())->toEqual(Withheld::of('CIRCLE_OIDC_TOKEN*'));
+    expect(CircleCiPlan::withheld())->toEqual(Withheld::of('CIRCLE_OIDC_TOKEN*'));
 });

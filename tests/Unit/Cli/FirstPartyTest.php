@@ -34,8 +34,12 @@ use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
+use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
+use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
+use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
+use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -45,7 +49,10 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
@@ -109,11 +116,11 @@ it('verifies GitHub\'s word by the check-run its check option names, and takes g
     $lookup = Lookup::in($registry());
     $built = Environment::during(
         $run,
-        static fn(): object => $lookup->changeSource(Name::of('github'), Options::ofJson($options)),
+        static fn(): object => $lookup->changeSource(Name::of('github'), Configs::options($options)),
     );
     $repository = Environment::during(
         $run,
-        static fn(): object => $lookup->repository(Name::of('github'), Options::ofJson($options)),
+        static fn(): object => $lookup->repository(Name::of('github'), Configs::options($options)),
     );
 
     expect($built::class)->toBe($source)
@@ -167,4 +174,19 @@ it('registers the console, every file report, GitHub\'s three and the badge by n
         ->and($reporter('github-comment'))->toBeInstanceOf(PullRequestComment::class)
         ->and($reporter('badge'))->toBeInstanceOf(BadgeDirectory::class)
         ->and($reporter('json'))->toBeInstanceOf(Invalid::class);
+});
+
+it('withholds both Buildkite agent tokens though the step it is given cannot build the plan', function () use (
+    $registry,
+): void {
+    $buildkite = BuiltinCiPlan::Buildkite->named();
+    $ci = Ci::of(
+        plan: Choice::of($buildkite->value(), Options::none()),
+        buildkiteStep: BuildkiteStep::of(Json::object(Member::of(BuildkiteStep::COMMAND, 7))),
+    );
+    $chosen = new Chosen($registry());
+
+    expect($chosen->ciPlan(Choice::of($buildkite->value(), $ci->planOptions($buildkite))))->toBeInstanceOf(Invalid::class)
+        ->and([...$chosen->withheld($ci, Withheld::nothing())])
+        ->toContain('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN');
 });

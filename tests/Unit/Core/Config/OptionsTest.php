@@ -135,6 +135,16 @@ it('lays options beneath its own, keeping where they are written', function (): 
         ->and($laid->path(Key::of('cache')))->toEqual(Path::of('cache'));
 });
 
+it('lays a path from the project beneath its own, spelt as the layer that writes them spells it', function (): void {
+    $ci = ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project'));
+    $laid = Options::at(Configs::options('{"level": 3}')->written(), $ci)->overPath(Key::of('path'), Path::of('build/x'));
+    $kept = Options::at(Configs::options('{"path": "out"}')->written(), $ci)->overPath(Key::of('path'), Path::of('build/x'));
+
+    expect($laid->written()->line())->toBe('{"path":"../build/x","level":3}')
+        ->and($laid->path(Key::of('path')))->toEqual(Path::of('build/x'))
+        ->and($kept->path(Key::of('path')))->toEqual(Path::of('ci/out'));
+});
+
 it('refuses options that are not an object, at their own path', function (): void {
     expect([...Options::of(Json::items('a'))->problems()])->toEqual([Problem::at('', 'expected an object, got a list')]);
 });

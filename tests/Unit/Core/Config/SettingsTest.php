@@ -789,6 +789,11 @@ it('refuses a map whose keys are settings where a map of numbers belongs', funct
         ->toBe(['shards: expected an object, got a list']);
 });
 
+it('refuses a Buildkite step whose command is not text, or a list of text, at the command', function (): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'ci' => ['buildkite' => ['step' => ['command' => 7]]]])))
+        ->toBe(['ci.buildkite.step.command: expected a command, or a list of commands, as text, got 7']);
+});
+
 it('reads tree excludes, the shard target and setup, the price, the test order and the equivalence check', function (
 ): void {
     $settings = Configs::settings([

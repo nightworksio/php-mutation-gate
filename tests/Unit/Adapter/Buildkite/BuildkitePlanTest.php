@@ -230,8 +230,8 @@ it('is run by the pipeline it uploads from the repository', function () use ($on
     expect($on(Variables::of([]))->definitions())->toEqual(Paths::of(Path::of('.buildkite/pipeline.yml')));
 });
 
-it('withholds the agent\'s token', function () use ($on): void {
-    expect($on(Variables::of([]))->withheld())->toEqual(Withheld::of('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN'));
+it('withholds the agent\'s token', function (): void {
+    expect(BuildkitePlan::withheld())->toEqual(Withheld::of('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN'));
 });
 
 it('is run by the pipeline its options name, and refuses one that is not a path', function (): void {

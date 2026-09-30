@@ -6,11 +6,13 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use Iterator;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Config\Definition\Items;
 use NightWorksIO\MutationGate\Core\Config\Definition\Location;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
@@ -110,7 +112,14 @@ final readonly class Options implements IteratorAggregate
     {
         $at = $this->read->field($key->value());
 
-        return $at->isPresent() ? $this->pathAt($at) : NotGiven::value();
+        $reading = Location::path($this->origin)->read($at);
+        $path = $reading->value();
+
+        return match (true) {
+            ! $at->isPresent() => NotGiven::value(),
+            $path instanceof Path => $path,
+            default => $reading->problems()[0],
+        };
     }
 
     /** A list of paths, each named from where the layer that writes it is. */
@@ -162,6 +171,15 @@ final readonly class Options implements IteratorAggregate
         };
     }
 
+    /**
+     * These options, with a path from the project laid beneath them at this key, spelt as the layer that writes
+     * them spells it, so `path()` names it from the project again.
+     */
+    public function overPath(Key $key, Path $path): self
+    {
+        return $this->over(Json::object(Member::of($key->value(), $this->origin->written($path))));
+    }
+
     /** These options, with these laid beneath them: each key they leave out takes its value there. */
     public function over(Json $beneath): self
     {
@@ -197,29 +215,12 @@ final readonly class Options implements IteratorAggregate
         };
     }
 
-    private function pathAt(Node $at): Path|Problem
-    {
-        $reading = Location::path($this->origin)->read($at);
-        $path = $reading->value();
-
-        return $path instanceof Path ? $path : $reading->problems()[0];
-    }
-
     private function pathsIn(Node $at): Paths|Problem
     {
-        $paths = Paths::none();
+        $reading = Items::of(Location::path($this->origin))->read($at);
+        $paths = $reading->value();
 
-        foreach ($at->items() as $item) {
-            $path = $this->pathAt($item);
-
-            if ($path instanceof Problem) {
-                return $path;
-            }
-
-            $paths = $paths->with($path);
-        }
-
-        return $paths;
+        return $paths instanceof Listed ? Paths::of(...$paths) : $reading->problems()[0];
     }
 
     /** @return Listed<string>|Problem */

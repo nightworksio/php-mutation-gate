@@ -208,8 +208,8 @@ it('is run by the pipeline CI_CONFIG_PATH names, .gitlab-ci.yml by default, and 
         ->toEqual(Paths::of(Path::of('.gitlab-ci.yml'), Path::of('ci/gate.yml')));
 });
 
-it('withholds the job\'s token, its signed identity and the registry\'s and deploy passwords', function () use ($on): void {
-    $withheld = $on(Variables::of([]))->withheld();
+it('withholds the job\'s token, its signed identity and the registry\'s and deploy passwords', function (): void {
+    $withheld = GitLabPlan::withheld();
 
     foreach (['CI_JOB_TOKEN', 'CI_JOB_JWT_V2', 'CI_REGISTRY_PASSWORD', 'CI_DEPLOY_PASSWORD', 'CI_DEPENDENCY_PROXY_PASSWORD'] as $name) {
         expect(preg_match($withheld->pattern(), $name))->toBe(1);

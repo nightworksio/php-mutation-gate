@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
@@ -135,3 +136,19 @@ it('names what is registered at an extension point, and nothing at any other', f
     expect($registry->names($point))->toEqual(Listed::of(Name::of('it')))
         ->and($registry->names($other))->toEqual(Listed::of());
 })->with(Registering::adapterPoints());
+
+it('holds what each CI plan declares withheld as it registers, and takes in another package\'s', function (): void {
+    $plan = static fn(string $package, string $name, string $variable): Extensions => new Extensions(Origin::of($package))
+        ->withCiPlan(Name::of($name), static fn(): Invalid => Invalid::because(Problem::at('x', 'unbuilt')), Withheld::of($variable));
+    $ours = $plan('acme/a', 'one', 'ONE_TOKEN')->withCiPlan(
+        Name::of('two'),
+        static fn(): Invalid => Invalid::because(Problem::at('x', 'unbuilt')),
+        Withheld::of('TWO_TOKEN'),
+    );
+    $merged = $ours->merge($plan('acme/b', 'three', 'THREE_TOKEN'));
+
+    expect([...new Extensions(Origin::of('acme/a'))->ciWithheld()])->toBe([])
+        ->and([...$ours->ciWithheld()])->toBe(['ONE_TOKEN', 'TWO_TOKEN'])
+        ->and($merged instanceof Extensions ? [...$merged->ciWithheld()] : $merged)
+        ->toBe(['ONE_TOKEN', 'TWO_TOKEN', 'THREE_TOKEN']);
+});

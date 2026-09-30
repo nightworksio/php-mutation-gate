@@ -17,11 +17,11 @@ use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Ci;
+use NightWorksIO\MutationGate\Core\Config\ClassNamed;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -86,26 +86,22 @@ final readonly class Chosen
 
     /**
      * What no process the gate starts may see: every run's credentials, what the runner withholds, and the
-     * credentials of every CI plan registered and of the one `ci.plan` names, whichever the job runs on, each
-     * built with the options the `ci` settings give it. A plan that does not build withholds nothing of its own,
-     * and every other still withholds.
+     * credentials every CI plan registered declares, and the class `ci.plan` names, whichever the job runs on.
+     * Each is a declaration, apart from the plan's options, so no config can drop one by keeping its plan from
+     * building.
      */
     public function withheld(Ci $ci, Withheld $runner): Withheld
     {
         $named = $ci->plan();
-        $choices = [];
-        $withheld = [];
+        $class = $named instanceof Choice ? $named->use() : $named;
 
-        foreach ($this->extensions->names(ExtensionPoint::CiPlan) as $name) {
-            $choices[] = Choice::of($name->value(), $ci->planOptions($name));
-        }
-
-        foreach ($named instanceof Choice ? [...$choices, $named] : $choices as $choice) {
-            $plan = $this->ciPlan($choice);
-            $withheld[] = $plan instanceof CiPlan ? $plan->withheld() : Withheld::nothing();
-        }
-
-        return Withheld::composed($runner, ...$withheld);
+        return Withheld::composed(
+            $runner,
+            $this->extensions->ciWithheld(),
+            $class instanceof ClassNamed && is_a($class->value(), CiPlan::class, allow_string: true)
+                ? $class->value()::withheld()
+                : Withheld::nothing(),
+        );
     }
 
     /** The reporter of the `reports` entry at this index. */

@@ -70,7 +70,7 @@ final readonly class JsonPlan implements CiPlan, Configurable
     }
 
     /** None: the JSON plan knows no CI. */
-    public function withheld(): Withheld
+    public static function withheld(): Withheld
     {
         return Withheld::nothing();
     }

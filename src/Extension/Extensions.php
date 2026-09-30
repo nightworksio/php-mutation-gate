@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Registry\Entries;
 use NightWorksIO\MutationGate\Core\Registry\Entry;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
@@ -76,6 +77,9 @@ final readonly class Extensions
     /** @var Entries<MutatorSet> */
     private Entries $mutatorSets;
 
+    /** What the CI plans registered here declare no runner may see, whether or not a config lets them build. */
+    private Withheld $ciWithheld;
+
     /** An empty registry, whose additions come from this package. */
     public function __construct(private Origin $origin)
     {
@@ -91,6 +95,7 @@ final readonly class Extensions
         $this->staticCheckers = new Entries(ExtensionPoint::StaticChecker);
         $this->presets = new Entries(ExtensionPoint::Preset);
         $this->mutatorSets = new Entries(ExtensionPoint::MutatorSet);
+        $this->ciWithheld = Withheld::nothing();
     }
 
     /** @param Closure(Options): (Runner|Invalid) $build */
@@ -125,11 +130,17 @@ final readonly class Extensions
         ]);
     }
 
-    /** @param Closure(Options): (CiPlan|Invalid) $build */
-    public function withCiPlan(Name $name, Closure $build): self
+    /**
+     * A CI plan, with the credentials of its CI that no process running the project's code may see, declared
+     * apart from its options, so a config that stops it building never stops them being withheld (ADR-0004).
+     *
+     * @param Closure(Options): (CiPlan|Invalid) $build
+     */
+    public function withCiPlan(Name $name, Closure $build, Withheld $withheld): self
     {
         return clone($this, [
             'ciPlans' => $this->ciPlans->with(Entry::of($name, $this->origin, $build)),
+            'ciWithheld' => $this->ciWithheld->and($withheld),
         ]);
     }
 
@@ -234,7 +245,18 @@ final readonly class Extensions
             'staticCheckers' => $this->staticCheckers->merge($other->staticCheckers),
             'presets' => $this->presets->merge($other->presets),
             'mutatorSets' => $this->mutatorSets->merge($other->mutatorSets),
+            'ciWithheld' => $this->ciWithheld->and($other->ciWithheld),
         ]);
+    }
+
+    /**
+     * What every CI plan registered here declares withheld, whichever plan a run takes.
+     *
+     * @internal extensions register; only the command line looks up
+     */
+    public function ciWithheld(): Withheld
+    {
+        return $this->ciWithheld;
     }
 
     /**

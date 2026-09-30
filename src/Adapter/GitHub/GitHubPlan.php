@@ -132,7 +132,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     }
 
     /** The Actions runtime's token and variables, and the workflow's `GITHUB_TOKEN`. */
-    public function withheld(): Withheld
+    public static function withheld(): Withheld
     {
         return Withheld::of('ACTIONS_*', 'GITHUB_TOKEN');
     }

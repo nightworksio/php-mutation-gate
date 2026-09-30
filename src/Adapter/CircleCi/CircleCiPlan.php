@@ -86,7 +86,7 @@ final readonly class CircleCiPlan implements CiPlan, Configurable
     }
 
     /** The job's OpenID Connect tokens. */
-    public function withheld(): Withheld
+    public static function withheld(): Withheld
     {
         return Withheld::of('CIRCLE_OIDC_TOKEN*');
     }

@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -36,9 +37,9 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -82,7 +83,7 @@ it('wires the runner, the store, the learned cost model, the JSON plan and git w
 
     expect($adapters->runner)->toEqual(RunnerFake::ofTheFixture())
         ->and($adapters->ci)->toEqual(JsonPlan::fromOptions(Options::none()))
-        ->and($adapters->costs)->toEqual(MeasuredCosts::fromOptions(Options::none()))
+        ->and($adapters->costs)->toEqual(MeasuredCosts::fromOptions(Configs::options('{"secondsPerLine": {"": 0.2}}')))
         ->and($adapters->changes)->toEqual(Git::withholding('.', $adapters->withheld))
         ->and($adapters->repository)->toEqual(Git::withholding('.', $adapters->withheld))
         ->and($adapters->environment)->toEqual(Variables::of([]))
@@ -104,11 +105,11 @@ it('learns costs at the seconds a line the config sets, and at the standard ones
     $slow = wiredOf(Flows::settings(Shards::secondsPerLine('src/Slow', 0.5)), Variables::of([]))->costs;
     $unset = wiredOf(Flows::settings(), Variables::of([]))->costs;
 
-    $slowly = Options::ofJson('{"secondsPerLine": {"": 0.2, "src/Slow": 0.5}}');
+    $slowly = Configs::options('{"secondsPerLine": {"": 0.2, "src/Slow": 0.5}}');
 
     expect($slow)->toEqual(MeasuredCosts::fromOptions($slowly))
-        ->and($slow)->not->toEqual(MeasuredCosts::fromOptions(Options::none()))
-        ->and($unset)->toEqual(MeasuredCosts::fromOptions(Options::none()));
+        ->and($slow)->not->toEqual(MeasuredCosts::fromOptions(Configs::options('{"secondsPerLine": {"": 0.2}}')))
+        ->and($unset)->toEqual(MeasuredCosts::fromOptions(Configs::options('{"secondsPerLine": {"": 0.2}}')));
 });
 
 it('plans for the CI its environment shows, the first it detects', function (
@@ -143,21 +144,19 @@ it('hands GitLab\'s plan its template, and Buildkite\'s its step and its definit
 
     expect($gitlab->definitions())->toEqual(Paths::of(Path::of('.gitlab-ci.yml'), Path::of('ci/gate.yml')))
         ->and($buildkite->definitions())->toEqual(Paths::of(Path::of('.buildkite/gate.yml')))
-        ->and($buildkite)->toEqual(BuildkitePlan::fromOptions(Options::ofJson(
+        ->and($buildkite)->toEqual(BuildkitePlan::fromOptions(Configs::options(
             '{"step": {"agents": {"queue": "gate"}}, "definition": ".buildkite/gate.yml"}',
         )));
 });
 
-it('withholds every run\'s credentials, the CI\'s tokens and runner.withhold', function (): void {
+it('withholds every run\'s credentials, the tokens of every CI, whichever runs it, and runner.withhold', function (
+    string $variable,
+): void {
     $settings = Flows::settings(Runner::uses('fake')->withholding(Withheld::of('DEPLOY_*')));
 
-    expect(wiredOf($settings, Variables::of(['CIRCLECI' => 'true']))->withheld)->toEqual(
-        Withheld::standard()
-            ->and(Withheld::of('CIRCLE_OIDC_TOKEN*'))
-            ->and(Withheld::of('DEPLOY_*'))
-            ->and(wiringEveryCi()),
-    );
-});
+    expect(wiredOf($settings, Variables::of([$variable => 'true']))->withheld)
+        ->toEqual(Withheld::standard()->and(wiringEveryCi())->and(Withheld::of('DEPLOY_*')));
+})->with(['CircleCI' => ['CIRCLECI'], 'GitLab' => ['GITLAB_CI'], 'no CI' => ['HOME']]);
 
 it('hands git what a run withholds, so no process git starts sees a CI token either', function (): void {
     $settings = Flows::settings(Runner::uses('fake')->withholding(Withheld::of('DEPLOY_*')));
@@ -191,7 +190,7 @@ it('hands a plan the config names its template, its step and its definition', fu
     $buildkite = wiredOf($settings(Ci::buildkite()), Variables::of([]))->ci;
 
     expect($gitlab->definitions())->toEqual(Paths::of(Path::of('.gitlab-ci.yml'), Path::of('ci/gate.yml')))
-        ->and($buildkite)->toEqual(BuildkitePlan::fromOptions(Options::ofJson(
+        ->and($buildkite)->toEqual(BuildkitePlan::fromOptions(Configs::options(
             '{"step": {"agents": {"queue": "gate"}}, "definition": ".buildkite/gate.yml"}',
         )));
 });

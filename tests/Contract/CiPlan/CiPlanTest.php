@@ -75,9 +75,16 @@ it('names the CI definitions that run the gate as paths from the root', function
     expect($ci->definitions()->count())->toBeLessThanOrEqual(2);
 })->with($plans);
 
-it('names the credentials of its CI that no runner hands the tests, over and above what every run withholds', function (CiPlan $ci): void {
-    $withheld = Withheld::standard()->and($ci->withheld());
+it('declares the credentials of its CI that no runner hands the tests, over and above what every run withholds', function (Withheld $declared): void {
+    $withheld = Withheld::standard()->and($declared);
 
     expect(preg_match($withheld->pattern(), 'AWS_SECRET_ACCESS_KEY'))->toBe(1)
         ->and(preg_match($withheld->pattern(), 'PATH'))->toBe(0);
-})->with($plans);
+})->with([
+    'the fake' => fn(): Withheld => CiPlanFake::withheld(),
+    'GitHub Actions' => fn(): Withheld => GitHubPlan::withheld(),
+    'GitLab CI' => fn(): Withheld => GitLabPlan::withheld(),
+    'Buildkite' => fn(): Withheld => BuildkitePlan::withheld(),
+    'CircleCI' => fn(): Withheld => CircleCiPlan::withheld(),
+    'plain JSON' => fn(): Withheld => JsonPlan::withheld(),
+]);

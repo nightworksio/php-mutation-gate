@@ -12,7 +12,6 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -46,6 +45,7 @@ $registry = static fn(): Extensions => new Extensions(Origin::of('acme/gate'))
     ->withCiPlan(
         Name::of('it'),
         static fn(): CiPlan => new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')),
+        CiPlanFake::withheld(),
     )
     ->withStaticChecker(Name::of('it'), static fn(): StaticChecker => StaticCheckerFake::findingNothing())
     ->withRunner(
@@ -92,7 +92,7 @@ it('builds a reporter the run chooses itself, putting its problems under what ch
     $registry,
 ): void {
     $chosen = new Chosen($registry());
-    $none = Json::object();
+    $none = Options::none();
 
     expect($chosen->reporterChosenBy('badge', Choice::of('it', $none)))->toBeInstanceOf(ReporterFake::class)
         ->and($chosen->reporterChosenBy('badge', Choice::of('picky', $none)))
@@ -205,16 +205,26 @@ it('takes a class in the global namespace by its leading backslash, and a word w
         ->toEqual(CannotJudge::because('No runner is registered as "arrayobjects".'));
 });
 
-it('withholds every registered CI plan\'s credentials that builds, whichever plan the config names', function () use (
+it('withholds what every registered CI plan declares, whether or not a config lets it build', function () use (
     $registry,
 ): void {
     $chosen = new Chosen($registry()->withCiPlan(
         Name::of('broken'),
         static fn(): Invalid => Invalid::because(Problem::at('template', 'expected a path')),
+        Withheld::of('BROKEN_CI_TOKEN'),
     ));
     $unbuilt = Configs::settings(['runner' => 'pest', 'ci' => ['plan' => '\Acme\NoPlan']])->ci();
 
     expect([...$chosen->withheld(Ci::none(), Withheld::of('DEPLOY_*'))])
-        ->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN', 'DEPLOY_*'])
-        ->and([...$chosen->withheld($unbuilt, Withheld::nothing())])->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN']);
+        ->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN', 'BROKEN_CI_TOKEN', 'DEPLOY_*'])
+        ->and([...$chosen->withheld($unbuilt, Withheld::nothing())])
+        ->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN', 'BROKEN_CI_TOKEN']);
+});
+
+it('withholds what a CI plan class the config names declares, though no registry holds it', function () use (
+    $classes,
+): void {
+    $named = Configs::settings(['runner' => 'pest', 'ci' => ['plan' => sprintf('\\%s', CiPlanFake::class)]])->ci();
+
+    expect([...$classes()->withheld($named, Withheld::nothing())])->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN']);
 });

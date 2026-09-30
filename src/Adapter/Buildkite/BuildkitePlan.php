@@ -48,8 +48,6 @@ use function str_replace;
  */
 final readonly class BuildkitePlan implements CiPlan, Configurable
 {
-    private const string COMMAND = 'command';
-
     private const string KEY = 'key';
 
     private const string LABEL = 'label';
@@ -73,8 +71,8 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
     public static function printing(string $to, BuildkiteStep $step, Variables $variables): self
     {
         $commands = Options::of($step->json());
-        $one = $commands->text(Key::of(self::COMMAND));
-        $many = $commands->texts(Key::of(self::COMMAND));
+        $one = $commands->text(Key::of(BuildkiteStep::COMMAND));
+        $many = $commands->texts(Key::of(BuildkiteStep::COMMAND));
 
         return new self(
             $variables,
@@ -165,7 +163,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
     }
 
     /** The agent's token, which can upload and change pipelines. */
-    public function withheld(): Withheld
+    public static function withheld(): Withheld
     {
         return Withheld::of('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN');
     }
@@ -173,9 +171,9 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
     /** Whether a step template's `command` is left out, a command or a list of them. */
     private static function commandsIn(Options $step): bool
     {
-        $one = $step->text(Key::of(self::COMMAND));
+        $one = $step->text(Key::of(BuildkiteStep::COMMAND));
 
-        return ! $one instanceof Problem || ! $step->texts(Key::of(self::COMMAND)) instanceof Problem;
+        return ! $one instanceof Problem || ! $step->texts(Key::of(BuildkiteStep::COMMAND)) instanceof Problem;
     }
 
     private function shardStep(Shard $shard): Json
@@ -194,7 +192,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
         return $this->step->json()->with(
             Member::of(self::LABEL, $label),
             Member::of(self::KEY, $key),
-            Member::of(self::COMMAND, Json::items(...$this->commands, ...[self::DOWNLOAD, $command])),
+            Member::of(BuildkiteStep::COMMAND, Json::items(...$this->commands, ...[self::DOWNLOAD, $command])),
         );
     }
 

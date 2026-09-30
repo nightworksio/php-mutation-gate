@@ -101,7 +101,7 @@ it('composes the settings, the adapters they choose, the gate\'s setup and the r
         ))
         ->and($composed instanceof Composed ? $composed->setup->clock->now() : $composed)
         ->toEqual(new DateTimeImmutable(Configs::NOW))
-        ->and($composed instanceof Composed ? $composed->settings->runner()->choice()->use() : $composed)->toBe('fake');
+        ->and($composed instanceof Composed ? $composed->settings->runner()->choice()->use()->value() : $composed)->toBe('fake');
 });
 
 it('reads no config file and nothing installed where there is none', function (): void {

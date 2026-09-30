@@ -26,7 +26,7 @@ final readonly class CiKeys
         $branch = Field::optional('defaultBranch', Text::of('a branch name'), $judges);
         $check = Field::optional('check', Text::of('a check-run name'), $judges);
         $template = Field::optional('template', Location::path($origin), $judges);
-        $step = Field::optional('step', OpenObject::any(), $judges);
+        $step = Field::optional('step', StepTemplate::buildkite(), $judges);
         $definition = Field::optional('definition', Location::path($origin), $judges);
         $gitlab = Field::section(
             'gitlab',

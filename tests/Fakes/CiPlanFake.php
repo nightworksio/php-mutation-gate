@@ -59,7 +59,7 @@ final class CiPlanFake implements CiPlan
         return $this->definitions;
     }
 
-    public function withheld(): Withheld
+    public static function withheld(): Withheld
     {
         return Withheld::of('FAKE_CI_TOKEN');
     }

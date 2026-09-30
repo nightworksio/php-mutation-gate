@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Port\CiPlan;
+use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 
 /** The flows' CI, which cannot take the plan it is handed. */
 final readonly class UnpublishedCi implements CiPlan
@@ -40,8 +41,8 @@ final readonly class UnpublishedCi implements CiPlan
         return Flows::ci()->definitions();
     }
 
-    public function withheld(): Withheld
+    public static function withheld(): Withheld
     {
-        return Flows::ci()->withheld();
+        return CiPlanFake::withheld();
     }
 }

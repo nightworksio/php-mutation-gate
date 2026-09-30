@@ -8,10 +8,14 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * `ci.buildkite.step`: the keys every step the gate writes for Buildkite is
- * built from, such as `agents`, `plugins` and `env`, passed on unread.
+ * built from, such as `agents`, `plugins` and `env`, passed on unread, and
+ * `command`, the commands each step runs before the gate's own.
  */
 final readonly class BuildkiteStep
 {
+    /** The key of a step's command, or list of commands, which the gate runs its own after. */
+    public const string COMMAND = 'command';
+
     private function __construct(private Json $keys)
     {
     }

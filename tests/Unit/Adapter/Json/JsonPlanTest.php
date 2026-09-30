@@ -73,5 +73,5 @@ it('is run by no definition of its own', function (): void {
 });
 
 it('withholds nothing of its own', function (): void {
-    expect(JsonPlan::printing('', Variables::of([]))->withheld())->toEqual(Withheld::nothing());
+    expect(JsonPlan::withheld())->toEqual(Withheld::nothing());
 });
