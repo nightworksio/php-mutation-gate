@@ -48,6 +48,7 @@
         "ergebnis/composer-normalize": "^2.54",
         "ergebnis/phpstan-rules": "^2.13",
         "infection/infection": "~0.35.0",
+        "justinrainbow/json-schema": "^6.13",
         "laravel/pint": "^1.32",
         "nette/neon": "^3.4",
         "nikic/php-parser": "^5.9",
@@ -145,6 +146,7 @@
         "lint:fix": "pint",
         "refactor": "rector process --dry-run",
         "refactor:fix": "rector process",
+        "report:schema": "@php scripts/report-schema.php",
         "test": "pest --parallel --exclude-testsuite=Guards",
         "test:coverage": "sh scripts/coverage.sh",
         "test:guards": "pest --testsuite=Guards",
@@ -152,6 +154,7 @@
     },
     "scripts-descriptions": {
         "ci": "The PHP gates CI runs, in the order CI runs them, but for the lowest dependencies, which would rewrite vendor, and mutation, which runs in CI only. The hygiene, security and commit checks run in CI as well.",
+        "report:schema": "Writes resources/report.schema.json, the JSON Schema of the JSON report, from the report's own definitions.",
         "test": "Every suite but Guards, in parallel.",
         "test:coverage": "The same run as test, held to 100% line coverage of src (G7).",
         "test:guards": "Plants a violation of every rule in a throwaway copy of the tree and requires each rule to report it (R2).",

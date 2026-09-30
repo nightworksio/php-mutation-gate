@@ -2,45 +2,83 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Runner\Uncovered;
-use NightWorksIO\MutationGate\Core\Score\Floor;
-use NightWorksIO\MutationGate\Core\Score\Unrecorded;
-use NightWorksIO\MutationGate\Core\Tree\Package;
-use NightWorksIO\MutationGate\Core\Tree\Tree;
-use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
-use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
-use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
-use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
-use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
-use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
+use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
+use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
+use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
+use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
+use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
-use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Schema;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
+use NightWorksIO\MutationGate\Tests\Support\Verdicts;
+use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\JsonMockResponse;
 
-// What every reporter answers for a passing, a failing and an empty verdict:
-// that it wrote, or why it did not, and never an exception. One line per
-// implementation.
+// What every reporter answers for a failing, a passing and an empty verdict,
+// and for one a budget cut short: that it wrote, or why it did not, and never
+// an exception. One line per implementation.
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
+
+$pullRequest = static fn(): string => (string) json_encode(['pull_request' => [
+    'number' => 12,
+    'head' => ['repo' => ['full_name' => 'octo/gate']],
+    'base' => ['repo' => ['full_name' => 'octo/gate']],
+]]);
 
 $reporters = [
     'the fake' => fn(): Reporter => new ReporterFake(),
+    'the console' => fn(): Reporter => ConsoleReport::to(new BufferedOutput()),
+    'JSON' => fn(): Reporter => JsonReportFile::at(sprintf('%s/mutation.json', Scratch::directory())),
+    'JUnit' => fn(): Reporter => JUnitReportFile::at(sprintf('%s/junit.xml', Scratch::directory())),
+    'SARIF' => fn(): Reporter => SarifReportFile::at(sprintf('%s/mutation.sarif', Scratch::directory())),
+    'HTML' => fn(): Reporter => HtmlReportDirectory::at(
+        sprintf('%s/html', Scratch::directory()),
+        Scratch::directory(),
+        Schema::at('resources/mutation-testing-elements'),
+    ),
+    'GitHub annotations' => fn(): Reporter => Annotations::printingTo(sprintf('%s/annotations', Scratch::directory())),
+    'the step summary' => fn(): Reporter => StepSummary::appendingTo(sprintf('%s/summary.md', Scratch::directory()), ''),
+    'the pull request comment' => fn(): Reporter => PullRequestComment::inRun(
+        ['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret', 'GITHUB_REPOSITORY' => 'octo/gate'],
+        $pullRequest(),
+        new MockHttpClient([new JsonMockResponse([]), new JsonMockResponse(['html_url' => 'https://github.com/octo/gate/pull/12'])]),
+        'gate-bot',
+    ),
+    'the badge' => fn(): Reporter => BadgeDirectory::at(
+        sprintf('%s/publish', Scratch::directory()),
+        BadgeColors::defaults(),
+        'abc123',
+        new StoppedClock('2026-09-30T12:00:00Z'),
+    ),
 ];
 
-$verdict = static fn(JudgedMutants $mutants): Verdict => Verdict::of(TreeVerdicts::of(TreeVerdict::judged(
-    Tree::at(Path::of('src'), Floor::of(80), Package::at(Path::root())),
-    Unrecorded::floor(),
-    JudgedUnits::none(),
-    $mutants,
-    Uncovered::Count,
-)));
-
-it('reports a verdict of each kind, saying where it wrote or why it could not', function (Reporter $reporter, Verdict $verdict): void {
-    $answer = $reporter->report($verdict);
+it('reports a verdict of each kind, saying where it wrote or why it could not', function (Reporter $reporter, string $verdict): void {
+    $answer = $reporter->report(Verdicts::named($verdict));
 
     expect($answer instanceof Written ? $answer->where() : $answer->why())->not->toBe('');
 })->with($reporters)->with([
-    'passed' => [$verdict(Judged::mutants(MutantJudgement::Killed))],
-    'failed' => [$verdict(Judged::mutants(MutantJudgement::Survived))],
-    'nothing to mutate' => [$verdict(JudgedMutants::none())],
+    'failed' => ['failing'],
+    'passed' => ['passing'],
+    'nothing to mutate' => ['empty'],
+    'cut short' => ['cut short'],
 ]);
+
+it('writes a failing verdict, and leaves a file it wrote where it says', function (Reporter $reporter): void {
+    $answer = $reporter->report(Verdicts::failing());
+    $where = $answer instanceof Written ? $answer->where() : '';
+
+    expect($answer)->toBeInstanceOf(Written::class)
+        ->and(str_starts_with($where, '/') ? file_exists($where) : $where !== '')->toBeTrue();
+})->with($reporters);

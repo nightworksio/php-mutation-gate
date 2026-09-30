@@ -9,11 +9,20 @@ use function getenv;
 
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
+use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
+use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
+use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
+use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
+use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
+use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
@@ -26,6 +35,7 @@ use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ChangeSource;
+use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Port\Repository;
 use Symfony\Component\HttpClient\HttpClient;
 
@@ -58,6 +68,21 @@ final readonly class FirstParty implements Extension
                 static fn(Options $options): Pest|Invalid => Pest::fromOptions(
                     $options,
                     ComposerVendor::of(self::HERE),
+                ),
+            )
+            ->withReporter(Name::of('console'), ConsoleReport::fromOptions(...))
+            ->withReporter(Name::of('json'), JsonReportFile::fromOptions(...))
+            ->withReporter(Name::of('junit'), JUnitReportFile::fromOptions(...))
+            ->withReporter(Name::of('sarif'), SarifReportFile::fromOptions(...))
+            ->withReporter(Name::of('html'), HtmlReportDirectory::fromOptions(...))
+            ->withReporter(Name::of('github-annotations'), Annotations::fromOptions(...))
+            ->withReporter(Name::of('github-summary'), StepSummary::fromOptions(...))
+            ->withReporter(Name::of('github-comment'), PullRequestComment::fromOptions(...))
+            ->withReporter(
+                Name::of('badge'),
+                static fn(Options $options): Reporter|Invalid => BadgeDirectory::configured(
+                    $options,
+                    new SystemClock(),
                 ),
             )
             ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Git::at(self::HERE))

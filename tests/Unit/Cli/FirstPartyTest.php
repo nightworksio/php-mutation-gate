@@ -4,10 +4,19 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
+use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
+use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
+use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
+use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
+use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
+use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
@@ -98,4 +107,19 @@ it('registers Pest as a runner, in the vendor directory Composer installed the p
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('pest'), Options::none()))
         ->toEqual(Pest::fromOptions(Options::none(), ComposerVendor::of('.')));
+});
+
+it('registers the console, every file report, GitHub\'s three and the badge by name', function () use ($registry): void {
+    $reporter = static fn(string $name, string $options = '{}'): object => Lookup::in($registry())->reporter(Name::of($name), Options::ofJson($options));
+
+    expect($reporter('console'))->toBeInstanceOf(ConsoleReport::class)
+        ->and($reporter('json', '{"path": "build/mutation.json"}'))->toEqual(JsonReportFile::at('build/mutation.json'))
+        ->and($reporter('junit', '{"path": "build/junit.xml"}'))->toEqual(JUnitReportFile::at('build/junit.xml'))
+        ->and($reporter('sarif', '{"path": "build/mutation.sarif"}'))->toEqual(SarifReportFile::at('build/mutation.sarif'))
+        ->and($reporter('html', '{"path": "build/html"}'))->toBeInstanceOf(HtmlReportDirectory::class)
+        ->and($reporter('github-annotations'))->toEqual(Annotations::printingTo('php://stdout'))
+        ->and($reporter('github-summary'))->toBeInstanceOf(StepSummary::class)
+        ->and($reporter('github-comment'))->toBeInstanceOf(PullRequestComment::class)
+        ->and($reporter('badge'))->toBeInstanceOf(BadgeDirectory::class)
+        ->and($reporter('json'))->toBeInstanceOf(Invalid::class);
 });

@@ -1,0 +1,71 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Core\Report\JUnit;
+use NightWorksIO\MutationGate\Core\Report\MutantText;
+use NightWorksIO\MutationGate\Tests\Support\Verdicts;
+use NightWorksIO\MutationGate\Tests\Support\Xpath;
+
+$failing = static fn(string $query): array => Xpath::of(JUnit::xml(Verdicts::failing()), $query);
+
+it('writes a suite per tree, one for new code and one for the run, each failing as the gate does', function () use ($failing): void {
+    expect($failing('/testsuites/@name'))->toBe(['mutation-gate'])
+        ->and($failing('/testsuites/@tests'))->toBe(['5'])
+        ->and($failing('/testsuites/@failures'))->toBe(['3'])
+        ->and($failing('/testsuites/testsuite/@name'))->toBe(['src', 'app/Legacy', 'src/Empty', 'new code', 'run'])
+        ->and($failing('/testsuites/testsuite/@tests'))->toBe(['1', '1', '1', '1', '1'])
+        ->and($failing('/testsuites/testsuite/@failures'))->toBe(['1', '0', '0', '1', '1']);
+});
+
+it('fails a tree\'s floor with every mutant it counts as not killed', function () use ($failing): void {
+    $said = 'src scores 37.50%, below its floor of 80.00%. That is -2.50 against the base.';
+    $blocks = [];
+
+    foreach (Verdicts::failing()->trees() as $tree) {
+        foreach ($tree->survivors() as $mutant) {
+            $blocks[] = MutantText::block($mutant);
+        }
+    }
+
+    expect($failing('/testsuites/testsuite[1]/testcase/@name'))->toBe(['floor'])
+        ->and($failing('/testsuites/testsuite[1]/testcase/@classname'))->toBe(['src'])
+        ->and($failing('/testsuites/testsuite[1]/testcase/failure/@type'))->toBe(['floor'])
+        ->and($failing('/testsuites/testsuite[1]/testcase/failure/@message'))->toBe([$said])
+        ->and($failing('/testsuites/testsuite[1]/testcase/failure'))->toBe([implode("\n\n", [$said, ...$blocks])]);
+});
+
+it('skips an exempt tree with its reason, and says what a passing one scored', function () use ($failing): void {
+    expect($failing('/testsuites/testsuite[2]/testcase/skipped/@message'))->toBe(['app/Legacy is exempt: Replaced by the new billing module'])
+        ->and($failing('/testsuites/testsuite[3]/testcase/system-out'))->toBe(['src/Empty has nothing to mutate.'])
+        ->and($failing('/testsuites/testsuite[3]/testcase/failure'))->toBe([]);
+});
+
+it('names the new-code case by its package, and the run\'s case by its failure', function () use ($failing): void {
+    $failure = 'The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.';
+
+    expect($failing('/testsuites/testsuite[4]/testcase/@name'))->toBe(['.'])
+        ->and($failing('/testsuites/testsuite[4]/testcase/@classname'))->toBe(['new code'])
+        ->and($failing('/testsuites/testsuite[4]/testcase/failure/@message'))->toBe(['New code scores 0.00%, below its floor of 100.00%.'])
+        ->and($failing('/testsuites/testsuite[5]/testcase/@name'))->toBe([$failure])
+        ->and($failing('/testsuites/testsuite[5]/testcase/@classname'))->toBe(['run'])
+        ->and($failing('/testsuites/testsuite[5]/testcase/failure/@type'))->toBe(['run'])
+        ->and($failing('/testsuites/testsuite[5]/testcase/failure'))->toBe([$failure]);
+});
+
+it('passes a tree that meets its floor, and writes no new-code or run suite where there is none', function (): void {
+    expect(JUnit::xml(Verdicts::passing()))->toBe(implode("\n", [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<testsuites name="mutation-gate" tests="1" failures="0">',
+        '  <testsuite name="src" tests="1" failures="0">',
+        '    <testcase name="floor" classname="src"><system-out>src scores 100.00% against its floor of 80.00%.</system-out></testcase>',
+        '  </testsuite>',
+        '</testsuites>',
+        '',
+    ]));
+});
+
+it('escapes what the project wrote', function () use ($failing): void {
+    expect(JUnit::xml(Verdicts::failing()))->toContain('if ($amount &lt; $limit) {')
+        ->and($failing('/testsuites'))->toHaveCount(1);
+});

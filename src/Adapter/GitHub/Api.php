@@ -29,8 +29,26 @@ final readonly class Api
     /** What GitHub answers at a path of its API, or why it did not. */
     public function get(string $path): Answer|CannotTell
     {
+        return $this->ask('GET', $path, []);
+    }
+
+    /**
+     * What GitHub answers when a JSON body is sent to a path of its API with a
+     * method such as `POST` or `PATCH`, or why it did not.
+     *
+     * @param array<string, string> $body
+     */
+    public function send(string $method, string $path, array $body): Answer|CannotTell
+    {
+        return $this->ask($method, $path, ['json' => $body]);
+    }
+
+    /** @param array{json?: array<string, string>} $options */
+    private function ask(string $method, string $path, array $options): Answer|CannotTell
+    {
         try {
-            return Answer::of($this->client->request('GET', sprintf('%s%s', $this->url, $path), [
+            return Answer::of($this->client->request($method, sprintf('%s%s', $this->url, $path), [
+                ...$options,
                 'headers' => [
                     'Accept' => 'application/vnd.github+json',
                     'Authorization' => sprintf('Bearer %s', $this->token),

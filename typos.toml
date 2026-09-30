@@ -4,7 +4,8 @@
 # Hidden files are read, so `.docs`, `.github` and `.githooks` are checked.
 # `.git` holds compressed objects rather than text, so it comes back out.
 ignore-hidden = false
-extend-exclude = [".git/", "vendor/", "composer.lock"]
+# The vendored viewer is minified, and the fixtures are other projects' schemas.
+extend-exclude = [".git/", "vendor/", "composer.lock", "resources/mutation-testing-elements/", "tests/Fixtures/"]
 
 [default.extend-identifiers]
 # Pest's own expectation is spelled this way, and the stub mirrors its API.
