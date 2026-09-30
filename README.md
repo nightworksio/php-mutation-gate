@@ -329,7 +329,11 @@ otherwise be read as a number. Dates need no quotes.
 
 A setting that names an adapter takes either a registered name (`"pest"`,
 `"sarif"`) or a class with its options (`{"use": "Acme\\Gate\\SlackReporter",
-"with": {"channel": "#ci"}}`). Packages that offer adapters are found through
+"with": {"channel": "#ci"}}`). A `use` with a backslash is a class, so a class
+in the global namespace is written `"\\SlackReporter"`. The adapter reads its
+options through `NightWorksIO\MutationGate\Core\Config\Options`, one key at a
+time as a type: `$options->text(Key::of('channel'))` answers the text,
+`NotGiven`, or the problem at `channel`. Packages that offer adapters are found through
 `extra.mutation-gate.extensions` in their `composer.json`
 ([ADR-0001](.docs/decisions/0001-a-framework-free-core-behind-nine-ports.md)).
 An extension's `Extensions` registry is made with the `Origin` of its package,

@@ -150,5 +150,10 @@ it('takes a class in the global namespace by its leading backslash, and a word w
         Runner::class,
         Configurable::class,
     )))->and($classes()->runner(Choice::of('ArrayObject', Configs::options('{}'))))
-        ->toEqual(CannotJudge::because('No runner is registered as "ArrayObject".'));
+        ->toEqual(CannotJudge::because(
+            'No runner is registered as "ArrayObject". A class is written with its namespace, so the class ArrayObject '
+            . 'is \\ArrayObject.',
+        ))
+        ->and($classes()->runner(Choice::of('arrayobjects', Configs::options('{}'))))
+        ->toEqual(CannotJudge::because('No runner is registered as "arrayobjects".'));
 });
