@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
+use function array_values;
+
+use NightWorksIO\MutationGate\Core\Format\Json;
+
 /** `runner`: the tool that mutates (ADR-0004). */
 final readonly class Runner
 {
-    private function __construct(private string $json)
+    private function __construct(private Json|string $json)
     {
     }
 
@@ -27,7 +31,18 @@ final readonly class Runner
         return new self(Option::choice($runner, ...$options));
     }
 
-    public function written(): string
+    /**
+     * This runner, withholding these environment variables from the project's tests besides those every run
+     * withholds (ADR-0004): `runner.withhold`, names or globs such as `DEPLOY_*`.
+     */
+    public function withholding(string ...$globs): self
+    {
+        $runner = $this->json instanceof Json ? $this->json : Json::object()->with('use', $this->json);
+
+        return new self($runner->with('withhold', Json::items(array_values($globs))));
+    }
+
+    public function written(): Json|string
     {
         return $this->json;
     }

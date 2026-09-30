@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Json;
+use NightWorksIO\MutationGate\Core\Format\Json;
 
 /** An `ignores.entries` entry (ADR-0008): an equivalent mutant, with a reason and an optional end. */
 final readonly class Ignore
 {
-    private function __construct(private string $json)
+    private function __construct(private Json $json)
     {
     }
 
@@ -25,7 +25,7 @@ final readonly class Ignore
         return self::entry(['path' => $in, 'mutator' => $mutator, 'reason' => $because], $until);
     }
 
-    public function written(): string
+    public function written(): Json
     {
         return $this->json;
     }
@@ -33,6 +33,6 @@ final readonly class Ignore
     /** @param array<string, string> $entry */
     private static function entry(array $entry, string $until): self
     {
-        return new self(Json::encode($until === '' ? $entry : [...$entry, 'expires' => $until]));
+        return new self(Json::decoded($until === '' ? $entry : [...$entry, 'expires' => $until]));
     }
 }

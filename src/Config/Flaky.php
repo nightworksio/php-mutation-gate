@@ -4,28 +4,28 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Json;
+use NightWorksIO\MutationGate\Core\Format\Json;
 
 /** How flaky tests are caught (ADR-0008): `flaky.confirmSurvivors`. */
 final readonly class Flaky implements Setting
 {
-    private function __construct(private string $json)
+    private function __construct(private Json $json)
     {
     }
 
     /** Each survivor is run once more, alone, before it counts. */
     public static function confirmingSurvivors(): self
     {
-        return new self(Json::encode(['flaky' => ['confirmSurvivors' => true]]));
+        return new self(Json::decoded(['flaky' => ['confirmSurvivors' => true]]));
     }
 
     /** A survivor counts as it first ran. */
     public static function notConfirmingSurvivors(): self
     {
-        return new self(Json::encode(['flaky' => ['confirmSurvivors' => false]]));
+        return new self(Json::decoded(['flaky' => ['confirmSurvivors' => false]]));
     }
 
-    public function written(): string
+    public function written(): Json
     {
         return $this->json;
     }
