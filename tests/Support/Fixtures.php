@@ -291,6 +291,7 @@ final readonly class Fixtures
                 });
                 PHP, 'names every test for its behaviour, without an identifier'),
             self::inTheCore('H8', 'PlantedDoors', "if (PHP_VERSION_ID === 1) {\n        return 1;\n    }\n\n    if (PHP_VERSION_ID === 2) {\n        return 2;\n    }\n\n    if (PHP_VERSION_ID === 3) {\n        return 3;\n    }\n\n    return 0;", 'int', 'H8 — this method returns from 4 places'),
+            self::inTheCore('H9', 'PlantedHug', "return sprintf('%s', implode(\n        ',',\n        ['a'],\n    ));", 'string', 'H9 — put every item of this list on line'),
             Fixture::suite('W1', 'src/Core/PlantedMisplaced.php', self::aValueCalled('PlantedSomewhereElse'), 'declares one class per file, the one its path names'),
             Fixture::suite('K1', 'src/Core/PlantedHistory.php', <<<'PHP'
                 <?php

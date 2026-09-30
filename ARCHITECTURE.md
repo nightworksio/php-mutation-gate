@@ -29,6 +29,7 @@ phpstan/Rules/ this repository's own analyser rules.
 tests/
   Arch/        the rules in this document that the suite enforces.
   Unit/        one test file per source file, mirroring src.
+  PHPStan/     the tests of the rules in phpstan/Rules, mirroring phpstan.
   Contract/    one directory per port: its suite, run against its fake and every adapter.
   Fakes/       a hand-written fake of every port.
   Guards/      the planted violation of every rule.
@@ -96,7 +97,7 @@ every core type their public signatures reach (ADR-0001).
 | **D6** | No unnamed number in a method body | phpstan: own rule |
 | **D7** | Every class is final, and every class on the API surface or in the core that is not an exception is readonly | arch: reflection over every class under `src` |
 
-## H — names and size
+## H — names, size and layout
 
 | Rule | Says | Enforced by |
 |---|---|---|
@@ -108,6 +109,7 @@ every core type their public signatures reach (ADR-0001).
 | **H6** | An exception is named for what happened, not for being an exception | arch |
 | **H7** | A test is named for the behaviour it pins, never with an identifier | arch: every test description |
 | **H8** | A method returns from at most three places | phpstan: own rule |
+| **H9** | A list is on one line or fully split, as SonarCloud's S1808 requires | phpstan: own rule, over `src` |
 | **W1** | A file under `src` declares one class, and it is the one its path names | arch |
 
 ## K — comments
