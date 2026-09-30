@@ -8,6 +8,7 @@ use function class_exists;
 
 use Closure;
 
+use function getcwd;
 use function getenv;
 use function is_string;
 
@@ -36,10 +37,13 @@ use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
+use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
@@ -159,7 +163,27 @@ final readonly class FirstParty implements Extension
                 BuiltinVersionControl::GitHub->named(),
                 static fn(Options $options): Repository => self::github($options),
             )
-            ->withRunner(BuiltinRunner::Infection->named(), Infection::fromOptions(...));
+            ->withRunner(BuiltinRunner::Infection->named(), Infection::fromOptions(...))
+            ->withStaticChecker(
+                BuiltinAnalyser::Mago->named(),
+                static fn(Options $options): Mago|Invalid => Mago::fromOptions(
+                    $options,
+                    self::root(),
+                    ComposerVendor::on(self::root()),
+                ),
+            )
+            ->withStaticChecker(
+                BuiltinAnalyser::PhpStan->named(),
+                static fn(Options $options): PhpStan|Invalid => PhpStan::fromOptions($options, self::root()),
+            );
+    }
+
+    /** The project's root, where the gate runs, as an absolute path, which the analysers name files by. */
+    private static function root(): string
+    {
+        $here = getcwd();
+
+        return is_string($here) ? $here : self::HERE;
     }
 
     /**

@@ -9,7 +9,7 @@ use function array_key_exists;
 use function array_keys;
 
 use BackedEnum;
-use NightWorksIO\MutationGate\Core\Analysis\BuiltInAnalyser;
+use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -66,7 +66,7 @@ final readonly class Builtins
     /** The analysers this package brings, and `auto` and `none`, none of which takes options. */
     public static function staticCheckers(PathOrigin $origin): self
     {
-        return self::none($origin, StaticCheck::AUTO, StaticCheck::NONE, ...BuiltInAnalyser::cases());
+        return self::none($origin, StaticCheck::AUTO, StaticCheck::NONE, ...BuiltinAnalyser::cases());
     }
 
     /** The tree sources, whose paths are named from the layer's origin. */

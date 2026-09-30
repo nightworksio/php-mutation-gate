@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
-use NightWorksIO\MutationGate\Core\Analysis\BuiltInAnalyser;
+use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck as CoreStaticCheck;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
@@ -32,17 +32,17 @@ final readonly class StaticCheck implements Setting
 
     public static function mago(): self
     {
-        return self::uses(BuiltInAnalyser::Mago->value);
+        return self::uses(BuiltinAnalyser::Mago->value);
     }
 
     public static function phpstan(): self
     {
-        return self::uses(BuiltInAnalyser::PhpStan->value);
+        return self::uses(BuiltinAnalyser::PhpStan->value);
     }
 
     public static function psalm(): self
     {
-        return self::uses(BuiltInAnalyser::Psalm->value);
+        return self::uses(BuiltinAnalyser::Psalm->value);
     }
 
     /** An analyser another extension registers by name, or a class, with its options. */
