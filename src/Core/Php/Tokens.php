@@ -13,6 +13,7 @@ use function array_pop;
 use function array_slice;
 use function count;
 
+use Countable;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use PhpToken;
 
@@ -22,7 +23,7 @@ use function sprintf;
  * A PHP file's significant tokens, in order, each with the bracket it stands
  * inside and each bracket with where it closes.
  */
-final readonly class Tokens
+final readonly class Tokens implements Countable
 {
     /** Where a token that no bracket encloses stands: at no token's index. */
     private const int OUTSIDE = -1;
@@ -91,6 +92,18 @@ final readonly class Tokens
             fn(int $enclosing, int $at): bool => $enclosing === $opener && $this->tokens[$at]->is($kinds),
             ARRAY_FILTER_USE_BOTH,
         ));
+    }
+
+    /** How many tokens there are. */
+    public function count(): int
+    {
+        return count($this->tokens);
+    }
+
+    /** Whether some bracket encloses the token at an index. */
+    public function isEnclosed(int $at): bool
+    {
+        return $this->enclosing[$at] !== self::OUTSIDE;
     }
 
     /** Whether a token stands at an index, and is of one of these kinds. */

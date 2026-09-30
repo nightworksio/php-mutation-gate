@@ -78,3 +78,14 @@ it('spells tokens as they are written, with whatever stands between two of them 
         ->and($read->spelt(6, 13))->toBe("Paths::ROOT . '/ü'.X")
         ->and($read->spelt(6, 6))->toBe('');
 });
+
+it('counts its tokens, and says whether a bracket encloses one', function () use ($tokens): void {
+    $read = $tokens('<?php f(a);');
+
+    expect($read->count())->toBe(5)
+        ->and(count($read))->toBe(5)
+        ->and($read->isEnclosed(0))->toBeFalse()
+        ->and($read->isEnclosed(2))->toBeTrue()
+        ->and($read->isEnclosed(3))->toBeTrue()
+        ->and($read->isEnclosed(4))->toBeFalse();
+});
