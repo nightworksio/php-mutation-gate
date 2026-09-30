@@ -877,8 +877,9 @@ own. A cache is saved only by a job that succeeds, so a last job, which runs
 whatever the verdict decided, saves the ledger the verdict wrote. A pull
 request is named by `System.PullRequest.PullRequestNumber` where Azure sets it,
 as for a GitHub repository, and by its id otherwise. A fork's build gets no
-secrets, so the plan and verdict steps drop the S3 keys where
-`System.PullRequest.IsFork` is `True`. The gate withholds `SYSTEM_ACCESSTOKEN`
+secrets, so where `System.PullRequest.IsFork` is `True` the plan and verdict steps
+drop every variable the S3 store reads, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_ROLE_ARN`,
+which Azure hands a fork as the literal text `$(NAME)`. The gate withholds `SYSTEM_ACCESSTOKEN`
 and `AZURE_DEVOPS_EXT_PAT` from the tests. Schedule the pipeline on the
 default branch twice a week, with `always: true`, for the full run.
 

@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Ci\TemplateValues;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
+use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -231,8 +232,11 @@ it('reads the plan\'s matrix from the output the Azure plan sets, and each leg\'
         ->and($jobs)->toContain(sprintf('mutation-results-$(%s)', WhichShard::VARIABLE));
 });
 
-it('drops the proof store\'s keys in the Azure plan and verdict steps of a fork\'s build, before the gate runs', function (): void {
-    $guard = 'if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; fi';
+it('drops every variable the bucket store reads in the Azure plan and verdict steps of a fork\'s build, before the gate runs', function (): void {
+    $guard = sprintf(
+        'if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset %s; fi',
+        implode(' ', [...BuiltinStore::S3->variables()]),
+    );
     $jobs = ciTemplateRendered(CiTemplate::AzureJobs);
 
     foreach (['vendor/bin/mutation-gate plan', 'vendor/bin/mutation-gate verdict'] as $gate) {
@@ -240,4 +244,11 @@ it('drops the proof store\'s keys in the Azure plan and verdict steps of a fork\
 
         expect(substr($step, (int) strrpos($step, '- bash: |')))->toContain($guard);
     }
+});
+
+it('names every variable the bucket store reads in the README, where a fork\'s build drops them on Azure', function (): void {
+    $readme = (string) file_get_contents(Schema::at('README.md'));
+    $named = implode(', ', array_map(static fn(string $variable): string => sprintf('`%s`', $variable), [...BuiltinStore::S3->variables()]));
+
+    expect($readme)->toContain(sprintf('drop every variable the S3 store reads, %s,', $named));
 });

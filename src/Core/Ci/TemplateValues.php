@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Ci;
 
+use function implode;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
@@ -16,8 +19,8 @@ use function strtr;
  * What `init --ci` fills into a CI definition's template (ADR-0015 decision
  * 16), each where the template writes `%%<name>%%`: the PHP version, the
  * default branch, the gate's pin and version, the runner, the check to
- * require and the file of the gate's jobs the CI's own definition pulls in,
- * where it has one. A template
+ * require, the file of the gate's jobs the CI's own definition pulls in,
+ * where it has one, and the variables the S3 store reads. A template
  * lands in YAML and in shell lines, so each value that comes from the project
  * holds no character either would read as more than text.
  */
@@ -71,6 +74,7 @@ final readonly class TemplateValues
             '%%version%%' => $gate->version(),
             '%%runner%%' => $runner,
             '%%check%%' => $check,
+            '%%s3%%' => implode(' ', [...BuiltinStore::S3->variables()]),
             ...$included instanceof Path ? ['%%included%%' => $included->value()] : [],
         ]);
     }

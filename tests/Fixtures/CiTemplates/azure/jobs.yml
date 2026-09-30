@@ -8,8 +8,9 @@
 # For an S3 proof store, map AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from
 # secret variables into the env of the plan and verdict steps alone: a shard
 # needs neither. A fork's build gets no secrets, and Azure hands it a mapped
-# one as the text $(NAME), so those two steps drop the keys where
-# System.PullRequest.IsFork is True, and the gate runs without them.
+# one as the text $(NAME), so where System.PullRequest.IsFork is True those
+# two steps drop every variable the S3 store reads before the gate runs:
+# AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_ROLE_ARN.
 jobs:
   - job: mutation_plan
     displayName: 'mutation: plan'
@@ -40,7 +41,7 @@ jobs:
         displayName: 'mutation: composer install'
       - bash: |
           set -eu
-          if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; fi
+          if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_ROLE_ARN; fi
           target="${SYSTEM_PULLREQUEST_TARGETBRANCH:-}"
           target="${target#refs/heads/}"
           if [ "$BUILD_REASON" = "Schedule" ]; then base=""
@@ -106,7 +107,7 @@ jobs:
         displayName: 'mutation: composer install'
       - bash: |
           set -eu
-          if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; fi
+          if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_ROLE_ARN; fi
           vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
         displayName: 'mutation: verdict'
       - publish: .mutation-gate/ledger

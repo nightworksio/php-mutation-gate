@@ -6,16 +6,13 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use function array_find;
 use function array_map;
-use function array_pop;
 
 use BackedEnum;
-
-use function implode;
-
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\Series;
 
 use function sprintf;
 
@@ -55,9 +52,8 @@ final readonly class Enumerated implements Shape
     public function expected(): string
     {
         $quoted = array_map(static fn(BackedEnum $case): string => sprintf('"%s"', $case->value), $this->cases);
-        $last = array_pop($quoted);
 
-        return sprintf('%s or %s', implode(', ', $quoted), $last);
+        return Series::or(...$quoted);
     }
 
     public function schema(): Json

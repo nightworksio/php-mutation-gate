@@ -8,7 +8,6 @@ use function array_map;
 use function array_pop;
 use function array_slice;
 use function array_unique;
-use function array_values;
 use function count;
 use function implode;
 use function in_array;
@@ -18,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\Format\Series;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Php\Functions;
@@ -177,7 +177,7 @@ final readonly class Hint
         }
 
         $more = count($finding->tests()) - 1;
-        $asserted = self::listed(array_values(array_unique($written)));
+        $asserted = Series::and(...array_unique($written));
         $name = Fit::plain($first->name()->value());
 
         return $more > 0
@@ -218,18 +218,6 @@ final readonly class Hint
     private static function about(string|Nameless $name, string $named, string $here): string
     {
         return $name instanceof Nameless ? $here : sprintf($named, $name);
-    }
-
-    /**
-     * Some words, as a sentence lists them: `a`, `a and b`, `a, b and c`.
-     *
-     * @param list<string> $words
-     */
-    private static function listed(array $words): string
-    {
-        $last = array_pop($words);
-
-        return $words === [] ? sprintf('%s', $last) : sprintf('%s and %s', implode(', ', $words), $last);
     }
 
     /** Up to three tests, in backticks, then how many more. */
