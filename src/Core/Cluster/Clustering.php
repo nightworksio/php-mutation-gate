@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Php\Functions;
 use NightWorksIO\MutationGate\Core\Report\Columns;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 
+use function strval;
+
 /**
  * Which survivors share one cause, file by file, by the two rules of a
  * cluster: first their changes overlapping within one statement, then, among
@@ -39,7 +41,7 @@ final readonly class Clustering
         $memberships = [];
 
         foreach ($byFile as $path => $mutants) {
-            $memberships += self::inFile($mutants, $sources->at(Path::of($path), Contents::of('')));
+            $memberships += self::inFile($mutants, $sources->at(Path::of(strval($path)), Contents::of('')));
         }
 
         return $memberships;

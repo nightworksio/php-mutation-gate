@@ -44,3 +44,12 @@ it('reads back a mutant, a file and a function whose names read as numbers', fun
         ->toEqual($numeric)
         ->and(iterator_count($numeric->mutants()))->toBe(1);
 });
+
+it('names a test whose id reads as a number as text', function (): void {
+    $history = KillHistory::none()->withFunction(
+        Enclosing::named(Path::of('src/Money.php'), 'add'),
+        Ranking::of(Kills::of(TestId::of('12'), 1)),
+    );
+
+    expect(KillersRecord::testsOf($history))->toBe(['12']);
+});

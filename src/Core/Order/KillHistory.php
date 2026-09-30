@@ -132,7 +132,9 @@ final readonly class KillHistory
         }
 
         foreach ($this->mutants as $key => $mutant) {
-            $kept = array_key_exists($key, $ids) ? [...$kept, $key => $mutant] : $kept;
+            if (array_key_exists($key, $ids)) {
+                $kept[$key] = $mutant;
+            }
         }
 
         return new self(

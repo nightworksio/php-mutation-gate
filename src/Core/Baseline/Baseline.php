@@ -56,7 +56,8 @@ final readonly class Baseline implements Countable, IteratorAggregate
     /** This baseline, with this tree's entry in place of any it had. */
     public function with(Entry $entry): self
     {
-        $entries = [...$this->entries, $entry->tree()->value() => $entry];
+        $entries = $this->entries;
+        $entries[$entry->tree()->value()] = $entry;
         ksort($entries, SORT_STRING);
 
         return new self($entries);

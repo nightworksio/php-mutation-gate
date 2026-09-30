@@ -102,7 +102,7 @@ it('raises a lower memory_limit to what its ledgers may need, and leaves a highe
 
     expect($process->getErrorOutput())->toEndWith(sprintf('memory_limit=%s', $ended));
 })->with([
-    'a lower limit' => ['64M', '1388217728'],
+    'a lower limit' => ['64M', '1578217728'],
     'a higher limit' => ['2G', '2G'],
     'no limit' => ['-1', '-1'],
 ]);

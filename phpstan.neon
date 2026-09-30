@@ -553,11 +553,11 @@ services:
                 'NightWorksIO\MutationGate\Core\Config\StaticCheck':
                     - AUTO # the analyser zero-config finds, not a proof-writing mode
                     - NONE # no analyser, not a mutator family or a Pest status
-                'NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize':
+                'NightWorksIO\MutationGate\Core\Format\Bytes':
                     - PER_MEGABYTE # bytes in a megabyte
+                    - PER_MEBIBYTE # bytes in PHP's M, not GitHub's summary cap
                 'NightWorksIO\MutationGate\Core\Proof\LedgerMemory':
                     - PER_BYTE # bytes of memory per byte of ledger
-                    - MEBIBYTE # bytes in PHP's M, not GitHub's summary cap
                 'NightWorksIO\MutationGate\Adapter\Infection\OwnConfig':
                     - FRAMEWORK # Infection's name for PHPUnit
                 'NightWorksIO\MutationGate\Core\Test\TestsDirectory':

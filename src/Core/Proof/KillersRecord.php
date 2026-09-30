@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_key_exists;
 use function array_keys;
+use function array_map;
 use function count;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -98,7 +99,7 @@ final readonly class KillersRecord
             }
         }
 
-        return array_keys($tests);
+        return array_map(strval(...), array_keys($tests));
     }
 
     /**

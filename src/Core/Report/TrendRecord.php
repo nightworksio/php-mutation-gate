@@ -31,8 +31,8 @@ use function sprintf;
  *     time: string,
  *     verdict?: string,
  *     score?: float,
- *     trees: array<string, float>,
- *     floors?: array<string, float>,
+ *     trees: array<array-key, float>,
+ *     floors?: array<array-key, float>,
  *     runnerSeconds?: float,
  *     fullRunSeconds?: float,
  * }
@@ -50,8 +50,14 @@ final readonly class TrendRecord
             $path = $tree->tree()->path()->value();
             $treeScore = $tree->score();
             $floor = $tree->floor();
-            $trees = $treeScore instanceof Score ? [...$trees, $path => $treeScore->percent()] : $trees;
-            $floors = $floor instanceof Floor ? [...$floors, $path => $floor->percent()] : $floors;
+
+            if ($treeScore instanceof Score) {
+                $trees[$path] = $treeScore->percent();
+            }
+
+            if ($floor instanceof Floor) {
+                $floors[$path] = $floor->percent();
+            }
         }
 
         $timings = $verdict->account()->timings();
@@ -77,11 +83,14 @@ final readonly class TrendRecord
         );
 
         foreach ($run['trees'] as $path => $score) {
-            $entry = $entry->withScore(Path::of($path), Score::ofHundredths(Percentage::hundredthsOf($score)));
+            $entry = $entry->withScore(
+                Path::of(sprintf('%s', $path)),
+                Score::ofHundredths(Percentage::hundredthsOf($score)),
+            );
         }
 
         foreach (array_key_exists('floors', $run) ? $run['floors'] : [] as $path => $floor) {
-            $entry = $entry->withFloor(Path::of($path), Floor::of($floor));
+            $entry = $entry->withFloor(Path::of(sprintf('%s', $path)), Floor::of($floor));
         }
 
         return $entry;
@@ -123,9 +132,9 @@ final readonly class TrendRecord
     }
 
     /**
-     * Each tree's percentage.
+     * Each tree's percentage, by its path, which PHP keys as a number where it reads as one.
      *
-     * @return array<string, float>
+     * @return array<array-key, float>
      *
      * @throws NotInShape
      */
@@ -134,7 +143,7 @@ final readonly class TrendRecord
         $percents = [];
 
         foreach ($trees->entries() as $path => $percent) {
-            $percents[sprintf('%s', $path)] = Percentage::parse($percent->number()) instanceof Percentage
+            $percents[$path] = Percentage::parse($percent->number()) instanceof Percentage
                 ? $percent->number()
                 : throw NotInShape::at($percent->at(), 'a percentage');
         }

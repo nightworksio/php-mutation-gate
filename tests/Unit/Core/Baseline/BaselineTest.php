@@ -83,3 +83,14 @@ it('raises each floor a verdict raised to its score, dropping its lowered, and k
         ->and($raised->entryOf(Path::of('app/Legacy')))->toEqual(Entry::of(Path::of('app/Legacy'), Floor::of(75)))
         ->and($trees($baseline))->toBe(['app/Gone 2000', 'app/Http 9000', 'app/Legacy 6120']);
 });
+
+it('replaces the entry of a tree whose path reads as a number, as it does any other', function (): void {
+    $baseline = Baseline::none()
+        ->with(Entry::of(Path::of('12'), Floor::of(80)))
+        ->with(Entry::of(Path::of('src'), Floor::of(70)))
+        ->with(Entry::of(Path::of('12'), Floor::of(85)));
+
+    expect($baseline)->toHaveCount(2)
+        ->and($baseline->floorOf(Path::of('12')))->toEqual(Floor::of(85))
+        ->and($baseline->floorOf(Path::of('src')))->toEqual(Floor::of(70));
+});

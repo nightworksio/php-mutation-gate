@@ -86,7 +86,9 @@ final readonly class OtelEnvironment
         foreach (explode(',', $list) as $pair) {
             [$key, $value] = str_contains($pair, '=') ? explode('=', $pair, 2) : ['', ''];
             $key = trim($key);
-            $pairs = $key === '' ? $pairs : [...$pairs, $key => rawurldecode(trim($value))];
+            if ($key !== '') {
+                $pairs[$key] = rawurldecode(trim($value));
+            }
         }
 
         return $pairs;

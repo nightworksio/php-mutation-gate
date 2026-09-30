@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Doctor\Check;
 
+use function intdiv;
+
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Proof\LedgerMemory;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
@@ -21,7 +24,7 @@ use function sprintf;
  */
 final readonly class MemoryLimit
 {
-    private const string FOUND = 'The gate\'s own PHP has a memory_limit of %.0fM, and could not be given more.';
+    private const string FOUND = 'The gate\'s own PHP has a memory_limit of %dM, and could not be given more.';
 
     private const string WHY = 'A run over ledgers as large as a run reads can take %dM, and PHP stops it past that.';
 
@@ -37,7 +40,7 @@ final readonly class MemoryLimit
             : Findings::of(Finding::of(
                 Slug::MemoryLimitLow,
                 Severity::WillFail,
-                sprintf(self::FOUND, $run->memoryLimit() / LedgerMemory::MEBIBYTE),
+                sprintf(self::FOUND, intdiv($run->memoryLimit(), Bytes::PER_MEBIBYTE)),
                 sprintf(self::WHY, $needed->mebibytes()),
                 sprintf(self::FIX, $needed->mebibytes()),
             ));

@@ -147,3 +147,17 @@ it('clusters within a file, never across two', function (): void {
 
     expect(Clustering::of($survivors, $sources))->toBe([]);
 });
+
+it('reads the survivors of a file whose path reads as a number as any other', function (): void {
+    $source = "<?php\n\nfunction fits(\$a, \$b, \$c): bool\n{\n    return \$a < \$b && \$c;\n}\n";
+    $survivor = static fn(string $diff, Family $family): JudgedMutant => JudgedMutant::of(
+        Verdicts::mutant('12:5', 'M5', $family, $diff),
+        Judged::Survived,
+    )->judgedBy(Clustered::tests());
+    $survivors = [
+        $survivor(Verdicts::diff('return $a < $b && $c;', 'return $a <= $b && $c;'), Family::Boundary),
+        $survivor(Verdicts::diff('return $a < $b && $c;', 'return $a < $b || $c;'), Family::Logical),
+    ];
+
+    expect(Clustering::of($survivors, ByPath::none()->with(Path::of('12'), Contents::of($source))))->toBe([]);
+});

@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
@@ -22,9 +23,6 @@ use function sprintf;
  */
 final readonly class LedgerSize
 {
-    /** Bytes in a megabyte, as doctor's findings count sizes. */
-    public const int PER_MEGABYTE = 1_000_000;
-
     private const string LEDGER = '%s is %.1f MB';
 
     private const string FOUND = '%s, compressed.';
@@ -42,7 +40,7 @@ final readonly class LedgerSize
         $large = [];
 
         foreach ($ledgers instanceof KeptLedgers ? $ledgers : [] as $ledger) {
-            $said = sprintf(self::LEDGER, $ledger->file()->value(), $ledger->bytes() / self::PER_MEGABYTE);
+            $said = sprintf(self::LEDGER, $ledger->file()->value(), $ledger->bytes() / Bytes::PER_MEGABYTE);
             $large = $limits->admitsPacked($ledger->bytes()) ? $large : [...$large, $said];
         }
 
@@ -50,7 +48,7 @@ final readonly class LedgerSize
             Slug::LedgerTooLarge,
             Severity::Slow,
             sprintf(self::FOUND, implode('; ', $large)),
-            sprintf(self::WHY, $limits->packed() / self::PER_MEGABYTE),
+            sprintf(self::WHY, $limits->packed() / Bytes::PER_MEGABYTE),
             self::FIX,
         ));
     }

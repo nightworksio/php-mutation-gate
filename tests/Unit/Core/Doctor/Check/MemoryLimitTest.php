@@ -20,8 +20,8 @@ it('finds a memory_limit under what a run over the largest ledgers may need', fu
         Slug::MemoryLimitLow,
         Severity::WillFail,
         'The gate\'s own PHP has a memory_limit of 128M, and could not be given more.',
-        'A run over ledgers as large as a run reads can take 1324M, and PHP stops it past that.',
-        'Set memory_limit to 1324M or more, or to -1, for the PHP that runs the gate.',
+        'A run over ledgers as large as a run reads can take 1506M, and PHP stops it past that.',
+        'Set memory_limit to 1506M or more, or to -1, for the PHP that runs the gate.',
     )));
 });
 
@@ -31,4 +31,13 @@ it('finds nothing where the limit is enough, or none, or doctor\'s own run is no
     expect(MemoryLimit::in($ran(LedgerMemory::standard()->bytes())))->toEqual(Findings::none())
         ->and(MemoryLimit::in($ran(-1)))->toEqual(Findings::none())
         ->and(MemoryLimit::in(Observations::none()))->toEqual(Findings::none());
+});
+
+it('says a limit in the whole M below it, so it never reads as the need', function () use ($ran): void {
+    $said = static fn(int $limit): string => [...MemoryLimit::in($ran($limit))][0]->found();
+
+    expect($said(LedgerMemory::standard()->bytes() - 1))
+        ->toBe('The gate\'s own PHP has a memory_limit of 1505M, and could not be given more.')
+        ->and($said(1504 * 1_048_576 + 900_000))
+        ->toBe('The gate\'s own PHP has a memory_limit of 1504M, and could not be given more.');
 });

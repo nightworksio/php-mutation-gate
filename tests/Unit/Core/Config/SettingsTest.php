@@ -9,8 +9,10 @@ use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
 use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
+use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Report;
@@ -1011,4 +1013,19 @@ it('reads a key that reads as a number as any other: unknown where nothing decla
     expect(Configs::problems(Configs::validated('{"runner": "pest", "12": 1}')))->toBe(['12: unknown key'])
         ->and(Configs::validated('{"runner": "pest", "costs": {"secondsPerLine": {"12": 2}}}'))->toBeInstanceOf(Settings::class)
         ->and($colors)->toBeInstanceOf(Settings::class);
+});
+
+it('hands on a name in a map that reads as a number as text, to the cost model and to a config written as PHP', function (): void {
+    $json = '{"runner": "pest", "costs": {"secondsPerLine": {"12": 2}}, "badge": {"colors": {"12": 50}}, '
+        . '"reports": [{"use": "badge", "path": "b.svg", "with": {"colors": {"12": 50}}}]}';
+    $settings = Configs::settings($json);
+    $php = Configs::valid($json)->php(ProjectRoot::origin())->code();
+
+    $options = $settings->shards()->costOptions()->object(Key::of('secondsPerLine'));
+
+    expect($options instanceof Options ? $options->number(Key::of('12')) : $options)->toBe(2.0)
+        ->and($settings->shards()->secondsPerLine()->forPath(Path::of('12/Money.php')))->toEqual(Seconds::of(2.0))
+        ->and($php)->toContain("Shards::secondsPerLine('12', 2)")
+        ->and($php)->toContain("Badge::colour('12', 50)")
+        ->and($php)->toContain("Option::nested('colors', Option::of('12', 50))");
 });

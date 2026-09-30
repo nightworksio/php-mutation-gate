@@ -37,6 +37,14 @@ function historyMutant(string $diff, MutantStatus $status, string ...$killers): 
     )->killedBy(TestIds::of(...array_map(TestId::of(...), $killers)));
 }
 
+/** A mutant's id, as the ledger spells it. */
+function historyId(string $id): MutantId
+{
+    $parsed = MutantId::parse($id);
+
+    return $parsed instanceof MutantId ? $parsed : throw new RuntimeException($parsed->why());
+}
+
 /** @return list<string> the ids of the mutants a history knows, the newest last */
 function historyMutants(KillHistory $history): array
 {
@@ -124,4 +132,14 @@ it('keeps the newest so many of the mutants held and of the functions, and the f
         ->and(historyMutants($kept))->toBe([$mutants[1]->id()->value(), $mutants[2]->id()->value()])
         ->and(historyFunctions($kept))->toBe(['total'])
         ->and(historyFunctions($history->onlyIn(Paths::of(Path::of('src/Money.php')))))->toBe(['add']);
+});
+
+it('keeps a mutant whose id reads as a number under that id, so learning of it again changes it in place', function (): void {
+    $numeric = historyId('123456789012');
+    $other = historyId('abcdefabcdef');
+    $ranking = Ranking::of(Kills::of(TestId::of('MoneyTest::adds'), 1));
+    $kept = KillHistory::none()->withMutant($numeric, $ranking)->withMutant($other, $ranking)
+        ->keeping(MutantIds::of($numeric, $other), Bound::atMost(5), Bound::atMost(5));
+
+    expect(historyMutants($kept->withMutant($numeric, $ranking)))->toBe(['abcdefabcdef', '123456789012']);
 });
