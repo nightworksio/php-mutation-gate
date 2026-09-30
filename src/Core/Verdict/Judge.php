@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
 use function array_key_exists;
+use function array_merge;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
@@ -43,13 +44,13 @@ final readonly class Judge
     /** Each tree, over every unit result it holds; a result no tree holds is judged in none. */
     public function trees(UnitResults $results): TreeVerdicts
     {
-        $verdicts = TreeVerdicts::none();
+        $verdicts = [];
 
         foreach ($this->trees as $tree) {
-            $verdicts = $verdicts->with($this->tree($tree, $results));
+            $verdicts[] = $this->tree($tree, $results);
         }
 
-        return $verdicts;
+        return TreeVerdicts::of(...$verdicts);
     }
 
     /**
@@ -77,49 +78,51 @@ final readonly class Judge
 
     private function tree(Tree $tree, UnitResults $results): TreeVerdict
     {
-        $units = JudgedUnits::none();
-        $mutants = JudgedMutants::none();
+        $units = [];
+        $mutants = [];
 
         foreach ($results as $result) {
             if ($this->trees->holding($result->unit()->path()) !== $tree) {
                 continue;
             }
 
-            $units = $units->with(JudgedUnit::of($result->unit(), $result->origin()));
-            $mutants = $mutants->and($this->judged($result->mutants()));
+            $units[] = JudgedUnit::of($result->unit(), $result->origin());
+            $mutants[] = [...$this->judged($result->mutants())];
         }
 
         return TreeVerdict::judged(
             $tree,
             $this->baseline->floorOf($tree->path()),
-            $units,
-            $mutants,
+            JudgedUnits::of(...$units),
+            JudgedMutants::of(...array_merge(...$mutants)),
             $this->uncovered,
         );
     }
 
     private function judged(Mutants $mutants): JudgedMutants
     {
-        $judged = JudgedMutants::none();
+        $judged = [];
 
         foreach ($mutants as $mutant) {
-            $judged = $judged->with(JudgedMutant::of($mutant, MutantJudgement::reported($mutant->status())));
+            $judged[] = JudgedMutant::of($mutant, MutantJudgement::reported($mutant->status()));
         }
 
-        return $judged->within($this->reach);
+        return JudgedMutants::of(...$judged)->within($this->reach);
     }
 
     /** @param list<NewCodeVerdict> $sets */
     private function mutable(array $sets, Floor $floor): NewCodeVerdicts
     {
-        $mutable = NewCodeVerdicts::none();
+        $mutable = [];
 
         foreach ($sets as $set) {
-            $mutable = $set->mutants()->count() > 0 ? $mutable->with($set) : $mutable;
+            if ($set->mutants()->count() > 0) {
+                $mutable[] = $set;
+            }
         }
 
-        return $mutable->count() > 0
-            ? $mutable
+        return $mutable !== []
+            ? NewCodeVerdicts::of(...$mutable)
             : NewCodeVerdicts::of(
                 NewCodeVerdict::judged(Package::at(Path::root()), $floor, JudgedMutants::none(), $this->uncovered),
             );

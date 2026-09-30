@@ -40,3 +40,15 @@ it('adds a key without changing the keys it came from', function (): void {
 
     expect($keys)->toHaveCount(0);
 });
+
+it('reads keys together with others, a later key of a unit replacing the earlier where it stood', function (): void {
+    $first = Keys::none()->with(Path::of('src/B.php'), Digest::of('1'))->with(Path::of('123'), Digest::of('2'));
+    $second = Keys::none()->with(Path::of('src/A.php'), Digest::of('3'));
+    $third = Keys::none()->with(Path::of('src/B.php'), Unkeyed::because('It moved.'));
+
+    expect($first->and($second, $third)->units())->toEqual(Paths::of(Path::of('src/B.php'), Path::of('123'), Path::of('src/A.php')))
+        ->and($first->and($second, $third)->keyOf(Path::of('src/B.php')))->toEqual(Unkeyed::because('It moved.'))
+        ->and($first->and($second, $third)->keyOf(Path::of('123')))->toEqual(Digest::of('2'))
+        ->and($first->and())->toEqual($first)
+        ->and($first)->toHaveCount(2);
+});

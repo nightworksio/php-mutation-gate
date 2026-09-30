@@ -16,10 +16,12 @@ use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
 use NightWorksIO\MutationGate\Core\Proof\Key\ContentKeys;
 use NightWorksIO\MutationGate\Core\Proof\Key\Exceptions;
 use NightWorksIO\MutationGate\Core\Proof\Key\Ignored;
+use NightWorksIO\MutationGate\Core\Proof\Key\Judging;
 use NightWorksIO\MutationGate\Core\Proof\Key\Source;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 use NightWorksIO\MutationGate\Core\Proof\Key\Tests;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Version;
@@ -29,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Tests\Support\Configured;
+use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 const CONTENT_KEY_SOURCE = [
     'src/B.php' => 'b1',
@@ -344,4 +347,123 @@ it('keys one unit after another alike', function () use ($bare): void {
     $keys->keyOf(Unit::file(Path::of('src/B.php')), Paths::none(), CoverageMap::empty());
 
     expect($keys->keyOf(Unit::file(Path::of('src/A.php')), Paths::none(), CoverageMap::empty()))->toEqual($first);
+});
+
+/** Content keys of a project with support that names support, paths of digits and a unit held each way. */
+function contentKeysPinned(): ContentKeys
+{
+    $fingerprint = static fn(string $path, string $digest): Fingerprint => Fingerprint::of(Path::of($path), Digest::of($digest));
+    $paths = static fn(string ...$paths): Paths => Paths::of(...array_map(Path::of(...), $paths));
+
+    return ContentKeys::of(
+        Version::of('nightworksio/mutation-gate', '1.2.3', 'abc'),
+        Configured::document('{"runner":"pest","floor":80}'),
+        Identity::of('pest', Versions::of(Version::of('pestphp/pest', '4.1.0', 'r1'), Version::of('pestphp/pest-plugin-mutate', '4.0.1', 'r2')), Digest::of('platform')),
+        Digest::of('installed'),
+        Source::of(
+            Fingerprints::of($fingerprint('src/B.php', 'b'), $fingerprint('src/A.php', 'a'), $fingerprint('10', 'ten'), $fingerprint('9', 'nine'), $fingerprint('composer.json', 'c')),
+            CiDefinitions::of(
+                CiDefinition::at(Path::of('.github/workflows/gate.yml'), Contents::of("name: gate\n")),
+                CiDefinition::at(Path::of('.gitlab-ci.yml'), Contents::of("stages: [gate]\n")),
+            ),
+            Exceptions::of(Path::of('mutation-gate.json'), Path::of('baseline.json'), Ignored::nothing()),
+        ),
+        Tests::of(
+            TestFiles::of(
+                TestFile::testCase($fingerprint('tests/Unit/MoneyTest.php', 'm1'), Contents::of("<?php\nuse Tests\\Support\\Helper;\nit('adds', fn() => new Helper());\n")),
+                TestFile::testCase($fingerprint('tests/Unit/LedgerTest.php', 'l1'), Contents::of("<?php\nit('books', fn() => new Wing());\n")),
+                TestFile::testCase($fingerprint('tests/Unit/UnknownTest.php', 'u1'), Contents::of("<?php\nit('works');\n")),
+                TestFile::testCase($fingerprint('tests/Unit/CanaryTest.php', 'k1'), Contents::of("<?php\nit('sings', fn() => new Bird());\n")),
+                TestFile::testCase($fingerprint('tests/10', 't10'), Contents::of("<?php\nit('ten', fn() => new Helper());\n")),
+                TestFile::testCase($fingerprint('tests/9', 't9'), Contents::of("<?php\nit('nine');\n")),
+                TestFile::other($fingerprint('tests/Pest.php', 'p1'), Contents::of("<?php\nuses(Base::class);\n")),
+                TestFile::other($fingerprint('tests/fixtures/money.json', 'j1'), Contents::of('{"amount": 1}')),
+                TestFile::other($fingerprint('tests/Support/Helper.php', 'h1'), Contents::of("<?php\nnamespace Tests\\Support;\nfinal class Helper { public function a(): Wing { return new Wing(); } }\n")),
+                TestFile::other($fingerprint('tests/Support/Wing.php', 'w1'), Contents::of("<?php\nfinal class Wing { public function b(): Helper { return new Helper(); } }\n")),
+                TestFile::other($fingerprint('tests/Support/Base.php', 'b1'), Contents::of("<?php\nabstract class Base {}\n")),
+                TestFile::other($fingerprint('tests/Support/Bird.php', 'r1'), Contents::of("<?php\nfinal class Bird {}\n")),
+                TestFile::other($fingerprint('tests/Support/Unused.php', 'x1'), Contents::of("<?php\nfinal class Unused {}\n")),
+            ),
+            $paths('tests/Unit/MoneyTest.php', 'tests/Unit/LedgerTest.php', 'tests/Unit/CanaryTest.php', 'tests/10', 'tests/9'),
+            $paths('tests/Unit/CanaryTest.php'),
+        ),
+    );
+}
+
+it('keys each unit with the same bytes it always has', function (Unit $unit, Paths $judges, string $key): void {
+    $coverage = CoverageMap::empty();
+
+    foreach ([[3, 'b::t'], [3, 'a::t'], [1, 'c::t'], [3, '10'], [3, '9'], [7, 'a::t']] as [$line, $test]) {
+        $coverage = $coverage->covered(Path::of('src/A.php'), Line::of($line), TestId::of($test));
+    }
+
+    $coverage = $coverage->covered(Path::of('src/B.php'), Line::of(2), TestId::of('b::t'));
+    $keys = contentKeysPinned();
+
+    expect($keys->keyOf($unit, $judges, $coverage))->toEqual(Digest::of($key))
+        ->and($keys->keyOf($unit, Paths::of(...array_reverse([...$judges])), $coverage))->toEqual(Digest::of($key));
+})->with([
+    'a unit judged by one test file' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), 'bcf699b78cf72fcc3d29209607b7fc88d553c5946f56a4f18b7597639b214f73'],
+    'a unit judged by test files named by digits' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), '49fb7d9ee32c7d42473093991a7f7e41d8711e69d6a9f2cc584092c681fd5034'],
+    'a unit judged by a test file the key does not hold' => [Unit::file(Path::of('src/B.php')), Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), '51433c275a5c5c8b5d7dc3a0fd8ff7c43a8c3d1a4aa14149d9b4f35ad1c12544'],
+    'a unit nothing judges' => [Unit::file(Path::of('src/C.php')), Paths::none(), 'f141d34d9be4a2c37e7b31ada0334990261de84787cf9b7061498c8e0c7c977d'],
+    'a unit a group holds' => [Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), Paths::none(), '810b39c566fb21d24184e08414cd60c4079c87f60faa68695a2cf2c1aa0e929d'],
+    'a unit a filter holds' => [Unit::held(Path::of('src/B.php'), Filter::matching('Money')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), '577ca79226eeee24c1a882fb4a8775b9705d869b226486982c727bb91b7c6b0e'],
+]);
+
+it('keys many units at once as it keys each alone, reading a set of judging files once', function (): void {
+    $coverage = CoverageMap::empty()
+        ->covered(Path::of('src/A.php'), Line::of(3), TestId::of('b::t'))
+        ->covered(Path::of('src/B.php'), Line::of(2), TestId::of('a::t'));
+    $paths = static fn(string ...$paths): Paths => Paths::of(...array_map(Path::of(...), $paths));
+    $units = [
+        Judging::of(Unit::file(Path::of('src/A.php')), $paths('tests/Unit/MoneyTest.php', 'tests/10')),
+        Judging::of(Unit::file(Path::of('src/B.php')), $paths('tests/10', 'tests/Unit/MoneyTest.php')),
+        Judging::of(Unit::file(Path::of('src/C.php')), CannotJudge::because('A covering test does not fit the filter.')),
+        Judging::of(Unit::held(Path::of('src/D.php'), Group::named('holds:src/D.php')), $paths('tests/9')),
+        Judging::of(Unit::file(Path::of('src/E.php')), $paths('tests/9')),
+    ];
+    $keys = contentKeysPinned();
+    $alone = Keys::none();
+
+    foreach ($units as $unit) {
+        $alone = $alone->with($unit->unit()->path(), $keys->keyOf($unit->unit(), $unit->judges(), $coverage));
+    }
+
+    expect($keys->keysOf($coverage, ...$units))->toEqual($alone)
+        ->and($keys->keysOf($coverage)->units())->toEqual(Paths::none())
+        ->and($alone->keyOf(Path::of('src/C.php')))->toEqual(Unkeyed::because('A covering test does not fit the filter.'))
+        ->and($alone->keyOf(Path::of('src/D.php')))->not->toEqual($alone->keyOf(Path::of('src/E.php')));
+});
+
+it('keys hundreds of units every test file judges in linear time', function (): void {
+    $files = [TestFile::other(Fingerprint::of(Path::of('tests/Support/Helper.php'), Digest::of('h')), Contents::of("<?php\nfinal class Helper {}\n"))];
+    $judges = [];
+
+    foreach (range(1, 2000) as $at) {
+        $judges[] = Path::of(sprintf('tests/Unit/T%dTest.php', $at));
+        $files[] = TestFile::testCase(Fingerprint::of(end($judges), Digest::of(sprintf('%d', $at))), Contents::of("<?php\nit('works', fn() => new Helper());\n"));
+    }
+
+    $keys = ContentKeys::of(
+        Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
+        Configured::document('{}'),
+        Identity::of('pest', Versions::none(), Digest::of('platform')),
+        Digest::of('installed'),
+        Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing())),
+        Tests::of(TestFiles::of(...$files), Paths::of(...$judges), Paths::none()),
+    );
+    $units = array_map(
+        static fn(int $at): Judging => Judging::of(Unit::file(Path::of(sprintf('src/F%d.php', $at))), Paths::of(...($at % 2 === 0 ? $judges : array_reverse($judges)))),
+        range(1, 200),
+    );
+    $keyed = Keys::none();
+
+    $seconds = Stopwatch::seconds(static function () use ($keys, $units, &$keyed): void {
+        $keyed = $keys->keysOf(CoverageMap::empty(), ...$units);
+    });
+
+    expect($keyed)->toHaveCount(200)
+        ->and($keyed->keyOf(Path::of('src/F1.php')))->toEqual($keys->keyOf(Unit::file(Path::of('src/F1.php')), Paths::of(...$judges), CoverageMap::empty()))
+        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
 });

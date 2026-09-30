@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
+use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 $keys = Keys::none()
     ->with(Path::of('src/A.php'), Digest::of('9c1e'))
@@ -45,4 +46,22 @@ it('refuses keys that are not a map of text', function (): void {
         ->toThrow(NotInShape::at('the file.keys.src/A.php.unkeyed', 'text'))
         ->and(fn(): Keys => KeysRecord::read(Node::decode('{}')->field('keys')))
         ->toThrow(NotInShape::missing('the file.keys'));
+});
+
+it('reads and writes thousands of keys in linear time', function (): void {
+    $written = [];
+
+    foreach (range(1, 5000) as $at) {
+        $written[sprintf('src/F%d.php', $at)] = hash('sha256', sprintf('%d', $at));
+    }
+
+    $read = Keys::none();
+    $seconds = Stopwatch::seconds(static function () use ($written, &$read): void {
+        $read = KeysRecord::read(Node::decode(Json::encode($written)));
+        KeysRecord::of($read);
+    });
+
+    expect($read)->toHaveCount(5000)
+        ->and($read->keyOf(Path::of('src/F5000.php')))->toEqual(Digest::of(hash('sha256', '5000')))
+        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
 });

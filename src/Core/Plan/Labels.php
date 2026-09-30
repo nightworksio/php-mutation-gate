@@ -37,20 +37,20 @@ final readonly class Labels
     public static function of(array $runs, Trees $trees): Shards
     {
         $named = array_map(static fn(array $run): array => self::treesOf($run, $trees), $runs);
-        $shards = Shards::none();
+        $shards = [];
 
         foreach ($runs as $at => $run) {
             $id = ShardId::of($at + 1);
-            $shards = $shards->with($run === [] ? Shard::empty($id) : Shard::of(
+            $shards[] = $run === [] ? Shard::empty($id) : Shard::of(
                 $id,
                 $run[0]->package(),
                 Units::of(...array_map(static fn(Weighed $unit): Unit => $unit->unit(), $run)),
                 Seconds::of(Runs::costOf($run)),
                 self::labelOf($at, $named),
-            ));
+            );
         }
 
-        return $shards;
+        return Shards::of(...$shards);
     }
 
     /**

@@ -94,13 +94,13 @@ final readonly class ShardResultFile
             return CannotJudge::because($file->field(self::CANNOT_JUDGE)->text());
         }
 
-        $mutants = Mutants::none();
+        $mutants = [];
 
         foreach ($file->field('mutants')->items() as $record) {
-            $mutants = $mutants->with(MutantRecord::readFull($record));
+            $mutants[] = MutantRecord::readFull($record);
         }
 
-        return MutationResult::of($mutants, $file->field('skipped')->integer());
+        return MutationResult::of(Mutants::of(...$mutants), $file->field('skipped')->integer());
     }
 
     /** @throws NotInShape */

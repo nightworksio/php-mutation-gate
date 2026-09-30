@@ -115,3 +115,18 @@ it('leaves the ledger it came from as it was', function () use ($proof, $timing)
 
     expect($ledger)->toEqual(Ledger::empty());
 });
+
+it('takes many proofs at once, keeping its own where both prove a key', function () use ($proof): void {
+    $ledger = Ledger::empty()->withProof($proof(str_repeat('a', 64), 'src/Held.php'));
+
+    $taken = $ledger->withProofs(Proofs::of(
+        $proof(str_repeat('a', 64), 'src/Other.php'),
+        $proof(str_repeat('b', 64), 'src/B.php'),
+    ));
+
+    expect($taken->proofs())->toEqual(Proofs::of(
+        $proof(str_repeat('a', 64), 'src/Held.php'),
+        $proof(str_repeat('b', 64), 'src/B.php'),
+    ))
+        ->and($ledger->proofs())->toHaveCount(1);
+});

@@ -80,15 +80,15 @@ final readonly class Manifest
     /** Every path the manifest's autoload names, spelt from the repository's root. */
     public function autoloaded(): Paths
     {
-        $paths = Paths::none();
+        $paths = [];
 
         foreach (self::AUTOLOAD as $kind) {
             foreach (Json::strings($this->at('autoload', $kind)) as $path) {
-                $paths = $paths->with(Path::of(sprintf('%s/%s', $this->directory->value(), $path)));
+                $paths[] = Path::of(sprintf('%s/%s', $this->directory->value(), $path));
             }
         }
 
-        return $paths;
+        return Paths::of(...$paths);
     }
 
     /**

@@ -234,3 +234,19 @@ it('cannot tell what a file held at a revision the repository does not have', fu
     expect(Git::at(Repository::ofTheFixture()->root)->fileAt(Path::of('src/Money.php'), Revision::ref('no-such-revision')))
         ->toEqual(CannotTell::because('no-such-revision is not a revision this repository has.'));
 });
+
+it('reads every file at a revision at the commit it named when first read', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\na\n")->write('src/B.php', "<?php\nb\n")->commit('The base.');
+    $repository->git('branch', 'moving');
+    $git = Git::at($repository->root);
+    $first = $git->fileAt(Path::of('src/A.php'), Revision::ref('moving'));
+
+    $repository->write('src/B.php', "<?php\nmoved\n")->commit('Moved on.');
+    $repository->git('branch', '--force', 'moving', 'HEAD');
+
+    expect($first)->toEqual(Contents::of("<?php\na\n"))
+        ->and($git->fileAt(Path::of('src/B.php'), Revision::ref('moving')))->toEqual(Contents::of("<?php\nb\n"))
+        ->and(Git::at($repository->root)->fileAt(Path::of('src/B.php'), Revision::ref('moving')))->toEqual(Contents::of("<?php\nmoved\n"))
+        ->and($git->fileAt(Path::of('src/B.php'), Revision::ref('no-such-revision')))->toEqual(CannotTell::because('no-such-revision is not a revision this repository has.'))
+        ->and($git->fileAt(Path::of('src/A.php'), Revision::ref('no-such-revision')))->toEqual(CannotTell::because('no-such-revision is not a revision this repository has.'));
+});

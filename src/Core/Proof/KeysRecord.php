@@ -36,16 +36,16 @@ final readonly class KeysRecord
     /** @throws NotInShape */
     public static function read(Node $keys): Keys
     {
-        $read = Keys::none();
+        $read = [];
 
         foreach ($keys->entries() as $unit => $key) {
             $unkeyed = $key->field(self::UNKEYED);
-            $read = $read->with(
+            $read[] = Keys::none()->with(
                 Path::of($unit),
                 $unkeyed->isPresent() ? Unkeyed::because($unkeyed->text()) : Digest::of($key->text()),
             );
         }
 
-        return $read;
+        return Keys::none()->and(...$read);
     }
 }

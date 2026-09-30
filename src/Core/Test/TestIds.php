@@ -34,13 +34,13 @@ final readonly class TestIds implements Countable, IteratorAggregate
 
     public static function of(TestId ...$tests): self
     {
-        $collected = self::none();
+        $collected = [];
 
         foreach ($tests as $test) {
-            $collected = $collected->with($test);
+            $collected[$test->value()] = $test;
         }
 
-        return $collected;
+        return new self($collected);
     }
 
     public function with(TestId $test): self

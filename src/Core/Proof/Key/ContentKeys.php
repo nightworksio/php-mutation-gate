@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
+use function array_key_exists;
 use function array_map;
 use function count;
+use function hash;
 use function hash_copy;
 use function hash_final;
 use function hash_init;
@@ -19,9 +21,10 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\File\Fingerprint;
+use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Version;
@@ -32,7 +35,6 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 
 use function sort;
 use function sprintf;
-use function usort;
 
 /**
  * The content key of each unit: one SHA-256 over everything its result could
@@ -77,10 +79,7 @@ final readonly class ContentKeys
         Tests $tests,
     ): self {
         $context = hash_init(self::ALGORITHM);
-
-        foreach (self::everyKeyReads($gate, $config, $runner, $installed, $source) as $field) {
-            hash_update($context, self::framed($field));
-        }
+        self::hashEveryKeyReads($context, $gate, $config, $runner, $installed, $source);
 
         return new self($context, $tests);
     }
@@ -92,105 +91,162 @@ final readonly class ContentKeys
      */
     public function keyOf(Unit $unit, Paths|CannotJudge $judges, CoverageMap $coverage): Digest|Unkeyed
     {
-        if ($judges instanceof CannotJudge) {
-            return Unkeyed::because($judges->why());
-        }
-
-        $context = hash_copy($this->everyKey);
-
-        $judging = $unit->isHeld() ? $this->tests->testCases() : $judges;
-
-        foreach ([...$this->testsReadBy($judging), ...$this->unitRead($unit, $coverage)] as $field) {
-            hash_update($context, self::framed($field));
-        }
-
-        return Digest::of(hash_final($context));
+        return $this->keysOf($coverage, Judging::of($unit, $judges))->keyOf($unit->path());
     }
 
-    /** @return list<string> */
-    private static function everyKeyReads(
+    /**
+     * Each of these units' keys, as {@see keyOf} gives them. What of the test
+     * directories one set of judging test files reads is read once, however
+     * many units that set judges.
+     */
+    public function keysOf(CoverageMap $coverage, Judging ...$units): Keys
+    {
+        $read = [];
+        $keys = [];
+
+        foreach ($units as $judging) {
+            $judges = $this->judgesOf($judging);
+
+            if ($judges instanceof Unkeyed) {
+                $keys[] = Keys::none()->with($judging->unit()->path(), $judges);
+
+                continue;
+            }
+
+            $set = $this->setOf($judges);
+
+            if (! array_key_exists($set, $read)) {
+                $read[$set] = $this->testsReadBy($judges);
+            }
+
+            $keys[] = Keys::none()->with(
+                $judging->unit()->path(),
+                $this->keyReading($read[$set], $judging->unit(), $coverage),
+            );
+        }
+
+        return Keys::none()->and(...$keys);
+    }
+
+    private static function hashEveryKeyReads(
+        HashContext $context,
         Version $gate,
         Document $config,
         Identity $runner,
         Digest $installed,
         Source $source,
-    ): array {
-        return [
-            self::FORMAT,
-            'gate', $gate->package(), $gate->version(), $gate->reference(),
-            'config', $config->json(),
-            'runner', $runner->runner(), ...self::versionsIn($runner), $runner->platform()->value(),
-            'installed', $installed->value(),
-            'files', ...self::fingerprintsIn([...$source->files()]),
-            'ci', ...self::definitionsIn($source->ci()),
-        ];
+    ): void {
+        hash_update($context, self::framed(self::FORMAT, 'gate', $gate->package(), $gate->version()));
+        hash_update($context, self::framed($gate->reference()));
+        hash_update($context, self::framed('config', $config->json(), 'runner', $runner->runner()));
+        self::hashVersionsIn($context, $runner);
+        hash_update($context, self::framed($runner->platform()->value(), 'installed', $installed->value(), 'files'));
+        self::hashFingerprintsIn($context, $source->files());
+        hash_update($context, self::framed('ci', sprintf('%d', count($source->ci()))));
+
+        foreach ($source->ci() as $definition) {
+            hash_update($context, self::framed($definition->path()->value(), $definition->asItRuns()));
+        }
     }
 
-    /** @return list<string> */
-    private static function definitionsIn(CiDefinitions $definitions): array
+    private static function hashVersionsIn(HashContext $context, Identity $runner): void
     {
-        $fields = [sprintf('%d', count($definitions))];
+        $versions = [];
+        $packages = [];
 
-        foreach ($definitions as $definition) {
-            $fields = [...$fields, $definition->path()->value(), $definition->asItRuns()];
+        foreach ($runner->versions() as $version) {
+            $versions[$version->package()] = $version;
+            $packages[] = $version->package();
         }
 
-        return $fields;
+        sort($packages);
+        hash_update($context, self::framed(sprintf('%d', count($packages))));
+
+        foreach ($packages as $package) {
+            $version = $versions[$package];
+            hash_update($context, self::framed($version->package(), $version->version(), $version->reference()));
+        }
     }
 
-    /** @return list<string> */
-    private static function versionsIn(Identity $runner): array
+    private static function hashFingerprintsIn(HashContext $context, Fingerprints $fingerprints): void
     {
-        $versions = [...$runner->versions()];
-        usort($versions, static fn(Version $one, Version $other): int => $one->package() <=> $other->package());
-        $fields = [sprintf('%d', count($versions))];
+        $digests = [];
+        $paths = [];
 
-        foreach ($versions as $version) {
-            $fields = [...$fields, $version->package(), $version->version(), $version->reference()];
+        foreach ($fingerprints as $fingerprint) {
+            $digests[$fingerprint->path()->value()] = $fingerprint->digest()->value();
+            $paths[] = $fingerprint->path()->value();
         }
 
-        return $fields;
+        sort($paths);
+        hash_update($context, self::framed(sprintf('%d', count($paths))));
+
+        foreach ($paths as $path) {
+            hash_update($context, self::framed($path, $digests[$path]));
+        }
     }
 
     /**
-     * @param  list<Fingerprint> $fingerprints
-     * @return list<string>
+     * The test files that can judge a unit: every file of test cases for a
+     * held one, and none where the runner cannot say.
      */
-    private static function fingerprintsIn(array $fingerprints): array
+    private function judgesOf(Judging $judging): Paths|Unkeyed
     {
-        usort(
-            $fingerprints,
-            static fn(Fingerprint $one, Fingerprint $other): int => $one->path()->value() <=> $other->path()->value(),
-        );
-        $fields = [sprintf('%d', count($fingerprints))];
+        $judges = $judging->judges();
 
-        foreach ($fingerprints as $fingerprint) {
-            $fields = [...$fields, $fingerprint->path()->value(), $fingerprint->digest()->value()];
-        }
-
-        return $fields;
+        return match (true) {
+            $judges instanceof CannotJudge => Unkeyed::because($judges->why()),
+            $judging->unit()->isHeld() => $this->tests->testCases(),
+            default => $judges,
+        };
     }
 
-    /** @return list<string> */
-    private function testsReadBy(Paths $judges): array
+    /** One value for a set of test files, whatever order they come in. */
+    private function setOf(Paths $judges): string
     {
-        $read = [...$this->tests->readBy($judges)];
-        usort($read, static fn(Path $one, Path $other): int => $one->value() <=> $other->value());
-        $fields = ['tests', sprintf('%d', count($read))];
+        $values = array_map(static fn(Path $path): string => $path->value(), [...$judges]);
+        sort($values);
 
-        foreach ($read as $path) {
-            $digest = $this->tests->digestOf($path);
-            $fields = [...$fields, $path->value(), $digest instanceof Digest ? $digest->value() : self::MISSING];
-        }
-
-        return $fields;
+        return hash(self::ALGORITHM, self::framed(...$values));
     }
 
-    /** @return list<string> */
-    private function unitRead(Unit $unit, CoverageMap $coverage): array
+    /** What of the test directories a set of judging test files reads, framed as a key reads it. */
+    private function testsReadBy(Paths $judges): string
+    {
+        $paths = [];
+        $values = [];
+
+        foreach ($this->tests->readBy($judges) as $path) {
+            $paths[$path->value()] = $path;
+            $values[] = $path->value();
+        }
+
+        sort($values);
+        $read = self::framed('tests', sprintf('%d', count($values)));
+
+        foreach ($values as $value) {
+            $digest = $this->tests->digestOf($paths[$value]);
+            $read .= self::framed($value, $digest instanceof Digest ? $digest->value() : self::MISSING);
+        }
+
+        return $read;
+    }
+
+    /** A unit's key, from what of the test directories its judging test files read. */
+    private function keyReading(string $read, Unit $unit, CoverageMap $coverage): Digest
+    {
+        $context = hash_copy($this->everyKey);
+        hash_update($context, $read);
+        $this->hashUnitRead($context, $unit, $coverage);
+
+        return Digest::of(hash_final($context));
+    }
+
+    private function hashUnitRead(HashContext $context, Unit $unit, CoverageMap $coverage): void
     {
         $lines = $coverage->linesCovered($unit->path());
-        $fields = ['unit', $unit->path()->value(), $this->judgedBy($unit), sprintf('%d', count($lines))];
+        hash_update($context, self::framed('unit', $unit->path()->value(), $this->judgedBy($unit)));
+        hash_update($context, self::framed(sprintf('%d', count($lines))));
 
         foreach ($lines as $line) {
             $ids = array_map(
@@ -198,10 +254,8 @@ final readonly class ContentKeys
                 [...$coverage->testsCovering($unit->path(), $line)],
             );
             sort($ids);
-            $fields = [...$fields, sprintf('%d', $line->number()), sprintf('%d', count($ids)), ...$ids];
+            hash_update($context, self::framed(sprintf('%d', $line->number()), sprintf('%d', count($ids)), ...$ids));
         }
-
-        return $fields;
     }
 
     private function judgedBy(Unit $unit): string
@@ -215,8 +269,15 @@ final readonly class ContentKeys
         };
     }
 
-    private static function framed(string $field): string
+    /** Fields as a key reads them, each written with its length in bytes before it. */
+    private static function framed(string ...$fields): string
     {
-        return sprintf("%d:%s\n", mb_strlen($field, '8bit'), $field);
+        $framed = '';
+
+        foreach ($fields as $field) {
+            $framed .= sprintf("%d:%s\n", mb_strlen($field, '8bit'), $field);
+        }
+
+        return $framed;
     }
 }

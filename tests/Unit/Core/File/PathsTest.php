@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 it('holds nothing to begin with', function (): void {
     expect(Paths::none())->toHaveCount(0);
@@ -29,4 +30,20 @@ it('says whether it holds a path', function (): void {
 
     expect($paths->has(Path::of('src/A.php')))->toBeTrue()
         ->and($paths->has(Path::of('src/B.php')))->toBeFalse();
+});
+
+it('builds and searches thousands of paths in linear time', function (): void {
+    $each = array_map(static fn(int $at): Path => Path::of(sprintf('src/F%d.php', $at)), range(1, 5000));
+    $held = Paths::none();
+
+    $seconds = Stopwatch::seconds(static function () use ($each, &$held): void {
+        $held = Paths::of(...$each, ...$each);
+
+        foreach ($each as $path) {
+            $held = $held->has($path) ? $held : Paths::none();
+        }
+    });
+
+    expect($held)->toHaveCount(5000)
+        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
 });

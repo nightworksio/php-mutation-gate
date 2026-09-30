@@ -73,7 +73,9 @@ final readonly class Sources
         $read = [];
 
         foreach ($this->now as [$path, $contents]) {
-            $read = str_ends_with($path->value(), self::PHP) ? [...$read, [$path, PhpFile::read($contents)]] : $read;
+            if (str_ends_with($path->value(), self::PHP)) {
+                $read[] = [$path, PhpFile::read($contents)];
+            }
         }
 
         return $read;

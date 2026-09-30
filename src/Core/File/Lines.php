@@ -37,13 +37,15 @@ final readonly class Lines implements Countable, IteratorAggregate
 
     public static function of(Line ...$lines): self
     {
-        $collected = self::none();
+        $collected = [];
 
         foreach ($lines as $line) {
-            $collected = $collected->with($line);
+            $collected[$line->number()] = $line;
         }
 
-        return $collected;
+        ksort($collected);
+
+        return new self($collected);
     }
 
     public function with(Line $line): self

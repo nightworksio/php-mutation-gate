@@ -23,14 +23,15 @@ final readonly class Source
      */
     public static function of(Fingerprints $outsideTests, CiDefinitions $ci, Exceptions $exceptions): self
     {
-        $files = Fingerprints::none();
+        $files = [];
 
         foreach ($outsideTests as $file) {
-            $read = ! $exceptions->leaveOut($file->path()) && ! $ci->has($file->path());
-            $files = $read ? $files->with($file) : $files;
+            if (! $exceptions->leaveOut($file->path()) && ! $ci->has($file->path())) {
+                $files[] = $file;
+            }
         }
 
-        return new self($files, $ci);
+        return new self(Fingerprints::of(...$files), $ci);
     }
 
     public function files(): Fingerprints

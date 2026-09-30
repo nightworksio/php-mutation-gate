@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
+use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 $timing = static fn(string $unit, float $seconds, string $at = '2026-09-29T20:00:00Z'): Timing => Timing::of(
     Path::of($unit),
@@ -71,4 +72,21 @@ it('answers what a unit took, and says so where nothing measured it', function (
 
     expect($timings->secondsFor(Path::of('123')))->toEqual(Seconds::of(1.5))
         ->and($timings->secondsFor(Path::of('src/B.php')))->toEqual(Unmeasured::duration());
+});
+
+it('builds, merges and trims thousands of timings in linear time', function () use ($timing): void {
+    $units = array_map(static fn(int $at): string => sprintf('src/F%d.php', $at), range(1, 5000));
+    $older = array_map(static fn(string $unit): Timing => $timing($unit, 1.0, '2026-09-29T20:00:00Z'), $units);
+    $newer = array_map(static fn(string $unit): Timing => $timing($unit, 2.0, '2026-09-29T21:00:00Z'), $units);
+    $kept = Timings::none();
+
+    $seconds = Stopwatch::seconds(static function () use ($older, $newer, $units, &$kept): void {
+        $kept = Timings::of(...$newer, ...$older)
+            ->and(Timings::of(...$older))
+            ->onlyFor(Paths::of(...array_map(Path::of(...), $units)));
+    });
+
+    expect($kept)->toHaveCount(5000)
+        ->and($kept->secondsFor(Path::of('src/F1.php')))->toEqual(Seconds::of(2.0))
+        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
 });

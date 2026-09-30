@@ -15,7 +15,4 @@ enum Role
 
     /** Anything else. */
     case Other;
-
-    /** A file that does not name the support, or is the support itself. */
-    case Unrelated;
 }

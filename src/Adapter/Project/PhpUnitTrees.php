@@ -86,13 +86,15 @@ final readonly class PhpUnitTrees implements TreeSource
     /** The paths that are, or are not, inside one of the others. */
     private function within(Paths $paths, Paths $others, bool $inside): Paths
     {
-        $within = Paths::none();
+        $within = [];
 
         foreach ($paths as $path) {
-            $within = $this->isInAny($path, $others) === $inside ? $within->with($path) : $within;
+            if ($this->isInAny($path, $others) === $inside) {
+                $within[] = $path;
+            }
         }
 
-        return $within;
+        return Paths::of(...$within);
     }
 
     private function source(Paths $included, Paths $excluded): Trees|CannotJudge
@@ -107,15 +109,17 @@ final readonly class PhpUnitTrees implements TreeSource
             return $trees;
         }
 
+        $exempted = [];
+
         foreach ($exempt as $path) {
-            $trees = $trees->with(Tree::at(
+            $exempted[] = Tree::at(
                 $path,
                 Exempt::because('phpunit.xml excludes it from <source>'),
                 Package::at(Path::root()),
-            ));
+            );
         }
 
-        return $trees;
+        return Trees::of(...$trees, ...$exempted);
     }
 
     private function fallback(): Trees|CannotJudge
@@ -152,13 +156,13 @@ final readonly class PhpUnitTrees implements TreeSource
     private function paths(SimpleXMLElement|Absent $xml, string $query): Paths
     {
         $nodes = $xml instanceof SimpleXMLElement ? $xml->xpath($query) : [];
-        $paths = Paths::none();
+        $paths = [];
 
         foreach (is_array($nodes) ? $nodes : [] as $node) {
-            $paths = $paths->with(Path::of(trim((string) $node)));
+            $paths[] = Path::of(trim((string) $node));
         }
 
-        return $paths;
+        return Paths::of(...$paths);
     }
 
     /** Whether a path is one of these, or inside one. */

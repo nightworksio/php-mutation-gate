@@ -25,3 +25,10 @@ it('meets what either of two merged sets of names meets, and leaves both as they
         ->and($money->meet(Names::of('App\Clock')))->toBeFalse()
         ->and($clock->meet(Names::of('App\Money')))->toBeFalse();
 });
+
+it('merges any number of sets of names at once, each name once', function (): void {
+    $merged = Names::of('App\Money')->merge(Names::of('App\Clock', 'app\money'), Names::of('App\Ledger'));
+
+    expect($merged->all())->toBe(['app\money', 'app\clock', 'app\ledger'])
+        ->and(Names::of('App\Money')->merge()->all())->toBe(['app\money']);
+});

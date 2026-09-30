@@ -47,13 +47,13 @@ final readonly class UnitRecord
     /** @throws NotInShape */
     public static function readAll(Node $units): Units
     {
-        $read = Units::none();
+        $read = [];
 
         foreach ($units->items() as $unit) {
-            $read = $read->with(self::read($unit));
+            $read[] = self::read($unit);
         }
 
-        return $read;
+        return Units::of(...$read);
     }
 
     /** @throws NotInShape */

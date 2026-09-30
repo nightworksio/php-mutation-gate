@@ -15,10 +15,8 @@ use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\File\Line;
-use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Test\TestId;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
+use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 
 use function rtrim;
 
@@ -67,17 +65,22 @@ final readonly class CoverageFile
     /** The map, with each file as the project spells it. */
     public function map(Project $project): CoverageMap
     {
-        $map = CoverageMap::empty();
+        $covered = [];
+        $timed = [];
 
         foreach ($this->lines as $file => $lines) {
-            $map = $this->covered($map, $project->relative($file), $lines);
+            $path = $project->relative($file);
+
+            foreach ($lines as $line => $tests) {
+                $covered[] = CoveredLine::of($path, $line, ...$tests);
+            }
         }
 
         foreach ($this->durations as $test => $seconds) {
-            $map = $map->timed(TestId::of($test), Seconds::of($seconds));
+            $timed[] = TimedTest::of($test, $seconds);
         }
 
-        return $map;
+        return CoverageMap::of(...$covered)->timedEach(...$timed);
     }
 
     /** @return list<string> the tests that ran any line from the first to the last of a file, each once */
@@ -119,20 +122,6 @@ final readonly class CoverageFile
             self::linesOf($coverage['basePath'], $coverage['codeCoverage']),
             array_map(static fn(array $result): float => $result['time'], $coverage['testResults']),
         );
-    }
-
-    /**
-     * @param array<int, array<int, string>> $lines
-     */
-    private function covered(CoverageMap $map, Path $file, array $lines): CoverageMap
-    {
-        foreach ($lines as $line => $tests) {
-            foreach ($tests as $test) {
-                $map = $map->covered($file, Line::of($line), TestId::of($test));
-            }
-        }
-
-        return $map;
     }
 
     /** @return array<string, array<int, array<int, string>>> */

@@ -79,13 +79,15 @@ final readonly class Registered
         $fallback = is_array($decoded) && array_key_exists('fallback', $decoded) && is_array($decoded['fallback'])
             ? $decoded['fallback']
             : [];
-        $paths = Paths::none();
+        $paths = [];
 
         foreach ($fallback as $path) {
-            $paths = is_string($path) ? $paths->with(Path::of($path)) : $paths;
+            if (is_string($path)) {
+                $paths[] = Path::of($path);
+            }
         }
 
-        return $paths;
+        return Paths::of(...$paths);
     }
 
     /** The working directory, where the project is. */
