@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -35,13 +36,14 @@ it('appends the shards, by id and label, to the file GitHub reads a step\'s outp
     file_put_contents($output, "earlier=1\n");
 
     $github = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => $output]));
+    $plan = ShardedPlan::of(2);
 
-    expect($github->publish(ShardedPlan::of(2)))->toEqual(Written::to($output))
-        ->and(file_get_contents($output))->toBe(
-            "earlier=1\n"
-            . 'shards=[{"id":1,"label":"src, part 1 of 2"},{"id":2,"label":"src, part 2 of 2"}]'
-            . "\n",
-        );
+    expect($github->publish($plan))->toEqual(Written::to($output))
+        ->and(file_get_contents($output))->toBe(sprintf(
+            "earlier=1\nshards=%s\nplan=%s\n",
+            '[{"id":1,"label":"src, part 1 of 2"},{"id":2,"label":"src, part 2 of 2"}]',
+            PlanListing::inline($plan),
+        ));
 });
 
 it('writes a label as it is, slashes and all', function (): void {
@@ -52,14 +54,18 @@ it('writes a label as it is, slashes and all', function (): void {
     ));
     GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => $output]))->publish($plan);
 
-    expect(file_get_contents($output))->toBe("shards=[{\"id\":1,\"label\":\"src/Http, part 1 of 2 — naïve\"}]\n");
+    expect(file_get_contents($output))->toBe(sprintf(
+        "shards=[{\"id\":1,\"label\":\"src/Http, part 1 of 2 — naïve\"}]\nplan=%s\n",
+        PlanListing::inline($plan),
+    ));
 });
 
 it('hands a matrix nothing to run for a plan with no shards', function (): void {
     $output = sprintf('%s/output', Scratch::directory());
-    GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => $output]))->publish(ShardedPlan::of(0));
+    $plan = ShardedPlan::of(0);
+    GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => $output]))->publish($plan);
 
-    expect(file_get_contents($output))->toBe("shards=[]\n");
+    expect(file_get_contents($output))->toBe(sprintf("shards=[]\nplan=%s\n", PlanListing::inline($plan)));
 });
 
 it('fills a matrix up to its 256 jobs and refuses one more', function (): void {
@@ -201,11 +207,12 @@ it('reads the output file from the environment', function (): void {
     $output = sprintf('%s/output', Scratch::directory());
     $before = getenv('GITHUB_OUTPUT');
     putenv(sprintf('GITHUB_OUTPUT=%s', $output));
-    $written = GitHubPlan::fromOptions(Options::none())->publish(ShardedPlan::of(0));
+    $plan = ShardedPlan::of(0);
+    $written = GitHubPlan::fromOptions(Options::none())->publish($plan);
     putenv($before === false ? 'GITHUB_OUTPUT' : sprintf('GITHUB_OUTPUT=%s', $before));
 
     expect($written)->toEqual(Written::to($output))
-        ->and(file_get_contents($output))->toBe("shards=[]\n");
+        ->and(file_get_contents($output))->toBe(sprintf("shards=[]\nplan=%s\n", PlanListing::inline($plan)));
 });
 
 it('withholds the Actions runtime\'s credentials and the workflow\'s token', function (): void {
