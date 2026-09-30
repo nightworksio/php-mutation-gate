@@ -44,6 +44,7 @@ function alertReporter(Channel $channel, Variables $environment, array $answers,
         Options::ofJson($options),
         $environment,
         Delivery::over(new MockHttpClient($answers), new StoppedClock('2026-09-30T12:00:00Z'), Pause::for(...)),
+        new StoppedClock('2026-09-30T12:00:00Z'),
     );
 }
 
@@ -82,7 +83,19 @@ it('reads the URL and the secret from the variables its options name, and signs 
     expect($sent)->toEqual(Written::to('the webhook'))
         ->and($answer->getRequestUrl())->toBe('https://hooks.example/mine')
         ->and($answer->getRequestOptions()['body'])->toBe($body)
-        ->and(headersOf($answer))->toContain(sprintf('X-Mutation-Gate-Signature: sha256=%s', hash_hmac('sha256', $body, 'sesame')));
+        ->and(headersOf($answer))->toContain(sprintf(
+            'X-Mutation-Gate-Signature: t=1790769600,sha256=%s',
+            hash_hmac('sha256', sprintf('1790769600.%s', $body), 'sesame'),
+        ));
+});
+
+it('signs nothing for a webhook with no secret set', function () use ($github, $reported): void {
+    $answer = new MockResponse('ok');
+    $environment = Variables::of([...$github, 'MUTATION_GATE_WEBHOOK_URL' => 'https://hooks.example/w']);
+    $sent = $reported(alertReporter(Channel::Webhook, $environment, [$answer]), Verdicts::failing()->withAccount(Previous::run('passed')));
+
+    expect($sent)->toEqual(Written::to('the webhook'))
+        ->and(headersOf($answer))->not->toContain('X-Mutation-Gate-Signature');
 });
 
 it('signs nothing for a chat, whatever secret is set', function () use ($github, $reported): void {

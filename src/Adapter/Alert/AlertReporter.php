@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Alert;
 
 use function count;
 use function getenv;
-use function hash_hmac;
 
 use NightWorksIO\MutationGate\Core\Alert\Alerts;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -38,8 +37,6 @@ final readonly class AlertReporter implements Reporter
     /** The variable that holds the webhook's secret unless `with.secretEnv` names another. */
     public const string SECRET_ENV = 'MUTATION_GATE_WEBHOOK_SECRET';
 
-    private const string SIGNATURE = 'X-Mutation-Gate-Signature';
-
     private const string NAMED = 'This names the environment variable to read, as text.';
 
     private const string NO_URL = '%s is not set, so no alert goes to %s.';
@@ -58,15 +55,17 @@ final readonly class AlertReporter implements Reporter
         private Variables $environment,
         private string $urlEnv,
         private string $secretEnv,
+        private ClockInterface $clock,
     ) {
     }
 
-    /** The reporter for this channel, reading this environment and posting through this delivery. */
+    /** The reporter for this channel, reading this environment, posting through this delivery, signing by the clock. */
     public static function inEnvironment(
         Channel $channel,
         Options $options,
         Variables $environment,
         Delivery $delivery,
+        ClockInterface $clock,
     ): self|Invalid {
         $with = Node::decode($options->json());
 
@@ -76,7 +75,7 @@ final readonly class AlertReporter implements Reporter
         return match (true) {
             $urlEnv instanceof Problem => Invalid::because($urlEnv),
             $secretEnv instanceof Problem => Invalid::because($secretEnv),
-            default => self::to($channel, $environment, $delivery, $urlEnv, $secretEnv),
+            default => self::to($channel, $environment, $delivery, $clock, $urlEnv, $secretEnv),
         };
     }
 
@@ -85,16 +84,17 @@ final readonly class AlertReporter implements Reporter
         Channel $channel,
         Variables $environment,
         Delivery $delivery,
+        ClockInterface $clock,
         string $urlEnv,
         string $secretEnv,
     ): self {
-        return new self($channel, $delivery, $environment, $urlEnv, $secretEnv);
+        return new self($channel, $delivery, $environment, $urlEnv, $secretEnv, $clock);
     }
 
     /** The reporter for this channel in this process's environment, posting over the network. */
     public static function configured(Channel $channel, Options $options, ClockInterface $clock): self|Invalid
     {
-        return self::inEnvironment($channel, $options, Variables::of(getenv()), Delivery::online($clock));
+        return self::inEnvironment($channel, $options, Variables::of(getenv()), Delivery::online($clock), $clock);
     }
 
     public function report(Verdict $verdict): Written|NotWritten
@@ -136,7 +136,7 @@ final readonly class AlertReporter implements Reporter
 
         return [
             'Content-Type' => 'application/json',
-            ...$secret === '' ? [] : [self::SIGNATURE => sprintf('sha256=%s', hash_hmac('sha256', $body, $secret))],
+            ...$secret === '' ? [] : [Signature::HEADER => Signature::of($body, $secret, $this->clock->now())],
         ];
     }
 

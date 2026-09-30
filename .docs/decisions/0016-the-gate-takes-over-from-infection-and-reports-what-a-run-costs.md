@@ -244,7 +244,12 @@ Operating the gate raises four needs its reports do not yet meet.
       Its schema is generated as the report's is, and committed at
       `resources/webhook.schema.json`. When `MUTATION_GATE_WEBHOOK_SECRET`
       (or the variable `with.secretEnv` names) is set, the request carries
-      `X-Mutation-Gate-Signature: sha256=<HMAC-SHA256 of the body>`.
+      `X-Mutation-Gate-Signature: t=<unix seconds>,sha256=<HMAC-SHA256 of
+      "<t>.<body>">`. `t` is the reporter's clock when it sends. A receiver
+      recomputes the HMAC over `t`, a dot and the raw body, compares it in
+      constant time, and rejects a `t` more than 5 minutes off its own
+      clock, so a captured post cannot be replayed. This amends the
+      body-only signature this decision first named.
     - Every chat limit, Discord's 2,000 characters among them, holds by
       construction.
     - **The layout.** The title is *mutation-gate: failed on octo/gate
