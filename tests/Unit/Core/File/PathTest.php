@@ -20,6 +20,12 @@ it('says whether it leads out of the directory it is spelt from', function (stri
     'absolute' => ['/etc/passwd', true],
 ]);
 
+it('says whether it is spelt from the root of the file system', function (): void {
+    expect(Path::of('/etc/passwd')->isAbsolute())->toBeTrue()
+        ->and(Path::of('../x')->isAbsolute())->toBeFalse()
+        ->and(Path::of('src')->isAbsolute())->toBeFalse();
+});
+
 it('names an entry inside a directory', function (): void {
     expect(Path::of('packages/money')->child(Path::of('composer.json')))->toEqual(Path::of('packages/money/composer.json'))
         ->and(Path::root()->child(Path::of('composer.json')))->toEqual(Path::of('composer.json'))

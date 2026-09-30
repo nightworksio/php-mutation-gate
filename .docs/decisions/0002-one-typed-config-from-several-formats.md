@@ -232,9 +232,11 @@ cannot.
      `--budget=<duration>` (ADR-0008) and `--ci=<name>` (ADR-0006).
 
 6. **Validation reports everything at once, by path.** Each layer is read on
-   its own, and what only every layer together can say, that a runner is
-   chosen and that no ignore outlasts `ignores.maxDays`, is judged once every
-   layer reads. A config with three
+   its own, and what only every layer together can say, that each preset a
+   layer names is registered, that a runner is chosen and that no ignore
+   outlasts `ignores.maxDays`, is judged once every layer reads. A layer's
+   own problems come first: a preset is looked up in the registry the
+   config file's `extensions` extend, so it is judged once that file reads. A config with three
    mistakes prints three errors, each with its path and what was expected:
    `trees[1].floor: expected a number from 0 to 100, got "80"`. Types are
    strict, so a string is not a number. An unknown key is an error and suggests
@@ -246,7 +248,9 @@ cannot.
    none, and a config the gate writes, such as `init`'s, names them from its
    own directory. So are globs, the `phpunit` tree source's `fallback`, the
    `directory` store's `path` and each `costs.secondsPerLine` prefix but
-   `""`, which is every path wherever it is written. The
+   `""`, which is every path wherever it is written. A path or a glob that
+   goes up out of the project is refused (`expected a path inside the
+   project`); an absolute one is kept, for a config file outside the project. The
    configuration reference lists every key with its type, its default and the
    ADR that decides it. It is generated from the same definitions as the
    schema, into `.docs/reference/configuration.md`, and the README holds it

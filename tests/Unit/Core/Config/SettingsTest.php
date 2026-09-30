@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Config\ProofWriting;
 use NightWorksIO\MutationGate\Core\Config\Report;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
@@ -528,6 +529,21 @@ it('takes the ends of every range', function (): void {
         ->and($settings->reach()->hotPaths()->share())->toBe(0.0)
         ->and([...$settings->badge()])->toBe(['green' => 100, 'red' => 0])
         ->and($settings->ignores()->maxDays())->toBe(1);
+});
+
+it('refuses a path or a glob that goes up out of the project, and keeps an absolute one', function (): void {
+    expect(Configs::problems(Configs::validated([
+        'runner' => 'pest',
+        'trees' => [['path' => '../../etc'], ['path' => 'src', 'exclude' => ['../gen/**']]],
+        'baseline' => ['path' => '../x.json'],
+        'proofs' => ['store' => ['use' => 'directory', 'with' => ['path' => '../ledger']]],
+    ])))->toBe([
+        'trees[0].path: expected a path inside the project, got "../../etc"',
+        'trees[1].exclude[0]: expected a path inside the project, got "../gen/**"',
+        'baseline.path: expected a path inside the project, got "../x.json"',
+        'proofs.store.with.path: expected a path inside the project, got "../ledger"',
+    ])->and(Configs::validated(['runner' => 'pest', 'trees' => [['path' => '/abs/src']]]))
+        ->toBeInstanceOf(Settings::class);
 });
 
 it('refuses a floor of 0 without the reason it needs', function (): void {

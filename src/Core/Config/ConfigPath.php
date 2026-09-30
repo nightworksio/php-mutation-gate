@@ -46,7 +46,7 @@ final readonly class ConfigPath
      */
     public static function from(Path $path, string $directory): string
     {
-        if ($directory === '' || str_starts_with($path->value(), '/')) {
+        if ($directory === '' || $path->isAbsolute()) {
             return $path->value();
         }
 

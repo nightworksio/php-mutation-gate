@@ -103,6 +103,12 @@ final readonly class Path
     /** Whether this path leads out of the directory it is spelt from: it is absolute, or goes up through `..`. */
     public function escapes(): bool
     {
-        return str_starts_with($this->value, '/') || preg_match(self::UP, $this->value) === 1;
+        return $this->isAbsolute() || preg_match(self::UP, $this->value) === 1;
+    }
+
+    /** Whether this path is spelt from the file system's root rather than from a directory. */
+    public function isAbsolute(): bool
+    {
+        return str_starts_with($this->value, '/');
     }
 }
