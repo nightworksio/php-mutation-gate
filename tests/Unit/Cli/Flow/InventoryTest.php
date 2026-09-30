@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -61,7 +62,7 @@ it('finds where the run stands, the trees, every file, the suite, and every unit
         ->and($found instanceof Inventory ? $found->trees : $found)->toEqual(Flows::trees())
         ->and($found instanceof Inventory ? $found->files : $found)->toEqual(Flows::checkout()->fingerprints())
         ->and($found instanceof Inventory ? $found->suite->directories() : $found)
-        ->toEqual(Paths::of(Path::of('tests')))
+        ->toEqual([SuiteDirectory::of(Path::of('tests'), '')])
         ->and($found instanceof Inventory ? $found->units : $found)->toEqual(Units::of(
             Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php')),
             Unit::file(Path::of('src/Money.php')),

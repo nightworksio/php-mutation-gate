@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_any;
+use function array_values;
+
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -20,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 use NightWorksIO\MutationGate\Core\Reach\Sources;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
@@ -27,15 +30,15 @@ use function sprintf;
 use function str_contains;
 
 /**
- * The test directories as they are on disk: each package's `tests`, every
- * file there with what it holds, and every file outside them.
+ * The test suite as it is on disk: the one the PHPUnit config declares and
+ * every other package's `tests`, every file there with what it holds, and
+ * every file outside them.
  */
 final readonly class Suite
 {
-    /** Where a package keeps its tests. */
     /** @param array<string, Contents> $contents each test file's contents, by its path */
     private function __construct(
-        private Paths $directories,
+        private PhpUnitSuite $configured,
         private TestFiles $files,
         private Sources $sources,
         private Fingerprints $outside,
@@ -50,10 +53,16 @@ final readonly class Suite
         return $configured instanceof PhpUnitSuite ? self::readIn($trees, $files, $project, $configured) : $configured;
     }
 
-    /** Each package's test directory. */
-    public function directories(): Paths
+    /**
+     * Where each package keeps its tests, spelt from its directory, as the
+     * PHPUnit config names them, each with the suffix of its files of test
+     * cases.
+     *
+     * @return non-empty-list<SuiteDirectory>
+     */
+    public function directories(): array
     {
-        return $this->directories;
+        return $this->configured->directories();
     }
 
     /** Every file of the test directories, each as the content key reads it. */
@@ -138,7 +147,7 @@ final readonly class Suite
         $outside = Fingerprints::none();
 
         foreach ($files as $file) {
-            if (! $configured->holds($file->path()) && ! self::isWithin($file->path(), $packages)) {
+            if (! self::isIn($file->path(), $configured, $packages)) {
                 $outside = $outside->with($file);
 
                 continue;
@@ -151,14 +160,16 @@ final readonly class Suite
             }
 
             if ($contents instanceof Contents) {
-                $read[] = self::testFile($file, $contents);
+                $read[] = self::isTestCase($file->path(), $configured, $packages)
+                    ? TestFile::testCase($file, $contents)
+                    : TestFile::other($file, $contents);
                 $contentsOf[$file->path()->value()] = $contents;
                 $sources = $sources->withNow($file->path(), $contents);
             }
         }
 
         return new self(
-            Paths::of(...$configured->directories(), ...$packages),
+            $configured,
             TestFiles::of(...$read),
             $sources,
             $outside,
@@ -180,37 +191,47 @@ final readonly class Suite
         return PhpUnitSuite::conventional();
     }
 
-    /** The test directory of each package other than the project's root. */
-    private static function packageTestsOf(Trees $trees): Paths
+    /**
+     * The test directory of each package other than the project's root, with PHPUnit's suffix.
+     *
+     * @return list<SuiteDirectory>
+     */
+    private static function packageTestsOf(Trees $trees): array
     {
         $tests = TestsDirectory::conventional();
-        $directories = Paths::none();
+        $directories = [];
 
         foreach ($trees as $tree) {
             $package = $tree->package()->path();
+            $directory = Path::of(sprintf('%s/%s', $package->value(), $tests->value()));
             $directories = $package->equals(Path::root())
                 ? $directories
-                : $directories->with(Path::of(sprintf('%s/%s', $package->value(), $tests->value())));
+                : [...$directories, $directory->value() => SuiteDirectory::of($directory, '')];
         }
 
-        return $directories;
+        return array_values($directories);
     }
 
-    private static function isWithin(Path $path, Paths $directories): bool
+    /**
+     * Whether a file is one of the suite's: the configured one's, or in another package's tests.
+     *
+     * @param list<SuiteDirectory> $packages
+     */
+    private static function isIn(Path $path, PhpUnitSuite $configured, array $packages): bool
     {
-        foreach ($directories as $directory) {
-            if ($path->within($directory)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $configured->holds($path)
+            || array_any($packages, static fn(SuiteDirectory $tests): bool => $tests->holds($path));
     }
 
-    private static function testFile(Fingerprint $file, Contents $contents): TestFile
+    /**
+     * Whether a file is one of test cases: named by its suite, or with the
+     * suffix of the test directory it is in.
+     *
+     * @param list<SuiteDirectory> $packages
+     */
+    private static function isTestCase(Path $path, PhpUnitSuite $configured, array $packages): bool
     {
-        return $file->path()->isTestCase()
-            ? TestFile::testCase($file, $contents)
-            : TestFile::other($file, $contents);
+        return $configured->holdsTestCase($path)
+            || array_any($packages, static fn(SuiteDirectory $tests): bool => $tests->holdsTestCase($path));
     }
 }

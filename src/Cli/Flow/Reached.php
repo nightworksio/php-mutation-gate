@@ -49,7 +49,7 @@ final readonly class Reached
         CoverageMap $map,
     ): self {
         $changes = $adapters->changes->changesSince($base);
-        $reach = new Reaching(self::layout($adapters, $settings), $trees)->of(
+        $reach = new Reaching(self::layout($adapters, $settings, $suite), $trees)->of(
             $changes,
             self::judges($adapters, $map),
             self::sources($changes, $base, $adapters, $suite->sources()),
@@ -77,9 +77,9 @@ final readonly class Reached
         return $this->changed;
     }
 
-    private static function layout(Adapters $adapters, Settings $settings): Layout
+    private static function layout(Adapters $adapters, Settings $settings, Suite $suite): Layout
     {
-        $layout = Layout::standard($adapters->runner->definitions());
+        $layout = Layout::standard($adapters->runner->definitions())->testedIn(...$suite->directories());
 
         foreach ($adapters->ci->definitions() as $definition) {
             $layout = $layout->runBy(Glob::of($definition->value()));

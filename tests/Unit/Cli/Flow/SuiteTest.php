@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\Role;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFile;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -84,7 +85,7 @@ it('reads each package\'s tests, and keeps every other file apart', function () 
         $roles[$file->fingerprint()->path()->value()] = $file->role();
     }
 
-    expect($read->directories())->toEqual(Paths::of(Path::of('tests'), Path::of('packages/a/tests')))
+    expect($read->directories())->toEqual([SuiteDirectory::of(Path::of('tests'), '')])
         ->and($roles)->toBe([
             'tests/MoneyTest.php' => Role::TestCase,
             'tests/Pest.php' => Role::Support,
@@ -166,7 +167,7 @@ it('reads the tests the PHPUnit config declares, and leaves out what it excludes
                     <directory>tests</directory>
                     <exclude>tests/Contract/fixture</exclude>
                 </testsuite>
-                <testsuite name="Specs"><directory>spec</directory></testsuite>
+                <testsuite name="Specs"><directory suffix="Spec.php">spec</directory></testsuite>
             </testsuites>
         </phpunit>
         XML;
@@ -185,15 +186,31 @@ it('reads the tests the PHPUnit config declares, and leaves out what it excludes
             'tests/MoneyTest.php' => "<?php\n",
             'tests/Contract/fixture/tests/ShapesCaseSpec.php' => $held,
             'spec/LimitSpec.php' => "<?php\n",
+            'spec/Helper.php' => "<?php\n",
         ],
-        $listed('tests/MoneyTest.php', 'tests/Contract/fixture/tests/ShapesCaseSpec.php', 'spec/LimitSpec.php'),
+        $listed(
+            'tests/MoneyTest.php',
+            'tests/Contract/fixture/tests/ShapesCaseSpec.php',
+            'spec/LimitSpec.php',
+            'spec/Helper.php',
+        ),
     );
+    $roles = [];
 
-    expect(array_map(static fn(TestFile $file): string => $file->fingerprint()->path()->value(), [...$read->files()]))
-        ->toBe(['tests/MoneyTest.php', 'spec/LimitSpec.php'])
+    foreach ($read->files() as $file) {
+        $roles[$file->fingerprint()->path()->value()] = $file->role();
+    }
+
+    expect($roles)->toBe([
+        'tests/MoneyTest.php' => Role::TestCase,
+        'spec/LimitSpec.php' => Role::TestCase,
+        'spec/Helper.php' => Role::Support,
+    ])
         ->and($read->holdings()->anyByAttribute())->toBeFalse()
-        ->and($read->directories())
-        ->toEqual(Paths::of(Path::of('tests'), Path::of('spec'), Path::of('packages/a/tests')));
+        ->and($read->directories())->toEqual([
+            SuiteDirectory::of(Path::of('tests'), ''),
+            SuiteDirectory::of(Path::of('spec'), 'Spec.php'),
+        ]);
 });
 
 it('cannot judge a suite whose PHPUnit config cannot be read', function () use ($listed): void {

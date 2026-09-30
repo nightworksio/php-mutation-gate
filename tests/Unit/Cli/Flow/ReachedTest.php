@@ -43,7 +43,7 @@ $held = Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'))
 
 /**
  * What these changes since `base` reach, where the checkout has these files
- * now and had those at the base, `.github/workflows/gate.yml` runs the gate,
+ * now, on disk too, and had those at the base, `.github/workflows/gate.yml` runs the gate,
  * `config/**` decides everything, and the fake runner's `phpunit.xml`
  * defines it.
  *
@@ -57,6 +57,11 @@ function reachedSince(Changes $changes, array $now, array $before, object ...$po
         'base' => [...Flows::FILES, ...$before],
     ]);
     $project = Flows::project();
+
+    foreach ($now as $path => $contents) {
+        Scratch::write($project, $path, $contents);
+    }
+
     $ci = Flows::ci()->runBy(Paths::of(Path::of('.github/workflows/gate.yml')));
     $adapters = Flows::adapters($project, [], $checkout, $ci, ...$ports);
     $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
@@ -136,6 +141,37 @@ it('reaches the files a changed test runs, as the runner says which tests judge 
     'a test that judges it' => ['tests/MoneyTest.php', true],
     'a test that judges nothing' => ['tests/OtherTest.php', false],
 ]);
+
+it('tells a changed test by the suffix the PHPUnit config gives the directory it is in', function () use (
+    $money,
+): void {
+    $config = <<<'XML'
+        <phpunit>
+            <testsuites>
+                <testsuite name="Specs"><directory suffix="Spec.php">spec</directory></testsuite>
+            </testsuites>
+        </phpunit>
+        XML;
+    $runner = new RunnerFake(
+        Identity::of('fake', Versions::none(), Digest::of('php')),
+        Groups::of(),
+        CoverageMap::empty(),
+        Mutants::none(),
+        Paths::of(Path::of('spec/MoneySpec.php')),
+        Paths::of(Path::of('phpunit.xml')),
+        TestNames::none(),
+        Paths::none(),
+    );
+    $reached = reachedSince(
+        Changes::of(Change::modified(Path::of('spec/MoneySpec.php'), Lines::of(Line::of(4)))),
+        ['phpunit.xml' => $config, 'spec/MoneySpec.php' => "<?php\n\nit('adds', fn () => 2);\n"],
+        ['phpunit.xml' => $config, 'spec/MoneySpec.php' => "<?php\n\nit('adds', fn () => 1);\n"],
+        $runner,
+    );
+
+    expect($reached->reach()->reaches($money))->toBeTrue()
+        ->and($reached->reach()->isEverywhere())->toBeFalse();
+});
 
 it('reaches everything where a file that decides how the gate runs changed', function (string $file) use ($held): void {
     $reached = reachedSince(
