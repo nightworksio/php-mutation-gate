@@ -64,13 +64,14 @@ has to bring its result with it.
       presets, serialised canonically, with the settings that only judge or
       report left out.
       - In: `runner` with its options, `pest.patch`, `pest.canary`,
-        `timeouts.seconds`, `timeouts.retries`, `flaky.confirmSurvivors`, and
-        what decides the trees and packages (`trees[].path`, `treeSource`,
+        `timeouts.seconds`, `timeouts.retries`, `flaky.confirmSurvivors`,
+        `tests.order` (ADR-0013, decision 4), and what decides the trees and packages (`trees[].path`, `trees[].exclude` (ADR-0016), `treeSource`,
         `packages`).
       - Left out: floors and their reasons (`trees[].floor`,
         `trees[].reason`, `newCode`), `baseline`, `uncovered`, `ignores`,
         `timeouts.mode`, `budget`, `reports`, `badge`, `ci`, `shards`, `costs`,
-        `proofs`, `reach`, `holds`, `local` and `extensions`. `preset` is not
+        `proofs`, `reach`, `holds`, `local`, `equivalence` and `extensions`.
+        `preset` is not
         in the key itself: it is expanded into the settings above.
       - Every setting is declared as affecting results or not, and a test fails
         when a setting is neither. A new setting cannot be left out by accident.
@@ -127,7 +128,8 @@ has to bring its result with it.
    same way. A file in a key that did not need it costs a run. A file missing
    from a key that needed it would cost a verdict.
 
-3. **A ledger holds one scope's proofs, timings and last passing commit.**
+3. **A ledger holds one scope's proofs, timings, killer history, opening-run
+   times and last passing commit.**
 
    ```json
    {
@@ -146,6 +148,17 @@ has to bring its result with it.
        "timings": {
            "src/Money.php": { "seconds": 12.4, "runner": "infection", "at": "2026-09-29T20:48:17Z" }
        },
+       "killers": {
+           "mutants": {
+               "81d0c9e2aa17": { "Tests\\MoneyTest::testAdds": 3 }
+           },
+           "functions": {
+               "src/Money.php Money::add": { "Tests\\MoneyTest::testAdds": 5, "Tests\\CartTest::testTotal": 1 }
+           }
+       },
+       "openings": {
+           ".": { "infection": { "seconds": 38.2, "at": "2026-09-29T20:48:17Z" } }
+       },
        "passed": "<commit sha>"
    }
    ```
@@ -157,14 +170,24 @@ has to bring its result with it.
      `local:<time of the run>`.
    - A mutant that was not killed keeps its full record, so reports can show a
      proved survivor. A killed one keeps its id, line, mutator and status,
-     which ignores and the stale-ignore check need (ADR-0008). A timed-out or
+     which ignores and the stale-ignore check need (ADR-0008), and `killedBy`,
+     the test that killed it first, or every test that failed under a full
+     kill matrix (ADR-0014). A timed-out or
      skipped mutant also keeps its limit (ADR-0004).
    - The ledger keeps the newest 20,000 proofs, and timings only for units that
      still exist.
+   - `killers` counts, for each mutant id and for each enclosing function, the
+     tests that killed first, keeping the five most frequent. Entries for
+     mutant ids no kept proof holds, and for functions whose unit is gone, are
+     dropped. `openings` keeps each package's newest opening-run time per
+     runner. Both only order and cut work (ADR-0013, decisions 2 and 7), so
+     losing them costs speed, never a verdict.
    - Reading keeps each well-formed entry and drops anything else. An
      unreadable ledger costs a run and never a verdict.
    - When two results for one key agree, the first is kept. When they differ,
      the mutants that differ are flaky and neither result is used (ADR-0008).
+     Results are compared by status. `killedBy` is never compared, because
+     the first killer depends on the order the tests ran in (ADR-0013).
    - `passed` is the newest commit of this scope whose verdict passed. That is
      the `last-passed` base (ADR-0005).
 
@@ -185,7 +208,7 @@ has to bring its result with it.
    |---------|------------|
    | **Directory** (`directory`) | One file per scope, `<path>/<scope>/ledger.json`, where `path` is `.mutation-gate/ledger` by default (`proofs.store: {use: directory, with: {path: …}}`). The default locally, and the base of every CI cache: GitLab's `cache:`, Buildkite's cache plugins and CircleCI's `save_cache` keep the directory. |
    | **GitHub Actions cache** | The directory store, kept by the action and the reusable workflow (ADR-0011) when their `cache` input is `true`, as it is by default. The cache service is reachable only from inside an action, so PHP never calls it. Before the run, `actions/cache/restore` restores two entries, each into its scope's directory: the newest under the prefix `mutation-gate-ledger-<SHA-256 of the ref>-`, and the newest under `mutation-gate-ledger-<SHA-256 of the default branch's ref>-`. After the verdict, `actions/cache/save` saves the run's own scope as `mutation-gate-ledger-<SHA-256 of the ref>-<SHA-256 of its ledger>`, so an unchanged ledger is not saved twice. Digests of the refs keep one scope's prefix from being a prefix of another's. |
-   | **S3-compatible** (`s3`: AWS S3, Cloudflare R2, MinIO) | One object per scope, `<prefix>/<scope>/ledger.json`, through `async-aws/s3`, which is in `suggest`. Its options are `bucket` (required), `prefix` (`mutation-gate` by default), `region` (`us-east-1` by default; R2 takes `auto`) and `endpoint` (AWS's own by default; R2's is `https://<account>.r2.cloudflarestorage.com`). Credentials come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and, when set, `AWS_SESSION_TOKEN`. |
+   | **S3-compatible** (`s3`: AWS S3, Cloudflare R2, MinIO) | One object per scope, `<prefix>/<scope>/ledger.json`, through `async-aws/s3`, which is in `suggest`. Its options are `bucket` (required), `prefix` (`mutation-gate` by default), `region` (`us-east-1` by default; R2 takes `auto`), `endpoint` (AWS's own by default; R2's is `https://<account>.r2.cloudflarestorage.com`) and `publicUrl` (none by default: an `https://` base a run without credentials reads from, ADR-0013). Credentials come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and, when set, `AWS_SESSION_TOKEN`. |
 
    When two verdicts write one scope at the same time, the last write wins. The
    proofs it drops cost a run later, never a verdict.
@@ -195,7 +218,10 @@ has to bring its result with it.
      visible only to that pull request, and the default branch restores only
      its own.
    - **On S3**, only the credentials of trusted runs may write the default
-     branch's prefix.
+     branch's prefix. A run without credentials, such as a fork's, opens the
+     store read-only and reads the default branch's ledger from
+     `publicUrl`, where the bucket policy makes only that prefix public
+     (ADR-0013, decisions 13 to 15).
    - **On GitLab**, separate caches for protected branches keep a merge
      request's pipeline from writing the default branch's cache. They also
      keep it from reading that cache, so a merge request carries nothing from
@@ -247,3 +273,6 @@ signed, and the README says where the boundary lies for each store.
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): `last-passed` and the scheduled full run
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): timings, and the verdict that writes the ledger
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): why budget-cut and flaky units are never recorded
+- [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): `tests.order` in the key, the killer history and opening runs in the ledger, and forks reading the S3 store
+- [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): `killedBy` in the proof
+- [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): `trees[].exclude` in the key

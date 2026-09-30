@@ -31,18 +31,23 @@ sees the same verdict.
    - the new-code set;
    - every unit, and whether its result was run, proved or carried;
    - every mutant's record, with its hint and reproduce command;
+   - every test, with the mutants it covers and those it killed (ADR-0014);
    - the reach and its reasons;
-   - warnings: unheld hot paths (ADR-0005), and expired or expiring ignores
-     (ADR-0008);
+   - warnings: unheld hot paths (ADR-0005); expired or expiring ignores
+     (ADR-0008); and a shard target the plan could not meet, an ignore a
+     proof of equivalence makes redundant, a check for equivalence that could
+     not run, and a proof store opened read-only (ADR-0013);
    - failures that belong to no floor: stale ignores (ADR-0008) and held paths
      their group does not cover (ADR-0005).
 
    Which reporters run:
-   - **The console** always.
+   - **The console** always. With `--output=problems` it prints one line per
+     result for editors instead of its table (ADR-0015, decision 6).
    - **File reports**, listed in `reports` (ADR-0002): each entry is
      `{"use": <name or class>, "path": <file or directory>, "with": <options>}`.
-     The built-in names are `json`, `junit`, `sarif` and `html`, each needing
-     a `path`. `reports` is empty by default, and `--report=<name>:<path>` adds
+     The built-in names are `json`, `junit`, `sarif`, `html`, `tests` and
+     `kill-matrix` (ADR-0014), and `gitlab`, GitLab's Code Quality JSON
+     (ADR-0016), each needing a `path`. `reports` is empty by default, and `--report=<name>:<path>` adds
      one for a single command.
    - **GitHub annotations and the step summary** (written to
      `GITHUB_STEP_SUMMARY`) whenever `GITHUB_ACTIONS` is set.
@@ -51,6 +56,9 @@ sees the same verdict.
      set it.
    - **The badge and the trend** when the verdict runs in CI on the default
      branch (decision 5).
+   - **Chat alerts,** `slack`, `discord` and `webhook`, when listed in
+     `reports` and the verdict runs in CI on the default branch and changes
+     its state, and **OpenTelemetry**, `otlp`, when listed (ADR-0016).
 
    A reporter that fails to write says so, and it does not change the verdict's
    exit code.
@@ -59,7 +67,11 @@ sees the same verdict.
    - **JSON** (`json`), the gate's own format with a `"format": 1` field. Its
      schema is generated like the config's and committed at
      `resources/report.schema.json`. It carries everything in the verdict, and
-     it is public API (ADR-0011).
+     it is public API (ADR-0011). A mutant proven equivalent has the status
+     `equivalent`, and each killed mutant names the test that killed it first,
+     where one is known (ADR-0013). It lists the tests once, in a `tests`
+     table, and gives each mutant `coveredBy` and `killedBy` as indices into
+     it (ADR-0014).
    - **JUnit XML** (`junit`). One `<testsuite>` per tree, and one for new code.
      In each suite, one `<testcase>` stands for its floor. It fails exactly
      when the gate fails that tree, and the failure body lists every mutant it
@@ -69,10 +81,12 @@ sees the same verdict.
      failure that belongs to no floor. JUnit failures match gate failures one
      to one.
    - **SARIF 2.1.0** (`sarif`).
-     - One run, with the tool named `mutation-gate`.
+     - One run, with the tool named `mutation-gate`. Paths are relative to
+       the repository. A local run (`CI` unset) also gives the absolute root
+       as `originalUriBaseIds.SRCROOT`, for editors (ADR-0015, decision 9).
      - Four rules: `survived`, `uncovered`, `unjudged` and `flaky`. The
        `unjudged` rule reports both unjudged mutants and those too slow to
-       judge.
+       judge. A mutant proven equivalent is not a result (ADR-0013).
      - Each result is at the mutant's file and lines. Its level is `error` when
        the mutant is in a set that failed (new code, or a tree below its floor)
        and `warning` otherwise.
@@ -112,7 +126,8 @@ sees the same verdict.
        - unjudged and flaky mutants;
        - warnings;
        - floors that must or can rise (ADR-0003);
-       - a link to the run and its HTML report.
+       - a link to the run and its HTML report;
+       - the run's cost, collapsed (ADR-0016).
      - **Fork pull requests.** The token GitHub gives a `pull_request` run from
        a fork is read-only, so no comment is written. The step summary carries
        the same content, and the reporter says why without failing. The README's
@@ -141,9 +156,13 @@ sees the same verdict.
    | survived, unjudged, flaky, and too slow to judge | `Survived` |
    | uncovered | `NoCoverage`, or `Ignored` under `uncovered: exclude` |
    | ignored, and ignored by a native marker | `Ignored` |
+   | equivalent, proven (ADR-0013) | `Ignored` |
 
    Judging tests, hints and reproduce commands go in each mutant's
-   `description`. The schema requires a column for each location. The gate
+   `description`. Its `coveredBy`, `killedBy` and `testsCompleted`, and the
+   report's `testFiles`, come from the kill matrix, so the viewer's test view
+   shows which tests kill, which only cover and which cover nothing
+   (ADR-0014). The schema requires a column for each location. The gate
    takes it from the file's tokens, and a mutant it cannot place there spans
    its lines from the first column to the end. The viewer's licence
    (Apache-2.0) is shipped with it.
@@ -165,7 +184,8 @@ sees the same verdict.
      - orange at 60;
      - red below the lowest.
    - **The trend.** `trend.json` gets one entry per run on the default branch:
-     commit, time, the project's score and each tree's score. It keeps the
+     commit, time, the verdict, the project's score and each tree's score.
+     The verdict is what chat alerts compare against (ADR-0016). It keeps the
      newest 500. The verdict also draws `trend.svg`, a plain sparkline with no
      script, which the step summary and the HTML report show.
    - **Where they are written.** Only a verdict in CI (the `CI` environment
@@ -194,7 +214,9 @@ sees the same verdict.
 
 6. **Every survivor has a one-line reproduce command.** In every report it is
    `vendor/bin/mutation-gate reproduce <id>`. It works on any machine with the
-   same code, because the id holds no absolute path (ADR-0004).
+   same code, because the id holds no absolute path (ADR-0004). The console,
+   HTML and JSON reports also give `vendor/bin/mutation-gate explain <id>`,
+   which explains it without running anything (ADR-0014).
 
 7. **Every survivor says what the tests miss.** Each runner adapter maps its
    native mutator names to a family. Each family has one sentence, filled in
@@ -254,3 +276,7 @@ but data.
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): hot-path warnings and reach reasons
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): unjudged, flaky and ignored mutants
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the action and workflow that post and publish
+- [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): *equivalent, proven*, the first killer, and a shard target the plan could not meet
+- [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): test-level data, the `tests` and `kill-matrix` reports, and `explain`
+- [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the problems output, and SARIF's local root
+- [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): the `gitlab`, chat and `otlp` reporters, the JSON report's `cost` and `run`, and `trend.json`'s `verdict`

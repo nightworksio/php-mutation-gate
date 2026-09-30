@@ -29,3 +29,7 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) | Every verdict is readable by a machine, a reviewer and a badge, and every survivor says how to reproduce it and what the tests miss | Accepted |
 | [0010](0010-the-gate-runs-while-you-work-and-before-you-push.md) | The gate runs while you work and before you push, with the same verdict CI gives | Accepted |
 | [0011](0011-the-package-holds-itself-to-the-gate-it-ships.md) | The package holds itself to the gate it ships, and to the standards of the in-house project | Accepted |
+| [0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) | A run learns which tests kill and how wide to cut, proves equivalent survivors, and lets a fork read what the default branch proved | Accepted |
+| [0014](0014-every-test-is-judged-by-what-it-kills.md) | Every test is judged by what it kills, the kill matrix is exported, and any mutant can be explained | Accepted |
+| [0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) | A survivor reaches the editor, the test file and the commit, and `init` writes the CI that runs the gate | Accepted |
+| [0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) | The gate takes over from an Infection config, says what a run costs, alerts on the default branch, and exports its runs | Accepted |

@@ -86,8 +86,15 @@ Two parts of that do not carry over to a public package.
      shards is the total cost over that size, rounded up. Each cut falls on the
      first unit that takes its shard past an equal share, and no shard is
      empty unless `--shards` fixes the count (decision 5).
+   - **Or a target wall time sets the count.** With `shards.target` (a
+     duration) set, the number of shards is the smallest that fits a shard's
+     overhead, its opening run plus `shards.setup`, and its share of the cost
+     into the target. The cut within that count is the same. A config that sets
+     both `shards.target` and `shards.seconds` stops with exit code 2
+     (ADR-0013, decisions 6 to 9).
    - There are never more than `shards.max` shards (an integer, 20 by default).
-     Past that limit, shards grow instead.
+     Past that limit, shards grow instead, and a target that needs more says
+     so in a warning.
    - **Floors do not separate shards.** The verdict adds up per-mutant
      results itself (ADR-0003), so units at different floors can share a shard.
    - **Packages do.** A shard runs in one package's directory (ADR-0005).
@@ -111,6 +118,9 @@ Two parts of that do not carry over to a public package.
    - **Where timings live.** In the ledger (ADR-0007), keyed by unit path, with
      the runner and the time of measurement. They are not committed: they
      describe the CI's machines, not the code, and they change on every run.
+     Beside them the ledger keeps each package's newest opening-run time per
+     runner, which the shard count of a target wall time uses (ADR-0013,
+     decision 7).
    - **Cold start.** A unit with no timing is estimated as its lines of code
      times seconds per line. Lines of code counts lines holding a token that is
      not whitespace, a comment or the opening tag. `costs.secondsPerLine` maps
@@ -207,3 +217,4 @@ all proved plans zero shards and costs one planning job.
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): what the plan considers
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): the ledger that holds proofs and timings
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the composite action and the reusable workflow
+- [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the shard count from a target wall time, and the opening-run timings
