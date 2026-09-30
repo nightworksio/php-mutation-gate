@@ -22,6 +22,6 @@ it('records every mutant\'s final status once Pest has run them all', function (
 
     expect(Mutations::recorded($results))->toBe([
         ['event' => 'finished', 'id' => 'id-1', 'status' => 'untested', 'duration' => 0.0],
-        ['event' => 'end', 'opening' => 1.5],
+        ['event' => 'end'],
     ]);
 });

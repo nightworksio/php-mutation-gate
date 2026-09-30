@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function file_exists;
 use function is_dir;
 use function is_file;
 use function is_string;
@@ -12,6 +13,7 @@ use function mb_substr;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 
@@ -29,6 +31,9 @@ use function unlink;
 final readonly class Project
 {
     private const string RESULTS = 'pest/results.jsonl';
+
+    /** Why a run cannot be told from an earlier one. */
+    private const string STALE = 'An earlier run left %s or the map beside it, and the gate cannot remove them.';
 
     private function __construct(private string $root, private Paths $tests, private Path $workspace)
     {
@@ -78,18 +83,33 @@ final readonly class Project
         return $directory;
     }
 
-    /** The file the plugin writes a run's results to, with no earlier run's results left in it. */
-    public function freshResults(): string
+    /**
+     * The file the plugin writes a run's results to, with no earlier run's
+     * results or map left beside it, or why an earlier run's are still there.
+     */
+    public function freshResults(): string|CannotJudge
     {
         $results = sprintf('%s/%s', $this->absolute($this->workspace), self::RESULTS);
         $this->directory(Path::of(sprintf('%s/pest', $this->workspace->value())));
 
-        foreach ([$results, Recorder::coverageBeside($results)] as $stale) {
-            if (is_file($stale)) {
-                unlink($stale);
+        return $this->without($results, Recorder::coverageBeside($results))
+            ? $results
+            : CannotJudge::because(sprintf(self::STALE, $results));
+    }
+
+    /** Whether none of these files is there once each that is has been removed. */
+    public function without(string ...$files): bool
+    {
+        $gone = true;
+
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                unlink($file);
             }
+
+            $gone = $gone && ! file_exists($file);
         }
 
-        return $results;
+        return $gone;
     }
 }

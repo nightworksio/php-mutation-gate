@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function str_contains;
+use function mb_substr_count;
 use function str_replace;
 
 /** One place in a file of pest-plugin-mutate the patch rewrites: the lines it ships, and what they become. */
@@ -25,14 +25,16 @@ final readonly class Hunk
         return $this->file;
     }
 
+    /** Whether the source carries the patched lines, once. */
     public function isAppliedTo(string $source): bool
     {
-        return str_contains($source, $this->becomes);
+        return mb_substr_count($source, $this->becomes) === 1;
     }
 
+    /** Whether the source carries the lines as the release ships them, once, so a patch changes one place. */
     public function fits(string $source): bool
     {
-        return str_contains($source, $this->ships);
+        return mb_substr_count($source, $this->ships) === 1;
     }
 
     public function applyTo(string $source): string

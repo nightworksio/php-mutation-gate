@@ -71,6 +71,17 @@ final readonly class Mutations
         return $test;
     }
 
+    /** A mutant's run, as though it took this long. */
+    public static function timed(MutationTest $test, float $seconds): MutationTest
+    {
+        (function () use ($seconds): void {
+            $this->start = 100.0;
+            $this->finish = 100.0 + $seconds;
+        })->call($test);
+
+        return $test;
+    }
+
     /** A recorder writing to a results file, with Pest's coverage map at a path and an opening run of 1.5 seconds. */
     public static function recorder(string $results, string $coverage): Recorder
     {

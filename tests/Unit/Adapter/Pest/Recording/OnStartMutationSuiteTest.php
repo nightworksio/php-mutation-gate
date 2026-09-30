@@ -20,5 +20,5 @@ it('records every mutant once Pest has made them all', function (): void {
 
     new OnStartMutationSuite(Mutations::recorder($results, '/c'))->notify(new StartMutationSuite($suite));
 
-    expect(array_column(array_filter(Mutations::recorded($results), is_array(...)), 'event'))->toBe(['planned']);
+    expect(array_column(array_filter(Mutations::recorded($results), is_array(...)), 'event'))->toBe(['planned', 'made']);
 });

@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Cli\PestPatch;
 use NightWorksIO\MutationGate\Tests\Support\Printed;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 
 afterEach(function (): void {
@@ -34,12 +35,16 @@ it('patches pest-plugin-mutate in the vendor directory and says so', function ()
         ->toBe("pest:patch patched 3 of the 3 files it changes in pest-plugin-mutate.\n");
 });
 
-it('fails the install, with the reason, when it cannot patch', function (): void {
+it('fails the install, with the reason on its error output, when it cannot patch', function (): void {
     $vendor = Scratch::directory();
     $tester = new CommandTester(PestPatch::command($vendor));
+    $status = $tester->execute([], ['capture_stderr_separately' => true]);
+    $output = $tester->getOutput();
+    $errors = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
 
-    expect($tester->execute([]))->toBe(2)
-        ->and(Printed::by($tester->getOutput()))->toBe(sprintf(
+    expect($status)->toBe(2)
+        ->and(Printed::by($output))->toBe('')
+        ->and(Printed::by($errors))->toBe(sprintf(
             "pest:patch cannot read %s/pestphp/pest-plugin-mutate/src/MutationTest.php. "
             . "Is pest-plugin-mutate installed?\n",
             $vendor,

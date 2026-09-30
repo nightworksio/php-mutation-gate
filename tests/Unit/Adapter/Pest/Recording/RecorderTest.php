@@ -89,6 +89,7 @@ it('subscribes to every event it records, one subscriber for each', function ():
 
 it('records where the environment asks, outside a mutant\'s own process', function (): void {
     $mutant = getenv('PEST_MUTATION_TESTING');
+    $subscribed = Facade::instance()->subscribers();
 
     try {
         putenv('PEST_MUTATION_TESTING');
@@ -99,6 +100,10 @@ it('records where the environment asks, outside a mutant\'s own process', functi
     } finally {
         putenv('MUTATION_GATE_RESULTS');
         putenv(is_string($mutant) ? sprintf('PEST_MUTATION_TESTING=%s', $mutant) : 'PEST_MUTATION_TESTING');
+        // Pest's facade is global: leave it with the subscribers it had.
+        (function () use ($subscribed): void {
+            $this->subscribers = $subscribed;
+        })->call(Facade::instance());
     }
 
     expect($asked)->toBeInstanceOf(Recorder::class)
@@ -114,12 +119,13 @@ it('keeps the opening run\'s coverage map beside the results before Pest deletes
         ->and(Recorder::coverageBeside('/r/results.jsonl'))->toBe('/r/results.jsonl.coverage.php');
 });
 
-it('records every planned mutant with its file, lines, mutator class and diff', function (): void {
+it('records every planned mutant with its file, lines, mutator class and diff, then how many', function (): void {
     $root = (string) realpath(Scratch::directory());
     Scratch::write($root, 'src/Money.php', '<?php');
     $results = sprintf('%s/results.jsonl', $root);
     $suite = Mutations::suite(sprintf('%s/src/Money.php', $root), MutationTestResult::None, MutationTestResult::None);
     Mutations::recorder($results, '/c')->planned($suite);
+    new Recorder(sprintf('%s/unknown.jsonl', $root), '/c', 'not a repository')->planned(Mutations::suite('/p/None.php'));
 
     expect(Mutations::recorded($results))->toBe([
         [
@@ -140,6 +146,9 @@ it('records every planned mutant with its file, lines, mutator class and diff', 
             'mutator' => Mutations::PLUS,
             'diff' => "  <fg=red>-        return \$a + \$b;</>\n  <fg=green>+        return \$a - \$b;</>\n",
         ],
+        ['event' => 'made', 'count' => 2, 'opening' => 1.5],
+    ])->and(Mutations::recorded(sprintf('%s/unknown.jsonl', $root)))->toBe([
+        ['event' => 'made', 'count' => 0, 'opening' => false],
     ]);
 });
 
@@ -156,21 +165,21 @@ it('records each outcome as it arrives, one line of JSON with its slashes as the
     );
 });
 
-it('records every mutant\'s final status and duration, then the opening run\'s seconds', function (): void {
+it('records every mutant\'s final status and how long it ran, then the end', function (): void {
     $root = (string) realpath(Scratch::directory());
     Scratch::write($root, 'src/Money.php', '<?php');
     $results = sprintf('%s/results.jsonl', $root);
     $suite = Mutations::suite(sprintf('%s/src/Money.php', $root), MutationTestResult::Tested, MutationTestResult::None);
+
+    foreach ($suite->repository->all() as $collection) {
+        Mutations::timed($collection->tests()[0], 0.25);
+    }
+
     Mutations::recorder($results, '/c')->finished($suite);
-    new Recorder(sprintf('%s/unknown.jsonl', $root), '/c', 'not a repository')->finished($suite);
 
     expect(Mutations::recorded($results))->toBe([
-        ['event' => 'finished', 'id' => 'id-1', 'status' => 'tested', 'duration' => 0.0],
+        ['event' => 'finished', 'id' => 'id-1', 'status' => 'tested', 'duration' => 0.25],
         ['event' => 'finished', 'id' => 'id-2', 'status' => 'none', 'duration' => 0.0],
-        ['event' => 'end', 'opening' => 1.5],
-    ])->and(Mutations::recorded(sprintf('%s/unknown.jsonl', $root)))->toBe([
-        ['event' => 'finished', 'id' => 'id-1', 'status' => 'tested', 'duration' => 0.0],
-        ['event' => 'finished', 'id' => 'id-2', 'status' => 'none', 'duration' => 0.0],
-        ['event' => 'end', 'opening' => false],
+        ['event' => 'end'],
     ]);
 });

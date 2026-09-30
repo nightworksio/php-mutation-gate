@@ -75,24 +75,23 @@ final readonly class Interpretation
         )->because($reason);
     }
 
+    /**
+     * The records of a run that reached its end, whatever its exit code, since
+     * a project's own minimum score fails a run that finished; of a run
+     * stopped at its deadline once every mutant was written; and no others.
+     */
     private function recordsOf(Ran $ran, string $results): Records|CannotJudge
     {
-        if (! $ran->succeeded() && ! $ran->wasStopped()) {
-            return CannotJudge::because(sprintf(self::FAILED, $ran->output()));
-        }
-
         $records = Records::in($results);
 
-        if ($records instanceof CannotJudge) {
-            return $records;
-        }
-
-        return $ran->wasStopped() ? $this->stopped($records) : $this->counted($records, $ran);
-    }
-
-    private function stopped(Records $records): Records|CannotJudge
-    {
-        return $records->planned() === [] ? CannotJudge::because(self::STOPPED_EARLY) : $records;
+        return match (true) {
+            $records instanceof CannotJudge => $ran->succeeded() || $ran->wasStopped()
+                ? $records
+                : CannotJudge::because(sprintf(self::FAILED, $ran->output())),
+            $ran->wasStopped() => $records->allMade() ? $records : CannotJudge::because(self::STOPPED_EARLY),
+            $ran->succeeded() || $records->ended() => $this->counted($records, $ran),
+            default => CannotJudge::because(sprintf(self::FAILED, $ran->output())),
+        };
     }
 
     private function counted(Records $records, Ran $ran): Records|CannotJudge

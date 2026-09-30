@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -93,9 +94,29 @@ it('cannot judge a file that is not a coverage map', function (): void {
     file_put_contents($file, '<?php return [];');
 
     expect(CoverageFile::at($file))->toEqual(CannotJudge::because(sprintf(
+        '%s cannot be read as a coverage map: it ends before the map does.',
+        $file,
+    )));
+    file_put_contents($file, "<?php return [];\nEND_OF_COVERAGE_SERIALIZATION\n);\n");
+
+    expect(CoverageFile::at($file))->toEqual(CannotJudge::because(sprintf(
         '%s cannot be read as a coverage map: '
         . 'File does not contain phpunit/php-code-coverage serialization format information: %s',
         $file,
+        $file,
+    )));
+});
+
+it('cannot judge a map cut off while it was written', function (): void {
+    $file = sprintf('%s/coverage.php', Scratch::directory());
+    file_put_contents($file, sprintf(
+        "<?php // phpunit/php-code-coverage serialization format %d\n"
+        . "return \\unserialize(<<<'END_OF_COVERAGE_SERIALIZATION'\na:1:{",
+        Serializer::SERIALIZATION_FORMAT,
+    ));
+
+    expect(CoverageFile::at($file))->toEqual(CannotJudge::because(sprintf(
+        '%s cannot be read as a coverage map: it ends before the map does.',
         $file,
     )));
 });

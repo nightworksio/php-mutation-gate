@@ -25,10 +25,11 @@ use function sprintf;
  * - the opening run's coverage map, copied beside the results before Pest
  *   deletes it;
  * - `planned`, every mutant with its file, lines, mutator class and diff, once
- *   they are all made;
+ *   they are all made, and `made`, how many there are and the opening run's
+ *   seconds;
  * - `outcome`, each mutant's status as Pest decides it;
  * - `finished`, every mutant's final status and duration, which Pest sets only
- *   after the outcome is announced, and `end`, with the opening run's seconds.
+ *   after the outcome is announced, and `end`.
  */
 final readonly class Recorder
 {
@@ -50,16 +51,22 @@ final readonly class Recorder
     {
     }
 
-    /** Recording where the adapter asked for it, and outside a mutant's own process. */
+    /**
+     * Recording where the adapter asked for it, and outside a mutant's own
+     * process. Anywhere else it reaches none of Pest's own objects.
+     */
     public static function fromEnvironment(): self|Off
     {
-        return self::listening(
-            getenv(self::RESULTS),
-            getenv(self::MUTANT),
+        $results = getenv(self::RESULTS);
+        $mutant = getenv(self::MUTANT);
+
+        return self::asked($results, $mutant) ? self::listening(
+            $results,
+            $mutant,
             Facade::instance(),
             Coverage::getPath(),
             Container::getInstance()->get(TelemetryRepository::class),
-        );
+        ) : Off::Recording;
     }
 
     /** Recording, subscribed to the events, when a results file is named and this is not a mutant's process. */
@@ -70,7 +77,7 @@ final readonly class Recorder
         string $coverage,
         object|string $telemetry,
     ): self|Off {
-        if (! is_string($results) || $results === '' || is_string($mutant)) {
+        if (! self::asked($results, $mutant)) {
             return Off::Recording;
         }
 
@@ -103,8 +110,15 @@ final readonly class Recorder
         copy($this->coverage, self::coverageBeside($this->results));
     }
 
+    /**
+     * Every mutant Pest made, and then how many there are, with the opening
+     * run's seconds, from which each mutant's limit follows. A run stopped
+     * before that last line lost some of its mutants.
+     */
     public function planned(MutationSuite $suite): void
     {
+        $made = 0;
+
         foreach ($suite->repository->all() as $collection) {
             foreach ($collection->tests() as $test) {
                 $this->write([
@@ -116,8 +130,16 @@ final readonly class Recorder
                     'mutator' => $test->mutation->mutator,
                     'diff' => $test->mutation->diff,
                 ]);
+                $made++;
             }
         }
+
+        $telemetry = $this->telemetry;
+        $this->write([
+            'event' => 'made',
+            'count' => $made,
+            'opening' => $telemetry instanceof TelemetryRepository ? $telemetry->getInitialTestSuiteDuration() : false,
+        ]);
     }
 
     public function outcome(MutationTest $test): void
@@ -138,11 +160,13 @@ final readonly class Recorder
             }
         }
 
-        $telemetry = $this->telemetry;
-        $this->write([
-            'event' => 'end',
-            'opening' => $telemetry instanceof TelemetryRepository ? $telemetry->getInitialTestSuiteDuration() : false,
-        ]);
+        $this->write(['event' => 'end']);
+    }
+
+    /** @phpstan-assert-if-true non-empty-string $results */
+    private static function asked(string|false $results, string|false $mutant): bool
+    {
+        return is_string($results) && $results !== '' && ! is_string($mutant);
     }
 
     /** @param array<string, mixed> $record */

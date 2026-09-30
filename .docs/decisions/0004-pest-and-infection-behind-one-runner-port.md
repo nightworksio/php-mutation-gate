@@ -161,17 +161,33 @@ its parser attributes. Both change when the checkout moves.
    - **Invocation:**
 
      ```text
-     vendor/bin/pest --mutate --no-cache --parallel --path=<files>
-         [--ignore=<held paths>] [--group=<holds group>] [--processes=<n>]
+     vendor/bin/pest --mutate --no-cache --parallel --no-tia --everything
+         --covered-only=false --stop-on-untested=false
+         --stop-on-uncovered=false --retry=false --path=<files>
+         --ignore=<held paths, or .mutation-gate> [--group=<holds group>]
+         [--mutator=<class names>]
      ```
 
      - `--path` makes the gate, not a test's `covers()` or `mutates()`, decide
        what is mutated and which tests judge it. A contract test proves that a
        suite using `covers()` is still judged by every covering test.
      - `--no-cache` keeps a stale cache from deciding a result.
-     - `--covered-only` and `--min` are never passed. Uncovered mutants are
-       always reported, and `uncovered: exclude` is applied by the gate
-       (ADR-0003).
+     - `--min` is never passed, and the options after `--no-tia` undo what a
+       project's own mutation config could set: covered lines only, a class
+       list, an ignore list, a stop at the first escaped or uncovered
+       mutant, and escaped mutants first. Uncovered mutants are always
+       reported, and `uncovered: exclude` is applied by the gate (ADR-0003).
+       A run that reaches its end is judged by its records whatever its exit
+       code, since a project's own minimum score fails a finished run.
+     - `--processes` is never passed. pest-plugin-mutate hands it on to each
+       mutant's own run, which is not parallel and rejects it, so every
+       covered mutant would read as killed. Pest runs one mutant per core,
+       and a request's process count does not apply to it.
+     - Pest runs on the PHP the gate runs on, which is first on its path,
+       because Pest starts each mutant's run through `vendor/bin/pest`. It
+       inherits none of the variables that make a process a paratest worker
+       or a mutant's run, none of the gate's own, and none of the CI's
+       credentials (`AWS_*`, `ACTIONS_*`, `GITHUB_TOKEN`, `SONAR_TOKEN`).
      - Pest runs with the project root as its working directory, and one
        `--mutate` invocation at a time runs in a checkout, because each writes
        its opening map to the same path.

@@ -6,10 +6,13 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_all;
 use function array_filter;
+use function basename;
 use function count;
+use function dirname;
 use function file_get_contents;
 use function file_put_contents;
 use function is_file;
+use function is_writable;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 
@@ -104,6 +107,9 @@ final readonly class Patch
                 }
         PHP;
 
+    /** Why pest:patch cannot change a file it has to. */
+    private const string UNWRITABLE = 'pest:patch cannot write %s/%s. Make the vendor directory writable.';
+
     /** Patch pest-plugin-mutate in a vendor directory, and say what was done. */
     public static function applyIn(string $vendor): string|CannotJudge
     {
@@ -121,16 +127,18 @@ final readonly class Patch
 
         $hunks = self::hunks();
         $patching = array_filter($hunks, static fn(Hunk $hunk): bool => ! $hunk->isAppliedTo($sources[$hunk->file()]));
+        $unwritten = 0;
 
         foreach ($patching as $hunk) {
-            file_put_contents(sprintf(self::SOURCE, $vendor, $hunk->file()), $hunk->applyTo($sources[$hunk->file()]));
+            $patched = $hunk->applyTo($sources[$hunk->file()]);
+            $unwritten += file_put_contents(sprintf(self::SOURCE, $vendor, $hunk->file()), $patched) === false ? 1 : 0;
         }
 
-        return sprintf(
+        return $unwritten === 0 ? sprintf(
             'pest:patch patched %d of the %d files it changes in pest-plugin-mutate.',
             count($patching),
             count($hunks),
-        );
+        ) : CannotJudge::because(sprintf(self::UNWRITABLE, $vendor, 'pestphp/pest-plugin-mutate/src'));
     }
 
     /** Whether pest-plugin-mutate in a vendor directory carries every hunk. */
@@ -168,6 +176,10 @@ final readonly class Patch
 
         if (! is_file($file)) {
             return CannotJudge::because(sprintf('pest:patch cannot read %s. Is pest-plugin-mutate installed?', $file));
+        }
+
+        if (! is_writable($file)) {
+            return CannotJudge::because(sprintf(self::UNWRITABLE, dirname($file), basename($file)));
         }
 
         $source = sprintf('%s', file_get_contents($file));
