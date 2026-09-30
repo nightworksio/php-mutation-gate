@@ -5,18 +5,22 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
+use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Wiring;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Pest;
+use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -83,6 +87,17 @@ it('wires the runner, the store, the learned cost model, the JSON plan and git w
         ->and($adapters->repository)->toEqual(Git::withholding('.', $adapters->withheld))
         ->and($adapters->environment)->toEqual(Variables::of([]))
         ->and($adapters->withheld)->toEqual(Withheld::standard()->and(wiringEveryCi()));
+});
+
+it('keeps a local run\'s proofs on the machine, and a CI run\'s in the store the config names', function (): void {
+    $settings = Flows::settings(Proofs::s3('ledgers'));
+    $local = wiredOf($settings, Variables::of([]));
+    $ci = wiredOf($settings, Variables::of(['CI' => 'true']));
+
+    expect($local->proofs)->toEqual(LocalLedgers::over($ci->proofs))
+        ->and($ci->proofs)->toBeInstanceOf(BucketLedger::class)
+        ->and(wiredOf(Flows::settings(Proofs::directory('cache/ledger')), Variables::of([]))->proofs)
+        ->toEqual(LedgerDirectory::at('cache/ledger'));
 });
 
 it('learns costs at the seconds a line the config sets, and at the standard ones otherwise', function (): void {
