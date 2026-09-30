@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
@@ -92,7 +93,19 @@ final readonly class Lookup
     {
         $preset = $this->extensions->registered(ExtensionPoint::Preset, $name);
 
-        return $preset instanceof Closure ? $this->misbuilt(ExtensionPoint::Preset, $name) : $preset;
+        $found = $preset instanceof Layer || $preset instanceof CannotJudge;
+
+        return $found ? $preset : $this->misbuilt(ExtensionPoint::Preset, $name);
+    }
+
+    /** The mutators a set registered under this name holds. */
+    public function mutatorSet(Name $name): MutatorSet|CannotJudge
+    {
+        $set = $this->extensions->registered(ExtensionPoint::MutatorSet, $name);
+
+        $found = $set instanceof MutatorSet || $set instanceof CannotJudge;
+
+        return $found ? $set : $this->misbuilt(ExtensionPoint::MutatorSet, $name);
     }
 
     /**

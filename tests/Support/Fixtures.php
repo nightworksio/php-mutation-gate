@@ -53,7 +53,21 @@ final readonly class Fixtures
                 {
                     public function __construct(private OutputInterface $output) {}
                 }
-                PHP, 'keeps the core, the ports, the config and the extension API free of every framework'),
+                PHP, 'keeps the core, the ports, the config and the extension API free of every framework, and the mutator SDK of all but php-parser'),
+            Fixture::suite('A1', 'src/Mutator/PlantedReachOut.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                namespace NightWorksIO\MutationGate\Mutator;
+
+                use Symfony\Component\Console\Output\OutputInterface;
+
+                final readonly class PlantedReachOut
+                {
+                    public function __construct(private OutputInterface $output) {}
+                }
+                PHP, 'keeps the core, the ports, the config and the extension API free of every framework, and the mutator SDK of all but php-parser'),
             Fixture::suite('A2', 'src/Port/PlantedConcrete.php', <<<'PHP'
                 <?php
 
@@ -408,11 +422,11 @@ final readonly class Fixtures
 
                 namespace NightWorksIO\MutationGate\Core;
 
-                use PhpParser\ParserFactory;
+                use Symfony\Component\Finder\Finder;
 
                 final readonly class PlantedDevOnly
                 {
-                    public function __construct(private ParserFactory $parsers) {}
+                    public function __construct(private Finder $finder) {}
                 }
                 PHP),
             Fixture::suite('G5', 'tests/Unit/Core/PlantedAssertTest.php', <<<'PHP'

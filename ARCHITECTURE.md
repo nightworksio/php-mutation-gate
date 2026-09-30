@@ -21,6 +21,7 @@ src/
   Core/        decides. Values and the steps that turn one into the next. No I/O.
   Attribute/   #[Holds], which tests write and the gate reads from their tokens. Public API.
   Port/        the interfaces the core asks. Public API.
+  Mutator/     the SDK a mutator is written against, on php-parser, and its testing kit. Public API.
   Config/      the typed config and its builder. Public API.
   Extension/   the Extension interface and the Extensions registry. Public API.
   Adapter/     one directory per outside thing: Pest, Infection, git, GitHub, S3.
@@ -36,7 +37,8 @@ tests/
   Support/     what the Arch suite and the guards read the tree with, and what other tests share.
 ```
 
-The layers are ordered: Core, Attribute, Port, Config, Extension, Adapter, Cli.
+The layers are ordered: Core, Attribute, Port, Mutator, Config, Extension,
+Adapter, Cli.
 A layer names only itself and the layers before it, so nothing but an adapter
 and the CLI can name an adapter, and the CLI is the only place adapters are
 wired. Attribute names nothing but PHP and nothing else names it, because the
@@ -46,7 +48,7 @@ gate reads `#[Holds]` from a test's tokens without loading it.
 
 | Rule | Says | Enforced by |
 |---|---|---|
-| **A1** | Core, Port, Config and Extension name nothing outside the package but PHP and `Psr\Clock` | arch: every class name each of their files writes |
+| **A1** | Core, Port, Mutator, Config and Extension name nothing outside the package but PHP and `Psr\Clock`, and Mutator, the SDK a mutator is written against, names php-parser too (ADR-0021) | arch: every class name each of their files writes |
 | **A2** | A port is an interface | arch: every declaration under `src/Port` |
 | **A3** | An adapter names no other adapter | arch: every class name each adapter's files write |
 | **A4** | A layer names only itself and the layers before it | arch: every class name each file under `src` writes |
@@ -84,8 +86,8 @@ without a repository, a runner or a CI.
 
 ## D — types
 
-The API surface is every class in Attribute, Port, Config and Extension, and
-every core type their public signatures reach (ADR-0001).
+The API surface is every class in Attribute, Port, Mutator, Config and
+Extension, and every core type their public signatures reach (ADR-0001).
 
 | Rule | Says | Enforced by |
 |---|---|---|

@@ -73,6 +73,10 @@ parameters:
             # A file the gate wrote that does not hold its shape is refused inside
             # the codec that reads it, and answered at the codec's edge.
             - NightWorksIO\MutationGate\Core\Format\NotInShape
+            # A mutator that names itself wrongly, or a test that hands the
+            # testing kit code that is not PHP, is a mistake in that code.
+            - NightWorksIO\MutationGate\Mutator\NotAMutatorName
+            - NightWorksIO\MutationGate\Mutator\Testing\NotParsed
             # A setting read as a type its definition does not make is a
             # mistake in the code that asked.
             - NightWorksIO\MutationGate\Core\Config\Definition\MisreadSetting
@@ -89,6 +93,9 @@ parameters:
                 - InvalidArgumentException
                 - RuntimeException
                 - LogicException
+                # php-parser's own base of a visitor, which the mutator SDK's
+                # testing kit extends to put a change in place, as a bridge does.
+                - PhpParser\NodeVisitorAbstract
         # A named argument is how a call site says which of two strings is which.
         noNamedArgument:
             enabled: false

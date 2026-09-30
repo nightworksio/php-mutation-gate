@@ -17,8 +17,10 @@ use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Registering;
 
 it('builds what was registered under a name from the options a config gives it', function (ExtensionPoint $point): void {
@@ -103,5 +105,24 @@ it('takes in the presets another package registered, and refuses one registered 
     expect($merged instanceof Extensions ? Lookup::in($merged)->preset(Name::of('laravel')) : $merged)->toBe($fragment)
         ->and($preset('acme/a')->merge($preset('acme/b')))->toEqual(CannotJudge::because(
             'Two packages register a preset named "laravel": acme/a and acme/b. Remove one of the packages, or run with --no-extensions.',
+        ));
+});
+
+it('holds sets of mutators by name', function (): void {
+    $mutators = MutatorSet::of(PlusToMinus::class);
+    $registry = new Extensions(Origin::of('acme/a'))->withMutators(Name::of('acme'), $mutators);
+
+    expect(Lookup::in($registry)->mutatorSet(Name::of('acme')))->toBe($mutators)
+        ->and(Lookup::in($registry)->mutatorSet(Name::of('laravel')))->toEqual(CannotJudge::because('No mutator set is registered as "laravel".'));
+});
+
+it('takes in the sets of mutators another package registered, and refuses one registered twice', function (): void {
+    $mutators = MutatorSet::of(PlusToMinus::class);
+    $set = static fn(string $package): Extensions => new Extensions(Origin::of($package))->withMutators(Name::of('acme'), $mutators);
+    $merged = new Extensions(Origin::of('acme/a'))->merge($set('acme/b'));
+
+    expect($merged instanceof Extensions ? Lookup::in($merged)->mutatorSet(Name::of('acme')) : $merged)->toBe($mutators)
+        ->and($set('acme/a')->merge($set('acme/b')))->toEqual(CannotJudge::because(
+            'Two packages register a mutator set named "acme": acme/a and acme/b. Remove one of the packages, or run with --no-extensions.',
         ));
 });
