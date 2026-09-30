@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
+use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -57,8 +58,6 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
 
     private const string PLAN = '.mutation-gate/plan.json';
 
-    /** The pipeline Buildkite uploads, where `ci.buildkite.definition` names no other. */
-    private const string DEFINITION = '.buildkite/pipeline.yml';
 
     /** @param array<string, mixed> $step the step template */
     private function __construct(
@@ -76,7 +75,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
      */
     public static function printing(string $to, array $step, Variables $variables): self
     {
-        return new self($variables, $step, $to, Path::of(self::DEFINITION));
+        return new self($variables, $step, $to, Ci::none()->buildkiteDefinition());
     }
 
     /** This plan, run by the pipeline at this path rather than `.buildkite/pipeline.yml`. */
@@ -152,7 +151,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
     private static function definitionIn(Node $definition): Path|Invalid
     {
         try {
-            $path = $definition->isPresent() ? $definition->text() : self::DEFINITION;
+            $path = $definition->isPresent() ? $definition->text() : Ci::none()->buildkiteDefinition()->value();
         } catch (NotInShape) {
             $path = '';
         }

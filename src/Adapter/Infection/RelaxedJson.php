@@ -10,6 +10,7 @@ use function json_encode;
 
 use JsonException;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
@@ -22,9 +23,6 @@ use stdClass;
  */
 final readonly class RelaxedJson
 {
-    private const int FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-        | JSON_PRESERVE_ZERO_FRACTION;
-
     private const string NOT_JSON5 = '%s cannot be read, so the gate cannot say what Infection would mutate: %s';
 
     private const string NOT_AN_OBJECT
@@ -37,7 +35,7 @@ final readonly class RelaxedJson
             $decoded = Json5Decoder::decode($text);
 
             return $decoded instanceof stdClass
-                ? Node::decode(json_encode($decoded, self::FLAGS))
+                ? Node::decode(json_encode($decoded, JsonText::FLAGS))
                 : CannotJudge::because(sprintf(self::NOT_AN_OBJECT, $name));
         } catch (JsonException $error) {
             return CannotJudge::because(sprintf(self::NOT_JSON5, $name, $error->getMessage()));

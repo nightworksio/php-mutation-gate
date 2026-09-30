@@ -6,15 +6,13 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 
 use function sprintf;
 
 /** The badge's colours (ADR-0009): `badge.colors`, the lowest score of each shields.io colour, red below them all. */
 final readonly class Badge implements Part
 {
-    /** The lowest score of each colour. */
-    private const array COLORS = ['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60];
-
     private function __construct(private Table|Absent $colors)
     {
     }
@@ -55,7 +53,7 @@ final readonly class Badge implements Part
 
         $colors = Table::none();
 
-        foreach (self::COLORS as $color => $lowest) {
+        foreach (BadgeColors::DEFAULTS as $color => $lowest) {
             $colors = $colors->merged(Table::row($color, $lowest));
         }
 

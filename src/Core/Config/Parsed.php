@@ -19,6 +19,7 @@ use function json_encode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Time\Day;
 
 use function sprintf;
 use function var_export;
@@ -32,8 +33,6 @@ use function var_export;
  */
 final readonly class Parsed
 {
-    private const string DAY = 'Y-m-d';
-
     /** The time of day a date without one is read at. */
     private const string TIME = 'H:i:s.u';
 
@@ -64,7 +63,7 @@ final readonly class Parsed
     private static function day(DateTimeInterface $date, string $file): string|CannotJudge
     {
         return $date->format(self::TIME) === self::MIDNIGHT
-            ? $date->format(self::DAY)
+            ? $date->format(Day::FORMAT)
             : CannotJudge::because(sprintf(
                 '%s holds a date with a time, %s; a config date is a day, YYYY-MM-DD.',
                 $file,

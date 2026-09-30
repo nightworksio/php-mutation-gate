@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Report;
 use function count;
 use function implode;
 
-use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\Redundancy;
 use NightWorksIO\MutationGate\Core\Matrix\RemovableTest;
@@ -61,7 +61,7 @@ final readonly class TestsReport
             }
         }
 
-        return Json::encode([
+        return JsonText::encode([
             'format' => self::FORMAT,
             'matrix' => $verdict->matrix()->kind()->value,
             'useless' => $useless,

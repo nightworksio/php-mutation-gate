@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
+use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -51,8 +52,6 @@ final readonly class GitLabPlan implements CiPlan, Configurable
     /** Where the child pipeline is written. */
     public const string PIPELINE = '.mutation-gate/pipeline.yml';
 
-    /** The file that defines `.mutation-gate`, unless `ci.gitlab.template` names another. */
-    public const string TEMPLATE = '.gitlab/mutation-gate.yml';
 
     /** The pipeline GitLab runs where `CI_CONFIG_PATH` names no other. */
     private const string PIPELINE_DEFINITION = '.gitlab-ci.yml';
@@ -83,7 +82,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
         $template = Node::decode($options->json())->field('template');
 
         try {
-            $file = $template->isPresent() ? $template->text() : self::TEMPLATE;
+            $file = $template->isPresent() ? $template->text() : Ci::none()->gitlabTemplate()->value();
 
             return self::writing(self::PIPELINE, $file, Variables::of(getenv()));
         } catch (NotInShape) {

@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -56,11 +57,6 @@ use function trim;
  */
 final readonly class Init
 {
-    /** The gate's own directory, as `.gitignore` names it with or without its slashes. */
-    private const string DIRECTORY = '.mutation-gate';
-
-    private const string IGNORED = '.mutation-gate/';
-
     private const string GITIGNORE = '.gitignore';
 
     public static function command(
@@ -193,7 +189,7 @@ final readonly class Init
             $ignored => sprintf(
                 'Wrote %s with what zero-config found, and added %s to .gitignore.',
                 $destination->shown(),
-                self::IGNORED,
+                self::ignored(),
             ),
             default => sprintf('Wrote %s with what zero-config found.', $destination->shown()),
         };
@@ -213,7 +209,7 @@ final readonly class Init
             return $gitignore;
         }
 
-        if (array_key_exists(self::DIRECTORY, $lines)) {
+        if (array_key_exists(Workspace::root()->value(), $lines)) {
             return false;
         }
 
@@ -224,11 +220,17 @@ final readonly class Init
                     '%s%s%s',
                     $text,
                     $text === '' || str_ends_with($text, "\n") ? '' : "\n",
-                    sprintf("%s\n", self::IGNORED),
+                    sprintf("%s\n", self::ignored()),
                 ),
             ),
         );
 
         return $added instanceof CannotJudge ? $added : true;
+    }
+
+    /** The gate's own directory, as `init` adds it to `.gitignore`. */
+    private static function ignored(): string
+    {
+        return sprintf('%s/', Workspace::root()->value());
     }
 }

@@ -27,8 +27,6 @@ final readonly class Shards implements Part
 
     private const int MOST = 20;
 
-    /** Each shard's CI setup before the gate starts, which the gate cannot time. */
-    private const int SETUP = 60;
 
     private function __construct(
         private Seconds|Absent $seconds,
@@ -43,7 +41,7 @@ final readonly class Shards implements Part
     /** `shards.setup`: each shard's CI setup before the gate starts, which the gate cannot time (ADR-0013). */
     public function setup(): Seconds
     {
-        return $this->setup instanceof Seconds ? $this->setup : Seconds::of(self::SETUP);
+        return $this->setup instanceof Seconds ? $this->setup : Seconds::minutes(1);
     }
 
     public static function of(

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -64,7 +65,7 @@ final readonly class Builtins
 
         return self::of([
             'directory' => Section::options(
-                Json::object(Member::of('path', '.mutation-gate/ledger')),
+                Json::object(Member::of('path', Workspace::ledger()->value())),
                 Field::optional('path', Location::path(ProjectRoot::origin()), $judges),
             ),
             's3' => Section::options(

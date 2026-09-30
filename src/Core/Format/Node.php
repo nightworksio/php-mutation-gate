@@ -33,9 +33,6 @@ final readonly class Node
     /** The path of a config's own keys, which have nothing before them. */
     private const string CONFIG = '';
 
-    /** How a place is written back out: as it was read, slashes and non-ASCII text as they are. */
-    private const int FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-        | JSON_PRESERVE_ZERO_FRACTION;
 
     private function __construct(private mixed $value, private string $at, private bool $present)
     {
@@ -197,7 +194,7 @@ final readonly class Node
      */
     public function json(): string
     {
-        return $this->present ? json_encode($this->value, self::FLAGS) : throw NotInShape::missing($this->at);
+        return $this->present ? json_encode($this->value, JsonText::FLAGS) : throw NotInShape::missing($this->at);
     }
 
     /**
@@ -207,7 +204,7 @@ final readonly class Node
      */
     public function value(): Json
     {
-        $json = $this->present ? Json::parse(json_encode($this->value, self::FLAGS)) : Absent::setting();
+        $json = $this->present ? Json::parse(json_encode($this->value, JsonText::FLAGS)) : Absent::setting();
 
         return $json instanceof Json ? $json : throw NotInShape::missing($this->at);
     }
@@ -220,7 +217,7 @@ final readonly class Node
             Kind::List, Kind::Empty => 'a list',
             Kind::Map => 'an object',
             Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null
-                => json_encode($this->value, self::FLAGS),
+                => json_encode($this->value, JsonText::FLAGS),
         };
     }
 

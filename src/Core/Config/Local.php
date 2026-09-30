@@ -13,8 +13,6 @@ use function sprintf;
 /** How long the gate runs while a person works and before a push (ADR-0010): `local`. */
 final readonly class Local implements Part
 {
-    private const int WATCH = 60;
-
     private const int PRE_PUSH = 300;
 
     private function __construct(private Seconds|Absent $watchBudget, private Seconds|Absent $prePushBudget)
@@ -52,7 +50,7 @@ final readonly class Local implements Part
 
     public function watchBudget(): Seconds
     {
-        return $this->watchBudget instanceof Seconds ? $this->watchBudget : Seconds::of(self::WATCH);
+        return $this->watchBudget instanceof Seconds ? $this->watchBudget : Seconds::minutes(1);
     }
 
     public function prePushBudget(): Seconds

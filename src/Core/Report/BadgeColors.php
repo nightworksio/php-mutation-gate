@@ -18,7 +18,9 @@ final readonly class BadgeColors
 {
     /** The colour of a badge with nothing to show. */
     public const string NONE = 'lightgrey';
-    private const array DEFAULTS = ['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60];
+
+    /** Each colour's lowest score where a config names none: `badge.colors`. */
+    public const array DEFAULTS = ['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60];
 
     private const string BELOW = 'red';
 

@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -60,7 +61,7 @@ it('is named in this package\'s own composer.json', function (): void {
 
 it('registers the directory and the bucket proof stores', function () use ($registry): void {
     expect(Lookup::in($registry())->proofStore(Name::of('directory'), Options::none()))
-        ->toEqual(LedgerDirectory::at(LedgerDirectory::PATH))
+        ->toEqual(LedgerDirectory::at(Workspace::ledger()->value()))
         ->and(Lookup::in($registry())->proofStore(Name::of('s3'), Options::ofJson('{"bucket": "ledgers"}')))
         ->toBeInstanceOf(BucketLedger::class);
 });

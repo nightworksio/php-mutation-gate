@@ -9,6 +9,7 @@ use function array_map;
 use function array_values;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -22,7 +23,6 @@ final readonly class Proofs implements Part
     /** The store when no layer names one, and where it keeps its ledgers. */
     private const string STORE = 'directory';
 
-    private const string LEDGERS = '.mutation-gate/ledger';
 
     private const string S3 = 's3';
 
@@ -75,7 +75,7 @@ final readonly class Proofs implements Part
     {
         return $this->store instanceof Choice
             ? $this->store
-            : Choice::of(self::STORE, Json::object(Member::of('path', self::LEDGERS)));
+            : Choice::of(self::STORE, Json::object(Member::of('path', Workspace::ledger()->value())));
     }
 
     /** @return Listed<string> the globs of the files no test reads */

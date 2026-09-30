@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -175,7 +176,7 @@ it('writes its pipeline where the gate expects it, with the named template', fun
     putenv($before === false ? 'CI_JOB_NAME' : sprintf('CI_JOB_NAME=%s', $before));
 
     expect(GitLabPlan::PIPELINE)->toBe('.mutation-gate/pipeline.yml')
-        ->and(GitLabPlan::TEMPLATE)->toBe('.gitlab/mutation-gate.yml')
+        ->and(Ci::none()->gitlabTemplate()->value())->toBe('.gitlab/mutation-gate.yml')
         ->and($wrote)->toEqual(Written::to('.mutation-gate/pipeline.yml'))
         ->and($wroteNamed)->toEqual(Written::to('.mutation-gate/pipeline.yml'))
         ->and($included)->toMatchArray(['include' => [['local' => '.gitlab/mutation-gate.yml']]])

@@ -480,8 +480,6 @@ services:
             awaiting:
                 - src/Adapter/GitHub/GitHubPlan.php # owner: flows (a GitHubEvent enum)
                 - src/Adapter/Pest/Records.php # owner: pest (a RecordEvent enum)
-                - src/Cli/Config/Php.php # owner: config
-                - src/Core/Config/Layers.php # owner: config
         tags:
             - phpstan.rules.rule
     # D9, with the constants whose value only coincides with another's.
@@ -499,9 +497,15 @@ services:
                     - PAGES # pages read
                 'NightWorksIO\MutationGate\Adapter\GitHub\Markdown':
                     - COMMENTED # survivors a comment lists
-                'NightWorksIO\MutationGate\Core\Config\Definition':
-                    - MOST_SHARDS # shards
-                    - TIMEOUT_RETRIES # retries
+                'NightWorksIO\MutationGate\Core\Config\Shards':
+                    - MOST # shards
+                'NightWorksIO\MutationGate\Core\Config\Triage':
+                    - RETRIES # retries
+                    - TIMEOUT # seconds a mutant may run
+                'NightWorksIO\MutationGate\Core\Config\Canonical':
+                    - EACH # how a list's entries are named in a setting's path
+                'NightWorksIO\MutationGate\Core\Config\Setup':
+                    - TREE_SOURCE # the tree source, not a test framework
                 'NightWorksIO\MutationGate\Core\Hold\HotPaths':
                     - SMALLEST_SUITE # tests
                 'NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan':
@@ -566,38 +570,6 @@ services:
                     - DAYS # days the savings count
             # Constants still to refer to their value's one home, by the builder whose area holds them.
             awaiting:
-                'NightWorksIO\MutationGate\Cli\Command\Init':
-                    - DIRECTORY # owner: config (Workspace::root())
-                'NightWorksIO\MutationGate\Cli\Config\Presets':
-                    - LIBRARY_TIMEOUT # owner: config
-                    - NEW_CODE_FLOOR # owner: config
-                'NightWorksIO\MutationGate\Core\Config\Definition':
-                    - BADGE_COLORS # owner: config (BadgeColors::defaults())
-                    - NEW_CODE_FLOOR # owner: config
-                    - TIMEOUT_SECONDS # owner: config
-                    - WHOLE # owner: config (Percentage)
-                'NightWorksIO\MutationGate\Core\Config\Definition\Json':
-                    - FLAGS # owner: config (Format\Json)
-                'NightWorksIO\MutationGate\Core\Config\Definition\Percent':
-                    - WHOLE # owner: config (Percentage::parse())
-                'NightWorksIO\MutationGate\Core\Config\Layers':
-                    - RUNNER # owner: config (ExtensionPoint::Runner)
-                'NightWorksIO\MutationGate\Core\Config\Parsed':
-                    - DAY # owner: config (Day::FORMAT)
-                'NightWorksIO\MutationGate\Core\Format\Node':
-                    - FLAGS # owner: config (Format\Json)
-                'NightWorksIO\MutationGate\Core\Format\JsonObject':
-                    - FLAGS # owner: config (Format\Json)
-                'NightWorksIO\MutationGate\Adapter\Infection\RelaxedJson':
-                    - FLAGS # owner: config (Format\Json)
-                'NightWorksIO\MutationGate\Core\Baseline\BaselineFile':
-                    - FLAGS # owner: config (Format\Json)
-                'NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan':
-                    - JSON # owner: config (Format\Json)
-                'NightWorksIO\MutationGate\Core\Score\Floor':
-                    - HUNDREDTHS_PER_PERCENT # owner: config (Floor wraps Percentage)
-                    - NOISE # owner: config (Floor wraps Percentage)
-                    - WHOLE # owner: config (Floor wraps Percentage)
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':
                     - OWN # owner: flows (Workspace::root())
                 'NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests':

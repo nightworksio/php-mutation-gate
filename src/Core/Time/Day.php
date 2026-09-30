@@ -15,7 +15,7 @@ use function sprintf;
 /** A calendar day, written `YYYY-MM-DD`. */
 final readonly class Day
 {
-    private const string FORMAT = 'Y-m-d';
+    public const string FORMAT = 'Y-m-d';
 
     private const string WRITTEN = '/^(?<y>\d{4})-(?<m>\d{2})-(?<d>\d{2})$/D';
 

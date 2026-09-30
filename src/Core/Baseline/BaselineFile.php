@@ -9,6 +9,7 @@ use function json_encode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -39,8 +40,6 @@ final readonly class BaselineFile
 {
     private const int FORMAT = 1;
 
-    private const int FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-        | JSON_INVALID_UTF8_SUBSTITUTE;
 
     private const string FLOOR = 'floor';
 
@@ -114,7 +113,7 @@ final readonly class BaselineFile
 
     private static function text(string $text): string
     {
-        return json_encode($text, self::FLAGS);
+        return json_encode($text, JsonText::FLAGS);
     }
 
     /** @throws NotInShape */

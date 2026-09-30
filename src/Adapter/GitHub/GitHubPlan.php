@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -51,9 +52,6 @@ final readonly class GitHubPlan implements CiPlan, Configurable
 
     private const string OUTPUT = 'GITHUB_OUTPUT';
 
-    /** One line of JSON, as `$GITHUB_OUTPUT` takes a value. */
-    private const int JSON = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-        | JSON_INVALID_UTF8_SUBSTITUTE;
 
     private const string PULL_REQUEST = '#^refs/pull/(\d+)/#';
 
@@ -202,7 +200,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
             $matrix[] = ['id' => $shard->id()->number(), 'label' => $shard->label()];
         }
 
-        return json_encode($matrix, self::JSON);
+        return json_encode($matrix, JsonText::FLAGS);
     }
 
     private function appended(string $file, string $line): Written|CannotJudge
