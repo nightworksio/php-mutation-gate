@@ -5,19 +5,22 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Git\Diff;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 it('reads every entry of a NUL-separated name-status with the lines each gained', function (): void {
     $status = "M\0src/A.php\0R100\0src/C.php\0src/D.php\0A\0src/G.php\0D\0src/B.php\0T\0src/L.php\0R087\0src/E.php\0src/F.php\0";
-    $lines = [
+    $gained = [
         'src/A.php' => Lines::of(Line::of(2)),
         'src/G.php' => Lines::of(Line::of(1), Line::of(2)),
         'src/F.php' => Lines::of(Line::of(4)),
         'src/E.php' => Lines::of(Line::of(9)),
     ];
+    $lines = ByPath::mapping(Paths::of(...array_map(Path::of(...), array_keys($gained))), static fn(Path $path): Lines => $gained[$path->value()]);
 
     expect(Diff::changes($status, $lines))->toEqual(Changes::of(
         Change::modified(Path::of('src/A.php'), Lines::of(Line::of(2))),
@@ -30,7 +33,7 @@ it('reads every entry of a NUL-separated name-status with the lines each gained'
 });
 
 it('reads nothing from a name-status that lists nothing', function (): void {
-    expect(Diff::changes('', []))->toEqual(Changes::none());
+    expect(Diff::changes('', ByPath::none()))->toEqual(Changes::none());
 });
 
 it('reads the lines each file gained on its new side from a patch with no context', function (): void {
@@ -69,10 +72,10 @@ it('reads the lines each file gained on its new side from a patch with no contex
 
     $lines = Diff::lines($patch);
 
-    expect($lines['src/A.php'])->toEqual(Lines::of(Line::of(2), Line::of(11), Line::of(12), Line::of(13)))
-        ->and($lines['src/B.php'])->toEqual(Lines::none())
-        ->and($lines['src/say "hi".php'])->toEqual(Lines::of(Line::of(1), Line::of(2)))
-        ->and(array_keys($lines))->toBe(['src/A.php', 'src/B.php', 'src/say "hi".php']);
+    expect($lines->at(Path::of('src/A.php'), Lines::of(Line::of(1))))->toEqual(Lines::of(Line::of(2), Line::of(11), Line::of(12), Line::of(13)))
+        ->and($lines->at(Path::of('src/B.php'), Lines::of(Line::of(1))))->toEqual(Lines::none())
+        ->and($lines->at(Path::of('src/say "hi".php'), Lines::none()))->toEqual(Lines::of(Line::of(1), Line::of(2)))
+        ->and($lines->paths())->toEqual(Paths::of(Path::of('src/A.php'), Path::of('src/B.php'), Path::of('src/say "hi".php')));
 });
 
 it('reads every line of a new file as gained', function (string $text, int $count): void {
@@ -95,7 +98,7 @@ it('reads a new file and a hunk in time linear in their lines', function (): voi
     [$whole, $gained] = $read(10)();
 
     expect($whole)->toHaveCount(10)
-        ->and($gained['src/A.php'])->toHaveCount(10)
-        ->and($gained['src/A.php']->has(Line::of(10)))->toBeTrue()
+        ->and($gained->at(Path::of('src/A.php'), Lines::none()))->toHaveCount(10)
+        ->and($gained->at(Path::of('src/A.php'), Lines::none())->has(Line::of(10)))->toBeTrue()
         ->and(Growth::of(5000, $read))->toBeLessThan(Growth::LINEAR);
 });

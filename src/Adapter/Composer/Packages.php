@@ -8,11 +8,13 @@ use function array_any;
 use function array_filter;
 use function array_key_exists;
 use function array_values;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Composer\Names;
 use NightWorksIO\MutationGate\Core\Composer\Unnamed;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -92,13 +94,17 @@ final readonly class Packages
                 return $manifest;
             }
 
-            $manifests[$directory->value()] = [$directory, $manifest];
+            $manifests[$directory->value()] = $manifest;
         }
 
-        $named = self::named($manifests);
+        $held = ByPath::mapping(
+            Paths::of(...$directories),
+            static fn(Path $directory): Manifest|Missing => $manifests[$directory->value()],
+        );
+        $named = self::named($held);
         $packages = [];
 
-        foreach ($manifests as [$directory, $manifest]) {
+        foreach ($held as $directory => $manifest) {
             $packages[] = self::package($directory, $manifest, $named);
         }
 
@@ -108,16 +114,19 @@ final readonly class Packages
     /**
      * The directory of each package that has a manifest, by the name it declares.
      *
-     * @param  array<string, array{Path, Manifest|Missing}> $manifests
+     * @param  ByPath<Manifest|Missing> $manifests each directory's manifest
      * @return array<string, Path>
      */
-    private static function named(array $manifests): array
+    private static function named(ByPath $manifests): array
     {
         $named = [];
 
-        foreach ($manifests as [$directory, $manifest]) {
+        foreach ($manifests as $directory => $manifest) {
             $name = $manifest instanceof Manifest ? $manifest->name() : Unnamed::package();
-            $named = $name instanceof Unnamed ? $named : [...$named, $name => $directory];
+
+            if (is_string($name)) {
+                $named[$name] = $directory;
+            }
         }
 
         return $named;

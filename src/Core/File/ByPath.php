@@ -17,7 +17,7 @@ use IteratorAggregate;
 /**
  * One value for each of some paths, in the order the paths came.
  *
- * @template-covariant T of object
+ * @template-covariant T of object = never
  *
  * @implements IteratorAggregate<Path, T>
  */
@@ -26,6 +26,12 @@ final readonly class ByPath implements Countable, IteratorAggregate
     /** @param array<string, array{Path, T}> $values each path with its value, by the path */
     private function __construct(private array $values)
     {
+    }
+
+    /** @return self<never> */
+    public static function none(): self
+    {
+        return new self([]);
     }
 
     /**
@@ -42,6 +48,45 @@ final readonly class ByPath implements Countable, IteratorAggregate
 
         foreach ($paths as $path) {
             $values[$path->value()] = [$path, $valueOf($path)];
+        }
+
+        return new self($values);
+    }
+
+    /**
+     * These, with a value for a path, in place of any it had, which keeps
+     * the path where it came.
+     *
+     * @template V of object
+     *
+     * @param  V           $value
+     * @return self<T|V>
+     */
+    public function with(Path $path, object $value): self
+    {
+        $values = $this->values;
+        $values[$path->value()] = [$path, $value];
+
+        return new self($values);
+    }
+
+    /**
+     * These and the others' values, a later value of a path replacing an
+     * earlier one where the earlier came.
+     *
+     * @template V of object
+     *
+     * @param  self<V>   ...$others
+     * @return self<T|V>
+     */
+    public function and(self ...$others): self
+    {
+        $values = $this->values;
+
+        foreach ($others as $other) {
+            foreach ($other->values as $key => $value) {
+                $values[$key] = $value;
+            }
         }
 
         return new self($values);
