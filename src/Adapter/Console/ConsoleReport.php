@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Percent;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\SetText;
+use NightWorksIO\MutationGate\Core\Report\TestsText;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -47,8 +48,6 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class ConsoleReport implements Configurable, Reporter
 {
-    private const string INDENT = '  ';
-
     private const string RAISE = 'Raise them with vendor/bin/mutation-gate baseline --write, and commit the baseline.';
 
     private function __construct(private OutputInterface $output)
@@ -115,7 +114,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
 
         foreach ($lines as $line) {
             foreach (explode("\n", $line) as $part) {
-                $indented[] = $part === '' ? '' : sprintf('%s%s', self::INDENT, $part);
+                $indented[] = $part === '' ? '' : sprintf('%s%s', TestsText::INDENT, $part);
             }
         }
 

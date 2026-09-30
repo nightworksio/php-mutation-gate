@@ -204,6 +204,7 @@ final readonly class ReportSchema
             ...self::object([
                 'format' => ['const' => TestsReport::FORMAT],
                 'matrix' => self::oneOf(...MatrixKind::cases()),
+                'noCoverage' => self::TEXT,
                 'useless' => ['type' => 'array', 'items' => $test],
                 'notAssessed' => self::WHOLE,
                 'redundant' => ['oneOf' => [
@@ -213,7 +214,7 @@ final readonly class ReportSchema
                         'removable' => ['type' => 'array', 'items' => $removable],
                     ], []),
                 ]],
-            ], []),
+            ], ['noCoverage']),
         ]);
     }
 

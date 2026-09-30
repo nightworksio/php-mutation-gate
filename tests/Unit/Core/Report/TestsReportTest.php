@@ -120,3 +120,11 @@ it('says how many tests it could not assess, and names an untimed removable test
         ->and(TestsReport::markdown(Killings::untimedVerdict()))->toContain('| <code>tests/DTest.php::it does D</code> | untimed |')
         ->and(Decoded::at(TestsReport::json(Killings::untimedVerdict()), 'redundant', 'removable', 0))->not->toHaveKey('seconds');
 });
+
+it('says in every form why it names no useless test where the verdict holds no coverage, and nothing of it where there is', function (): void {
+    expect(Decoded::at(TestsReport::json(Verdicts::failing()), 'noCoverage'))->toBe(TestsReport::NO_COVERAGE)
+        ->and(Decoded::at(TestsReport::json(Verdicts::failing()), 'useless'))->toBe([])
+        ->and(Decoded::at(TestsReport::json(Killings::verdict(MatrixKind::Full))))->not->toHaveKey('noCoverage')
+        ->and(TestsReport::markdown(Verdicts::failing()))->toContain(sprintf("\n\n%s\n\n## Removable\n\n", TestsReport::NO_COVERAGE))
+        ->and(TestsReport::markdown(Verdicts::failing()))->not->toContain('Kills nothing it covers');
+});
