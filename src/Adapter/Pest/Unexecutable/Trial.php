@@ -38,8 +38,6 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  */
 final class Trial
 {
-    private const string MUTATED = 'PEST_MUTATION_FILE';
-
     private const string ALONE = 'the selected tests fail on their own';
 
     private const string UNGUARDED = 'the run wrote no guard, so the gate cannot tell the mutated file ran';
@@ -81,7 +79,7 @@ final class Trial
         $started = microtime(as_float: true);
         $ran = $this->shell->run($this->judging($tests)->with([
             Recorder::MUTANT => $this->project->absolute($original),
-            self::MUTATED => $copy,
+            Recorder::MUTATED => $copy,
             Guard::FILE => $this->guard,
         ]));
         $took = Seconds::of(microtime(as_float: true) - $started);

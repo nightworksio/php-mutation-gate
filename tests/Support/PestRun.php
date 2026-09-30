@@ -44,7 +44,20 @@ final readonly class PestRun
             'end' => $line,
             'mutator' => $mutator,
             'diff' => sprintf("\n  <fg=red>-        %s</>\n  <fg=green>+        %s</>\n", $removed, $added),
+            'mutated' => self::mutated($id),
         ];
+    }
+
+    /** @return array<string, mixed> a test that failed in the own process of the mutant with this native id */
+    public static function killed(string $id, string $test): array
+    {
+        return ['event' => 'killed', 'mutated' => self::mutated($id), 'test' => $test];
+    }
+
+    /** Where Pest keeps the mutated copy of the mutant with this native id. */
+    public static function mutated(string $id): string
+    {
+        return sprintf('/tmp/mutations/%s', $id);
     }
 
     /** @return array<string, mixed> */

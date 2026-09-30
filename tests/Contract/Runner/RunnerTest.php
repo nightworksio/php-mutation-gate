@@ -260,6 +260,21 @@ it('judges a mutant on a method\'s signature by the map the planning job handed 
         ->and($killed)->toContain(9);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
+it('names the test that killed a mutant, as the coverage map names it, with Pest', function () use ($money): void {
+    $library = Library::pest(Patching::off());
+    $result = $money($library);
+    $killers = [];
+
+    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
+        $killers[$mutant->location()->start()->number()] = array_map(
+            static fn(TestId $test): string => $test->value(),
+            [...$mutant->killers()],
+        );
+    }
+
+    expect($killers)->toBe([11 => ['P\\Tests\\MoneySpec::__pest_evaluable_it_adds_two_amounts'], 16 => [], 21 => [], 27 => []]);
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
 it('reports a mutant Infection skips, allowed the cap, and judges it when run again at a higher cap', function (): void {
     $library = Library::infection(Seconds::of(1.0));
     $request = MutationRequest::of(Paths::of(Path::of('src/Slow.php')), WholeSuite::tests())

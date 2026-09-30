@@ -154,9 +154,12 @@ final readonly class Interpretation
         );
 
         $limit = $records->limit();
-        $limited = $mutant->status() === MutantStatus::TimedOut && $limit instanceof Seconds
-            ? $mutant->withLimit($limit)
-            : $mutant;
+        $status = $mutant->status();
+        $limited = match (true) {
+            $status === MutantStatus::TimedOut && $limit instanceof Seconds => $mutant->withLimit($limit),
+            $status === MutantStatus::Killed => $mutant->killedBy($records->killersOf($id)),
+            default => $mutant,
+        };
         $reason = Reason::that(sprintf(self::UNSELECTED, implode(', ', $unselected)));
 
         return $unselected === [] ? $limited : $limited->because($reason);
