@@ -395,11 +395,13 @@ it('leaves an ignore without an end date open when nothing limits it', function 
 
 it('serialises the settings that affect results canonically, and only those', function (): void {
     expect(Configs::settings(['runner' => 'pest'])->canonical())->toBe(
-        '{"flaky":{"confirmSurvivors":true},"packages":[],"pest":{"canary":"mutation-canary","patch":false},'
+        '{"ci":{"buildkite":{"definition":".buildkite/pipeline.yml"},"gitlab":{"template":".gitlab/mutation-gate.yml"}},'
+        . '"flaky":{"confirmSurvivors":true},"packages":[],"pest":{"canary":"mutation-canary","patch":false},'
         . '"runner":"pest","staticCheck":{"tool":"auto"},"tests":{"order":"killers-first"},'
         . '"timeouts":{"retries":20,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
     )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
-        '{"flaky":{"confirmSurvivors":false},"packages":["packages/*"],"pest":{"canary":"canary","patch":true},'
+        '{"ci":{"buildkite":{"definition":".buildkite/mutation.yml"},"gitlab":{"template":".gitlab/gate.yml"}},'
+        . '"flaky":{"confirmSurvivors":false},"packages":["packages/*"],"pest":{"canary":"canary","patch":true},'
         . '"runner":"infection","staticCheck":{"config":"phpstan.dist.neon","tool":"phpstan"},'
         . '"tests":{"order":"killers-first"},"timeouts":{"retries":0,"seconds":30},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
