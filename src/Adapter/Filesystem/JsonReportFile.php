@@ -30,7 +30,7 @@ final readonly class JsonReportFile implements Configurable, Reporter
 
     public static function fromOptions(Options $options): self|Invalid
     {
-        $path = ReportPath::from($options, '', 'The JSON report is written to a file, whose `path` the entry names.');
+        $path = ReportPath::ofFile($options, 'The JSON report');
 
         return $path instanceof Invalid ? $path : new self($path);
     }

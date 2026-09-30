@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\NotWritten;
-use NightWorksIO\MutationGate\Core\Report\JUnit;
+use NightWorksIO\MutationGate\Core\Report\KillMatrixCsv;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -14,10 +14,10 @@ use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Reporter;
 
 /**
- * The reporter `junit`: JUnit XML, a suite per tree and one for new code,
- * written to the `path` its entry names (ADR-0009, decision 2).
+ * The reporter `kill-matrix`: the kill matrix as CSV, one record per mutant and
+ * covering test, streamed to the `path` its entry names (ADR-0014, decision 9).
  */
-final readonly class JUnitReportFile implements Configurable, Reporter
+final readonly class KillMatrixFile implements Configurable, Reporter
 {
     private function __construct(private ReportPath $path)
     {
@@ -30,13 +30,13 @@ final readonly class JUnitReportFile implements Configurable, Reporter
 
     public static function fromOptions(Options $options): self|Invalid
     {
-        $path = ReportPath::ofFile($options, 'The JUnit report');
+        $path = ReportPath::ofFile($options, 'The kill matrix');
 
         return $path instanceof Invalid ? $path : new self($path);
     }
 
     public function report(Verdict $verdict): Written|NotWritten
     {
-        return $this->path->write(JUnit::xml($verdict));
+        return $this->path->stream(KillMatrixCsv::records($verdict));
     }
 }

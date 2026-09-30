@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -83,6 +86,15 @@ it('takes the new-code sets, the reach, the warnings and the failures, each with
         ->and($again->warnings())->toBe($warnings)
         ->and($again->failures())->toBe($failures)
         ->and($again->trees())->toEqual(TreeVerdicts::of($passed));
+});
+
+it('carries a kill matrix, one of first killers with no coverage until the run gives one', function () use ($passed): void {
+    $matrix = KillMatrix::of(MatrixKind::Full, CoverageMap::empty());
+    $verdict = Verdict::of(TreeVerdicts::of($passed));
+
+    expect($verdict->matrix())->toEqual(KillMatrix::none())
+        ->and($verdict->withMatrix($matrix)->matrix())->toBe($matrix)
+        ->and($verdict->withMatrix($matrix)->cutShort()->matrix())->toBe($matrix);
 });
 
 it('lists every unit and every mutant, tree by tree', function () use ($tree, $unit): void {

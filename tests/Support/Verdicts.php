@@ -6,9 +6,12 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function explode;
 
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -28,6 +31,9 @@ use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -115,6 +121,47 @@ final class Verdicts
             ->within(Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/Money.php'), Lines::of(Line::of(7))));
     }
 
+    /** The mutant of `Money.php`'s ninth line, killed first by `MoneyTest::fits`. */
+    public static function killed(): Mutant
+    {
+        $survivor = self::mutant('src/Money.php:9', 'TrueValue', Family::Literal, self::diff('return true;', 'return false;'));
+
+        return Mutant::of(
+            $survivor->id(),
+            $survivor->nativeId(),
+            $survivor->location(),
+            $survivor->mutation(),
+            MutantStatus::Killed,
+            Unmeasured::duration(),
+        )->killedBy(TestIds::of(TestId::of('MoneyTest::fits')));
+    }
+
+    /**
+     * The coverage of `Money.php` the failing verdict's matrix reads: its
+     * seventh line run by `MoneyTest::fits`, `MoneyTest::refuses` and
+     * `PriceTest::adds`, its ninth by `MoneyTest::fits` and `PriceTest::adds`,
+     * with the runner's names for two of them, one a data set row.
+     */
+    public static function matrix(MatrixKind $kind): KillMatrix
+    {
+        $money = Path::of('src/Money.php');
+        $fits = TestId::of('MoneyTest::fits');
+        $refuses = TestId::of('MoneyTest::refuses');
+        $adds = TestId::of('PriceTest::adds');
+        $coverage = CoverageMap::empty()
+            ->covered($money, Line::of(7), $fits)
+            ->covered($money, Line::of(7), $refuses)
+            ->covered($money, Line::of(7), $adds)
+            ->covered($money, Line::of(9), $fits)
+            ->covered($money, Line::of(9), $adds)
+            ->timed($fits, Seconds::of(0.25));
+        $test = TestName::in(Path::of('tests/Unit/MoneyTest.php'), 'it fits');
+
+        return KillMatrix::of($kind, $coverage)->named(
+            TestNames::none()->with($fits, $test)->with($refuses, TestRow::of($test, '"over"')),
+        );
+    }
+
     /** Every judgement once, the survivor on a changed line first. */
     public static function everyJudgement(): JudgedMutants
     {
@@ -128,7 +175,7 @@ final class Verdicts
 
         return JudgedMutants::of(
             self::survivor(),
-            JudgedMutant::of(self::mutant('src/Money.php:9', 'TrueValue', Family::Literal, self::diff('return true;', 'return false;')), Judged::Killed),
+            JudgedMutant::of(self::killed(), Judged::Killed),
             JudgedMutant::of(self::mutant('src/Money.php:12', 'FalseValue', Family::Literal, self::diff('return false;', 'return true;')), Judged::Uncovered),
             $flaky->judgedBy(TestIds::of(TestId::of('OrderTest::saves'))),
             JudgedMutant::of($unjudged, Judged::Unjudged),
@@ -189,6 +236,7 @@ final class Verdicts
             'failing' => self::failing(),
             'passing' => self::passing(),
             'cut short' => self::passing()->cutShort(),
+            'with a matrix' => self::failing()->withMatrix(self::matrix(MatrixKind::FirstKiller)),
             default => self::empty(),
         };
     }

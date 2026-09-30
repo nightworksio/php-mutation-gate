@@ -12,5 +12,6 @@ it('names a row of a data set as the runner spells it, and folds it into its tes
 
     expect($row->test())->toBe($test)
         ->and($row->row())->toBe('"one"')
+        ->and($row->description())->toBe('it adds with data set "one"')
         ->and($row->value())->toBe('tests/Unit/MoneyTest.php::it adds with data set "one"');
 });

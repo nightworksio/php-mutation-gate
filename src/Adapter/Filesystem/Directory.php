@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
 use function dirname;
+use function fclose;
 use function file_exists;
 use function file_get_contents;
 use function file_put_contents;
+use function fopen;
+use function fwrite;
 use function is_dir;
 use function mkdir;
 
@@ -63,6 +66,35 @@ final readonly class Directory
         return $written === false
             ? CannotJudge::because(sprintf('%s could not be written.', $file))
             : Written::to($file);
+    }
+
+    /**
+     * Write a file piece by piece as the pieces come, creating the directories
+     * it needs and replacing what was there, so a large file is never held
+     * whole.
+     *
+     * @param iterable<string> $pieces
+     */
+    public function stream(Path $path, iterable $pieces): Written|CannotJudge
+    {
+        $file = $this->pathTo($path);
+        $unwritten = CannotJudge::because(sprintf('%s could not be written.', $file));
+
+        $handle = is_dir($file) || (! is_dir(dirname($file)) && ! mkdir(dirname($file), recursive: true))
+            ? false
+            : fopen($file, 'wb');
+
+        if ($handle === false) {
+            return $unwritten;
+        }
+
+        $written = true;
+
+        foreach ($pieces as $piece) {
+            $written = $written && fwrite($handle, $piece) !== false;
+        }
+
+        return fclose($handle) && $written ? Written::to($file) : $unwritten;
     }
 
     private function pathTo(Path $path): string

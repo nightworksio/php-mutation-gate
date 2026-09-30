@@ -12,6 +12,7 @@ use BackedEnum;
 use function in_array;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -83,6 +84,14 @@ final readonly class ReportSchema
                 'counts' => self::counts(),
                 'trees' => self::listOfObjects(self::tree()),
                 'newCode' => self::listOfObjects(self::newCode()),
+                'matrix' => self::oneOf(...MatrixKind::cases()),
+                'tests' => self::listOf(self::object([
+                    'id' => self::TEXT,
+                    'name' => self::TEXT,
+                    'file' => self::TEXT,
+                    'row' => self::TEXT,
+                    'seconds' => self::SECONDS,
+                ], ['file', 'row', 'seconds'])),
                 'mutants' => self::listOfObjects(self::mutant()),
                 'reach' => self::listOf(self::TEXT),
                 'warnings' => self::listOf(self::TEXT),
@@ -145,6 +154,8 @@ final readonly class ReportSchema
             'reason' => self::TEXT,
             'changedLine' => self::FLAG,
             'tests' => self::listOf(self::TEXT),
+            'coveredBy' => self::listOf(self::WHOLE),
+            'killedBy' => self::listOf(self::WHOLE),
             'hint' => self::TEXT,
             'reproduce' => self::TEXT,
             'explain' => self::TEXT,

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Report;
 
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
@@ -14,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Counts;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
@@ -32,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  * public API (ADR-0009, decision 2).
  *
  * @phpstan-type Numbers array<string, int>
+ * @phpstan-type TestEntry array{id: string, name: string, file?: string, row?: string, seconds?: float}
  * @phpstan-type UnitEntry array{path: string, group?: string, filter?: string, origin: string}
  * @phpstan-type TreeEntry array{
  *     path: string,
@@ -69,6 +73,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     reason?: string,
  *     changedLine: bool,
  *     tests: list<string>,
+ *     coveredBy: list<int>,
+ *     killedBy: list<int>,
  *     hint: string,
  *     reproduce: string,
  *     explain: string,
@@ -86,6 +92,7 @@ final readonly class JsonReport
     public static function encode(Verdict $verdict): string
     {
         $overview = Overview::of($verdict);
+        $table = TestTable::of($verdict);
 
         return Json::encode([
             'format' => self::FORMAT,
@@ -96,7 +103,12 @@ final readonly class JsonReport
             'counts' => self::counts($verdict->mutants()->counts()),
             'trees' => self::each($verdict->trees(), self::tree(...)),
             'newCode' => self::each($verdict->newCode(), self::newCode(...)),
-            'mutants' => self::each($verdict->mutants(), self::mutant(...)),
+            'matrix' => $verdict->matrix()->kind()->value,
+            'tests' => self::tests($verdict, $table),
+            'mutants' => self::each(
+                $verdict->mutants(),
+                static fn(JudgedMutant $judged): array => self::mutant($judged, $verdict->matrix(), $table),
+            ),
             'reach' => self::texts($verdict->reach(), static fn(Cause $reason): string => $reason->text()),
             'warnings' => self::texts($verdict->warnings(), static fn(Warning $warning): string => $warning->text()),
             'failures' => self::texts($verdict->failures(), static fn(Failure $failure): string => $failure->text()),
@@ -156,7 +168,7 @@ final readonly class JsonReport
     }
 
     /** @return MutantEntry */
-    private static function mutant(JudgedMutant $judged): array
+    private static function mutant(JudgedMutant $judged, KillMatrix $matrix, TestTable $table): array
     {
         $mutant = $judged->mutant();
         $end = $mutant->location()->end();
@@ -182,12 +194,39 @@ final readonly class JsonReport
             ...$reason instanceof Reason ? ['reason' => $reason->text()] : [],
             'changedLine' => $judged->isOnChangedLine(),
             'tests' => $tests,
+            'coveredBy' => $table->placesOf($matrix->coveredBy($judged)),
+            'killedBy' => $table->placesOf($judged->mutant()->killers()),
             'hint' => $judged->hint()->text(),
             'reproduce' => $judged->reproduce(),
             'explain' => $judged->explain(),
             ...$duration instanceof Seconds ? ['seconds' => $duration->seconds()] : [],
             ...$limit instanceof Seconds ? ['limit' => $limit->seconds()] : [],
         ];
+    }
+
+    /**
+     * Every test the mutants name, once, in the places their `coveredBy` and `killedBy` point at.
+     *
+     * @return list<TestEntry>
+     */
+    private static function tests(Verdict $verdict, TestTable $table): array
+    {
+        $entries = [];
+
+        foreach ($table->tests() as $test) {
+            $name = $verdict->matrix()->names()->nameOf($test);
+            $whole = $verdict->matrix()->names()->testOf($test);
+            $seconds = $verdict->matrix()->secondsOf($test);
+            $entries[] = [
+                'id' => $test->value(),
+                'name' => $name->value(),
+                ...$whole instanceof TestName ? ['file' => $whole->file()->value()] : [],
+                ...$name instanceof TestRow ? ['row' => $name->row()] : [],
+                ...$seconds instanceof Seconds ? ['seconds' => $seconds->seconds()] : [],
+            ];
+        }
+
+        return $entries;
     }
 
     /** @return Numbers */
