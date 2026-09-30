@@ -152,7 +152,9 @@ final readonly class Init
             'trees' => array_map(self::tree(...), [...$trees]),
         ];
 
-        return Document::ofJson(Json::pretty($format === Format::Json ? ['$schema' => self::SCHEMA, ...$config] : $config));
+        $written = $format === Format::Json ? ['$schema' => self::SCHEMA, ...$config] : $config;
+
+        return Document::ofJson(Json::pretty($written));
     }
 
     /** @return array<string, mixed> a tree as `trees` lists it, with the floor of 0 an exclusion gives it */

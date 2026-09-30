@@ -77,8 +77,12 @@ final readonly class Formats
         return match ($format) {
             Format::Json => sprintf("%s\n", $document->json()),
             Format::Php => Php::render($document),
-            Format::Yaml => ($this->installed)(Yaml::class) ? new YamlConfig()->render($document) : $this->needs($format),
-            Format::Neon => ($this->installed)(Neon::class) ? new NeonConfig()->render($document) : $this->needs($format),
+            Format::Yaml => ($this->installed)(Yaml::class)
+                ? new YamlConfig()->render($document)
+                : $this->needs($format),
+            Format::Neon => ($this->installed)(Neon::class)
+                ? new NeonConfig()->render($document)
+                : $this->needs($format),
         };
     }
 

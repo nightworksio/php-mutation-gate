@@ -108,12 +108,22 @@ final readonly class Definition
                     Field::setting('floor', Percent::floor(), $judges, self::NEW_CODE_FLOOR),
                 ),
             ),
-            Field::setting('uncovered', Enumerated::of(UncoveredMutants::cases()), $judges, UncoveredMutants::Count->value),
+            Field::setting(
+                'uncovered',
+                Enumerated::of(UncoveredMutants::cases()),
+                $judges,
+                UncoveredMutants::Count->value,
+            ),
             Field::section(
                 'baseline',
                 Section::fields(
                     Field::setting('path', Location::path(), $judges, 'mutation-gate.baseline.json'),
-                    Field::setting('improvement', Enumerated::of(Improvement::cases()), $judges, Improvement::Require->value),
+                    Field::setting(
+                        'improvement',
+                        Enumerated::of(Improvement::cases()),
+                        $judges,
+                        Improvement::Require->value,
+                    ),
                 ),
             ),
             Field::setting('packages', Items::of(Text::of('a glob')), $results, []),
@@ -185,7 +195,12 @@ final readonly class Definition
             Field::section(
                 'tests',
                 Section::fields(
-                    Field::setting('order', Enumerated::of(TestOrder::cases()), $results, TestOrder::KillersFirst->value),
+                    Field::setting(
+                        'order',
+                        Enumerated::of(TestOrder::cases()),
+                        $results,
+                        TestOrder::KillersFirst->value,
+                    ),
                 ),
             ),
             Field::section('ignores', self::ignores($now)),
