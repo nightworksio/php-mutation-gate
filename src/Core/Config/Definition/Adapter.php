@@ -21,10 +21,13 @@ final readonly class Adapter implements Node
 
     public static function choosing(Builtins $builtins): self
     {
-        return new self($builtins, Section::fields(
-            Field::required('use', Text::of('a name or a class'), Effect::JudgesOrReportsOnly),
-            Field::setting('with', OpenObject::any(), Effect::JudgesOrReportsOnly, []),
-        ));
+        return new self(
+            $builtins,
+            Section::fields(
+                Field::required('use', Text::of('a name or a class'), Effect::JudgesOrReportsOnly),
+                Field::setting('with', OpenObject::any(), Effect::JudgesOrReportsOnly, []),
+            ),
+        );
     }
 
     public function read(mixed $value, string $at): Reading

@@ -75,70 +75,113 @@ final readonly class Definition
             Field::setting('preset', Presets::named(), $judges, []),
             Field::required('runner', Adapter::choosing(self::runners()), $results),
             Field::setting('treeSource', Adapter::choosing(self::treeSources()), $results, 'phpunit'),
-            Field::entries('trees', Items::of(Section::of(
-                DeclaredTree::read(...),
-                Field::required('path', Location::path(), $results),
-                Field::optional('floor', Percent::floor(), $judges),
-                Field::optional('reason', Text::of('a reason'), $judges),
-            ))),
-            Field::section('newCode', Section::fields(
-                Field::setting('floor', Percent::floor(), $judges, self::NEW_CODE_FLOOR),
-            )),
-            Field::setting('uncovered', Enumerated::of(UncoveredMutants::cases()), $judges, 'count'),
-            Field::section('baseline', Section::fields(
-                Field::setting('path', Location::path(), $judges, 'mutation-gate.baseline.json'),
-                Field::setting('improvement', Enumerated::of(Improvement::cases()), $judges, 'require'),
-            )),
-            Field::setting('packages', Items::of(Text::of('a glob')), $results, []),
-            Field::section('reach', Section::fields(
-                Field::setting('everything', Items::of(Text::of('a glob')), $judges, []),
-            )),
-            Field::section('holds', Section::fields(
-                Field::setting('hotPath', Number::between(0, 1), $judges, self::HOT_PATH),
-            )),
-            Field::section('shards', Section::fields(
-                Field::setting('seconds', Integer::atLeast(1), $judges, self::SHARD_SECONDS),
-                Field::setting('max', Integer::atLeast(1), $judges, self::MOST_SHARDS),
-            )),
-            Field::section('costs', Section::fields(
-                Field::setting(
-                    'secondsPerLine',
-                    NumberMap::of(Number::atLeast(0)),
-                    $judges,
-                    ['' => self::SECONDS_PER_LINE],
+            Field::entries(
+                'trees',
+                Items::of(
+                    Section::of(
+                        DeclaredTree::read(...),
+                        Field::required('path', Location::path(), $results),
+                        Field::optional('floor', Percent::floor(), $judges),
+                        Field::optional('reason', Text::of('a reason'), $judges),
+                    ),
                 ),
-            )),
+            ),
+            Field::section(
+                'newCode',
+                Section::fields(
+                    Field::setting('floor', Percent::floor(), $judges, self::NEW_CODE_FLOOR),
+                ),
+            ),
+            Field::setting('uncovered', Enumerated::of(UncoveredMutants::cases()), $judges, 'count'),
+            Field::section(
+                'baseline',
+                Section::fields(
+                    Field::setting('path', Location::path(), $judges, 'mutation-gate.baseline.json'),
+                    Field::setting('improvement', Enumerated::of(Improvement::cases()), $judges, 'require'),
+                ),
+            ),
+            Field::setting('packages', Items::of(Text::of('a glob')), $results, []),
+            Field::section(
+                'reach',
+                Section::fields(
+                    Field::setting('everything', Items::of(Text::of('a glob')), $judges, []),
+                ),
+            ),
+            Field::section(
+                'holds',
+                Section::fields(
+                    Field::setting('hotPath', Number::between(0, 1), $judges, self::HOT_PATH),
+                ),
+            ),
+            Field::section(
+                'shards',
+                Section::fields(
+                    Field::setting('seconds', Integer::atLeast(1), $judges, self::SHARD_SECONDS),
+                    Field::setting('max', Integer::atLeast(1), $judges, self::MOST_SHARDS),
+                ),
+            ),
+            Field::section(
+                'costs',
+                Section::fields(
+                    Field::setting(
+                        'secondsPerLine',
+                        NumberMap::of(Number::atLeast(0)),
+                        $judges,
+                        ['' => self::SECONDS_PER_LINE],
+                    ),
+                ),
+            ),
             Field::section('ci', self::ci()),
-            Field::section('proofs', Section::fields(
-                Field::setting('store', Adapter::choosing(self::stores()), $judges, 'directory'),
-                Field::setting('ignore', Items::of(Text::of('a glob')), $judges, []),
-                Field::setting('write', Enumerated::of(ProofWriting::cases()), $judges, 'auto'),
-            )),
+            Field::section(
+                'proofs',
+                Section::fields(
+                    Field::setting('store', Adapter::choosing(self::stores()), $judges, 'directory'),
+                    Field::setting('ignore', Items::of(Text::of('a glob')), $judges, []),
+                    Field::setting('write', Enumerated::of(ProofWriting::cases()), $judges, 'auto'),
+                ),
+            ),
             Field::optional('budget', Duration::written(), $judges),
-            Field::section('timeouts', Section::fields(
-                Field::setting('mode', Enumerated::of(TimeoutMode::cases()), $judges, 'confirm'),
-                Field::setting('seconds', Integer::atLeast(1), $results, self::TIMEOUT_SECONDS),
-                Field::setting('retries', Integer::atLeast(0), $results, self::TIMEOUT_RETRIES),
-            )),
-            Field::section('flaky', Section::fields(
-                Field::setting('confirmSurvivors', Flag::boolean(), $results, default: true),
-            )),
+            Field::section(
+                'timeouts',
+                Section::fields(
+                    Field::setting('mode', Enumerated::of(TimeoutMode::cases()), $judges, 'confirm'),
+                    Field::setting('seconds', Integer::atLeast(1), $results, self::TIMEOUT_SECONDS),
+                    Field::setting('retries', Integer::atLeast(0), $results, self::TIMEOUT_RETRIES),
+                ),
+            ),
+            Field::section(
+                'flaky',
+                Section::fields(
+                    Field::setting('confirmSurvivors', Flag::boolean(), $results, default: true),
+                ),
+            ),
             Field::section('ignores', self::ignores()),
             Field::setting('reports', Items::of(ReportEntry::choosing(self::reporters())), $judges, []),
-            Field::section('badge', Section::fields(Field::setting(
-                'colors',
-                NumberMap::of(Number::between(0, self::WHOLE)),
-                $judges,
-                self::BADGE_COLORS,
-            ))),
-            Field::section('pest', Section::fields(
-                Field::setting('patch', Flag::boolean(), $results, default: false),
-                Field::setting('canary', Text::of('a group name'), $results, 'mutation-canary'),
-            )),
-            Field::section('local', Section::fields(
-                Field::setting('watchBudget', Duration::written(), $judges, '60s'),
-                Field::setting('prePushBudget', Duration::written(), $judges, '5m'),
-            )),
+            Field::section(
+                'badge',
+                Section::fields(
+                    Field::setting(
+                        'colors',
+                        NumberMap::of(Number::between(0, self::WHOLE)),
+                        $judges,
+                        self::BADGE_COLORS,
+                    ),
+                ),
+            ),
+            Field::section(
+                'pest',
+                Section::fields(
+                    Field::setting('patch', Flag::boolean(), $results, default: false),
+                    Field::setting('canary', Text::of('a group name'), $results, 'mutation-canary'),
+                ),
+            ),
+            Field::section(
+                'local',
+                Section::fields(
+                    Field::setting('watchBudget', Duration::written(), $judges, '60s'),
+                    Field::setting('prePushBudget', Duration::written(), $judges, '5m'),
+                ),
+            ),
         );
     }
 
@@ -168,9 +211,12 @@ final readonly class Definition
         return Section::fields(
             Field::optional('plan', Adapter::choosing(self::ciPlans()), $judges),
             Field::optional('defaultBranch', Text::of('a branch name'), $judges),
-            Field::section('gitlab', Section::fields(
-                Field::setting('template', Location::path(), $judges, '.gitlab/mutation-gate.yml'),
-            )),
+            Field::section(
+                'gitlab',
+                Section::fields(
+                    Field::setting('template', Location::path(), $judges, '.gitlab/mutation-gate.yml'),
+                ),
+            ),
             Field::section('buildkite', Section::fields(Field::setting('step', OpenObject::any(), $judges, []))),
         );
     }

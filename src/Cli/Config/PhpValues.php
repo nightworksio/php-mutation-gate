@@ -138,10 +138,16 @@ final readonly class PhpValues
 
         return match ($use) {
             'directory' => sprintf('Proofs::directory(%s)', self::literals(array_values($with))),
-            's3' => sprintf('Proofs::s3(%s)', implode(', ', array_map(
-                static fn(string $option): string => sprintf('%s: %s', $option, self::literal($with[$option])),
-                array_keys($with),
-            ))),
+            's3' => sprintf(
+                'Proofs::s3(%s)',
+                implode(
+                    ', ',
+                    array_map(
+                        static fn(string $option): string => sprintf('%s: %s', $option, self::literal($with[$option])),
+                        array_keys($with),
+                    ),
+                ),
+            ),
             default => sprintf('Proofs::uses(%s)', implode(', ', [self::literal($use), ...self::options($with)])),
         };
     }

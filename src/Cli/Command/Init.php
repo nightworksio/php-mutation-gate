@@ -187,12 +187,17 @@ final readonly class Init
             return false;
         }
 
-        $added = $project->write(Path::of(self::GITIGNORE), Contents::of(sprintf(
-            '%s%s%s',
-            $text,
-            $text === '' || str_ends_with($text, "\n") ? '' : "\n",
-            sprintf("%s\n", self::IGNORED),
-        )));
+        $added = $project->write(
+            Path::of(self::GITIGNORE),
+            Contents::of(
+                sprintf(
+                    '%s%s%s',
+                    $text,
+                    $text === '' || str_ends_with($text, "\n") ? '' : "\n",
+                    sprintf("%s\n", self::IGNORED),
+                ),
+            ),
+        );
 
         return $added instanceof CannotJudge ? $added : true;
     }

@@ -113,12 +113,15 @@ final readonly class Php
 
         return sprintf(
             "<?php\n\ndeclare(strict_types=1);\n\n%s\nreturn Gate::configure()%s;\n",
-            implode('', array_map(
-                static fn(string $class): string => sprintf("use NightWorksIO\\MutationGate\\Config\\%s;\n", $class),
-                $used,
-            )),
+            implode('', array_map(self::import(...), $used)),
             $code,
         );
+    }
+
+    /** The `use` statement that imports one builder class. */
+    private static function import(string $class): string
+    {
+        return sprintf("use NightWorksIO\\MutationGate\\Config\\%s;\n", $class);
     }
 
     /**

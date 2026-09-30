@@ -25,11 +25,14 @@ final readonly class ReportEntry implements Node
 
     public static function choosing(Builtins $builtins): self
     {
-        return new self($builtins, Section::fields(
-            Field::required('use', Text::of('a name or a class'), Effect::JudgesOrReportsOnly),
-            Field::optional('path', Location::path(), Effect::JudgesOrReportsOnly),
-            Field::optional('with', OpenObject::any(), Effect::JudgesOrReportsOnly),
-        ));
+        return new self(
+            $builtins,
+            Section::fields(
+                Field::required('use', Text::of('a name or a class'), Effect::JudgesOrReportsOnly),
+                Field::optional('path', Location::path(), Effect::JudgesOrReportsOnly),
+                Field::optional('with', OpenObject::any(), Effect::JudgesOrReportsOnly),
+            ),
+        );
     }
 
     public function read(mixed $value, string $at): Reading
