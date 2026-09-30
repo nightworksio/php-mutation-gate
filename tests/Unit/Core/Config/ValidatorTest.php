@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
+use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
 use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
@@ -505,9 +506,23 @@ it('refuses an ignore that does not expire within ignores.maxDays of today', fun
     ]);
 });
 
-it('refuses a late ignore with every other problem, and leaves an expiry written wrong to its own', function (): void {
+it('refuses a late ignore with every problem outside the ignores', function (): void {
     expect(Configs::problems(Configs::validated([
         'budget' => 'soon',
+        'ignores' => [
+            'maxDays' => 30,
+            'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'A day late', 'expires' => '2026-10-31']],
+        ],
+    ])))->toBe([
+        'runner: expected a name, a class, or an object with use and with, got nothing',
+        'budget: expected a duration such as 90s, 15m or 1h30m, got "soon"',
+        'ignores.entries[0].expires: expected a date by 2026-10-30, within ignores.maxDays of today, got "2026-10-31"',
+    ]);
+});
+
+it('judges expiries once every ignore is written as it must be', function (): void {
+    expect(Configs::problems(Configs::validated([
+        'runner' => 'pest',
         'ignores' => [
             'maxDays' => 30,
             'entries' => [
@@ -515,12 +530,16 @@ it('refuses a late ignore with every other problem, and leaves an expiry written
                 ['mutant' => '3f9a1c2b7d04', 'reason' => 'Not a date', 'expires' => 'soon'],
             ],
         ],
-    ])))->toBe([
-        'runner: expected a name, a class, or an object with use and with, got nothing',
-        'budget: expected a duration such as 90s, 15m or 1h30m, got "soon"',
-        'ignores.entries[1].expires: expected a date written YYYY-MM-DD, got "soon"',
-        'ignores.entries[0].expires: expected a date by 2026-10-30, within ignores.maxDays of today, got "2026-10-31"',
-    ]);
+    ])))->toBe(['ignores.entries[1].expires: expected a date written YYYY-MM-DD, got "soon"']);
+});
+
+it('judges no expiry where a config is described rather than read', function (): void {
+    $described = Definition::config(Absent::setting())->read(
+        ['runner' => 'pest', 'ignores' => ['maxDays' => 1, 'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'x']]]],
+        '',
+    );
+
+    expect($described->problems())->toBe([]);
 });
 
 it('judges no expiry against a maxDays written wrong, or entries that are not a list', function (array $ignores): void {

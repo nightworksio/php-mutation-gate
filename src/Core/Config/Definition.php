@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use DateTimeImmutable;
 use NightWorksIO\MutationGate\Core\Config\Definition\Adapter;
 use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Definition\Date;
@@ -78,8 +79,11 @@ final readonly class Definition
     /** The widest a percentage goes. */
     private const int WHOLE = 100;
 
-    /** @return Section<Fields> */
-    public static function config(): Section
+    /**
+     * @param  DateTimeImmutable|Absent $now the instant `ignores.maxDays` counts from, or none, to describe a config
+     * @return Section<Fields>
+     */
+    public static function config(DateTimeImmutable|Absent $now): Section
     {
         $results = Effect::AffectsResults;
         $judges = Effect::JudgesOrReportsOnly;
@@ -188,7 +192,7 @@ final readonly class Definition
                     Field::setting('order', Enumerated::of(TestOrder::cases()), $results, 'killers-first'),
                 ),
             ),
-            Field::section('ignores', self::ignores()),
+            Field::section('ignores', self::ignores($now)),
             Field::section(
                 'equivalence',
                 Section::fields(Field::setting('static', Flag::boolean(), $judges, default: true)),
@@ -235,14 +239,14 @@ final readonly class Definition
             '$id' => self::PUBLISHED,
             'title' => 'mutation-gate',
             'description' => 'The config of nightworksio/mutation-gate: mutation-gate.json, .yaml, .yml or .neon.',
-            ...self::config()->schema(),
+            ...self::config(Absent::setting())->schema(),
         ]);
     }
 
     /** @return array<string, Effect> every setting, by its path, with what it can change */
     public static function effects(): array
     {
-        return self::config()->settings();
+        return self::config(Absent::setting())->settings();
     }
 
     /** @return Section<Fields> */
@@ -263,8 +267,8 @@ final readonly class Definition
         );
     }
 
-    /** @return Section<Fields> */
-    private static function ignores(): Section
+    /** @return Section<Ignores> */
+    private static function ignores(DateTimeImmutable|Absent $now): Section
     {
         $judges = Effect::JudgesOrReportsOnly;
         $entry = Section::of(
@@ -276,7 +280,8 @@ final readonly class Definition
             Field::optional('expires', Date::written(), $judges),
         )->oneOf([['mutant'], ['path', 'mutator']]);
 
-        return Section::fields(
+        return Section::of(
+            Ignores::read($now),
             Field::setting('entries', Items::of($entry), $judges, []),
             Field::optional('maxDays', Integer::atLeast(1), $judges),
             Field::setting('native', Enumerated::of(NativeMarkers::cases()), $judges, 'refuse'),
