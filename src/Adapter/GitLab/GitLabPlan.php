@@ -15,6 +15,7 @@ use function mkdir;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
+use NightWorksIO\MutationGate\Core\Ci\Definitions;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -51,9 +52,6 @@ final readonly class GitLabPlan implements CiPlan, Configurable
 {
     /** Where the child pipeline is written. */
     public const string PIPELINE = '.mutation-gate/pipeline.yml';
-
-    /** The pipeline GitLab runs where `CI_CONFIG_PATH` names no other. */
-    private const string PIPELINE_DEFINITION = '.gitlab-ci.yml';
 
     private const string SHARD_JOB = 'mutation-gate-shard';
 
@@ -134,7 +132,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
     {
         $pipeline = $this->variables->valueOf('CI_CONFIG_PATH');
 
-        return Paths::of(Path::of($pipeline === '' ? self::PIPELINE_DEFINITION : $pipeline), Path::of($this->template));
+        return Paths::of(Path::of($pipeline === '' ? Definitions::GITLAB : $pipeline), Path::of($this->template));
     }
 
     /** The job's token and its signed identity, and the registry's and deploy tokens' passwords. */

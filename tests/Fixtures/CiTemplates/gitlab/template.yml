@@ -1,0 +1,14 @@
+# Written by `mutation-gate init --ci=gitlab`, for the gate v1.2.0.
+# The jobs `mutation-gate plan --ci=gitlab` generates extend this hidden job,
+# and so does the plan job in .gitlab-ci.yml. For an S3 proof store, set
+# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as masked CI/CD variables.
+.mutation-gate:
+  # image: <an image with PHP 8.5 and pcov>
+  # No official image is known to include pcov, and without it the first run
+  # cannot judge. Set the image, or install pcov in before_script.
+  cache:
+    key: mutation-gate-ledger-$CI_COMMIT_REF_SLUG
+    paths:
+      - .mutation-gate/ledger/
+  before_script:
+    - composer install --no-interaction --no-progress

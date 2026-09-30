@@ -18,6 +18,12 @@ use function sprintf;
  */
 final readonly class VsCode
 {
+    /** The file VS Code reads a workspace's tasks from. */
+    public const string TASKS = '.vscode/tasks.json';
+
+    /** The file VS Code reads the extensions a workspace recommends from. */
+    public const string EXTENSIONS = '.vscode/extensions.json';
+
     /** The task's label, which names it in VS Code's task list. */
     public const string LABEL = 'mutation-gate: watch';
 

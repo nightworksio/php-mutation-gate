@@ -498,6 +498,8 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
+                    - UNRELEASED # the package's own branch, in a link to its guide
                 'NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment':
                     - PAGE # comments a page
                     - PAGES # pages read
@@ -536,7 +538,7 @@ services:
                     - SMALLEST_SUITE # tests
                 'NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan':
                     - HIDDEN_JOB # a job name
-                'NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory':
+                'NightWorksIO\MutationGate\Adapter\Filesystem\Resources':
                     - PACKAGE_ROOT # directories up to the package
                 'NightWorksIO\MutationGate\Core\Hint\Hint':
                     - NAMED # names a hint gives
@@ -607,8 +609,8 @@ services:
                 'NightWorksIO\MutationGate\Cli\Command\FlowOptions':
                     - COVERAGE # an option of the gate's commands
                     - FULL # an option of the gate's commands
-                'NightWorksIO\MutationGate\Cli\Flow\Standing':
-                    - MAIN # the project's default branch when none is configured or detected
+                'NightWorksIO\MutationGate\Core\Ci\DefaultBranch':
+                    - FALLBACK # the project's default branch when none is configured or detected
                 'NightWorksIO\MutationGate\Core\Plan\PlanFile':
                     - BASE # a field of the plan
                     - PROVED # a field of the plan

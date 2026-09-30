@@ -333,3 +333,237 @@ it('writes nothing from an Infection config it cannot take over from, or one tha
         ->and([$none->code, $none->errors])->toBe([2, "There is no infection.json5, infection.json or .dist of either here to import from.\n"])
         ->and($file($project, 'mutation-gate.php'))->toBe('');
 });
+
+/**
+ * `init` run in a copy of the Laravel fixture, with these files written into it first.
+ *
+ * @param  array<string, string|bool|null> $input
+ * @param  array<string, string>           $files
+ * @return list{string, Commands}
+ */
+function initCi(array $input, array $files = []): array
+{
+    $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
+
+    foreach ($files as $path => $text) {
+        Scratch::write($project, $path, $text);
+    }
+
+    chdir($project);
+    $ran = Commands::run($project, 'init', $input);
+
+    return [$project, $ran];
+}
+
+/**
+ * What `init` answered, and the config it wrote, where it refuses.
+ *
+ * @param  array<string, string|bool|null> $input
+ * @param  array<string, string>           $files
+ * @return list{int, string, string, string}
+ */
+function initCiRefused(array $input, array $files = []): array
+{
+    [$project, $ran] = initCi($input, $files);
+
+    return [$ran->code, $ran->output, $ran->errors, initCiFile($project, 'mutation-gate.php')];
+}
+
+/** A file of a project, or '' when it is not there. */
+function initCiFile(string $project, string $path): string
+{
+    $file = sprintf('%s/%s', $project, $path);
+
+    return is_file($file) ? (string) file_get_contents($file) : '';
+}
+
+/** Code for a full run's estimate to count: six lines. */
+const INIT_CI_MONEY = <<<'PHP'
+    <?php
+
+    final class Money
+    {
+        public function add(int $cents): int
+        {
+            return $cents + 1;
+        }
+    }
+
+    PHP;
+
+const INIT_CI_WROTE = "Wrote mutation-gate.php with what zero-config found, and added .mutation-gate/ to .gitignore.\n";
+
+const INIT_CI_UNPINNED
+    = 'Composer did not install the gate here, so the definition names <the commit of a release>: pin the commit of a release.';
+
+it('writes the GitHub one-step action --single asks for, and says which check to require', function (): void {
+    [$project, $ran] = initCi(['--ci' => 'github', '--single' => true]);
+    $workflow = initCiFile($project, '.github/workflows/mutation.yml');
+
+    expect([$ran->code, $ran->output, $ran->errors])->toBe([0, sprintf("%s%s\n", INIT_CI_WROTE, implode("\n", [
+        'Wrote .github/workflows/mutation.yml.',
+        'It is the one-step action, as --single asks.',
+        'Require the check `mutation testing` in the protection of main.',
+        INIT_CI_UNPINNED,
+    ])), ''])
+        ->and($workflow)->toContain("branches: ['main']")
+        ->and($workflow)->toContain("php-version: '8.5'")
+        ->and($workflow)->toContain("runner: 'pest'")
+        ->and($workflow)->toContain('nightworksio/php-mutation-gate@<the commit of a release> # <its version>')
+        ->and($workflow)->not->toContain('%%');
+});
+
+it('picks the GitHub definition a full run\'s estimate fits, where neither is asked for', function (
+    string $perLine,
+    string $picked,
+    string $check,
+): void {
+    [$project, $ran] = initCi(['--ci' => 'github'], [
+        'mutation-gate.json' => sprintf(
+            '{"runner": "pest", "trees": [{"path": "app"}], "costs": {"secondsPerLine": {"": %s}}}',
+            $perLine,
+        ),
+        'app/Money.php' => INIT_CI_MONEY,
+    ]);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toStartWith("mutation-gate.json is already here, so init makes only what --ci and --editor ask for.\n")
+        ->and($ran->output)->toContain($picked)
+        ->and($ran->output)->toContain(sprintf('Require the check `%s` in the protection of main.', $check))
+        ->and(initCiFile($project, '.github/workflows/mutation.yml'))->not->toBe('');
+})->with([
+    'within one shard' => [
+        '0.5',
+        'It is the one-step action: a full run is estimated at',
+        'mutation testing',
+    ],
+    'more than one shard' => [
+        '1000',
+        'It is the reusable workflow: a full run is estimated at',
+        'mutation / verdict',
+    ],
+]);
+
+it('says the one-step action is taken where a full run cannot be estimated', function (): void {
+    [, $ran] = initCi(['--ci' => 'github'], [
+        'mutation-gate.json' => '{"runner": "pest", "treeSource": "\\\\Acme\\\\NoSource", "trees": [{"path": "app"}]}',
+    ]);
+
+    expect($ran->output)->toContain('It is the one-step action, since a full run cannot be estimated: ');
+});
+
+it('writes GitLab\'s template and prints the jobs to add to .gitlab-ci.yml', function (): void {
+    [$project, $ran] = initCi(['--ci' => 'gitlab']);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toStartWith(sprintf("%sWrote .gitlab/mutation-gate.yml.\nAdd this to .gitlab-ci.yml:\n\n", INIT_CI_WROTE))
+        ->and($ran->output)->toContain("  - local: '.gitlab/mutation-gate.yml'")
+        ->and($ran->output)->not->toContain('Require the check')
+        ->and(initCiFile($project, '.gitlab/mutation-gate.yml'))->toContain('.mutation-gate:')
+        ->and(initCiFile($project, '.gitlab-ci.yml'))->toBe('');
+});
+
+it('writes Buildkite\'s pipeline, names it as the definition in the config, and prints the upload step', function (): void {
+    [$project, $ran] = initCi(['--ci' => 'buildkite', '--format' => 'json']);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toContain("Wrote .buildkite/mutation-gate.yml.\nAdd this to the pipeline Buildkite runs:\n\n")
+        ->and($ran->output)->toContain('buildkite-agent pipeline upload .buildkite/mutation-gate.yml')
+        ->and(initCiFile($project, '.buildkite/mutation-gate.yml'))->toContain("label: 'mutation: plan'")
+        ->and(initCiFile($project, 'mutation-gate.json'))->toContain('"definition": ".buildkite/mutation-gate.yml"');
+});
+
+it('prints CircleCI\'s config to add to .circleci/config.yml, and writes none', function (): void {
+    [$project, $ran] = initCi(['--ci' => 'circleci']);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toStartWith(sprintf("%sAdd this to .circleci/config.yml:\n\n# For an S3 proof store", INIT_CI_WROTE))
+        ->and($ran->output)->toContain("\nversion: 2.1\n")
+        ->and(initCiFile($project, '.circleci/config.yml'))->toBe('');
+});
+
+it('prints the definition with --stdout, and writes it nowhere', function (): void {
+    [$project, $ran] = initCi(['--ci' => 'github', '--single' => true, '--stdout' => true]);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toStartWith(sprintf("%s.github/workflows/mutation.yml:\n\n# Written by `mutation-gate init --ci=github`", INIT_CI_WROTE))
+        ->and(initCiFile($project, '.github/workflows/mutation.yml'))->toBe('');
+});
+
+it('writes for the one CI the project\'s files show, where --ci names none', function (): void {
+    [$project, $ran] = initCi(['--ci' => null], ['.gitlab-ci.yml' => "stages: [test]\n"]);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toContain('Wrote .gitlab/mutation-gate.yml.')
+        ->and(initCiFile($project, '.gitlab-ci.yml'))->toBe("stages: [test]\n");
+});
+
+it('writes nothing where --ci names no CI it writes for, or where the files show none or several', function (): void {
+    $refused = initCiRefused(...);
+    $nothing = static fn(string $why): array => [2, '', sprintf("%s\n", $why), ''];
+    $unwritten = 'init --ci writes a definition for github, gitlab, buildkite or circleci, not %s.';
+
+    expect($refused(['--ci' => null]))
+        ->toBe($nothing('No CI is detected here, so init writes nothing. Name one with --ci=<name>.'))
+        ->and($refused(['--ci' => null], ['.gitlab-ci.yml' => "stages: [test]\n", '.circleci/config.yml' => "version: 2.1\n"]))
+        ->toBe($nothing('gitlab, circleci are all detected here, so init writes nothing. Name one with --ci=<name>.'))
+        ->and($refused(['--ci' => 'jenkins']))->toBe($nothing(sprintf($unwritten, 'jenkins')))
+        ->and($refused(['--ci' => 'json']))->toBe($nothing(sprintf($unwritten, 'json')))
+        ->and($refused(['--ci' => 'gitlab', '--sharded' => true]))
+        ->toBe($nothing('--sharded chooses GitHub\'s definition, so it takes --ci=github.'))
+        ->and($refused(['--ci' => 'github', '--sharded' => true, '--single' => true]))
+        ->toBe($nothing('--sharded and --single each choose one; pass one of them.'));
+});
+
+it('writes nothing where the definition it would write is already here', function (): void {
+    [$project, $ran] = initCi(['--ci' => 'github'], ['.github/workflows/mutation.yml' => "name: ours\n"]);
+
+    expect([$ran->code, $ran->output, $ran->errors])->toBe([
+        2,
+        '',
+        ".github/workflows/mutation.yml is already here, and init --ci writes a definition only where there is none. --stdout prints it instead.\n",
+    ])->and(initCiFile($project, '.github/workflows/mutation.yml'))->toBe("name: ours\n")
+        ->and(initCiFile($project, 'mutation-gate.php'))->toBe('');
+});
+
+it('prints a definition already here with --stdout, as it does any other', function (): void {
+    [$project, $ran] = initCi(
+        ['--ci' => 'github', '--single' => true, '--stdout' => true],
+        ['.github/workflows/mutation.yml' => "name: ours\n"],
+    );
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toContain(".github/workflows/mutation.yml:\n\n")
+        ->and(initCiFile($project, '.github/workflows/mutation.yml'))->toBe("name: ours\n");
+});
+
+it('sets VS Code up with --editor=vscode beside the config, and beside one already here', function (): void {
+    [$project, $ran] = initCi(['--editor' => 'vscode']);
+    [$configured, $kept] = initCi(['--editor' => 'vscode'], [
+        'mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "app"}]}',
+    ]);
+
+    expect([$ran->code, $ran->output, $ran->errors])
+        ->toBe([0, sprintf("%sWrote .vscode/tasks.json.\nWrote .vscode/extensions.json.\n", INIT_CI_WROTE), ''])
+        ->and(initCiFile($project, '.vscode/tasks.json'))->toContain('"label": "mutation-gate: watch"')
+        ->and($kept->output)->toBe(sprintf(
+            "%s is already here, so init makes only what --ci and --editor ask for.\n%s",
+            'mutation-gate.json',
+            "Wrote .vscode/tasks.json.\nWrote .vscode/extensions.json.\n",
+        ))
+        ->and(initCiFile($configured, 'mutation-gate.json'))->toBe('{"runner": "pest", "trees": [{"path": "app"}]}');
+});
+
+it('makes the CI definition and the editor\'s files in one init', function (): void {
+    [, $ran] = initCi(['--ci' => 'gitlab', '--editor' => 'vscode', '--stdout' => true]);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toContain(".gitlab/mutation-gate.yml:\n\n")
+        ->and($ran->output)->toContain(".vscode/tasks.json:\n\n")
+        ->and($ran->output)->toContain(".vscode/extensions.json:\n\n");
+});
+
+it('writes nothing for an editor it does not set up', function (): void {
+    expect(initCiRefused(['--editor' => 'phpstorm']))
+        ->toBe([2, '', "phpstorm is no editor init --editor sets up. Name vscode.\n", '']);
+});

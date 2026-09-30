@@ -1,0 +1,29 @@
+include:
+  - local: '%%template%%'
+
+mutation-plan:
+  stage: test
+  extends: .mutation-gate
+  script:
+    - |
+      case "$CI_PIPELINE_SOURCE" in
+        merge_request_event) base="--changed-since=$CI_MERGE_REQUEST_DIFF_BASE_SHA" ;;
+        schedule) base="" ;;
+        *) base="--changed-since=last-passed" ;;
+      esac
+      vendor/bin/mutation-gate plan --ci=gitlab $base
+  artifacts:
+    paths:
+      - .mutation-gate/
+
+mutation:
+  stage: test
+  needs:
+    - mutation-plan
+  variables:
+    PARENT_PIPELINE_ID: $CI_PIPELINE_ID
+  trigger:
+    include:
+      - artifact: .mutation-gate/pipeline.yml
+        job: mutation-plan
+    strategy: mirror

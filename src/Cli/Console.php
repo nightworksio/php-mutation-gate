@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Cli\Doctor\Measure;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
 use NightWorksIO\MutationGate\Cli\Doctor\Online;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
@@ -86,7 +87,12 @@ final readonly class Console
             mode: InputOption::VALUE_REQUIRED,
             description: 'Set budget, the time a run may take: 90s, 15m, 1h30m',
         ));
-        $definition->addOption(new InputOption('ci', mode: InputOption::VALUE_REQUIRED, description: 'Set ci.plan'));
+        $definition->addOption(new InputOption(
+            'ci',
+            mode: InputOption::VALUE_OPTIONAL,
+            description: 'Set ci.plan; with init, write the CI definition, for the detected CI where none is named',
+            default: false,
+        ));
 
         foreach (self::NOT_BUILT as $name => $description) {
             $application->addCommand(NotBuilt::command($name, $description));
@@ -105,11 +111,12 @@ final readonly class Console
         $application->addCommand(CoverageCommand::command($composition));
         $application->addCommand(PreCommitCommand::command($composition));
         $formats = new Formats(class_exists(...));
-        $application->addCommand(Init::command($project, $extensions, $effective, $formats, $now));
-        $application->addCommand(Init::import($project, $extensions, $effective, $formats, $now));
+        $installed = $detected->installed();
+        $gate = $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();
+        $application->addCommand(Init::command($project, $extensions, $effective, $formats, $now, $gate));
+        $application->addCommand(Init::import($project, $extensions, $effective, $formats, $now, $gate));
         $application->addCommand(ConfigShow::command($effective, $formats));
         $application->addCommand(ConfigSchema::command());
-        $installed = $detected->installed();
         $probe = PhpProbe::of(PHP_BINARY, getenv());
         $application->addCommand(Doctor::command(
             new Observed($project, $extensions, $effective, $detected, $probe, $now),

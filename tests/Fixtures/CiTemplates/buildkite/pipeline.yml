@@ -1,0 +1,17 @@
+# Written by `mutation-gate init --ci=buildkite`, for the gate v1.2.0.
+# Upload it from your pipeline, and schedule that pipeline twice a week for
+# the full run. Keep .mutation-gate/ledger between builds with a cache plugin,
+# keyed by branch, and set the agents' image to one with PHP 8.5 and pcov:
+# no official image is known to include pcov, and without it the first run
+# cannot judge. For an S3 proof store, give the agents AWS_ACCESS_KEY_ID and
+# AWS_SECRET_ACCESS_KEY from your secrets.
+steps:
+  - label: 'mutation: plan'
+    artifact_paths: '.mutation-gate/**/*'
+    command:
+      - composer install --no-interaction --no-progress
+      - |
+        if [ "$BUILDKITE_PULL_REQUEST" != "false" ]; then base="--changed-since=origin/$BUILDKITE_PULL_REQUEST_BASE_BRANCH"
+        elif [ "$BUILDKITE_SOURCE" = "schedule" ]; then base=""
+        else base="--changed-since=last-passed"; fi
+        vendor/bin/mutation-gate plan --ci=buildkite $base | buildkite-agent pipeline upload

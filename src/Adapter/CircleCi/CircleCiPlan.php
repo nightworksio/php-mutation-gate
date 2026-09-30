@@ -10,6 +10,7 @@ use function getenv;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
+use NightWorksIO\MutationGate\Core\Ci\Definitions;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -38,8 +39,6 @@ use function sprintf;
 final readonly class CircleCiPlan implements CiPlan, Configurable
 {
     private const string PULL_REQUEST = '#/pull/(\d+)$#';
-
-    private const string DEFINITION = '.circleci/config.yml';
 
     private function __construct(private Variables $variables, private string $to)
     {
@@ -83,7 +82,7 @@ final readonly class CircleCiPlan implements CiPlan, Configurable
     /** The config CircleCI runs from the repository. */
     public function definitions(): Paths
     {
-        return Paths::of(Path::of(self::DEFINITION));
+        return Paths::of(Path::of(Definitions::CIRCLECI));
     }
 
     /** The job's OpenID Connect tokens. */
