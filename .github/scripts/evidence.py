@@ -197,6 +197,22 @@ def actionlint(text: str, root: str) -> list[dict]:
     ]
 
 
+def zizmor(text: str, root: str) -> list[dict]:
+    """`zizmor --format=json`: each finding not ignored, by its audit, where its primary location is."""
+    found = []
+    for item in json.loads(text) or []:
+        if item.get("ignored"):
+            continue
+        locations = item.get("locations") or [{}]
+        primary = next((place for place in locations if (place.get("symbolic") or {}).get("kind") == "Primary"), locations[0])
+        symbolic = primary.get("symbolic") or {}
+        path = ((symbolic.get("key") or {}).get("Local") or {}).get("verbatim_path", "")
+        row = (((primary.get("concrete") or {}).get("location") or {}).get("start_point") or {}).get("row")
+        line = int(row) + 1 if isinstance(row, int) else 0
+        found.append(finding("zizmor", relative(str(path), root), line, str(item.get("ident", "zizmor")), str(symbolic.get("annotation") or item.get("desc", ""))))
+    return found
+
+
 def lychee(text: str, root: str) -> list[dict]:
     """`lychee --format json`: each link that failed or timed out, where it is written."""
     answer = json.loads(text)
@@ -252,6 +268,7 @@ READERS = {
     "typos": typos,
     "markdownlint": markdownlint,
     "actionlint": actionlint,
+    "zizmor": zizmor,
     "lychee": lychee,
     "gitleaks": gitleaks,
     "osv-scanner": osv,

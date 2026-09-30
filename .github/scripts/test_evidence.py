@@ -123,6 +123,24 @@ class Readers(unittest.TestCase):
         self.assertEqual(read("gitleaks", "gitleaks.json"), [("config.ini", 2, "secret")])
         self.assertEqual(read("osv-scanner", "osv-scanner.json"), [("composer.lock", 0, "vulnerability")])
 
+    def test_zizmor_names_each_audit_at_its_primary_location_counted_from_one(self):
+        self.assertEqual(read("zizmor", "zizmor.json"), [(".github/workflows/bad.yml", 11, "template-injection")])
+
+    def test_zizmor_leaves_out_what_is_ignored_and_reads_a_finding_with_no_place(self):
+        text = json.dumps([
+            {"ident": "unpinned-uses", "ignored": True, "locations": []},
+            {"ident": "excessive-permissions", "ignored": False, "locations": [
+                {"symbolic": {"kind": "Related", "key": {"Local": {"verbatim_path": "./a.yml"}}}, "concrete": {"location": {"start_point": {"row": 1}}}},
+                {"symbolic": {"kind": "Primary", "key": {"Local": {"verbatim_path": "./b.yml"}}}, "concrete": {"location": {"start_point": {"row": 4}}}},
+            ]},
+            {"ident": "dependabot-cooldown", "desc": "insufficient cooldown", "locations": []},
+        ])
+
+        self.assertEqual(
+            [(f["path"], f["line"], f["rule"], f["detail"]) for f in evidence.zizmor(text, ROOT)],
+            [("b.yml", 5, "excessive-permissions", ""), ("", 0, "dependabot-cooldown", "insufficient cooldown")],
+        )
+
     def test_a_script_of_this_repository_is_read_as_it_wrote_its_findings(self):
         text = json.dumps([{"path": "", "line": 0, "rule": "conventional-subject", "detail": "abc12345"}])
 
