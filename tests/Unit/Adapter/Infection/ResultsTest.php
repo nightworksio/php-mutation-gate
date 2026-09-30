@@ -193,16 +193,16 @@ it('reads a kill or an error whose output ran out of exactly the gate\'s cap as 
     ]);
 });
 
-it('reads a mutant whose fatal error PHPUnit hid as out of memory with no limit under a cap, and as it was with none', function (
+it('reads a mutant whose fatal error PHPUnit hid as out of memory with no limit under a cap, and one PHP showed or with none as it was', function (
+    string $end,
     MemoryCap $cap,
     MutantStatus $status,
     int $killers,
 ): void {
     $at = resultsProject();
-    $hidden = "There was 1 failure:\n\n1) Tests\\MoneySpec::addsTwoAmounts\nFailed.\n"
-        . "Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message.";
+    $output = sprintf("There was 1 failure:\n\n1) Tests\\MoneySpec::addsTwoAmounts\nFailed.\n%s", $end);
     InfectionRun::log($at->own(Invocation::JSON), ['killed' => [
-        [...resultsMutant($at, 'Plus', 'src/Money.php', 11, 'return $a + $b;', 'return $a - $b;'), 'processOutput' => $hidden],
+        [...resultsMutant($at, 'Plus', 'src/Money.php', 11, 'return $a + $b;', 'return $a - $b;'), 'processOutput' => $output],
     ]]);
     InfectionRun::text($at->own(Invocation::TEXT), []);
     $ran = Ran::finished(succeeded: false, output: 'exit 1');
@@ -213,8 +213,31 @@ it('reads a mutant whose fatal error PHPUnit hid as out of memory with no limit 
         ->and($mutant?->limit())->toEqual(Unmeasured::duration())
         ->and(count($mutant?->killers() ?? TestIds::none()))->toBe($killers);
 })->with([
-    'under a cap' => [MemoryCap::of(64, MemoryUnit::Megabytes), MutantStatus::OutOfMemory, 0],
-    'with none' => [MemoryCap::none(), MutantStatus::Killed, 1],
+    'PHPUnit 12, under a cap' => [
+        "Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message.",
+        MemoryCap::of(64, MemoryUnit::Megabytes),
+        MutantStatus::OutOfMemory,
+        0,
+    ],
+    'PHPUnit 13, under a cap' => [
+        'Fatal error: Premature end of PHP process when running Tests\\MoneySpec::addsTwoAmounts.',
+        MemoryCap::of(64, MemoryUnit::Megabytes),
+        MutantStatus::OutOfMemory,
+        0,
+    ],
+    'PHPUnit 13 after a fatal PHP showed, under a cap' => [
+        "Fatal error:  Uncaught Error: Call to undefined function nothing()\n"
+            . 'Fatal error: Premature end of PHP process when running Tests\\MoneySpec::addsTwoAmounts.',
+        MemoryCap::of(64, MemoryUnit::Megabytes),
+        MutantStatus::Killed,
+        1,
+    ],
+    'PHPUnit 12, with none' => [
+        "Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message.",
+        MemoryCap::none(),
+        MutantStatus::Killed,
+        1,
+    ],
 ]);
 
 it('counts mutants that share a file, a mutator and a change, so each has an id of its own', function (): void {

@@ -32,6 +32,8 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
+use function preg_match;
+use function preg_quote;
 use function sprintf;
 use function str_contains;
 use function usort;
@@ -47,8 +49,8 @@ use function usort;
  * carries the tests that killed it; one killed by static analysis, a
  * timeout or an error carries none. A mutant killed or errored whose output
  * holds PHP's fatal error for exactly the gate's memory cap is out of memory
- * (ADR-0004, decision 9). Under a cap, one whose output holds only PHPUnit's
- * word that its process ended early with the error hidden, as where the
+ * (ADR-0004, decision 9). Under a cap, one whose output holds PHPUnit's word
+ * that its process ended early but no fatal error PHP printed, as where the
  * project shows PHP's errors nowhere again, is out of memory with no limit
  * known, which memory triage never counts as a kill.
  *
@@ -64,8 +66,11 @@ use function usort;
  */
 final readonly class Results
 {
-    /** What PHPUnit prints where its process ended on a fatal error it was told to show nowhere. */
-    private const string HIDDEN = "Premature end of PHPUnit's PHP process";
+    /** What PHPUnit prints where its process ended on a fatal error: PHPUnit 12 only where it shows none. */
+    private const string ENDED_EARLY = 'Premature end of ';
+
+    /** A fatal error PHP itself printed, rather than PHPUnit's word, filled in, that its process ended early. */
+    private const string SHOWN = '/Fatal error: +(?!%s)/';
 
     /** The field of a log entry that holds what the mutant's process printed. */
     private const string OUTPUT = 'processOutput';
@@ -223,7 +228,7 @@ final readonly class Results
     /**
      * Whether an entry of this list is a mutant whose own process ran out of
      * the memory cap: exactly the cap, as its output says, or, under a cap,
-     * a fatal error PHPUnit says it hid.
+     * a process PHPUnit says ended early with no fatal error PHP printed.
      *
      * @throws NotInShape
      */
@@ -231,7 +236,8 @@ final readonly class Results
     {
         $output = Lenient::text($entry->field(self::OUTPUT));
 
-        $hidden = $cap->caps() && str_contains($output, self::HIDDEN);
+        $shown = sprintf(self::SHOWN, preg_quote(self::ENDED_EARLY, '/'));
+        $hidden = $cap->caps() && str_contains($output, self::ENDED_EARLY) && preg_match($shown, $output) !== 1;
 
         return $list->mayRunOutOfMemory() && (Exhaustion::isOf(Exhaustion::in($output), $cap) || $hidden);
     }
