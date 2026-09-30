@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -153,7 +154,7 @@ it('reads a merge request, a branch and the default branch from GitLab', functio
         '"refs/heads/" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.',
     );
 
-    expect($on($mergeRequest)->runOn())->toEqual(RunOn::pullRequest('7', $main))
+    expect($on($mergeRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('7'), $main))
         ->and($on($push)->runOn())->toEqual(RunOn::branch('feature', $main))
         ->and($on(Variables::of(['CI_COMMIT_REF_NAME' => 'feature']))->runOn())
         ->toEqual(RunOn::branch('feature', $unnamed));

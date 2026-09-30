@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Project;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Port\TreeSource;
 
@@ -17,9 +18,10 @@ final readonly class AutoloadTrees implements TreeSource
     {
     }
 
+    /** The tree source of the project at a root, as the registration spells it (owner: config). */
     public static function in(string $root): self
     {
-        return new self(Manifests::in($root));
+        return new self(Manifests::in(Root::of($root)));
     }
 
     public function trees(): Trees|CannotJudge

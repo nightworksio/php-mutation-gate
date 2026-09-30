@@ -18,9 +18,9 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Written;
 
-use function rtrim;
 use function sprintf;
 
 /**
@@ -30,13 +30,23 @@ use function sprintf;
  */
 final readonly class Directory
 {
-    private function __construct(private string $root)
+    private function __construct(private Root $root)
     {
     }
 
+    /**
+     * The directory as the command line or a config spells it. The console and
+     * `init` hand the project's and the vendor's roots over this way (owner:
+     * flows, config).
+     */
     public static function at(string $root): self
     {
-        return new self(rtrim($root, '/'));
+        return new self(Root::of($root));
+    }
+
+    public static function in(Root $root): self
+    {
+        return new self($root);
     }
 
     public function read(Path $path): Contents|Missing|CannotJudge
@@ -99,6 +109,6 @@ final readonly class Directory
 
     private function pathTo(Path $path): string
     {
-        return sprintf('%s/%s', $this->root, $path->value());
+        return $this->root->at($path)->value();
     }
 }

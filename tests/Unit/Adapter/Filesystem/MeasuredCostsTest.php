@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -64,7 +65,7 @@ $at = static fn(): Instant => Instant::at(new DateTimeImmutable('2026-09-29T20:4
 it('costs a unit what a shard last measured it to take', function () use ($at): void {
     $learned = Timings::of(Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'pest', $at()));
 
-    $model = MeasuredCosts::at(Scratch::directory(), SecondsPerLine::standard());
+    $model = MeasuredCosts::at(Root::of(Scratch::directory()), SecondsPerLine::standard());
 
     expect($model->cost(Unit::file(Path::of('src/Money.php')), $learned))
         ->toEqual(Seconds::of(12.4));
@@ -78,7 +79,7 @@ it('estimates a unit no shard measured as its lines of code times the seconds a 
     $rates = SecondsPerLine::of(LineRate::of('', Seconds::of(0.5)));
 
     expect($linesOf(COSTED_MONEY))->toBeGreaterThan(1)
-        ->and(MeasuredCosts::at($root, $rates)->cost(Unit::file(Path::of('src/Money.php')), Timings::none()))
+        ->and(MeasuredCosts::at(Root::of($root), $rates)->cost(Unit::file(Path::of('src/Money.php')), Timings::none()))
         ->toEqual(Seconds::of($linesOf(COSTED_MONEY) * 0.5));
 });
 
@@ -87,12 +88,12 @@ it('estimates a line at the rate of the longest prefix its path is under', funct
     Scratch::write($root, 'src/Http/Money.php', COSTED_MONEY);
     $rates = SecondsPerLine::of(LineRate::of('', Seconds::of(0.2)), LineRate::of('src/Http', Seconds::of(3.0)));
 
-    expect(MeasuredCosts::at($root, $rates)->cost(Unit::file(Path::of('src/Http/Money.php')), Timings::none()))
+    expect(MeasuredCosts::at(Root::of($root), $rates)->cost(Unit::file(Path::of('src/Http/Money.php')), Timings::none()))
         ->toEqual(Seconds::of($linesOf(COSTED_MONEY) * 3.0));
 });
 
 it('costs a file that is not there nothing', function (): void {
-    $model = MeasuredCosts::at(Scratch::directory(), SecondsPerLine::standard());
+    $model = MeasuredCosts::at(Root::of(Scratch::directory()), SecondsPerLine::standard());
 
     expect($model->cost(Unit::file(Path::of('src/Gone.php')), Timings::none()))
         ->toEqual(Seconds::of(0.0));
@@ -108,7 +109,7 @@ it('estimates a held directory as the PHP files under it, however deep', functio
 
     $kernel = Unit::held(Path::of('src/Kernel'), Group::named('holds:kernel'));
 
-    expect(MeasuredCosts::at($root, $rates)->cost($kernel, Timings::none()))
+    expect(MeasuredCosts::at(Root::of($root), $rates)->cost($kernel, Timings::none()))
         ->toEqual(Seconds::of(($linesOf(COSTED_MONEY) + $linesOf(COSTED_LIMIT)) * 1.0))
         ->and($linesOf(COSTED_LIMIT))->toBeGreaterThan(0)
         ->and($linesOf('Words a tokenizer would read as a line of text.'))->toBeGreaterThan(0);
@@ -126,7 +127,7 @@ it('learns each unit\'s share of a shard\'s time from its mutants', function () 
     $units = Units::of(Unit::file(Path::of('src/Money.php')), Unit::file(Path::of('src/Limit.php')));
     $mutants = Mutants::of($mutant('src/Money.php', 3.0), $mutant('src/Limit.php', 1.0));
     $measured = Measurement::of(Seconds::of(40.0), 'pest', $at());
-    $model = MeasuredCosts::at('.', SecondsPerLine::standard());
+    $model = MeasuredCosts::at(Root::of('.'), SecondsPerLine::standard());
     $learned = $model->learn($units, $mutants, CoverageMap::empty(), $measured);
 
     expect($learned)->toEqual(Shares::of($units, $mutants, CoverageMap::empty(), $measured))

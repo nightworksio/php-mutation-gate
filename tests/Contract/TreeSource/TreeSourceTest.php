@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Composer\ComposerTrees;
 use NightWorksIO\MutationGate\Adapter\Project\AutoloadTrees;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -23,7 +24,7 @@ use NightWorksIO\MutationGate\Tests\Support\Tree as Repository;
 
 $sources = [
     'the fake' => fn(): TreeSource => TreeSourceFake::ofTheFixture(),
-    'the manifests' => fn(): TreeSource => ComposerTrees::at(Project::ofTheFixture(), ['composer.json'], []),
+    'the manifests' => fn(): TreeSource => ComposerTrees::at(Root::of(Project::ofTheFixture()), ['composer.json'], []),
     'PhpUnitTrees' => fn(): TreeSource => PhpUnitTrees::in(Repository::at('tests/Fixtures/Trees'), Paths::none()),
     'AutoloadTrees' => fn(): TreeSource => AutoloadTrees::in(Repository::at('tests/Fixtures/Trees')),
 ];

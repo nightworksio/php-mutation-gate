@@ -20,8 +20,6 @@ use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
-use function sprintf;
-
 /**
  * The proof store `directory`: one ledger file per scope,
  * `<path>/<scope>/ledger.json.gz`, where the path is `.mutation-gate/ledger`
@@ -76,6 +74,6 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     {
         $parsed = Scope::parse($scope->ref());
 
-        return $parsed instanceof Scope ? Path::of(sprintf('%s/%s', $parsed->ref(), LedgerFile::NAME)) : $parsed;
+        return $parsed instanceof Scope ? Path::of($parsed->ref())->child(Path::of(LedgerFile::NAME)) : $parsed;
     }
 }

@@ -89,4 +89,10 @@ final readonly class Path
     {
         return basename($this->value, self::PHP);
     }
+
+    /** The path of an entry inside this directory, spelt as a path from it. */
+    public function child(self $entry): self
+    {
+        return self::of(sprintf('%s/%s', $this->value, $entry->value));
+    }
 }

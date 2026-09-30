@@ -15,6 +15,7 @@ use function json_encode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
@@ -59,6 +60,8 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     private const string BRANCH = '#^refs/heads/(.+)$#';
 
     private const string EVENT = 'GITHUB_EVENT_NAME';
+
+    private const string NO_PULL_REQUEST = 'This run is not for a pull request.';
 
     /** The events whose ref is a branch the run may write for: none runs code from a pull request. */
     private const array TRUSTED = ['push', 'schedule', 'workflow_dispatch'];
@@ -137,14 +140,14 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         $trusted = in_array($this->variables->valueOf(self::EVENT), self::TRUSTED, strict: true);
 
         return match (true) {
-            $number !== '' => RunOn::pullRequest($number, $defaultBranch),
+            $number instanceof PullRequestNumber => RunOn::pullRequest($number, $defaultBranch),
             $trusted && $branch !== '' => RunOn::branch($branch, $defaultBranch),
             default => RunOn::detached($defaultBranch),
         };
     }
 
-    /** The pull request's number, from the payload or a `pull_request` event's merge ref; empty where neither says. */
-    private function pullRequestIn(Node|CannotTell $payload): string
+    /** The pull request's number, from the payload or a `pull_request` event's merge ref, or why neither names one. */
+    private function pullRequestIn(Node|CannotTell $payload): PullRequestNumber|CannotTell
     {
         $number = ($payload instanceof Node ? $payload : Node::decode('{}'))->field('pull_request')->field('number');
         $ref = $this->variables->valueOf('GITHUB_REF');
@@ -152,12 +155,13 @@ final readonly class GitHubPlan implements CiPlan, Configurable
 
         try {
             return match (true) {
-                $number->isPresent() => sprintf('%d', $number->integer()),
-                $isPullRequest && preg_match(self::PULL_REQUEST, $ref, $merge) === 1 => $merge[1],
-                default => '',
+                $number->isPresent() => PullRequestNumber::of($number->integer()),
+                $isPullRequest && preg_match(self::PULL_REQUEST, $ref, $merge) === 1
+                    => PullRequestNumber::parse($merge[1]),
+                default => CannotTell::because(self::NO_PULL_REQUEST),
             };
-        } catch (NotInShape) {
-            return '';
+        } catch (NotInShape $misread) {
+            return CannotTell::because($misread->getMessage());
         }
     }
 

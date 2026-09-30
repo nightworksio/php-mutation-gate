@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Hold;
 use function array_any;
 use function array_map;
 use function implode;
-use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
@@ -19,9 +18,7 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
-use function preg_quote;
 use function sprintf;
-use function str_contains;
 
 /**
  * Every declaration that some tests hold a path, from the groups a runner
@@ -86,7 +83,7 @@ final readonly class Holdings
     /** Whether any of these is a `#[Holds]`, which a runner that selects held tests by group alone refuses. */
     public function anyByAttribute(): bool
     {
-        return array_any($this->holdings, static fn(Holding $holding): bool => is_string($holding->by()));
+        return array_any($this->holdings, static fn(Holding $holding): bool => $holding->by() instanceof Holder);
     }
 
     /**
@@ -140,7 +137,7 @@ final readonly class Holdings
     /**
      * The classes and methods `#[Holds]` marks as holding a path.
      *
-     * @return list<string>
+     * @return list<Holder>
      */
     private function holdersOf(string $declared): array
     {
@@ -148,7 +145,7 @@ final readonly class Holdings
 
         foreach ($this->holdings as $holding) {
             $by = $holding->by();
-            $holders = is_string($by) && $holding->declared() === $declared ? [...$holders, $by] : $holders;
+            $holders = $by instanceof Holder && $holding->declared() === $declared ? [...$holders, $by] : $holders;
         }
 
         return $holders;
@@ -166,16 +163,11 @@ final readonly class Holdings
      * A PHPUnit `--filter` that selects every test of a holding class and each
      * holding method, and nothing else.
      *
-     * @param list<string> $holders
+     * @param list<Holder> $holders
      */
     private function filterFor(array $holders): string
     {
-        $patterns = array_map(
-            static fn(string $holder): string => str_contains($holder, '::')
-                ? sprintf('%s\b', preg_quote($holder, '/'))
-                : sprintf('%s::', preg_quote($holder, '/')),
-            $holders,
-        );
+        $patterns = array_map(static fn(Holder $holder): string => $holder->filtered(), $holders);
 
         return sprintf('/^(?:%s)/', implode('|', $patterns));
     }

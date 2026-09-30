@@ -19,17 +19,18 @@ use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 
 use function sprintf;
 
 /** The directory a project lives in, read by paths as the repository spells them. */
 final readonly class Disk
 {
-    private function __construct(private string $root)
+    private function __construct(private Root $root)
     {
     }
 
-    public static function at(string $root): self
+    public static function at(Root $root): self
     {
         return new self($root);
     }
@@ -89,12 +90,11 @@ final readonly class Disk
      */
     private function matching(string $pattern, Closure $passes): array
     {
-        $matched = glob(sprintf('%s/%s', $this->root, $pattern));
-        $root = Path::of($this->root);
+        $matched = glob($this->root->path()->child($pattern)->value());
         $found = [];
 
         foreach (is_array($matched) ? $matched : [] as $path) {
-            $found = $passes($path) ? [...$found, Path::of($path)->relativeTo($root)] : $found;
+            $found = $passes($path) ? [...$found, $this->root->relative($path)] : $found;
         }
 
         return $found;
@@ -102,6 +102,6 @@ final readonly class Disk
 
     private function on(Path $path): string
     {
-        return sprintf('%s/%s', $this->root, $path->value());
+        return $this->root->at($path)->value();
     }
 }

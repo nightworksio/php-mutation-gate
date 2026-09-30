@@ -15,14 +15,13 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
-
-use function sprintf;
 
 /**
  * A project's Composer manifests: the `autoload` paths of its root
@@ -31,11 +30,11 @@ use function sprintf;
  */
 final readonly class Manifests
 {
-    private function __construct(private string $root)
+    private function __construct(private Root $root)
     {
     }
 
-    public static function in(string $root): self
+    public static function in(Root $root): self
     {
         return new self($root);
     }
@@ -72,7 +71,7 @@ final readonly class Manifests
 
     private function declaredFor(Path $tree): Floor|Exempt|Undeclared|CannotJudge
     {
-        $start = is_dir(sprintf('%s/%s', $this->root, $tree->value())) ? $tree->value() : dirname($tree->value());
+        $start = is_dir($this->root->at($tree)->value()) ? $tree->value() : dirname($tree->value());
 
         foreach (self::upFrom($start) as $directory) {
             $declared = $this->declaredIn(Path::of($directory));
@@ -99,7 +98,7 @@ final readonly class Manifests
     private function read(Path $directory): Manifest|Missing|CannotJudge
     {
         $file = Manifest::fileIn($directory);
-        $on = sprintf('%s/%s', $this->root, $file->value());
+        $on = $this->root->at($file)->value();
 
         return is_file($on)
             ? Manifest::decode(Contents::of((string) file_get_contents($on)), $directory)

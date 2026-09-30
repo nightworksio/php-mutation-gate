@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
@@ -72,13 +73,16 @@ final class Git implements ChangeSource, Repository
     /** @var array<string, string|CannotTell> each revision read at, by its name: its commit, or why it has none */
     private array $commits = [];
 
-    private function __construct(private readonly Command $git, private readonly string $directory)
+    private function __construct(private readonly Command $git, private readonly Root $directory)
     {
     }
 
+    /** The repository from a directory, as the registration spells it (owner: flows). */
     public static function at(string $directory): self
     {
-        return new self(Command::in($directory), $directory);
+        $root = Root::of($directory);
+
+        return new self(Command::in($root->value()), $root);
     }
 
     public function changesSince(Revision $base): Changes|CannotTell
@@ -214,7 +218,10 @@ final class Git implements ChangeSource, Repository
      */
     private function onDisk(string $listed): array
     {
-        return array_filter($this->paths($listed), fn(string $path): bool => is_file($this->pathTo($path)));
+        return array_filter(
+            $this->paths($listed),
+            fn(string $path): bool => is_file($this->directory->at(Path::of($path))->value()),
+        );
     }
 
     /**
@@ -263,15 +270,10 @@ final class Git implements ChangeSource, Repository
     /** What a file on disk holds, or that it is missing where it is no file or cannot be read. */
     private function read(Path $path): Contents|Missing
     {
-        $file = $this->pathTo($path->value());
+        $file = $this->directory->at($path)->value();
         $text = is_file($file) ? file_get_contents($file) : false;
 
         return is_string($text) ? Contents::of($text) : Missing::at($path);
-    }
-
-    private function pathTo(string $path): string
-    {
-        return sprintf('%s/%s', $this->directory, $path);
     }
 
     /**

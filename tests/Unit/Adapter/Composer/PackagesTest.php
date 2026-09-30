@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Composer\Packages;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Tests\Support\Project;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -22,7 +23,7 @@ afterEach(function (): void {
  */
 function packagesOf(array $files, array $globs = []): Packages
 {
-    $packages = Packages::in(Disk::at(Project::with($files)), $globs);
+    $packages = Packages::in(Disk::at(Root::of(Project::with($files))), $globs);
 
     return $packages instanceof Packages ? $packages : throw new RuntimeException('The fixture has no packages.');
 }
@@ -98,7 +99,7 @@ it('counts a package found twice once', function (): void {
 it('cannot judge a manifest it cannot read', function (string $path, string $manifest): void {
     $project = Project::with(['composer.json' => '{}', $path => $manifest]);
 
-    expect(Packages::in(Disk::at($project), ['packages/*']))->toBeInstanceOf(CannotJudge::class);
+    expect(Packages::in(Disk::at(Root::of($project)), ['packages/*']))->toBeInstanceOf(CannotJudge::class);
 })->with([
     'the root' => ['composer.json', '{'],
     'a package' => ['packages/money/composer.json', '['],

@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
+use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -69,7 +70,7 @@ it('reads a pull request from its address, and a branch otherwise', function ():
     ]);
     $branch = Variables::of(['CIRCLE_BRANCH' => 'feature']);
 
-    expect(CircleCiPlan::printing('', $pullRequest)->runOn())->toEqual(RunOn::pullRequest('31', $unnamed))
+    expect(CircleCiPlan::printing('', $pullRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), $unnamed))
         ->and(CircleCiPlan::printing('', $branch)->runOn())->toEqual(RunOn::branch('feature', $unnamed));
 });
 

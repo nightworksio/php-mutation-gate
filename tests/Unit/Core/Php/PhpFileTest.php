@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Hold\HeldPath;
+use NightWorksIO\MutationGate\Core\Hold\Holder;
 use NightWorksIO\MutationGate\Core\Hold\Holding;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Hold\HoldsAttribute;
@@ -89,7 +90,7 @@ it('reads the paths its #[Holds] declare held', function (): void {
         PHP;
 
     expect(PhpFile::read(Contents::of($test))->holdings())->toEqual(
-        Holdings::none()->with(Holding::byAttribute('src/Kernel.php', 'Tests\KernelTest')),
+        Holdings::none()->with(Holding::byAttribute('src/Kernel.php', Holder::of('Tests\KernelTest'))),
     )
         ->and(PhpFile::read(Contents::of("<?php\n\nfinal class Money {}\n"))->holdings())->toEqual(Holdings::none());
 });

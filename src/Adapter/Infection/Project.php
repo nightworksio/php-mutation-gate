@@ -9,18 +9,15 @@ use function is_dir;
 use function is_file;
 use function is_string;
 use function is_writable;
-use function mb_strlen;
-use function mb_substr;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 
 use function realpath;
-use function rtrim;
 use function sprintf;
-use function str_starts_with;
 use function unlink;
 
 /**
@@ -36,20 +33,20 @@ final readonly class Project
     private const string STALE
         = 'The gate cannot remove %s, so it cannot tell what this run wrote from what an earlier one did.';
 
-    private function __construct(private string $root, private Paths $tests, private Path $workspace)
+    private function __construct(private Root $root, private Paths $tests, private Path $workspace)
     {
     }
 
+    /** The project at a root, as the runner spells it (owner: rc3b), held as its real path. */
     public static function at(string $root, Paths $tests, Path $workspace): self
     {
-        $real = realpath($root);
-
-        return new self(is_string($real) ? $real : rtrim($root, '/'), $tests, $workspace);
+        return new self(Root::of(self::real($root)), $tests, $workspace);
     }
 
+    /** The root's real path, as Infection's config and the coverage layout write it. */
     public function root(): string
     {
-        return $this->root;
+        return $this->root->value();
     }
 
     /** @return Paths the directories the tests live in */
@@ -61,23 +58,13 @@ final readonly class Project
     /** Where a path of the project is on disk; the root is the root, and an absolute path is where it says. */
     public function absolute(Path $path): string
     {
-        return match (true) {
-            $path->equals(Path::root()) => $this->root,
-            str_starts_with($path->value(), '/') => $path->value(),
-            default => sprintf('%s/%s', $this->root, $path->value()),
-        };
+        return $this->root->at($path)->value();
     }
 
     /** A file on disk as the project spells it, the root as the root, or as it is where it lies outside the project. */
     public function relative(string $file): Path
     {
-        $prefix = sprintf('%s/', $this->root);
-
-        return match (true) {
-            $file === $this->root => Path::root(),
-            str_starts_with($file, $prefix) => Path::of(mb_substr($file, mb_strlen($prefix))),
-            default => Path::of($file),
-        };
+        return $this->root->relative($file);
     }
 
     /** A directory of the project on disk, made where it is not there yet. */
@@ -111,6 +98,14 @@ final readonly class Project
     /** A path of the adapter's own, inside the gate's directory. */
     public function own(string $name): string
     {
-        return sprintf('%s/%s/%s', $this->absolute($this->workspace), self::OWN, $name);
+        return $this->root->at($this->workspace->child(Path::of(self::OWN))->child(Path::of($name)))->value();
+    }
+
+    /** A directory as its real path where it is there, so that it compares with the real paths the runner reports. */
+    private static function real(string $directory): string
+    {
+        $real = realpath($directory);
+
+        return is_string($real) ? $real : $directory;
     }
 }

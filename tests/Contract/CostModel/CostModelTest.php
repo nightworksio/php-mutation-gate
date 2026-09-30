@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -32,7 +33,7 @@ $at = static fn(): Instant => Instant::at(new DateTimeImmutable('2026-09-29T20:4
 
 $models = [
     'the fake' => fn(): CostModel => new CostModelFake(Seconds::of(3.0)),
-    'lines of code and learned timings' => fn(): CostModel => MeasuredCosts::at('.', SecondsPerLine::standard()),
+    'lines of code and learned timings' => fn(): CostModel => MeasuredCosts::at(Root::of('.'), SecondsPerLine::standard()),
 ];
 
 $mutantOf = static fn(string $file, int $line): Mutant => Mutant::of(

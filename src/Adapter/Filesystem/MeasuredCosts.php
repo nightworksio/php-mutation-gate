@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Cost\Shares;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -31,8 +32,6 @@ use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\CostModel;
 
 use function scandir;
-use function sprintf;
-use function str_ends_with;
 
 /**
  * The cost model `learned`: a unit costs what a shard last measured it to
@@ -43,12 +42,12 @@ use function str_ends_with;
  */
 final readonly class MeasuredCosts implements Configurable, CostModel
 {
-    private function __construct(private string $root, private SecondsPerLine $perLine)
+    private function __construct(private Root $root, private SecondsPerLine $perLine)
     {
     }
 
     /** Costs of the files under this directory, by these seconds per line. */
-    public static function at(string $root, SecondsPerLine $perLine): self
+    public static function at(Root $root, SecondsPerLine $perLine): self
     {
         return new self($root, $perLine);
     }
@@ -64,7 +63,9 @@ final readonly class MeasuredCosts implements Configurable, CostModel
                 $rates[] = LineRate::of($prefix, Seconds::of($seconds->number()));
             }
 
-            return self::at('.', $perLine->isPresent() ? SecondsPerLine::of(...$rates) : SecondsPerLine::standard());
+            $rate = $perLine->isPresent() ? SecondsPerLine::of(...$rates) : SecondsPerLine::standard();
+
+            return self::at(Root::here(), $rate);
         } catch (NotInShape) {
             return Invalid::because(Problem::at('secondsPerLine', 'This maps a path prefix to seconds a line.'));
         }
@@ -93,28 +94,28 @@ final readonly class MeasuredCosts implements Configurable, CostModel
 
     private function linesInFile(Path $file): int
     {
-        $source = Directory::at($this->root)->read($file);
+        $source = Directory::in($this->root)->read($file);
 
         return $source instanceof Contents ? LinesOfCode::in($source) : 0;
     }
 
     private function isDirectory(Path $path): bool
     {
-        return is_dir(sprintf('%s/%s', $this->root, $path->value()));
+        return is_dir($this->root->at($path)->value());
     }
 
     /** @return list<Path> */
     private function phpUnder(Path $directory): array
     {
-        $entries = scandir(sprintf('%s/%s', $this->root, $directory->value()));
+        $entries = scandir($this->root->at($directory)->value());
         $found = [];
 
         foreach (is_array($entries) ? $entries : [] as $entry) {
-            $path = Path::of(sprintf('%s/%s', $directory->value(), $entry));
+            $path = $directory->child(Path::of($entry));
             $found = [...$found, ...match (true) {
                 $entry === '.' || $entry === '..' => [],
                 $this->isDirectory($path) => $this->phpUnder($path),
-                str_ends_with($entry, '.php') => [$path],
+                $path->isPhp() => [$path],
                 default => [],
             }];
         }

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Hold\Holder;
 use NightWorksIO\MutationGate\Core\Hold\Holding;
 use NightWorksIO\MutationGate\Core\Test\Group;
 
@@ -14,9 +15,9 @@ it('is a path a group holds, named by the group', function (): void {
 });
 
 it('is a path a #[Holds] holds, named by the attribute and what it stands on', function (): void {
-    $holding = Holding::byAttribute('src/Kernel.php', 'Tests\KernelTest::testBoots');
+    $holding = Holding::byAttribute('src/Kernel.php', Holder::of('Tests\KernelTest::testBoots'));
 
     expect($holding->declared())->toBe('src/Kernel.php')
-        ->and($holding->by())->toBe('Tests\KernelTest::testBoots')
+        ->and($holding->by())->toEqual(Holder::of('Tests\KernelTest::testBoots'))
         ->and($holding->written())->toBe("#[Holds('src/Kernel.php')] on Tests\\KernelTest::testBoots");
 });

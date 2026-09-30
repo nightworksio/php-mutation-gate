@@ -4,25 +4,23 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function dirname;
 use function file_exists;
 use function glob;
 use function is_array;
 use function is_dir;
 use function is_file;
 use function is_string;
-use function mb_strlen;
-use function mb_substr;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 
 use function realpath;
-use function rtrim;
 use function sprintf;
-use function str_starts_with;
 use function unlink;
 
 /**
@@ -39,23 +37,23 @@ final readonly class Project
     private const string STALE = 'An earlier run left %s or the map beside it, and the gate cannot remove them.';
 
     private function __construct(
-        private string $root,
+        private Root $root,
         private Paths $tests,
         private Path $workspace,
         private Path $vendor,
     ) {
     }
 
+    /** The project at a root, as the runner spells it (owner: flows), held as its real path. */
     public static function at(string $root, Paths $tests, Path $workspace, Path $vendor): self
     {
-        $real = realpath($root);
-
-        return new self(is_string($real) ? $real : rtrim($root, '/'), $tests, $workspace, $vendor);
+        return new self(Root::of(self::real($root)), $tests, $workspace, $vendor);
     }
 
+    /** The root's real path, as Pest's coverage and the processes it starts take it. */
     public function root(): string
     {
-        return $this->root;
+        return $this->root->value();
     }
 
     /** @return Paths the directories the tests live in */
@@ -73,15 +71,13 @@ final readonly class Project
     /** Where a path of the project is on disk; an absolute path is where it says. */
     public function absolute(Path $path): string
     {
-        return str_starts_with($path->value(), '/') ? $path->value() : sprintf('%s/%s', $this->root, $path->value());
+        return $this->root->at($path)->value();
     }
 
     /** A file on disk as the project spells it, or as it is where it lies outside the project. */
     public function relative(string $file): Path
     {
-        $prefix = sprintf('%s/', $this->root);
-
-        return Path::of(str_starts_with($file, $prefix) ? mb_substr($file, mb_strlen($prefix)) : $file);
+        return $this->root->relative($file);
     }
 
     /** A directory of the project on disk, made where it is not there yet. */
@@ -103,8 +99,8 @@ final readonly class Project
      */
     public function freshResults(): string|CannotJudge
     {
-        $results = sprintf('%s/%s', $this->absolute($this->workspace), self::RESULTS);
-        $this->directory(Path::of(sprintf('%s/pest', $this->workspace->value())));
+        $results = $this->absolute($this->workspace->child(Path::of(self::RESULTS)));
+        $this->directory(Path::of(dirname($results)));
         $copies = glob(Recorder::mutantBeside($results, '*'));
 
         return $this->without($results, Recorder::coverageBeside($results), ...(is_array($copies) ? $copies : []))
@@ -126,5 +122,13 @@ final readonly class Project
         }
 
         return $gone;
+    }
+
+    /** A directory as its real path where it is there, so that it compares with the real paths the runner reports. */
+    private static function real(string $directory): string
+    {
+        $real = realpath($directory);
+
+        return is_string($real) ? $real : $directory;
     }
 }

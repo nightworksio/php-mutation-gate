@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Hold\HeldPath;
+use NightWorksIO\MutationGate\Core\Hold\Holder;
 use NightWorksIO\MutationGate\Core\Hold\Holding;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Hold\HoldsAttribute;
@@ -32,6 +33,6 @@ it('declares a holding for each attribute on a class or method, and for nothing 
         ->with(HoldsAttribute::onMethod(HeldPath::expression('self::HTTP'), 20, 'Tests\HttpTest::testIt', grouped: true));
 
     expect($attributes->holdings())->toEqual(Holdings::none()
-        ->with(Holding::byAttribute('src/Kernel.php', 'Tests\KernelTest'))
-        ->with(Holding::byAttribute('self::HTTP', 'Tests\HttpTest::testIt')));
+        ->with(Holding::byAttribute('src/Kernel.php', Holder::of('Tests\KernelTest')))
+        ->with(Holding::byAttribute('self::HTTP', Holder::of('Tests\HttpTest::testIt'))));
 });
