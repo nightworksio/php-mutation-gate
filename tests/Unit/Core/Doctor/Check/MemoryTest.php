@@ -71,8 +71,8 @@ it('finds a suite that already needs over half the cap, under --measure', functi
         Slug::MemoryCapNear,
         Severity::Advice,
         'The suite\'s processes peaked at 600M resident, over half the 1G cap runner.memory sets.',
-        'A run runs the suite under the cap before any mutant, and each mutant under it: a mutant that needs more is'
-        . "\nkilled by the cap rather than by a test, and a suite over it cannot be judged.",
+        'Each mutant runs under the cap, so a mutant that needs more than it is stopped by the cap rather than by a test,'
+        . "\nand a plan refuses a suite whose coverage run held more than the cap.",
         'Set runner.memory to at least 1200M.',
     )))
         ->and(Memory::in($peaking($capped('1G'), MemoryCap::of(512, MemoryUnit::Megabytes))))->toEqual(Findings::none())

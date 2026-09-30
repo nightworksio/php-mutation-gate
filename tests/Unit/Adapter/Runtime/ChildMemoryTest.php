@@ -9,7 +9,7 @@ use Symfony\Component\Process\Process;
 
 it('counts the memory of a process it waited for', function (): void {
     new Process([PHP_BINARY, '-d', 'memory_limit=-1', '-r', '$held = str_repeat("x", 96 * 1024 * 1024);'])->mustRun();
-    $peak = ChildMemory::peak();
+    $peak = new ChildMemory()->peak();
 
     expect($peak)->toBeInstanceOf(MemoryCap::class)
         ->and($peak instanceof MemoryCap && MemoryCap::of(96, MemoryUnit::Megabytes)->isExceededBy($peak))->toBeTrue();

@@ -45,8 +45,8 @@ final readonly class Memory
         = 'The suite\'s processes peaked at %s resident, over half the %s cap runner.memory sets.';
 
     private const string NEAR_WHY = <<<'WHY'
-        A run runs the suite under the cap before any mutant, and each mutant under it: a mutant that needs more is
-        killed by the cap rather than by a test, and a suite over it cannot be judged.
+        Each mutant runs under the cap, so a mutant that needs more than it is stopped by the cap rather than by a test,
+        and a plan refuses a suite whose coverage run held more than the cap.
         WHY;
 
     private const string NEAR_FIX = 'Set runner.memory to at least %s.';

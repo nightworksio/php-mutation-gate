@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Effect;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Time\Budgets;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
@@ -140,4 +141,11 @@ it('states the default budgets the README gives watch and pre-push', function ()
 
     expect([$default('local.watchBudget'), $default('local.prePushBudget')])
         ->toBe([Budgets::standard()->watch()->written(), Budgets::standard()->prePush()->written()]);
+});
+
+it('gives runner.memory the default the README\'s configuration reference names', function (): void {
+    $readme = (string) file_get_contents(Tree::at('README.md'));
+    preg_match('/^\| `runner\.memory` \|.*\| `([^`]+)` \| \[0004\]/m', $readme, $row);
+
+    expect($row[1] ?? null)->toBe(MemoryCap::standard()->written());
 });

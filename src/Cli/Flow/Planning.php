@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\RiskOrder;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
@@ -31,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -59,6 +61,12 @@ final readonly class Planning
         which does not judge another package's code, so their mutants cannot be judged.
         SAID;
 
+    private const string OVER_CAP = <<<'SAID'
+        The suite's processes held %s in its coverage run, more than the %s runner.memory lets each
+        mutant's process hold, so its mutants cannot be judged under the cap.
+        Raise runner.memory; doctor --measure says what the suite needs.
+        SAID;
+
     public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
     {
     }
@@ -75,6 +83,10 @@ final readonly class Planning
             $coverage instanceof CoverageRun ? $coverage->withholding($this->adapters->withheld) : $coverage,
         );
 
+        $map = $map instanceof CoverageMap && $coverage instanceof CoverageRun
+            ? $this->withinTheCap($map, $this->setup->memory->peak())
+            : $map;
+
         if ($map instanceof CannotJudge) {
             return $map;
         }
@@ -82,6 +94,21 @@ final readonly class Planning
         $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $map);
 
         return $keying instanceof Keying ? $this->planned($inventory, $map, $keying, $mode, $cut) : $keying;
+    }
+
+    /**
+     * The map of the coverage run just run, where the suite, unmutated, held
+     * no more than the memory cap in it; or why its mutants cannot be judged
+     * under the cap (ADR-0004, decision 9). A peak the system does not count
+     * refuses nothing.
+     */
+    private function withinTheCap(CoverageMap $map, MemoryCap|NotGiven $peak): CoverageMap|CannotJudge
+    {
+        $cap = $this->settings->runner()->memory();
+
+        return $peak instanceof MemoryCap && $cap->isExceededBy($peak)
+            ? CannotJudge::because(sprintf(self::OVER_CAP, $peak->written(), $cap->written()))
+            : $map;
     }
 
     private function planned(

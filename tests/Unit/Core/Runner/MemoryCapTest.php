@@ -23,7 +23,7 @@ it('reads a cap as PHP\'s memory_limit writes one, in any case', function (strin
 
     expect($cap instanceof MemoryCap ? $cap->written() : $cap)->toBe($as);
 })->with([
-    'bytes' => ['1048576', '1048576'],
+    'bytes' => ['1048577', '1048577'],
     'kilobytes' => ['512k', '512K'],
     'megabytes' => ['512M', '512M'],
     'gigabytes' => ['2g', '2G'],
@@ -65,7 +65,8 @@ it('writes the ini file that sets it', function (): void {
 
 it('scans a directory of its own after the ini directories PHP would scan', function (): void {
     expect(MemoryCap::scanning(inherited: false, directory: '/w/php'))->toBe(sprintf('%s/w/php', PATH_SEPARATOR))
-        ->and(MemoryCap::scanning('/etc/php.d', '/w/php'))->toBe(sprintf('/etc/php.d%s/w/php', PATH_SEPARATOR));
+        ->and(MemoryCap::scanning('/etc/php.d', '/w/php'))->toBe(sprintf('/etc/php.d%s/w/php', PATH_SEPARATOR))
+        ->and(MemoryCap::scanning('', '/w/php'))->toBe('/w/php');
 });
 
 it('caps a PHP process that reads it at the cap', function (): void {
@@ -131,10 +132,31 @@ it('keeps every ini file and extension PHP loads from its own scan directory, or
     };
     $own = $described(scanDirectory: false);
     $capped = $described(MemoryCap::scanning(inherited: false, directory: $capDirectory));
+    $chosen = $described($inherited);
     $project = $described(MemoryCap::scanning($inherited, $capDirectory));
+    $nothing = $described('');
+    $capOnly = $described(MemoryCap::scanning('', $capDirectory));
 
     expect($capped[1])->toBe($own[1])
         ->and($capped[0])->toBe(ltrim(sprintf('%s,%s', $own[0], $capFile), ','))
         ->and($capped[3])->toBe('256M')
-        ->and($project)->toBe([sprintf('%s/project.ini,%s', $inherited, $capFile), $own[1], '7', '256M']);
+        ->and($project)->toBe([sprintf('%s,%s', $chosen[0], $capFile), $chosen[1], '7', '256M'])
+        ->and($capOnly)->toBe([ltrim(sprintf('%s,%s', $nothing[0], $capFile), ','), $nothing[1], $nothing[2], '256M']);
+});
+
+it('keeps one cap in one form, the largest unit it is a whole number of, so it is keyed one way', function (): void {
+    expect(MemoryCap::parse('1024M'))->toEqual(MemoryCap::standard())
+        ->and(MemoryCap::parse('1073741824'))->toEqual(MemoryCap::standard())
+        ->and(MemoryCap::parse('1048576k'))->toEqual(MemoryCap::standard())
+        ->and(MemoryCap::of(1536, MemoryUnit::Megabytes)->written())->toBe('1536M')
+        ->and(MemoryCap::of(2048, MemoryUnit::Kilobytes)->written())->toBe('2M')
+        ->and(MemoryCap::of(1000, MemoryUnit::Bytes)->written())->toBe('1000');
+});
+
+it('refuses an amount more than PHP can count, and one that ends in a newline', function (): void {
+    expect(MemoryCap::parse('9999999999G'))
+        ->toEqual(CannotJudge::because('"9999999999G" is more memory than PHP can count. Write -1 for no cap.'))
+        ->and(MemoryCap::parse('99999999999999999999'))->toBeInstanceOf(CannotJudge::class)
+        ->and(MemoryCap::parse("512M\n"))->toBeInstanceOf(CannotJudge::class)
+        ->and(MemoryCap::parse('8589934591G'))->toEqual(MemoryCap::of(8589934591, MemoryUnit::Gigabytes));
 });

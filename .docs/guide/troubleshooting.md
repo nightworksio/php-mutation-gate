@@ -254,9 +254,9 @@ the same way; doctor cannot see one.
 
 Under `doctor --measure`, the suite's processes held over half the memory
 `runner.memory` allows, by the most resident memory the system counts for
-them. A run runs the suite under the cap before any mutant, and each mutant
-under it: a mutant that needs more is stopped by the cap rather than by a
-test, and a suite over it cannot be judged.
+them. Each mutant runs under the cap, so a mutant that needs more than it is
+stopped by the cap rather than by a test, and a plan refuses a suite whose
+coverage run held more than the cap.
 
 Set `runner.memory` to at least what the finding names: twice what the suite
 held.

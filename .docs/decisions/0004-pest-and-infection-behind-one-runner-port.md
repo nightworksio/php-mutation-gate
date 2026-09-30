@@ -669,6 +669,12 @@ its parser attributes. Both change when the checkout moves.
      finds the first; the second shows only when the tests run.
    - Coverage runs, listing the tests, and the gate's own process run
      uncapped.
+   - The plan weighs the suite against the cap: where the processes of the
+     coverage run it has just run held more than the cap, by the most
+     resident memory `getrusage` counts for the processes the gate waited
+     for, the plan is *cannot judge*, and says to raise `runner.memory`.
+     Where the system counts no such peak, or the plan reads a map another
+     job wrote, it plans.
    - The cap can change a mutant's result, so it is part of a proof's key
      (ADR-0007).
    - doctor's findings on it are advice (ADR-0017, decision 10):

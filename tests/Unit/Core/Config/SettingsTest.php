@@ -429,6 +429,16 @@ it('serialises the settings that affect results canonically, and only those', fu
     );
 });
 
+it('keys the memory cap in force, however it is written, and the default as the same cap written out', function (): void {
+    $canonical = static fn(array $runner): string => Configs::settings(['runner' => $runner])->canonical();
+    $default = $canonical(['use' => 'pest']);
+
+    expect($canonical(['use' => 'pest', 'memory' => '1G']))->toBe($default)
+        ->and($canonical(['use' => 'pest', 'memory' => '1024M']))->toBe($default)
+        ->and($canonical(['use' => 'pest', 'memory' => '1073741824']))->toBe($default)
+        ->and($canonical(['use' => 'pest', 'memory' => '2G']))->not->toBe($default);
+});
+
 it('keeps the settings that only judge or report out of the canonical form', function (): void {
     $judging = [
         ...EVERYTHING,

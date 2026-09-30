@@ -7,6 +7,16 @@ use Library\Unexecutable\Early;
 use Pest\Mutate\Repositories\ConfigurationRepository;
 use Pest\Support\Container;
 
+// Appends the memory_limit this PHP process runs under to the file
+// LIBRARY_MEMORY names, and whether it is a mutant's own: Pest loads this
+// file in every process of a run.
+$memory = getenv('LIBRARY_MEMORY');
+
+if ($memory !== false) {
+    $where = getenv('PEST_MUTATION_TESTING') === false ? 'suite' : 'mutant';
+    file_put_contents($memory, sprintf("%s %s\n", $where, ini_get('memory_limit')), FILE_APPEND | LOCK_EX);
+}
+
 // Loads an enum before Pest starts any plugin, so Pest's override cannot
 // replace it, as a dataset or bootstrap code in a user's suite can.
 Early::First;

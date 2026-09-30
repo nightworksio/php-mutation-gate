@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function getmypid;
 use function intdiv;
 use function max;
 use function mb_strtoupper;
@@ -33,8 +34,18 @@ final readonly class MemoryCap
     /** Why a run cannot start capped, by the ini file it cannot write. */
     public const string UNWRITTEN = 'The memory cap cannot be written to %s. Make the directory writable.';
 
+    /**
+     * The directory of the cap's ini file inside a runner's workspace: one
+     * for each process of the gate, so two runs in one checkout never share
+     * the file, and PHP scans nothing else.
+     */
+    private const string DIRECTORY = '%s/php/%d';
+
+    /** Where the ini file is written before it is moved into place, whole. */
+    private const string STAGED = '%s.%d.staged';
+
     /** PHP's shorthand for an amount of memory, its unit in either case. */
-    private const string SHORTHAND = '/^(?<number>[1-9]\d*)(?<unit>[KMG]?)$/i';
+    private const string SHORTHAND = '/\A(?<number>[1-9]\d*)(?<unit>[KMG]?)\z/i';
 
     /**
      * How many times what the suite needed a cap should hold: a mutant rarely
@@ -44,6 +55,8 @@ final readonly class MemoryCap
 
     private const string UNREADABLE
         = '"%s" is not an amount of memory. Write it as PHP\'s memory_limit does, such as 512M or 1G, or -1 for none.';
+
+    private const string TOO_LARGE = '"%s" is more memory than PHP can count. Write -1 for no cap.';
 
     private function __construct(private int $number, private MemoryUnit|Uncapped $unit)
     {
@@ -59,10 +72,21 @@ final readonly class MemoryCap
         return new self(0, Uncapped::Memory);
     }
 
-    /** A cap of a whole number of units, such as `MemoryCap::of(512, MemoryUnit::Megabytes)`. */
+    /**
+     * A cap of a whole number of units, such as `MemoryCap::of(512,
+     * MemoryUnit::Megabytes)`, kept in the largest unit it is a whole number
+     * of: `1024M` is `1G`, so one cap is written, and keyed, one way.
+     */
     public static function of(int $number, MemoryUnit $unit): self
     {
-        return new self($number, $unit);
+        $bytes = $number * $unit->bytes();
+        $largest = $unit;
+
+        foreach (MemoryUnit::cases() as $larger) {
+            $largest = $larger->bytes() > $largest->bytes() && $bytes % $larger->bytes() === 0 ? $larger : $largest;
+        }
+
+        return new self(intdiv($bytes, $largest->bytes()), $largest);
     }
 
     /** The smallest cap of whole megabytes that holds this many bytes. */
@@ -80,9 +104,16 @@ final readonly class MemoryCap
             return self::none();
         }
 
-        return preg_match(self::SHORTHAND, $written, $parts) === 1
-            ? self::of((int) $parts['number'], MemoryUnit::from(mb_strtoupper($parts['unit'])))
-            : CannotJudge::because(sprintf(self::UNREADABLE, $written));
+        if (preg_match(self::SHORTHAND, $written, $parts) !== 1) {
+            return CannotJudge::because(sprintf(self::UNREADABLE, $written));
+        }
+
+        $number = (int) $parts['number'];
+        $unit = MemoryUnit::from(mb_strtoupper($parts['unit']));
+
+        return (string) $number === $parts['number'] && $number <= intdiv(PHP_INT_MAX, $unit->bytes())
+            ? self::of($number, $unit)
+            : CannotJudge::because(sprintf(self::TOO_LARGE, $written));
     }
 
     /** Whether it caps anything. */
@@ -129,6 +160,18 @@ final readonly class MemoryCap
         return self::atLeast($this->bytes() * self::ROOM);
     }
 
+    /** The directory of the cap's ini file inside a runner's workspace, for this process of the gate. */
+    public static function directoryIn(string $workspace): string
+    {
+        return sprintf(self::DIRECTORY, $workspace, getmypid());
+    }
+
+    /** Where the ini file of this directory is written before it is moved into place. */
+    public static function stagedIn(string $directory): string
+    {
+        return sprintf(self::STAGED, sprintf('%s/%s', $directory, self::FILE), getmypid());
+    }
+
     /** The ini file that sets this cap, where it caps anything. */
     public function ini(): string
     {
@@ -139,15 +182,20 @@ final readonly class MemoryCap
      * `PHP_INI_SCAN_DIR` for a PHP process that also reads the ini files in
      * this directory, after those it would read already: the value the gate
      * inherited, or PHP's own directories, which a value that starts with
-     * the separator stands for. A runner starts each mutant as a PHP process
-     * of its own, which takes no option of the command that started the
-     * runner but inherits its environment. A project that sets
+     * the separator stands for. An inherited empty value scans none of PHP's
+     * directories, so it scans this one alone. A runner starts each mutant as
+     * a PHP process of its own, which takes no option of the command that
+     * started the runner but inherits its environment. A project that sets
      * `memory_limit` itself, such as with `<ini name="memory_limit">` in
      * `phpunit.xml`, sets it later, and so wins.
      */
     public static function scanning(string|false $inherited, string $directory): string
     {
-        return sprintf('%s%s%s', $inherited === false ? '' : $inherited, PATH_SEPARATOR, $directory);
+        return match ($inherited) {
+            false => sprintf('%s%s', PATH_SEPARATOR, $directory),
+            '' => $directory,
+            default => sprintf('%s%s%s', $inherited, PATH_SEPARATOR, $directory),
+        };
     }
 
     private function bytes(): int

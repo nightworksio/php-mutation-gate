@@ -11,6 +11,7 @@ use function is_int;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\PeakMemory;
 
 /**
  * The most resident memory any process this one started and waited for has
@@ -18,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
  * descendant a child waited for in turn. macOS gives it in bytes, Linux and
  * the BSDs in kilobytes.
  */
-final readonly class ChildMemory
+final readonly class ChildMemory implements PeakMemory
 {
     /** `RUSAGE_CHILDREN`: the processes this one waited for, rather than itself. */
     private const int CHILDREN = 1;
@@ -28,8 +29,7 @@ final readonly class ChildMemory
     /** The operating system family, as `PHP_OS_FAMILY` names it, that counts `ru_maxrss` in bytes. */
     private const string IN_BYTES = 'Darwin';
 
-    /** The peak, as a cap that would just hold it, where the system counts one. */
-    public static function peak(): MemoryCap|NotGiven
+    public function peak(): MemoryCap|NotGiven
     {
         $usage = getrusage(self::CHILDREN);
         $maximum = is_array($usage) && is_int($usage[self::MAXIMUM]) ? $usage[self::MAXIMUM] : 0;

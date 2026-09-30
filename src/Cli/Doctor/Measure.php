@@ -4,15 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Doctor;
 
-use NightWorksIO\MutationGate\Adapter\Runtime\ChildMemory;
-use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Cli\Flow\Ledgers;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\Measurement;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
@@ -45,7 +42,7 @@ final readonly class Measure
 
         return match (true) {
             $composed instanceof Composed => $observed->withAsked(
-                $observed->asked()->withMeasurement($this->measured($composed->adapters, $composed->settings)),
+                $observed->asked()->withMeasurement($this->measured($composed)),
             ),
             $composed instanceof CannotJudge => $observed->withAsked(
                 $observed->asked()->withMeasurement($this->failed($composed)),
@@ -54,8 +51,10 @@ final readonly class Measure
         };
     }
 
-    private function measured(Adapters $adapters, Settings $settings): Measurement
+    private function measured(Composed $composed): Measurement
     {
+        $adapters = $composed->adapters;
+        $settings = $composed->settings;
         $inventory = Inventory::of($adapters, $settings);
 
         if ($inventory instanceof CannotJudge) {
@@ -69,7 +68,7 @@ final readonly class Measure
             $inventory->units,
             Ledgers::read($adapters->proofs, $inventory->standing, Writing::Never)->timings(),
         );
-        $peak = ChildMemory::peak();
+        $peak = $composed->setup->memory->peak();
 
         return $peak instanceof MemoryCap ? $measured->peakingAt($peak) : $measured;
     }

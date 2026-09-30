@@ -293,11 +293,9 @@ final readonly class Running
             $judgedBy = $unit->judgedBy();
         }
 
-        return MutationRequest::of($files, $judgedBy)
+        return RunRequest::of($this->adapters, $this->settings, $files, $judgedBy)
             ->across($this->adapters->processes())
             ->reusingCoverage(Workspace::shardCoverage($shard))
-            ->withholding($this->adapters->withheld)
-            ->cappedAt($this->settings->runner()->memory())
             ->orderedBy($ordering);
     }
 

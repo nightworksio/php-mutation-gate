@@ -783,23 +783,23 @@ it('keeps every PHP process of a capped run to the cap, and not its coverage run
     new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false)->mutate(
         MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->cappedAt(MemoryCap::standard()),
     );
-    $directory = dirname($at->own('php/memory-cap.ini'));
+    $directory = dirname(sprintf('%s/%s', MemoryCap::directoryIn($at->own('.')), MemoryCap::FILE));
 
     expect(array_map(static fn(Command $command): array => $command->environment(), $shell->commands()))->toBe([
         ['XDEBUG_MODE' => 'coverage'],
         [MemoryCap::SCAN_DIR => MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $directory)],
     ])
-        ->and(file_get_contents($at->own('php/memory-cap.ini')))->toBe("memory_limit=1G\n");
+        ->and(file_get_contents(sprintf('%s/%s', MemoryCap::directoryIn($at->own('.')), MemoryCap::FILE)))->toBe("memory_limit=1G\n");
 });
 
 it('cannot judge a capped run whose cap cannot be written', function (): void {
     $at = infectionProject();
     $shell = infectionShell($at, ['killed' => []]);
-    mkdir($at->own('php/memory-cap.ini'), recursive: true);
+    mkdir(sprintf('%s/%s', MemoryCap::directoryIn($at->own('.')), MemoryCap::FILE), recursive: true);
 
     expect(new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false)->mutate(
         MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->cappedAt(MemoryCap::standard()),
-    ))->toEqual(CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, $at->own('php/memory-cap.ini'))));
+    ))->toEqual(CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, sprintf('%s/%s', MemoryCap::directoryIn($at->own('.')), MemoryCap::FILE))));
 });
 
 it('runs a shard of the flows on the map the plan handed it, in its own layout', function (): void {

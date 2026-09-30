@@ -89,7 +89,7 @@ it('runs every judging of a mutant by reference under the run\'s memory cap', fu
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['internal']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php']));
-    $scan = MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), sprintf('%s/php', dirname($results)));
+    $scan = MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), MemoryCap::directoryIn(dirname($results)));
 
     new Judging($at, $shell)->of(
         judgingResult('internal'),
@@ -101,13 +101,13 @@ it('runs every judging of a mutant by reference under the run\'s memory cap', fu
     expect($shell->commands())->not->toBeEmpty()
         ->and(array_map(static fn(Command $command): mixed => $command->environment()[MemoryCap::SCAN_DIR] ?? null, $shell->commands()))
         ->each->toBe($scan)
-        ->and(file_get_contents(sprintf('%s/php/%s', dirname($results), MemoryCap::FILE)))->toBe("memory_limit=256M\n");
+        ->and(file_get_contents(sprintf('%s/%s', MemoryCap::directoryIn(dirname($results)), MemoryCap::FILE)))->toBe("memory_limit=256M\n");
 });
 
 it('cannot judge a mutant by reference where the memory cap cannot be written', function () use ($money): void {
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['internal']);
-    mkdir(sprintf('%s/php/%s', dirname($results), MemoryCap::FILE), recursive: true);
+    mkdir(sprintf('%s/%s', MemoryCap::directoryIn(dirname($results)), MemoryCap::FILE), recursive: true);
 
     expect(new Judging($at, new ShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: '')))->of(
         judgingResult('internal'),

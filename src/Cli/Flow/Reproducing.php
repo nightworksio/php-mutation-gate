@@ -13,7 +13,6 @@ use NightWorksIO\MutationGate\Core\Proof\Ambiguous;
 use NightWorksIO\MutationGate\Core\Proof\NoRecord;
 use NightWorksIO\MutationGate\Core\Proof\Recorded;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
-use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -51,9 +50,7 @@ final readonly class Reproducing
     {
         $judgedBy = $this->judgedBy($recorded->proof()->unit(), $units);
         $mutant = Reproducible::of($recorded->mutant());
-        $request = MutationRequest::of(Paths::of($mutant->file()), $judgedBy)
-            ->withholding($this->adapters->withheld)
-            ->cappedAt($this->settings->runner()->memory());
+        $request = RunRequest::of($this->adapters, $this->settings, Paths::of($mutant->file()), $judgedBy);
         $now = $this->adapters->runner->reproduce($mutant, $request, $this->settings->triage()->limit());
 
         return $now instanceof CannotJudge ? $now : new Reproduced($recorded, $judgedBy, $now);

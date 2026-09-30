@@ -5,8 +5,10 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
+use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Ignores;
+use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -24,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
@@ -44,6 +47,8 @@ use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -71,6 +76,7 @@ use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\NamesAsked;
+use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
@@ -123,6 +129,36 @@ it('plans every unit of a full run into shards, on the commit HEAD is at', funct
         ->and($planned instanceof Plan ? $planned->considered()->proved() : $planned)->toEqual(Units::none())
         ->and($planned instanceof Plan ? $planned->considered()->carried() : $planned)->toEqual(Units::none());
 });
+
+/** A plan under a 512M cap, where the suite's coverage run held this much. */
+$cappedPlan = static function (MemoryCap|NotGiven $peak) use ($coverage): Plan|CannotJudge {
+    $setup = Flows::setup();
+
+    return new Planning(
+        Flows::adapters(Flows::project()),
+        Flows::settings(ConfiguredRunner::uses('fake')->cappedAt(MemoryCap::of(512, MemoryUnit::Megabytes))),
+        new Setup($setup->configFile, $setup->gate, $setup->installed, $setup->clock, new PeakMemoryFake($peak)),
+    )->plan(Mode::full(), $coverage(), Cut::exactly(2));
+};
+
+it('refuses to plan where the suite held more memory in its coverage run than the cap', function () use (
+    $cappedPlan,
+): void {
+    expect($cappedPlan(MemoryCap::of(600, MemoryUnit::Megabytes)))->toEqual(CannotJudge::because(implode("\n", [
+        'The suite\'s processes held 600M in its coverage run, more than the 512M runner.memory lets each',
+        'mutant\'s process hold, so its mutants cannot be judged under the cap.',
+        'Raise runner.memory; doctor --measure says what the suite needs.',
+    ])));
+});
+
+it('plans where the suite held no more than the cap, or the system did not count it', function (
+    MemoryCap|NotGiven $peak,
+) use ($cappedPlan): void {
+    expect($cappedPlan($peak))->toBeInstanceOf(Plan::class);
+})->with([
+    'at the cap' => [MemoryCap::of(512, MemoryUnit::Megabytes)],
+    'not counted' => [NotGiven::value()],
+]);
 
 it('hands each shard the map of its own files', function () use ($plan): void {
     $project = Flows::project();

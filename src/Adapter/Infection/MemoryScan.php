@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Pest;
+namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function dirname;
 use function fclose;
@@ -23,9 +23,9 @@ use function unlink;
 
 /**
  * The directory of the ini file that caps a run's memory (ADR-0004, decision
- * 9), for every PHP process of the run to scan: Pest, each mutant's own
- * process, and each run of a mutant judged by reference. It is beside the
- * run's results, so the run and its judging by reference share it.
+ * 9), for every PHP process of the run to scan: Infection's own, its
+ * opening run and each mutant's PHPUnit, all of which inherit the
+ * environment. It is in Infection's own directory of the gate's workspace.
  */
 final readonly class MemoryScan
 {
@@ -33,14 +33,14 @@ final readonly class MemoryScan
     {
     }
 
-    /** The cap written beside a run's results file, or none where it caps nothing; or why it cannot be written. */
-    public static function beside(Project $project, string $results, MemoryCap $memory): self|CannotJudge
+    /** The cap written into Infection's own directory, or none where it caps nothing; or why it cannot be written. */
+    public static function in(Project $project, MemoryCap $memory): self|CannotJudge
     {
         if (! $memory->caps()) {
             return new self(Uncapped::Memory);
         }
 
-        $directory = $project->directory($project->relative(MemoryCap::directoryIn(dirname($results))));
+        $directory = $project->directory($project->relative(MemoryCap::directoryIn($project->own('.'))))->value();
         $ini = sprintf('%s/%s', $directory, MemoryCap::FILE);
 
         return self::written($directory, $ini, $memory)

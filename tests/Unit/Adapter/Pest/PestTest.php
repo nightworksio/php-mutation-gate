@@ -374,7 +374,7 @@ it('keeps every PHP process of a capped run to the cap, through an ini file besi
     $at = adapterProject();
     $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
     $capped = adapterMoney()->cappedAt(MemoryCap::standard());
-    $directory = sprintf('%s/.mutation-gate/pest/php', $at->root());
+    $directory = MemoryCap::directoryIn(sprintf('%s/.mutation-gate/pest', $at->root()));
 
     $result = new Pest($at, $shell, Patching::off())->mutate($capped);
 
@@ -389,13 +389,13 @@ it('keeps every PHP process of a capped run to the cap, through an ini file besi
 
 it('cannot judge a capped run whose cap cannot be written', function (): void {
     $at = adapterProject();
-    mkdir(sprintf('%s/.mutation-gate/pest/php/memory-cap.ini', $at->root()), recursive: true);
+    mkdir(sprintf('%s/%s', MemoryCap::directoryIn(sprintf('%s/.mutation-gate/pest', $at->root())), MemoryCap::FILE), recursive: true);
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
     expect(new Pest($at, $shell, Patching::off())->mutate(adapterMoney()->cappedAt(MemoryCap::standard())))
         ->toEqual(CannotJudge::because(sprintf(
-            'The memory cap cannot be written to %s/.mutation-gate/pest/php/memory-cap.ini. Make the directory writable.',
-            $at->root(),
+            MemoryCap::UNWRITTEN,
+            sprintf('%s/%s', MemoryCap::directoryIn(sprintf('%s/.mutation-gate/pest', $at->root())), MemoryCap::FILE),
         )))
         ->and($shell->commands())->toBe([]);
 });
@@ -727,7 +727,7 @@ it('reproduces a mutant under the cap its request carries, as the run it came fr
     new Pest($at, $shell, Patching::off())->reproduce(Reproducible::of(adapterMutant()), $request, Seconds::of(20.0));
 
     expect(array_map(static fn(Command $command): mixed => $command->environment()[MemoryCap::SCAN_DIR] ?? null, $shell->commands()))
-        ->toBe([MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), sprintf('%s/php', dirname(adapterResults($at))))]);
+        ->toBe([MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), MemoryCap::directoryIn(dirname(adapterResults($at))))]);
 });
 
 it('says Pest made no mutant with the id where the run no longer makes it', function (): void {
