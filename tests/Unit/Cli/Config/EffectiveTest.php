@@ -385,7 +385,7 @@ it('says whether the config file or the command line chooses the runner, rather 
 
     expect($effective(Tree::at('tests/Fixtures/Projects/TwoRunners'))->choosesRunner($nothing()))->toBeFalse()
         ->and($effective(Tree::at('tests/Fixtures/Projects/TwoRunners'))
-            ->choosesRunner(new CommandLine('', 'pest', [], '', '', firstPartyOnly: false)))->toBeTrue()
+            ->choosesRunner(CommandLine::nothing()->withRunner('pest')))->toBeTrue()
         ->and($effective($withholding)->choosesRunner($nothing()))->toBeFalse()
         ->and($effective($choosing)->choosesRunner($nothing()))->toBeTrue()
         ->and($effective($unreadable)->choosesRunner($nothing()))->toBeFalse();
