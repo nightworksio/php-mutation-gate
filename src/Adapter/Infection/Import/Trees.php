@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
 use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -91,7 +92,7 @@ final readonly class Trees
 
         foreach ($trees as $at => $tree) {
             $glob = self::glob($project, $tree->path()->child(Path::of($exclude)));
-            $trees[$at] = $glob === '' ? $tree : $tree->excluding($glob);
+            $trees[$at] = $glob === '' ? $tree : $tree->excluding(Glob::of($glob));
             $said = sprintf(self::EXCLUDED, $tree->path()->value(), $glob);
             $excluded = $glob === '' ? $excluded : [...$excluded, $said];
         }

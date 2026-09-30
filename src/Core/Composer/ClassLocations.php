@@ -36,39 +36,52 @@ final readonly class ClassLocations
     /** The files each prefix that is the class's maps it to, in the order the sections list them. */
     public function files(string $class): Paths
     {
-        $class = ltrim($class, '\\');
-        $files = [];
+        return $this->located(ltrim($class, '\\'), directory: false);
+    }
+
+    /** The directories each prefix that is the namespace's maps it to, in the order the sections list them. */
+    public function directories(string $namespace): Paths
+    {
+        return $this->located($namespace, directory: true);
+    }
+
+    private function located(string $name, bool $directory): Paths
+    {
+        $found = [];
 
         foreach ($this->autoloads as $autoload) {
-            $files = [
-                ...$files,
-                ...$this->mapped($autoload, AutoloadKind::Psr4, $class),
-                ...$this->mapped($autoload, AutoloadKind::Psr0, $class),
-            ];
+            foreach ([AutoloadKind::Psr4, AutoloadKind::Psr0] as $kind) {
+                $found = [...$found, ...$this->mapped($autoload, $kind, $name, $directory)];
+            }
         }
 
-        return Paths::of(...$files);
+        return Paths::of(...$found);
     }
 
     /**
-     * The file each prefix of an autoload kind maps a class to, below each directory it names.
+     * What each prefix of an autoload kind maps a class or a namespace to, below each directory it names.
      *
      * @return list<Path>
      */
-    private function mapped(Node $autoload, AutoloadKind $kind, string $class): array
+    private function mapped(Node $autoload, AutoloadKind $kind, string $name, bool $directory): array
     {
-        $files = [];
+        $found = [];
 
         foreach (Lenient::entries($autoload->field($kind->value)) as $prefix => $entry) {
-            $relative = $kind->fileOf($class, sprintf('%s', $prefix));
-            $files = [...$files, ...($relative === '' ? [] : $this->under($entry, $relative))];
+            $relative = $directory
+                ? $kind->directoryOf($name, sprintf('%s', $prefix))
+                : $kind->fileOf($name, sprintf('%s', $prefix));
+
+            foreach ($relative as $path) {
+                $found = [...$found, ...$this->under($entry, $path->value())];
+            }
         }
 
-        return $files;
+        return $found;
     }
 
     /**
-     * A file below each directory an autoload entry names: one, or a list of them.
+     * A path below each directory an autoload entry names: one, or a list of them.
      *
      * @return list<Path>
      */

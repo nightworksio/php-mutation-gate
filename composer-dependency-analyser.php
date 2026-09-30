@@ -65,4 +65,7 @@ return (new Configuration())
     // requires these: it reads the project's infection.json5, and PHPUnit's XML
     // coverage and JUnit log. composer.json suggests each.
     ->ignoreErrorsOnPackages(['colinodell/json5'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // Importing an Infection config reads the installed Infection's own
+    // profile list, where Infection is installed; it asks first.
+    ->ignoreErrorsOnPackages(['infection/infection'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
     ->ignoreErrorsOnExtension('ext-dom', [ErrorType::DEV_DEPENDENCY_IN_PROD]);

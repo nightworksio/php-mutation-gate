@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Infection\Import;
 
 use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -14,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
 /** A tree an import declares: its path, an exemption zero-config found for it, and the globs it excludes. */
 final readonly class Tree
 {
-    /** @param list<string> $excludes */
+    /** @param list<Glob> $excludes */
     private function __construct(private Path $path, private Exempt|Undeclared $found, private array $excludes)
     {
     }
@@ -39,7 +40,7 @@ final readonly class Tree
     }
 
     /** This tree, also excluding what a glob matches. */
-    public function excluding(string $glob): self
+    public function excluding(Glob $glob): self
     {
         return new self($this->path, $this->found, [...$this->excludes, $glob]);
     }

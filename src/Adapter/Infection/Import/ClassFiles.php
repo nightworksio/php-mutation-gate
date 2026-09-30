@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection\Import;
 
 use function file_get_contents;
+use function is_dir;
 use function is_file;
 
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
@@ -12,14 +13,16 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\ClassLocations;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
 
 /**
- * The file of a class, as the project's `composer.json` autoloads it by psr-4
- * or psr-0, where that file is there. Nothing is loaded to find it.
+ * The file of a class, or the directory of a namespace, as the project's
+ * `composer.json` autoloads it by psr-4 or psr-0, where it is there. Nothing
+ * is loaded to find it.
  */
 final readonly class ClassFiles
 {
@@ -52,5 +55,17 @@ final readonly class ClassFiles
         }
 
         return Unmapped::NoFile;
+    }
+
+    /** Everything under the first directory the autoload would load a namespace's classes from that is there. */
+    public function under(string $namespace): Glob|Unmapped
+    {
+        foreach ($this->locations->directories($namespace) as $directory) {
+            if (is_dir($this->project->absolute($directory))) {
+                return Glob::of(sprintf('%s/**', $directory->value()));
+            }
+        }
+
+        return Unmapped::NoDirectory;
     }
 }

@@ -116,9 +116,22 @@ Operating the gate raises four needs its reports do not yet meet.
      ["App\\Money::add"]` becomes `{path: <the class's file, from the
      autoload>, mutator: <Name>}`. A `Class::method` or `Class::method::line`
      pattern widens to the whole file, and the report lists every entry that
-     widened.
-   - **`global-ignore` becomes one entry per family,** because a gate ignore
-     names a mutator or a family (ADR-0008 decision 4).
+     widened. The file is found from the psr-4 and psr-0 autoload of
+     `composer.json`, without loading any code.
+   - **A pattern over a whole namespace, `App\Legacy\*`,** becomes an entry for
+     `<the namespace's directory>/**`. Any other wildcard names no one class
+     or namespace, so it stays native.
+   - **`global-ignore` and a profile's ignores become one entry per family**
+     the profile holds whole, and one per other mutator of it by name,
+     because a gate ignore names a mutator or a family (ADR-0008 decision 4).
+     The installed Infection's own profile list says which mutators each
+     profile holds; `global-ignore` holds them all, those of no family among
+     them.
+   - **A pattern that maps to no entry stays native:** one whose class no
+     autoloaded file holds, one whose namespace no autoloaded directory
+     holds, another wildcard, or a profile's where Infection is not
+     installed. The import sets `ignores.native: allow` and says why each
+     stays.
    - **Every imported entry has a reason and an end.** Its reason is
      `Imported from infection.json5 (<pattern>): write the real reason`,
      and it expires 90 days after the import, so no imported entry outlives

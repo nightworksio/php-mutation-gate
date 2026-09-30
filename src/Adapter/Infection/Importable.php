@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
+use function class_exists;
+
 use DateTimeImmutable;
 use NightWorksIO\MutationGate\Adapter\Infection\Import\Choices;
 use NightWorksIO\MutationGate\Adapter\Infection\Import\ClassFiles;
@@ -11,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Import\Floor;
 use NightWorksIO\MutationGate\Adapter\Infection\Import\Ignores;
 use NightWorksIO\MutationGate\Adapter\Infection\Import\Logs;
 use NightWorksIO\MutationGate\Adapter\Infection\Import\Mapped;
+use NightWorksIO\MutationGate\Adapter\Infection\Import\Profiles;
 use NightWorksIO\MutationGate\Adapter\Infection\Import\Remaining;
 use NightWorksIO\MutationGate\Adapter\Infection\Import\Timeouts;
 use NightWorksIO\MutationGate\Adapter\Infection\Import\Trees;
@@ -103,7 +106,13 @@ final readonly class Importable
             ->and(Trees::of($this->settings, $project, $found))
             ->and(Floor::imported($this->settings))
             ->and(Timeouts::of($this->settings))
-            ->and(Ignores::of($this->own->mutators(), $this->file, ClassFiles::in($project), $now))
+            ->and(Ignores::of(
+                $this->own->mutators(),
+                $this->file,
+                ClassFiles::in($project),
+                Profiles::installed(class_exists(...)),
+                $now,
+            ))
             ->and(Logs::of($this->settings))
             ->and(Remaining::of($this->settings));
     }
