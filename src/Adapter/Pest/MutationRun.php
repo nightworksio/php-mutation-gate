@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_filter;
 use function array_key_exists;
 use function array_map;
 use function array_values;
@@ -23,7 +22,6 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
@@ -57,9 +55,9 @@ final readonly class MutationRun
 
     private const string EMPTY_CANARY = 'pest.patch is on, but the canary group %s holds no test. Add one.';
 
-    /** Why a mutant killed with no killer in a narrowed run is unjudged where no time is left to run it again. */
+    /** Why a narrowed run's doubtful kill is unjudged where no time is left to run it again. */
     private const string NO_TIME_TO_CONFIRM
-        = "Killed with no killer named in a run of its covering tests' files, and no time left to run every test file.";
+        = "Killed by no test named or only by errors in a run of its covering tests' files; no time to run them all.";
 
     /** Why such a mutant is unjudged where the run again made no mutant with its id. */
     private const string NOT_MADE_TO_CONFIRM = 'Run again with every test file, Pest made no mutant with this id.';
@@ -108,9 +106,10 @@ final readonly class MutationRun
      * Every mutant of the requested files, where there are any to mutate:
      * Pest's `--path` never names none. Where a patched run narrowed each
      * mutant's own run to the test files its covering tests need, a mutant
-     * killed with no test named as its killer, as a run that failed to load
-     * leaves one, runs again with every test file before it counts, within
-     * the time left, or is unjudged where none is.
+     * killed with no test named as its killer, or only by tests that errored,
+     * as a run that could not load all its tests needs leaves one, runs again
+     * with every test file before it counts, within the time left, or is
+     * unjudged where none is.
      */
     public function of(MutationRequest $request): MutationResult|CannotJudge
     {
@@ -120,16 +119,17 @@ final readonly class MutationRun
 
         $started = $this->clock->seconds();
         $results = $this->project->freshResults();
-        $shared = $results instanceof CannotJudge ? $results : $this->shared($request);
-        $result = match (true) {
-            $results instanceof CannotJudge => $results,
-            $shared instanceof CannotJudge => $shared,
-            default => $this->ran($request, $results, $shared),
-        };
+
+        if ($results instanceof CannotJudge) {
+            return $results;
+        }
+
+        $shared = $this->shared($request);
+        $result = $shared instanceof CannotJudge ? $shared : $this->ran($request, $results, $shared);
 
         return $result instanceof CannotJudge || ! $this->narrows()
             ? $result
-            : $this->confirmed($result, $request, $started);
+            : $this->confirmed($result, $request, $started, DoubtfulKills::in($result, $results));
     }
 
     private function ran(
@@ -169,22 +169,16 @@ final readonly class MutationRun
     }
 
     /**
-     * The result, each mutant killed with no test named as its killer run
-     * again with every test file, within the time left since the run began,
-     * or unjudged where none is left.
+     * The result, each doubtful kill run again with every test file, within
+     * the time left since the run began, or unjudged where none is left.
      */
     private function confirmed(
         MutationResult $result,
         MutationRequest $request,
         float $started,
+        Mutants $doubtful,
     ): MutationResult|CannotJudge {
-        $killerless = Mutants::of(...array_filter(
-            [...$result->mutants()],
-            static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed
-                && count($mutant->killers()) === 0,
-        ));
-
-        if (count($killerless) === 0) {
+        if (count($doubtful) === 0) {
             return $result;
         }
 
@@ -193,11 +187,11 @@ final readonly class MutationRun
             ? Seconds::of($deadline->seconds() - ($this->clock->seconds() - $started))
             : $deadline;
         $again = $left instanceof Seconds && $left->seconds() <= 0.0
-            ? FoundAgain::among($killerless, Mutants::none(), Reason::that(self::NO_TIME_TO_CONFIRM))
-            : $this->whole()->again($killerless, $left instanceof Seconds ? $request->within($left) : $request);
+            ? FoundAgain::among($doubtful, Mutants::none(), Reason::that(self::NO_TIME_TO_CONFIRM))
+            : $this->whole()->again($doubtful, $left instanceof Seconds ? $request->within($left) : $request);
 
         return $again instanceof CannotJudge ? $again : MutationResult::of(
-            self::replaced($result->mutants(), $again),
+            $this->replaced($result->mutants(), $again),
             $result->skipped(),
         );
     }
@@ -225,7 +219,7 @@ final readonly class MutationRun
     }
 
     /** The mutants, each one made again replaced by what that run reported of it. */
-    private static function replaced(Mutants $mutants, Mutants $again): Mutants
+    private function replaced(Mutants $mutants, Mutants $again): Mutants
     {
         $by = [];
 

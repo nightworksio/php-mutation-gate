@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use function array_key_exists;
+use function array_map;
 use function array_values;
-use function count;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Php\NamedFiles;
 use NightWorksIO\MutationGate\Core\Test\Role;
 
 /**
@@ -29,13 +30,13 @@ final readonly class Tests
 {
     /**
      * @param array<string, TestFile>   $files  by path
-     * @param array<string, list<Path>> $naming the support each file names, each once, by the file's path
+     * @param NamedFiles                $naming the support each file names
      * @param Paths                     $always the files in every key
      * @param Paths                     $cases  every file of test cases
      */
     private function __construct(
         private array $files,
-        private array $naming,
+        private NamedFiles $naming,
         private Paths $always,
         private Paths $cases,
     ) {
@@ -69,14 +70,18 @@ final readonly class Tests
         $naming = [];
 
         foreach ($byPath as $file) {
-            $naming[$file->fingerprint()->path()->value()] = self::supportNamedBy($file, $byName);
+            $naming[$file->fingerprint()->path()->value()] = array_map(
+                static fn(Path $support): string => $support->value(),
+                self::supportNamedBy($file, $byName),
+            );
         }
 
-        $unseeded = new self($byPath, $naming, Paths::none(), Paths::none());
+        $named = NamedFiles::of($naming);
+        $unseeded = new self($byPath, $named, Paths::none(), Paths::none());
 
         return new self(
             $byPath,
-            $naming,
+            $named,
             $unseeded->reachedFrom(Paths::of(...$canaries, ...$seeds)),
             Paths::of(...$cases),
         );
@@ -156,28 +161,9 @@ final readonly class Tests
     /** These files, and every support file they name, transitively, in the order they were reached. */
     private function reachedFrom(Paths $from): Paths
     {
-        $queue = [...$from];
-        $reached = [];
+        $values = array_map(static fn(Path $path): string => $path->value(), [...$from]);
+        $reached = $this->naming->reachedFrom(...$values);
 
-        foreach ($queue as $path) {
-            $reached[$path->value()] = $path;
-        }
-
-        $at = 0;
-
-        while ($at < count($queue)) {
-            $named = array_key_exists($queue[$at]->value(), $this->naming) ? $this->naming[$queue[$at]->value()] : [];
-
-            foreach ($named as $found) {
-                if (! array_key_exists($found->value(), $reached)) {
-                    $reached[$found->value()] = $found;
-                    $queue[] = $found;
-                }
-            }
-
-            $at++;
-        }
-
-        return Paths::of(...array_values($reached));
+        return Paths::of(...array_map(Path::of(...), $reached));
     }
 }

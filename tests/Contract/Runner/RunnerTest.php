@@ -45,6 +45,7 @@ use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 // What every runner reports over the fixture library in fixture/: in
@@ -592,32 +593,54 @@ it('opens a patched shard on the canary group and reads the map the planning job
         ->toEqualCanonicalizing($library->expected('adds', 'large'));
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
-// A test that needs a test file beside its own, for a helper function, a base
-// test case or a trait of tests, none of them autoloaded, works only where that
-// file is loaded first. The gate covers the suite, and opens every run, with
-// Pest's --parallel, which loads each test file on its own, so it cannot cover
-// such a suite at all, and no mutant's own run narrowed to its covering test
-// files ever meets one.
-it('cannot cover a suite whose test needs another test file, as no narrowed run meets one', function (string $missing, string ...$files): void {
+// A test that needs a test file beside its own, for a helper function, a
+// constant, a base test case or a trait of tests, none of them autoloaded,
+// works where that file is loaded first: here it sorts first, holds a test of
+// its own, which Pest's --parallel needs to load it at all, and the suite is
+// covered in one process. A mutant only such a test covers, which no test
+// kills, survives a run narrowed to its covering tests' files: the files it
+// needs are loaded with them, and one it calls by a name built at run time,
+// which errors there, is run again with every test file.
+it('narrows a mutant\'s own run over a test that needs another test file, loaded first, and kills nothing by what it left out', function (string ...$files): void {
     $into = Tree::at(sprintf('%s/tests/Reach', Library::DIRECTORY));
+    $source = Tree::at(sprintf('%s/src/Reach.php', Library::DIRECTORY));
     mkdir($into);
+    copy(Tree::at('tests/Contract/Runner/reach/src/Reach.php'), $source);
 
     foreach ($files as $file) {
         copy(Tree::at(sprintf('tests/Contract/Runner/reach/tests/Reach/%s', $file)), sprintf('%s/%s', $into, $file));
     }
 
+    Patch::applyIn(Library::vendor());
+    $runner = Library::pest(Patching::on(Library::canary()))->runner();
+
     try {
-        $map = Library::pest(Patching::off())->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/reach')));
+        $map = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/reach')));
+        file_put_contents(
+            Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in(Path::of('.mutation-gate/reach'))->value())),
+            CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty()),
+        );
+        $result = $runner->mutate(MutationRequest::of(Paths::of(Path::of('src/Reach.php')), WholeSuite::tests())
+            ->onlyMutators(Mutators::named(PlusToMinus::class))
+            ->reusingCoverage(Path::of('.mutation-gate/reach')));
     } finally {
         array_map(static fn(string $file): bool => unlink(sprintf('%s/%s', $into, $file)), $files);
         rmdir($into);
+        unlink($source);
     }
 
-    expect($map instanceof CannotJudge ? $map->why() : $map)->toContain($missing);
+    expect($map instanceof CannotJudge ? $map->why() : $map)->toBeInstanceOf(CoverageMap::class)
+        ->and($result instanceof MutationResult ? array_map(
+            static fn(Mutant $mutant): MutantStatus => $mutant->status(),
+            [...$result->mutants()],
+        ) : $result)->toBe([MutantStatus::Survived]);
 })->with([
-    'a helper function' => ['reachAmount()', 'ReachHelpersSpec.php', 'ReachHelpedSpec.php'],
-    'a base test case' => ['ReachBaseSpec" not found', 'ReachBaseSpec.php', 'ReachInheritedSpec.php'],
-    'a trait of tests' => ['ReachAsserts" not found', 'ReachAssertsSpec.php', 'ReachTraitedSpec.php'],
+    'a helper function' => ['ReachAHelpersSpec.php', 'ReachZHelpedSpec.php'],
+    'a constant' => ['ReachAConstantsSpec.php', 'ReachZConstantSpec.php'],
+    'a defined constant' => ['ReachADefinesSpec.php', 'ReachZDefinedSpec.php'],
+    'a base test case' => ['ReachABaseSpec.php', 'ReachZInheritedSpec.php'],
+    'a trait of tests' => ['ReachAAssertsSpec.php', 'ReachZTraitedSpec.php'],
+    'a helper called by a name built at run time' => ['ReachADynamicSpec.php', 'ReachZDynamicSpec.php'],
 ])->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('hands each mutant\'s own run the test files its covering tests need as paths, and no other', function (): void {

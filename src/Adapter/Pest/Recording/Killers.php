@@ -63,10 +63,16 @@ final readonly class Killers
         return $killers;
     }
 
-    /** Writes a test that failed or errored, by its id, as the coverage map names it. */
+    /** Writes a test that failed an assertion, by its id, as the coverage map names it. */
     public function killedBy(string $test): void
     {
         file_put_contents($this->results, RecordLine::killed($this->mutated, $test), FILE_APPEND | LOCK_EX);
+    }
+
+    /** Writes a test that errored, by its id, as the coverage map names it. */
+    public function erroredBy(string $test): void
+    {
+        file_put_contents($this->results, RecordLine::errored($this->mutated, $test), FILE_APPEND | LOCK_EX);
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedTests;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -14,7 +15,7 @@ afterEach(function (): void {
 });
 
 /**
- * Test files, loaded into this process as a suite's are: a helper function and a fake class each declared beside a
+ * Test files, loaded into this process as a suite's are: a helper function, a fake class and constants each declared beside a
  * test case in one file and used from another, a base test case in a file of its own and a test case extending it,
  * and a trait of tests in a file of its own and a test case using it.
  *
@@ -32,6 +33,8 @@ $suite = static function (): array {
         'AssertsTest.php' => 'trait Asserts { public function testIt(): void {} }',
         'UsesTraitTest.php' => 'final class UsesTraitTest extends \PHPUnit\Framework\TestCase { use Asserts; }',
         'AloneTest.php' => 'final class AloneTest extends \PHPUnit\Framework\TestCase { public function testIt(): void {} }',
+        'ConstantsTest.php' => 'const LIMIT = 5; \define(\'%1$s\\\\DEFINED\', 6); final class ConstantsTest extends \PHPUnit\Framework\TestCase { public function testIt(): void {} }',
+        'UsesConstantTest.php' => 'final class UsesConstantTest extends \PHPUnit\Framework\TestCase { public function testIt(): void { $sum = LIMIT + DEFINED; } }',
     ];
     $files = [];
     $root = Scratch::directory();
@@ -41,7 +44,7 @@ $suite = static function (): array {
         $files[$name] = sprintf('%s/%s/%s', $root, $namespace, $name);
     }
 
-    foreach (['DeclaresTest.php', 'UsesHelperTest.php', 'NamesFakeTest.php', 'BaseTest.php', 'ChildTest.php', 'AssertsTest.php', 'UsesTraitTest.php', 'AloneTest.php'] as $name) {
+    foreach (array_keys($sources) as $name) {
         require_once $files[$name];
     }
 
@@ -50,7 +53,7 @@ $suite = static function (): array {
     return [$namespace, array_map(static fn(string $file): string => (string) realpath($file), $files), $root];
 };
 
-it('needs each loaded test file that declares a function, class, base or trait a test file uses, and no other', function () use ($suite): void {
+it('needs each loaded test file that declares a function, class, base, trait or constant a test file uses, and no other', function () use ($suite): void {
     [$namespace, $files, $root] = $suite();
     $loaded = LoadedTests::inThisProcess($root);
     $needs = static fn(string $name): array => $loaded->needs($files[$name]);
@@ -60,6 +63,7 @@ it('needs each loaded test file that declares a function, class, base or trait a
         ->and($needs('ChildTest.php'))->toBe([$files['ChildTest.php'], $files['BaseTest.php']])
         ->and($needs('UsesTraitTest.php'))->toBe([$files['UsesTraitTest.php'], $files['AssertsTest.php']])
         ->and($needs('AloneTest.php'))->toBe([$files['AloneTest.php']])
+        ->and($needs('UsesConstantTest.php'))->toBe([$files['UsesConstantTest.php'], $files['ConstantsTest.php']])
         ->and($loaded->fileOf(mb_strtolower(sprintf('%s\ChildTest', $namespace))))->toBe($files['ChildTest.php'])
         ->and($loaded->fileOf('never\loaded'))->toBe('');
 });
@@ -82,7 +86,7 @@ it('narrows a mutant\'s run to what its covering tests need, only where the run 
         ->and($narrowing(100000, $child, $alone))->toBe($expected)
         ->and($narrowing(100000, $child, 'Never\Loaded::test'))->toBe([])
         ->and($narrowing(100000))->toBe([])
-        ->and($narrowing(mb_strlen(implode(' ', $expected)), $child, $alone))->toBe([]);
+        ->and($narrowing(Bytes::length(implode(' ', $expected)), $child, $alone))->toBe([]);
 });
 
 it('narrows a run of a test its class takes from a trait to the class\'s file and the trait\'s', function () use ($suite): void {

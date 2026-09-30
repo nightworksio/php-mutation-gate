@@ -132,3 +132,17 @@ it('names every fully qualified name a quoted string spells, as a class-string d
     expect($file->quoted()->all())->toBe(['tests\fakes\clock', 'app\money', 'tests\fakes\ledger'])
         ->and($file->mentioned()->all())->not->toContain('tests\fakes\clock');
 });
+
+it('names the last segment of every constant it declares, with const or define()', function (): void {
+    $file = PhpFile::read(Contents::of(<<<'PHP'
+        <?php
+        namespace Tests\Reach;
+        const REACH_AMOUNT = 5, REACH_OTHER = 6;
+        define('REACH_DEFINED', 7);
+        define('Tests\Reach\REACH_QUALIFIED', 8);
+        final class Holder { public const int HELD = 1; }
+        $sum = REACH_AMOUNT + 1;
+        PHP));
+
+    expect($file->constants()->all())->toBe(['reach_amount', 'reach_other', 'reach_defined', 'reach_qualified', 'held']);
+});

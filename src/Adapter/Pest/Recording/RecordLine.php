@@ -81,6 +81,16 @@ final readonly class RecordLine
         ]);
     }
 
+    /** A test that errored in the own process of the mutant Pest serves this mutated copy for. */
+    public static function errored(string $mutated, string $test): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Errored->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::Test->value => $test,
+        ]);
+    }
+
     /** The memory limit the own process of the mutant Pest serves this mutated copy for ran out of. */
     public static function exhausted(string $mutated, MemoryCap $limit): string
     {

@@ -254,6 +254,27 @@ it('names the tests that failed in each mutant\'s own process, in order, by the 
         ->and($named('unplanned'))->toBe([]);
 });
 
+it('tells a mutant killed only by tests that errored from one a test failed on, errored tests named as killers too', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        $planned('b', '/p/src/Money.php', 20),
+        $planned('c', '/p/src/Money.php', 30),
+        RecordLine::errored('/tmp/a', 'T::adds'),
+        RecordLine::errored('/tmp/a', 'T::subtracts'),
+        RecordLine::errored('/tmp/b', 'T::adds'),
+        RecordLine::killed('/tmp/b', 'T::subtracts'),
+    ]));
+    $only = static fn(string $id): bool => $records instanceof Records
+        && $records->killedByErrorsOnly($mutant($id, '/p/src/Money.php', 10));
+    $named = static fn(string $id): array => $records instanceof Records
+        ? array_map(static fn(TestId $test): string => $test->value(), [...$records->killersOf($mutant($id, '/p/src/Money.php', 10))])
+        : [];
+
+    expect([$only('a'), $only('b'), $only('c')])->toBe([true, false, false])
+        ->and($named('a'))->toBe(['T::adds', 'T::subtracts'])
+        ->and($named('b'))->toBe(['T::adds', 'T::subtracts']);
+});
+
 it('keeps the memory limit each mutant\'s own process ran out of, by the mutated copy it ran on', function () use ($results, $planned, $mutant): void {
     $records = Records::in($results([
         $planned('a', '/p/src/Money.php', 10),

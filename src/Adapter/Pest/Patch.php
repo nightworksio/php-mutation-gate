@@ -50,9 +50,6 @@ use function str_replace;
  */
 final readonly class Patch
 {
-    /** The longest `--filter` argument, in bytes, the patch starts a mutant's process with. */
-    public const int CEILING = 100000;
-
     private const string SOURCE = '%s/pestphp/pest-plugin-mutate/src/%s';
 
     private const string FILTER_SHIPS = <<<'PHP'
@@ -359,7 +356,7 @@ final readonly class Patch
     private static function hunks(): array
     {
         return [
-            self::hunk('MutationTest.php', self::FILTER_SHIPS, sprintf(self::FILTER_BECOMES, self::CEILING)),
+            self::hunk('MutationTest.php', self::FILTER_SHIPS, sprintf(self::FILTER_BECOMES, Ceiling::BYTES)),
             self::hunk('MutationTest.php', self::COVERING_SHIPS, self::COVERING_BECOMES),
             self::hunk('MutationTest.php', self::PATHS_SHIPS, sprintf(self::PATHS_BECOMES, CoveringFiles::class)),
             self::hunk(

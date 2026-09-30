@@ -331,14 +331,14 @@ its parser attributes. Both change when the checkout moves.
      - A mutant's own run loads only the test files its covering tests need:
        the file that declares each covering test's class, and every test file
        Pest's parent process loaded that declares a name those use, in turn.
-       Where a covering test's class is not loaded, or the paths would not fit
-       where a filter would not, it loads every test file. A test that needs
-       another test file only works where that file is loaded first, and the
-       gate runs Pest `--parallel` for coverage and for every opening run, so
-       such a suite already cannot be covered: no narrowed run meets one. A
-       mutant a narrowed run kills with no test named as its killer, as a run
-       that could not load leaves one, runs again with every test file within
-       the time left, or is unjudged.
+       The names are functions, classes, interfaces, traits and enums, and
+       constants declared by `const` or `define()`, used in code or, fully
+       qualified, in a quoted string. Where a covering test's class is not
+       loaded, or the paths would not fit in the bytes a filter may take, it
+       loads every test file. A name a test builds at run time is not read,
+       and a test that cannot resolve one errors. So a mutant a narrowed run
+       kills with no test named as its killer, or only by tests that errored,
+       runs again with every test file within the time left, or is unjudged.
 
      Every anchor is checked before anything is written, and one that has moved
      fails the install: a patch that quietly matched nothing is worse than none.

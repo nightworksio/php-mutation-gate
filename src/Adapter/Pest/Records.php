@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_count_values;
+use function array_diff;
 use function array_filter;
 use function array_key_exists;
 use function array_key_last;
@@ -71,7 +72,10 @@ final class Records
     /** @var array<string, list<PestStatus>> the final status, by native id, one for each mutant that shares it */
     private array $finished = [];
 
-    /** @var array<string, list<string>> the tests that failed, in order, by the mutated copy they ran on */
+    /** @var array<string, list<string>> the tests that errored, by the mutated copy they ran on */
+    private array $errored = [];
+
+    /** @var array<string, list<string>> the tests that failed or errored, in order, by the mutated copy they ran on */
     private array $killers = [];
 
     /** @var array<string, MemoryCap> the memory limit a mutant's own process ran out of, by the copy it ran on */
@@ -151,6 +155,19 @@ final class Records
     }
 
     /**
+     * Whether every test named as a mutant's killer errored rather than fail
+     * an assertion, as a test does whose own code a run could not load.
+     */
+    public function killedByErrorsOnly(PlannedMutant $mutant): bool
+    {
+        $mutated = $mutant->mutated()->value();
+        $killers = array_key_exists($mutated, $this->killers) ? $this->killers[$mutated] : [];
+        $errored = array_key_exists($mutated, $this->errored) ? $this->errored[$mutated] : [];
+
+        return $killers !== [] && array_diff($killers, $errored) === [];
+    }
+
+    /**
      * The memory limit a mutant's own process ran out of, where it did. Any
      * two mutants that leave the same source share their mutated copy, and
      * so this.
@@ -221,7 +238,7 @@ final class Records
             RecordEvent::Made => $this->withMade($record),
             RecordEvent::Outcome => $this->withOutcome($record),
             RecordEvent::Finished => $this->withFinished($record),
-            RecordEvent::Killed => $this->withKiller($record),
+            RecordEvent::Killed, RecordEvent::Errored => $this->withKiller($record, RecordEvent::from($event->text())),
             RecordEvent::Exhausted => $this->exhausted[$record->field(RecordField::Mutated->value)->text()]
                 = WrittenBytes::read($record->field(RecordField::Bytes->value)),
             RecordEvent::End => $this->ended = true,
@@ -310,10 +327,15 @@ final class Records
     }
 
     /** @throws NotInShape */
-    private function withKiller(Node $record): void
+    private function withKiller(Node $record, RecordEvent $event): void
     {
         $mutated = $record->field(RecordField::Mutated->value)->text();
-        $this->killers[$mutated][] = $record->field(RecordField::Test->value)->text();
+        $test = $record->field(RecordField::Test->value)->text();
+        $this->killers[$mutated][] = $test;
+
+        if ($event === RecordEvent::Errored) {
+            $this->errored[$mutated][] = $test;
+        }
     }
 
     /** @throws NotInShape */

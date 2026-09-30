@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
+use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_push;
+use function count;
+use function explode;
 use function ltrim;
+use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
@@ -17,6 +21,7 @@ use PhpToken;
 use function preg_match_all;
 use function str_replace;
 use function strval;
+use function trim;
 
 /**
  * What a PHP file declares, the names it mentions, whether loading it runs
@@ -32,6 +37,7 @@ final readonly class PhpFile
         private Names $declares,
         private Names $mentions,
         private Names $quoted,
+        private Names $constants,
         private bool $onlyDeclares,
         private HoldsAttributes $holds,
     ) {
@@ -54,6 +60,7 @@ final readonly class PhpFile
             Names::of(...array_map($scope->declared(...), $top->declared())),
             self::mentionedIn($tokens, $scope),
             self::quotedIn($tokens),
+            self::constantsIn($tokens),
             $top->onlyDeclares(),
             HoldsReader::mayHold($contents) ? HoldsReader::in(Tokens::of($tokens), $scope) : HoldsAttributes::none(),
         );
@@ -86,6 +93,17 @@ final readonly class PhpFile
         return $this->quoted;
     }
 
+    /**
+     * The last segment of every constant the file declares, with `const`
+     * or `define()`, a class's own included: PHP resolves an unqualified
+     * constant in a namespace to the global one where the namespace has
+     * none, so the segment is what a file that uses it can be matched by.
+     */
+    public function constants(): Names
+    {
+        return $this->constants;
+    }
+
     /** Whether loading the file only declares, so that it acts on nothing that does not name it. */
     public function onlyDeclares(): bool
     {
@@ -107,6 +125,8 @@ final readonly class PhpFile
     /**
      * Every fully qualified name the quoted strings spell: two or more
      * segments joined by backslashes, single or doubled, without a leading one.
+     * A string of one segment is not read as a name, as every quoted word would
+     * be: a class-string naming a class in the global namespace goes unread.
      *
      * @param list<PhpToken> $tokens
      */
@@ -122,6 +142,52 @@ final readonly class PhpFile
         }
 
         return Names::of(...$names);
+    }
+
+    /**
+     * The last segment of each constant the tokens declare: each name a
+     * `const` gives a value, and each a `define()` names first.
+     *
+     * @param list<PhpToken> $tokens
+     */
+    private static function constantsIn(array $tokens): Names
+    {
+        $names = [];
+        $declaring = false;
+
+        foreach ($tokens as $at => $token) {
+            $declaring = $token->is(T_CONST) || ($declaring && ! $token->is(';'));
+            $named = match (true) {
+                $declaring && $token->is(T_STRING) && array_key_exists($at + 1, $tokens) && $tokens[$at + 1]->is('=')
+                    => $token->text,
+                self::defines($tokens, $at) => trim($tokens[$at + 2]->text, '\'"'),
+                default => '',
+            };
+            $names = $named === '' ? $names : [...$names, self::lastSegment($named)];
+        }
+
+        return Names::of(...$names);
+    }
+
+    /**
+     * Whether the tokens at this place call `define()` with a quoted name.
+     *
+     * @param list<PhpToken> $tokens
+     */
+    private static function defines(array $tokens, int $at): bool
+    {
+        return mb_strtolower($tokens[$at]->text) === 'define'
+            && array_key_exists($at + 2, $tokens)
+            && $tokens[$at + 1]->is('(')
+            && $tokens[$at + 2]->is(T_CONSTANT_ENCAPSED_STRING);
+    }
+
+    /** A name without its namespace. */
+    private static function lastSegment(string $name): string
+    {
+        $segments = explode('\\', str_replace('\\\\', '\\', $name));
+
+        return $segments[count($segments) - 1];
     }
 
     /**

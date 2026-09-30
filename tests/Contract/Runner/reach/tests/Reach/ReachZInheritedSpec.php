@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Reach;
 
-final class ReachInheritedSpec extends ReachBaseSpec
+use Library\Reach;
+
+final class ReachZInheritedSpec extends ReachABase
 {
     public function testUsesItsBaseInAnotherTestFile(): void
     {
-        self::assertIsInt($this->amount());
+        self::assertIsInt(Reach::amount($this->amount()));
     }
 }

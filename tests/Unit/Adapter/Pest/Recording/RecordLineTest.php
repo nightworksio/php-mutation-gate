@@ -29,6 +29,7 @@ it('writes each event as one line of JSON, slashes as they are and whole seconds
         RecordLine::outcome('a1', PestStatus::Untested),
         RecordLine::finished('a1', PestStatus::Tested, 2.0),
         RecordLine::killed('/tmp/mutations/a1', "P\\Tests\\MoneySpec::__pest_evaluable_it_adds"),
+        RecordLine::errored('/tmp/mutations/a1', 'T::adds'),
         RecordLine::end(),
     ])->toBe([
         '{"event":"planned","id":"a1","file":"/p/src/Money.php","start":11,"end":12,'
@@ -39,6 +40,7 @@ it('writes each event as one line of JSON, slashes as they are and whole seconds
         "{\"event\":\"outcome\",\"id\":\"a1\",\"status\":\"untested\"}\n",
         "{\"event\":\"finished\",\"id\":\"a1\",\"status\":\"tested\",\"duration\":2.0}\n",
         "{\"event\":\"killed\",\"mutated\":\"/tmp/mutations/a1\",\"test\":\"P\\\\Tests\\\\MoneySpec::__pest_evaluable_it_adds\"}\n",
+        "{\"event\":\"errored\",\"mutated\":\"/tmp/mutations/a1\",\"test\":\"T::adds\"}\n",
         "{\"event\":\"end\"}\n",
     ]);
 });

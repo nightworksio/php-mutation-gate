@@ -9,7 +9,6 @@ use function array_keys;
 use function explode;
 use function getenv;
 use function implode;
-use function mb_strlen;
 use function mb_strtolower;
 
 use Pest\TestSuite;
@@ -38,10 +37,10 @@ final class CoveringFiles
 
     /**
      * @param  list<string> $tests   the ids of the tests that cover a mutant, as Pest's coverage map names them
-     * @param  int          $longest the most characters the paths may take, joined by spaces
+     * @param  int          $longest the most bytes the paths may take, joined by spaces
      * @return list<string> the files, by their paths on disk, in byte order
      */
-    public static function of(array $tests, int $longest = Patch::CEILING): array
+    public static function of(array $tests, int $longest = Ceiling::BYTES): array
     {
         if (getenv(GateVariable::Narrow->value) !== '1' || $tests === []) {
             return [];
@@ -65,7 +64,7 @@ final class CoveringFiles
         $paths = array_keys($files);
         sort($paths);
 
-        return mb_strlen(implode(' ', $paths)) < $longest ? $paths : [];
+        return Ceiling::admits(implode(' ', $paths), $longest) ? $paths : [];
     }
 
     /**

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Ceiling;
 use NightWorksIO\MutationGate\Adapter\Pest\Clock;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
@@ -341,7 +342,7 @@ it('names the test files a covering test\'s filter selects, or all when it will 
     $at = adapterProject();
     Scratch::write($at->root(), 'tests/MoneySpec.php', '<?php');
     Scratch::write($at->root(), 'tests/HeldSpec.php', '<?php');
-    $long = sprintf('P\Tests\HeldSpec::__pest_evaluable_%s', str_repeat('x', Patch::CEILING));
+    $long = sprintf('P\Tests\HeldSpec::__pest_evaluable_%s', str_repeat('x', Ceiling::BYTES));
     $map = CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(RUN_ADDS))
         ->covered(Path::of('src/Kernel.php'), Line::of(3), TestId::of($long));
@@ -718,9 +719,9 @@ it('hands each of the mutants that share Pest\'s id the one found again on its o
  * A shell whose first mutation run kills src/Money.php's line 11 with no test named as its killer, as a run that
  * could not load its tests does, and whose next one, loading every test file, finds it survives.
  */
-function adapterLoadedNothing(Project $at): ShellFake
+function adapterLoadedNothing(Project $at, string ...$killers): ShellFake
 {
-    return new ShellFake(static function (Command $command, int $before) use ($at): Ran {
+    return new ShellFake(static function (Command $command, int $before) use ($at, $killers): Ran {
         $results = sprintf('%s', $command->environment()[GateVariable::Results->value] ?? '');
         $money = sprintf('%s/src/Money.php', $at->root());
         CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [11 => [0]]], [RUN_ADDS], []);
@@ -728,6 +729,7 @@ function adapterLoadedNothing(Project $at): ShellFake
         PestRun::write($results, [
             PestRun::planned('n1', $money, 11, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
             PestRun::made(1),
+            ...($before === 0 ? array_values($killers) : []),
             PestRun::finished('n1', $status, 0.25),
             PestRun::end(),
         ]);
@@ -757,6 +759,32 @@ it('runs a mutant a narrowed run killed with no killer again with every test fil
     'with no deadline' => [adapterMoney()],
 ]);
 
+it('runs a mutant a narrowed run killed only by tests that errored again with every test file, before it counts', function (): void {
+    $at = adapterProject();
+    $shell = adapterLoadedNothing($at, PestRun::errored('n1', RUN_ADDS), PestRun::errored('n1', 'T::subtracts'));
+
+    $result = new Pest($at, $shell, adapterCanary())->mutate(adapterMoney());
+
+    expect($result instanceof MutationResult ? array_map(
+        static fn(Mutant $mutant): MutantStatus => $mutant->status(),
+        [...$result->mutants()],
+    ) : $result)->toBe([MutantStatus::Survived])
+        ->and($shell->commands())->toHaveCount(2);
+});
+
+it('counts a mutant a narrowed run killed where a test failed, whatever else errored', function (): void {
+    $at = adapterProject();
+    $shell = adapterLoadedNothing($at, PestRun::errored('n1', 'T::subtracts'), PestRun::killed('n1', RUN_ADDS));
+
+    $result = new Pest($at, $shell, adapterCanary())->mutate(adapterMoney());
+
+    expect($result instanceof MutationResult ? array_map(
+        static fn(Mutant $mutant): MutantStatus => $mutant->status(),
+        [...$result->mutants()],
+    ) : $result)->toBe([MutantStatus::Killed])
+        ->and($shell->commands())->toHaveCount(1);
+});
+
 it('cannot judge a narrowed run whose run again with every test file failed', function (): void {
     $at = adapterProject();
     $loaded = adapterLoadedNothing($at);
@@ -785,7 +813,7 @@ it('leaves a mutant a narrowed run killed with no killer unjudged where no time 
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::Unjudged])
         ->and(array_map(static fn(Mutant $mutant): object => $mutant->reason(), $mutants))->toEqual([Reason::that(
-            "Killed with no killer named in a run of its covering tests' files, and no time left to run every test file.",
+            "Killed by no test named or only by errors in a run of its covering tests' files; no time to run them all.",
         )])
         ->and($shell->commands())->toHaveCount(1);
 });

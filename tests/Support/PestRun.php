@@ -66,6 +66,12 @@ final readonly class PestRun
         return self::line(RecordLine::killed(self::mutated($id), $test));
     }
 
+    /** A test that errored in the own process of the mutant with this native id. */
+    public static function errored(string $id, string $test): string
+    {
+        return self::line(RecordLine::errored(self::mutated($id), $test));
+    }
+
     /** The memory limit the own process of the mutant with this native id ran out of. */
     public static function exhausted(string $id, MemoryCap $limit): string
     {

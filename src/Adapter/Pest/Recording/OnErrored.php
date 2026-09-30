@@ -16,6 +16,6 @@ final readonly class OnErrored implements ErroredSubscriber
 
     public function notify(Errored $event): void
     {
-        $this->killers->killedBy($event->test()->id());
+        $this->killers->erroredBy($event->test()->id());
     }
 }

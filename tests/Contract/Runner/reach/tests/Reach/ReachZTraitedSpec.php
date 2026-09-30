@@ -6,7 +6,7 @@ namespace Tests\Reach;
 
 use PHPUnit\Framework\TestCase;
 
-final class ReachTraitedSpec extends TestCase
+final class ReachZTraitedSpec extends TestCase
 {
-    use ReachAsserts;
+    use ReachAAsserts;
 }

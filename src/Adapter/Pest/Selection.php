@@ -13,7 +13,6 @@ use function explode;
 use function implode;
 use function is_string;
 
-use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
@@ -69,7 +68,7 @@ final readonly class Selection
     /** Whether the `--filter` argument is short enough to be passed, in bytes, as the patch counts it. */
     public function fits(): bool
     {
-        return Bytes::length($this->argument) < Patch::CEILING;
+        return Ceiling::admits($this->argument);
     }
 
     /** The covering tests the filter does not select. */

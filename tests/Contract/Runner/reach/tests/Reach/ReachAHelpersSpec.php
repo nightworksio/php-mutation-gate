@@ -7,6 +7,6 @@ function reachAmount(): int
     return 5;
 }
 
-it('declares the amount the reach tests use', function (): void {
+it('declares the helper another test file uses', function (): void {
     expect(reachAmount())->toBe(5);
 });

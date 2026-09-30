@@ -4,16 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_diff;
 use function array_filter;
-use function array_flip;
 use function array_key_exists;
-use function array_keys;
 use function array_map;
 use function array_merge;
-use function array_unique;
 use function array_values;
 use function count;
+use function explode;
 use function file_get_contents;
 use function get_declared_classes;
 use function get_included_files;
@@ -25,6 +22,7 @@ use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Php\NamedFiles;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use PHPUnit\Framework\TestCase;
 
@@ -35,7 +33,7 @@ use function str_starts_with;
 /**
  * The files a process has loaded from its test directory, among them the file
  * that declares each test case class, and what each needs: the loaded files
- * of the test directory that declare a class, trait, function or other name
+ * of the test directory that declare a class, trait, function or constant
  * it uses, fully qualified or spelt in a string, and what those need in turn.
  * A name none of them declares comes from what every run loads, such as the
  * autoloader.
@@ -46,10 +44,10 @@ final class LoadedTests
     private array $needs = [];
 
     /**
-     * @param array<string, string>       $files  each test case class's file, by the class's name in lower case
-     * @param array<string, list<string>> $naming the loaded test files each file names, by its path
+     * @param array<string, string> $files  each test case class's file, by the class's name in lower case
+     * @param NamedFiles            $naming the loaded test files each file names
      */
-    private function __construct(private readonly array $files, private readonly array $naming)
+    private function __construct(private readonly array $files, private readonly NamedFiles $naming)
     {
     }
 
@@ -88,46 +86,29 @@ final class LoadedTests
     public function needs(string $file): array
     {
         if (! array_key_exists($file, $this->needs)) {
-            $this->needs[$file] = $this->reachedFrom($file);
+            $this->needs[$file] = $this->naming->reachedFrom($file);
         }
 
         return $this->needs[$file];
     }
 
-    /** @return list<string> the file, and every loaded test file it names, transitively, in the order reached */
-    private function reachedFrom(string $file): array
-    {
-        $reached = [$file => 0];
-        $queue = [$file];
-
-        $at = 0;
-
-        while ($at < count($queue)) {
-            $named = array_key_exists($queue[$at], $this->naming) ? $this->naming[$queue[$at]] : [];
-            $new = array_values(array_diff(array_unique($named), array_keys($reached)));
-            $reached += array_flip($new);
-            $queue = [...$queue, ...$new];
-            $at++;
-        }
-
-        return $queue;
-    }
-
     /**
-     * The loaded test files each of these names, by what each declares.
+     * The loaded test files each of these names, by what each declares: a
+     * class, trait or function by its full name, and a constant by its last
+     * segment, as PHP falls back to a global one.
      *
-     * @param  list<string>                $files
-     * @return array<string, list<string>> by each file's path
+     * @param list<string> $files
      */
-    private static function naming(array $files): array
+    private static function naming(array $files): NamedFiles
     {
         $reads = [];
         $declaring = [];
 
         foreach ($files as $file) {
             $reads[$file] = PhpFile::read(Contents::of(sprintf('%s', file_get_contents($file))));
+            $declared = [...$reads[$file]->declares()->all(), ...self::asConstants($reads[$file]->constants()->all())];
 
-            foreach ($reads[$file]->declares()->all() as $name) {
+            foreach ($declared as $name) {
                 $declaring[$name][] = $file;
             }
         }
@@ -135,14 +116,35 @@ final class LoadedTests
         $naming = [];
 
         foreach ($reads as $file => $read) {
-            $names = [...$read->mentioned()->all(), ...$read->quoted()->all()];
+            $mentioned = $read->mentioned()->all();
+            $constants = self::asConstants(array_map(self::lastSegment(...), $mentioned));
+            $names = [...$mentioned, ...$read->quoted()->all(), ...$constants];
             $naming[$file] = array_merge(...array_map(
                 static fn(string $name): array => array_key_exists($name, $declaring) ? $declaring[$name] : [],
                 $names,
             ));
         }
 
-        return $naming;
+        return NamedFiles::of($naming);
+    }
+
+    /**
+     * Names as constants, kept apart from classes and functions of the same spelling.
+     *
+     * @param  list<string> $names
+     * @return list<string>
+     */
+    private static function asConstants(array $names): array
+    {
+        return array_map(static fn(string $name): string => sprintf('const %s', $name), $names);
+    }
+
+    /** A name without its namespace. */
+    private static function lastSegment(string $name): string
+    {
+        $segments = explode('\\', $name);
+
+        return $segments[count($segments) - 1];
     }
 
     /** The file by its real path, where it is one on disk. */
