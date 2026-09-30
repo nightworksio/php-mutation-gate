@@ -4,11 +4,21 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\File;
 
+use function array_find_key;
 use function array_key_exists;
+use function array_slice;
+use function count;
+use function explode;
+use function implode;
+use function is_int;
+
+use const PHP_INT_MAX;
+
 use function preg_match;
 use function preg_match_all;
 use function preg_quote;
 use function sprintf;
+use function str_contains;
 
 /**
  * A pattern over paths as the repository spells them, matched against the
@@ -28,6 +38,16 @@ final readonly class Glob
     /** A wildcard, or a run of characters that holds none. */
     private const string PIECE = '#\*\*/|\*\*|\*|\?|[^*?]+#u';
 
+    /** A segment that holds a wildcard. */
+    private const string WILD = '#[*?]#u';
+
+    /** The wildcard that crosses directories. */
+    private const string DEEP = '**';
+
+    /**
+     * @param string $pattern    the pattern as it is written
+     * @param string $expression the pattern, as a regular expression over a whole path
+     */
     private function __construct(private string $pattern, private string $expression)
     {
     }
@@ -52,6 +72,22 @@ final readonly class Glob
     public function value(): string
     {
         return $this->pattern;
+    }
+
+    /** The directory every path it matches is inside: its segments before the first that holds a wildcard. */
+    public function base(): Path
+    {
+        $segments = explode('/', $this->pattern);
+        $wild = array_find_key($segments, static fn(string $segment): bool => preg_match(self::WILD, $segment) === 1);
+        $literal = array_slice($segments, 0, is_int($wild) ? $wild : count($segments));
+
+        return $literal === [] ? Path::root() : Path::of(implode('/', $literal));
+    }
+
+    /** How many segments a path it matches can have at most; with `**`, any number. */
+    public function depth(): int
+    {
+        return str_contains($this->pattern, self::DEEP) ? PHP_INT_MAX : count(explode('/', $this->pattern));
     }
 
     public function matches(Path $path): bool

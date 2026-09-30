@@ -18,8 +18,10 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 /**
  * What a runner is asked to mutate: some files, judged by the whole suite, a
  * group or a filter. By default it leaves nothing out, applies every mutator,
- * has no deadline, counts uncovered mutants, runs one process, collects its
- * own coverage and runs each mutant's tests in the runner's own order.
+ * has no deadline, runs one process, collects its own coverage and runs each
+ * mutant's tests in the runner's own order. It never says how uncovered
+ * mutants score: a runner reports every one, and the gate applies `uncovered`
+ * when it judges (ADR-0003, ADR-0004).
  */
 final readonly class MutationRequest
 {
@@ -29,7 +31,6 @@ final readonly class MutationRequest
         private Paths $leftOut,
         private Mutators $mutators,
         private Seconds|Unlimited $deadline,
-        private Uncovered $uncovered,
         private Processes $processes,
         private Path|Fresh $coverage,
         private Withheld $withheld,
@@ -45,7 +46,6 @@ final readonly class MutationRequest
             Paths::none(),
             Mutators::all(),
             Unlimited::time(),
-            Uncovered::Count,
             Processes::of(1),
             Fresh::coverage(),
             Withheld::standard(),
@@ -68,11 +68,6 @@ final readonly class MutationRequest
     public function within(Seconds $deadline): self
     {
         return clone($this, ['deadline' => $deadline]);
-    }
-
-    public function treatingUncovered(Uncovered $uncovered): self
-    {
-        return clone($this, ['uncovered' => $uncovered]);
     }
 
     public function across(Processes $processes): self
@@ -132,11 +127,6 @@ final readonly class MutationRequest
     public function deadline(): Seconds|Unlimited
     {
         return $this->deadline;
-    }
-
-    public function uncovered(): Uncovered
-    {
-        return $this->uncovered;
     }
 
     public function processes(): Processes

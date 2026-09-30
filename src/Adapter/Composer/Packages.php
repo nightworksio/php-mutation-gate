@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Composer\Names;
 use NightWorksIO\MutationGate\Core\Composer\Unnamed;
 use NightWorksIO\MutationGate\Core\File\ByPath;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -34,14 +35,14 @@ final readonly class Packages
     {
     }
 
-    /** @param list<string> $globs the directories of packages, as shell globs from the root */
+    /** @param list<string> $globs the directories of packages, as globs from the root */
     public static function in(Disk $disk, array $globs): self|CannotJudge
     {
         $root = $disk->manifestIn(Path::root());
         $directories = [Path::root()];
 
         foreach ($globs as $glob) {
-            $directories = [...$directories, ...self::withManifest($disk, $disk->directories($glob))];
+            $directories = [...$directories, ...self::withManifest($disk, $disk->directoriesMatching(Glob::of($glob)))];
         }
 
         foreach ($root instanceof Manifest ? $root->pathRepositories() : Paths::none() as $repository) {
@@ -55,15 +56,7 @@ final readonly class Packages
     /** The package a path is in: the innermost one whose directory holds it. */
     public function holding(Path $path): Package
     {
-        $holding = $this->packages[0];
-
-        foreach ($this->packages as $package) {
-            $holding = $path->within($package->path()) && $package->path()->within($holding->path())
-                ? $package
-                : $holding;
-        }
-
-        return $holding;
+        return Package::holding($path, ...$this->packages);
     }
 
     /** @return list<Path> */

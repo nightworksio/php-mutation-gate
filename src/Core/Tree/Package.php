@@ -23,6 +23,21 @@ final readonly class Package
         return new self($path, Paths::none());
     }
 
+    /**
+     * The innermost of these packages whose directory holds a path: the one
+     * at the root where no other does, bare where they hold none at the root.
+     */
+    public static function holding(Path $path, self ...$packages): self
+    {
+        $holding = self::at(Path::root());
+
+        foreach ($packages as $package) {
+            $holding = $path->within($package->path) && $package->path->within($holding->path) ? $package : $holding;
+        }
+
+        return $holding;
+    }
+
     /** This package, requiring the package at another path through a path repository. */
     public function dependingOn(Path $package): self
     {

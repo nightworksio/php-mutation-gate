@@ -16,11 +16,12 @@ includes:
 parameters:
     level: max
     tmpDir: .phpstan-cache
-    # R3 — the same trees rector.php and the Arch suite read.
+    # R3 — the same trees rector.php and the Arch suite read, and the executable.
     paths:
         - src
         - tests
         - phpstan
+        - bin/mutation-gate
 
     # The runner contract suite's fixture is a project of its own, with its own
     # dependencies, written as a user's library is rather than to these rules.
@@ -193,6 +194,7 @@ parameters:
                 - 'parse_ini_file()'
             message: "B3 — the filesystem belongs to an adapter. A decision that reads a file cannot be tested without one, so the core is handed what the file says through a port (B3)."
             allowIn:
+                - bin/*
                 - src/Adapter/*
                 - src/Cli/*
                 - tests/*
@@ -360,6 +362,7 @@ parameters:
                 - '$GLOBALS'
             message: "B6 — the environment is an input, read once by the CLI and handed on as a value (B6)."
             allowIn:
+                - bin/*
                 - src/Cli/*
                 - tests/*
 

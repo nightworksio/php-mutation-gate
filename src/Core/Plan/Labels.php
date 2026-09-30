@@ -19,7 +19,6 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
 use function sprintf;
-use function str_starts_with;
 use function usort;
 
 /**
@@ -85,9 +84,7 @@ final readonly class Labels
 
     private static function holds(Tree $tree, Path $unit): bool
     {
-        $root = $tree->path()->value();
-
-        return $root === '.' || $unit->value() === $root || str_starts_with($unit->value(), sprintf('%s/', $root));
+        return $unit->within($tree->path());
     }
 
     /** @param list<list<string>> $named each run's trees */

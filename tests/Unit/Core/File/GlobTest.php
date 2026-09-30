@@ -43,3 +43,14 @@ it('reads every other character as itself, the pattern delimiter among them', fu
     expect(Glob::of('docs/#notes+(draft).md')->matches(Path::of('docs/#notes+(draft).md')))->toBeTrue()
         ->and(Glob::of('docs/#notes+(draft).md')->matches(Path::of('docs/#notess(draft).md')))->toBeFalse();
 });
+
+it('knows the directory every path it matches is inside, and how deep such a path can go', function (): void {
+    expect(Glob::of('packages/*')->base())->toEqual(Path::of('packages'))
+        ->and(Glob::of('packages/*')->depth())->toBe(2)
+        ->and(Glob::of('src/Modules/*/Package?')->base())->toEqual(Path::of('src/Modules'))
+        ->and(Glob::of('libs/money')->base())->toEqual(Path::of('libs/money'))
+        ->and(Glob::of('libs/money')->depth())->toBe(2)
+        ->and(Glob::of('*/packages')->base())->toEqual(Path::root())
+        ->and(Glob::of('modules/**/composer.json')->base())->toEqual(Path::of('modules'))
+        ->and(Glob::of('modules/**/composer.json')->depth())->toBe(PHP_INT_MAX);
+});

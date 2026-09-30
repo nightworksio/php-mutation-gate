@@ -31,6 +31,28 @@ final readonly class Lenient
         }
     }
 
+    /** The whole number a place holds; 0 where it holds something else, or nothing. */
+    public static function integer(Node $place): int
+    {
+        try {
+            return $place->integer();
+        } catch (NotInShape) {
+            return 0;
+        }
+    }
+
+    /** Whether a place holds a map or a list, rather than a single value or nothing. */
+    public static function holdsMembers(Node $place): bool
+    {
+        try {
+            $place->entries();
+
+            return true;
+        } catch (NotInShape) {
+            return false;
+        }
+    }
+
     /**
      * The items of a list; none where the place holds no list.
      *

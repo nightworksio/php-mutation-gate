@@ -26,3 +26,23 @@ it('reads a place that holds something else, or nothing, as holding none of it',
         ->and(Lenient::boolean($node->field('text'), otherwise: true))->toBeTrue()
         ->and(Lenient::boolean($node->field('missing'), otherwise: false))->toBeFalse();
 });
+
+it('reads a whole number where a place holds one, and 0 where it holds something else or nothing', function (): void {
+    $node = Node::decode('{"count": 3, "text": "3", "rate": 1.5}');
+
+    expect(Lenient::integer($node->field('count')))->toBe(3)
+        ->and(Lenient::integer($node->field('text')))->toBe(0)
+        ->and(Lenient::integer($node->field('rate')))->toBe(0)
+        ->and(Lenient::integer($node->field('missing')))->toBe(0);
+});
+
+it('tells a place that holds members, a map or a list, from one that holds a single value or nothing', function (): void {
+    $node = Node::decode('{"map": {"k": 1}, "list": [1], "empty": {}, "text": "a", "none": null}');
+
+    expect(Lenient::holdsMembers($node->field('map')))->toBeTrue()
+        ->and(Lenient::holdsMembers($node->field('list')))->toBeTrue()
+        ->and(Lenient::holdsMembers($node->field('empty')))->toBeTrue()
+        ->and(Lenient::holdsMembers($node->field('text')))->toBeFalse()
+        ->and(Lenient::holdsMembers($node->field('none')))->toBeFalse()
+        ->and(Lenient::holdsMembers($node->field('missing')))->toBeFalse();
+});

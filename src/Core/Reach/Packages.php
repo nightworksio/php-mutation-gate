@@ -38,15 +38,7 @@ final readonly class Packages
     /** The package a path is in: the innermost one whose directory holds it. */
     public function holding(Path $path): Package
     {
-        $holding = $this->packages[Path::root()->value()];
-
-        foreach ($this->packages as $package) {
-            $holding = $path->within($package->path()) && $package->path()->within($holding->path())
-                ? $package
-                : $holding;
-        }
-
-        return $holding;
+        return Package::holding($path, ...array_values($this->packages));
     }
 
     /** A package, and every package that depends on it, directly or through others. */
