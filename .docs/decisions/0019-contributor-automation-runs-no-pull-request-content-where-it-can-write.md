@@ -298,11 +298,12 @@ by probes on 2026-09-30:
     | `/retest` | Re-runs the failed jobs of the latest CI run on the current head, never one awaiting approval, at most three times per head SHA | write access, or the pull request's author |
     | `/docs <words>` | Searches a heading index generated from `.docs/`, and replies with at most three links and no prose. The words are reduced to `[a-z0-9]+` tokens | anyone |
 
-    - The check starts with `author_association` (`OWNER`, `MEMBER`,
-      `COLLABORATOR`), or the comment's author being the pull request's
-      author (by user id).
-    - Anyone else is then checked against the collaborator-permission
-      endpoint, which must answer `write`, `maintain` or `admin`.
+    - The pull request's author is matched by user id, read from the API's
+      pull request, never from the comment's text.
+    - Anyone else is checked against the collaborator-permission endpoint,
+      which must answer `write`, `maintain` or `admin`.
+      `author_association` is not read: `MEMBER` names any member of the
+      organisation, and `COLLABORATOR` includes read and triage roles.
     - Anyone refused gets one reply naming who may run the command.
 
 14. **Duplicate issues are matched by message slug.**

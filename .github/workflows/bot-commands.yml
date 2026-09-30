@@ -1,0 +1,140 @@
+# The commands comments run: /update, /rebase and /retest on a pull request,
+# and /docs on an issue or a pull request (ADR-0019, decision 13).
+# issue_comment runs main's workflow with a token that can write, so every
+# comment is read as hostile. Only main is checked out, only the stdlib
+# scripts run, the comment reaches them through env alone, and each job holds
+# only what it writes. Who may run a command is read from the API, never from
+# the comment.
+name: bot commands
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+# One command at a time on each pull request. A command waiting behind another
+# is replaced by a newer one, so a burst of comments runs at most two.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  # The command the comment's first line runs, and whether its author may run
+  # it. Only a person's comment that starts with a slash starts it; on an
+  # issue, only /docs runs.
+  decide:
+    name: decide
+    if: ${{ github.event.comment.user.type != 'Bot' && startsWith(github.event.comment.body, '/') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # to check out main's scripts
+      pull-requests: read # to read the pull request's author
+    timeout-minutes: 5
+    outputs:
+      command: ${{ steps.decide.outputs.command }}
+      allowed: ${{ steps.decide.outputs.allowed }}
+      words: ${{ steps.decide.outputs.words }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENTER_ID: ${{ github.event.comment.user.id }}
+          COMMENTER_LOGIN: ${{ github.event.comment.user.login }}
+          NUMBER: ${{ github.event.issue.number }}
+          ON_PULL_REQUEST: ${{ github.event.issue.pull_request != null }}
+        run: python3 .github/scripts/bot_command.py decide
+
+  # One reply naming who may run the command, once per commenter and command.
+  refuse:
+    name: refuse
+    needs: decide
+    if: ${{ needs.decide.outputs.command != '' && needs.decide.outputs.allowed != 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # to check out main's scripts
+      pull-requests: write # to reply
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          COMMAND: ${{ needs.decide.outputs.command }}
+          COMMENTER_ID: ${{ github.event.comment.user.id }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: python3 .github/scripts/bot_command.py refuse
+
+  # GitHub merges the base into the head it was read at, and signs the merge.
+  update:
+    name: update
+    needs: decide
+    if: ${{ needs.decide.outputs.allowed == 'true' && (needs.decide.outputs.command == 'update' || needs.decide.outputs.command == 'rebase') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # to check out main's scripts and compare the branches
+      pull-requests: write # to update the branch and reply
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          COMMAND: ${{ needs.decide.outputs.command }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: python3 .github/scripts/bot_command.py update
+
+  # The failed jobs of the latest CI run on the head, re-run at most three times.
+  retest:
+    name: retest
+    needs: decide
+    if: ${{ needs.decide.outputs.allowed == 'true' && needs.decide.outputs.command == 'retest' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write # to re-run the failed jobs
+      contents: read # to check out main's scripts
+      pull-requests: write # to reply
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: python3 .github/scripts/bot_command.py retest
+
+  # Links to at most three headings of main's documentation, and no prose, on
+  # an issue or a pull request.
+  docs:
+    name: docs
+    needs: decide
+    if: ${{ needs.decide.outputs.allowed == 'true' && needs.decide.outputs.command == 'docs' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # to check out main's scripts and documentation
+      issues: write # to reply on an issue
+      pull-requests: write # to reply on a pull request
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+            .docs
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          WORDS: ${{ needs.decide.outputs.words }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: python3 .github/scripts/bot_command.py docs

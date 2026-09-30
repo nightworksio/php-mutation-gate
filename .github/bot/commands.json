@@ -1,0 +1,21 @@
+{
+  "$comment": "Every word the bot's commands reply with (ADR-0019, decision 13). A {name} is filled only with a value bot_command.py has validated. .github/scripts/test_bot_command.py fails where a reply the script sends is missing here, or a reply here is never sent.",
+  "who": "someone with write access to this repository, or this pull request's author",
+  "replies": {
+    "refused": "`/{command}` may be run only by {who}.",
+    "closed": "This pull request is closed, so `/{command}` changes nothing.",
+    "update-asked": "GitHub is merging `{base}` into this branch. It makes and signs the merge commit, and the squash merge leaves that commit out of `main`. A push by the bot's token needs a maintainer's approval before CI runs on the new head.",
+    "rebase-is-update": "GitHub cannot sign rebased commits, and `main` takes only signed ones, so `/rebase` merges `{base}` into this branch instead, as `/update` does.",
+    "update-current": "This branch already holds every commit of `{base}`.",
+    "update-refused": "GitHub could not merge `{base}` into this branch: the two conflict, or the branch moved while the bot read it. Merge `{base}` into your branch locally, resolve what conflicts, and push.",
+    "update-forbidden": "GitHub may not push to this branch. On a fork, tick *Allow edits by maintainers*, or merge `{base}` into your branch locally and push.",
+    "retest-asked": "Re-running the failed jobs of [the CI run]({run}) on this head, the re-run {attempt} of {limit}.",
+    "retest-none": "No CI run has started on this head yet.",
+    "retest-waiting": "[The CI run]({run}) on this head waits for a maintainer to approve it, and `/retest` re-runs only a run that has run.",
+    "retest-running": "[The CI run]({run}) on this head has not finished.",
+    "retest-green": "[The CI run]({run}) on this head has no failed job.",
+    "retest-spent": "[The CI run]({run}) on this head has been re-run {limit} times. Push a commit to run CI again, or ask a maintainer.",
+    "docs-found": "{links}",
+    "docs-none": "No heading of [the documentation]({docs}) matches what was asked."
+  }
+}
