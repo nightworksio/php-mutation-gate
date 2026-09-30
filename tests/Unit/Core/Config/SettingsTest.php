@@ -424,7 +424,25 @@ it('changes the canonical form with every setting that affects results', functio
     'survivor confirmation' => [['flaky' => ['confirmSurvivors' => true]]],
     'the Pest patches' => [['pest' => ['patch' => false]]],
     'the canary group' => [['pest' => ['canary' => 'other']]],
+    'a tree\'s exclude' => [['trees' => [...EVERYTHING['trees'], ['path' => 'lib', 'exclude' => ['lib/Gen/**']]]]],
+    'the test order' => [['tests' => ['order' => 'runner']]],
+    'the tree source\'s fallback' => [['treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]]]],
 ]);
+
+it('changes the canonical form with the options of a runner or a tree source', function (string $setting): void {
+    $chosen = static fn(int $workers): string => Configs::settings([
+        'runner' => 'pest',
+        $setting => ['use' => 'Acme\\Gate\\Chosen', 'with' => ['workers' => $workers]],
+    ])->canonical();
+
+    expect($chosen(4))->not->toBe($chosen(8));
+})->with(['runner', 'treeSource']);
+
+it('keys a tree with no exclude as one with an empty exclude', function (): void {
+    $tree = static fn(array $tree): string => Configs::settings(['runner' => 'pest', 'trees' => [$tree]])->canonical();
+
+    expect($tree(['path' => 'src', 'exclude' => []]))->toBe($tree(['path' => 'src']));
+});
 
 it('reports every problem at once, each at its path with what was expected', function (): void {
     expect(Configs::problems(Configs::validated([
