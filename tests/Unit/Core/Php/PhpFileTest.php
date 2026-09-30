@@ -3,8 +3,12 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Hold\HeldPath;
 use NightWorksIO\MutationGate\Core\Hold\Holding;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
+use NightWorksIO\MutationGate\Core\Hold\HoldsAttribute;
+use NightWorksIO\MutationGate\Core\Hold\HoldsAttributes;
+use NightWorksIO\MutationGate\Core\Hold\Standing;
 use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
@@ -89,4 +93,22 @@ it('reads the paths its #[Holds] declare held', function (): void {
         Holdings::none()->with(Holding::byAttribute('src/Kernel.php', 'Tests\KernelTest')),
     )
         ->and(PhpFile::read(Contents::of("<?php\n\nfinal class Money {}\n"))->holdings())->toEqual(Holdings::none());
+});
+
+it('reads every #[Holds] it writes, on closures as well as on classes and methods', function (): void {
+    $test = <<<'PHP'
+        <?php
+
+        use NightWorksIO\MutationGate\Attribute\Holds;
+
+        $test = #[Holds('src/Kernel.php')] fn () => true;
+
+        it('boots', #[Holds('src/Boot.php')] #[Holds('src/Http')] fn () => true);
+        PHP;
+
+    expect(PhpFile::read(Contents::of($test))->holds())->toEqual(HoldsAttributes::none()
+        ->with(HoldsAttribute::at(Standing::KeptClosure, HeldPath::literal('src/Kernel.php'), 5))
+        ->with(HoldsAttribute::at(Standing::TestClosure, HeldPath::literal('src/Boot.php'), 7))
+        ->with(HoldsAttribute::at(Standing::TestClosure, HeldPath::literal('src/Http'), 7)))
+        ->and(PhpFile::read(Contents::of($test))->holdings())->toEqual(Holdings::none());
 });

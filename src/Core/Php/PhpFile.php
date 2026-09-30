@@ -6,9 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_filter;
 use function array_map;
+use function array_values;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
+use NightWorksIO\MutationGate\Core\Hold\HoldsAttributes;
 use PhpToken;
 
 /**
@@ -25,7 +27,7 @@ final readonly class PhpFile
         private Names $declares,
         private Names $mentions,
         private bool $onlyDeclares,
-        private Holdings $holdings,
+        private HoldsAttributes $holds,
     ) {
     }
 
@@ -42,7 +44,7 @@ final readonly class PhpFile
             Names::of(...array_map($scope->declared(...), $top->declared())),
             self::mentionedIn($tokens, $scope),
             $top->onlyDeclares(),
-            HoldsAttributes::in(TopLevel::spelt(...$tokens), $scope),
+            HoldsReader::in(Tokens::of(array_values($tokens)), $scope),
         );
     }
 
@@ -73,7 +75,13 @@ final readonly class PhpFile
     /** The paths the file's `#[Holds]` declare held, each with the class or method that holds it. */
     public function holdings(): Holdings
     {
-        return $this->holdings;
+        return $this->holds->holdings();
+    }
+
+    /** Every `#[Holds]` the file writes, on closures and functions as well as on classes and methods. */
+    public function holds(): HoldsAttributes
+    {
+        return $this->holds;
     }
 
     /** @param array<PhpToken> $tokens */

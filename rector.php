@@ -27,9 +27,9 @@ return RectorConfig::configure()
         // of that name is not a class constant.
         StringClassNameToClassConstantRector::class => [
             __DIR__ . '/tests/Arch',
-            // Core reads #[Holds] from tokens by its name, and names nothing
-            // of the attribute layer (A5).
-            __DIR__ . '/src/Core/Php/HoldsAttributes.php',
+            // Core reads #[Holds] and PHPUnit's #[Group] from tokens by their
+            // names, and names nothing of the attribute layer (A5) or of PHPUnit (A1).
+            __DIR__ . '/src/Core/Php/HoldsReader.php',
         ],
         // Pest binds a closure in a dataset to the test case before calling it,
         // and the closure of a static method cannot be bound.
