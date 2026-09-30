@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Fakes;
 
+use function explode;
+use function file_get_contents;
 use function in_array;
+use function is_file;
 use function iterator_to_array;
 use function mb_substr;
 
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -49,8 +54,10 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 use function sprintf;
+use function str_replace;
 use function str_starts_with;
 
 /**
@@ -191,6 +198,28 @@ final readonly class RunnerFake implements Runner
             Reason::that('Run again, the fake made no mutant with this id.'),
             sprintf('fake: %s with only %s', $mutant->file()->value(), $mutant->mutator()),
         );
+    }
+
+    /**
+     * The mutant as the fixture library's file with its change made, judged
+     * against the file as written; a file the library does not hold cannot be
+     * checked.
+     */
+    public function checkable(Mutant $mutant): Checkable|CannotJudge
+    {
+        $file = Tree::at(sprintf('%s/%s', Library::DIRECTORY, $mutant->location()->file()->value()));
+
+        if (! is_file($file)) {
+            return CannotJudge::because(sprintf('The fixture library holds no %s.', $mutant->location()->file()->value()));
+        }
+
+        [, $removed, $added] = explode("\n", $mutant->mutation()->diff());
+
+        return Checkable::inPlace(Contents::of(str_replace(
+            mb_substr($removed, 1),
+            mb_substr($added, 1),
+            sprintf('%s', file_get_contents($file)),
+        )));
     }
 
     /** The library's one marker, in `marked/Marked.php`, where the paths asked for name that file. */

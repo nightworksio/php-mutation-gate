@@ -8,6 +8,7 @@ use function array_values;
 use function count;
 use function min;
 
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -386,6 +387,11 @@ final class ScriptedRunner implements Runner
     public function reproductions(): array
     {
         return $this->reproductions;
+    }
+
+    public function checkable(Mutant $mutant): Checkable|CannotJudge
+    {
+        return $this->fake->checkable($mutant);
     }
 
     public function markers(Paths $files): Markers|CannotJudge

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Port;
 
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -77,6 +79,15 @@ interface Runner
      * request names, and how many were skipped with no record.
      */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge;
+
+    /**
+     * A mutant as a static analyser checks it (ADR-0020, decision 9): its
+     * text, from its diff put onto the file it was made from, and the original
+     * it is judged against, the file as written or the file printed as the
+     * runner prints its mutants. One whose text cannot be had is left
+     * unchecked, never killed.
+     */
+    public function checkable(Mutant $mutant): Checkable|CannotJudge;
 
     /**
      * These mutants run again, as the invocation that made them asked: over

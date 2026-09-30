@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -106,6 +108,11 @@ final class NamesAsked implements Runner
         Withheld $withheld,
     ): Reproduction|CannotJudge {
         return $this->runner->reproduce($mutant, $judgedBy, $limit, $withheld);
+    }
+
+    public function checkable(Mutant $mutant): Checkable|CannotJudge
+    {
+        return $this->runner->checkable($mutant);
     }
 
     public function markers(Paths $files): Markers|CannotJudge

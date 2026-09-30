@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Core\Analysis\AsWritten;
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -798,4 +800,28 @@ it('behaves as the port expects of a runner, but stops each mutant at its first 
 
     expect(new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->behaviour())
         ->toEqual(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->runningPerCore());
+});
+
+it('gives a mutant as an analyser checks it: its diff put onto the file as written, or no mutant where it does not apply or the file is gone', function (): void {
+    $at = infectionProject();
+    Scratch::write($at->root(), 'src/Money.php', "<?php\nfunction add(){return 1+1;}\n");
+    $mutant = static fn(string $file, string $diff): Mutant => Mutant::of(
+        MutantId::hash(Path::of($file), 'Plus', $diff, 0),
+        'Plus',
+        Location::of(Path::of($file), Line::of(2), Line::of(2)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, $diff),
+        MutantStatus::Survived,
+        Seconds::of(0.1),
+    );
+    $infection = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false);
+    $answer = static fn(Checkable|CannotJudge $checkable): string => $checkable instanceof Checkable
+        ? sprintf('%s|%s', $checkable->original()::class, $checkable->mutant()->text())
+        : $checkable->why();
+
+    expect($answer($infection->checkable($mutant('src/Money.php', "@@ @@\n-function add(){return 1+1;}\n+function add(){return 1-1;}"))))
+        ->toBe(sprintf("%s|<?php\nfunction add(){return 1-1;}\n", AsWritten::class))
+        ->and($answer($infection->checkable($mutant('src/Money.php', "@@ @@\n-    return 1 + 1;\n+    return 1 - 1;"))))
+        ->toBe('Its diff does not apply to src/Money.php as it is now.')
+        ->and($answer($infection->checkable($mutant('src/Gone.php', "@@ @@\n-a\n+b"))))
+        ->toBe('The gate cannot read src/Gone.php, the file Infection mutated, to check its mutant.');
 });
