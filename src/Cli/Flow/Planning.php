@@ -89,28 +89,40 @@ final readonly class Planning
         );
         $keys = $keying->keysOf($considering->considered());
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base());
-        $shards = $cut->cut($this->workload($proving->toRun(), $inventory->trees, $ledgers), $inventory->trees);
-        $shards = $shards instanceof Shards ? $this->rooted($shards) : $shards;
+        $shards = $this->shardsOf($proving->toRun(), $inventory->trees, $ledgers, $cut);
         $changed = $this->newCode($inventory->standing, $reached);
 
-        if ($shards instanceof CannotJudge) {
-            return $shards;
-        }
+        return match (true) {
+            $shards instanceof CannotJudge => $shards,
+            $changed instanceof CannotJudge => $changed,
+            default => $this->handed(
+                Plan::of($inventory->standing->head(), $keying->base(), $keys, $shards)
+                    ->on($inventory->standing->runOn())
+                    ->reaching($changed, $reached->reach()->reasons())
+                    ->proving($this->unitsOf($proving->proved()))
+                    ->carrying($this->unitsOf($considering->carried())),
+                $map,
+            ),
+        };
+    }
 
-        if ($changed instanceof CannotJudge) {
-            return $changed;
-        }
+    /**
+     * The units to run cut into shards, each of the project's root package,
+     * where the runner has no ignore marker in them the config refuses.
+     */
+    private function shardsOf(Units $toRun, Trees $trees, Ledgers $ledgers, Cut $cut): Shards|CannotJudge
+    {
+        $unmarked = new RunnerMarkers($this->adapters, $this->settings)->refusing($toRun);
+        $shards = $unmarked instanceof Units
+            ? $cut->cut($this->workload($unmarked, $trees, $ledgers), $trees)
+            : $unmarked;
 
-        $plan = Plan::of(
-            $inventory->standing->head(),
-            $keying->base(),
-            $keys,
-            $shards,
-        )
-            ->on($inventory->standing->runOn())
-            ->reaching($changed, $reached->reach()->reasons())
-            ->proving($this->unitsOf($proving->proved()))
-            ->carrying($this->unitsOf($considering->carried()));
+        return $shards instanceof Shards ? $this->rooted($shards) : $shards;
+    }
+
+    /** The plan, once each shard is handed the map of its own files. */
+    private function handed(Plan $plan, CoverageMap $map): Plan|CannotJudge
+    {
         $handed = new Handoff($this->adapters->project)->write($plan, $map);
 
         return $handed instanceof CannotJudge ? $handed : $plan;

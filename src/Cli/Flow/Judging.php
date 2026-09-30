@@ -147,7 +147,7 @@ final readonly class Judging
         return Verdict::of($verdicts)
             ->withNewCode($newCode)
             ->withReach($plan->reach())
-            ->withWarnings($this->unflooredWarnings($verdicts))
+            ->withWarnings($this->warnings($plan, $verdicts))
             ->withFailures($failures);
     }
 
@@ -192,9 +192,10 @@ final readonly class Judging
             : Baseline::none();
     }
 
-    private function unflooredWarnings(TreeVerdicts $verdicts): Warnings
+    /** Each tree held to no floor, and the runner's own ignore markers the config lets through. */
+    private function warnings(Plan $plan, TreeVerdicts $verdicts): Warnings
     {
-        $warnings = Warnings::none();
+        $warnings = new RunnerMarkers($this->adapters, $this->settings)->allowed($plan);
 
         foreach (Ratchet::unfloored($verdicts) as $tree) {
             $warnings = $warnings->with(Warning::that(sprintf(

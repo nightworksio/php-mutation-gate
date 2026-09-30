@@ -48,6 +48,7 @@ final class ScriptedRunner implements Runner
         private readonly CannotJudge|MutantStatus $retrying,
         private readonly CannotJudge|Groups $groups,
         private readonly CannotJudge|RunnerFake $covering,
+        private readonly CannotJudge|Markers|RunnerFake $marking,
     ) {
     }
 
@@ -59,7 +60,7 @@ final class ScriptedRunner implements Runner
 
         $groups = $fake->groups(Withheld::nothing());
 
-        return new self($fake, $identity, $fake, MutantStatus::Survived, $groups, $fake);
+        return new self($fake, $identity, $fake, MutantStatus::Survived, $groups, $fake, $fake);
     }
 
     /** This runner, whose survivors are killed when run again. */
@@ -72,6 +73,7 @@ final class ScriptedRunner implements Runner
             MutantStatus::Killed,
             $this->groups,
             $this->covering,
+            $this->marking,
         );
     }
 
@@ -85,6 +87,7 @@ final class ScriptedRunner implements Runner
             CannotJudge::because($why),
             $this->groups,
             $this->covering,
+            $this->marking,
         );
     }
 
@@ -98,6 +101,7 @@ final class ScriptedRunner implements Runner
             $this->retrying,
             $this->groups,
             $this->covering,
+            $this->marking,
         );
     }
 
@@ -111,6 +115,7 @@ final class ScriptedRunner implements Runner
             $this->retrying,
             $this->groups,
             $this->covering,
+            $this->marking,
         );
     }
 
@@ -119,7 +124,15 @@ final class ScriptedRunner implements Runner
     {
         $identity = Identity::of($runner, Versions::of(Version::of('fake/runner', '1.0.0', 'abc')), Digest::of('php'));
 
-        return new self($this->fake, $identity, $this->mutating, $this->retrying, $this->groups, $this->covering);
+        return new self(
+            $this->fake,
+            $identity,
+            $this->mutating,
+            $this->retrying,
+            $this->groups,
+            $this->covering,
+            $this->marking,
+        );
     }
 
     /** This runner, which cannot name itself. */
@@ -132,6 +145,7 @@ final class ScriptedRunner implements Runner
             $this->retrying,
             $this->groups,
             $this->covering,
+            $this->marking,
         );
     }
 
@@ -145,6 +159,7 @@ final class ScriptedRunner implements Runner
             $this->retrying,
             CannotJudge::because($why),
             $this->covering,
+            $this->marking,
         );
     }
 
@@ -158,6 +173,21 @@ final class ScriptedRunner implements Runner
             $this->retrying,
             $this->groups,
             CannotJudge::because($why),
+            $this->marking,
+        );
+    }
+
+    /** This runner, finding these of its own ignore markers in any files, or unable to look. */
+    public function marking(Markers|CannotJudge $markers): self
+    {
+        return new self(
+            $this->fake,
+            $this->identity,
+            $this->mutating,
+            $this->retrying,
+            $this->groups,
+            $this->covering,
+            $markers,
         );
     }
 
@@ -228,9 +258,9 @@ final class ScriptedRunner implements Runner
         return $again;
     }
 
-    public function markers(Paths $files): Markers
+    public function markers(Paths $files): Markers|CannotJudge
     {
-        return $this->fake->markers($files);
+        return $this->marking instanceof RunnerFake ? $this->marking->markers($files) : $this->marking;
     }
 
     public function definitions(): Paths

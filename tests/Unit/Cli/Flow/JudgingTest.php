@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Baseline as BaselineSetting;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
+use NightWorksIO\MutationGate\Config\Ignores;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Config\Setting;
@@ -40,6 +41,8 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Marker;
+use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -585,4 +588,40 @@ it('kills a timeout only where triage confirms it, so a tree at 100 fails on one
     'tests that take under half its limit' => [Flows::map(), Timeouts::confirmed(), Judgement::Passed],
     'tests whose time the map does not hold' => [CoverageMap::empty(), Timeouts::confirmed(), Judgement::Failed],
     'timeouts.mode unjudged' => [Flows::map(), Timeouts::unjudged(), Judgement::Failed],
+]);
+
+it('says how many of the runner\'s own ignore markers ignores.native allows in what the run mutated', function (
+    Setting $native,
+    Markers|CannotJudge $markers,
+    array $said,
+) use ($tree, $reporting, $judged): void {
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), ScriptedRunner::fixture()->marking($markers)),
+        judgingSettings($native),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect(judgingTexts($verdict->warnings()))->toBe($said);
+})->with([
+    'allowed' => [
+        Ignores::allowingNativeMarkers(),
+        Markers::of(Marker::inSource('src/Money.php:9', 'a'), Marker::inSource('src/Held.php:4', 'b')),
+        [<<<'SAID'
+            2 of the runner's own ignore markers hide mutants in the files this run mutated,
+            as ignores.native: allow lets them. The gate cannot count the mutants they hide.
+            Move them into ignores.entries.
+            SAID],
+    ],
+    'allowed, and none found' => [Ignores::allowingNativeMarkers(), Markers::none(), []],
+    'allowed, and not counted' => [
+        Ignores::allowingNativeMarkers(),
+        CannotJudge::because('infection.json5 cannot be read.'),
+        ['The runner\'s own ignore markers could not be counted. infection.json5 cannot be read.'],
+    ],
+    'refused, where the plan already stopped for any' => [
+        Ignores::refusingNativeMarkers(),
+        Markers::of(Marker::inSource('src/Money.php:9', 'a')),
+        [],
+    ],
 ]);

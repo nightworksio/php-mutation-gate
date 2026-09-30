@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Config\Ignores;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -18,6 +19,8 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Marker;
+use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -52,6 +55,7 @@ use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -283,4 +287,46 @@ it('cannot plan a full pull request run where git cannot tell what changed since
         'so no floor for new code can be held. refs/remotes/origin/main is not a revision this repository has.',
         'Fetch the default branch into the checkout before the plan.',
     )));
+});
+
+it('cannot plan where the runner has its own ignore markers in what it would mutate, listing each', function () use (
+    $plan,
+): void {
+    $marked = ScriptedRunner::fixture()->marking(Markers::of(
+        Marker::inSource('src/Money.php:9', '@pest-mutate-ignore'),
+        Marker::of('infection.json5 mutators.global-ignore', 'ignore', '{"path": "src/Held.php", "reason": "…"}'),
+    ));
+
+    expect($plan(Flows::project(), Mode::full(), Cut::exactly(1), $marked))->toEqual(CannotJudge::because(<<<'SAID'
+        The runner's own ignore markers hide mutants with no reason and no end,
+        so the run cannot go ahead:
+          src/Money.php:9: @pest-mutate-ignore
+            replaced by {"mutant": "<the id of each mutant it hides>", "reason": "<why no test can tell>"}
+          infection.json5 mutators.global-ignore: ignore
+            replaced by {"path": "src/Held.php", "reason": "…"}
+        Replace each with its entry in ignores.entries,
+        or set ignores.native: allow while the project moves them there.
+        SAID));
+});
+
+it('plans with the runner\'s own markers where ignores.native allows them, or with none to find', function (
+    ScriptedRunner $runner,
+): void {
+    $planned = new Planning(
+        Flows::adapters(Flows::project(), [], $runner),
+        Flows::settings(Ignores::allowingNativeMarkers()),
+        Flows::setup(),
+    )->plan(Mode::full(), CoverageRequest::running(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1));
+
+    expect($planned)->toBeInstanceOf(Plan::class);
+})->with([
+    'markers allowed' => [ScriptedRunner::fixture()->marking(Markers::of(Marker::inSource('src/Money.php:9', 'x')))],
+    'no markers' => [ScriptedRunner::fixture()->marking(Markers::none())],
+]);
+
+it('cannot plan where the runner cannot look for its own ignore markers', function () use ($plan): void {
+    $blind = ScriptedRunner::fixture()->marking(CannotJudge::because('infection.json5 cannot be read.'));
+
+    expect($plan(Flows::project(), Mode::full(), Cut::exactly(1), $blind))
+        ->toEqual(CannotJudge::because('infection.json5 cannot be read.'));
 });
