@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Config;
 
-use function array_key_exists;
-
+use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
@@ -26,11 +26,12 @@ final readonly class Presets
 {
     /**
      * Each preset: the trees where `phpunit.xml` has no `<source>`, which for a plain library are the `autoload`
-     * paths of `composer.json`; the files every test reads; and, where its tests boot a framework, the seconds a
-     * mutant may run.
+     * paths of `composer.json`; the files every test reads; and the seconds a mutant may run, longer where its
+     * tests boot a framework. Each also holds new code to every mutant killed. A preset sets every value
+     * ADR-0008's table gives it, so a later preset in a list replaces each of an earlier one's.
      */
     private const array SHIPPED = [
-        'library' => ['fallback' => [], 'everything' => []],
+        'library' => ['fallback' => [], 'everything' => [], 'seconds' => 10],
         'laravel' => [
             'fallback' => ['app'],
             'everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing'],
@@ -49,15 +50,14 @@ final readonly class Presets
         $presets = $registry;
 
         foreach (self::SHIPPED as $name => $preset) {
-            $layer = Layer::of(
-                Setup::of(treeSource: Setup::phpunit(...$preset['fallback'])),
-                Reach::of(everything: Listed::of(...$preset['everything'])),
-            );
             $presets = $presets->withPreset(
                 Name::of($name),
-                array_key_exists('seconds', $preset)
-                    ? $layer->over(Layer::of(Triage::of(limit: Seconds::of($preset['seconds']))))
-                    : $layer,
+                Layer::of(
+                    Setup::of(treeSource: Setup::phpunit(...$preset['fallback'])),
+                    Floors::of(newCode: Floor::whole()),
+                    Reach::of(everything: Listed::of(...$preset['everything'])),
+                    Triage::of(limit: Seconds::of($preset['seconds'])),
+                ),
             );
         }
 

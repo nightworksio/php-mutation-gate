@@ -24,12 +24,18 @@ it('is a layer of config, as data', function (string $preset, array $expected) u
 })->with([
     'library, whose trees are the autoload paths where phpunit.xml has no source' => [
         'library',
-        ['treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => []]], 'reach' => ['everything' => []]],
+        [
+            'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => []]],
+            'newCode' => ['floor' => 100],
+            'reach' => ['everything' => []],
+            'timeouts' => ['seconds' => 10],
+        ],
     ],
     'laravel' => [
         'laravel',
         [
             'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
+            'newCode' => ['floor' => 100],
             'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing']],
             'timeouts' => ['seconds' => 30],
         ],
@@ -38,6 +44,7 @@ it('is a layer of config, as data', function (string $preset, array $expected) u
         'symfony',
         [
             'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['src']]],
+            'newCode' => ['floor' => 100],
             'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php']],
             'timeouts' => ['seconds' => 30],
         ],

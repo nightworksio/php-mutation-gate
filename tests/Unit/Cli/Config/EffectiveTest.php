@@ -129,6 +129,25 @@ it('applies a list of presets in order, the later winning', function () use (
     ]);
 });
 
+it('gives a library listed after a framework its own timeout and floor', function () use (
+    $effective,
+    $nothing,
+    $shown,
+): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', '{"preset": ["laravel", "library"], "runner": "pest"}');
+    Scratch::write($project, 'framework.json', '{"preset": ["library", "laravel"], "runner": "pest"}');
+    $framework = new CommandLine('framework.json', '', [], '', '', firstPartyOnly: false);
+
+    expect($shown($effective($project)->settings($nothing())))->toMatchArray([
+        'newCode' => ['floor' => 100],
+        'timeouts' => ['seconds' => 10, 'retries' => 20, 'mode' => 'confirm'],
+    ])->and($shown($effective($project)->settings($framework)))->toMatchArray([
+        'newCode' => ['floor' => 100],
+        'timeouts' => ['seconds' => 30, 'retries' => 20, 'mode' => 'confirm'],
+    ]);
+});
+
 it('chooses the library preset for a project without composer.json', function () use (
     $effective,
     $nothing,
