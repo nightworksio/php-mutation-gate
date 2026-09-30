@@ -96,12 +96,15 @@ final readonly class Manifest
         return $this->file;
     }
 
-    /** Where Composer installs the project's packages: its `config.vendor-dir`, or `vendor`. */
-    public function vendorDirectory(): Path
+    /** Where Composer installs the project's packages and links their commands, as its `config` says. */
+    public function directories(): Directories
     {
-        $declared = Lenient::text($this->manifest->field('config')->field('vendor-dir'));
+        $config = $this->manifest->field('config');
 
-        return Path::of($declared === '' ? self::VENDOR : $declared);
+        return Directories::declared(
+            Lenient::text($config->field('vendor-dir')),
+            Lenient::text($config->field('bin-dir')),
+        );
     }
 
     /** The package's name, where it declares one. */

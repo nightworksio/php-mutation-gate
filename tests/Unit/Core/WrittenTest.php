@@ -27,5 +27,6 @@ it('says what the writer notes of what it wrote, after where', function (): void
 it('is written where a write answered with the bytes it wrote, and says why not where it answered false', function (): void {
     expect(Written::attempted('plan.json', 12))->toEqual(Written::to('plan.json'))
         ->and(Written::attempted('plan.json', 0))->toEqual(Written::to('plan.json'))
-        ->and(Written::attempted('plan.json', wrote: false))->toEqual(CannotJudge::because('plan.json could not be written.'));
+        ->and(Written::attempted('plan.json', wrote: false))->toEqual(CannotJudge::because('plan.json could not be written.'))
+        ->and(Written::failedAt('.git/hooks/pre-push'))->toEqual(CannotJudge::because('.git/hooks/pre-push could not be written.'));
 });

@@ -39,7 +39,13 @@ final readonly class Written
     /** Written to there where a write answered with the bytes it wrote; why not where it answered `false`. */
     public static function attempted(string $where, int|false $wrote): self|CannotJudge
     {
-        return $wrote === false ? CannotJudge::because(sprintf(self::UNWRITTEN, $where)) : new self($where, '');
+        return $wrote === false ? self::failedAt($where) : new self($where, '');
+    }
+
+    /** Why nothing is written there: the write failed. */
+    public static function failedAt(string $where): CannotJudge
+    {
+        return CannotJudge::because(sprintf(self::UNWRITTEN, $where));
     }
 
     /** Written to there, with a sentence the writer says of what it wrote. */
