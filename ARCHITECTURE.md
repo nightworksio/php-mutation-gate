@@ -159,10 +159,11 @@ osv-scanner, which read the repository rather than the code.
 | **G8** | Every mutant of `src` is killed | planned: the package's own gate at a floor of 100, through its reusable workflow and action (`ci.yml` holds the place) |
 | **G9** | A diagnostic fails the run, and no setting exempts one | arch: the settings, read out of `phpunit.xml` |
 
-## V — CI and the tables the bot explains it with
+## V — CI and the bot
 
 The contributor bot explains a red CI job only in words from tables in
-`main`, filled with what the job's own tools reported (ADR-0019).
+`main`, filled with what the job's own tools reported, and runs nothing a
+pull request brings where it holds a token that can write (ADR-0019).
 
 | Rule | Says | Enforced by |
 |---|---|---|
@@ -170,6 +171,7 @@ The contributor bot explains a red CI job only in words from tables in
 | **V2** | Every CI job writes and uploads its evidence and ends by explaining its failure with `gate_summary.py`, or its entry says why it leaves none | arch: `.github/gates.json` against the workflows |
 | **V3** | Every rule the recorded evidence names, and every step that can fail with none, has its explanation in `.github/bot/rules`, `ARCHITECTURE.md` or its gate's rules | arch: `tests/Fixtures/Evidence`, read by `evidence.py` |
 | **V4** | The generated rule tables are what the locked tools say of their rules | arch: `scripts/bot-rules` run and compared; the `hygiene / markdown` job for markdownlint |
+| **V5** | A job that `issue_comment`, `pull_request_target` or `workflow_run` starts names the permissions it holds, under a workflow whose own are `{}`, and runs only a checkout of `main`, the stdlib scripts and the pinned token action, with no expression in a `run` | arch: the workflows, read |
 
 ## R — the rules themselves
 
