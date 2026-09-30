@@ -67,10 +67,10 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\Described;
+use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\PestRun;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
-use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 
 afterEach(function (): void {
@@ -169,11 +169,7 @@ function adapterPatched(string $vendor = 'vendor'): Project
 {
     $at = adapterProject($vendor);
 
-    foreach (['MutationTest.php', 'Plugins/Mutate.php', 'Tester/MutationTestRunner.php'] as $file) {
-        $installed = (string) file_get_contents(Tree::at(sprintf('vendor/pestphp/pest-plugin-mutate/src/%s', $file)));
-        Scratch::write($at->root(), sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $vendor, $file), $installed);
-    }
-
+    MutatePlugin::pristine()->into(sprintf('%s/%s', $at->root(), $vendor));
     Patch::applyIn(sprintf('%s/%s', $at->root(), $vendor));
     adapterHandedOver($at, 'planned', CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 11, RUN_ADDS))
         ->timedEach(TimedTest::of(RUN_ADDS, 1.25), TimedTest::of('Tests\B::c', 2.0)));

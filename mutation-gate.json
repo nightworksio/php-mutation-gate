@@ -1,0 +1,13 @@
+{
+    "$schema": "resources/mutation-gate.schema.json",
+    "runner": "pest",
+    "trees": [
+        {
+            "path": "src",
+            "floor": 100
+        }
+    ],
+    "pest": {
+        "patch": true
+    }
+}

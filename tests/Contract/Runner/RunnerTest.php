@@ -34,6 +34,8 @@ use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
+use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
@@ -46,6 +48,10 @@ use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 // infection-fixture/, the same code tested by PHPUnit. Each library also
 // holds its runner's own ignore marker in marked/Marked.php. The runs are
 // real, so each request runs once per library.
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
 
 $libraries = ['the fake' => fn(): Library => Library::fake()];
 
@@ -458,6 +464,25 @@ it('holds the library to the pest-plugin-mutate the package allows', function ()
             'phpunit/phpunit' => '<12.5.8 || >=12.5.21 <12.5.22 || >=13.1.5 <13.1.6',
             'symfony/yaml' => '<7.4.12 || >=8.0 <8.0.12',
         ]);
+});
+
+// The unit suite patches pest-plugin-mutate's files as the allowed version ships
+// them, from tests/Fixtures. Patching the installed plugin, which this
+// repository's Composer hook has patched already where it ran, ends in the same
+// files, so the fixture is the installed version's source.
+it('patches the installed pest-plugin-mutate into the files the pristine fixture patches into', function (): void {
+    $installed = MutatePlugin::installed()->vendor();
+    $pristine = MutatePlugin::pristine()->vendor();
+    $read = static fn(string $vendor): array => array_map(
+        static fn(string $file): string => (string) file_get_contents(
+            sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $vendor, $file),
+        ),
+        MutatePlugin::FILES,
+    );
+
+    expect(Patch::applyIn($installed))->toBeString()
+        ->and(Patch::applyIn($pristine))->toBe('pest:patch patched 3 of the 3 files it changes in pest-plugin-mutate.')
+        ->and($read($installed))->toBe($read($pristine));
 });
 
 // The adapter reads the maps the library's Pest writes with the

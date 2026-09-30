@@ -128,10 +128,12 @@
     },
     "scripts": {
         "post-install-cmd": [
-            "git config core.hooksPath .githooks"
+            "git config core.hooksPath .githooks",
+            "@php bin/mutation-gate pest:patch"
         ],
         "post-update-cmd": [
-            "git config core.hooksPath .githooks"
+            "git config core.hooksPath .githooks",
+            "@php bin/mutation-gate pest:patch"
         ],
         "analyse": "phpstan analyse --memory-limit=1G",
         "bot:rules": [

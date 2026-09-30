@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Tests\Support\Commands;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Printed;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -47,8 +48,8 @@ it('says what would fail a run in a project, before a run does', function (): vo
         ->and($slugs)->toContain('two-runners');
 });
 
-it('runs the whole gate when no command is named, beginning with the config', function () use ($console): void {
-    $tester = new ApplicationTester($console());
+it('runs the whole gate when no command is named, beginning with the config', function (): void {
+    $tester = new ApplicationTester(Commands::console(Scratch::copy('tests/Fixtures/Projects/TwoRunners')));
 
     expect($tester->run([]))->toBe(2)
         ->and(Printed::by($tester->getOutput()))
@@ -91,10 +92,7 @@ it('patches Pest in the vendor directory Composer installed the project into', f
     $project = Scratch::directory();
     Scratch::write($project, 'composer.json', '{"config": {"vendor-dir": "lib/vendor"}}');
 
-    foreach (['MutationTest.php', 'Plugins/Mutate.php', 'Tester/MutationTestRunner.php'] as $file) {
-        $installed = (string) file_get_contents(Tree::at(sprintf('vendor/pestphp/pest-plugin-mutate/src/%s', $file)));
-        Scratch::write($project, sprintf('lib/vendor/pestphp/pest-plugin-mutate/src/%s', $file), $installed);
-    }
+    MutatePlugin::pristine()->into(sprintf('%s/lib/vendor', $project));
 
     expect(Commands::run($project, 'pest:patch')->output)
         ->toBe("pest:patch patched 3 of the 3 files it changes in pest-plugin-mutate.\n");
