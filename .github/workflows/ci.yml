@@ -423,6 +423,8 @@ jobs:
           RUNNER_CONTRACTS: pest
       # Infection's library is a project of its own too, installed at the lowest
       # and the highest Infection 0.35, each with PHPUnit 12 and with PHPUnit 13.
+      # It carries the package's PHPUnit conflict, so the lowest PHPUnit 12 is
+      # the lowest the package allows.
       # Its runs read only the PHPUnit XML coverage and JUnit log its own PHPUnit
       # writes, so it keeps its own php-code-coverage. The filter runs the tests
       # of the Infection library alone; the Pest library's ran above.

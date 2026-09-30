@@ -542,6 +542,20 @@ it('holds the library to the pest-plugin-mutate the package allows', function ()
         ]);
 });
 
+// The lowest resolution of the Infection library installs the lowest PHPUnit the
+// package allows, 12.5.8, not the lowest its own constraint would.
+it('holds the Infection library to the PHPUnit the package allows', function (): void {
+    $phpunit = static function (string $manifest): mixed {
+        $decoded = json_decode((string) file_get_contents(Tree::at($manifest)), associative: true);
+        $conflict = is_array($decoded) && array_key_exists('conflict', $decoded) ? $decoded['conflict'] : [];
+
+        return is_array($conflict) && array_key_exists('phpunit/phpunit', $conflict) ? $conflict['phpunit/phpunit'] : null;
+    };
+
+    expect($phpunit(sprintf('%s/composer.json', Library::INFECTION_DIRECTORY)))->toBe($phpunit('composer.json'))
+        ->and($phpunit('composer.json'))->toStartWith('<12.5.8 ');
+});
+
 // The unit suite patches pest-plugin-mutate's files as the allowed version ships
 // them, from tests/Fixtures. Patching the installed plugin, which this
 // repository's Composer hook has patched already where it ran, ends in the same
