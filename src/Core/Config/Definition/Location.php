@@ -8,7 +8,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 
-/** A path from the project: the gate makes a config file's paths so before it reads them (ADR-0002). */
+/** A path, from the project's root. */
 final readonly class Location implements Node
 {
     public static function path(): self

@@ -12,7 +12,6 @@ use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
@@ -172,7 +171,8 @@ it('reports a preset nothing registered at its path, with every other problem', 
     array $problems,
 ) use ($effective, $nothing): void {
     $project = Scratch::directory();
-    Scratch::write($project, 'mutation-gate.json', sprintf('{"preset": %s, "runner": "pest", "budget": "soon"}', $preset));
+    $config = sprintf('{"preset": %s, "runner": "pest", "budget": "soon"}', $preset);
+    Scratch::write($project, 'mutation-gate.json', $config);
 
     expect(Configs::problems($effective($project)->settings($nothing())))->toBe($problems);
 })->with([
@@ -206,59 +206,6 @@ it('reports a preset nothing registered where it cannot judge the rest', functio
         ': Both pestphp/pest-plugin-mutate and infection/infection are installed. '
         . 'Choose one: set runner in the config, or pass --runner.',
     ]);
-});
-
-it('reads a config file\'s paths as relative to the file', function () use ($effective, $shown): void {
-    $project = Scratch::directory();
-    Scratch::write($project, 'ci/gate.json', (string) json_encode([
-        'runner' => 'pest',
-        'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['../app', 'lib']]],
-        'trees' => [['path' => '../src'], ['path' => '/abs/src']],
-        'baseline' => ['path' => 'baseline.json'],
-        'ci' => ['gitlab' => ['template' => 'gitlab.yml']],
-        'proofs' => ['store' => ['use' => 'directory', 'with' => ['path' => 'ledger']]],
-        'reports' => [['use' => 'sarif', 'path' => '../build/m.sarif']],
-    ]));
-    $settings = $effective($project)->settings(new Given('ci/gate.json', '', ['json:m.json'], '', '', firstPartyOnly: false));
-
-    expect($shown($settings))->toMatchArray([
-        'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app', 'ci/lib']]],
-        'trees' => [['path' => 'src'], ['path' => '/abs/src']],
-        'baseline' => ['path' => 'ci/baseline.json', 'improvement' => 'require'],
-        'proofs' => ['store' => ['use' => 'directory', 'with' => ['path' => 'ci/ledger']], 'ignore' => [], 'write' => 'auto'],
-        'reports' => [['use' => 'sarif', 'path' => 'build/m.sarif'], ['use' => 'json', 'path' => 'm.json']],
-        'ci' => ['gitlab' => ['template' => 'ci/gitlab.yml'], 'buildkite' => ['step' => []]],
-    ]);
-});
-
-it('leaves the paths of an adapter it does not know as the file wrote them', function () use ($effective, $shown): void {
-    $project = Scratch::directory();
-    Scratch::write($project, 'ci/gate.json', (string) json_encode([
-        'runner' => 'pest',
-        'treeSource' => ['use' => 'acme', 'with' => ['fallback' => ['lib']]],
-        'proofs' => ['store' => ['use' => 'redis', 'with' => ['path' => 'ledger']]],
-    ]));
-    $settings = $effective($project)->settings(new Given('ci/gate.json', '', [], '', '', firstPartyOnly: false));
-
-    expect($shown($settings))->toMatchArray([
-        'treeSource' => ['use' => 'acme', 'with' => ['fallback' => ['lib']]],
-        'proofs' => ['store' => ['use' => 'redis', 'with' => ['path' => 'ledger']], 'ignore' => [], 'write' => 'auto'],
-    ]);
-});
-
-it('reads a config file outside the project with paths from the file', function () use ($effective, $shown): void {
-    $project = Scratch::directory();
-    $elsewhere = Scratch::directory();
-    Scratch::write($elsewhere, 'gate.json', '{"runner": "pest", "baseline": {"path": "baseline.json"}}');
-
-    expect($shown($effective($project)->settings(new Given(
-        sprintf('%s/gate.json', $elsewhere),
-        '',
-        [],
-        '',
-        '',
-        firstPartyOnly: false,
-    )))['baseline'] ?? [])->toMatchArray(['path' => Path::of(sprintf('%s/baseline.json', $elsewhere))->value()]);
 });
 
 it('cannot judge a config file it cannot read', function () use ($effective, $nothing): void {

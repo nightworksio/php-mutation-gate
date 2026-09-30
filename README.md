@@ -252,8 +252,7 @@ A setting that names an adapter takes either a registered name (`"pest"`,
 ### Configuration reference
 
 Every key, with its type, its default and the decision that sets it. Durations
-are written `90s`, `15m` or `1h30m`, and dates `YYYY-MM-DD`. A path is
-relative to the config file. A key that
+are written `90s`, `15m` or `1h30m`, and dates `YYYY-MM-DD`. A key that
 chooses an adapter takes a registered name or `{"use": <name or class>,
 "with": <options>}`.
 

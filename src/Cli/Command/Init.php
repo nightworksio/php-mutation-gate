@@ -8,9 +8,6 @@ use function array_flip;
 use function array_key_exists;
 use function array_map;
 use function basename;
-
-use Closure;
-
 use function count;
 use function dirname;
 use function explode;
@@ -21,7 +18,6 @@ use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
 use NightWorksIO\MutationGate\Cli\Config\Given;
-use NightWorksIO\MutationGate\Cli\Config\Relocated;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -119,7 +115,7 @@ final readonly class Init
         Formats $formats,
         Destination $destination,
     ): string|Invalid|CannotJudge {
-        $config = self::config($project, $extensions, $settings, $destination);
+        $config = self::config($extensions, $settings, $destination);
         $text = $config instanceof Document ? $formats->render($config, $destination->format()) : $config;
 
         return is_string($text) ? self::write($project, $destination, $text) : $text;
@@ -127,7 +123,6 @@ final readonly class Init
 
     /** The preset, the runner and the trees zero-config found, as a config, or why there is none to write. */
     private static function config(
-        string $project,
         Extensions $extensions,
         Settings|Invalid|CannotJudge $settings,
         Destination $destination,
@@ -139,43 +134,29 @@ final readonly class Init
         $source = new Chosen($extensions)->treeSource($settings->treeSource());
         $trees = $source instanceof Invalid || $source instanceof CannotJudge ? $source : $source->trees();
 
-        return $trees instanceof Trees ? self::document($settings, $trees, $destination, $project) : $trees;
+        return $trees instanceof Trees ? self::document($settings, $trees, $destination->format()) : $trees;
     }
 
-    /** The config, with every path it names from the file's own directory (ADR-0002). */
-    private static function document(
-        Settings $settings,
-        Trees $trees,
-        Destination $destination,
-        string $project,
-    ): Document|CannotJudge {
+    private static function document(Settings $settings, Trees $trees, string $format): Document|CannotJudge
+    {
         $presets = [...$settings->presets()];
-        $from = static fn(string $path): string => Relocated::fromProject($path, $destination->file(), $project);
         $config = [
             'preset' => count($presets) === 1 ? $presets[0] : $presets,
             'runner' => $settings->runner()->use(),
-            'trees' => array_map(static fn(Tree $tree): array => self::tree($tree, $from), [...$trees]),
+            'trees' => array_map(self::tree(...), [...$trees]),
         ];
 
-        return Document::ofJson(Json::pretty(
-            $destination->format() === 'json' ? ['$schema' => $from(self::SCHEMA), ...$config] : $config,
-        ));
+        return Document::ofJson(Json::pretty($format === 'json' ? ['$schema' => self::SCHEMA, ...$config] : $config));
     }
 
-    /**
-     * A tree as `trees` lists it, with the floor of 0 an exclusion gives it.
-     *
-     * @param  Closure(string): string $from the path as the config file names it
-     * @return array<string, mixed>
-     */
-    private static function tree(Tree $tree, Closure $from): array
+    /** @return array<string, mixed> a tree as `trees` lists it, with the floor of 0 an exclusion gives it */
+    private static function tree(Tree $tree): array
     {
         $declared = $tree->declared();
-        $path = $from($tree->path()->value());
 
         return $declared instanceof Exempt
-            ? ['path' => $path, 'floor' => 0, 'reason' => $declared->reason()]
-            : ['path' => $path];
+            ? ['path' => $tree->path()->value(), 'floor' => 0, 'reason' => $declared->reason()]
+            : ['path' => $tree->path()->value()];
     }
 
     /** The config written, said as a sentence. */

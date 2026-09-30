@@ -58,9 +58,7 @@ final readonly class Effective
         }
 
         $loader = Formats::loader($this->extensions, $file);
-        $loaded = $loader instanceof CannotJudge ? $loader : $loader->load($file);
-
-        return $loaded instanceof Document ? Relocated::file($loaded, $file, $this->project) : $loaded;
+        return $loader instanceof CannotJudge ? $loader : $loader->load($file);
     }
 
     private function layered(Document $file, Given $given, Extensions $registry): Settings|Invalid|CannotJudge

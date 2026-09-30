@@ -214,7 +214,7 @@ it('says so where it cannot read .gitignore', function () use ($init): void {
         ->and($ran->errors)->toEndWith("/.gitignore could not be read.\n");
 });
 
-it('writes the file --config names, in its extension\'s format, with paths from its directory', function () use (
+it('writes the file --config names, in the format its extension names', function () use (
     $init,
     $file,
 ): void {
@@ -227,12 +227,12 @@ it('writes the file --config names, in its extension\'s format, with paths from 
         '',
     ])->and($file($project, 'ci/gate.json'))->toBe(<<<'JSON'
         {
-            "$schema": "../vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json",
+            "$schema": "vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json",
             "preset": "laravel",
             "runner": "pest",
             "trees": [
                 {
-                    "path": "../app"
+                    "path": "app"
                 }
             ]
         }

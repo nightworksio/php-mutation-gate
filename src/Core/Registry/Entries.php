@@ -49,7 +49,9 @@ final readonly class Entries
     {
         return array_key_exists($name, $this->entries)
             ? $this->entries[$name]['entry']
-            : CannotJudge::because(sprintf('No %s is registered as "%s".%s', $this->kind, $name, $this->nearest($name)));
+            : CannotJudge::because(
+                sprintf('No %s is registered as "%s".%s', $this->kind, $name, $this->nearest($name)),
+            );
     }
 
     /**

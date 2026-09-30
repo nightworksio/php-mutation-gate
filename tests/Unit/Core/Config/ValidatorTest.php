@@ -528,7 +528,9 @@ it('judges expiries against a maxDays of one day', function (): void {
     expect(Configs::problems(Configs::validated([
         'runner' => 'pest',
         'ignores' => ['maxDays' => 1, 'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'Never']]],
-    ])))->toBe(['ignores.entries[0].expires: expected a date by 2026-10-01, within ignores.maxDays of today, got nothing']);
+    ])))->toBe([
+        'ignores.entries[0].expires: expected a date by 2026-10-01, within ignores.maxDays of today, got nothing',
+    ]);
 });
 
 it('keeps any $schema a file names, without reading it', function (mixed $schema): void {
