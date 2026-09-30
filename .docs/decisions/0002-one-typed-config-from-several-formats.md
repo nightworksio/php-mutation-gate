@@ -30,15 +30,28 @@ cannot.
 
 ## Decision
 
-1. **One meaning, reached one way.** Each `ConfigLoader` (ADR-0001) reads its
-   file into the same untyped tree of maps, lists and scalars. One validator
-   turns that tree into the typed, immutable `Config`. The PHP builder is no
-   exception: its methods are typed for the person writing it, and underneath
-   they write the same tree, which goes through the same validator. So any
-   config converts to any other, and `mutation-gate config:show` prints the
-   effective config of a project whatever format it is written in. Config is
-   data. A closure or an object other than the builder's own values is refused.
-   Code that has to run belongs in an extension (ADR-0001).
+1. **One meaning, reached one way.** Each `ConfigLoader` (ADR-0001) decodes
+   its file into JSON and reads it through `ConfigFile::read()`, the one
+   definition of every setting, into a `Layer`: the typed sections the file
+   sets, each holding only what the file writes. A preset and the command line
+   are layers too. The PHP builder is no exception: its methods are typed for
+   the person writing it, and underneath they write the same JSON, which the
+   same definition reads. So any config converts to any other, and
+   `mutation-gate config:show` prints the effective config of a project
+   whatever format it is written in. Each section owns the value every setting
+   in it takes when every layer leaves it out, how a config writes it and how
+   the PHP builder writes it; the effective `Settings` are every layer laid
+   over those values. Config is data. A closure or an object other than the
+   builder's own values is refused. Code that has to run belongs in an
+   extension (ADR-0001).
+   - An extension's loader reads its files the same way, and
+     `ConfigLoaderContract::failures()` holds it, on two fixture files in its
+     format, to what every loader answers: the config read into the gate's own
+     layer, paths named from the file's directory, the gate's own problems for
+     an invalid file, and a file that is not there not judged.
+   - A preset an extension registers is a layer, `withPreset(Name, Layer)`,
+     which it can build with the PHP builder: `Gate::configure()->…->layer(ProjectRoot::origin())`, its
+     paths named from the project.
 
 2. **Where the config is found.**
    - `--config=<path>`, accepted by every command, names it.
@@ -182,24 +195,33 @@ cannot.
    Settings resolve in this order, later winning: zero-config defaults, then
    presets (`preset` takes one name or a list, applied in order), then the
    config file, then command-line options.
-   - When two layers set the same key, maps merge by key, and a scalar from the
-     later layer replaces the earlier one.
+   - Layers are laid section by section. A setting a later layer writes
+     replaces the earlier one's, and a setting it leaves out keeps it.
    - Lists concatenate, and an entry equal to an earlier one is dropped.
    - `trees` is the exception: a layer that sets it replaces the list whole, so
      declaring trees never adds them to the ones `phpunit.xml` or a preset
      found.
+   - An adapter a later layer chooses replaces the earlier one with its
+     options, and what the runner withholds only grows (ADR-0004).
+     `shards.seconds` and `shards.target` replace each other (ADR-0013).
    - The command-line options that set config are `--runner=<name>`,
      `--report=<name>:<path>` (repeatable, adding to `reports`),
      `--budget=<duration>` (ADR-0008) and `--ci=<name>` (ADR-0006).
 
-6. **Validation reports everything at once, by path.** A config with three
+6. **Validation reports everything at once, by path.** Each layer is read on
+   its own, and what only every layer together can say, that a runner is
+   chosen and that no ignore outlasts `ignores.maxDays`, is judged once every
+   layer reads. A config with three
    mistakes prints three errors, each with its path and what was expected:
    `trees[1].floor: expected a number from 0 to 100, got "80"`. Types are
    strict, so a string is not a number. An unknown key is an error and suggests
    the nearest known one (`newcode` → `newCode`), because a misspelt key that is
    silently ignored is a setting that silently does nothing. Durations are
-   written `90s`, `15m` or `1h30m`. Dates are `YYYY-MM-DD`. Paths are relative
-   to the config file, or to the working directory when there is none. The
+   written `90s`, `15m` or `1h30m`, and written back in the largest units
+   that hold them: `90s` is `1m30s`. Dates are `YYYY-MM-DD`. Paths are
+   relative to the config file, or to the working directory when there is
+   none, and a config the gate writes, such as `init`'s, names them from its
+   own directory. The
    configuration reference lists every key with its type, its default and the
    ADR that decides it. It is generated from the same definitions as the
    schema, into `.docs/reference/configuration.md`, and the README holds it

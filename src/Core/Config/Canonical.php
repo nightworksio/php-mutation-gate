@@ -77,12 +77,9 @@ final readonly class Canonical
     /** The parts of a value under its path that affect results, or nothing where none does. */
     private function parts(Node $at, string $path): Json|Absent
     {
-        $parts = match ($at->kind()) {
-            Kind::Map => $this->members($at, $path, whole: false),
-            Kind::List => Json::items(...$this->items($at, $path, whole: false)),
-            Kind::Empty, Kind::Text, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null, Kind::Nothing
-                => Json::object(),
-        };
+        $parts = $at->kind() === Kind::List
+            ? Json::items(...$this->items($at, $path, whole: false))
+            : $this->members($at, $path, whole: false);
 
         return $parts->isEmpty() ? Absent::setting() : $parts;
     }

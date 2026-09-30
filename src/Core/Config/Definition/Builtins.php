@@ -139,11 +139,6 @@ final readonly class Builtins
         return array_key_exists($use, $this->options);
     }
 
-    /** @return list<string> the names built in */
-    public function names(): array
-    {
-        return array_keys($this->options);
-    }
 
     /**
      * The JSON Schema of each way to choose one: every built-in adapter with its own options, and any other

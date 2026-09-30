@@ -306,6 +306,14 @@ A setting that names an adapter takes either a registered name (`"pest"`,
 "with": {"channel": "#ci"}}`). Packages that offer adapters are found through
 `extra.mutation-gate.extensions` in their `composer.json`
 ([ADR-0001](.docs/decisions/0001-a-framework-free-core-behind-nine-ports.md)).
+An extension's `Extensions` registry is made with the `Origin` of its package,
+`NightWorksIO\MutationGate\Core\Registry\Origin`. A config loader an
+extension registers decodes its format into JSON and reads it with
+`ConfigFile::read()`, so the gate's own definition judges every file, and
+`ConfigLoaderContract::failures()` holds it to what every loader answers. A
+preset an extension registers is a layer of config, such as
+`Gate::configure()->…->layer(ProjectRoot::origin())` builds
+([ADR-0002](.docs/decisions/0002-one-typed-config-from-several-formats.md)).
 
 ### Reports
 

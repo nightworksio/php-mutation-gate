@@ -27,8 +27,8 @@ final readonly class ConfigLoaderFake implements ConfigLoader
     public static function ofTheFixture(): self
     {
         return new self([
-            '/fixtures/Config/mutation-gate.fake'
-                => '{"runner": "pest", "trees": [{"path": "src", "floor": 100}], "newCode": {"floor": 100}}',
+            '/fixtures/Config/valid.fake' => '{"runner": "pest", "trees": [{"path": "src", "floor": 100}], "newCode": {"floor": 100}}',
+            '/fixtures/Config/invalid.fake' => '{"newCode": {"floor": 120}}',
         ]);
     }
 
