@@ -41,39 +41,18 @@ final readonly class Timings implements Countable, IteratorAggregate
 
     public static function of(Timing ...$timings): self
     {
-        $collected = self::none();
-
-        foreach ($timings as $timing) {
-            $collected = $collected->with($timing);
-        }
-
-        return $collected;
+        return new self(self::newest([], $timings));
     }
 
     public function with(Timing $timing): self
     {
-        $unit = $timing->unit()->value();
-
-        if (array_key_exists($unit, $this->timings) && $this->timings[$unit]->at()->isAfter($timing->at())) {
-            return $this;
-        }
-
-        $timings = $this->timings;
-        $timings[$unit] = $timing;
-
-        return new self($timings);
+        return new self(self::newest($this->timings, [$timing]));
     }
 
     /** These timings and another's, each unit keeping its newest. */
     public function and(self $other): self
     {
-        $merged = $this;
-
-        foreach ($other->timings as $timing) {
-            $merged = $merged->with($timing);
-        }
-
-        return $merged;
+        return new self(self::newest($this->timings, $other->timings));
     }
 
     /** Only the timings of these units, which are the ones that still exist. */
@@ -98,5 +77,26 @@ final readonly class Timings implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator(array_values($this->timings));
+    }
+
+    /**
+     * Timings held, with more added one after another, each unit keeping its
+     * newest.
+     *
+     * @param  array<string, Timing> $held by unit
+     * @param  array<Timing>         $more
+     * @return array<string, Timing> by unit
+     */
+    private static function newest(array $held, array $more): array
+    {
+        foreach ($more as $timing) {
+            $unit = $timing->unit()->value();
+
+            if (! array_key_exists($unit, $held) || ! $held[$unit]->at()->isAfter($timing->at())) {
+                $held[$unit] = $timing;
+            }
+        }
+
+        return $held;
     }
 }

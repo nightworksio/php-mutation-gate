@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Php;
 use function array_combine;
 use function array_intersect_key;
 use function array_map;
+use function array_values;
 use function mb_strtolower;
 
 /**
@@ -27,9 +28,21 @@ final readonly class Names
         return new self(array_combine($lower, $lower));
     }
 
-    public function merge(self $other): self
+    public function merge(self ...$others): self
     {
-        return new self($this->names + $other->names);
+        $names = $this->names;
+
+        foreach ($others as $other) {
+            $names += $other->names;
+        }
+
+        return new self($names);
+    }
+
+    /** @return list<string> each name, in lower case */
+    public function all(): array
+    {
+        return array_values($this->names);
     }
 
     /** Whether these and the others share a name. */

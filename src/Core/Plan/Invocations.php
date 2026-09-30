@@ -29,14 +29,19 @@ final readonly class Invocations implements Countable, IteratorAggregate
     public static function of(Units $units): self
     {
         $held = [];
-        $rest = Units::none();
+        $rest = [];
 
         foreach ($units as $unit) {
-            $held = $unit->isHeld() ? [...$held, Units::of($unit)] : $held;
-            $rest = $unit->isHeld() ? $rest : $rest->with($unit);
+            if ($unit->isHeld()) {
+                $held[] = Units::of($unit);
+
+                continue;
+            }
+
+            $rest[] = $unit;
         }
 
-        return new self(count($rest) === 0 ? $held : [...$held, $rest]);
+        return new self($rest === [] ? $held : [...$held, Units::of(...$rest)]);
     }
 
     public function count(): int

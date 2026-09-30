@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Git;
 
 use function array_key_exists;
+use function array_map;
+use function array_merge;
 use function array_pop;
 use function count;
 use function explode;
@@ -19,6 +21,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 
 use function preg_match;
 use function preg_match_all;
+use function range;
 use function rtrim;
 use function stripcslashes;
 
@@ -57,14 +60,14 @@ final readonly class Diff
     public static function changes(string $status, array $lines): Changes
     {
         preg_match_all(self::ENTRY, $status, $entries, PREG_SET_ORDER);
-        $changes = Changes::none();
+        $changes = [];
 
         foreach ($entries as $entry) {
             $from = rtrim($entry['from'], "\0");
-            $changes = $changes->with(self::change($entry['kind'], $from, $entry['path'], $lines));
+            $changes[] = self::change($entry['kind'], $from, $entry['path'], $lines);
         }
 
-        return $changes;
+        return Changes::of(...$changes);
     }
 
     /**
@@ -91,7 +94,7 @@ final readonly class Diff
         $pieces = explode("\n", $text);
         $last = array_pop($pieces);
 
-        return self::spanning(Lines::none(), 1, count($pieces) + ($last === '' ? 0 : 1));
+        return self::linesAt(self::spanning(1, count($pieces) + ($last === '' ? 0 : 1)));
     }
 
     /** @param array<string, Lines> $lines */
@@ -115,23 +118,29 @@ final readonly class Diff
     private static function gainedIn(string $part): Lines
     {
         preg_match_all(self::HUNK, $part, $hunks, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
-        $lines = Lines::none();
+        $spans = [];
 
         foreach ($hunks as $hunk) {
             $count = is_string($hunk['count']) ? intval($hunk['count']) : 1;
-            $lines = self::spanning($lines, intval($hunk['start']), $count);
+            $spans[] = self::spanning(intval($hunk['start']), $count);
         }
 
-        return $lines;
+        return self::linesAt(array_merge(...$spans));
     }
 
-    /** These lines, and the ones a hunk spans from its start. */
-    private static function spanning(Lines $lines, int $start, int $count): Lines
+    /**
+     * The numbers of the lines a hunk spans from its start.
+     *
+     * @return list<int>
+     */
+    private static function spanning(int $start, int $count): array
     {
-        for ($line = $start; $line < $start + $count; ++$line) {
-            $lines = $lines->with(Line::of($line));
-        }
+        return $count < 1 ? [] : range($start, $start + $count - 1);
+    }
 
-        return $lines;
+    /** @param list<int> $numbers */
+    private static function linesAt(array $numbers): Lines
+    {
+        return Lines::of(...array_map(Line::of(...), $numbers));
     }
 }

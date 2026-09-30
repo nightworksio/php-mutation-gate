@@ -71,7 +71,7 @@ final readonly class Reaching
             return $reach->everywhere(Reason::that(sprintf(self::CANNOT_TELL, $changes->why())));
         }
 
-        $tests = TestReach::of($this->layout, $this->trees, $coverage, $sources);
+        $tests = TestReach::of($this->layout, $this->trees, $coverage, $sources, $changes);
 
         foreach ($changes as $change) {
             $reach = $this->withChange($reach, $change, $packages, $tests, $sources);

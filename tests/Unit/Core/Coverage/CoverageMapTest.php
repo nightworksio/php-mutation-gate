@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
+use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -11,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 $ids = static fn(TestIds $tests): array => array_map(static fn(TestId $test): string => $test->value(), iterator_to_array($tests, preserve_keys: true));
 
@@ -67,4 +70,57 @@ it('leaves the map it came from as it was', function (): void {
     expect($map->files())->toHaveCount(0)
         ->and($map->tests())->toHaveCount(0)
         ->and($map->durationOf(TestId::of('MoneyTest::adds')))->toEqual(Unmeasured::duration());
+});
+
+it('builds a map at once as it would one entry after another', function () use ($map): void {
+    $built = CoverageMap::of(
+        CoveredLine::of(Path::of('src/Money.php'), 12, 'MoneyTest::adds', 'MoneyTest::subtracts'),
+        CoveredLine::of(Path::of('src/Money.php'), 3, 'MoneyTest::adds'),
+        CoveredLine::of(Path::of('src/Money.php'), 20),
+        CoveredLine::of(Path::of('src/Money.php'), 20, 'LedgerTest::books'),
+        CoveredLine::of(Path::of('123'), 1, 'NumberTest::counts'),
+        CoveredLine::of(Path::of('src/Money.php'), 12, 'MoneyTest::adds'),
+    )->timedEach(
+        TimedTest::of('MoneyTest::adds', 0.5),
+        TimedTest::of('IdleTest::waits', 1.5),
+        TimedTest::of('MoneyTest::adds', 0.25),
+    );
+
+    expect($built)->toEqual($map())
+        ->and($built->testsCovering(Path::of('src/Money.php'), Line::of(12)))->toEqual($map()->testsCovering(Path::of('src/Money.php'), Line::of(12)))
+        ->and($built->durationOf(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.25));
+});
+
+it('knows a test whose id is only digits by that id', function (): void {
+    $map = CoverageMap::of(CoveredLine::of(Path::of('src/A.php'), 1, '7'))->timedEach(TimedTest::of('8', 1.0));
+
+    expect($map->testsCovering(Path::of('src/A.php'), Line::of(1)))->toEqual(TestIds::of(TestId::of('7')))
+        ->and($map->tests())->toEqual(TestIds::of(TestId::of('7'), TestId::of('8')))
+        ->and($map->durationOf(TestId::of('8')))->toEqual(Seconds::of(1.0));
+});
+
+it('builds and reads a map of hundreds of thousands of entries in linear time', function (): void {
+    $covered = [];
+
+    foreach (range(1, 5000) as $file) {
+        foreach (range(1, 40) as $line) {
+            $covered[] = CoveredLine::of(Path::of(sprintf('src/F%d.php', $file)), $line, sprintf('T%d::t', ($file * 40 + $line) % 3000));
+        }
+    }
+
+    $timed = array_map(static fn(int $test): TimedTest => TimedTest::of(sprintf('T%d::t', $test), 0.5), range(0, 2999));
+    $map = CoverageMap::empty();
+    $read = 0;
+
+    $seconds = Stopwatch::seconds(static function () use ($covered, $timed, &$map, &$read): void {
+        $map = CoverageMap::of(...$covered)->timedEach(...$timed);
+
+        foreach ($map->files() as $file) {
+            $read += count($map->linesCovered($file)) + count($map->testsCoveringFile($file));
+        }
+    });
+
+    expect($map->tests())->toHaveCount(3000)
+        ->and($read)->toBe(5000 * 80)
+        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
 });

@@ -34,13 +34,13 @@ final readonly class Versions implements Countable, IteratorAggregate
 
     public static function of(Version ...$versions): self
     {
-        $collected = self::none();
+        $collected = [];
 
         foreach ($versions as $version) {
-            $collected = $collected->with($version);
+            $collected[$version->package()] = $version;
         }
 
-        return $collected;
+        return new self($collected);
     }
 
     public function with(Version $version): self

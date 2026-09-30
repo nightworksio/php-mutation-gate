@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 $money = Package::at(Path::of('packages/money'));
 
@@ -141,4 +142,22 @@ it('leaves the reach it came from as it was', function () use ($nothing, $said):
         ->and($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
         ->and($reach->changedLines(Path::of('src/Money.php')))->toEqual(Lines::none())
         ->and($said($reach))->toBe([]);
+});
+
+it('says for thousands of units whether thousands of reached files and trees reach them, in linear time', function () use ($nothing): void {
+    $files = Paths::of(...array_map(static fn(int $at): Path => Path::of(sprintf('src/D%d/F.php', $at)), range(1, 2000)));
+    $trees = Paths::of(...array_map(static fn(int $at): Path => Path::of(sprintf('packages/money/src/T%d', $at)), range(1, 2000)));
+    $units = array_map(static fn(int $at): Unit => Unit::file(Path::of(sprintf('src/D%d', $at))), range(1, 5000));
+    $reached = 0;
+
+    $seconds = Stopwatch::seconds(static function () use ($nothing, $files, $trees, $units, &$reached): void {
+        $reach = $nothing()->files($files, Reason::that('files'))->trees($trees, Reason::that('trees'));
+
+        foreach ($units as $unit) {
+            $reached += $reach->reaches($unit) ? 1 : 0;
+        }
+    });
+
+    expect($reached)->toBe(2000)
+        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
 });

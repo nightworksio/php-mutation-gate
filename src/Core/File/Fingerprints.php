@@ -35,13 +35,13 @@ final readonly class Fingerprints implements Countable, IteratorAggregate
 
     public static function of(Fingerprint ...$fingerprints): self
     {
-        $collected = self::none();
+        $collected = [];
 
         foreach ($fingerprints as $fingerprint) {
-            $collected = $collected->with($fingerprint);
+            $collected[$fingerprint->path()->value()] = $fingerprint;
         }
 
-        return $collected;
+        return new self($collected);
     }
 
     public function with(Fingerprint $fingerprint): self

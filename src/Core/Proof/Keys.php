@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
+use function array_column;
 use function array_key_exists;
+use function array_replace;
 use function count;
 
 use Countable;
@@ -38,6 +40,18 @@ final readonly class Keys implements Countable
         return new self($keys);
     }
 
+    /** These keys and the others', a later key of a path replacing the earlier. */
+    public function and(self ...$others): self
+    {
+        $keys = $this->keys;
+
+        foreach ($others as $other) {
+            $keys = array_replace($keys, $other->keys);
+        }
+
+        return new self($keys);
+    }
+
     public function keyOf(Path $unit): Digest|Unkeyed
     {
         return array_key_exists($unit->value(), $this->keys)
@@ -48,13 +62,7 @@ final readonly class Keys implements Countable
     /** The units these keys are of, in the order they were added. */
     public function units(): Paths
     {
-        $units = Paths::none();
-
-        foreach ($this->keys as [$unit]) {
-            $units = $units->with($unit);
-        }
-
-        return $units;
+        return Paths::of(...array_column($this->keys, 0));
     }
 
     public function count(): int

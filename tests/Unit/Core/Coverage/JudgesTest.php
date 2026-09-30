@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Coverage\Judges;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 it('knows of no file a test runs to begin with', function (): void {
     expect(Judges::none()->filesRunBy(Path::of('tests/MoneyTest.php')))->toEqual(Paths::none());
@@ -28,4 +29,36 @@ it('replaces the test files of a covered file judged again, and leaves the judge
     expect($again->filesRunBy(Path::of('tests/MoneyTest.php')))->toEqual(Paths::none())
         ->and($again->filesRunBy(Path::of('tests/LedgerTest.php')))->toEqual(Paths::of(Path::of('src/Money.php')))
         ->and($judges->filesRunBy(Path::of('tests/MoneyTest.php')))->toEqual(Paths::of(Path::of('src/Money.php')));
+});
+
+it('answers the files a test file judges, among thousands, by lookup', function (): void {
+    $tests = array_map(static fn(int $at): Path => Path::of(sprintf('tests/T%dTest.php', $at)), range(0, 2999));
+    $judges = Judges::none();
+
+    foreach (range(0, 2999) as $at) {
+        $judges = $judges->judging(Path::of(sprintf('src/F%d.php', $at)), Paths::of(...array_slice($tests, $at % 2990, 10)));
+    }
+
+    $run = 0;
+
+    $seconds = Stopwatch::seconds(static function () use ($judges, $tests, &$run): void {
+        foreach ($tests as $test) {
+            $run += count($judges->filesRunBy($test));
+        }
+    });
+
+    expect($run)->toBe(30_000)
+        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+});
+
+it('keeps a covered file judged again where it was first judged', function (): void {
+    $judges = Judges::none()
+        ->judging(Path::of('src/Money.php'), Paths::of(Path::of('tests/MoneyTest.php')))
+        ->judging(Path::of('src/Ledger.php'), Paths::of(Path::of('tests/MoneyTest.php')))
+        ->judging(Path::of('src/Money.php'), Paths::of(Path::of('tests/LedgerTest.php')))
+        ->judging(Path::of('src/Money.php'), Paths::of(Path::of('tests/MoneyTest.php')))
+        ->judging(Path::of('123'), Paths::of(Path::of('tests/MoneyTest.php')));
+
+    expect($judges->filesRunBy(Path::of('tests/MoneyTest.php')))->toEqual(Paths::of(Path::of('src/Money.php'), Path::of('src/Ledger.php'), Path::of('123')))
+        ->and($judges->filesRunBy(Path::of('tests/LedgerTest.php')))->toEqual(Paths::none());
 });

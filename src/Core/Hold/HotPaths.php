@@ -51,16 +51,17 @@ final readonly class HotPaths
     public function in(CoverageMap $suite, Units $held): Warnings
     {
         $tests = count($suite->tests());
-        $warnings = Warnings::none();
+        $warnings = [];
 
         foreach ($tests < self::SMALLEST_SUITE ? [] : $suite->files() as $file) {
             $running = count($suite->testsCoveringFile($file));
-            $warnings = $running / $tests >= $this->share && ! $this->isHeld($file, $held)
-                ? $warnings->with(Warning::that(sprintf(self::SAID, $file->value(), $running, $tests)))
-                : $warnings;
+
+            if ($running / $tests >= $this->share && ! $this->isHeld($file, $held)) {
+                $warnings[] = Warning::that(sprintf(self::SAID, $file->value(), $running, $tests));
+            }
         }
 
-        return $warnings;
+        return Warnings::of(...$warnings);
     }
 
     private function isHeld(Path $file, Units $held): bool

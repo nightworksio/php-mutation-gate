@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Unproved;
 use NightWorksIO\MutationGate\Core\Time\Instant;
+use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 $proof = static fn(string $key, string $unit): Proof => Proof::of(
     Digest::of($key),
@@ -61,4 +62,18 @@ it('drops the proof under a key, leaving the others and the proofs it came from'
     expect($units($proofs->without(Digest::of('a'))))->toBe(['src/B.php'])
         ->and($units($proofs->without(Digest::of('c'))))->toBe(['src/A.php', 'src/B.php'])
         ->and($proofs)->toHaveCount(2);
+});
+
+it('collects tens of thousands of proofs in linear time, keeping the first of a key', function () use ($proof): void {
+    $first = array_map(static fn(int $at): Proof => $proof(hash('sha256', sprintf('%d', $at)), 'src/First.php'), range(1, 20_000));
+    $later = array_map(static fn(int $at): Proof => $proof(hash('sha256', sprintf('%d', $at)), 'src/Later.php'), range(1, 20_000));
+    $proofs = Proofs::none();
+
+    $seconds = Stopwatch::seconds(static function () use ($first, $later, &$proofs): void {
+        $proofs = Proofs::of(...$first, ...$later);
+    });
+
+    expect($proofs)->toHaveCount(20_000)
+        ->and($proofs->proofFor(Digest::of(hash('sha256', '1'))))->toBe($first[0])
+        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
 });

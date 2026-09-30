@@ -35,13 +35,13 @@ final readonly class Proofs implements Countable, IteratorAggregate
 
     public static function of(Proof ...$proofs): self
     {
-        $collected = self::none();
+        $collected = [];
 
         foreach ($proofs as $proof) {
-            $collected = $collected->with($proof);
+            $collected += [$proof->key()->value() => $proof];
         }
 
-        return $collected;
+        return new self($collected);
     }
 
     public function with(Proof $proof): self

@@ -19,12 +19,14 @@ use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
+use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 $keyA = str_repeat('a', 64);
 $keyB = str_repeat('b', 64);
@@ -179,4 +181,23 @@ it('reads a passing commit that is not text as none', function () use ($data, $w
 
     expect($read->lastPassed())->toEqual(Ledger::empty()->lastPassed())
         ->and($read->proofs())->toEqual($ledger->proofs());
+});
+
+it('reads a full ledger and joins it to another in linear time', function () use ($at, $killed): void {
+    $proofs = [];
+
+    for ($made = 1; $made <= 20_000; $made++) {
+        $proofs[] = Proof::of(Digest::of(hash('sha256', sprintf('%d', $made))), Path::of(sprintf('src/F%d.php', $made)), Mutants::of($killed), Run::of('new', $at('2026-09-29T20:00:00Z')));
+    }
+
+    $written = LedgerFile::encode(Ledger::empty()->withProofs(Proofs::of(...$proofs)));
+    $read = Ledger::empty();
+
+    $seconds = Stopwatch::seconds(static function () use ($written, &$read): void {
+        $read = LedgerFile::decode($written);
+        $read = $read->and($read);
+    });
+
+    expect($read->proofs())->toHaveCount(20_000)
+        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
 });

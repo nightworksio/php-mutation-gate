@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Hold\Holding;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
+use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 $support = <<<'PHP'
     <?php
@@ -47,6 +48,23 @@ it('mentions every name it writes, resolved, and nothing else', function () use 
         ->and($file->mentions(Names::of('Tests\Fakes\Epoch')))->toBeTrue()
         ->and($file->mentions(Names::of('Tests\Fakes\ClockFake')))->toBeTrue()
         ->and($file->mentions(Names::of('App\Money', 'Tests\Fakes\Clock', 'Epoch')))->toBeFalse();
+});
+
+it('lists every name it mentions', function (): void {
+    expect(PhpFile::read(Contents::of("<?php\nnamespace App;\nnew Money(new \\Clock());\nnew Money();\n"))->mentioned()->all())
+        ->toBe(['app\\app', 'app', 'app\\money', 'money', 'clock']);
+});
+
+it('reads a file that mentions tens of thousands of names in linear time', function (): void {
+    $source = sprintf("<?php\nnamespace App;\nfunction f() {\n%s}\n", implode('', array_map(static fn(int $at): string => sprintf("new C%d();\n", $at), range(1, 20_000))));
+    $file = PhpFile::read(Contents::of(''));
+
+    $seconds = Stopwatch::seconds(static function () use ($source, &$file): void {
+        $file = PhpFile::read(Contents::of($source));
+    });
+
+    expect($file->mentioned()->all())->toHaveCount(40_004)
+        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
 });
 
 it('only declares when loading it runs nothing, a closing tag at its end among it', function () use ($support): void {

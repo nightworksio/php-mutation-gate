@@ -34,13 +34,13 @@ final readonly class Groups implements Countable, IteratorAggregate
 
     public static function of(Group ...$groups): self
     {
-        $collected = self::none();
+        $collected = [];
 
         foreach ($groups as $group) {
-            $collected = $collected->with($group);
+            $collected[$group->name()] = $group;
         }
 
-        return $collected;
+        return new self($collected);
     }
 
     public function with(Group $group): self

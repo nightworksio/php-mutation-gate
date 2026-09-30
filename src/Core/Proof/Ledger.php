@@ -31,6 +31,12 @@ final readonly class Ledger
         return new self($this->proofs->with($proof), $this->timings, $this->passed);
     }
 
+    /** This ledger, with these proofs; a key it proves already keeps its own proof. */
+    public function withProofs(Proofs $proofs): self
+    {
+        return new self(Proofs::of(...$this->proofs, ...$proofs), $this->timings, $this->passed);
+    }
+
     /** This ledger without the proof under a key, such as one a fresh result disagrees with. */
     public function withoutProof(Digest $key): self
     {

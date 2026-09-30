@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_map;
+use function array_merge;
 use function array_slice;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -91,17 +92,20 @@ final readonly class LedgerFile
             return Ledger::empty();
         }
 
-        $ledger = self::passedIn($file);
+        $proofs = [];
+        $timings = [];
 
         foreach (self::entriesOf($file->field('proofs')) as $key => $entry) {
-            $ledger = self::withProofIn($ledger, $key, $entry);
+            $proofs[] = self::proofsIn($key, $entry);
         }
 
         foreach (self::entriesOf($file->field('timings')) as $unit => $entry) {
-            $ledger = self::withTimingIn($ledger, $unit, $entry);
+            $timings[] = self::timingsIn($unit, $entry);
         }
 
-        return $ledger;
+        return self::passedIn($file)
+            ->withProofs(Proofs::of(...array_merge(...$proofs)))
+            ->withTimings(Timings::of(...array_merge(...$timings)));
     }
 
     /**
@@ -165,14 +169,13 @@ final readonly class LedgerFile
         }
     }
 
-    private static function withProofIn(Ledger $ledger, string $key, Node $entry): Ledger
+    /** @return list<Proof> the proof an entry holds, or none where it is malformed */
+    private static function proofsIn(string $key, Node $entry): array
     {
         try {
-            return preg_match(self::KEY, $key) === 1
-                ? $ledger->withProof(self::proofIn(Digest::of($key), $entry))
-                : $ledger;
+            return preg_match(self::KEY, $key) === 1 ? [self::proofIn(Digest::of($key), $entry)] : [];
         } catch (NotInShape) {
-            return $ledger;
+            return [];
         }
     }
 
@@ -180,13 +183,18 @@ final readonly class LedgerFile
     private static function proofIn(Digest $key, Node $entry): Proof
     {
         $unit = Path::of($entry->field('unit')->text());
-        $mutants = Mutants::none();
+        $mutants = [];
 
         foreach ($entry->field(self::MUTANTS)->items() as $record) {
-            $mutants = $mutants->with(self::mutantIn($record, $unit));
+            $mutants[] = self::mutantIn($record, $unit);
         }
 
-        return Proof::of($key, $unit, $mutants, Run::of($entry->field('run')->text(), self::instantIn($entry)));
+        return Proof::of(
+            $key,
+            $unit,
+            Mutants::of(...$mutants),
+            Run::of($entry->field('run')->text(), self::instantIn($entry)),
+        );
     }
 
     /**
@@ -207,17 +215,18 @@ final readonly class LedgerFile
             : throw NotInShape::at($record->at(), 'the full record of a mutant that was not killed');
     }
 
-    private static function withTimingIn(Ledger $ledger, string $unit, Node $entry): Ledger
+    /** @return list<Timing> the timing an entry holds, or none where it is malformed */
+    private static function timingsIn(string $unit, Node $entry): array
     {
         try {
-            return $ledger->withTiming(Timing::of(
+            return [Timing::of(
                 Path::of($unit),
                 self::secondsIn($entry),
                 $entry->field(self::RUNNER)->text(),
                 self::instantIn($entry),
-            ));
+            )];
         } catch (NotInShape) {
-            return $ledger;
+            return [];
         }
     }
 

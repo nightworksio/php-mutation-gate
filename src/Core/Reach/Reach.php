@@ -25,8 +25,8 @@ final readonly class Reach
         private Packages $packages,
         private bool $everywhere,
         private Paths $wholly,
-        private Paths $files,
-        private Paths $trees,
+        private Reached $files,
+        private Reached $trees,
         private array $lines,
         private Reasons $reasons,
     ) {
@@ -39,8 +39,8 @@ final readonly class Reach
             $packages,
             everywhere: false,
             wholly: Paths::none(),
-            files: Paths::none(),
-            trees: Paths::none(),
+            files: Reached::none(),
+            trees: Reached::none(),
             lines: [],
             reasons: Reasons::of(),
         );
@@ -63,16 +63,10 @@ final readonly class Reach
     /** This reach, and every unit of these packages. */
     public function wholly(Paths $packages, Reason $reason): self
     {
-        $wholly = $this->wholly;
-
-        foreach ($packages as $package) {
-            $wholly = $wholly->with($package);
-        }
-
         return new self(
             $this->packages,
             $this->everywhere,
-            $wholly,
+            Paths::of(...$this->wholly, ...$packages),
             $this->files,
             $this->trees,
             $this->lines,
@@ -83,17 +77,11 @@ final readonly class Reach
     /** This reach, and the units these source files are in. */
     public function files(Paths $files, Reason $reason): self
     {
-        $reached = $this->files;
-
-        foreach ($files as $file) {
-            $reached = $reached->with($file);
-        }
-
         return new self(
             $this->packages,
             $this->everywhere,
             $this->wholly,
-            $reached,
+            $this->files->and($files),
             $this->trees,
             $this->lines,
             $this->reasons->with($reason),
@@ -103,18 +91,12 @@ final readonly class Reach
     /** This reach, and every unit of these trees. */
     public function trees(Paths $trees, Reason $reason): self
     {
-        $reached = $this->trees;
-
-        foreach ($trees as $tree) {
-            $reached = $reached->with($tree);
-        }
-
         return new self(
             $this->packages,
             $this->everywhere,
             $this->wholly,
             $this->files,
-            $reached,
+            $this->trees->and($trees),
             $this->lines,
             $this->reasons->with($reason),
         );
@@ -156,8 +138,8 @@ final readonly class Reach
     {
         return $this->everywhere
             || $this->wholly->has($this->packages->holding($unit->path())->path())
-            || $this->anyWithin($this->files, $unit->path())
-            || $this->anyAround($this->trees, $unit->path());
+            || $this->files->anyWithin($unit->path())
+            || $this->trees->anyAround($unit->path());
     }
 
     /** Whether the change reaches anything in a package, which is planned only if it does. */
@@ -165,8 +147,8 @@ final readonly class Reach
     {
         return $this->everywhere
             || $this->wholly->has($package->path())
-            || $this->holdsAny($this->files, $package)
-            || $this->holdsAny($this->trees, $package);
+            || $this->holdsAny($this->files->paths(), $package)
+            || $this->holdsAny($this->trees->paths(), $package);
     }
 
     /** The lines of a source file the change added or modified; none for a file it did not change. */
@@ -191,30 +173,6 @@ final readonly class Reach
     {
         foreach ($paths as $path) {
             if ($this->packages->holding($path)->path()->equals($package->path())) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /** Whether any of these paths is a unit's own path, or inside it. */
-    private function anyWithin(Paths $paths, Path $unit): bool
-    {
-        foreach ($paths as $path) {
-            if ($path->within($unit)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /** Whether a unit is inside any of these paths. */
-    private function anyAround(Paths $paths, Path $unit): bool
-    {
-        foreach ($paths as $path) {
-            if ($unit->within($path)) {
                 return true;
             }
         }

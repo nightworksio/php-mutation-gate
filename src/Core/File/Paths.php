@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\File;
 
-use function array_any;
+use function array_key_exists;
+use function array_values;
 
 use ArrayIterator;
 
@@ -21,7 +22,7 @@ use Traversable;
  */
 final readonly class Paths implements Countable, IteratorAggregate
 {
-    /** @param list<Path> $paths */
+    /** @param array<string, Path> $paths by value, in the order they were added */
     private function __construct(private array $paths)
     {
     }
@@ -33,23 +34,30 @@ final readonly class Paths implements Countable, IteratorAggregate
 
     public static function of(Path ...$paths): self
     {
-        $collected = self::none();
+        $collected = [];
 
         foreach ($paths as $path) {
-            $collected = $collected->with($path);
+            $collected += [$path->value() => $path];
         }
 
-        return $collected;
+        return new self($collected);
     }
 
     public function with(Path $path): self
     {
-        return $this->has($path) ? $this : new self([...$this->paths, $path]);
+        if ($this->has($path)) {
+            return $this;
+        }
+
+        $paths = $this->paths;
+        $paths[$path->value()] = $path;
+
+        return new self($paths);
     }
 
     public function has(Path $path): bool
     {
-        return array_any($this->paths, static fn(Path $held): bool => $held->equals($path));
+        return array_key_exists($path->value(), $this->paths);
     }
 
     public function count(): int
@@ -60,6 +68,6 @@ final readonly class Paths implements Countable, IteratorAggregate
     /** @return Traversable<int, Path> */
     public function getIterator(): Traversable
     {
-        return new ArrayIterator($this->paths);
+        return new ArrayIterator(array_values($this->paths));
     }
 }

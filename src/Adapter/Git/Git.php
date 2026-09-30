@@ -126,13 +126,15 @@ final readonly class Git implements ChangeSource
 
     private function withUntracked(Changes $changes, string $untracked): Changes
     {
+        $added = [];
+
         foreach ($this->paths($untracked) as $path) {
             $read = $this->read(Path::of($path));
             $lines = $read instanceof Contents ? Diff::whole($read->text()) : Lines::none();
-            $changes = $changes->with(Change::added(Path::of($path), $lines));
+            $added[] = Change::added(Path::of($path), $lines);
         }
 
-        return $changes;
+        return Changes::of(...$changes, ...$added);
     }
 
     /**

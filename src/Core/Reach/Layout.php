@@ -120,13 +120,15 @@ final readonly class Layout
     /** The modules a file is inside. */
     public function modulesHolding(Path $file): Paths
     {
-        $modules = Paths::none();
+        $modules = [];
 
         foreach ($this->modules as $module) {
-            $modules = $file->within($module) ? $modules->with($module) : $modules;
+            if ($file->within($module)) {
+                $modules[] = $module;
+            }
         }
 
-        return $modules;
+        return Paths::of(...$modules);
     }
 
     private function isUnderTests(Path $inPackage): bool

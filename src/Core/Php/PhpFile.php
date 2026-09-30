@@ -40,7 +40,7 @@ final readonly class PhpFile
 
         return new self(
             Names::of(...array_map($scope->declared(...), $top->declared())),
-            self::mentioned($tokens, $scope),
+            self::mentionedIn($tokens, $scope),
             $top->onlyDeclares(),
             HoldsAttributes::in(TopLevel::spelt(...$tokens), $scope),
         );
@@ -58,6 +58,12 @@ final readonly class PhpFile
         return $this->mentions->meet($names);
     }
 
+    /** Every name the file mentions. */
+    public function mentioned(): Names
+    {
+        return $this->mentions;
+    }
+
     /** Whether loading the file only declares, so that it acts on nothing that does not name it. */
     public function onlyDeclares(): bool
     {
@@ -71,14 +77,16 @@ final readonly class PhpFile
     }
 
     /** @param array<PhpToken> $tokens */
-    private static function mentioned(array $tokens, Scope $scope): Names
+    private static function mentionedIn(array $tokens, Scope $scope): Names
     {
-        $names = Names::of();
+        $names = [];
 
         foreach ($tokens as $token) {
-            $names = $token->is(self::NAMES) ? $names->merge($scope->resolve($token->text)) : $names;
+            if ($token->is(self::NAMES)) {
+                $names[] = $scope->resolve($token->text);
+            }
         }
 
-        return $names;
+        return Names::of()->merge(...$names);
     }
 }

@@ -107,16 +107,16 @@ final readonly class PlanFile
             throw NotInShape::at($file->field('format')->at(), sprintf('format %d', self::FORMAT));
         }
 
-        $shards = Shards::none();
+        $shards = [];
 
         foreach ($file->field('shards')->items() as $shard) {
-            $shards = $shards->with(self::shardIn($shard));
+            $shards[] = self::shardIn($shard);
         }
 
         $plan = Plan::of(
             Revision::ref($file->field('commit')->text()),
             KeysRecord::read($file->field('keys')),
-            $shards,
+            Shards::of(...$shards),
         )->on(self::runOnIn($file));
 
         return $plan->digest()->value() === $file->field(self::DIGEST)->text()

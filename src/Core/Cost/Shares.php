@@ -40,19 +40,19 @@ final readonly class Shares
         }
 
         $total = array_sum($weights);
-        $timings = Timings::none();
+        $timings = [];
 
         foreach ($units as $at => $unit) {
             $share = $total > 0.0 ? $weights[$at] / $total : 1 / count($weights);
-            $timings = $timings->with(Timing::of(
+            $timings[] = Timing::of(
                 $unit->path(),
                 Seconds::of($measured->spent()->seconds() * $share),
                 $measured->runner(),
                 $measured->at(),
-            ));
+            );
         }
 
-        return $timings;
+        return Timings::of(...$timings);
     }
 
     private static function weightOf(Path $unit, Mutants $mutants, CoverageMap $coverage): float
