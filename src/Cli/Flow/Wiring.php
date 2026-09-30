@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function json_encode;
+use function array_values;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
@@ -13,7 +13,9 @@ use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\Definition\Json as ConfigJson;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layers;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -27,8 +29,6 @@ use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Port\TreeSource;
-
-use function sprintf;
 
 /**
  * The adapters the settings choose, built from the registry: the runner, the
@@ -90,20 +90,52 @@ final readonly class Wiring
                 $this->trustedRepository($repository, $proofs),
                 $project,
                 $this->environment,
-                Withheld::standard()->and($ci->withheld())->and($settings->runner()->withhold()),
+                $this->withheld($settings, $chosen, $ci),
             ),
         };
     }
 
-    /** The CI plan the config names, or the one the environment shows, with the settings each takes. */
+    /**
+     * What no process that runs the project's code may see: every run's
+     * credentials, `runner.withhold`, and the tokens of every CI the gate
+     * knows, whichever plan renders the run, since the job may run on any.
+     */
+    private function withheld(Settings $settings, Chosen $chosen, CiPlan $ci): Withheld
+    {
+        $withheld = Withheld::standard()->and($ci->withheld())->and($settings->runner()->withhold());
+
+        foreach ([self::GITHUB, self::PLAIN, ...array_values(self::DETECTED)] as $plan) {
+            $known = $chosen->ciPlan(Choice::of($plan, $this->ciOptions($plan, $settings)));
+            $withheld = $known instanceof CiPlan ? $withheld->and($known->withheld()) : $withheld;
+        }
+
+        return $withheld;
+    }
+
+    /**
+     * The CI plan the config names, or the one the environment shows, with
+     * the options its `ci.*` settings give, under those a named plan gives
+     * itself.
+     */
     private function ciOf(Settings $settings): Choice
     {
         $named = $settings->ci()->plan();
+        $plan = $named instanceof Choice ? $named->use() : $this->detected();
+        $options = $this->ciOptions($plan, $settings);
 
-        if ($named instanceof Choice) {
-            return $named;
-        }
+        return Choice::of(
+            $plan,
+            $named instanceof Choice
+                ? ConfigJson::encode(
+                    Layers::merged(ConfigJson::decode($options), ConfigJson::decode($named->options())),
+                )
+                : $options,
+        );
+    }
 
+    /** The CI the environment shows: GitHub Actions, then the first other that sets its variable to `true`. */
+    private function detected(): string
+    {
         $detected = $this->environment->onGitHubActions() ? self::GITHUB : self::PLAIN;
 
         foreach (self::DETECTED as $variable => $plan) {
@@ -112,20 +144,22 @@ final readonly class Wiring
                 : $detected;
         }
 
-        $options = match ($detected) {
-            'gitlab' => Json::encode(['template' => $settings->ci()->gitlabTemplate()->value()]),
-            'buildkite' => sprintf(
-                '{"step": %s, "definition": %s}',
-                $settings->ci()->buildkiteStep(),
-                json_encode(
-                    $settings->ci()->buildkiteDefinition()->value(),
-                    JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
-                ),
-            ),
+        return $detected;
+    }
+
+    /** The options a CI plan takes from the `ci.*` settings: GitLab's template, and Buildkite's step and pipeline. */
+    private function ciOptions(string $plan, Settings $settings): string
+    {
+        $ci = $settings->ci();
+
+        return match ($plan) {
+            'gitlab' => Json::compact(['template' => $ci->gitlabTemplate()->value()]),
+            'buildkite' => ConfigJson::encode([
+                'step' => ConfigJson::decode($ci->buildkiteStep()),
+                'definition' => $ci->buildkiteDefinition()->value(),
+            ]),
             default => Options::none()->json(),
         };
-
-        return Choice::of($detected, $options);
     }
 
     /** GitHub's change source, reading each pull request's own ledger from the proof store; any other as it is. */

@@ -46,6 +46,21 @@ function wiringRegistry(): Extensions
     return new ExtensionFake()->extend(new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE))));
 }
 
+/** The tokens of every CI the gate knows, past those every run withholds. */
+function wiringEveryCi(): Withheld
+{
+    return Withheld::of(
+        'CI_JOB_TOKEN',
+        'CI_JOB_JWT*',
+        'CI_REGISTRY_PASSWORD',
+        'CI_DEPLOY_PASSWORD',
+        'CI_DEPENDENCY_PROXY_PASSWORD',
+        'BUILDKITE_AGENT_ACCESS_TOKEN',
+        'BUILDKITE_AGENT_TOKEN',
+        'CIRCLE_OIDC_TOKEN*',
+    );
+}
+
 /** The adapters these settings choose, started in these variables. */
 function wiredOf(Settings $settings, Variables $environment): Adapters
 {
@@ -64,7 +79,7 @@ it('wires the runner, the store, the learned cost model, the JSON plan and git w
         ->and($adapters->changes)->toEqual(Git::at('.'))
         ->and($adapters->repository)->toEqual(Git::at('.'))
         ->and($adapters->environment)->toEqual(Variables::of([]))
-        ->and($adapters->withheld)->toEqual(Withheld::standard());
+        ->and($adapters->withheld)->toEqual(Withheld::standard()->and(wiringEveryCi()));
 });
 
 it('learns costs at the seconds a line the config sets, and at the standard ones otherwise', function (): void {
@@ -117,8 +132,35 @@ it('withholds every run\'s credentials, the CI\'s tokens and runner.withhold', f
     $settings = Flows::settings(Runner::uses('fake')->withholding(Withheld::of('DEPLOY_*')));
 
     expect(wiredOf($settings, Variables::of(['CIRCLECI' => 'true']))->withheld)->toEqual(
-        Withheld::standard()->and(Withheld::of('CIRCLE_OIDC_TOKEN*'))->and(Withheld::of('DEPLOY_*')),
+        Withheld::standard()
+            ->and(Withheld::of('CIRCLE_OIDC_TOKEN*'))
+            ->and(Withheld::of('DEPLOY_*'))
+            ->and(wiringEveryCi()),
     );
+});
+
+it('withholds the tokens of the CI the job runs on, whichever plan the config names', function (): void {
+    $withheld = wiredOf(Flows::settings(Ci::json()), Variables::of(['GITLAB_CI' => 'true']))->withheld;
+
+    expect(preg_match($withheld->pattern(), 'CI_JOB_TOKEN'))->toBe(1)
+        ->and(preg_match($withheld->pattern(), 'BUILDKITE_AGENT_ACCESS_TOKEN'))->toBe(1)
+        ->and(preg_match($withheld->pattern(), 'CI_PROJECT_NAME'))->toBe(0);
+});
+
+it('hands a plan the config names its template, its step and its definition', function (): void {
+    $settings = static fn(Ci ...$named): Settings => Flows::settings(
+        Ci::gitlabTemplate('ci/gate.yml'),
+        Ci::buildkiteStep(Option::nested('agents', Option::of('queue', 'gate'))),
+        Ci::buildkiteDefinition('.buildkite/gate.yml'),
+        ...$named,
+    );
+    $gitlab = wiredOf($settings(Ci::gitlab()), Variables::of([]))->ci;
+    $buildkite = wiredOf($settings(Ci::buildkite()), Variables::of([]))->ci;
+
+    expect($gitlab->definitions())->toEqual(Paths::of(Path::of('.gitlab-ci.yml'), Path::of('ci/gate.yml')))
+        ->and($buildkite)->toEqual(BuildkitePlan::fromOptions(Options::ofJson(
+            '{"step": {"agents": {"queue": "gate"}}, "definition": ".buildkite/gate.yml"}',
+        )));
 });
 
 it('reads changes through GitHub under GitHub Actions, checked by ci.check and trusting the store', function (): void {
