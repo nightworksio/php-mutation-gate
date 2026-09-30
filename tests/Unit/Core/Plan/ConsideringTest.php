@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 
@@ -108,4 +109,28 @@ it('counts every result it carries from the run\'s own scope, and none from the 
 
     expect($considering->ownScopeProofs())->toBe(2)
         ->and($carried($considering->carried()))->toBe(['src/A.php carried', 'src/B.php carried']);
+});
+
+it('considers and carries in time linear in the units and the proofs of both ledgers', function () use ($proof): void {
+    $considered = static function (int $size) use ($proof): Closure {
+        $range = range(1, $size);
+        $units = Units::of(...array_map(
+            static fn(int $at): Unit => Unit::file(Path::of(sprintf('src/%d.php', $at))),
+            $range,
+        ));
+        $trusted = Proofs::of(...array_map(
+            static fn(int $at): Proof => $proof(sprintf('src/%d.php', $at), 'main', '2026-09-28T10:00:00Z'),
+            $range,
+        ));
+        $own = Proofs::of(...array_map(
+            static fn(int $at): Proof => $proof(sprintf('src/%d.php', $at), 'pr', '2026-09-29T10:00:00Z'),
+            $range,
+        ));
+        $reach = Reach::nothing(Packages::of(Trees::none()));
+
+        return static fn(): Considering => Considering::of($units, $reach, $trusted, $own);
+    };
+
+    expect(count($considered(10)()->carried()))->toBe(10)
+        ->and(Growth::of(1000, $considered))->toBeLessThan(Growth::LINEAR);
 });

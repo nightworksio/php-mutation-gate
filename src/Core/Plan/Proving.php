@@ -32,24 +32,24 @@ final readonly class Proving
      */
     public static function of(Units $considered, Keys $keys, Proofs $defaultBranch, Proofs $own): self
     {
-        $proved = UnitResults::none();
-        $toRun = Units::none();
+        $proved = [];
+        $toRun = [];
         $ownScope = 0;
 
         foreach ($considered as $unit) {
             $proof = self::proofOf($keys->keyOf($unit->path()), $defaultBranch, $own);
 
             if ($proof instanceof Proof) {
-                $proved = $proved->with(UnitResult::of($unit, Origin::Proved, $proof->mutants()));
+                $proved[] = UnitResult::of($unit, Origin::Proved, $proof->mutants());
                 $ownScope += $defaultBranch->has($proof->key()) ? 0 : 1;
 
                 continue;
             }
 
-            $toRun = $toRun->with($unit);
+            $toRun[] = $unit;
         }
 
-        return new self($proved, $toRun, $ownScope);
+        return new self(UnitResults::of(...$proved), Units::of(...$toRun), $ownScope);
     }
 
     public function proved(): UnitResults

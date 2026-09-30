@@ -32,25 +32,27 @@ final readonly class Considering
      */
     public static function of(Units $units, Reach $reach, Proofs $defaultBranch, Proofs $own): self
     {
-        $considered = Units::none();
-        $carried = UnitResults::none();
+        $considered = [];
+        $carried = [];
         $ownScope = 0;
+        $trustedProofs = $defaultBranch->newest();
+        $ownProofs = $own->newest();
 
         foreach ($units as $unit) {
-            $trusted = $defaultBranch->newestOf($unit->path());
-            $newest = self::newer($trusted, $own->newestOf($unit->path()));
+            $trusted = $trustedProofs->of($unit->path());
+            $newest = self::newer($trusted, $ownProofs->of($unit->path()));
 
             if (! $reach->reaches($unit) && $newest instanceof Proof) {
-                $carried = $carried->with(UnitResult::of($unit, Origin::Carried, $newest->mutants()));
+                $carried[] = UnitResult::of($unit, Origin::Carried, $newest->mutants());
                 $ownScope += $newest === $trusted ? 0 : 1;
 
                 continue;
             }
 
-            $considered = $considered->with($unit);
+            $considered[] = $unit;
         }
 
-        return new self($considered, $carried, $ownScope);
+        return new self(Units::of(...$considered), UnitResults::of(...$carried), $ownScope);
     }
 
     public function considered(): Units

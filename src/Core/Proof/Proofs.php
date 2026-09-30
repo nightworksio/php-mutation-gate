@@ -14,7 +14,6 @@ use function count;
 use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\File\Path;
 use Traversable;
 
 /**
@@ -76,17 +75,10 @@ final readonly class Proofs implements Countable, IteratorAggregate
         return $this->has($key) ? $this->proofs[$key->value()] : Unproved::key($key);
     }
 
-    /** The newest proof of a unit's path, by when its run ended, whatever its key; never proved where there is none. */
-    public function newestOf(Path $unit): Proof|NeverProved
+    /** The newest proof of each unit's path, whatever its key, read in one pass. */
+    public function newest(): NewestProofs
     {
-        $newest = NeverProved::unit($unit);
-
-        foreach ($this->proofs as $proof) {
-            $newer = $newest instanceof NeverProved || $proof->run()->at()->isAfter($newest->run()->at());
-            $newest = $proof->unit()->equals($unit) && $newer ? $proof : $newest;
-        }
-
-        return $newest;
+        return NewestProofs::in($this);
     }
 
     public function count(): int

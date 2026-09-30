@@ -101,9 +101,28 @@ it('answers the newest proof of a path whatever its key, the first of two as new
         $at('older', 'src/A.php', '2026-09-27T10:00:00Z'),
         $at('other', 'src/B.php', '2026-09-30T10:00:00Z'),
     );
-    $newest = $proofs->newestOf(Path::of('src/A.php'));
+    $newest = $proofs->newest()->of(Path::of('src/A.php'));
 
     expect($newest instanceof Proof ? $newest->key() : $newest)->toEqual(Digest::of('new'))
-        ->and($proofs->newestOf(Path::of('src/C.php')))->toEqual(NeverProved::unit(Path::of('src/C.php')))
+        ->and($proofs->newest()->of(Path::of('src/C.php')))->toEqual(NeverProved::unit(Path::of('src/C.php')))
         ->and(NeverProved::unit(Path::of('src/C.php'))->path())->toEqual(Path::of('src/C.php'));
+});
+
+it('answers the newest proof of every path in time linear in the proofs and the paths', function () use ($proof): void {
+    $asked = static function (int $size) use ($proof): Closure {
+        $proofs = Proofs::of(...array_map(
+            static fn(int $at): Proof => $proof(hash('sha256', sprintf('%d', $at)), sprintf('src/%d.php', $at)),
+            range(1, $size),
+        ));
+        $paths = array_map(static fn(int $at): Path => Path::of(sprintf('src/%d.php', $at)), range(1, $size));
+
+        return static function () use ($proofs, $paths): int {
+            $newest = $proofs->newest();
+
+            return count(array_filter($paths, static fn(Path $path): bool => $newest->of($path) instanceof Proof));
+        };
+    };
+
+    expect($asked(10)())->toBe(10)
+        ->and(Growth::of(2000, $asked))->toBeLessThan(Growth::LINEAR);
 });
