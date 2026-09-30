@@ -20,3 +20,7 @@ it('saves the tests\' time for the share of mutants it rejects, and nothing befo
         ->and(RejectionRate::of('Plus', 4, 0)->saving(Seconds::of(2.0)))->toEqual(Seconds::of(0.0))
         ->and(RejectionRate::unchecked('Plus')->saving(Seconds::of(2.0)))->toEqual(Seconds::of(0.0));
 });
+
+it('adds another rate of its mutator to it: every check of both, and every rejection', function (): void {
+    expect(RejectionRate::of('Plus', 4, 1)->plus(RejectionRate::of('Plus', 6, 2)))->toEqual(RejectionRate::of('Plus', 10, 3));
+});

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace as GateDirectory;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 
 use function sprintf;
@@ -45,6 +46,21 @@ final readonly class Workspace
     public static function heldCoverage(ShardId $shard): Path
     {
         return Path::of(sprintf('%s/held/shard-%d', GateDirectory::root()->value(), $shard->number()));
+    }
+
+    /** Where static analysis reads a survivor's mutated code, for its one check. */
+    public static function checkedMutant(MutantId $mutant): Path
+    {
+        return Path::of(sprintf('%s/staticcheck/mutants/%s.php', GateDirectory::root()->value(), $mutant->value()));
+    }
+
+    /**
+     * Where static analysis reads a survivor's original printed as its runner
+     * prints its mutants, for the check that it analyses as the file does.
+     */
+    public static function checkedOriginal(MutantId $mutant): Path
+    {
+        return Path::of(sprintf('%s/staticcheck/originals/%s.php', GateDirectory::root()->value(), $mutant->value()));
     }
 
     public static function results(): Path

@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -78,10 +79,12 @@ it('analyses the whole workspace for the originals, where it holds each of them'
         ->toEqual(Findings::none());
 });
 
-it('leaves a file outside the paths it analyses unchecked, and says so', function (): void {
+it('leaves a mutant of a file outside the paths it analyses out of its scope, and cannot warm up over one', function (): void {
     $project = FakeAnalyser::mago('1.50.0', "src/Money.php\0");
 
     expect(magoIn($project)->check(MutantCheck::of(Path::of('lib/Other.php'), Path::of('/tmp/mutant.php'))))
+        ->toEqual(OutOfScope::of(Path::of('lib/Other.php')))
+        ->and(magoIn($project)->findings(Paths::of(Path::of('lib/Other.php')), Withheld::standard()))
         ->toEqual(CannotJudge::because('lib/Other.php is outside the paths Mago analyses, so Mago leaves it unchecked.'));
 });
 

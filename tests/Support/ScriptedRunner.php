@@ -71,6 +71,9 @@ final class ScriptedRunner implements Runner
     /** @var non-empty-list<Seconds|CannotJudge> how long each run of no test takes, or why it cannot start; the last again for every run after */
     private array $startingUp;
 
+    /** How it gives a mutant as an analyser checks it: as the fake does, or always so. */
+    private Checkable|CannotJudge|RunnerFake $checking;
+
     private function __construct(
         private readonly RunnerFake $fake,
         private readonly Identity|CannotJudge $identity,
@@ -81,6 +84,7 @@ final class ScriptedRunner implements Runner
         private readonly CannotJudge|Markers|RunnerFake $marking,
     ) {
         $this->startingUp = [$fake->startUp(Path::of('src/Money.php'), Withheld::nothing())];
+        $this->checking = $fake;
     }
 
     /** The fake runner over the fixture library, whose survivors survive again. */
@@ -185,6 +189,15 @@ final class ScriptedRunner implements Runner
     {
         $scripted = clone $this;
         $scripted->startingUp = [$first, ...array_values($then)];
+
+        return $scripted;
+    }
+
+    /** This runner, giving every mutant as an analyser checks it so, or unable to. */
+    public function checking(Checkable|CannotJudge $answer): self
+    {
+        $scripted = clone $this;
+        $scripted->checking = $answer;
 
         return $scripted;
     }
@@ -391,7 +404,7 @@ final class ScriptedRunner implements Runner
 
     public function checkable(Mutant $mutant): Checkable|CannotJudge
     {
-        return $this->fake->checkable($mutant);
+        return $this->checking instanceof RunnerFake ? $this->checking->checkable($mutant) : $this->checking;
     }
 
     public function markers(Paths $files): Markers|CannotJudge

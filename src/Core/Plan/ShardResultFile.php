@@ -36,13 +36,17 @@ use function sprintf;
  * answers where there are any, `missed` each held unit whose holding tests
  * miss lines of it, with why, where there are any, `warnings` what the
  * shard warns of, where it warns of anything, and `unjudged` the units its
- * budget ran out before, where there are any. A result that cannot be read is
+ * budget ran out before, where there are any, and `staticChecks` what
+ * static analysis's checks of its survivors came to, where they came to
+ * anything (see SurvivorChecksRecord). A result that cannot be read is
  * refused, and the verdict reads that shard as having left no result.
  *
  * @internal the shape of the shard result file
  */
 final readonly class ShardResultFile
 {
+    /** The field that says why, of a held unit left unmutated and of a survivor left unchecked. */
+    public const string WHY = 'why';
     private const int FORMAT = 1;
 
     private const string CANNOT_JUDGE = 'cannotJudge';
@@ -55,8 +59,6 @@ final readonly class ShardResultFile
 
     private const string MISSED_UNIT = 'unit';
 
-    private const string MISSED_WHY = 'why';
-
     private const string WARNINGS = 'warnings';
 
     private const string UNJUDGED = 'unjudged';
@@ -64,6 +66,7 @@ final readonly class ShardResultFile
     public static function encode(ShardResult $result): string
     {
         $outcome = $result->outcome();
+        $checks = SurvivorChecksRecord::of($result->checks());
 
         return JsonText::encode([
             'format' => self::FORMAT,
@@ -89,7 +92,7 @@ final readonly class ShardResultFile
             ...count($result->misses()) > 0 ? [self::MISSED => array_map(
                 static fn(NotCovered $miss): array => [
                     self::MISSED_UNIT => UnitRecord::one($miss->unit()),
-                    self::MISSED_WHY => $miss->why(),
+                    self::WHY => $miss->why(),
                 ],
                 [...$result->misses()],
             )] : [],
@@ -98,6 +101,7 @@ final readonly class ShardResultFile
                 [...$result->warnings()],
             )] : [],
             ...count($result->unjudged()) > 0 ? [self::UNJUDGED => UnitRecord::all($result->unjudged())] : [],
+            ...$checks === [] ? [] : [SurvivorChecksRecord::SECTION => $checks],
         ]);
     }
 
@@ -129,7 +133,8 @@ final readonly class ShardResultFile
             ->withFlaky(self::flakyIn($file->field(self::FLAKY)))
             ->withMisses(self::missesIn($file->field(self::MISSED)))
             ->withWarnings(self::warningsIn($file->field(self::WARNINGS)))
-            ->withUnjudged(self::unjudgedIn($file->field(self::UNJUDGED)));
+            ->withUnjudged(self::unjudgedIn($file->field(self::UNJUDGED)))
+            ->withChecks(SurvivorChecksRecord::read($file->field(SurvivorChecksRecord::SECTION)));
     }
 
     /** @throws NotInShape */
@@ -158,7 +163,7 @@ final readonly class ShardResultFile
         foreach ($missed->isPresent() ? $missed->items() : [] as $miss) {
             $misses[] = NotCovered::because(
                 UnitRecord::read($miss->field(self::MISSED_UNIT)),
-                $miss->field(self::MISSED_WHY)->text(),
+                $miss->field(self::WHY)->text(),
             );
         }
 

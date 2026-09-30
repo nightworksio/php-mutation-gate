@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_filter;
-use function array_key_exists;
 use function array_map;
 use function array_slice;
 use function array_values;
@@ -89,7 +88,7 @@ final readonly class Invoking
             $limit,
         );
 
-        return $again instanceof CannotJudge ? $again : $this->replaced($mutants, Mutants::of(...$again, ...$left));
+        return $again instanceof CannotJudge ? $again : $mutants->replacing(Mutants::of(...$again, ...$left));
     }
 
     /**
@@ -138,23 +137,6 @@ final readonly class Invoking
         }));
     }
 
-    /** The mutants, each one run again replaced by what that run reported of it. */
-    private function replaced(Mutants $mutants, Mutants $again): Mutants
-    {
-        $by = [];
-
-        foreach ($again as $mutant) {
-            $by[$mutant->id()->value()] = $mutant;
-        }
-
-        return Mutants::of(...array_map(
-            static fn(Mutant $mutant): Mutant => array_key_exists($mutant->id()->value(), $by)
-                ? $by[$mutant->id()->value()]
-                : $mutant,
-            [...$mutants],
-        ));
-    }
-
     /**
      * Survivor confirmation (ADR-0008): each survivor run once more, alone and
      * by the same tests, where `flaky.confirmSurvivors` asks for it. Those
@@ -182,7 +164,7 @@ final readonly class Invoking
 
         return $again instanceof CannotJudge
             ? $again
-            : new Confirmed($this->replaced($mutants, $left), $this->killed($again));
+            : new Confirmed($mutants->replacing($left), $this->killed($again));
     }
 
     /** The ids of those of these mutants that were killed, by a test or by a static analyser. */

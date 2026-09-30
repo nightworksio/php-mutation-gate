@@ -12,6 +12,11 @@ use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Standing;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistories;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\CheckTime;
+use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -69,10 +74,12 @@ use NightWorksIO\MutationGate\Port\CostModel;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
+use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\TickingClock;
@@ -104,7 +111,10 @@ function recordedRanOf(Plan $plan, string $project, ScriptedRunner $runner, Cove
     return recordedRanWith($plan, $project, $runner, $map, Flows::settings(), Flows::setup());
 }
 
-/** Every shard of a plan run in a project on these settings and this setup, each handed the map, and the results read back. */
+/**
+ * Every shard of a plan run in a project on these settings and this setup,
+ * each handed the map, with these ports besides, and the results read back.
+ */
 function recordedRanWith(
     Plan $plan,
     string $project,
@@ -112,9 +122,10 @@ function recordedRanWith(
     CoverageMap $map,
     Settings $settings,
     Setup $setup,
+    object ...$ports,
 ): Results {
     new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none());
-    new Running(Flows::adapters($project, [], $runner), $settings, $setup)->runAll($plan, Workspace::results());
+    new Running(Flows::adapters($project, [], $runner, ...$ports), $settings, $setup)->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), Directory::at($project));
 
     return $results instanceof Results ? $results : throw new RuntimeException($results->why());
@@ -149,6 +160,32 @@ it('writes a proof of every unit that ran to the end, at the plan\'s base, and w
         ->and($ledger->proofs()->has(Digest::sha256Of('held')))->toBeTrue()
         ->and(count($ledger->timings()))->toBe(2)
         ->and($ledger->lastPassed())->toBeInstanceOf(CannotTell::class);
+});
+
+it('adds the time each analyser\'s checks of the shards\' survivors took to what the ledger held of it', function () use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards();
+    $identity = AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('{}'));
+    $held = AnalyserHistory::of('fake')->withTime(CheckTime::of(3, Seconds::of(1.5)));
+    $store->write(Scope::branch('main'), Ledger::empty()->withAnalysers(AnalyserHistories::none()->with($held)));
+    $checker = new RecordingChecker(new StaticCheckerFake($identity, Findings::none(), []), $project);
+    $results = recordedRanWith($plan, $project, ScriptedRunner::fixture(), $map(), Flows::settings(), Flows::setup(), $checker);
+
+    new Recorded(Flows::adapters($project, [], $store))->write(
+        $plan,
+        $results,
+        $ledgers($store, $plan),
+        $run($plan),
+        CannotTell::because('It failed.'),
+    );
+
+    expect(LedgerRead::ledger($store->read(Scope::branch('main')))->analysers()->of($identity)->time())
+        ->toEqual(CheckTime::of(5, Seconds::of(1.5)));
 });
 
 it('records the commit that passed, under its check, with how many of its own proofs it used', function () use (

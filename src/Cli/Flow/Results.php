@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function count;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -153,6 +154,18 @@ final readonly class Results
         }
 
         return $warnings;
+    }
+
+    /** What static analysis's checks of every shard's survivors came to, together (ADR-0020, decision 11). */
+    public function checks(): SurvivorChecks
+    {
+        $checks = SurvivorChecks::none();
+
+        foreach ($this->read as [, $result]) {
+            $checks = $checks->plus($result->checks());
+        }
+
+        return $checks;
     }
 
     /** @return list<array{Shard, ShardResult, MutationResult}> each shard, with its result and its mutants */

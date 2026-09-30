@@ -1,0 +1,273 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Cli\Flow\Checked;
+use NightWorksIO\MutationGate\Cli\Flow\SurvivorChecking;
+use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Findings;
+use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
+use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
+use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Time\Deadline;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\TickingClock;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
+
+/** The fixture's mutants of Money and Held: of them, one survivor in each file. */
+function checkedMutants(): Mutants
+{
+    return Mutants::of(...Flows::mutantsOf('src/Money.php'), ...Flows::mutantsOf('src/Held.php'));
+}
+
+/** The one survivor of a file among these mutants. */
+function checkedSurvivor(Mutants $mutants, string $file): Mutant
+{
+    foreach ($mutants as $mutant) {
+        if ($mutant->status() === MutantStatus::Survived && $mutant->location()->file()->value() === $file) {
+            return $mutant;
+        }
+    }
+
+    throw new LogicException(sprintf('No survivor in %s.', $file));
+}
+
+/** Where a survivor's mutated code is read for its check. */
+function checkedAt(Mutant $mutant): string
+{
+    return Workspace::checkedMutant($mutant->id())->value();
+}
+
+/** The analyser the checks run: named fake, at 1.0.0. */
+function checkedIdentity(): AnalyserIdentity
+{
+    return AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('{}'));
+}
+
+/** What the analyser finds in the originals: one error they already have. */
+function checkedOriginals(): Findings
+{
+    return Findings::of(Finding::error('known', 'The originals already have this.'));
+}
+
+/** @param array<string, Findings|OutOfScope|CannotJudge> $answers what the analyser answers of each mutant, by where it reads it */
+function checkedBy(string $project, array $answers): RecordingChecker
+{
+    return new RecordingChecker(new StaticCheckerFake(checkedIdentity(), checkedOriginals(), $answers), $project);
+}
+
+/** The checks, in a project, by this analyser, of this runner's mutants, with the time a budget leaves. */
+function checking(
+    string $project,
+    RecordingChecker|NoAnalyser $checker,
+    ScriptedRunner $runner,
+    Deadline|Unlimited $deadline,
+): SurvivorChecking {
+    $ports = $checker instanceof RecordingChecker ? [$runner, $checker] : [$runner];
+
+    $clock = new TickingClock('2026-01-01T00:00:00Z', 1);
+
+    return new SurvivorChecking(Flows::adapters($project, [], ...$ports), $clock, $deadline);
+}
+
+/** @return list<string> each warning the checks raise */
+function checkedWarnings(Checked $checked): array
+{
+    return array_map(static fn(Warning $warning): string => $warning->text(), [...$checked->checks->warnings()]);
+}
+
+it('checks nothing where no analyser is configured, or no survivor is left once the flaky are set aside', function (): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $flaky = MutantIds::of(checkedSurvivor($mutants, 'src/Money.php')->id(), checkedSurvivor($mutants, 'src/Held.php')->id());
+    $checker = checkedBy($project, []);
+
+    $unconfigured = checking($project, NoAnalyser::configured(), ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::none());
+    $allFlaky = checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, $flaky);
+
+    expect($unconfigured)->toEqual(new Checked($mutants, SurvivorChecks::none()))
+        ->and($allFlaky)->toEqual(new Checked($mutants, SurvivorChecks::none()))
+        ->and($checker->warmUps())->toBe([]);
+});
+
+it('kills a survivor whose check finds an error its original does not have, by that error, and leaves one whose errors it has', function (): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $money = checkedSurvivor($mutants, 'src/Money.php');
+    $held = checkedSurvivor($mutants, 'src/Held.php');
+    $new = Finding::error('return.type', 'Method Money::isLarge() should return bool.');
+    $checker = checkedBy($project, [
+        checkedAt($money) => Findings::of(...checkedOriginals(), ...Findings::of($new, Finding::error('second', 'Also new.'))),
+        checkedAt($held) => checkedOriginals(),
+    ]);
+
+    $checked = checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::none());
+    $statuses = array_map(static fn(Mutant $mutant): string => $mutant->status()->value, [...$checked->mutants]);
+    $texts = array_map(static fn(array $check): string => $check[2], $checker->checks());
+
+    expect($checked->mutants)->toEqual($mutants->replacing(Mutants::of($money->rejected(Rejection::by('fake', $new)))))
+        ->and($statuses)->toBe(['killed', 'killed-by-static-analysis', 'uncovered', 'timed-out', 'survived'])
+        ->and(array_map(static fn(array $check): array => [$check[0], $check[1]], $checker->checks()))->toBe([
+            ['src/Money.php', checkedAt($money)],
+            ['src/Held.php', checkedAt($held)],
+        ])
+        ->and($texts[0])->toContain('return $amount >= 100;')
+        ->and(str_contains($texts[0], 'return $amount > 100;'))->toBeFalse()
+        ->and($texts[1])->toContain('return $amount - $amount;')
+        ->and($checker->warmUps())->toEqual([Paths::none()])
+        ->and(is_file(sprintf('%s/%s', $project, checkedAt($money))) || is_file(sprintf('%s/%s', $project, checkedAt($held))))->toBeFalse()
+        ->and([...$checked->checks->histories()])->toHaveCount(1)
+        ->and($checked->checks->histories()->of(checkedIdentity())->time()->checks())->toBe(2)
+        ->and($checked->checks->histories()->of(checkedIdentity())->time()->seconds())->toEqual(Seconds::of(2.0))
+        ->and([...$checked->checks->histories()->of(checkedIdentity())])->toBe([])
+        ->and(checkedWarnings($checked))->toBe([]);
+});
+
+it('leaves a flaky survivor to its second answer, unchecked', function (): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $held = checkedSurvivor($mutants, 'src/Held.php');
+    $checker = checkedBy($project, [checkedAt(checkedSurvivor($mutants, 'src/Money.php')) => checkedOriginals()]);
+
+    checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::of($held->id()));
+
+    expect(array_map(static fn(array $check): string => $check[0], $checker->checks()))->toBe(['src/Money.php']);
+});
+
+it('leaves every survivor unchecked where the analyser cannot say who it is, or cannot run over the originals', function (): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $unnamed = new RecordingChecker(new StaticCheckerFake(CannotJudge::because('No version.'), checkedOriginals(), []), $project);
+    $cold = new RecordingChecker(new StaticCheckerFake(checkedIdentity(), CannotJudge::because('It crashed.'), []), $project);
+
+    $unidentified = checking($project, $unnamed, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::none());
+    $unwarmed = checking($project, $cold, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::none());
+
+    expect(checkedWarnings($unidentified))->toBe([
+        'Static analysis left 2 survivors unchecked, as the analyser could not say its version: src/Held.php, src/Money.php.',
+    ])
+        ->and($unnamed->warmUps())->toBe([])
+        ->and(checkedWarnings($unwarmed))->toBe([
+            'Static analysis left 2 survivors unchecked, as the analyser\'s run over the original files failed: src/Held.php, src/Money.php.',
+        ])
+        ->and($cold->checks())->toBe([])
+        ->and([$unidentified->mutants, $unwarmed->mutants])->toEqual([$mutants, $mutants]);
+});
+
+it('leaves a survivor unchecked, and says why, where its runner cannot give it, its file is out of scope, or its check cannot run', function (): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $money = checkedSurvivor($mutants, 'src/Money.php');
+    $checker = checkedBy($project, [checkedAt($money) => OutOfScope::of(Path::of('src/Money.php'))]);
+    $refusing = ScriptedRunner::fixture()->checking(CannotJudge::because('Its diff does not apply.'));
+
+    $ungiven = checking($project, checkedBy($project, []), $refusing, Unlimited::time())->checked($mutants, MutantIds::none());
+    $unchecked = checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::none());
+
+    expect(checkedWarnings($ungiven))->toBe([
+        'Static analysis left 2 survivors unchecked, as the runner could not give their mutated code: src/Held.php, src/Money.php.',
+    ])
+        ->and(checkedWarnings($unchecked))->toBe([
+            'Static analysis left 1 survivor unchecked, as their files are outside the paths the analyser analyses: src/Money.php.',
+            'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/Held.php.',
+        ])
+        ->and($unchecked->mutants)->toEqual($mutants)
+        ->and($unchecked->checks->histories()->of(checkedIdentity())->time()->checks())->toBe(2);
+});
+
+it('judges a printed survivor against its original printed the same way, analysed once for each file', function (): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $money = checkedSurvivor($mutants, 'src/Money.php');
+    $diff = "@@ @@\n-return \$amount > 100;\n+return \$amount > 101;";
+    $again = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Increment', $diff, 0),
+        'Increment-16',
+        Location::of(Path::of('src/Money.php'), $money->location()->start(), $money->location()->end()),
+        Mutation::of('Increment', MutatorFamily::Literal, $diff),
+        MutantStatus::Survived,
+        Seconds::of(0.1),
+    );
+    $held = checkedSurvivor($mutants, 'src/Held.php');
+    $printed = ScriptedRunner::fixture()->checking(Checkable::printed(Contents::of('<?php // printed'), Contents::of('<?php // mutant')));
+    $new = Finding::error('new', 'New.');
+    $checker = checkedBy($project, [
+        Workspace::checkedOriginal($money->id())->value() => checkedOriginals(),
+        Workspace::checkedOriginal($held->id())->value() => Findings::none(),
+        checkedAt($money) => Findings::of($new),
+        checkedAt($again) => checkedOriginals(),
+    ]);
+
+    $checked = checking($project, $checker, $printed, Unlimited::time())->checked($mutants->with($again), MutantIds::none());
+
+    expect($checker->checks())->toBe([
+        ['src/Money.php', Workspace::checkedOriginal($money->id())->value(), '<?php // printed'],
+        ['src/Money.php', checkedAt($money), '<?php // mutant'],
+        ['src/Held.php', Workspace::checkedOriginal($held->id())->value(), '<?php // printed'],
+        ['src/Money.php', checkedAt($again), '<?php // mutant'],
+    ])
+        ->and($checked->mutants)->toEqual($mutants->with($again)->replacing(Mutants::of($money->rejected(Rejection::by('fake', $new)))))
+        ->and(checkedWarnings($checked))->toBe([
+            'Static analysis left 1 survivor unchecked, as their files analyse differently once printed as the runner prints its mutants: src/Held.php.',
+        ]);
+});
+
+it('leaves the survivors the time left has no room for unchecked', function (): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $checker = checkedBy($project, []);
+    $spent = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(0.0));
+    $roomForOne = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(3.0));
+    $checkerForOne = checkedBy($project, [checkedAt(checkedSurvivor($mutants, 'src/Money.php')) => checkedOriginals()]);
+
+    $none = checking($project, $checker, ScriptedRunner::fixture(), $spent)->checked($mutants, MutantIds::none());
+    $one = checking($project, $checkerForOne, ScriptedRunner::fixture(), $roomForOne)->checked($mutants, MutantIds::none());
+
+    expect(checkedWarnings($none))->toBe([
+        'Static analysis left 2 survivors unchecked, as the time budget ran out before their checks: src/Held.php, src/Money.php.',
+    ])
+        ->and($checker->checks())->toBe([])
+        ->and(checkedWarnings($one))->toBe([
+            'Static analysis left 1 survivor unchecked, as the time budget ran out before their checks: src/Held.php.',
+        ]);
+});
+
+it('leaves a survivor unchecked where its code cannot be written for its check', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '.mutation-gate/staticcheck/mutants', 'a file where the directory goes');
+    $checker = checkedBy($project, []);
+
+    $checked = checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time())->checked(checkedMutants(), MutantIds::none());
+
+    expect(checkedWarnings($checked))->toBe([
+        'Static analysis left 2 survivors unchecked, as the analyser could not check them: src/Held.php, src/Money.php.',
+    ])
+        ->and($checker->checks())->toBe([]);
+});

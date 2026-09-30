@@ -177,3 +177,25 @@ it('says where it is', function (): void {
     expect(Directory::at($root)->root())->toEqual(Root::of($root))
         ->and(Directory::in(Root::of($root))->root())->toEqual(Root::of($root));
 });
+
+it('removes a file it holds, and names one it does not hold as missing', function (): void {
+    $root = Scratch::directory();
+    $directory = Directory::at($root);
+    $directory->write(Path::of('staticcheck/a.php'), Contents::of('<?php'));
+
+    expect($directory->remove(Path::of('staticcheck/a.php')))->toEqual(Missing::at(Path::of('staticcheck/a.php')))
+        ->and(is_file(sprintf('%s/staticcheck/a.php', $root)))->toBeFalse()
+        ->and($directory->remove(Path::of('staticcheck/b.php')))->toEqual(Missing::at(Path::of('staticcheck/b.php')))
+        ->and($directory->remove(Path::of('../outside.php')))->toEqual(CannotJudge::because(sprintf('../outside.php leads out of %s, so the gate does not read or write it.', $root)));
+});
+
+it('cannot judge removing a file from a directory it may not change', function (): void {
+    $root = Scratch::directory();
+    $directory = Directory::at($root);
+    $directory->write(Path::of('locked/a.php'), Contents::of('<?php'));
+    chmod(sprintf('%s/locked', $root), 0o555);
+    $removed = $directory->remove(Path::of('locked/a.php'));
+    chmod(sprintf('%s/locked', $root), 0o755);
+
+    expect($removed)->toEqual(CannotJudge::because(sprintf('%s/locked/a.php could not be removed.', $root)));
+});

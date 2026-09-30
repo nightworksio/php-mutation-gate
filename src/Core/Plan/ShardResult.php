@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
+use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
@@ -18,8 +19,9 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  * What one shard left for the verdict: the plan it followed, its units with
  * their keys, every mutant's record or the runner's cannot judge, what it
  * measured, the mutants that gave two answers, the held units whose holding
- * tests miss lines of them, which it did not mutate, what it warns of, and
- * the units its budget ran out before.
+ * tests miss lines of them, which it did not mutate, what it warns of, the
+ * units its budget ran out before, and what static analysis's checks of its
+ * survivors came to.
  */
 final readonly class ShardResult
 {
@@ -33,6 +35,7 @@ final readonly class ShardResult
         private HeldMisses $misses,
         private Warnings $warnings,
         private Units $unjudged,
+        private SurvivorChecks $checks,
     ) {
     }
 
@@ -53,6 +56,7 @@ final readonly class ShardResult
             HeldMisses::none(),
             Warnings::none(),
             Units::none(),
+            SurvivorChecks::none(),
         );
     }
 
@@ -78,6 +82,12 @@ final readonly class ShardResult
     public function withUnjudged(Units $unjudged): self
     {
         return clone($this, ['unjudged' => $unjudged]);
+    }
+
+    /** This result, with what static analysis's checks of its survivors came to (ADR-0020, decision 11). */
+    public function withChecks(SurvivorChecks $checks): self
+    {
+        return clone($this, ['checks' => $checks]);
     }
 
     /** The digest of the plan the shard followed. */
@@ -130,5 +140,11 @@ final readonly class ShardResult
     public function unjudged(): Units
     {
         return $this->unjudged;
+    }
+
+    /** What static analysis's checks of the shard's survivors came to. */
+    public function checks(): SurvivorChecks
+    {
+        return $this->checks;
     }
 }

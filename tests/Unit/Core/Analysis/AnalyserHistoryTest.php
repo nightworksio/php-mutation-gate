@@ -54,3 +54,27 @@ it('keeps one rate of a mutator whose name reads as a number, this history\'s fi
         ->and([...$read])->toEqual([RejectionRate::of('12', 2, 1)])
         ->and($read->rateOf($twelve))->toEqual(RejectionRate::of('12', 2, 1));
 });
+
+it('learns a check after the tests by its time alone', function () use ($plus): void {
+    $history = AnalyserHistory::of('mago')->checked(Seconds::of(0.25))->checked(Seconds::of(0.75));
+
+    expect($history->time())->toEqual(CheckTime::of(2, Seconds::of(1.0)))
+        ->and($history->rateOf($plus))->toEqual(RejectionRate::unchecked('Plus'))
+        ->and([...$history])->toBe([]);
+});
+
+it('adds what a run learned to it: each mutator\'s checks and rejections, and the checks\' time', function () use ($plus, $minus): void {
+    $held = AnalyserHistory::of('phpstan')
+        ->withRate(RejectionRate::of('Plus', 10, 2))
+        ->withTime(CheckTime::of(10, Seconds::of(5.0)));
+    $run = AnalyserHistory::of('phpstan')
+        ->withRate(RejectionRate::of('Plus', 2, 1))
+        ->withRate(RejectionRate::of('Minus', 1, 0))
+        ->withTime(CheckTime::of(3, Seconds::of(1.0)));
+    $added = $held->plus($run);
+
+    expect($added->analyser())->toBe('phpstan')
+        ->and($added->rateOf($plus))->toEqual(RejectionRate::of('Plus', 12, 3))
+        ->and($added->rateOf($minus))->toEqual(RejectionRate::of('Minus', 1, 0))
+        ->and($added->time())->toEqual(CheckTime::of(13, Seconds::of(6.0)));
+});

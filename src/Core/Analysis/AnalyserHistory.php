@@ -58,6 +58,31 @@ final readonly class AnalyserHistory implements IteratorAggregate
         return $this->withRate($this->rateOf($mutation)->rejected())->withTime($this->time->with($took));
     }
 
+    /**
+     * This history, after a check after the tests that took these seconds:
+     * its time is kept, and no rate, since the survivors a check after the
+     * tests sees are no fair sample of a mutator's mutants.
+     */
+    public function checked(Seconds $took): self
+    {
+        return $this->withTime($this->time->with($took));
+    }
+
+    /**
+     * This history and what a run learned of the same analyser, added: each
+     * mutator's checks and rejections, and the checks' time.
+     */
+    public function plus(self $run): self
+    {
+        $rates = $this->rates;
+
+        foreach ($run->rates as $mutator => $rate) {
+            $rates[$mutator] = array_key_exists($mutator, $rates) ? $rates[$mutator]->plus($rate) : $rate;
+        }
+
+        return new self($this->analyser, $rates, $this->time->plus($run->time));
+    }
+
     public function analyser(): string
     {
         return $this->analyser;

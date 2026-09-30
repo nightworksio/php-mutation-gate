@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
+use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
+use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
+use NightWorksIO\MutationGate\Core\Analysis\UncheckedSurvivor;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -177,6 +181,18 @@ it('lists the units its budget ran out before, and reads them back', function ()
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"unjudged"');
 });
 
+it('lists what static analysis\'s checks of its survivors came to, and reads it back', function () use ($finished, $survivor, $measured): void {
+    $checks = SurvivorChecks::none()
+        ->timing(AnalyserHistory::of('phpstan')->checked(Seconds::of(0.5)))
+        ->leaving(UncheckedSurvivor::of(Unchecked::OutOfScope, Path::of('lib/Legacy.php')));
+    $result = $finished($survivor, $measured)->withChecks($checks);
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toContain('"staticChecks": {')
+        ->and(ShardResultFile::decode($written))->toEqual($result)
+        ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"staticChecks"');
+});
+
 it('reads back a shard that could not judge', function () use ($measured): void {
     $stopped = CannotJudge::because('Pest stopped.');
     $result = ShardResult::of(Digest::of('9c1e'), ShardId::of(1), Keys::none(), $stopped, $measured);
@@ -209,6 +225,12 @@ it('refuses what is not a shard result, saying where it went wrong', function (s
             . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}, '
             . '"flaky": ["0123456789ab", "no"]}',
         'the file.flaky[1] is not a mutant id.',
+    ],
+    'a survivor left unchecked for no reason the gate knows' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}, '
+            . '"staticChecks": {"analysers": {}, "unchecked": [{"why": "bored", "file": "src/A.php"}]}}',
+        'the file.staticChecks.unchecked[0].why is not why a survivor was left unchecked.',
     ],
     'an instant that is not one' => [
         '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '

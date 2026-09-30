@@ -58,6 +58,20 @@ final readonly class AnalyserHistories implements IteratorAggregate
         return new self($histories);
     }
 
+    /** These histories, with what a run learned of each analyser added to what they hold of it. */
+    public function plus(self $run): self
+    {
+        $histories = $this->histories;
+
+        foreach ($run->histories as $analyser => $history) {
+            $histories[$analyser] = array_key_exists($analyser, $histories)
+                ? $histories[$analyser]->plus($history)
+                : $history;
+        }
+
+        return new self($histories);
+    }
+
     /** @return Traversable<int, AnalyserHistory> */
     public function getIterator(): Traversable
     {

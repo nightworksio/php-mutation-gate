@@ -126,7 +126,7 @@ final readonly class Running
         );
         $outcome = $map instanceof CoverageMap ? $this->mutated($plan, $shard, $map, $ordering, $deadline) : $map;
         $ended = $this->setup->clock->now();
-        $spent = Seconds::of((float) $ended->format('U.u') - (float) $started->format('U.u'));
+        $spent = Seconds::between($started, $ended);
         $identity = $this->adapters->runner->identity($this->adapters->withheld);
         $result = ShardResult::of(
             $plan->digest(),
@@ -151,7 +151,8 @@ final readonly class Running
         return $outcome instanceof CannotJudge ? $result : $result
             ->withFlaky($outcome->flaky)
             ->withMisses($outcome->misses)
-            ->withUnjudged($outcome->unjudged);
+            ->withUnjudged($outcome->unjudged)
+            ->withChecks($outcome->checks);
     }
 
     /**
@@ -160,7 +161,8 @@ final readonly class Running
      * unit but the held ones whose holding tests miss lines of them; or the
      * first cannot judge. A shard handed no map cannot judge at all. Under a
      * budget the units run in batches that fit the time left, and those the
-     * time ran out before are unjudged.
+     * time ran out before are unjudged. Static analysis then checks the
+     * survivors, in the time left.
      */
     private function mutated(
         Plan $plan,
@@ -181,11 +183,19 @@ final readonly class Running
             ? $this->spentWithin($invoking, $deadline, $plan, $kept, $map, $ordering)
             : $this->spentWhole($invoking, $kept, $ordering);
 
-        return $spent instanceof CannotJudge ? $spent : new Mutated(
-            MutationResult::of(TimeoutTriage::timed($spent->mutants, $map), $spent->skipped),
+        if ($spent instanceof CannotJudge) {
+            return $spent;
+        }
+
+        $checked = new SurvivorChecking($this->adapters, $this->setup->clock, $deadline)
+            ->checked($spent->mutants, $spent->flaky);
+
+        return new Mutated(
+            MutationResult::of(TimeoutTriage::timed($checked->mutants, $map), $spent->skipped),
             $spent->flaky,
             $misses,
             $spent->unjudged,
+            $checked->checks,
         );
     }
 
