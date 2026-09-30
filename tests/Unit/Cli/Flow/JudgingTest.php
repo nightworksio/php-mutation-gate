@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -236,8 +237,9 @@ it('cannot judge where the ledger cannot learn what a shard cost, and reports no
     $project = Flows::project();
     $recorded = new ReporterFake();
     $adapters = Flows::adapters($project, [], $tree(Floor::of(50)));
-    $plan = Planned::twoShards();
+    $plan = Planned::handedIn($project, Planned::twoShards());
     new Running($adapters, judgingSettings(), Flows::setup())->runAll($plan, Workspace::results());
+    unlink(sprintf('%s/%s', $project, CoverageMapFile::in(Workspace::shardCoverage(ShardId::of(1)))->value()));
     $results = Results::read($plan, Workspace::results(), $adapters->project);
 
     $judgement = $results instanceof Results

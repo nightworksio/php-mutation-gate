@@ -33,14 +33,10 @@ final readonly class HeldCoverage
     {
     }
 
-    /** The shard's held units whose holding tests miss lines of them; none where the shard was handed no map. */
-    public function misses(Shard $shard, CoverageMap|CannotJudge $suite): HeldMisses|CannotJudge
+    /** The shard's held units whose holding tests miss lines of them, by the map the plan handed the shard. */
+    public function misses(Shard $shard, CoverageMap $suite): HeldMisses|CannotJudge
     {
         $misses = HeldMisses::none();
-
-        if (! $suite instanceof CoverageMap) {
-            return $misses;
-        }
 
         foreach ($shard->units() as $unit) {
             $judgedBy = $unit->judgedBy();

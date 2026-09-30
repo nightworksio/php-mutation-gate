@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -57,6 +59,14 @@ final readonly class Planned
             Seconds::of(3.0),
             'everything',
         ));
+    }
+
+    /** A plan whose shards were handed the fixture runner's map in a project, as `plan` hands them. */
+    public static function handedIn(string $project, Plan $plan): Plan
+    {
+        new Handoff(Directory::at($project))->write($plan, Flows::map());
+
+        return $plan;
     }
 
     public static function of(Shard ...$shards): Plan

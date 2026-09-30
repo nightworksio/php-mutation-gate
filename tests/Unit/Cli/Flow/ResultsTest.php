@@ -30,7 +30,7 @@ afterEach(function (): void {
 
 /** Every shard of a plan run in a project by this runner, and the results read back. */
 $ran = static function (string $project, ScriptedRunner $runner): Results|CannotJudge {
-    $plan = Planned::twoShards();
+    $plan = Planned::handedIn($project, Planned::twoShards());
     new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->runAll($plan, Workspace::results());
 
@@ -124,7 +124,7 @@ it('cannot judge a shard whose runner skipped mutants it kept no record of', fun
 
 it('reads the results from the directory it is handed', function (): void {
     $project = Flows::project();
-    $plan = Planned::twoShards();
+    $plan = Planned::handedIn($project, Planned::twoShards());
     new Running(Flows::adapters($project), Flows::settings(), Flows::setup())->runAll($plan, Path::of('elsewhere'));
 
     expect(Results::read($plan, Path::of('elsewhere'), Directory::at($project)))->toBeInstanceOf(Results::class)

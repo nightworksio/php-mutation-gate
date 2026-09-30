@@ -108,7 +108,8 @@ final readonly class Running
         }
 
         $started = $this->setup->clock->now();
-        $outcome = $this->mutated($shard, new Handoff($this->adapters->project)->read($id));
+        $map = new Handoff($this->adapters->project)->read($id);
+        $outcome = $map instanceof CoverageMap ? $this->mutated($shard, $map) : $map;
         $ended = $this->setup->clock->now();
         $spent = Seconds::of((float) $ended->format('U.u') - (float) $started->format('U.u'));
         $identity = $this->adapters->runner->identity($this->adapters->withheld);
@@ -129,11 +130,12 @@ final readonly class Running
     }
 
     /**
-     * Every invocation's mutants, timeouts retried and timed, with the
-     * survivors a second run killed, of each unit but the held ones whose
-     * holding tests miss lines of them; or the first cannot judge.
+     * Every invocation's mutants, timeouts retried and timed by the map the
+     * plan handed the shard, with the survivors a second run killed, of each
+     * unit but the held ones whose holding tests miss lines of them; or the
+     * first cannot judge. A shard handed no map cannot judge at all.
      */
-    private function mutated(Shard $shard, CoverageMap|CannotJudge $map): Mutated|CannotJudge
+    private function mutated(Shard $shard, CoverageMap $map): Mutated|CannotJudge
     {
         $misses = new HeldCoverage($this->adapters)->misses($shard, $map);
 
@@ -159,9 +161,7 @@ final readonly class Running
             $skipped += $invoked->result->skipped();
         }
 
-        $timed = $map instanceof CoverageMap ? TimeoutTriage::timed($mutants, $map) : $mutants;
-
-        return new Mutated(MutationResult::of($timed, $skipped), $flaky, $misses);
+        return new Mutated(MutationResult::of(TimeoutTriage::timed($mutants, $map), $skipped), $flaky, $misses);
     }
 
     /** One invocation, its timeouts retried and its survivors run once more; or the first cannot judge. */
