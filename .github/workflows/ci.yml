@@ -242,6 +242,45 @@ jobs:
           dependency-versions: lowest
       - run: composer test
 
+  # ADR-0004's Runner contract suite against the real runners, at both ends of
+  # the range the package supports. The fixture library is a project of its
+  # own, so each end is one `composer update` of it, and the suite runs once
+  # after each. It runs serially: a Pest started under paratest would take
+  # itself for one of its workers. The library gets the php-code-coverage this
+  # package is locked at: the adapter reads the maps the library's Pest writes,
+  # which in a user's project is one vendor directory and here is two.
+  runner-contracts:
+    name: runner contracts
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RUNNER_CONTRACTS: pest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - name: install the lowest supported Pest into the fixture library
+        working-directory: tests/Contract/Runner/fixture
+        run: |
+          coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
+          composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
+      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php
+      - name: install the highest supported Pest into the fixture library
+        working-directory: tests/Contract/Runner/fixture
+        run: |
+          coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
+          composer update --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
+          composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
+      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php
+
   # G8 — every mutant of src is killed. The package holds its own code to a
   # floor of 100 through its own gate: the reusable workflow and the action in
   # this repository, run from the same commit. Until the gate can run itself

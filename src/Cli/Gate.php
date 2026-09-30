@@ -17,14 +17,14 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class Gate
 {
-    public function __construct(private Discovery $discovery)
+    public function __construct(private Discovery $discovery, private string $vendor)
     {
     }
 
     /** The gate for a project, with the Composer vendor directory it was installed into. */
     public static function in(string $project, string $vendor): self
     {
-        return new self(new Discovery(Directory::at($project), Directory::at($vendor)));
+        return new self(new Discovery(Directory::at($project), Directory::at($vendor)), $vendor);
     }
 
     public function run(InputInterface $input, OutputInterface $output, OutputInterface $errors): int
@@ -38,6 +38,6 @@ final readonly class Gate
             return ExitCode::CannotJudge->value;
         }
 
-        return Console::application()->run($input, $output);
+        return Console::application($this->vendor)->run($input, $output);
     }
 }

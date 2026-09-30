@@ -1,0 +1,79 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
+
+/** A project in a new directory, spelt with a trailing slash. */
+$project = static fn(): Project => Project::at(
+    sprintf('%s/', Scratch::directory()),
+    Paths::of(Path::of('tests')),
+    Path::of('.mutation-gate'),
+);
+
+it('holds its root as its real path, as Pest reports files', function (): void {
+    $root = Scratch::directory();
+    mkdir(sprintf('%s/real', $root));
+    symlink(sprintf('%s/real', $root), sprintf('%s/linked', $root));
+
+    expect(Project::at(sprintf('%s/linked', $root), Paths::none(), Path::of('.mutation-gate'))->root())
+        ->toBe((string) realpath(sprintf('%s/real', $root)));
+});
+
+it('holds a root that is not there as it is spelt, less a trailing slash', function (): void {
+    expect(Project::at('/nowhere/at/all/', Paths::none(), Path::of('.mutation-gate'))->root())->toBe('/nowhere/at/all');
+});
+
+it('names the directories its tests live in', function () use ($project): void {
+    expect($project()->tests())->toEqual(Paths::of(Path::of('tests')));
+});
+
+it('finds a path of the project on disk, and an absolute path where it says', function (): void {
+    $project = Project::at('/nowhere', Paths::none(), Path::of('.mutation-gate'));
+
+    expect($project->absolute(Path::of('src/Money.php')))->toBe('/nowhere/src/Money.php')
+        ->and($project->absolute(Path::of('/elsewhere/Money.php')))->toBe('/elsewhere/Money.php');
+});
+
+it('spells a file inside it as the project does, and one outside as it is', function (): void {
+    $project = Project::at('/nowhere', Paths::none(), Path::of('.mutation-gate'));
+
+    expect($project->relative('/nowhere/src/Money.php'))->toEqual(Path::of('src/Money.php'))
+        ->and($project->relative('/nowhere-else/src/Money.php'))->toEqual(Path::of('/nowhere-else/src/Money.php'));
+});
+
+it('makes a directory where it is not there, and leaves one that is', function () use ($project): void {
+    $at = $project();
+    $made = $at->directory(Path::of('.mutation-gate/coverage/shard'));
+    $again = $at->directory(Path::of('.mutation-gate/coverage/shard'));
+
+    expect($made)->toBe(sprintf('%s/.mutation-gate/coverage/shard', $at->root()))
+        ->and($again)->toBe($made)
+        ->and(is_dir($made))->toBeTrue();
+});
+
+it('names a results file with no earlier run\'s results left in it or beside it', function () use ($project): void {
+    $at = $project();
+    $results = sprintf('%s/.mutation-gate/pest/results.jsonl', $at->root());
+    mkdir(dirname($results), recursive: true);
+    file_put_contents($results, 'earlier');
+    file_put_contents(sprintf('%s.coverage.php', $results), 'earlier');
+
+    expect($at->freshResults())->toBe($results)
+        ->and(is_file($results))->toBeFalse()
+        ->and(is_file(sprintf('%s.coverage.php', $results)))->toBeFalse()
+        ->and($at->freshResults())->toBe($results);
+});
+
+it('makes the directory a results file goes in', function () use ($project): void {
+    $at = $project();
+
+    expect(is_dir(dirname($at->freshResults())))->toBeTrue();
+});

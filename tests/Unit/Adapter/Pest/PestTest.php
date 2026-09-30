@@ -1,0 +1,366 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\Diff;
+use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
+use NightWorksIO\MutationGate\Adapter\Pest\Patch;
+use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\Pest\Platform;
+use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Adapter\Pest\Ran;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Selection;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Runner\Versions;
+use NightWorksIO\MutationGate\Core\Test\Filter;
+use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
+use NightWorksIO\MutationGate\Tests\Support\PestRun;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ShellFake;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
+use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
+
+const RUN_PLUS = PlusToMinus::class;
+
+const RUN_ADDS = 'P\Tests\MoneySpec::__pest_evaluable_it_adds';
+
+const RUN_LISTING = "   INFO  Available test groups:\n\n - default (2 tests)\n - mutation-canary (1 test).\n";
+
+/**
+ * A coverage map in a project's root, covering these lines of its files, by the one test RUN_ADDS.
+ *
+ * @param array<non-empty-string, array<positive-int, list<int<0, max>>>> $lines
+ * @param array<non-empty-string, float>                                $durations
+ */
+function adapterMap(string $root, string $file, array $lines, array $durations): void
+{
+    CoverageMaps::write(sprintf('%s/%s', $root, $file), sprintf('%s/', $root), $lines, [RUN_ADDS], $durations);
+}
+
+/** A request to mutate src/Money.php against the whole suite. */
+function adapterMoney(): MutationRequest
+{
+    return MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+}
+
+/** The results file every run of a project records to. */
+function adapterResults(Project $at): string
+{
+    return sprintf('%s/.mutation-gate/pest/results.jsonl', $at->root());
+}
+
+/** Pest patched with the canary group mutation-canary. */
+function adapterCanary(): Patching
+{
+    return Patching::on(Group::named('mutation-canary'));
+}
+
+/** A project in a new directory, by its real path. */
+function adapterProject(): Project
+{
+    $root = (string) realpath(Scratch::directory());
+
+    return Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
+}
+
+/** What Pest and the plugin leave when a run mutates src/Money.php's line 11 once, and a test kills it. */
+function adapterKilled(Command $command, Project $project): Ran
+{
+    $results = $command->environment()['MUTATION_GATE_RESULTS'] ?? '';
+
+    if (is_file($results)) {
+        return Ran::finished(succeeded: false, output: 'an earlier run\'s results were left in place');
+    }
+
+    $money = sprintf('%s/src/Money.php', $project->root());
+    $map = Recorder::coverageBeside($results);
+    CoverageMaps::write($map, sprintf('%s/', $project->root()), ['src/Money.php' => [11 => [0]]], [RUN_ADDS], []);
+    PestRun::write($results, [
+        PestRun::planned('n1', $money, 11, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+        PestRun::finished('n1', 'tested', 0.25),
+        PestRun::end(),
+    ]);
+
+    return Ran::finished(succeeded: true, output: '  Mutations: 1 tested');
+}
+
+/** The mutant that run reports. */
+function adapterMutant(): Mutant
+{
+    $diff = Diff::fromPest("\n  <fg=red>-        return \$a + \$b;</>\n  <fg=green>+        return \$a - \$b;</>\n");
+    $path = Path::of('src/Money.php');
+
+    return Mutant::of(
+        MutantId::hash($path, RUN_PLUS, $diff, 0),
+        'n1',
+        Location::of($path, Line::of(11), Line::of(11)),
+        Mutation::of(RUN_PLUS, MutatorFamily::Arithmetic, $diff),
+        MutantStatus::Killed,
+        Seconds::of(0.25),
+    );
+}
+
+/** A project with a patched copy of the installed pest-plugin-mutate, and the planning job's map. */
+function adapterPatched(): Project
+{
+    $at = adapterProject();
+
+    foreach (['MutationTest.php', 'Plugins/Mutate.php', 'Tester/MutationTestRunner.php'] as $file) {
+        $installed = (string) file_get_contents(Tree::at(sprintf('vendor/pestphp/pest-plugin-mutate/src/%s', $file)));
+        Scratch::write($at->root(), sprintf('vendor/pestphp/pest-plugin-mutate/src/%s', $file), $installed);
+    }
+
+    Patch::applyIn(sprintf('%s/vendor', $at->root()));
+    mkdir(sprintf('%s/planned', $at->root()));
+    adapterMap($at->root(), 'planned/coverage.php', [], [RUN_ADDS => 1.25, 'Tests\B::c' => 2.0]);
+
+    return $at;
+}
+
+it('names Pest, the exact versions it mutates with, and the PHP it runs on', function (): void {
+    $at = adapterProject();
+    $installed = ['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/phpunit', 'phpunit/php-code-coverage'];
+    $packages = array_map(
+        static fn(string $name): array => ['name' => $name, 'version' => '1.0.0', 'dist' => ['reference' => 'abc']],
+        $installed,
+    );
+    Scratch::write($at->root(), 'vendor/composer/installed.json', (string) json_encode(['packages' => $packages]));
+
+    expect(new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off())->identity())->toEqual(Identity::of(
+        'pest',
+        Versions::of(...array_map(static fn(string $name): Version => Version::of($name, '1.0.0', 'abc'), $installed)),
+        Platform::current()->digest(),
+    ));
+});
+
+it('cannot say which Pest it runs where Composer installed none', function (): void {
+    $at = adapterProject();
+    $pest = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off());
+
+    expect($pest->identity())->toEqual(CannotJudge::because(sprintf(
+        '%s/vendor/composer/installed.json does not list pestphp/pest, pestphp/pest-plugin-mutate, phpunit/phpunit, '
+        . 'phpunit/php-code-coverage, so the gate cannot say which Pest judges the mutants. Run composer install.',
+        $at->root(),
+    )));
+});
+
+it('lists the suite\'s groups as Pest lists them', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: RUN_LISTING));
+
+    $groups = new Pest(adapterProject(), $shell, Patching::off())->groups();
+
+    expect($groups)->toEqual(Groups::of(Group::named('mutation-canary')))
+        ->and($shell->commands())->toEqual([Invocation::listingGroups()]);
+});
+
+it('runs the suite under coverage into a directory it makes, and reads the map', function (): void {
+    $at = adapterProject();
+    $shell = new ShellFake(static function () use ($at): Ran {
+        $lines = ['src/Money.php' => [11 => [0]]];
+        adapterMap($at->root(), '.mutation-gate/coverage/coverage.php', $lines, [RUN_ADDS => 0.5]);
+
+        return Ran::finished(succeeded: true, output: 'OK');
+    });
+    $request = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+    $directory = sprintf('%s/.mutation-gate/coverage', $at->root());
+
+    expect(new Pest($at, $shell, Patching::off())->coverage($request))->toEqual(CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(RUN_ADDS))
+        ->timed(TestId::of(RUN_ADDS), Seconds::of(0.5)))
+        ->and($shell->commands())->toEqual([Invocation::coverage($request, $directory)]);
+});
+
+it('cannot judge a coverage run that failed, with what Pest said', function (): void {
+    $request = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+    $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'No code coverage driver'));
+
+    expect(new Pest(adapterProject(), $shell, Patching::off())->coverage($request))
+        ->toEqual(CannotJudge::because("Pest's coverage run failed. Pest said:\nNo code coverage driver"));
+});
+
+it('reads the map another job wrote, running nothing', function (): void {
+    $at = adapterProject();
+    mkdir(sprintf('%s/planned', $at->root()));
+    adapterMap($at->root(), 'planned/coverage.php', ['src/Held.php' => [5 => [0]]], []);
+    $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'not run'));
+    $pest = new Pest($at, $shell, Patching::off());
+
+    expect($pest->coverage(CoverageRequest::reading(Path::of('planned'))))
+        ->toEqual(CoverageMap::empty()->covered(Path::of('src/Held.php'), Line::of(5), TestId::of(RUN_ADDS)))
+        ->and($pest->coverage(CoverageRequest::reading(Path::of('elsewhere'))))->toBeInstanceOf(CannotJudge::class)
+        ->and($shell->commands())->toBe([]);
+});
+
+it('names the test files a covering test\'s filter selects, or all when it will not fit', function (): void {
+    $at = adapterProject();
+    Scratch::write($at->root(), 'tests/MoneySpec.php', '<?php');
+    Scratch::write($at->root(), 'tests/HeldSpec.php', '<?php');
+    $long = sprintf('P\Tests\HeldSpec::__pest_evaluable_%s', str_repeat('x', Selection::CEILING));
+    $map = CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(RUN_ADDS))
+        ->covered(Path::of('src/Kernel.php'), Line::of(3), TestId::of($long));
+    $pest = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off());
+    $every = Paths::of(Path::of('tests/HeldSpec.php'), Path::of('tests/MoneySpec.php'));
+
+    expect($pest->judges(Path::of('src/Money.php'), $map))->toEqual(Paths::of(Path::of('tests/MoneySpec.php')))
+        ->and($pest->judges(Path::of('src/Kernel.php'), $map))->toEqual($every)
+        ->and($pest->judges(Path::of('src/Nowhere.php'), $map))->toEqual(Paths::none());
+});
+
+it('refuses to judge by a filter, which Pest cannot select held tests by', function (): void {
+    $shell = ShellFake::answering(Ran::stopped(''));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Kernel.php')), Filter::matching('KernelTest'));
+
+    expect(new Pest(adapterProject(), $shell, Patching::off())->mutate($request))->toEqual(CannotJudge::because(
+        'Pest selects holding tests by group alone, so it cannot judge by the filter KernelTest. Use a holds: group.',
+    ))->and($shell->commands())->toBe([]);
+});
+
+it('mutates with a fresh results file, and reads what the plugin recorded', function (): void {
+    $at = adapterProject();
+    Scratch::write($at->root(), '.mutation-gate/pest/results.jsonl', 'an earlier run');
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+
+    $result = new Pest($at, $shell, Patching::off())->mutate(adapterMoney());
+
+    expect($result)->toEqual(MutationResult::of(Mutants::of(adapterMutant()), 0))
+        ->and($shell->commands())
+        ->toEqual([Invocation::mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at))]);
+});
+
+it('mutates against a group without reading a shared map', function (): void {
+    $at = adapterProject();
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+    $held = Group::named('holds:src/Money.php');
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $held)->reusingCoverage(Path::of('planned'));
+
+    new Pest($at, $shell, adapterCanary())->mutate($request);
+
+    expect($shell->commands())->toEqual([Invocation::mutation($request, $held, adapterResults($at))]);
+});
+
+it('opens a patched shard on the canary group, reading the planning job\'s map', function (): void {
+    $at = adapterPatched();
+    $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
+        ? Ran::finished(succeeded: true, output: RUN_LISTING)
+        : adapterKilled($command, $at));
+    $request = adapterMoney()->reusingCoverage(Path::of('planned'));
+    $result = new Pest($at, $shell, adapterCanary())->mutate($request);
+
+    expect($result)->toBeInstanceOf(MutationResult::class)
+        ->and($shell->commands())->toEqual([
+            Invocation::listingGroups(),
+            Invocation::mutation($request, WholeSuite::tests(), adapterResults($at))->with([
+                'MUTATION_GATE_SHARED_COVERAGE' => sprintf('%s/planned/coverage.php', $at->root()),
+                'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
+                'MUTATION_GATE_CANARY' => 'mutation-canary',
+            ]),
+        ]);
+});
+
+it('opens a shard on its own suite unpatched, or when it collects its own map', function (): void {
+    $at = adapterPatched();
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+    $reusing = adapterMoney()->reusingCoverage(Path::of('planned'));
+
+    new Pest($at, $shell, Patching::off())->mutate($reusing);
+    new Pest($at, $shell, adapterCanary())->mutate(adapterMoney());
+
+    expect($shell->commands())->toEqual([
+        Invocation::mutation($reusing, WholeSuite::tests(), adapterResults($at)),
+        Invocation::mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at)),
+    ]);
+});
+
+it('cannot open a shard on the canary group without the patch applied', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: RUN_LISTING));
+    $request = adapterMoney()->reusingCoverage(Path::of('planned'));
+
+    expect(new Pest(adapterProject(), $shell, adapterCanary())->mutate($request))->toEqual(CannotJudge::because(
+        'pest.patch is on, but pest-plugin-mutate is not patched. Run vendor/bin/mutation-gate pest:patch.',
+    ))->and($shell->commands())->toBe([]);
+});
+
+it('cannot open a shard on a canary group with no test, or one it cannot list', function (): void {
+    $at = adapterPatched();
+    $request = adapterMoney()->reusingCoverage(Path::of('planned'));
+    $empty = ShellFake::answering(Ran::finished(succeeded: true, output: RUN_LISTING));
+    $unlisted = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
+    $other = Patching::on(Group::named('canary'));
+
+    expect(new Pest($at, $empty, $other)->mutate($request))
+        ->toEqual(CannotJudge::because('pest.patch is on, but the canary group canary holds no test. Add one.'))
+        ->and(new Pest($at, $unlisted, $other)->mutate($request))
+        ->toEqual(CannotJudge::because(
+            "Pest did not list the suite's groups, so no group can hold a path. Pest said:\nbroken",
+        ));
+});
+
+it('cannot open a shard on the canary group without the planning job\'s map', function (): void {
+    $at = adapterPatched();
+    $request = adapterMoney()->reusingCoverage(Path::of('absent'));
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: RUN_LISTING));
+
+    expect(new Pest($at, $shell, adapterCanary())->mutate($request))->toEqual(CannotJudge::because(
+        sprintf('There is no coverage map at %s/absent/coverage.php, so no test runs any line.', $at->root()),
+    ));
+});
+
+it('runs each mutant again alone by its file and mutator, matched back by id', function (): void {
+    $at = adapterProject();
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+    $survivor = adapterMutant();
+    $place = Location::of(Path::of('src/Money.php'), Line::of(12), Line::of(12));
+    $change = Mutation::of(RUN_PLUS, MutatorFamily::Arithmetic, '-gone');
+    $id = MutantId::hash(Path::of('src/Money.php'), RUN_PLUS, '-gone', 0);
+    $gone = Mutant::of($id, 'n9', $place, $change, MutantStatus::Survived, Unmeasured::duration());
+    $request = adapterMoney()->onlyMutators(Mutators::named(RUN_PLUS))->within(Seconds::of(20.0));
+    $retried = new Pest($at, $shell, Patching::off())->retry(Mutants::of($survivor, $gone), Seconds::of(20.0));
+
+    expect($retried)->toEqual(Mutants::of(
+        $survivor,
+        Mutant::of($id, 'n9', $place, $change, MutantStatus::Unjudged, Unmeasured::duration())
+            ->because(Reason::that('Run again alone, Pest made no mutant with this id.')),
+    ))->and($shell->commands())->toEqual([
+        Invocation::mutation($request, WholeSuite::tests(), adapterResults($at)),
+        Invocation::mutation($request, WholeSuite::tests(), adapterResults($at)),
+    ]);
+});
+
+it('cannot judge a retry whose run failed', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
+
+    expect(new Pest(adapterProject(), $shell, Patching::off())->retry(Mutants::of(adapterMutant()), Seconds::of(20.0)))
+        ->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
+});

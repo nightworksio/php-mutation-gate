@@ -27,10 +27,10 @@ final readonly class Console
         'init' => 'Write a config holding what zero-config found',
         'config:show' => 'Print the effective config',
         'config:schema' => 'Print the JSON Schema of the config',
-        'pest:patch' => 'Apply the optional Pest patches',
     ];
 
-    public static function application(): Application
+    /** @param string $vendor the Composer vendor directory the gate was installed into */
+    public static function application(string $vendor): Application
     {
         $application = new Application(self::NAME);
         $application->setAutoExit(boolean: false);
@@ -43,6 +43,8 @@ final readonly class Console
         foreach (self::COMMANDS as $name => $description) {
             $application->addCommand(NotBuilt::command($name, $description));
         }
+
+        $application->addCommand(PestPatch::command($vendor));
 
         $application->setDefaultCommand(self::DEFAULT);
 
