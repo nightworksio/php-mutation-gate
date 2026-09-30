@@ -109,7 +109,7 @@ it('refuses a planned mutant on a line no file has, or ending before it starts',
         ->and(Records::in($results([$plannedAt(1, 1)])))->toBeInstanceOf(Records::class);
 });
 
-it('keeps each mutant\'s latest status, and none for one Pest never ran', function () use ($results, $planned): void {
+it('keeps each mutant\'s latest status, and none for one Pest never ran', function () use ($results, $planned, $mutant): void {
     $records = Records::in($results([
         $planned('a', '/p/src/Money.php', 10),
         RecordLine::outcome('a', PestStatus::Untested),
@@ -118,34 +118,40 @@ it('keeps each mutant\'s latest status, and none for one Pest never ran', functi
     ]));
 
     $statuses = $records instanceof Records
-        ? [$records->statusOf('a'), $records->statusOf('b'), $records->statusOf('c')]
+        ? array_map(
+            static fn(string $id): PestStatus => $records->statusOf($mutant($id, '/p/src/Money.php', 10)),
+            ['a', 'b', 'c'],
+        )
         : [];
 
     expect($statuses)->toBe([PestStatus::Tested, PestStatus::Timeout, PestStatus::None]);
 });
 
-it('keeps every outcome of a run stopped before any mutant finished', function () use ($results): void {
+it('keeps every outcome of a run stopped before any mutant finished', function () use ($results, $mutant): void {
     $records = Records::in($results([
         RecordLine::outcome('a', PestStatus::Untested),
         RecordLine::outcome('b', PestStatus::Timeout),
     ]));
 
-    expect($records instanceof Records ? [$records->statusOf('a'), $records->statusOf('b')] : [])
+    $status = static fn(string $id): PestStatus => $records instanceof Records
+        ? $records->statusOf($mutant($id, '/p/src/Money.php', 10))
+        : PestStatus::None;
+
+    expect([$status('a'), $status('b')])
         ->toBe([PestStatus::Untested, PestStatus::Timeout]);
 });
 
-it('measures only a mutant that ran for some time', function () use ($results): void {
+it('measures only a mutant that ran for some time', function () use ($results, $mutant): void {
     $records = Records::in($results([
         RecordLine::finished('ran', PestStatus::Tested, 0.5),
         RecordLine::finished('never', PestStatus::Uncovered, 0.0),
         RecordLine::outcome('running', PestStatus::Tested),
     ]));
 
-    expect($records instanceof Records ? [
-        $records->durationOf('ran'),
-        $records->durationOf('never'),
-        $records->durationOf('running'),
-    ] : [])->toEqual([Seconds::of(0.5), Unmeasured::duration(), Unmeasured::duration()]);
+    expect($records instanceof Records ? array_map(
+        static fn(string $id): Seconds|Unmeasured => $records->durationOf($mutant($id, '/p/src/Money.php', 10)),
+        ['ran', 'never', 'running'],
+    ) : [])->toEqual([Seconds::of(0.5), Unmeasured::duration(), Unmeasured::duration()]);
 });
 
 it('adds up to a summary only once ended with every status as counted', function () use ($results, $planned): void {
@@ -215,7 +221,9 @@ it('knows it wrote every mutant Pest made once it says how many', function () us
 
     expect($made([$planned('a', '/p/Money.php', 10), RecordLine::made(1, $opening)]))->toBeTrue()
         ->and($made([$planned('a', '/p/Money.php', 10)]))->toBeFalse()
-        ->and($made([$planned('a', '/p/Money.php', 10), RecordLine::made(2, $opening)]))->toBeFalse();
+        ->and($made([$planned('a', '/p/Money.php', 10), RecordLine::made(2, $opening)]))->toBeFalse()
+        ->and($made([$planned('a', '/p/Money.php', 10), $planned('a', '/p/Money.php', 10), RecordLine::made(2, $opening)]))
+        ->toBeTrue();
 });
 
 it('knows whether the run reached its end', function () use ($results): void {
@@ -226,7 +234,7 @@ it('knows whether the run reached its end', function () use ($results): void {
         ->and($running instanceof Records && $running->ended())->toBeFalse();
 });
 
-it('names the tests that failed in each mutant\'s own process, in order, by the mutated copy they ran on', function () use ($results, $planned): void {
+it('names the tests that failed in each mutant\'s own process, in order, by the mutated copy they ran on', function () use ($results, $planned, $mutant): void {
     $records = Records::in($results([
         $planned('a', '/p/src/Money.php', 10),
         $planned('b', '/p/src/Money.php', 20),
@@ -235,10 +243,67 @@ it('names the tests that failed in each mutant\'s own process, in order, by the 
         RecordLine::killed('/tmp/elsewhere', 'P\\Tests\\OtherSpec::__pest_evaluable_it'),
     ]));
     $named = static fn(string $id): array => $records instanceof Records
-        ? array_map(static fn(TestId $test): string => $test->value(), [...$records->killersOf($id)])
+        ? array_map(static fn(TestId $test): string => $test->value(), [...$records->killersOf($mutant($id, '/p/src/Money.php', 10))])
         : [];
 
     expect($named('a'))->toBe(['P\\Tests\\MoneySpec::__pest_evaluable_it_adds', 'Tests\\LegacySpec::testAdds#(1)'])
         ->and($named('b'))->toBe([])
         ->and($named('unplanned'))->toBe([]);
+});
+
+it('keeps apart the mutants Pest gives one id, as two changes that leave the same source share it', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('same', '/p/src/Money.php', 10),
+        $planned('same', '/p/src/Money.php', 10),
+        RecordLine::outcome('same', PestStatus::Untested),
+        RecordLine::outcome('same', PestStatus::Tested),
+        RecordLine::finished('same', PestStatus::Tested, 0.5),
+    ]));
+    $read = $records instanceof Records ? $records->planned() : [];
+    $of = static fn(PlannedMutant $each): array => $records instanceof Records
+        ? [$each->occurrence(), $records->statusOf($each), $records->durationOf($each)]
+        : [];
+
+    expect(array_map($of, $read))->toEqual([
+        [0, PestStatus::Tested, Seconds::of(0.5)],
+        [1, PestStatus::Tested, Unmeasured::duration()],
+    ])->and($mutant('same', '/p/src/Money.php', 10)->occurrence())->toBe(0);
+});
+
+it('adds up to a summary that counts each mutant sharing an id, once each finished', function () use ($results, $planned): void {
+    $finished = static fn(PestStatus $status): string => RecordLine::finished('same', $status, 0.1);
+    /** @param list<string> $finishes */
+    $adds = static function (array $finishes, string $summary) use ($results, $planned): bool {
+        $read = Records::in($results([
+            $planned('same', '/p/Money.php', 10),
+            $planned('same', '/p/Money.php', 10),
+            ...$finishes,
+            RecordLine::end(),
+        ]));
+        $by = Summary::in(sprintf('Mutations: %s', $summary));
+
+        return $read instanceof Records && $by instanceof Summary && $read->addUpTo($by);
+    };
+
+    expect($adds([$finished(PestStatus::Tested), $finished(PestStatus::Uncovered)], '1 uncovered, 1 tested'))->toBeTrue()
+        ->and($adds([$finished(PestStatus::Tested)], '1 tested'))->toBeFalse()
+        ->and($adds([$finished(PestStatus::Tested)], '1 uncovered, 1 tested'))->toBeFalse()
+        ->and($adds(array_fill(0, 3, $finished(PestStatus::Tested)), '3 tested'))->toBeFalse();
+});
+
+it('adds up only where the mutants finished in the order they were planned, as the plugin writes them', function () use ($results, $planned): void {
+    $adds = static function (string ...$ids) use ($results, $planned): bool {
+        $read = Records::in($results([
+            $planned('a', '/p/Money.php', 10),
+            $planned('b', '/p/Money.php', 20),
+            ...array_map(static fn(string $id): string => RecordLine::finished($id, PestStatus::Tested, 0.1), $ids),
+            RecordLine::end(),
+        ]));
+        $by = Summary::in('Mutations: 2 tested');
+
+        return $read instanceof Records && $by instanceof Summary && $read->addUpTo($by);
+    };
+
+    expect($adds('a', 'b'))->toBeTrue()
+        ->and($adds('b', 'a'))->toBeFalse();
 });

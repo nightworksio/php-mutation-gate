@@ -81,11 +81,11 @@ final readonly class Seeder
         }
 
         $history = Plan::read($this->directory);
-        $planned = $this->plannedIn($suite);
+        $planned = PlannedMutant::inOrder($this->plannedIn($suite));
         $ids = Identities::of($this->root, $planned);
         $functions = [];
 
-        foreach ($planned as $mutant) {
+        foreach ($planned as $at => $mutant) {
             $file = $mutant->file()->value();
             $functions[$file] = array_key_exists($file, $functions)
                 ? $functions[$file]
@@ -95,14 +95,19 @@ final readonly class Seeder
             Seed::write(
                 Seed::directoryOf($this->directory, $mutant->mutated()->value()),
                 version(),
-                $history->likelyKillers($ids[$mutant->id()], $in),
+                $history->likelyKillers($ids[$at], $in),
                 $coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()),
                 $coverage,
             );
         }
     }
 
-    /** @return list<PlannedMutant> every mutant of a suite as the recorder plans it */
+    /**
+     * Every mutant of a suite as the recorder plans it. Mutants that leave the
+     * same source share one mutated copy, and so one seed.
+     *
+     * @return list<PlannedMutant>
+     */
     private function plannedIn(MutationSuite $suite): array
     {
         $planned = [];

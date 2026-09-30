@@ -41,4 +41,10 @@ final readonly class Hunk
     {
         return str_replace($this->ships, $this->becomes, $source);
     }
+
+    /** The source without the patched lines, where it carries them. */
+    public function takenFrom(string $source): string
+    {
+        return str_replace($this->becomes, '', $source);
+    }
 }

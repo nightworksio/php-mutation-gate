@@ -24,14 +24,14 @@ it('ids each mutant by its file, mutator and change, counting those before it by
     $diff = Diff::fromPest($pest);
     $id = static fn(string $file, int $occurrence): MutantId => MutantId::hash(Path::of($file), PlusToMinus::class, $diff, $occurrence);
 
-    expect(Identities::of(Root::of('/p'), [
+    expect(Identities::of(Root::of('/p'), PlannedMutant::inOrder([
         $planned('late', '/p/src/A.php', 20),
         $planned('other', '/p/src/B.php', 5),
         $planned('early', '/p/src/A.php', 10),
-    ]))->toEqual([
-        'early' => $id('src/A.php', 0),
-        'late' => $id('src/A.php', 1),
-        'other' => $id('src/B.php', 0),
+    ])))->toEqual([
+        $id('src/A.php', 0),
+        $id('src/A.php', 1),
+        $id('src/B.php', 0),
     ]);
 });
 
@@ -40,6 +40,14 @@ it('counts a mutant whose change differs from another only in whitespace as the 
     $wide = PestRun::mutant('wide', '/p/src/A.php', 20, PlusToMinus::class, 'return $a  +  $b;', 'return $a  -  $b;');
     $diff = Diff::fromPest(PestRun::diff('return $a  +  $b;', 'return $a  -  $b;'));
 
-    expect(Identities::of(Root::of('/p'), [$narrow, $wide])['wide'])
+    expect(Identities::of(Root::of('/p'), [$narrow, $wide])[1])
         ->toEqual(MutantId::hash(Path::of('src/A.php'), PlusToMinus::class, $diff, 1));
+});
+
+it('ids apart the mutants Pest gives one id, by how many before each share the change, in the order given', function (): void {
+    $same = PestRun::mutant('same', '/p/src/A.php', 10, PlusToMinus::class, 'return $a + $b;', 'return $a - $b;');
+    $diff = Diff::fromPest(PestRun::diff('return $a + $b;', 'return $a - $b;'));
+    $id = static fn(int $occurrence): MutantId => MutantId::hash(Path::of('src/A.php'), PlusToMinus::class, $diff, $occurrence);
+
+    expect(Identities::of(Root::of('/p'), [$same, $same]))->toEqual([$id(0), $id(1)]);
 });

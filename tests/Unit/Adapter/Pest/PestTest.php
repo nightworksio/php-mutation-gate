@@ -484,7 +484,8 @@ it('runs the mutants again in one run of their files with their mutators, naming
     );
     $invocation = MutationRequest::of(Paths::of(Path::of('src'), Path::of('lib')), WholeSuite::tests())
         ->leavingOut(Paths::of(Path::of('src/Held')))
-        ->onlyMutators(Mutators::all());
+        ->onlyMutators(Mutators::all())
+        ->within(Seconds::of(42.0));
     $request = $invocation->narrowedTo(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')), Mutators::named(RUN_PLUS));
     $retried = new Pest($at, $shell, Patching::off())
         ->retry($invocation, Mutants::of($survivor, $gone, $elsewhere), Seconds::of(20.0));
@@ -495,8 +496,9 @@ it('runs the mutants again in one run of their files with their mutators, naming
         Mutant::of($id, 'n9', $place, $change, MutantStatus::Unjudged, Unmeasured::duration())->because($notFound),
         Interpretation::unjudged($elsewhere, $notFound),
     ))->and($shell->commands())->toEqual([
-        adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))->with(['MUTATION_GATE_ONLY' => 'n1,n9,n8']),
+        adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', adapterResults($at))]),
     ])
+        ->and(file_get_contents(sprintf('%s.only', adapterResults($at))))->toBe("n1\nn9\nn8")
         ->and(new Pest($at, $shell, Patching::off())->retry($invocation, Mutants::none(), Seconds::of(20.0)))
         ->toEqual(Mutants::none());
 });
@@ -520,7 +522,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
             'MUTATION_GATE_SHARED_COVERAGE' => $written,
             'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
             'MUTATION_GATE_CANARY' => 'mutation-canary',
-            'MUTATION_GATE_ONLY' => 'n1',
+            'MUTATION_GATE_ONLY' => sprintf('%s.only', adapterResults($at)),
         ]));
 });
 
@@ -534,9 +536,94 @@ it('runs a held unit\'s mutant again by the group that holds it, withholding wha
     new Pest($at, $shell, Patching::off())->retry($invocation, Mutants::of(adapterMutant()), Seconds::of(20.0));
 
     expect($shell->commands())->toEqual([
-        adapterInvocation()->mutation($request, $holding, adapterResults($at))->with(['MUTATION_GATE_ONLY' => 'n1']),
+        adapterInvocation()->mutation($request, $holding, adapterResults($at))->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', adapterResults($at))]),
     ]);
 });
+
+it('hands each mutant run again its own result, though the mutants run again are numbered apart from the rest', function (): void {
+    $at = adapterProject();
+    $money = sprintf('%s/src/Money.php', $at->root());
+    $shell = new ShellFake(static function (Command $command) use ($money): Ran {
+        $results = sprintf('%s', $command->environment()[GateVariable::Results->value] ?? '');
+        CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', dirname($money, 2)), ['src/Money.php' => [20 => [0], 30 => [0]]], [RUN_ADDS], []);
+        PestRun::write($results, [
+            PestRun::planned('pB', $money, 20, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+            PestRun::planned('pC', $money, 30, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+            PestRun::made(2),
+            PestRun::killed('pB', RUN_ADDS),
+            PestRun::finished('pB', PestStatus::Tested, 0.25),
+            PestRun::finished('pC', PestStatus::Untested, 0.5),
+            PestRun::end(),
+        ]);
+
+        return Ran::finished(succeeded: true, output: '  Mutations: 1 untested, 1 tested');
+    });
+    $diff = Diff::fromPest(PestRun::diff('return $a + $b;', 'return $a - $b;'));
+    // The same change on three lines: the first run numbers them 0, 1 and 2.
+    $survivor = static fn(string $native, int $line, int $occurrence): Mutant => Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), RUN_PLUS, $diff, $occurrence),
+        $native,
+        Location::of(Path::of('src/Money.php'), Line::of($line), Line::of($line)),
+        Mutation::of(RUN_PLUS, MutatorFamily::Arithmetic, $diff),
+        MutantStatus::Survived,
+        Seconds::of(0.1),
+    );
+    $b = $survivor('pB', 20, 1);
+    $c = $survivor('pC', 30, 2);
+
+    $retried = new Pest($at, $shell, Patching::off())->retry(adapterMoney(), Mutants::of($b, $c), Seconds::of(20.0));
+    $by = static fn(Mutants|CannotJudge $mutants): array => $mutants instanceof Mutants ? array_map(
+        static fn(Mutant $mutant): array => [$mutant->id()->value(), $mutant->nativeId(), $mutant->status()],
+        [...$mutants],
+    ) : [];
+
+    expect($by($retried))->toBe([
+        [$b->id()->value(), 'pB', MutantStatus::Killed],
+        [$c->id()->value(), 'pC', MutantStatus::Survived],
+    ]);
+});
+
+it('hands each of the mutants that share Pest\'s id the one found again on its own line, or else the next', function (int $one, int $two): void {
+    $at = adapterProject();
+    $money = sprintf('%s/src/Money.php', $at->root());
+    $shell = new ShellFake(static function (Command $command) use ($money, $one, $two): Ran {
+        $results = sprintf('%s', $command->environment()[GateVariable::Results->value] ?? '');
+        CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', dirname($money, 2)), ['src/Money.php' => [max(1, $one) => [0], max(1, $two) => [0]]], [RUN_ADDS], []);
+        PestRun::write($results, [
+            PestRun::planned('pD', $money, $one, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+            PestRun::planned('pD', $money, $two, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+            PestRun::made(2),
+            PestRun::finished('pD', PestStatus::Tested, 0.25),
+            PestRun::finished('pD', PestStatus::Untested, 0.5),
+            PestRun::end(),
+        ]);
+
+        return Ran::finished(succeeded: true, output: '  Mutations: 1 untested, 1 tested');
+    });
+    $diff = Diff::fromPest(PestRun::diff('return $a + $b;', 'return $a - $b;'));
+    $survivor = static fn(int $line, int $occurrence): Mutant => Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), RUN_PLUS, $diff, $occurrence),
+        'pD',
+        Location::of(Path::of('src/Money.php'), Line::of($line), Line::of($line)),
+        Mutation::of(RUN_PLUS, MutatorFamily::Arithmetic, $diff),
+        MutantStatus::Survived,
+        Seconds::of(0.1),
+    );
+    $retried = static fn(Mutant ...$asked): array => array_map(
+        static fn(Mutant $mutant): array => [$mutant->id()->value(), $mutant->location()->start()->number(), $mutant->status()],
+        [...(($again = new Pest($at, $shell, Patching::off())->retry(adapterMoney(), Mutants::of(...$asked), Seconds::of(20.0))) instanceof Mutants ? $again : Mutants::none())],
+    );
+    $first = $survivor($one, 0);
+    $second = $survivor($two, 1);
+
+    expect($retried($first, $second))->toBe([
+        [$first->id()->value(), $one, MutantStatus::Killed],
+        [$second->id()->value(), $two, MutantStatus::Survived],
+    ])->and($retried($second))->toBe([[$second->id()->value(), $two, $one === $two ? MutantStatus::Killed : MutantStatus::Survived]]);
+})->with([
+    'on two lines' => [35, 40],
+    'on one line' => [50, 50],
+]);
 
 it('cannot judge a retry whose run failed', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));

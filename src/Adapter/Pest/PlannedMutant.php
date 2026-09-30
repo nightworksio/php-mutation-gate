@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_key_exists;
+
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 
@@ -24,6 +26,7 @@ final readonly class PlannedMutant
         private string $mutator,
         private string $diff,
         private DiskPath $mutated,
+        private int $occurrence = 0,
     ) {
     }
 
@@ -37,6 +40,29 @@ final readonly class PlannedMutant
         DiskPath $mutated,
     ): self {
         return new self($id, $file, $start, $end, $mutator, $diff, $mutated);
+    }
+
+    /**
+     * The mutants, each numbered among those before it that Pest gave the
+     * same id. Pest's id hashes the file, the mutator and the mutated source,
+     * so two changes that leave the same source share one, as removing either
+     * item of `['', '']` does; Pest still makes, runs and counts both.
+     *
+     * @param  list<self> $planned
+     * @return list<self>
+     */
+    public static function numbered(array $planned): array
+    {
+        $seen = [];
+        $numbered = [];
+
+        foreach ($planned as $mutant) {
+            $occurrence = array_key_exists($mutant->id, $seen) ? $seen[$mutant->id] : 0;
+            $numbered[] = clone($mutant, ['occurrence' => $occurrence]);
+            $seen[$mutant->id] = $occurrence + 1;
+        }
+
+        return $numbered;
     }
 
     /**
@@ -58,10 +84,19 @@ final readonly class PlannedMutant
         return $planned;
     }
 
-    /** Pest's own id of the mutant. */
+    /** Pest's own id of the mutant, which another mutant that leaves the same source shares. */
     public function id(): string
     {
         return $this->id;
+    }
+
+    /**
+     * How many mutants before it Pest gave the same id: 0 for the first, and
+     * for every mutant numbered() has not seen.
+     */
+    public function occurrence(): int
+    {
+        return $this->occurrence;
     }
 
     public function file(): DiskPath

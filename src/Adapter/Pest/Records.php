@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_diff_key;
+use function array_count_values;
 use function array_filter;
 use function array_key_exists;
 use function array_key_last;
 use function array_map;
+use function array_merge;
 use function array_values;
 use function count;
 use function explode;
@@ -54,16 +55,16 @@ final class Records
     /** How a record is named. */
     private const string RECORD = 'the record';
 
-    /** @var array<string, PlannedMutant> by native id */
+    /** @var list<PlannedMutant> in the order the plugin wrote them, which is the order it writes them finished */
     private array $planned = [];
 
-    /** @var array<string, PestStatus> the latest status, by native id */
-    private array $statuses = [];
+    /** @var array<string, list<PestStatus>> each status Pest decided, by native id, in the order it decided them */
+    private array $outcomes = [];
 
-    /** @var array<string, float> by native id */
+    /** @var array<string, list<float>> by native id, one for each mutant that shares it, in order */
     private array $durations = [];
 
-    /** @var array<string, PestStatus> the final status, by native id */
+    /** @var array<string, list<PestStatus>> the final status, by native id, one for each mutant that shares it */
     private array $finished = [];
 
     /** @var array<string, list<string>> the tests that failed, in order, by the mutated copy they ran on */
@@ -108,30 +109,35 @@ final class Records
      */
     public function planned(): array
     {
-        return PlannedMutant::inOrder(array_values($this->planned));
+        return PlannedMutant::inOrder(PlannedMutant::numbered($this->planned));
     }
 
-    /** The status a mutant ended with, as Pest names it; none for one Pest never ran. */
-    public function statusOf(string $id): PestStatus
+    /**
+     * The status a mutant ended with, as Pest names it, or the last it
+     * reported while it ran; none for one Pest never ran.
+     */
+    public function statusOf(PlannedMutant $mutant): PestStatus
     {
-        return array_key_exists($id, $this->statuses) ? $this->statuses[$id] : PestStatus::None;
+        return $this->nth($this->finished, $mutant, $this->nth($this->outcomes, $mutant, PestStatus::None));
     }
 
     /** How long a mutant ran; one Pest never started ran for no time it measured. */
-    public function durationOf(string $id): Seconds|Unmeasured
+    public function durationOf(PlannedMutant $mutant): Seconds|Unmeasured
     {
-        $ran = array_key_exists($id, $this->durations) && $this->durations[$id] > 0.0;
+        $seconds = $this->nth($this->durations, $mutant, 0.0);
 
-        return $ran ? Seconds::of($this->durations[$id]) : Unmeasured::duration();
+        return $seconds > 0.0 ? Seconds::of($seconds) : Unmeasured::duration();
     }
 
     /**
      * The tests that failed in a mutant's own process, in the order they
-     * failed: the first killed it. None where no test is known to have.
+     * failed: the first killed it. None where no test is known to have. Any
+     * two mutants that leave the same source share their mutated copy, and
+     * so these, even under different mutators.
      */
-    public function killersOf(string $id): TestIds
+    public function killersOf(PlannedMutant $mutant): TestIds
     {
-        $mutated = array_key_exists($id, $this->planned) ? $this->planned[$id]->mutated()->value() : '';
+        $mutated = $mutant->mutated()->value();
         $named = array_key_exists($mutated, $this->killers) ? $this->killers[$mutated] : [];
 
         return TestIds::of(...array_map(TestId::of(...), $named));
@@ -161,15 +167,12 @@ final class Records
      */
     public function addUpTo(Summary $summary): bool
     {
-        $planned = count($this->planned);
-        $counted = $this->ended
-            && array_diff_key($this->planned, $this->finished) === []
-            && count($this->finished) === $planned
-            && $summary->total() === $planned;
+        $finished = array_merge(...array_values($this->finished));
+        $counted = $this->ended && $this->finishedAsPlanned();
 
         foreach (PestStatus::cases() as $status) {
-            $finished = array_filter($this->finished, static fn(PestStatus $final): bool => $final === $status);
-            $counted = $counted && $summary->count($status) === count($finished);
+            $ended = array_filter($finished, static fn(PestStatus $final): bool => $final === $status);
+            $counted = $counted && $summary->count($status) === count($ended);
         }
 
         return $counted;
@@ -220,7 +223,7 @@ final class Records
             throw NotInShape::at($end->at(), 'a line at or after the one the mutant starts on');
         }
 
-        $this->planned[$id] = PlannedMutant::of(
+        $this->planned[] = PlannedMutant::of(
             $id,
             DiskPath::of($record->field(RecordField::File->value)->text()),
             Line::of($start->integer()),
@@ -229,6 +232,38 @@ final class Records
             $record->field(RecordField::Diff->value)->text(),
             DiskPath::of($record->field(RecordField::Mutated->value)->text()),
         );
+    }
+
+    /**
+     * What was recorded of a mutant among those that share its id, or the
+     * given where none was. Pest writes `finished` in the order it planned
+     * them, so the first such record is the first such mutant's. It writes
+     * `outcome` as each ends, so among mutants that share an id the pairing
+     * is arbitrary, and harmless: they leave the same source.
+     *
+     * @template T of PestStatus|float
+     *
+     * @param  array<string, list<T>> $byId
+     * @param  T                      $none
+     * @return T
+     */
+    private function nth(array $byId, PlannedMutant $mutant, PestStatus|float $none): PestStatus|float
+    {
+        $sharing = array_key_exists($mutant->id(), $byId) ? $byId[$mutant->id()] : [];
+
+        return array_key_exists($mutant->occurrence(), $sharing) ? $sharing[$mutant->occurrence()] : $none;
+    }
+
+    /**
+     * Whether each planned id finished once for every mutant Pest gave it,
+     * and no other id did, in the order Pest planned them, which is the order
+     * it writes them finished.
+     */
+    private function finishedAsPlanned(): bool
+    {
+        $ids = array_map(static fn(PlannedMutant $mutant): string => $mutant->id(), $this->planned);
+
+        return array_map(count(...), $this->finished) === array_count_values($ids);
     }
 
     /** @throws NotInShape */
@@ -242,17 +277,15 @@ final class Records
     /** @throws NotInShape */
     private function withOutcome(Node $record): void
     {
-        $this->statuses[$record->field(RecordField::Id->value)->text()] = $this->statusIn($record);
+        $this->outcomes[$record->field(RecordField::Id->value)->text()][] = $this->statusIn($record);
     }
 
     /** @throws NotInShape */
     private function withFinished(Node $record): void
     {
         $id = $record->field(RecordField::Id->value)->text();
-        $status = $this->statusIn($record);
-        $this->statuses[$id] = $status;
-        $this->finished[$id] = $status;
-        $this->durations[$id] = $record->field(RecordField::Duration->value)->number();
+        $this->finished[$id][] = $this->statusIn($record);
+        $this->durations[$id][] = $record->field(RecordField::Duration->value)->number();
     }
 
     /** @throws NotInShape */

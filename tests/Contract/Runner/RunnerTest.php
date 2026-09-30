@@ -490,7 +490,7 @@ it('opens a patched shard on the canary group and reads the map the planning job
         ->toEqualCanonicalizing($library->expected('adds', 'large'));
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
-it('runs again, patched, only the mutants it names, on the map the invocation read', function (): void {
+it('runs again, patched, only the mutants the file it hands over names, on the map the invocation read', function (): void {
     Patch::applyIn(Library::vendor());
     $library = Library::pest(Patching::on(Library::canary()));
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned')));
@@ -513,8 +513,10 @@ it('runs again, patched, only the mutants it names, on the map the invocation re
     $again = $library->runner()->retry($request, $survivors, Seconds::of(60.0));
     // The run again recorded what it made: the survivor, and not the mutant the first run killed.
     $recorded = (string) file_get_contents(Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl', Library::DIRECTORY)));
+    $listed = (string) file_get_contents(Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl.only', Library::DIRECTORY)));
 
     expect([count($survivors), count($killed)])->toBe([1, 1])
+        ->and($listed)->toBe(implode("\n", array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$survivors])))
         ->and($again instanceof Mutants ? Library::records($again) : $again)->toBe(Library::records($survivors))
         ->and(array_map(static fn(Mutant $mutant): bool => str_contains($recorded, $mutant->nativeId()), [...$survivors, ...$killed]))
         ->toBe([true, false]);
@@ -538,6 +540,20 @@ it('holds the library to the pest-plugin-mutate the package allows', function ()
             'phpunit/phpunit' => '<12.5.8 || >=12.5.21 <12.5.22 || >=13.1.5 <13.1.6',
             'symfony/yaml' => '<7.4.12 || >=8.0 <8.0.12',
         ]);
+});
+
+// The lowest resolution of the Infection library installs the lowest PHPUnit the
+// package allows, 12.5.8, not the lowest its own constraint would.
+it('holds the Infection library to the PHPUnit the package allows', function (): void {
+    $phpunit = static function (string $manifest): mixed {
+        $decoded = json_decode((string) file_get_contents(Tree::at($manifest)), associative: true);
+        $conflict = is_array($decoded) && array_key_exists('conflict', $decoded) ? $decoded['conflict'] : [];
+
+        return is_array($conflict) && array_key_exists('phpunit/phpunit', $conflict) ? $conflict['phpunit/phpunit'] : null;
+    };
+
+    expect($phpunit(sprintf('%s/composer.json', Library::INFECTION_DIRECTORY)))->toBe($phpunit('composer.json'))
+        ->and($phpunit('composer.json'))->toStartWith('<12.5.8 ');
 });
 
 // The unit suite patches pest-plugin-mutate's files as the allowed version ships

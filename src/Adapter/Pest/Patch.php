@@ -6,29 +6,45 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_all;
 use function array_filter;
+use function array_first;
+use function array_key_exists;
+use function array_keys;
+use function array_map;
+use function array_unique;
+use function array_values;
 use function basename;
 use function count;
 use function dirname;
 use function file_get_contents;
 use function file_put_contents;
 use function is_file;
+use function is_string;
 use function is_writable;
+use function mb_strlen;
+use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 
+use function sort;
 use function sprintf;
+use function str_contains;
+use function str_replace;
 
 /**
- * `pest:patch`: the two opt-in changes to pest-plugin-mutate the gate's
- * `pest.patch` setting relies on.
+ * `pest:patch`: the changes to pest-plugin-mutate the gate's `pest.patch`
+ * setting relies on.
  * - A mutant's `--filter` too long to start a process with is dropped, so the
  *   mutant runs against the whole suite, which can only kill more mutants.
  * - Given a coverage map another job wrote, the opening run is the canary
  *   group alone, the map is copied in place of the one that run wrote, and
  *   Pest times its mutants by the seconds the whole suite took.
+ * - Given a list of native ids (see OnlyList), a run makes only those mutants.
  *
- * Every anchor is checked before anything is written, so a moved one changes
- * nothing, and patching again finds the patch in place.
+ * Every anchor is checked, against the source as the hunks before it left
+ * it, before anything is written, so a moved one changes nothing, and
+ * patching again finds the patch in place.
  */
 final readonly class Patch
 {
@@ -47,7 +63,7 @@ final readonly class Patch
         PHP;
 
     private const string FILTER_BECOMES = <<<'PHP'
-                // mutation-gate pest:patch: a filter too long to start a process with is left out.
+                {MARK} a filter too long to start a process with is left out.
                 $filter = '--filter="'.implode('|', $filters).'"';
 
                 $process = new Process(
@@ -67,7 +83,7 @@ final readonly class Patch
     private const string CANARY_BECOMES = <<<'PHP'
                 $mutationTestRunner->setStartTime(microtime(true));
 
-                // mutation-gate pest:patch: with a shared coverage map, the opening run is the canary group.
+                {MARK} with a shared coverage map, the opening run is the canary group.
                 if ((string) getenv('%1$s') !== '') {
                     $arguments[] = '--group='.getenv('%2$s');
                 }
@@ -84,7 +100,7 @@ final readonly class Patch
                     microtime(true) - $this->startTime
                 );
 
-                // mutation-gate pest:patch: read the shared coverage map, and time mutants by its suite.
+                {MARK} read the shared coverage map, and time mutants by its suite.
                 if ((string) getenv('%1$s') !== '') {
                     $seconds = (float) getenv('%2$s');
                     $shared = (string) getenv('%1$s');
@@ -106,15 +122,48 @@ final readonly class Patch
         PHP;
 
     private const string ONLY_BECOMES = <<<'PHP'
-                        // mutation-gate pest:patch: a run again makes only the mutants it names.
-                        $only = (string) getenv('%s');
-
-                        if ($only !== '' && ! in_array($mutation->id, explode(',', $only), true)) {
+                        {MARK} a run again makes only the mutants it names.
+                        if ($only !== [] && ! isset($only[$mutation->id])) {
                             continue;
                         }
 
                         $mutationSuite->repository->add($mutation);
         PHP;
+
+    private const string LISTED_SHIPS = <<<'PHP'
+                foreach ($files as $file) {
+                    $linesToMutate = [];
+        PHP;
+
+    private const string LISTED_BECOMES = <<<'PHP'
+                {MARK} the mutants a run again makes, read once; none for every mutant.
+                $only = class_exists(\%1$s::class) ? \%1$s::in((string) getenv('%2$s')) : [];
+
+                foreach ($files as $file) {
+                    $linesToMutate = [];
+        PHP;
+
+    /**
+     * What begins the comment every hunk writes, and so finds every hunk
+     * another version of the gate wrote; each hunk's text holds it as MARKED.
+     */
+    private const string MARK = '// mutation-gate pest:patch:';
+
+    /** Where a hunk's text holds the mark. */
+    private const string MARKED = '{MARK}';
+
+    /** Why pest:patch cannot change a file another version of the gate patched. */
+    private const string OTHER_VERSION = "pest:patch patched nothing: %s holds another gate's patch. Run %s.";
+
+    /** What takes another gate's patch out: installing the plugin afresh, which runs pest:patch again. */
+    private const string REINSTALL = 'composer reinstall pestphp/pest-plugin-mutate';
+
+    /** Why pest:patch cannot change a file whose lines have moved. */
+    private const string MOVED
+        = 'pest:patch patched nothing: the lines it rewrites have moved in %s. Install a supported version.';
+
+    /** Why pest:patch cannot read a file it changes. */
+    private const string UNREADABLE = 'pest:patch cannot read %s. Is pest-plugin-mutate installed?';
 
     /** Why pest:patch cannot change a file it has to. */
     private const string UNWRITABLE = 'pest:patch cannot write %s/%s. Make the vendor directory writable.';
@@ -122,19 +171,18 @@ final readonly class Patch
     /** Patch pest-plugin-mutate in a vendor directory, and say what was done. */
     public static function applyIn(string $vendor): string|CannotJudge
     {
-        $sources = [];
+        $sources = self::sources($vendor);
+        $other = $sources instanceof CannotJudge ? [] : self::otherVersions($vendor, $sources);
+        $patching = match (true) {
+            $sources instanceof CannotJudge => $sources,
+            $other !== [] => CannotJudge::because(sprintf(self::OTHER_VERSION, $other[0], self::REINSTALL)),
+            default => self::patching($vendor, $sources),
+        };
 
-        foreach (self::hunks() as $hunk) {
-            $source = self::read($vendor, $hunk);
-
-            if ($source instanceof CannotJudge) {
-                return $source;
-            }
-
-            $sources[$hunk->file()] = $source;
+        if ($patching instanceof CannotJudge) {
+            return $patching;
         }
 
-        $patching = self::patching($sources);
         $unwritten = 0;
 
         foreach ($patching as $file => $source) {
@@ -144,83 +192,165 @@ final readonly class Patch
         return $unwritten === 0 ? sprintf(
             'pest:patch patched %d of the %d files it changes in pest-plugin-mutate.',
             count($patching),
-            count($sources),
+            count(self::hunkFiles()),
         ) : CannotJudge::because(sprintf(self::UNWRITABLE, $vendor, 'pestphp/pest-plugin-mutate/src'));
     }
 
-    /** Whether pest-plugin-mutate in a vendor directory carries every hunk. */
+    /** Whether pest-plugin-mutate in a vendor directory carries every hunk, and no hunk another version wrote. */
     public static function isAppliedIn(string $vendor): bool
     {
-        return array_all(self::hunks(), static function (Hunk $hunk) use ($vendor): bool {
-            $file = sprintf(self::SOURCE, $vendor, $hunk->file());
+        $sources = self::sources($vendor);
 
-            return is_file($file) && $hunk->isAppliedTo(sprintf('%s', file_get_contents($file)));
-        });
+        return ! $sources instanceof CannotJudge
+            && self::otherVersions($vendor, $sources) === []
+            && array_all(self::hunks(), static fn(Hunk $hunk): bool => $hunk->isAppliedTo($sources[$hunk->file()]));
     }
 
     /**
-     * Each file's source with every hunk it lacks applied, of the files a hunk changes.
+     * Each file a hunk changes, by its path under the source directory; or
+     * why one cannot be read.
+     *
+     * @return array<string, string>|CannotJudge
+     */
+    private static function sources(string $vendor): array|CannotJudge
+    {
+        $sources = [];
+
+        foreach (self::hunkFiles() as $relative) {
+            $file = sprintf(self::SOURCE, $vendor, $relative);
+
+            if (! is_file($file)) {
+                return CannotJudge::because(sprintf(self::UNREADABLE, $file));
+            }
+
+            $sources[$relative] = sprintf('%s', file_get_contents($file));
+        }
+
+        return $sources;
+    }
+
+    /** @return list<string> each file a hunk changes, by its path under the source directory, once */
+    private static function hunkFiles(): array
+    {
+        return array_values(array_unique(array_map(static fn(Hunk $hunk): string => $hunk->file(), self::hunks())));
+    }
+
+    /**
+     * Every PHP file of the plugin's source that carries a line another
+     * version of the gate's pest:patch wrote which no hunk of this one
+     * writes: a hunk written differently, or in a file this version leaves
+     * alone, which patching again cannot take out.
+     *
+     * @param  array<string, string> $sources each file a hunk changes, by its path under the source directory
+     * @return list<string>
+     */
+    private static function otherVersions(string $vendor, array $sources): array
+    {
+        $left = $sources;
+
+        foreach (self::hunks() as $hunk) {
+            $left[$hunk->file()] = $hunk->takenFrom($left[$hunk->file()]);
+        }
+
+        $marked = [];
+        $root = sprintf(self::SOURCE, $vendor, '');
+        $entries = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root, RecursiveDirectoryIterator::SKIP_DOTS),
+        );
+
+        foreach ($entries as $pathname => $entry) {
+            $relative = is_string($pathname) ? mb_substr($pathname, mb_strlen($root)) : '';
+            $marked = is_string($pathname) && self::carriesMark($pathname, $relative, $left)
+                ? [...$marked, $pathname]
+                : $marked;
+        }
+
+        sort($marked);
+
+        return $marked;
+    }
+
+    /**
+     * Whether a file of the plugin's source carries the mark: as it is on
+     * disk, or with this version's hunks taken out where it is one they change.
+     *
+     * @param array<string, string> $left each file a hunk changes, less the hunks, by its path under the
+     *                                    source directory
+     */
+    private static function carriesMark(string $pathname, string $relative, array $left): bool
+    {
+        $source = array_key_exists($relative, $left) ? $left[$relative] : (string) file_get_contents($pathname);
+
+        return str_contains($source, self::MARK);
+    }
+
+    /**
+     * Each file's source with every hunk it lacks applied, of the files a
+     * hunk changes, each hunk checked against the source as the hunks before
+     * it left it; or nothing, where a line a hunk rewrites has moved or a
+     * file it changes cannot be written.
      *
      * @param  array<string, string> $sources each file's source, by its path under the source directory
-     * @return array<string, string>
+     * @return array<string, string>|CannotJudge
      */
-    private static function patching(array $sources): array
+    private static function patching(string $vendor, array $sources): array|CannotJudge
     {
         $patched = $sources;
 
         foreach (self::hunks() as $hunk) {
             $source = $patched[$hunk->file()];
+
+            if (! $hunk->isAppliedTo($source) && ! $hunk->fits($source)) {
+                return CannotJudge::because(sprintf(self::MOVED, sprintf(self::SOURCE, $vendor, $hunk->file())));
+            }
+
             $patched[$hunk->file()] = $hunk->isAppliedTo($source) ? $source : $hunk->applyTo($source);
         }
 
-        return array_filter(
+        $changed = array_filter(
             $patched,
             static fn(string $source, string $file): bool => $source !== $sources[$file],
             ARRAY_FILTER_USE_BOTH,
         );
+        $locked = array_filter(
+            array_keys($changed),
+            static fn(string $file): bool => ! is_writable(sprintf(self::SOURCE, $vendor, $file)),
+        );
+        $first = sprintf(self::SOURCE, $vendor, $locked === [] ? '' : array_first($locked));
+
+        return $locked === []
+            ? $changed
+            : CannotJudge::because(sprintf(self::UNWRITABLE, dirname($first), basename($first)));
     }
 
     /** @return list<Hunk> */
     private static function hunks(): array
     {
         return [
-            Hunk::in('MutationTest.php', self::FILTER_SHIPS, sprintf(self::FILTER_BECOMES, self::CEILING)),
-            Hunk::in(
+            self::hunk('MutationTest.php', self::FILTER_SHIPS, sprintf(self::FILTER_BECOMES, self::CEILING)),
+            self::hunk(
                 'Plugins/Mutate.php',
                 self::CANARY_SHIPS,
                 sprintf(self::CANARY_BECOMES, GateVariable::SharedCoverage->value, GateVariable::Canary->value),
             ),
-            Hunk::in(
+            self::hunk(
                 'Tester/MutationTestRunner.php',
                 self::MAP_SHIPS,
                 sprintf(self::MAP_BECOMES, GateVariable::SharedCoverage->value, GateVariable::SuiteSeconds->value),
             ),
-            Hunk::in(
+            self::hunk(
                 'Tester/MutationTestRunner.php',
-                self::ONLY_SHIPS,
-                sprintf(self::ONLY_BECOMES, GateVariable::Only->value),
+                self::LISTED_SHIPS,
+                sprintf(self::LISTED_BECOMES, OnlyList::class, GateVariable::Only->value),
             ),
+            self::hunk('Tester/MutationTestRunner.php', self::ONLY_SHIPS, self::ONLY_BECOMES),
         ];
     }
 
-    /** A file's source, where it can be patched or already is. */
-    private static function read(string $vendor, Hunk $hunk): string|CannotJudge
+    /** A hunk, its text holding the mark where it says MARKED. */
+    private static function hunk(string $file, string $ships, string $becomes): Hunk
     {
-        $file = sprintf(self::SOURCE, $vendor, $hunk->file());
-
-        if (! is_file($file)) {
-            return CannotJudge::because(sprintf('pest:patch cannot read %s. Is pest-plugin-mutate installed?', $file));
-        }
-
-        if (! is_writable($file)) {
-            return CannotJudge::because(sprintf(self::UNWRITABLE, dirname($file), basename($file)));
-        }
-
-        $source = sprintf('%s', file_get_contents($file));
-
-        return $hunk->isAppliedTo($source) || $hunk->fits($source) ? $source : CannotJudge::because(sprintf(
-            'pest:patch patched nothing: the lines it rewrites have moved in %s. Install a supported version.',
-            $file,
-        ));
+        return Hunk::in($file, $ships, str_replace(self::MARKED, self::MARK, $becomes));
     }
+
 }

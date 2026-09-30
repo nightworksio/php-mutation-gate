@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_filter;
 use function array_key_exists;
+use function array_key_first;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -17,6 +19,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
@@ -169,8 +172,7 @@ final readonly class Pest implements Runner
     /** Every mutant of the requested files, where there are any to mutate: Pest's `--path` never names none. */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
-        return new MutationRun($this->project, $this->shell, $this->patching, $this->remembered, $this->groups(...))
-            ->of($request);
+        return $this->run($this->shell)->of($request);
     }
 
     /**
@@ -179,7 +181,8 @@ final readonly class Pest implements Runner
      * so a patched shard opens on the canary group, not the whole suite
      * under coverage. Patched, the run makes only these mutants; unpatched,
      * every mutant of their files and mutators, and each asked for is
-     * matched back by the gate's id. Pest allows each mutant its own time,
+     * matched back by Pest's id and handed back under the gate's. Pest
+     * allows each mutant its own time,
      * so no limit is laid on the run.
      */
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge
@@ -198,7 +201,7 @@ final readonly class Pest implements Runner
             return Mutants::none();
         }
 
-        $result = new MutationRun($this->project, $this->shell, $this->patching, $this->remembered, $this->groups(...))
+        $result = $this->run($this->shell)
             ->only(...$natives)
             ->of($request->narrowedTo(Paths::of(...array_values($files)), Mutators::named(...array_values($mutators))));
 
@@ -220,8 +223,7 @@ final readonly class Pest implements Runner
         $request = MutationRequest::of(Paths::of($mutant->file()), $judgedBy)
             ->onlyMutators(Mutators::named($mutant->mutator()))
             ->withholding($withheld);
-        $result = new MutationRun($this->project, $shell, $this->patching, $this->remembered, $this->groups(...))
-            ->of($request);
+        $result = $this->run($shell)->of($request);
 
         $unmade = Reason::that(self::NOT_FOUND_AGAIN);
 
@@ -277,22 +279,53 @@ final readonly class Pest implements Runner
         return $ran->succeeded() ? $ran : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
     }
 
-    /** Each mutant as the run found it again, by the gate's id, or unjudged where the run made no such mutant. */
+    /**
+     * Each mutant as the run found it again, by Pest's id, under the gate's
+     * id the first run gave it; or unjudged where the run made no such
+     * mutant. A run that makes only some of a file's mutants numbers those
+     * that share a change among themselves, so its own gate ids can name
+     * another mutant. Mutants that share Pest's id leave the same source, so
+     * each is paired with the one found on its own line, or else the next.
+     */
     private function matching(Mutants $mutants, Mutants $found): Mutants
     {
         $again = [];
         $matched = [];
 
         foreach ($found as $mutant) {
-            $again[$mutant->id()->value()] = $mutant;
+            $again[$mutant->nativeId()][] = $mutant;
         }
 
         foreach ($mutants as $mutant) {
-            $matched[] = array_key_exists($mutant->id()->value(), $again)
-                ? $again[$mutant->id()->value()]
+            $native = $mutant->nativeId();
+            $left = array_key_exists($native, $again) ? $again[$native] : [];
+            $at = $this->pairedIn($left, $mutant);
+            $matched[] = array_key_exists($at, $left)
+                ? $left[$at]->identifiedAs($mutant->id())
                 : Interpretation::unjudged($mutant, Reason::that(self::NOT_FOUND_AGAIN));
+            unset($again[$native][$at]);
         }
 
         return Mutants::of(...$matched);
+    }
+
+    /**
+     * Where among the mutants found again with its Pest id a mutant is: the
+     * one on its own line, or else the first; none where none is left.
+     *
+     * @param array<int, Mutant> $left
+     */
+    private function pairedIn(array $left, Mutant $mutant): int
+    {
+        $line = $mutant->location()->start()->number();
+        $same = array_filter($left, static fn(Mutant $found): bool => $found->location()->start()->number() === $line);
+
+        return array_key_first($same) ?? array_key_first($left) ?? -1;
+    }
+
+    /** A mutation run of this project, through this shell. */
+    private function run(Shell $shell): MutationRun
+    {
+        return new MutationRun($this->project, $shell, $this->patching, $this->remembered, $this->groups(...));
     }
 }

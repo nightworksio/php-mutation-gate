@@ -55,6 +55,15 @@ final readonly class Mutant
         );
     }
 
+    /**
+     * This mutant under another of the gate's ids, as a runner hands a mutant
+     * found again back under the id its first run gave it.
+     */
+    public function identifiedAs(MutantId $id): self
+    {
+        return clone($this, ['id' => $id]);
+    }
+
     /** This mutant, with the seconds its runner allowed it. */
     public function withLimit(Seconds $limit): self
     {

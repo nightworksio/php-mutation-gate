@@ -109,7 +109,7 @@ final readonly class Interpretation
         $planned = $records->planned();
         $ids = Identities::of(Root::of($this->project->root()), $planned);
 
-        foreach ($planned as $mutant) {
+        foreach ($planned as $at => $mutant) {
             $selection = Selection::of($coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()));
 
             if (! $selection->fits() && ! $this->patching->isOn()) {
@@ -121,7 +121,7 @@ final readonly class Interpretation
                 ));
             }
 
-            $mutants[] = $this->mutant($ids[$mutant->id()], $mutant, $records, $selection);
+            $mutants[] = $this->mutant($ids[$at], $mutant, $records, $selection);
         }
 
         return MutationResult::of(Mutants::of(...$mutants), 0);
@@ -130,23 +130,22 @@ final readonly class Interpretation
     /** The one place a Pest mutant becomes the gate's. */
     private function mutant(MutantId $gate, PlannedMutant $planned, Records $records, Selection $selection): Mutant
     {
-        $id = $planned->id();
         $unselected = $selection->fits() ? $selection->unselected() : TestIds::none();
         $judged = count($unselected) === 0;
         $mutant = Mutant::of(
             $gate,
-            $id,
+            $planned->id(),
             Location::of($this->project->relative($planned->file()->value()), $planned->start(), $planned->end()),
             Mutation::of($planned->mutator(), Families::of($planned->mutator()), Diff::fromPest($planned->diff())),
-            $judged ? $records->statusOf($id)->status() : MutantStatus::Unjudged,
-            $records->durationOf($id),
+            $judged ? $records->statusOf($planned)->status() : MutantStatus::Unjudged,
+            $records->durationOf($planned),
         );
 
         $limit = $records->limit();
         $status = $mutant->status();
         $limited = match (true) {
             $status === MutantStatus::TimedOut && $limit instanceof Seconds => $mutant->withLimit($limit),
-            $status === MutantStatus::Killed => $mutant->killedBy($records->killersOf($id)),
+            $status === MutantStatus::Killed => $mutant->killedBy($records->killersOf($planned)),
             default => $mutant,
         };
         $names = array_map(static fn(TestId $test): string => $test->value(), [...$unselected]);

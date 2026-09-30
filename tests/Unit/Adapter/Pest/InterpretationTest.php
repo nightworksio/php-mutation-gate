@@ -115,7 +115,8 @@ $mutant = static function (
 };
 
 /**
- * What the plugin writes of a run with six mutants, one of each status, one of them covered by a test Pest cannot name.
+ * What the plugin writes of a run with six mutants, one of each status, one of them covered by a test Pest cannot name,
+ * each finished in the order it was planned, as the plugin writes them.
  *
  * @return list<array<string, mixed>>
  */
@@ -129,8 +130,8 @@ $six = static fn(string $root): array => [
     PestRun::made(6),
     PestRun::outcome('n1', PestStatus::Tested),
     PestRun::killed('n1', INTERPRETED_TESTS[0]),
-    PestRun::finished('n1', PestStatus::Tested, 0.25),
     PestRun::finished('n2', PestStatus::Uncovered, 0.0),
+    PestRun::finished('n1', PestStatus::Tested, 0.25),
     PestRun::finished('n3', PestStatus::Untested, 0.5),
     PestRun::finished('n4', PestStatus::Timeout, 5.0),
     PestRun::finished('n5', PestStatus::Uncovered, 0.0),
@@ -242,6 +243,26 @@ it('cannot judge records that do not add up to Pest\'s own summary', function ()
     expect($read($project, Ran::finished(succeeded: true, output: $summary), $results))->toEqual(CannotJudge::because(
         sprintf("Pest's records of its mutants do not add up to its summary. Pest said:\n%s", $summary),
     ));
+});
+
+it('judges each of the mutants Pest gives one id, as two changes that leave the same source share it', function () use ($mutant, $plan, $read): void {
+    [$project, $results, $root] = interpretedRun([11 => [0]], []);
+    PestRun::write($results, [
+        $plan($root, 'same', 'src/Money.php:11', 'ab'),
+        $plan($root, 'same', 'src/Money.php:11', 'ab'),
+        PestRun::made(2),
+        PestRun::killed('same', INTERPRETED_TESTS[0]),
+        PestRun::finished('same', PestStatus::Tested, 0.25),
+        PestRun::finished('same', PestStatus::Untested, 0.5),
+        PestRun::end(),
+    ]);
+
+    expect($read($project, Ran::finished(succeeded: true, output: '  Mutations: 1 untested, 1 tested'), $results))
+        ->toEqual(MutationResult::of(Mutants::of(
+            $mutant('same', 'src/Money.php:11', 'ab', MutantStatus::Killed, 0.25)
+                ->killedBy(TestIds::of(TestId::of(INTERPRETED_TESTS[0]))),
+            $mutant('same', 'src/Money.php:11', 'ab', MutantStatus::Survived, 0.5, 1),
+        ), 0));
 });
 
 it('cannot judge a run without the opening run\'s map', function () use ($six, $read): void {

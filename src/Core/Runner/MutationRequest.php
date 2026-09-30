@@ -62,7 +62,7 @@ final readonly class MutationRequest
     /**
      * This request over these files alone, with only these mutators, and
      * nothing left out: how a run again makes some of its mutants once more,
-     * judged, covered, withheld, timed and ordered as they first were.
+     * judged, covered, withheld, timed and ordered as this request is.
      */
     public function narrowedTo(Paths $files, Mutators $mutators): self
     {

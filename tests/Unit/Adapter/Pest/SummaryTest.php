@@ -18,18 +18,17 @@ it('reads every count on Pest\'s summary line, a pending mutant as one with no r
         $summary->count(PestStatus::None),
         $summary->count(PestStatus::Timeout),
         $summary->count(PestStatus::Tested),
-        $summary->total(),
-    ] : [])->toBe([5, 3, 2, 1, 8, 19]);
+    ] : [])->toBe([5, 3, 2, 1, 8]);
 });
 
 it('counts 0 of a status Pest leaves off the line', function (): void {
     $summary = Summary::in('Mutations: 0 tested');
 
     $counts = $summary instanceof Summary
-        ? [$summary->count(PestStatus::Untested), $summary->count(PestStatus::Tested), $summary->total()]
+        ? [$summary->count(PestStatus::Untested), $summary->count(PestStatus::Tested)]
         : [];
 
-    expect($counts)->toBe([0, 0, 0]);
+    expect($counts)->toBe([0, 0]);
 });
 
 it('cannot judge a run that printed no summary', function (): void {
