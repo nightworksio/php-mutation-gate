@@ -223,7 +223,10 @@ final readonly class Pest implements Runner
             $files->holdsAComma() || $leftOut->holdsAComma() => CannotJudge::because(
                 sprintf(self::COMMA, $files->joined(', '), $leftOut->joined(', ')),
             ),
-            default => $this->shared($request, Invocation::installedIn($this->project->vendor())->mutation($request, $judgedBy, $results)),
+            default => $this->shared(
+                $request,
+                Invocation::installedIn($this->project->vendor())->mutation($request, $judgedBy, $results),
+            ),
         };
     }
 

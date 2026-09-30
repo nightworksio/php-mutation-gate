@@ -55,7 +55,10 @@ final readonly class FirstParty implements Extension
             ->withCiPlan(Name::of('json'), JsonPlan::fromOptions(...))
             ->withRunner(
                 Name::of('pest'),
-                static fn(Options $options): Pest|Invalid => Pest::fromOptions($options, ComposerVendor::of(self::HERE)),
+                static fn(Options $options): Pest|Invalid => Pest::fromOptions(
+                    $options,
+                    ComposerVendor::of(self::HERE),
+                ),
             )
             ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Git::at(self::HERE))
             ->withRepository(Name::of('git'), static fn(): Repository => Git::at(self::HERE))
