@@ -21,6 +21,9 @@ final readonly class JudgedMutant
     /** The command that runs one mutant again, which every report prints beside it (ADR-0009, decision 6). */
     private const string REPRODUCE = 'vendor/bin/mutation-gate reproduce %s';
 
+    /** The command that explains one mutant without running anything (ADR-0014, decision 12). */
+    private const string EXPLAIN = 'vendor/bin/mutation-gate explain %s';
+
     private function __construct(
         private Mutant $mutant,
         private MutantJudgement $judgement,
@@ -61,6 +64,18 @@ final readonly class JudgedMutant
         return clone($this, ['hint' => $hint]);
     }
 
+    /**
+     * This mutant, proven equivalent where it survived: its compiled code is
+     * the original's. A mutant judged otherwise stays as it was, so a kill
+     * never becomes a pass (ADR-0013, decision 10).
+     */
+    public function provenEquivalent(): self
+    {
+        return $this->judgement === MutantJudgement::Survived
+            ? clone($this, ['judgement' => MutantJudgement::Equivalent])
+            : $this;
+    }
+
     public function mutant(): Mutant
     {
         return $this->mutant;
@@ -94,5 +109,11 @@ final readonly class JudgedMutant
     public function reproduce(): string
     {
         return sprintf(self::REPRODUCE, $this->mutant->id()->value());
+    }
+
+    /** The command that explains it from what the ledgers and the last run hold, running nothing. */
+    public function explain(): string
+    {
+        return sprintf(self::EXPLAIN, $this->mutant->id()->value());
     }
 }

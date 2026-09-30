@@ -91,6 +91,8 @@ final readonly class Hint
 
     private const string MARKED = 'A native ignore marker leaves it out of the score.';
 
+    private const string EQUIVALENT = 'It compiles to the same program as the original, so no test can fail on it.';
+
     private const string JUDGED_BY = '%s It is judged by %s.';
 
     /** The judgements whose hint names the judging tests: those a score counts as not killed that tests ran. */
@@ -132,6 +134,7 @@ final readonly class Hint
             ),
             MutantJudgement::Ignored => self::IGNORED,
             MutantJudgement::IgnoredByMarker => self::MARKED,
+            MutantJudgement::Equivalent => self::EQUIVALENT,
         };
         $naming = in_array($judgement, self::NAMING, strict: true) && count($tests) > 0;
 

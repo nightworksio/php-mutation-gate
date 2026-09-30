@@ -3,14 +3,31 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Report\Sarif;
+use NightWorksIO\MutationGate\Core\Report\SourceRoot;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('writes SARIF 2.1.0 as its schema describes it', function (string $verdict): void {
-    expect(Schema::errors(Sarif::json(Verdicts::named($verdict)), Schema::at('tests/Fixtures/sarif-schema-2.1.0.json')))->toBe([]);
+    $schema = Schema::at('tests/Fixtures/sarif-schema-2.1.0.json');
+
+    expect(Schema::errors(Sarif::json(Verdicts::named($verdict)), $schema))->toBe([])
+        ->and(Schema::errors(Sarif::rootedAt(Verdicts::named($verdict), SourceRoot::at('/work/gate')), $schema))->toBe([]);
 })->with(['failing', 'passing', 'empty']);
+
+it('names the root its paths are relative to only for an editor on this machine', function (): void {
+    $root = static fn(string $sarif): mixed => Decoded::at($sarif, 'runs', 0, 'originalUriBaseIds', '%SRCROOT%');
+
+    expect($root(Sarif::json(Verdicts::failing())))->toBe(['description' => ['text' => 'The repository root']])
+        ->and($root(Sarif::rootedAt(Verdicts::failing(), SourceRoot::at('/work/gate'))))
+        ->toBe(['uri' => 'file:///work/gate/', 'description' => ['text' => 'The repository root']]);
+});
+
+it('never reports a mutant the score leaves out', function (): void {
+    expect(Decoded::column(Sarif::json(Verdicts::failing()), 'properties', 'runs', 0, 'results'))
+        ->each->not->toMatchArray(['judgement' => 'equivalent']);
+});
 
 it('writes one run of the tool with its four rules', function (): void {
     $sarif = Sarif::json(Verdicts::passing());

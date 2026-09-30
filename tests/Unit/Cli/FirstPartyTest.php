@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\CodeQualityReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
@@ -39,6 +40,7 @@ use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
+use NightWorksIO\MutationGate\Tests\Support\Environment;
 
 $registry = static fn(): Extensions => new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)));
 
@@ -111,11 +113,13 @@ it('registers Pest as a runner, in the vendor directory Composer installed the p
 
 it('registers the console, every file report, GitHub\'s three and the badge by name', function () use ($registry): void {
     $reporter = static fn(string $name, string $options = '{}'): object => Lookup::in($registry())->reporter(Name::of($name), Options::ofJson($options));
+    $sarif = Environment::during(['CI' => 'true'], static fn(): object => $reporter('sarif', '{"path": "build/mutation.sarif"}'));
 
     expect($reporter('console'))->toBeInstanceOf(ConsoleReport::class)
         ->and($reporter('json', '{"path": "build/mutation.json"}'))->toEqual(JsonReportFile::at('build/mutation.json'))
         ->and($reporter('junit', '{"path": "build/junit.xml"}'))->toEqual(JUnitReportFile::at('build/junit.xml'))
-        ->and($reporter('sarif', '{"path": "build/mutation.sarif"}'))->toEqual(SarifReportFile::at('build/mutation.sarif'))
+        ->and($sarif)->toEqual(SarifReportFile::at('build/mutation.sarif'))
+        ->and($reporter('gitlab', '{"path": "build/gl-code-quality.json"}'))->toEqual(CodeQualityReportFile::at('build/gl-code-quality.json'))
         ->and($reporter('html', '{"path": "build/html"}'))->toBeInstanceOf(HtmlReportDirectory::class)
         ->and($reporter('github-annotations'))->toEqual(Annotations::printingTo('php://stdout'))
         ->and($reporter('github-summary'))->toBeInstanceOf(StepSummary::class)

@@ -73,9 +73,10 @@ sees the same verdict.
    - **JSON** (`json`), the gate's own format with a `"format": 1` field. Its
      schema is generated like the config's and committed at
      `resources/report.schema.json`. It carries everything in the verdict, and
-     it is public API (ADR-0011). A mutant proven equivalent has the status
-     `equivalent`, and each killed mutant names the test that killed it first,
-     where one is known (ADR-0013). It lists the tests once, in a `tests`
+     it is public API (ADR-0011). A mutant proven equivalent has the judgement
+     `equivalent`, while its runner's `status` stays `survived`, and each
+     killed mutant names the test that killed it first, where one is known
+     (ADR-0013). It lists the tests once, in a `tests`
      table, and gives each mutant `coveredBy` and `killedBy` as indices into
      it (ADR-0014). Beside those:
      - At the top: `format`, `judgement`, `cutShort`, `uncovered`, the

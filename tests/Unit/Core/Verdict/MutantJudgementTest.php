@@ -19,6 +19,7 @@ it('spells each judgement as the reports write it', function (): void {
         'too-slow-to-judge',
         'ignored',
         'ignored-by-marker',
+        'equivalent',
     ]);
 });
 
@@ -49,4 +50,5 @@ it('counts each judgement in the score as the floors decide', function (MutantJu
     [MutantJudgement::TooSlowToJudge, Scoring::NotKilled, Scoring::NotKilled],
     [MutantJudgement::Ignored, Scoring::LeftOut, Scoring::LeftOut],
     [MutantJudgement::IgnoredByMarker, Scoring::LeftOut, Scoring::LeftOut],
+    [MutantJudgement::Equivalent, Scoring::LeftOut, Scoring::LeftOut],
 ]);

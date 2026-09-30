@@ -17,14 +17,16 @@ use function sprintf;
 /**
  * One mutant as plain text, the same in the console and in a JUnit failure:
  * where it is, its mutator, how it was judged and its id; then its diff, why
- * it stands as it does, the tests that judge it, what they miss, and the
- * command that reproduces it.
+ * it stands as it does, the tests that judge it, what they miss, the
+ * command that reproduces it and the one that explains it.
  */
 final readonly class MutantText
 {
     private const string INDENT = '    ';
 
     private const string CHANGED = ', on a changed line';
+
+    private const string MESSAGE = 'Mutant %s: %s. %s Reproduce: %s';
 
     /** The first line: where it is, what made it, how it was judged and its id. */
     public static function heading(JudgedMutant $judged): string
@@ -42,7 +44,22 @@ final readonly class MutantText
         );
     }
 
-    /** The whole block: its heading, then its diff, reason, hint and reproduce command, indented. */
+    /**
+     * One line for a tool that lists results: how it was judged, its mutator,
+     * what its tests miss and how to reproduce it.
+     */
+    public static function message(JudgedMutant $judged): string
+    {
+        return sprintf(
+            self::MESSAGE,
+            Label::of($judged->judgement()),
+            Mutator::short($judged->mutant()->mutation()->mutator()),
+            $judged->hint()->text(),
+            $judged->reproduce(),
+        );
+    }
+
+    /** The whole block: its heading, then its diff, reason, hint, and reproduce and explain commands, indented. */
     public static function block(JudgedMutant $judged): string
     {
         $reason = $judged->mutant()->reason();
@@ -58,6 +75,7 @@ final readonly class MutantText
             ...$tests === [] ? [] : [sprintf('Judged by: %s', implode(', ', $tests))],
             $judged->hint()->text(),
             sprintf('Reproduce: %s', $judged->reproduce()),
+            sprintf('Explain: %s', $judged->explain()),
         ];
 
         return implode("\n", [

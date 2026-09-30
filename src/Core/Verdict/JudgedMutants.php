@@ -12,6 +12,7 @@ use function count;
 
 use Countable;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use Traversable;
@@ -59,6 +60,18 @@ final readonly class JudgedMutants implements Countable, IteratorAggregate
         }
 
         return new self($marked);
+    }
+
+    /** Every mutant, with the survivors among these ids proven equivalent. */
+    public function provenEquivalent(MutantIds $proven): self
+    {
+        $judged = [];
+
+        foreach ($this->mutants as $mutant) {
+            $judged[] = $proven->has($mutant->mutant()->id()) ? $mutant->provenEquivalent() : $mutant;
+        }
+
+        return new self($judged);
     }
 
     /** The mutants on lines the change added or modified, in reported order. */
