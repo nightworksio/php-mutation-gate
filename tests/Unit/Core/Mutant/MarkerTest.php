@@ -28,3 +28,14 @@ it('is at a file and its line in source, in its function, replaced by an entry p
         $in,
     ]);
 });
+
+it('is described as every report reads it: where, in which function, and what it says', function (): void {
+    $in = Enclosing::named(Path::of('src/Money.php'), 'add');
+
+    expect(Marker::inSource(Path::of('src/Money.php'), Line::of(7), '@pest-mutate-ignore', $in)->described())
+        ->toBe('src/Money.php:7 in add(), @pest-mutate-ignore')
+        ->and(Marker::inSource(Path::of('src/Money.php'), Line::of(2), 'x', Nameless::code())->described())
+        ->toBe('src/Money.php:2, x')
+        ->and(Marker::of('infection.json5 mutators.global-ignore', 'App\\Money::add', '{}')->described())
+        ->toBe('infection.json5 mutators.global-ignore, App\\Money::add');
+});

@@ -48,6 +48,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -627,7 +628,10 @@ it('says how many of the runner\'s own ignore markers ignores.native allows in w
 })->with([
     'allowed' => [
         Ignores::allowingNativeMarkers(),
-        Markers::of(Marker::inSource('src/Money.php:9', 'a'), Marker::inSource('src/Held.php:4', 'b')),
+        Markers::of(
+            Marker::inSource(Path::of('src/Money.php'), Line::of(9), 'a', Nameless::code()),
+            Marker::inSource(Path::of('src/Held.php'), Line::of(4), 'b', Nameless::code()),
+        ),
         [<<<'SAID'
             2 of the runner's own ignore markers hide mutants in the files this run mutated,
             as ignores.native: allow lets them. The gate cannot count the mutants they hide.
@@ -642,7 +646,7 @@ it('says how many of the runner\'s own ignore markers ignores.native allows in w
     ],
     'refused, where the plan already stopped for any' => [
         Ignores::refusingNativeMarkers(),
-        Markers::of(Marker::inSource('src/Money.php:9', 'a')),
+        Markers::of(Marker::inSource(Path::of('src/Money.php'), Line::of(9), 'a', Nameless::code())),
         [],
     ],
 ]);

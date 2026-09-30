@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Order\Enclosing;
+use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -296,16 +298,21 @@ it('cannot plan where the runner has its own ignore markers in what it would mut
     $plan,
 ): void {
     $marked = ScriptedRunner::fixture()->marking(Markers::of(
-        Marker::inSource('src/Money.php:9', '@pest-mutate-ignore'),
+        Marker::inSource(
+            Path::of('src/Money.php'),
+            Line::of(9),
+            '@pest-mutate-ignore',
+            Enclosing::named(Path::of('src/Money.php'), 'add'),
+        ),
         Marker::of('infection.json5 mutators.global-ignore', 'ignore', '{"path": "src/Held.php", "reason": "…"}'),
     ));
 
     expect($plan(Flows::project(), Mode::full(), Cut::exactly(1), $marked))->toEqual(CannotJudge::because(<<<'SAID'
         The runner's own ignore markers hide mutants with no reason and no end,
         so the run cannot go ahead:
-          src/Money.php:9: @pest-mutate-ignore
+          src/Money.php:9 in add(), @pest-mutate-ignore
             replaced by {"mutant": "<the id of each mutant it hides>", "reason": "<why no test can tell>"}
-          infection.json5 mutators.global-ignore: ignore
+          infection.json5 mutators.global-ignore, ignore
             replaced by {"path": "src/Held.php", "reason": "…"}
         Replace each with its entry in ignores.entries,
         or set ignores.native: allow while the project moves them there.
@@ -323,7 +330,9 @@ it('plans with the runner\'s own markers where ignores.native allows them, or wi
 
     expect($planned)->toBeInstanceOf(Plan::class);
 })->with([
-    'markers allowed' => [ScriptedRunner::fixture()->marking(Markers::of(Marker::inSource('src/Money.php:9', 'x')))],
+    'markers allowed' => [ScriptedRunner::fixture()->marking(Markers::of(
+        Marker::inSource(Path::of('src/Money.php'), Line::of(9), 'x', Nameless::code()),
+    ))],
     'no markers' => [ScriptedRunner::fixture()->marking(Markers::none())],
 ]);
 

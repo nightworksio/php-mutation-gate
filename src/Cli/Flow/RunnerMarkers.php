@@ -36,7 +36,7 @@ final readonly class RunnerMarkers
         or set ignores.native: allow while the project moves them there.
         SAID;
 
-    private const string MARKER = "  %s: %s\n    replaced by %s";
+    private const string MARKER = "  %s\n    replaced by %s";
 
     private const string ALLOWED = <<<'SAID'
         %d of the runner's own ignore markers hide mutants in the files this run mutated,
@@ -99,7 +99,7 @@ final readonly class RunnerMarkers
         $listed = [];
 
         foreach ($markers as $marker) {
-            $listed[] = sprintf(self::MARKER, $marker->where(), $marker->marker(), $marker->replacement());
+            $listed[] = sprintf(self::MARKER, $marker->described(), $marker->replacement());
         }
 
         return implode("\n", $listed);

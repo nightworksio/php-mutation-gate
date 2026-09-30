@@ -22,6 +22,12 @@ final readonly class Marker
     private const string PER_MUTANT
         = '{"mutant": "<the id of each mutant it hides>", "reason": "<why no test can tell>"}';
 
+    /** Where a marker is, then what it says. */
+    private const string DESCRIBED = '%s, %s';
+
+    /** Where a marker is, in the function it is in. */
+    private const string IN = '%s in %s()';
+
     private function __construct(
         private string $where,
         private string $marker,
@@ -55,6 +61,21 @@ final readonly class Marker
     public function enclosing(): Enclosing|Nameless
     {
         return $this->enclosing;
+    }
+
+    /**
+     * Where the marker is, in the function it is in or documents, and what it
+     * says, as every report of it reads: `src/Money.php:7 in add(), <marker>`.
+     */
+    public function described(): string
+    {
+        return sprintf(
+            self::DESCRIBED,
+            $this->enclosing instanceof Enclosing
+                ? sprintf(self::IN, $this->where, $this->enclosing->function())
+                : $this->where,
+            $this->marker,
+        );
     }
 
     /** The marker as it is written. */
