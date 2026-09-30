@@ -29,7 +29,7 @@ it('finds @pest-mutate-ignore in a comment of the PHP files the paths name, on i
     Scratch::write($root, 'src/Deeper/Held.php', "<?php\n// @pest-mutate-ignore\n");
     Scratch::write($root, 'src/notes.txt', '// @pest-mutate-ignore');
     Scratch::write($root, 'lib/Tax.php', "<?php\n// @pest-mutate-ignore\n");
-    $project = Project::at($root, Paths::none(), Path::of('.gate'));
+    $project = Project::at($root, Paths::none(), Path::of('.gate'), Path::of('vendor'));
     $markers = NativeMarkers::in($project, Paths::of(Path::of('src'), Path::of('nowhere')));
     $replaces = '{"mutant": "<the id of each mutant it hides>", "reason": "<why no test can tell>"}';
 
