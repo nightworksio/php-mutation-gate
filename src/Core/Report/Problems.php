@@ -8,6 +8,7 @@ use function array_key_exists;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
@@ -15,7 +16,6 @@ use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
 use function sprintf;
-use function str_replace;
 
 /**
  * The verdict as one line per result, for an editor's problem matcher:
@@ -31,6 +31,15 @@ final readonly class Problems
 
     /** The line after each judgement, for a background matcher. */
     public const string JUDGED = 'mutation-gate: judged';
+
+    /**
+     * A line of the output as an editor's problem matcher reads it: the file,
+     * line, column, severity, message and rule, in that order, and the id.
+     */
+    public const string PATTERN = '^(.+?):(\\d+):(\\d+): (error|warning): (.*) \\[([a-z-]+)\\] [0-9a-f]{12}$';
+
+    /** Which group of the pattern holds each part, as a problem matcher names them; the rule is its code. */
+    public const array GROUPS = ['file' => 1, 'line' => 2, 'column' => 3, 'severity' => 4, 'message' => 5, 'code' => 6];
 
     private const string LINE = '%s:%d:%d: %s: %s%s [%s] %s';
 
@@ -110,7 +119,7 @@ final readonly class Problems
                 $start['line'],
                 $start['column'],
                 $failing ? 'error' : 'warning',
-                str_replace(["\r\n", "\r", "\n"], ' ', MutantText::message($judged)),
+                Fit::plain(MutantText::message($judged)),
                 $mark,
                 ResultRule::of($judged->judgement())->value,
                 $mutant->id()->value(),

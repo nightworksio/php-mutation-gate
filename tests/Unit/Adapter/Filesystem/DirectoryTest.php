@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -168,4 +169,11 @@ it('writes into a directory that is not there yet', function (): void {
     $root = sprintf('%s/not/yet', Scratch::directory());
 
     expect(Directory::at($root)->write(Path::of('plan.json'), Contents::of('{}')))->toBeInstanceOf(Written::class);
+});
+
+it('says where it is', function (): void {
+    $root = Scratch::directory();
+
+    expect(Directory::at($root)->root())->toEqual(Root::of($root))
+        ->and(Directory::in(Root::of($root))->root())->toEqual(Root::of($root));
 });

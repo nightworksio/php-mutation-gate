@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -44,6 +45,16 @@ final readonly class FlowOptions
 
     public const string RESULTS = 'results';
 
+    public const string OUTPUT = 'output';
+
+    public const string ONLY = 'only';
+
+    private const string OUTPUTS = '--output is console or problems, not "%s".';
+
+    private const string ONLY_WHAT = '--only takes changed, not "%s".';
+
+    private const string ONLY_WHERE = '--only=changed limits the problems output. Add --output=problems.';
+
     /** `plan`'s options, which the all-in-one run takes too. */
     public static function planning(Command $command): Command
     {
@@ -60,6 +71,41 @@ final readonly class FlowOptions
                 description: 'Read the coverage map an earlier job left here, instead of running the suite',
             )
             ->addOption(self::SHARDS, mode: InputOption::VALUE_REQUIRED, description: 'Cut exactly this many shards');
+    }
+
+    /**
+     * The options that print a verdict for an editor, which `run`, `watch`
+     * and `pre-push` take (ADR-0015, decision 6).
+     */
+    public static function editing(Command $command): Command
+    {
+        return $command
+            ->addOption(
+                self::OUTPUT,
+                mode: InputOption::VALUE_REQUIRED,
+                description: 'Print the verdict as console, or as problems: one line per result, for editors',
+            )
+            ->addOption(
+                self::ONLY,
+                mode: InputOption::VALUE_REQUIRED,
+                description: 'With --output=problems, print only the results on changed lines: changed',
+            );
+    }
+
+    /** How the options ask for the verdict to be printed. */
+    public static function printing(InputInterface $input): Printing|CannotJudge
+    {
+        $asked = self::text($input, self::OUTPUT);
+        $output = VerdictOutput::tryFrom($asked === '' ? VerdictOutput::Console->value : $asked);
+        $only = self::text($input, self::ONLY);
+
+        return match (true) {
+            ! $output instanceof VerdictOutput => CannotJudge::because(sprintf(self::OUTPUTS, $asked)),
+            $only === '' => Printing::of($output, ProblemsShown::All),
+            $only !== ProblemsShown::Changed->value => CannotJudge::because(sprintf(self::ONLY_WHAT, $only)),
+            $output !== VerdictOutput::Problems => CannotJudge::because(self::ONLY_WHERE),
+            default => Printing::of($output, ProblemsShown::Changed),
+        };
     }
 
     public static function mode(InputInterface $input): Mode|CannotJudge

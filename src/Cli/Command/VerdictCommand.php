@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
-use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
@@ -55,7 +55,12 @@ final readonly class VerdictCommand
                 $results = FlowOptions::path($input, FlowOptions::RESULTS, Workspace::results());
 
                 return $plan instanceof Plan
-                    ? self::printed(self::judgedOf($composed, $plan, $results), $output)
+                    ? self::printed(
+                        self::judgedOf($composed, $plan, $results),
+                        $output,
+                        Printing::console(),
+                        $composed->adapters->project,
+                    )
                     : Failed::because($output, $plan);
             });
     }
@@ -83,9 +88,16 @@ final readonly class VerdictCommand
             : $read;
     }
 
-    /** Say what was written and the verdict, and exit as the verdict does; or say why there is none. */
-    public static function printed(Judged|Invalid|CannotJudge $judged, OutputInterface $output): int
-    {
+    /**
+     * Say what was written and the verdict, printed as asked, and exit as the
+     * verdict does; or say why there is none.
+     */
+    public static function printed(
+        Judged|Invalid|CannotJudge $judged,
+        OutputInterface $output,
+        Printing $printing,
+        Directory $project,
+    ): int {
         if (! $judged instanceof Judged) {
             return Failed::because($output, $judged);
         }
@@ -94,7 +106,7 @@ final readonly class VerdictCommand
             $output->writeln($line, OutputInterface::OUTPUT_RAW);
         }
 
-        ConsoleReport::to($output)->report($judged->verdict);
+        $printing->verdict($judged->verdict, $output, $project);
 
         return $judged->exitCode()->value;
     }

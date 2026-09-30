@@ -57,6 +57,12 @@ final readonly class Directory
         return new self($root);
     }
 
+    /** Where the directory is, for a reporter that reads the project's files itself. */
+    public function root(): Root
+    {
+        return $this->root;
+    }
+
     /** What a file under the directory holds; a path that leads out of it is refused. */
     public function read(Path $path): Contents|Missing|CannotJudge
     {

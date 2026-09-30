@@ -117,6 +117,19 @@ one of those values the gate can know or check.
      opens a SARIF 2.1.0 log the gate wrote, through *Open Local Report*, and
      lists its results. If it does not, the README's PhpStorm recipe is an
      External Tool running `--output=problems` with an output filter.
+   - **As built.**
+     - `run` takes `--output=problems` and `--only=changed`. `--only`
+       takes `changed` alone, and only beside `--output=problems`; any other
+       value is exit 2, before anything runs.
+     - `Problems::PATTERN` is the line as a problem matcher reads it, with
+       `Problems::GROUPS` naming its file, line, column, severity, message
+       and code groups. The code is the rule, and the mutant id stays in the
+       message. A test runs the pattern over every line the output writes.
+     - Each message is one plain line (`Fit::plain`): no line break, escape
+       or other control character.
+     - The Qodana plugin is not part of the build, so the README's PhpStorm
+       recipe is the External Tool, with the output filter
+       `$FILE_PATH$:$LINE$:$COLUMN$`.
 
 7. **`init --editor=vscode` wires VS Code.**
    - It writes `.vscode/tasks.json` with a `mutation-gate: watch` background
@@ -126,6 +139,13 @@ one of those values the gate can know or check.
      block to add, as `hook install` leaves an existing hook alone
      (ADR-0010 decision 3).
    - PhpStorm gets a README recipe (decision 6).
+   - **As built.** `Core\Editor\VsCode` holds what it writes: `tasks()`, the
+     whole `tasks.json`; `task()`, the block to add to one that exists; and
+     `extensions()`. The task runs `vendor/bin/mutation-gate watch
+     --output=problems` in the background. Its matcher's owner and source
+     are `mutation-gate`, it reads files relative to the workspace folder,
+     and its background patterns are the whole `judging` and `judged`
+     lines.
 
 8. **Editors show what CI shows.**
    - They get SARIF's four rules (ADR-0009 decision 2).

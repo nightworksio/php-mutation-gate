@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -238,4 +239,31 @@ it('offers a plan to run a shard of, the shard, and where the results go, beside
         ->and($definition->getOption('shard')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('results')->isValueRequired())->toBeTrue()
         ->and($definition->hasOption('changed-since'))->toBeTrue();
+});
+
+it('prints the verdict as problems for an editor, framed for a background matcher, and exits as the verdict does', function (string $only, int $problems) use ($composed): void {
+    $project = FlowCommands::project();
+
+    $ran = FlowCommands::run(RunCommand::command($composed($project, 50)), sprintf('--output=problems%s', $only));
+    $lines = explode("\n", rtrim($ran->output, "\n"));
+    $matched = array_filter($lines, static fn(string $line): bool => preg_match(sprintf('/%s/', Problems::PATTERN), $line) === 1);
+
+    expect($ran->code)->toBe(1)
+        ->and($lines[0])->toBe(Problems::JUDGING)
+        ->and($lines[count($lines) - 1])->toBe(Problems::JUDGED)
+        ->and($matched)->toHaveCount($problems)
+        ->and($ran->output)->not->toContain('mutation-gate: failed');
+})->with([
+    'every result' => ['', 3],
+    'those on changed lines, of which a full run has none' => [' --only=changed', 0],
+]);
+
+it('refuses to run with an output it cannot print, and runs nothing', function () use ($composed): void {
+    $project = FlowCommands::project();
+
+    $ran = FlowCommands::run(RunCommand::command($composed($project, 50)), '--output=json');
+
+    expect($ran->code)->toBe(2)
+        ->and($ran->errors)->toBe("--output is console or problems, not \"json\".\n")
+        ->and(is_dir(sprintf('%s/.mutation-gate/results', $project)))->toBeFalse();
 });

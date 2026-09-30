@@ -5,7 +5,9 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Command\BaselineCommand;
 use NightWorksIO\MutationGate\Cli\Command\FlowOptions;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
+use NightWorksIO\MutationGate\Cli\Command\Printing;
 use NightWorksIO\MutationGate\Cli\Command\RunCommand;
+use NightWorksIO\MutationGate\Cli\Command\VerdictOutput;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
@@ -15,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -129,3 +132,31 @@ it('reads the path an option names, or the one given where it names none', funct
         ->and(FlowOptions::path($given([]), FlowOptions::PLAN, Workspace::plan()))->toEqual(Workspace::plan())
         ->and(FlowOptions::path($bare(), FlowOptions::RESULTS, Workspace::results()))->toEqual(Workspace::results());
 });
+
+it('offers run the options that print a verdict for an editor', function () use ($composed): void {
+    $definition = RunCommand::command($composed())->getDefinition();
+
+    expect($definition->getOption('output')->isValueRequired())->toBeTrue()
+        ->and($definition->getOption('only')->isValueRequired())->toBeTrue();
+});
+
+it('prints the console\'s report unless asked for problems, and all of them unless asked for changed lines', function (array $options, Printing $printing) use ($given, $bare): void {
+    expect(FlowOptions::printing($given($options)))->toEqual($printing)
+        ->and(FlowOptions::printing($bare()))->toEqual(Printing::console());
+})->with([
+    'nothing asked' => [[], Printing::of(VerdictOutput::Console, ProblemsShown::All)],
+    'the console' => [['--output' => 'console'], Printing::of(VerdictOutput::Console, ProblemsShown::All)],
+    'problems' => [['--output' => 'problems'], Printing::of(VerdictOutput::Problems, ProblemsShown::All)],
+    'problems on changed lines' => [['--output' => 'problems', '--only' => 'changed'], Printing::of(VerdictOutput::Problems, ProblemsShown::Changed)],
+]);
+
+it('refuses an output it does not print, and --only where it cannot apply', function (array $options, string $why) use ($given): void {
+    $printing = FlowOptions::printing($given($options));
+
+    expect($printing instanceof CannotJudge ? $printing->why() : '')->toBe($why);
+})->with([
+    'another output' => [['--output' => 'json'], '--output is console or problems, not "json".'],
+    'another choice of results' => [['--output' => 'problems', '--only' => 'all'], '--only takes changed, not "all".'],
+    'changed lines without problems' => [['--only' => 'changed'], '--only=changed limits the problems output. Add --output=problems.'],
+    'changed lines of the console' => [['--output' => 'console', '--only' => 'changed'], '--only=changed limits the problems output. Add --output=problems.'],
+]);

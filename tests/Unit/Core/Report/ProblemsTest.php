@@ -95,3 +95,10 @@ it('frames each judgement for a background matcher', function (): void {
     expect([Problems::JUDGING, Problems::JUDGED])->toBe(['mutation-gate: judging', 'mutation-gate: judged'])
         ->and(array_map(static fn(ProblemsShown $shown): string => $shown->value, ProblemsShown::cases()))->toBe(['all', 'changed']);
 });
+
+it('writes no escape or other control character a project\'s code could carry into an editor', function (): void {
+    $survivor = Verdicts::survivor()->hinted(Hint::that("No test\e[31m uses\tthe\x07 boundary."));
+
+    expect(Problems::text(Verdicts::of(Floor::of(0), $survivor), [], ProblemsShown::All))->toContain('. No test[31m uses the boundary. Reproduce: ')
+        ->and(Problems::text(Verdicts::of(Floor::of(0), $survivor), [], ProblemsShown::All))->not->toMatch('/\p{Cc}(?!$)/u');
+});
