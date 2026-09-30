@@ -107,6 +107,11 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
         return $this->source->fingerprints();
     }
 
+    public function unstaged(): Paths|CannotTell
+    {
+        return $this->source->unstaged();
+    }
+
     public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell
     {
         return $this->source->fileAt($path, $revision);

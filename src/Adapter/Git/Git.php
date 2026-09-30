@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Git;
 
 use function array_key_exists;
+use function array_map;
 use function array_pop;
 use function explode;
 use function getenv;
@@ -98,6 +99,18 @@ final class Git implements ChangeSource, Repository
         $listed = $this->git->run(['ls-files', '--cached', '--others', '--exclude-standard', '-z']);
 
         return $listed instanceof CannotTell ? $listed : $this->workingTree()->fingerprints($this->paths($listed));
+    }
+
+    public function unstaged(): Paths|CannotTell
+    {
+        $changed = $this->git->run(['diff', '--name-only', '--no-renames', '-z']);
+        $untracked = $this->git->run(['ls-files', '--others', '--exclude-standard', '-z']);
+
+        return match (true) {
+            $changed instanceof CannotTell => $changed,
+            $untracked instanceof CannotTell => $untracked,
+            default => Paths::of(...array_map(Path::of(...), [...$this->paths($changed), ...$this->paths($untracked)])),
+        };
     }
 
     public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell

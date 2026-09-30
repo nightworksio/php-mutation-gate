@@ -174,6 +174,30 @@ it('names the coverage map\'s tests once, withholding what every process withhol
         ->toEqual($withoutNames instanceof Plan ? $withoutNames->keys() : $withoutNames);
 });
 
+it('leaves the whole map outside CI, where a later local command reads it, and not in CI', function () use ($plan): void {
+    $local = Flows::project();
+    $ci = Flows::project();
+    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
+    $plan($local, Mode::full(), Cut::exactly(1), new CoverageAsked(RunnerFake::ofTheFixture(), $map));
+    new Planning(
+        Flows::adapters($ci, ['CI' => 'true'], new CoverageAsked(RunnerFake::ofTheFixture(), $map)),
+        Flows::settings(),
+        Flows::setup(),
+    )->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1));
+
+    expect(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $local)))->toBe(CoverageMapFile::encode($map))
+        ->and(is_file(sprintf('%s/.mutation-gate/coverage/map.json.gz', $ci)))->toBeFalse();
+});
+
+it('cannot plan where it cannot leave the whole map', function () use ($plan): void {
+    $project = Flows::project();
+    Scratch::write($project, '.mutation-gate/coverage/map.json.gz/blocked', '');
+
+    expect($plan($project, Mode::full(), Cut::exactly(1)))->toEqual(CannotJudge::because(
+        sprintf('%s/.mutation-gate/coverage/map.json.gz could not be written.', $project),
+    ));
+});
+
 it('asks for coverage withholding what every process that runs the project\'s code withholds', function () use (
     $plan,
 ): void {

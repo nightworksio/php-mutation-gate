@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
@@ -152,12 +154,23 @@ final readonly class Planning
         return Seconds::of($seconds);
     }
 
-    /** The plan, once each shard is handed the map of its own files and the kill history of their functions. */
+    /**
+     * The plan, once each shard is handed the map of its own files and the
+     * kill history of their functions, and, outside CI, once the whole map is
+     * left where a later local command, such as `pre-commit`, reads it without
+     * running the suite.
+     */
     private function handed(Plan $plan, CoverageMap $map, KillHistory $history): Plan|CannotJudge
     {
         $handed = new Handoff($this->adapters->project)->write($plan, $map, $history);
+        $left = $handed instanceof CannotJudge || $this->adapters->environment->inCi()
+            ? $handed
+            : $this->adapters->project->write(
+                CoverageMapFile::in(Workspace::coverage()),
+                Contents::of(CoverageMapFile::encode($map)),
+            );
 
-        return $handed instanceof CannotJudge ? $handed : $plan;
+        return $left instanceof CannotJudge ? $left : $plan;
     }
 
     /**

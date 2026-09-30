@@ -96,6 +96,11 @@ it('cannot find the units where anything it asks cannot answer', function (
                 return CannotTell::because('git ls-files failed.');
             }
 
+            public function unstaged(): Paths
+            {
+                return Paths::none();
+            }
+
             public function fileAt(Path $path, Revision $revision): Missing
             {
                 return Missing::at($path);
