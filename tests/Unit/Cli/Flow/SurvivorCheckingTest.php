@@ -239,12 +239,12 @@ it('judges a printed survivor against its original printed the same way, analyse
         ]);
 });
 
-it('leaves the survivors the time left has no room for unchecked', function (): void {
+it('leaves the survivors the time left has no room for unchecked, at the checks\' mean time so far', function (float $budget): void {
     $project = Scratch::directory();
     $mutants = checkedMutants();
     $checker = checkedBy($project, []);
     $spent = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(0.0));
-    $roomForOne = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(3.0));
+    $roomForOne = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of($budget));
     $checkerForOne = checkedBy($project, [checkedAt(checkedSurvivor($mutants, 'src/Money.php')) => checkedOriginals()]);
 
     $none = checking($project, $checker, ScriptedRunner::fixture(), $spent)->checked($mutants, MutantIds::none());
@@ -254,10 +254,14 @@ it('leaves the survivors the time left has no room for unchecked', function (): 
         'Static analysis left 2 survivors unchecked, as the time budget ran out before their checks: src/Held.php, src/Money.php.',
     ])
         ->and($checker->checks())->toBe([])
+        ->and(array_map(static fn(array $check): string => $check[0], $checkerForOne->checks()))->toBe(['src/Money.php'])
         ->and(checkedWarnings($one))->toBe([
             'Static analysis left 1 survivor unchecked, as the time budget ran out before their checks: src/Held.php.',
         ]);
-});
+})->with([
+    'half a second, before any check is timed' => [0.5],
+    'half a second once a check took one' => [3.5],
+]);
 
 it('leaves a survivor unchecked where its code cannot be written for its check', function (): void {
     $project = Scratch::directory();

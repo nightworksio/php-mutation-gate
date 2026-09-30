@@ -131,7 +131,7 @@ final readonly class SurvivorChecking
      * One survivor checked, where the time left has room for it and its
      * runner gives it: killed, as it was, or why it is left.
      *
-     * @param  array<string, Findings|Unchecked>                                        $baselines by file
+     * @param  array<string, Findings|Unchecked> $baselines by file
      * @return array{Mutant|Findings|Unchecked, AnalyserHistory, array<string, Findings|Unchecked>}
      */
     private function one(
@@ -162,9 +162,8 @@ final readonly class SurvivorChecking
     /** Whether the time left has room for one more check, as long as the checks so far took on average. */
     private function fits(AnalyserHistory $history): bool
     {
-        $each = $history->time()->each();
-
-        $each = $each instanceof Seconds ? $each : Seconds::of(0.0);
+        $measured = $history->time()->each();
+        $each = $measured instanceof Seconds ? $measured : Seconds::of(0.0);
 
         return ! $this->deadline instanceof Deadline || $this->deadline->fitting(1, $each, $this->clock->now()) > 0;
     }

@@ -45,6 +45,17 @@ it('names three files of a reason, sorted, and counts the rest', function () use
     ]);
 });
 
+it('names all three files of a reason with three', function () use ($left, $texts): void {
+    $checks = SurvivorChecks::none()
+        ->leaving($left(Unchecked::Failed, 'src/C.php'))
+        ->leaving($left(Unchecked::Failed, 'src/A.php'))
+        ->leaving($left(Unchecked::Failed, 'src/B.php'));
+
+    expect($texts($checks))->toBe([
+        'Static analysis left 3 survivors unchecked, as the analyser could not check them: src/A.php, src/B.php, src/C.php.',
+    ]);
+});
+
 it('says why for every reason', function (Unchecked $why, string $because) use ($left, $texts): void {
     expect($texts(SurvivorChecks::none()->leaving($left($why, 'src/Money.php'))))
         ->toBe([sprintf('Static analysis left 1 survivor unchecked, as %s: src/Money.php.', $because)]);
