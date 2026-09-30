@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Cli\Command\Doctor;
 use NightWorksIO\MutationGate\Cli\Command\Init;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Cli\Command\PreCommitCommand;
+use NightWorksIO\MutationGate\Cli\Command\ReproduceCommand;
 use NightWorksIO\MutationGate\Cli\Command\RunCommand;
 use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
@@ -45,7 +46,6 @@ final readonly class Console
 
     /** The commands the README lists that are not built yet, each of which says so. */
     private const array NOT_BUILT = [
-        'reproduce' => 'Run one mutant again and show why it survives',
         'triage' => 'Run a file n times and list every mutant whose result varied',
         'watch' => 'Re-judge what each save reaches',
         'pre-push' => 'Judge the commits being pushed, as CI will',
@@ -110,6 +110,7 @@ final readonly class Console
         $application->addCommand(BaselineCommand::command($composition));
         $application->addCommand(CoverageCommand::command($composition));
         $application->addCommand(PreCommitCommand::command($composition));
+        $application->addCommand(ReproduceCommand::command($composition));
         $formats = new Formats(class_exists(...));
         $installed = $detected->installed();
         $gate = $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();

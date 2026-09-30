@@ -23,6 +23,9 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Reproducible;
+use NightWorksIO\MutationGate\Core\Runner\Reproduction;
+use NightWorksIO\MutationGate\Core\Runner\Unmade;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -182,6 +185,47 @@ it('runs a survivor again alone and matches it back by the gate\'s id', function
 
     expect(count($survivors))->toBe(1)
         ->and($retried instanceof Mutants ? Library::records($retried) : [])->toBe(Library::records($survivors));
+})->with($libraries);
+
+it('reproduces a survivor on its own, matched back by the gate\'s id, with what the runner printed', function (Library $library) use ($money): void {
+    $result = $money($library);
+    $survivors = Mutants::none();
+
+    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
+        $survivors = $mutant->status() === MutantStatus::Survived ? $survivors->with($mutant) : $survivors;
+    }
+
+    $reproduced = [];
+
+    foreach ($survivors as $survivor) {
+        $reproduced[] = $library->runner()->reproduce(Reproducible::of($survivor), WholeSuite::tests(), Seconds::of(60.0), Withheld::standard());
+    }
+
+    expect($reproduced)->toHaveCount(1)
+        ->and($reproduced[0] instanceof Reproduction && $reproduced[0]->mutant() instanceof Mutant ? Library::records(Mutants::of($reproduced[0]->mutant())) : $reproduced)->toBe(Library::records($survivors))
+        ->and($reproduced[0] instanceof Reproduction ? $reproduced[0]->printed() : '')->toContain('src/Money.php');
+})->with($libraries);
+
+it('reproduces a mutant by the tests that judged its unit, and says the run made none where it no longer makes it', function (Library $library) use ($money): void {
+    $result = $money($library);
+    $survivor = null;
+
+    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
+        $survivor = $mutant->status() === MutantStatus::Survived ? $mutant : $survivor;
+    }
+
+    $runner = $library->runner();
+    $held = $survivor instanceof Mutant ? $runner->reproduce(Reproducible::of($survivor), Group::named('holds:src/Held.php'), Seconds::of(60.0), Withheld::standard()) : null;
+    $gone = $survivor instanceof Mutant ? $runner->reproduce(
+        Reproducible::of(Mutant::of(MutantId::hash(Path::of('src/Money.php'), 'gone', '-a', 0), '', $survivor->location(), $survivor->mutation(), MutantStatus::Survived, $survivor->duration())),
+        WholeSuite::tests(),
+        Seconds::of(60.0),
+        Withheld::standard(),
+    ) : null;
+
+    // The group holds another file, so none of its tests reaches the survivor.
+    expect($held instanceof Reproduction && $held->mutant() instanceof Mutant ? $held->mutant()->status() : $held)->toBe(MutantStatus::Uncovered)
+        ->and($gone instanceof Reproduction ? $gone->mutant() : $gone)->toBeInstanceOf(Unmade::class);
 })->with($libraries);
 
 it('retries a mutant by the tests that judged its unit', function (Library $library) use ($money): void {

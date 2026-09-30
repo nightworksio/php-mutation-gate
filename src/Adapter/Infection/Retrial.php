@@ -24,7 +24,8 @@ use function sprintf;
  */
 final readonly class Retrial
 {
-    private const string NOT_FOUND_AGAIN = 'Run again, Infection made no mutant with this id.';
+    /** Why a mutant run again is unjudged: the run made none with its id. */
+    public const string NOT_FOUND_AGAIN = 'Run again, Infection made no mutant with this id.';
 
     private function __construct(private Seconds $cap)
     {

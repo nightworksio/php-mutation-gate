@@ -27,6 +27,8 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Reproducible;
+use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -198,6 +200,31 @@ final readonly class Pest implements Runner
             ->withholding($withheld));
 
         return $result instanceof CannotJudge ? $result : $this->matching($mutants, $result->mutants());
+    }
+
+    /**
+     * One mutant run again on its own: its file with only its mutator, judged
+     * by the tests given, with what Pest printed. Pest allows each mutant its
+     * own time, so no limit is laid on the run.
+     */
+    public function reproduce(
+        Reproducible $mutant,
+        WholeSuite|Group|Filter $judgedBy,
+        Seconds $limit,
+        Withheld $withheld,
+    ): Reproduction|CannotJudge {
+        $shell = Transcribing::over($this->shell);
+        $request = MutationRequest::of(Paths::of($mutant->file()), $judgedBy)
+            ->onlyMutators(Mutators::named($mutant->mutator()))
+            ->withholding($withheld);
+        $result = new MutationRun($this->project, $shell, $this->patching, $this->remembered, $this->groups(...))
+            ->of($request);
+
+        $unmade = Reason::that(self::NOT_FOUND_AGAIN);
+
+        return $result instanceof CannotJudge
+            ? $result
+            : Reproduction::among($mutant->id(), $result->mutants(), $unmade, $shell->printed());
     }
 
     /** Every one of Pest's own ignore markers in the PHP files these paths name. */

@@ -24,11 +24,14 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Reproducible;
+use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
@@ -164,6 +167,23 @@ final readonly class RunnerFake implements Runner
         }
 
         return $found;
+    }
+
+    /** The library's mutant with the id asked for, judged by the tests given, or none where the library has none. */
+    public function reproduce(Reproducible $mutant, WholeSuite|Group|Filter $judgedBy, Seconds $limit, Withheld $withheld): Reproduction
+    {
+        $ran = Mutants::none();
+
+        foreach ($this->library as $known) {
+            $ran = $known->id()->value() === $mutant->id()->value() ? $ran->with($this->judged($known, $judgedBy)) : $ran;
+        }
+
+        return Reproduction::among(
+            $mutant->id(),
+            $ran,
+            Reason::that('Run again, the fake made no mutant with this id.'),
+            sprintf('fake: %s with only %s', $mutant->file()->value(), $mutant->mutator()),
+        );
     }
 
     /** The library's one marker, in `marked/Marked.php`, where the paths asked for name that file. */

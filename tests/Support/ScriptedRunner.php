@@ -13,12 +13,16 @@ use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Reproducible;
+use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
+use NightWorksIO\MutationGate\Core\Runner\Unmade;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -32,6 +36,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 
+use function sprintf;
+
 /**
  * The fake runner, as a test scripts it: what it answers when asked to mutate
  * and to run survivors again, and what it names itself; and every request,
@@ -44,6 +50,9 @@ final class ScriptedRunner implements Runner
 
     /** @var list<array{Mutants, Seconds, WholeSuite|Group|Filter, Withheld}> */
     private array $retries = [];
+
+    /** @var list<array{Reproducible, WholeSuite|Group|Filter, Seconds, Withheld}> */
+    private array $reproductions = [];
 
     /** @var list<Withheld> */
     private array $listings = [];
@@ -313,6 +322,37 @@ final class ScriptedRunner implements Runner
         }
 
         return $again;
+    }
+
+    /** The fake's reproduction, its mutant given the status this runner answers a mutant run again with. */
+    public function reproduce(
+        Reproducible $mutant,
+        WholeSuite|Group|Filter $judgedBy,
+        Seconds $limit,
+        Withheld $withheld,
+    ): Reproduction|CannotJudge {
+        $this->reproductions[] = [$mutant, $judgedBy, $limit, $withheld];
+        $again = $this->fake->reproduce($mutant, $judgedBy, $limit, $withheld)->mutant();
+
+        return $this->retrying instanceof CannotJudge ? $this->retrying : Reproduction::among(
+            $mutant->id(),
+            $again instanceof Mutant ? Mutants::of(Mutant::of(
+                $again->id(),
+                $again->nativeId(),
+                $again->location(),
+                $again->mutation(),
+                $this->retrying,
+                $again->duration(),
+            )) : Mutants::none(),
+            $again instanceof Unmade ? $again->why() : Reason::that('Made again.'),
+            sprintf('scripted: %s run again', $mutant->id()->value()),
+        );
+    }
+
+    /** @return list<array{Reproducible, WholeSuite|Group|Filter, Seconds, Withheld}> each mutant reproduced, as it was asked */
+    public function reproductions(): array
+    {
+        return $this->reproductions;
     }
 
     public function markers(Paths $files): Markers|CannotJudge
