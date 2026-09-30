@@ -1082,16 +1082,27 @@ it('records no pass for a verdict that passed with a mutant the runner left unju
         ->and($store->read(Scope::branch('main'))->lastPassed())->toBeInstanceOf(CannotTell::class);
 });
 
-it('leaves a unit the budget never started for the next run from the last commit that passed to judge', function () use (
+it('keeps the last commit that passed where a budget left a kill unjudged, so the next run from it judges the unit again', function () use (
     $tree,
     $reporting,
     $judged,
 ): void {
-    $project = Flows::project();
-    $store = new ProofStoreFake();
-    $adapters = Flows::adapters($project, [], $store, $tree(Floor::of(0)));
+    $passed = Revision::ref(str_repeat('a1', 20));
+    $store = judgingProven('money', 'money test before');
+    $store->write(Scope::branch('main'), $store->read(Scope::branch('main'))->withPassed(Passed::of($passed, 'mutation-gate', 0)));
+    $checkout = new ChangeSourceFake(
+        $passed,
+        Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(2)))),
+        [Revision::workingTree()->name() => Flows::FILES, $passed->name() => Flows::FILES],
+    )->unchangedSince(Revision::ref(Flows::HEAD));
+    $adapters = Flows::adapters(Flows::project(), [], $store, $tree(Floor::of(0)), $checkout);
 
-    $first = judgingVerdictOf($judged(Planned::twoShards(), $adapters, judgingSettings(Budget::of('1s')), $reporting(new ReporterFake())));
+    $first = judgingVerdictOf($judged(
+        judgingDigested('money', 'money test now'),
+        $adapters,
+        judgingSettings(Budget::of('1s')),
+        $reporting(new ReporterFake()),
+    ));
     $next = new Planning($adapters, Flows::settings(), Flows::setup())
         ->plan(Mode::since(Mode::LAST_PASSED), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1));
     $planned = [];
@@ -1102,12 +1113,11 @@ it('leaves a unit the budget never started for the next run from the last commit
         }
     }
 
-    sort($planned);
+    $lastPassed = $store->read(Scope::branch('main'))->lastPassed();
 
     expect($first->judgement())->toBe(Judgement::Failed)
-        ->and($store->read(Scope::branch('main'))->lastPassed())->toBeInstanceOf(CannotTell::class)
-        ->and(count($store->read(Scope::branch('main'))->proofs()))->toBe(0)
-        ->and($planned)->toBe(['src/Held.php', 'src/Money.php']);
+        ->and($lastPassed instanceof Passed ? $lastPassed->commit() : $lastPassed)->toEqual($passed)
+        ->and($planned)->toBe(['src/Money.php']);
 });
 
 it('finds the weak tests that let a survivor through from the test files the plan names, before it reports', function () use ($tree, $reporting, $judged): void {

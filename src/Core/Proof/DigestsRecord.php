@@ -16,15 +16,16 @@ use stdClass;
 /**
  * The digests of inputs as the gate's files write them, each kind under its
  * name: a run's in the plan, with every unit's source by its path, and a
- * proof's in the ledger, with its unit's source and each killing test file.
- * Each has the commit its digests were taken at, where they stand for one.
+ * proof's in the ledger, with its unit's source and each killing test file,
+ * all but the source as indices into the ledger's {@see InputsTable}. Each
+ * has the commit its digests were taken at, where they stand for one.
  *
  * @internal the shape of the plan and ledger files
  *
  * @phpstan-type ByPathWritten array<string, string>|stdClass
  * @phpstan-type CommitWritten array{commit?: string}
  * @phpstan-type RunWritten array{mutation: string, sources: ByPathWritten, tests: ByPathWritten, commit?: string}
- * @phpstan-type ProofWritten array{source: string, mutation: string, tests: ByPathWritten, commit?: string}
+ * @phpstan-type ProofWritten array{source: string, mutation: int, tests: list<int>, commit?: int}
  */
 final readonly class DigestsRecord
 {
@@ -66,32 +67,41 @@ final readonly class DigestsRecord
         return $commit instanceof Revision ? $digests->takenAt($commit) : $digests;
     }
 
-    /** @return ProofWritten */
-    public static function ofProof(Inputs $inputs): array
+    /** @return ProofWritten the digests a proof records, those it shares with others as indices into the table */
+    public static function ofProof(Inputs $inputs, InputsTable $table): array
     {
+        $tests = [];
+
+        foreach ($inputs->tests() as $file => $digest) {
+            $tests[] = $table->test($file, $digest);
+        }
+
+        $commit = $inputs->commit();
+
         return [
             DigestKind::Source->value => $inputs->source()->value(),
-            DigestKind::Mutation->value => $inputs->mutation()->value(),
-            DigestKind::Test->value => self::byPath($inputs->tests()),
-            ...self::commit($inputs->commit()),
+            DigestKind::Mutation->value => $table->mutation($inputs->mutation()),
+            DigestKind::Test->value => $tests,
+            ...$commit instanceof Revision ? [self::COMMIT => $table->commit($commit)] : [],
         ];
     }
 
     /** @throws NotInShape */
-    public static function readProof(Node $record): Inputs
+    public static function readProof(Node $record, InputsTable $table): Inputs
     {
         $inputs = Inputs::of(
             self::digestIn($record->field(DigestKind::Source->value)),
-            self::digestIn($record->field(DigestKind::Mutation->value)),
+            $table->mutationAt($record->field(DigestKind::Mutation->value)),
         );
 
-        foreach ($record->field(DigestKind::Test->value)->entries() as $file => $digest) {
-            $inputs = $inputs->withTest(Path::of($file), self::digestIn($digest));
+        foreach ($record->field(DigestKind::Test->value)->items() as $index) {
+            [$file, $digest] = $table->testAt($index);
+            $inputs = $inputs->withTest($file, $digest);
         }
 
-        $commit = self::commitIn($record);
+        $commit = $record->field(self::COMMIT);
 
-        return $commit instanceof Revision ? $inputs->takenAt($commit) : $inputs;
+        return $commit->isPresent() ? $inputs->takenAt($table->commitAt($commit)) : $inputs;
     }
 
     /**

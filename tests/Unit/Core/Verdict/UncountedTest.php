@@ -14,5 +14,5 @@ it('says why a unit the budget never started fails the verdict, and what judges 
     'no result' => [Uncounted::NoResult, 'No ledger holds a result of it to count.'],
     'no digests' => [Uncounted::NoDigests, 'Its newest result records no digests of its inputs to say it is this code\'s.'],
     'other source' => [Uncounted::SourceChanged, 'Its newest result is of other source, so its mutants are not this code\'s.'],
-    'another mutant set' => [Uncounted::MutationChanged, 'Its newest result was made with another gate, config, runner or runner setup.'],
+    'another mutant set' => [Uncounted::MutationChanged, 'Its newest result was made with another gate, config, runner, installed packages, runner definitions or test bootstrap.'],
 ]);

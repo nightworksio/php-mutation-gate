@@ -39,7 +39,8 @@ use stdClass;
  * that was not killed keeps its full record, and each killed one is
  * `[id, line, mutator, killers]`, the mutator an index into the ledger's
  * `mutators` and the killers indices into its `tests`. The `killers` section
- * points into `tests` too ({@see KillersRecord}).
+ * points into `tests` too ({@see KillersRecord}), and each proof's digests
+ * point into its `inputs` ({@see InputsTable}).
  *
  * Reading keeps each well-formed entry and drops anything else, never
  * repairing it, so an unreadable ledger, one of another format among them,
@@ -90,10 +91,11 @@ final readonly class LedgerFile
         ]));
         $mutatorIndex = array_flip($mutators);
         $testIndex = array_flip($tests);
+        $inputs = InputsTable::of(...$kept);
         $proofs = [];
 
         foreach ($kept as $proof) {
-            $proofs[$proof->key()->value()] = ProofRecord::of($proof, $mutatorIndex, $testIndex);
+            $proofs[$proof->key()->value()] = ProofRecord::of($proof, $mutatorIndex, $testIndex, $inputs);
         }
 
         $timings = self::timings($ledger->timings());
@@ -107,6 +109,7 @@ final readonly class LedgerFile
             ),
             self::MUTATORS => $mutators,
             self::TESTS => $tests,
+            InputsTable::SECTION => $inputs->written(),
             'proofs' => $proofs === [] ? new stdClass() : $proofs,
             'timings' => $timings === [] ? new stdClass() : $timings,
             KillersRecord::SECTION => KillersRecord::of($killers, $testIndex),
@@ -129,11 +132,12 @@ final readonly class LedgerFile
 
         $mutators = self::namesIn($file, self::MUTATORS);
         $tests = self::namesIn($file, self::TESTS);
+        $inputs = InputsTable::read($file->field(InputsTable::SECTION));
         $proofs = [];
         $timings = [];
 
         foreach (self::entriesOf($file->field('proofs')) as $key => $entry) {
-            $proofs[] = self::proofsIn($key, $entry, $mutators, $tests);
+            $proofs[] = self::proofsIn($key, $entry, $mutators, $tests, $inputs);
         }
 
         foreach (self::entriesOf($file->field('timings')) as $unit => $entry) {
@@ -303,11 +307,16 @@ final readonly class LedgerFile
      * @param  list<string> $tests
      * @return list<Proof>  the proof an entry holds, or none where it is malformed
      */
-    private static function proofsIn(string $key, Node $entry, array $mutators, array $tests): array
-    {
+    private static function proofsIn(
+        string $key,
+        Node $entry,
+        array $mutators,
+        array $tests,
+        InputsTable $inputs,
+    ): array {
         try {
             return Digest::isSha256($key)
-                ? [ProofRecord::read(Digest::of($key), $entry, $mutators, $tests)]
+                ? [ProofRecord::read(Digest::of($key), $entry, $mutators, $tests, $inputs)]
                 : [];
         } catch (NotInShape) {
             return [];

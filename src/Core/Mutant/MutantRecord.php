@@ -22,9 +22,10 @@ use function sprintf;
 
 /**
  * A mutant as the gate's files write it. The full record holds everything a
- * runner reported of it, with the reason it left one unjudged and the tests
- * that killed it. The killed record, which a ledger keeps of a killed mutant,
- * is `[id, line, mutator, killers]`, the mutator an index into the ledger's
+ * runner reported of it, with the reason it left one unjudged, what a time
+ * budget ran out before where one did, and the tests that killed it. The
+ * killed record, which a ledger keeps of a killed mutant, is
+ * `[id, line, mutator, killers]`, the mutator an index into the ledger's
  * list of mutator names and the killers indices into its list of tests: what
  * ignores and the tests report need of it, in as few bytes as a ledger of
  * many thousands of them can take.
@@ -45,6 +46,7 @@ use function sprintf;
  *     limit?: float,
  *     testSeconds?: float,
  *     reason?: string,
+ *     outOfTime?: string,
  *     killedBy?: list<string>,
  * }
  */
@@ -69,6 +71,9 @@ final readonly class MutantRecord
     private const string TEST_SECONDS = 'testSeconds';
 
     private const string REASON = 'reason';
+
+    /** What a time budget ran out before, where one left the mutant unjudged. */
+    private const string OUT_OF_TIME = 'outOfTime';
 
     /** How many fields a killed record holds: its id, its line, its mutator and its killers. */
     private const int KILLED = 4;
@@ -97,7 +102,7 @@ final readonly class MutantRecord
             ...$duration instanceof Seconds ? [self::SECONDS => $duration->seconds()] : [],
             ...$limit instanceof Seconds ? [self::LIMIT => $limit->seconds()] : [],
             ...$judging instanceof Seconds ? [self::TEST_SECONDS => $judging->seconds()] : [],
-            ...$reason instanceof Reason ? [self::REASON => $reason->text()] : [],
+            ...$reason instanceof Reason ? [self::REASON => $reason->text(), ...self::outOfTime($reason)] : [],
             ...count($mutant->killers()) > 0 ? [self::KILLED_BY => self::idsOf($mutant->killers())] : [],
         ];
     }
@@ -141,11 +146,11 @@ final readonly class MutantRecord
         );
         $limit = self::secondsIn($record->field(self::LIMIT));
         $judging = self::secondsIn($record->field(self::TEST_SECONDS));
-        $reason = $record->field(self::REASON);
+        $reason = self::reasonIn($record);
         $killers = $record->field(self::KILLED_BY);
         $limited = $limit instanceof Seconds ? $mutant->withLimit($limit) : $mutant;
         $limited = $judging instanceof Seconds ? $limited->withJudgingTime($judging) : $limited;
-        $said = $reason->isPresent() ? $limited->because(Reason::that($reason->text())) : $limited;
+        $said = $reason instanceof Reason ? $limited->because($reason) : $limited;
 
         return $killers->isPresent() ? $said->killedBy(self::testsIn($killers)) : $said;
     }
@@ -271,6 +276,33 @@ final readonly class MutantRecord
         $status = $record->field(self::STATUS);
 
         return MutantStatus::tryFrom($status->text()) ?? throw NotInShape::at($status->at(), 'a status');
+    }
+
+    /** @return array{outOfTime?: string} what a time budget ran out before, where one did */
+    private static function outOfTime(Reason $reason): array
+    {
+        $before = $reason->outOfTime();
+
+        return $before instanceof OutOfTime ? [self::OUT_OF_TIME => $before->value] : [];
+    }
+
+    /**
+     * Why a record's mutant is unjudged: a time budget's own reason where it
+     * records one, and otherwise the runner's words, where it has any.
+     *
+     * @throws NotInShape
+     */
+    private static function reasonIn(Node $record): Reason|Unreported
+    {
+        $reason = $record->field(self::REASON);
+        $before = $record->field(self::OUT_OF_TIME);
+
+        return match (true) {
+            $before->isPresent() => (OutOfTime::tryFrom($before->text())
+                ?? throw NotInShape::at($before->at(), 'what a time budget ran out before'))->reason(),
+            $reason->isPresent() => Reason::that($reason->text()),
+            default => Unreported::reason(),
+        };
     }
 
     /** @throws NotInShape */

@@ -60,7 +60,12 @@ final readonly class Carrying
         };
     }
 
-    /** Whether a mutant of a result that stands for its unit stands too, or is unjudged, and why. */
+    /**
+     * Whether a mutant of a result that stands for its unit stands too, or is
+     * unjudged, and why. A timeout is unjudged, since triage can count it as
+     * a kill (ADR-0008); a skipped mutant stands, since nothing counts it as
+     * one.
+     */
     public function carry(Proof $proof, Mutant|ProvedKill $mutant): Carry
     {
         return match ($mutant->status()) {

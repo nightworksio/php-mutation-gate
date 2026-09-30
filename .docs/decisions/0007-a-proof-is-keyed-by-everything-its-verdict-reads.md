@@ -178,6 +178,11 @@ has to bring its result with it.
        "bases": ["5be0…64 hex…", "a7c2…64 hex…"],
        "mutators": ["Plus", "LessThan"],
        "tests": ["Tests\\MoneyTest::testAdds", "Tests\\CartTest::testTotal"],
+       "inputs": {
+           "mutation": ["…64 hex…"],
+           "tests": [["tests/MoneyTest.php", "…64 hex…"]],
+           "commits": ["<commit sha>"]
+       },
        "proofs": {
            "9c1e…64 hex…": {
                "unit": "src/Money.php",
@@ -188,12 +193,7 @@ has to bring its result with it.
                    { "id": "3f9a1c2b7d04", "line": 42, "status": "survived", "mutator": "LessThan", "diff": "…" },
                    ["81d0c9e2aa17", 44, 0, [0]]
                ],
-               "digests": {
-                   "source": "…64 hex…",
-                   "mutation": "…64 hex…",
-                   "tests": { "tests/MoneyTest.php": "…64 hex…" },
-                   "commit": "<commit sha>"
-               }
+               "digests": { "source": "…64 hex…", "mutation": 0, "tests": [0], "commit": 0 }
            }
        },
        "timings": {
@@ -237,6 +237,12 @@ has to bring its result with it.
      or not, and no file git neither tracks nor ignores. Digests taken from
      any other working tree record no commit. The plan carries the same
      digests of the run it was made for, which the verdict compares against.
+   - Every digest a proof shares with others is written once, in the
+     ledger's `inputs`: each mutation digest, each killing test file with its
+     digest, and each commit. A proof's `mutation`, `tests` and `commit` are
+     indices into those lists; only its `source` is written in full. A list
+     with an entry that is not well formed is not read, and a proof that
+     points into it is dropped, as one that points past its end is.
    - A mutant that was not killed keeps its full record, so reports can show a
      proved survivor. A timed-out or skipped mutant also keeps its limit
      (ADR-0004).

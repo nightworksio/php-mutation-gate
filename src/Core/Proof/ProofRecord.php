@@ -47,9 +47,10 @@ final readonly class ProofRecord
     /**
      * @param  array<string, int> $mutators each mutator's index in the ledger, by its name
      * @param  array<string, int> $tests    each killing test's index in the ledger, by its id
+     * @param  InputsTable        $inputs   what the digests of the ledger's proofs share
      * @return Written
      */
-    public static function of(Proof $proof, array $mutators, array $tests): array
+    public static function of(Proof $proof, array $mutators, array $tests, InputsTable $inputs): array
     {
         return [
             'unit' => $proof->unit()->value(),
@@ -68,17 +69,18 @@ final readonly class ProofRecord
                     [...$proof->kills()],
                 ),
             ],
-            ...self::digests($proof->inputs()),
+            ...self::digests($proof->inputs(), $inputs),
         ];
     }
 
     /**
      * @param list<string> $mutators the ledger's mutator names, each at its index
      * @param list<string> $tests    the ledger's test ids, each at its index
+     * @param InputsTable  $inputs   what the digests of the ledger's proofs share
      *
      * @throws NotInShape
      */
-    public static function read(Digest $key, Node $entry, array $mutators, array $tests): Proof
+    public static function read(Digest $key, Node $entry, array $mutators, array $tests, InputsTable $inputs): Proof
     {
         $unit = Path::of($entry->field('unit')->text());
         $reported = [];
@@ -102,13 +104,13 @@ final readonly class ProofRecord
             Mutants::of(...$reported),
             ProvedKills::of(...$kills),
             Run::of($entry->field('run')->text(), self::instantIn($entry), self::baseIn($entry)),
-        )->withInputs($digests->isPresent() ? DigestsRecord::readProof($digests) : Undigested::proof());
+        )->withInputs($digests->isPresent() ? DigestsRecord::readProof($digests, $inputs) : Undigested::proof());
     }
 
     /** @return array{digests?: ProofDigests} the digests of the proof's inputs, where it records them */
-    private static function digests(Inputs|Undigested $inputs): array
+    private static function digests(Inputs|Undigested $inputs, InputsTable $table): array
     {
-        return $inputs instanceof Inputs ? [DigestsRecord::FIELD => DigestsRecord::ofProof($inputs)] : [];
+        return $inputs instanceof Inputs ? [DigestsRecord::FIELD => DigestsRecord::ofProof($inputs, $table)] : [];
     }
 
     /**

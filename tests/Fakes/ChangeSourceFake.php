@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Fakes;
 
 use function array_key_exists;
+use function in_array;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
@@ -34,13 +35,21 @@ final readonly class ChangeSourceFake implements ChangeSource
     /**
      * @param array<string, array<string, string>> $files     what each file holds, by revision name and path
      * @param array<string, string>                $changedAt when each committed file last changed, by its path
+     * @param list<string>                         $unchanged the revisions nothing changed since, by name
      */
     public function __construct(
         private Revision $base,
         private Changes $changes,
         private array $files,
         private array $changedAt = [],
+        private array $unchanged = [],
     ) {
+    }
+
+    /** This repository, where nothing changed since this revision, as at the commit HEAD is at. */
+    public function unchangedSince(Revision $revision): self
+    {
+        return new self($this->base, $this->changes, $this->files, $this->changedAt, [...$this->unchanged, $revision->name()]);
     }
 
     /** The repository of the contract suite's fixture: a base, and a working tree that changed one line and added a file. */
@@ -62,7 +71,11 @@ final readonly class ChangeSourceFake implements ChangeSource
 
     public function changesSince(Revision $base): Changes|CannotTell
     {
-        return $base->name() === $this->base->name() ? $this->changes : CannotTell::because(sprintf('%s is not a revision this repository has.', $base->name()));
+        return match (true) {
+            $base->name() === $this->base->name() => $this->changes,
+            in_array($base->name(), $this->unchanged, strict: true) => Changes::none(),
+            default => CannotTell::because(sprintf('%s is not a revision this repository has.', $base->name())),
+        };
     }
 
     public function fingerprints(): Fingerprints

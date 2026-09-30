@@ -26,8 +26,17 @@ enum Uncounted
     /** Its source is not the source its newest result was established on. */
     case SourceChanged;
 
-    /** What decides its mutant set besides its source changed: the gate, the config, the runner or its setup. */
+    /**
+     * What decides its mutant set besides its source changed: the gate, the
+     * config, the runner, what is installed, the files that define the runner
+     * or the test bootstrap every key reads.
+     */
     case MutationChanged;
+
+    /** What decides a unit's mutant set besides its source. */
+    private const string DECIDES = 'gate, config, runner, installed packages, runner definitions or test bootstrap';
+
+    private const string MADE_WITH = 'Its newest result was made with another %s.';
 
     private const string SAID = <<<'SAID'
         %s is unjudged: the time budget ran out before this run mutated it.
@@ -46,7 +55,7 @@ enum Uncounted
             self::NoResult => 'No ledger holds a result of it to count.',
             self::NoDigests => 'Its newest result records no digests of its inputs to say it is this code\'s.',
             self::SourceChanged => 'Its newest result is of other source, so its mutants are not this code\'s.',
-            self::MutationChanged => 'Its newest result was made with another gate, config, runner or runner setup.',
+            self::MutationChanged => sprintf(self::MADE_WITH, self::DECIDES),
         };
     }
 }

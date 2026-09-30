@@ -17,16 +17,18 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 it('says what the budget ran out before, and the command that judges it', function (OutOfTime $before, string $said): void {
-    expect($before->reason())->toEqual(Reason::that(
+    expect($before->reason())->toEqual(Reason::ranOutOf(
+        $before,
         sprintf('The time budget ran out before %s. More time judges it: vendor/bin/mutation-gate run --budget=<duration>', $said),
-    ));
+    ))
+        ->and($before->reason()->outOfTime())->toBe($before);
 })->with([
     'mutating' => [OutOfTime::BeforeMutating, 'this run mutated its unit'],
     'retrying' => [OutOfTime::BeforeRetrying, 'it could run again with a doubled limit'],
     'confirming' => [OutOfTime::BeforeConfirming, 'its survival could be confirmed'],
 ]);
 
-it('knows a mutant or a kill a time budget left unjudged by its reason, and no other', function (Mutant|ProvedKill $mutant, bool $left): void {
+it('knows a mutant or a kill a time budget left unjudged by what its reason records, and no other', function (Mutant|ProvedKill $mutant, bool $left): void {
     expect(OutOfTime::left($mutant))->toBe($left);
 })->with(function (): array {
     $mutant = static fn(MutantStatus $status): Mutant => Mutant::of(
@@ -46,6 +48,7 @@ it('knows a mutant or a kill a time budget left unjudged by its reason, and no o
         'a kill' => [$kill, false],
         'a mutant the runner left unjudged for its own reason' => [$mutant(MutantStatus::Unjudged)->because(Reason::that('No test could be named.')), false],
         'a mutant unjudged with no reason' => [$mutant(MutantStatus::Unjudged), false],
-        'a survivor whose reason reads like the budget\'s' => [$mutant(MutantStatus::Survived)->because(OutOfTime::BeforeConfirming->reason()), false],
+        'a survivor whose reason is the budget\'s' => [$mutant(MutantStatus::Survived)->because(OutOfTime::BeforeConfirming->reason()), false],
+        'a mutant the runner left unjudged in the budget\'s words' => [$mutant(MutantStatus::Unjudged)->because(Reason::that(OutOfTime::BeforeRetrying->reason()->text())), false],
     ];
 });

@@ -86,10 +86,13 @@ presets for Laravel, Symfony and plain libraries.
        which can only make the verdict stricter. An uncovered one stands only
        where the run's coverage map shows no test covering its line now;
      - a kill stands only where the result was established at this run's
-       base, every test that killed it is known, and each of their files, with
-       the support it reads, has the digest it had then. A mutated run can
-       reach code the unmutated run never did, so no narrower set of files
-       than the base bounds what a kill depended on. A kill whose base
+       base, the one its content keys are built on (ADR-0007), every test
+       that killed it is known, and each of their files, with the support it
+       reads, has the digest it had then. A mutated run can reach code the
+       unmutated run never did, so no narrower set of files than the base
+       bounds what a kill depended on. The base leaves out what the key's
+       exceptions leave out, such as `proofs.ignore`'s files, so a kill
+       stands across a change to one of those. A kill whose base
        differs, whose killer is unknown or whose killer changed or is gone is
        unjudged;
      - a timeout or a crash, which can count as a kill but names no test that

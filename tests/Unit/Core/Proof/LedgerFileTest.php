@@ -132,6 +132,11 @@ it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tup
         'bases' => [$base],
         'mutators' => ['Plus', 'Minus'],
         'tests' => ['MoneyTest::adds', 'CartTest::totals', 'TaxTest::rounds'],
+        'inputs' => [
+            'mutation' => [str_repeat('2', 64)],
+            'tests' => [['tests/MoneyTest.php', str_repeat('3', 64)]],
+            'commits' => [str_repeat('4', 40)],
+        ],
         'proofs' => [
             $keyB => ['unit' => 'src/B.php', 'base' => $base, 'at' => '2026-09-29T21:00:00Z', 'run' => 'github:2/1', 'mutants' => []],
             $keyA => [
@@ -156,12 +161,7 @@ it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tup
                     [$minusId->value(), 45, 1, [1, 0]],
                     [$killedId->value(), 44, 0, []],
                 ],
-                'digests' => [
-                    'source' => str_repeat('1', 64),
-                    'mutation' => str_repeat('2', 64),
-                    'tests' => ['tests/MoneyTest.php' => str_repeat('3', 64)],
-                    'commit' => str_repeat('4', 40),
-                ],
+                'digests' => ['source' => str_repeat('1', 64), 'mutation' => 0, 'tests' => [0], 'commit' => 0],
             ],
         ],
         'timings' => ['src/Money.php' => ['seconds' => 12.4, 'runner' => 'infection', 'at' => '2026-09-29T20:48:17Z']],
@@ -175,7 +175,7 @@ it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tup
 
 it('writes an empty ledger as empty lists and maps and no passing commit', function (): void {
     expect(Gzip::unpack(LedgerFile::encode(Ledger::empty()), 'the ledger'))
-        ->toBe('{"format":3,"bases":[],"mutators":[],"tests":[],"proofs":{},"timings":{},"killers":{"mutants":{},"functions":{}}}');
+        ->toBe('{"format":3,"bases":[],"mutators":[],"tests":[],"inputs":{"mutation":[],"tests":[],"commits":[]},"proofs":{},"timings":{},"killers":{"mutants":{},"functions":{}}}');
 });
 
 it('reads back the ledger it wrote, each killed mutant as the kill it proves', function () use ($ledger, $readBack): void {
@@ -266,6 +266,18 @@ it('writes no commit for inputs that stand for none, and reads them back so', fu
         ->and(Gzip::unpack($written, 'the ledger'))->not->toContain('"commit"');
 });
 
+it('drops every proof that points into a list of the ledger\'s inputs whose entries are not all well formed', /** @param array<int, mixed> $entries */ function (string $list, array $entries) use ($data, $written, $ledger, $keyA): void {
+    $file = $data();
+    $file['inputs'] = [...['mutation' => [str_repeat('2', 64)], 'tests' => [['tests/MoneyTest.php', str_repeat('3', 64)]], 'commits' => [str_repeat('4', 40)]], $list => $entries];
+
+    expect(LedgerFile::decode($written($file)))->toEqual($ledger->withoutProof(Digest::of($keyA)));
+})->with([
+    'a mutation digest that is not a SHA-256' => ['mutation', [str_repeat('2', 64), 'abc']],
+    'a test file with no digest' => ['tests', [['tests/MoneyTest.php', str_repeat('3', 64)], ['tests/TaxTest.php']]],
+    'a test file whose digest is not a SHA-256' => ['tests', [['tests/MoneyTest.php', 'abc']]],
+    'a commit that is not a full commit id' => ['commits', [str_repeat('4', 40), 'HEAD']],
+]);
+
 it('drops a proof that is not well formed and keeps the rest', function (Closure $spoil) use ($data, $written, $ledger, $keyA, $keyB): void {
     $file = $data();
     $file['proofs'] = $spoil($file['proofs'], $keyA);
@@ -284,10 +296,11 @@ it('drops a proof that is not well formed and keeps the rest', function (Closure
     'a killed mutant of five fields' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [4 => 'more']]]])],
     'a killed mutant killed by a test not listed' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [3 => [0 => 7]]]]])],
     'a source digest that is not a SHA-256' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['source' => 'abc']]])],
-    'a mutation digest that is not text' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['mutation' => null]]])],
-    'a test digest that is not a SHA-256' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['tests' => ['tests/MoneyTest.php' => 'abc']]]])],
-    'a commit that is not a full commit id' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['commit' => 'HEAD']]])],
-    'a commit that is not text' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['commit' => 4]]])],
+    'a mutation digest that is no index' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['mutation' => null]]])],
+    'a mutation digest past the ledger\'s inputs' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['mutation' => 1]]])],
+    'a test digest past the ledger\'s inputs' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['tests' => [0 => 5]]]])],
+    'a commit that is no index' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['commit' => 'HEAD']]])],
+    'a commit past the ledger\'s inputs' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['commit' => 4]]])],
     'test digests that are not a map' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['digests' => ['tests' => 'none']]])],
     'a killed mutant whose id is not one' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [0 => 'xyz']]]])],
     'a killed mutant on no line' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [1 => 0]]]])],
