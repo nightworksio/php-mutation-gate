@@ -22,7 +22,6 @@ use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -30,6 +29,8 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Reproducible;
+use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -187,10 +188,17 @@ final readonly class Infection implements Runner
         WholeSuite|Group|Filter $judgedBy,
         Withheld $withheld,
     ): Mutants|CannotJudge {
-        $retrial = Retrial::under($this->cap);
-        $again = $this->again($retrial, $mutants, $limit, $judgedBy, $withheld);
+        return $this->rerunning()->retry(Retrial::under($this->cap), $mutants, $limit, $judgedBy, $withheld);
+    }
 
-        return $again instanceof CannotJudge ? $again : $retrial->matched($mutants, $again);
+    /** One mutant run again on its own, with what Infection printed (see Rerunning). */
+    public function reproduce(
+        Reproducible $mutant,
+        WholeSuite|Group|Filter $judgedBy,
+        Seconds $limit,
+        Withheld $withheld,
+    ): Reproduction|CannotJudge {
+        return $this->rerunning()->reproduce($mutant, $judgedBy, $limit, $withheld);
     }
 
     public function markers(Paths $files): Markers|CannotJudge
@@ -282,57 +290,13 @@ final readonly class Infection implements Runner
         return $ran->succeeded() ? $directory : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
     }
 
-    private function again(
-        Retrial $retrial,
-        Mutants $mutants,
-        Seconds $limit,
-        WholeSuite|Group|Filter $judgedBy,
-        Withheld $withheld,
-    ): Mutants|CannotJudge {
-        $runs = $retrial->runs($mutants);
-        $config = $runs === [] ? Mutants::none() : OwnConfig::in($this->project);
+    /** Mutants run again, judged by the tests given with PHPUnit's coverage of them run first. */
+    private function rerunning(): Rerunning
+    {
+        $covered = fn(OwnConfig $config, WholeSuite|Group|Filter $tests, Withheld $hidden): DiskPath|CannotJudge
+            => $this->covered($config, $tests, $hidden, $this->ownCoverage());
 
-        if (! $config instanceof OwnConfig) {
-            return $config;
-        }
-
-        $coverage = $this->covered($config, $judgedBy, $withheld, $this->ownCoverage());
-
-        return $coverage instanceof CannotJudge
-            ? $coverage
-            : $this->rerun($config, $coverage, $runs, $limit, $judgedBy, $withheld);
-    }
-
-    /**
-     * Each file and mutator run again, as the retry asks: judged by its tests,
-     * and allowed its limit as the cap, which is no deadline for the run.
-     *
-     * @param list<array{Path, string}> $runs
-     */
-    private function rerun(
-        OwnConfig $config,
-        DiskPath $coverage,
-        array $runs,
-        Seconds $limit,
-        WholeSuite|Group|Filter $judgedBy,
-        Withheld $withheld,
-    ): Mutants|CannotJudge {
-        $again = Mutants::none();
-
-        foreach ($runs as [$file, $mutator]) {
-            $request = MutationRequest::of(Paths::of($file), $judgedBy)
-                ->onlyMutators(Mutators::named($mutator))
-                ->withholding($withheld);
-            $result = $this->run($config)->of($request, $coverage, $limit);
-
-            if ($result instanceof CannotJudge) {
-                return $result;
-            }
-
-            $again = Mutants::of(...$again, ...$result->mutants());
-        }
-
-        return $again;
+        return new Rerunning($this->project, $this->shell, $this->nativeMarkersAllowed, $covered);
     }
 
     /** The directory the adapter runs PHPUnit under coverage into, for a run of its own. */

@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Reproducible;
+use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -96,6 +98,15 @@ final class CoverageAsked implements Runner
         Withheld $withheld,
     ): Mutants|CannotJudge {
         return $this->runner->retry($mutants, $limit, $judgedBy, $withheld);
+    }
+
+    public function reproduce(
+        Reproducible $mutant,
+        WholeSuite|Group|Filter $judgedBy,
+        Seconds $limit,
+        Withheld $withheld,
+    ): Reproduction|CannotJudge {
+        return $this->runner->reproduce($mutant, $judgedBy, $limit, $withheld);
     }
 
     public function markers(Paths $files): Markers|CannotJudge

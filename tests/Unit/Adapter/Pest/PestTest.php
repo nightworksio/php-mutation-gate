@@ -50,7 +50,10 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Reproducible;
+use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
+use NightWorksIO\MutationGate\Core\Runner\Unmade;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -515,6 +518,44 @@ it('cannot judge a retry whose run failed', function (): void {
         ->retry(Mutants::of(adapterMutant()), Seconds::of(20.0), WholeSuite::tests(), Withheld::standard());
 
     expect($retried)->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
+});
+
+it('reproduces a mutant in one run of its file with only its mutator, by the tests given, with what Pest printed', function (): void {
+    $at = adapterProject();
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+    $holding = Group::named('holds:src/Money.php');
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $holding)
+        ->onlyMutators(Mutators::named(RUN_PLUS))
+        ->withholding(Withheld::of('DEPLOY_*'));
+
+    $reproduced = new Pest($at, $shell, Patching::off())
+        ->reproduce(Reproducible::of(adapterMutant()), $holding, Seconds::of(20.0), Withheld::of('DEPLOY_*'));
+
+    expect($reproduced instanceof Reproduction ? [$reproduced->mutant(), $reproduced->printed()] : $reproduced)->toEqual([adapterMutant(), '  Mutations: 1 tested'])
+        ->and($shell->commands())->toEqual([adapterInvocation()->mutation($request, $holding, adapterResults($at))]);
+});
+
+it('says Pest made no mutant with the id where the run no longer makes it', function (): void {
+    $at = adapterProject();
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+    $place = Location::of(Path::of('src/Money.php'), Line::of(12), Line::of(12));
+    $change = Mutation::of(RUN_PLUS, MutatorFamily::Arithmetic, '-gone');
+    $gone = Mutant::of(MutantId::hash(Path::of('src/Money.php'), RUN_PLUS, '-gone', 0), 'n9', $place, $change, MutantStatus::Survived, Unmeasured::duration());
+
+    $reproduced = new Pest($at, $shell, Patching::off())
+        ->reproduce(Reproducible::of($gone), WholeSuite::tests(), Seconds::of(20.0), Withheld::standard());
+
+    expect($reproduced instanceof Reproduction ? $reproduced->mutant() : $reproduced)
+        ->toEqual(Unmade::because(Reason::that('Run again alone, Pest made no mutant with this id.')));
+});
+
+it('cannot judge a reproduction whose run failed', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
+
+    $reproduced = new Pest(adapterProject(), $shell, Patching::off())
+        ->reproduce(Reproducible::of(adapterMutant()), WholeSuite::tests(), Seconds::of(20.0), Withheld::standard());
+
+    expect($reproduced)->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
 });
 
 it('mutates nothing, and runs nothing, where no file is asked for', function (): void {

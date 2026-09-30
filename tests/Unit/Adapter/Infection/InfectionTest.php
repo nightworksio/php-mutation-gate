@@ -23,12 +23,17 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -40,7 +45,10 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Reproducible;
+use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
+use NightWorksIO\MutationGate\Core\Runner\Unmade;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -55,6 +63,7 @@ use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -435,6 +444,62 @@ it('runs nothing again where the formula decided every timeout, and cannot judge
         ->and($retried($at, infectionShell($at, [], logs: false), 4.0))
         ->toEqual(CannotJudge::because("Infection wrote no log, so no mutant it ran has a result. Infection said:\nsaid"))
         ->and($retried($refused, infectionShell($refused, []), 4.0))
+        ->toBeInstanceOf(CannotJudge::class);
+});
+
+it('reproduces a mutant alone with only its mutator, by its unit\'s tests at the limit, whatever its first limit was', function (): void {
+    $at = infectionProject();
+    $money = sprintf('%s/src/Money.php', $at->root());
+    $result = new Infection($at, infectionShell($at, ['timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')]]), Seconds::of(6.0), nativeMarkersAllowed: false)
+        ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
+    $timedOut = null;
+
+    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
+        $timedOut = $mutant;
+    }
+
+    $again = infectionShell($at, infectionKilled($at));
+    $reproduced = $timedOut instanceof Mutant ? new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false)
+        ->reproduce(Reproducible::of($timedOut), Group::named('holds:src/Money.php'), Seconds::of(12.0), Withheld::of('DEPLOY_*')) : null;
+    $generated = json_decode((string) file_get_contents($at->own('infection.json5')), associative: true);
+
+    expect($timedOut instanceof Mutant ? $timedOut->status() : $timedOut)->toBe(MutantStatus::TimedOut)
+        ->and($reproduced instanceof Reproduction && $reproduced->mutant() instanceof Mutant ? [$reproduced->mutant()->status(), $reproduced->printed()] : $reproduced)
+        ->toBe([MutantStatus::Killed, 'said'])
+        ->and(count($again->commands()))->toBe(2)
+        ->and(infectionRan($again)[0])->toContain('--group=holds:src/Money.php')
+        ->and(infectionRan($again)[1])->toContain('--test-framework-extra-args=--group="holds:src/Money.php"')
+        ->and(array_map(static fn(Command $command): Withheld => $command->withheld(), $again->commands()))
+        ->each->toEqual(Withheld::standard()->and(Withheld::of('DEPLOY_*')))
+        ->and(is_array($generated) ? [$generated['timeout'], $generated['mutators']] : [])->toBe([12.0, ['Plus' => true]]);
+});
+
+it('says Infection made no mutant with the id where it no longer makes it, and cannot judge where its config, coverage or run fails', function (): void {
+    $at = infectionProject();
+    $gone = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Minus', '-gone', 0),
+        '',
+        Location::of(Path::of('src/Money.php'), Line::of(12), Line::of(12)),
+        Mutation::of('Minus', MutatorFamily::Arithmetic, '-gone'),
+        MutantStatus::Survived,
+        Unmeasured::duration(),
+    );
+    $refused = infectionProject('{"testFramework": "phpspec"}');
+    $reproduced = static fn(Project $project, InfectionShellFake $shell): Reproduction|CannotJudge => new Infection(
+        $project,
+        $shell,
+        Seconds::of(6.0),
+        nativeMarkersAllowed: false,
+    )->reproduce(Reproducible::of($gone), WholeSuite::tests(), Seconds::of(6.0), Withheld::standard());
+    $unjudged = $reproduced($at, infectionShell($at, infectionKilled($at)));
+
+    expect($unjudged instanceof Reproduction ? $unjudged->mutant() : $unjudged)
+        ->toEqual(Unmade::because(Reason::that('Run again, Infection made no mutant with this id.')))
+        ->and($reproduced($at, infectionShell($at, [], covers: false)))
+        ->toEqual(CannotJudge::because("PHPUnit's coverage run failed. PHPUnit said:\nsaid"))
+        ->and($reproduced($at, infectionShell($at, [], logs: false)))
+        ->toEqual(CannotJudge::because("Infection wrote no log, so no mutant it ran has a result. Infection said:\nsaid"))
+        ->and($reproduced($refused, infectionShell($refused, [])))
         ->toBeInstanceOf(CannotJudge::class);
 });
 

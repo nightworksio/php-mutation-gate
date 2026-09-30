@@ -171,7 +171,7 @@ run does.
 | `run --plan=<file> [--shard=<id>]` | Mutate one shard: the one `--shard` names, or the one the CI's environment names |
 | `verdict --plan=<file> --results=<dir>` | Merge every shard's results, judge the floors, write reports and the ledger |
 | `baseline [--write]` | Show, or write, floors raised to what was measured |
-| `reproduce <id>` | Run one mutant again and show why it survives |
+| `reproduce <id>` | Run one recorded mutant again, alone, and show why it survives, with the runner's own output; the id may be a unique prefix of 6 or more. Exits 1 where the run finds other than what was recorded, and 2 where no ledger holds it or the run no longer makes it |
 | `explain <id> [--format=text\|json]` | Show one mutant's diff, hint, covering tests and their outcomes, and its history, from the ledgers, running nothing; the id may be a unique prefix of 6 or more |
 | `tests` | Print the useless-test and redundant-test report from the ledgers, running nothing |
 | `triage <path> [--repeat=<n>] [--order=runner\|killers-first]` | Run a unit n times (5 by default) and list every mutant whose result varied, with each mutant's tests in the order `--order` names (`tests.order` by default) |

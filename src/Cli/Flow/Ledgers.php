@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Access;
@@ -15,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
+use NightWorksIO\MutationGate\Core\Proof\Records;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -89,6 +91,16 @@ final readonly class Ledgers
     public function newest(): NewestProofs
     {
         return $this->own->and($this->defaultBranch)->proofs()->newest();
+    }
+
+    /** Every record the ledgers read hold of the mutants an id or a prefix of one names, the newest first. */
+    public function records(IdPrefix $sought): Records
+    {
+        $records = Records::none($sought)->in($this->default, $this->defaultBranch);
+
+        return $this->scope instanceof Scope && ! $this->scope->equals($this->default)
+            ? $records->in($this->scope, $this->own)
+            : $records;
     }
 
     /** How long each unit took, as every ledger read learned it. */

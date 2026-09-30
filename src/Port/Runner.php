@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Reproducible;
+use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -79,6 +81,19 @@ interface Runner
         WholeSuite|Group|Filter $judgedBy,
         Withheld $withheld,
     ): Mutants|CannotJudge;
+
+    /**
+     * One mutant run again on its own: its file with only its mutator, judged
+     * by these tests, allowed this long where the runner lays a limit, and
+     * matched back by the gate's id, with what the runner printed. The tests
+     * never see the variables withheld (ADR-0004 decision 6).
+     */
+    public function reproduce(
+        Reproducible $mutant,
+        WholeSuite|Group|Filter $judgedBy,
+        Seconds $limit,
+        Withheld $withheld,
+    ): Reproduction|CannotJudge;
 
     /**
      * The runner's own ignore markers in these files and in its config, each

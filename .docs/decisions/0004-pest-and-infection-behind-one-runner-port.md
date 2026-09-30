@@ -483,11 +483,15 @@ its parser attributes. Both change when the checkout moves.
 6. **Reproducing one mutant is runner-neutral.** `mutation-gate reproduce <id>`
    runs the runner over the one file with only that mutator: Pest's `--path`
    with `--mutator=<class name>`, or Infection's positional path with the
-   narrowed config of decision 4. It finds the mutant by the gate's id and
-   prints the diff, the judging tests and the runner's own output for it.
-   Pest's `--id=<native id>` is used for that last run once the native id is
-   known on this machine. A mutant decision 8 judged is re-run through decision
-   8's steps instead, against its judging tests, because Pest reports it
+   narrowed config of decision 4. It finds the mutant by the gate's id, or a
+   unique prefix of six or more, in the newest record the readable ledgers
+   hold, runs it by the tests that judge its unit and allowed the configured
+   cap, and prints the diff, what was recorded, what the run found, the
+   judging tests and the runner's own output for it. It exits 0 where the run
+   finds what was recorded, 1 where it finds something else, and 2 where no
+   ledger read holds the mutant, the run no longer makes it, or the runner
+   cannot judge. A mutant decision 8 judged is re-run through decision 8's
+   steps instead, against its judging tests, because Pest reports it
    uncovered before any test runs.
 
 7. **One contract suite for every runner.** `tests/Contract/Runner` holds a
