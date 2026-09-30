@@ -1,0 +1,4 @@
+ignores:
+  entries:
+    - mutant: 123456789012
+      reason: Equivalent

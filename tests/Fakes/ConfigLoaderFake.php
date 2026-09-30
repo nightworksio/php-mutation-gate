@@ -29,6 +29,10 @@ final readonly class ConfigLoaderFake implements ConfigLoader
         return new self([
             '/fixtures/Config/valid.fake' => '{"runner": "pest", "trees": [{"path": "src", "floor": 100}], "newCode": {"floor": 100}}',
             '/fixtures/Config/invalid.fake' => '{"newCode": {"floor": 120}}',
+            '/fixtures/Config/dated.fake' => '{"runner": "pest", "ignores": {"entries": [{"path": "src/**", "mutator": '
+                . '"Plus", "reason": "Equivalent", "expires": "2027-01-31"}]}}',
+            '/fixtures/Config/up.fake' => '{"runner": "pest", "trees": [{"path": "../src", "floor": 100}]}',
+            '/fixtures/Config/broken.fake' => '{"runner": "pest",',
         ]);
     }
 
