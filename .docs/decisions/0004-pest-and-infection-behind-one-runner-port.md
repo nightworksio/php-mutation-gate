@@ -193,9 +193,11 @@ its parser attributes. Both change when the checkout moves.
        such as `lib/vendor`.
      - Pest runs on the PHP the gate runs on, which is first on its path,
        because Pest starts each mutant's run through the same script. It
-       inherits none of the variables that make a process a paratest worker
-       or a mutant's run, none of the gate's own, and none of the CI's
-       credentials (`AWS_*`, `ACTIONS_*`, `GITHUB_TOKEN`, `SONAR_TOKEN`).
+       inherits the environment the gate's PHP started with, where a variable
+       set later by `putenv()` alone does not reach it. It inherits none of
+       the variables that make a process a paratest worker or a mutant's run,
+       none of the gate's own, and none of the CI's credentials (`AWS_*`,
+       `ACTIONS_*`, `GITHUB_TOKEN`, `SONAR_TOKEN`).
      - Pest runs with the project root as its working directory, and one
        `--mutate` invocation at a time runs in a checkout, because each writes
        its opening map to the same path.
@@ -204,7 +206,10 @@ its parser attributes. Both change when the checkout moves.
      covering test whose id that filter cannot express is recorded as
      unjudged, with the test named as the reason, never as killed or uncovered:
      Pest would have run no test for it and called the mutant killed, or
-     dropped the test and called it uncovered.
+     dropped the test and called it uncovered. The filter names a test by
+     the class after a namespace separator, so a PHPUnit class outside any
+     namespace is one it cannot express: a PHPUnit class run by Pest belongs
+     in a namespace.
    - **A small Pest plugin** ships in this package, listed in its
      `composer.json` under `extra.pest.plugins`, which is how Pest finds
      plugins. It implements Pest's `Bootable`, `TestCaseMethodFilter` and
