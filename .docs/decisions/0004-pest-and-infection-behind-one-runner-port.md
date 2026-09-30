@@ -278,8 +278,13 @@ its parser attributes. Both change when the checkout moves.
        --log-junit=<dir>/junit.xml` under pcov or Xdebug, without `--coverage`,
        whose own report path would win. The map is read with
        `phpunit/php-code-coverage`, and its `testResults` carry each test's
-       duration. This is the layout `--coverage=<dir>` expects from an earlier
-       job (ADR-0006).
+       duration. That map is PHP, which reading runs, so only the job that
+       wrote it reads it.
+     - A map another job hands over with `--coverage=<dir>` is only ever the
+       gate's own format 1 map in that directory (ADR-0006). A runner's
+       `coverage.php` there is refused. For a shard that opens on the canary
+       group, the job writes the handed-over map again as `--coverage-php`
+       writes one, beside its results, and its Pest loads that.
      - Groups come from `<vendor>/pestphp/pest/bin/pest --list-groups --colors=never`. A
        listing without `Available test group` is *cannot judge*, never *no
        groups*.
