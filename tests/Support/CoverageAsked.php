@@ -86,9 +86,9 @@ final class CoverageAsked implements Runner
         return $this->runner->judges($file, $map);
     }
 
-    public function startUp(Withheld $withheld): Seconds|CannotJudge
+    public function startUp(Path $file, Withheld $withheld): Seconds|CannotJudge
     {
-        return $this->runner->startUp($withheld);
+        return $this->runner->startUp($file, $withheld);
     }
 
     public function mutate(MutationRequest $request): MutationResult|CannotJudge

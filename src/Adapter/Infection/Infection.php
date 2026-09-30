@@ -167,17 +167,18 @@ final readonly class Infection implements Runner
 
     /**
      * A run of no test, timed from its start to its end, started as Infection
-     * starts PHPUnit for a mutant, on a config that loads no test file.
+     * starts PHPUnit for a mutant of this file, the mutant an unchanged copy,
+     * on a config that loads no test file.
      */
-    public function startUp(Withheld $withheld): Seconds|CannotJudge
+    public function startUp(Path $file, Withheld $withheld): Seconds|CannotJudge
     {
         $config = OwnConfig::in($this->project);
-        $file = $config instanceof CannotJudge ? $config : StartUpConfig::written($this->project, $config);
+        $shaped = $config instanceof CannotJudge ? $config : StartUpConfig::written($this->project, $config, $file);
         $ran = match (true) {
             $config instanceof CannotJudge => $config,
-            $file instanceof CannotJudge => $file,
+            $shaped instanceof CannotJudge => $shaped,
             default => $this->shell->run(
-                Invocation::startingUp($this->project, $config, $file)->withholding($withheld),
+                Invocation::startingUp($this->project, $config, $shaped)->withholding($withheld),
             ),
         };
 
@@ -188,6 +189,7 @@ final readonly class Infection implements Runner
         };
     }
 
+    /** Every mutant of the requested files. */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
         $config = OwnConfig::in($this->project);

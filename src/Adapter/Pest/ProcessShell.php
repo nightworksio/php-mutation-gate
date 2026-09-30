@@ -39,6 +39,7 @@ final readonly class ProcessShell implements Shell
     public function run(Command $command): Ran
     {
         $process = new Process($command->arguments(), $this->directory, $command->environment(), timeout: null);
+        $started = $this->clock->seconds();
 
         try {
             $process->start();
@@ -46,12 +47,12 @@ final readonly class ProcessShell implements Shell
             return Ran::finished(succeeded: false, output: $failure->getMessage());
         }
 
-        return $this->awaited($process, $command->deadline());
+        return $this->awaited($process, $command->deadline(), $started);
     }
 
-    private function awaited(Process $process, Seconds|Unlimited $deadline): Ran
+    /** The process, once it ends or is stopped at its deadline, and how long it ran since it was started. */
+    private function awaited(Process $process, Seconds|Unlimited $deadline, float $started): Ran
     {
-        $started = $this->clock->seconds();
         $until = $deadline instanceof Seconds ? $started + $deadline->seconds() : INF;
 
         while ($process->isRunning()) {

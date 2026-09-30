@@ -138,7 +138,7 @@ final readonly class RunnerFake implements Runner
     }
 
     /** A run of no test takes a second and a half. */
-    public function startUp(Withheld $withheld): Seconds
+    public function startUp(Path $file, Withheld $withheld): Seconds
     {
         return Seconds::of(1.5);
     }

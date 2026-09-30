@@ -60,7 +60,7 @@ final class ScriptedRunner implements Runner
     /** @var list<Withheld> */
     private array $identified = [];
 
-    /** @var list<Withheld> */
+    /** @var list<array{Path, Withheld}> */
     private array $startedUp = [];
 
     /** How long its run of no test takes, or why it cannot start. */
@@ -75,7 +75,7 @@ final class ScriptedRunner implements Runner
         private readonly CannotJudge|RunnerFake $covering,
         private readonly CannotJudge|Markers|RunnerFake $marking,
     ) {
-        $this->startingUp = $fake->startUp(Withheld::nothing());
+        $this->startingUp = $fake->startUp(Path::of('src/Money.php'), Withheld::nothing());
     }
 
     /** The fake runner over the fixture library, whose survivors survive again. */
@@ -305,17 +305,17 @@ final class ScriptedRunner implements Runner
         return $this->fake->judges($file, $map);
     }
 
-    public function startUp(Withheld $withheld): Seconds|CannotJudge
+    public function startUp(Path $file, Withheld $withheld): Seconds|CannotJudge
     {
-        $this->startedUp[] = $withheld;
+        $this->startedUp[] = [$file, $withheld];
 
         return $this->startingUp;
     }
 
     /**
-     * What each run of no test it was asked for withheld.
+     * The file and what was withheld of each run of no test it was asked for.
      *
-     * @return list<Withheld>
+     * @return list<array{Path, Withheld}>
      */
     public function startedUp(): array
     {

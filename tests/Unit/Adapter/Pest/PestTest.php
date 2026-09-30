@@ -270,18 +270,42 @@ it('cannot judge a coverage run that failed, with what Pest said', function (): 
         ->toEqual(CannotJudge::because("Pest's coverage run failed. Pest said:\nNo code coverage driver"));
 });
 
-it('times a run of no test, started as a mutant\'s own run', function (): void {
+it('times a run of no test, started as a mutant\'s own run of a file whose mutant is an unchanged copy', function (): void {
+    $at = adapterProject();
+    Scratch::write($at->root(), 'src/Money.php', '<?php // money');
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: 'No tests found.')->taking(Seconds::of(1.8)));
+    $copy = sprintf('%s/.mutation-gate/pest/start-up/Money.php', $at->root());
 
-    expect(new Pest(adapterProject(), $shell, Patching::off())->startUp(Withheld::of('DEPLOY_*')))->toEqual(Seconds::of(1.8))
-        ->and($shell->commands())->toEqual([adapterInvocation()->startingUp(Withheld::of('DEPLOY_*'))]);
+    expect(new Pest($at, $shell, Patching::off())->startUp(Path::of('src/Money.php'), Withheld::of('DEPLOY_*')))
+        ->toEqual(Seconds::of(1.8))
+        ->and($shell->commands())->toEqual([
+            adapterInvocation()->startingUp(Withheld::of('DEPLOY_*'), sprintf('%s/src/Money.php', $at->root()), $copy),
+        ])
+        ->and(file_get_contents($copy))->toBe('<?php // money');
 });
 
-it('cannot judge a run of no test that failed, with what Pest said', function (): void {
+it('cannot judge a run of no test that failed, with what Pest said, or one of a file that is not there', function (): void {
+    $at = adapterProject();
+    Scratch::write($at->root(), 'src/Money.php', '<?php');
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'Fatal error')->taking(Seconds::of(0.4)));
+    $pest = new Pest($at, $shell, Patching::off());
 
-    expect(new Pest(adapterProject(), $shell, Patching::off())->startUp(Withheld::standard()))
-        ->toEqual(CannotJudge::because("Pest's run of no test, timing a mutant's start-up, failed. Pest said:\nFatal error"));
+    expect($pest->startUp(Path::of('src/Money.php'), Withheld::standard()))
+        ->toEqual(CannotJudge::because("Pest's run of no test, timing a mutant's start-up, failed. Pest said:\nFatal error"))
+        ->and($pest->startUp(Path::of('src/Gone.php'), Withheld::standard()))
+        ->toEqual(CannotJudge::because("Pest's run of no test needs an unchanged copy of src/Gone.php, and it could not be made."));
+});
+
+it('cannot time a run of no test where an earlier copy cannot be removed', function (): void {
+    $at = adapterProject();
+    Scratch::write($at->root(), 'src/Money.php', '<?php');
+    $copy = sprintf('%s/.mutation-gate/pest/start-up/Money.php', $at->root());
+    mkdir($copy, recursive: true);
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    expect(new Pest($at, $shell, Patching::off())->startUp(Path::of('src/Money.php'), Withheld::standard()))
+        ->toEqual(CannotJudge::because(sprintf('An earlier run left %s, and the gate cannot remove it.', $copy)))
+        ->and($shell->commands())->toBe([]);
 });
 
 it('reads the gate\'s own map another job handed over, running nothing', function (): void {

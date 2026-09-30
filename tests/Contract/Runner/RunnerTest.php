@@ -66,6 +66,34 @@ if (Library::isInfectionInstalled()) {
     $libraries['infection'] = fn(): Library => Library::infection(Seconds::of(10.0));
 }
 
+/**
+ * Which of the fixtures' marks a run leaves: whether it loaded MoneySpec,
+ * loaded it through a user-space `file://` wrapper, and ran one of its tests.
+ * Symfony's Process hands a child the variables in $_ENV, whatever putenv() did.
+ *
+ * @param  Closure(): void                                    $run
+ * @return array{loaded: bool, wrapped: bool, ran: bool}
+ */
+function contractMarks(Closure $run): array
+{
+    $marks = ['loaded' => 'CONTRACT_LOADED', 'wrapped' => 'CONTRACT_WRAPPED', 'ran' => 'CONTRACT_RAN'];
+    $directory = Scratch::directory();
+
+    foreach ($marks as $mark => $variable) {
+        $_ENV[$variable] = sprintf('%s/%s', $directory, $mark);
+    }
+
+    $run();
+    $left = [];
+
+    foreach ($marks as $mark => $variable) {
+        $left[$mark] = is_file(sprintf('%s/%s', $directory, $mark));
+        unset($_ENV[$variable]);
+    }
+
+    return $left;
+}
+
 /** The libraries whose runner reads a map from disk: every one but the fake. */
 $onDisk = array_diff_key($libraries, ['the fake' => true]);
 
@@ -113,7 +141,7 @@ it('lists the group that holds a path, and the canary, among the suite\'s groups
 })->with($libraries);
 
 it('times a run of no test, started as a mutant\'s own run', function (Library $library): void {
-    $startUp = $library->runner()->startUp(Withheld::standard());
+    $startUp = $library->runner()->startUp(Path::of('src/Money.php'), Withheld::standard());
 
     expect($startUp)->toBeInstanceOf(Seconds::class)
         ->and($startUp instanceof Seconds ? $startUp->seconds() : 0.0)->toBeGreaterThan(0.0);
@@ -356,19 +384,25 @@ it('cannot judge a directory that holds no project it can run', function (Librar
         ->and($library->outside()->rootedAt(Path::of('nowhere')))->toBeInstanceOf(CannotJudge::class);
 })->with($libraries);
 
-it('times a run of no test that loads no test file, where a run the suite narrows by a filter loads them all, with Infection', function (): void {
-    $marker = sprintf('%s/loaded', Scratch::directory());
-    // Symfony's Process hands a child the variables in $_ENV, whatever putenv() did.
-    $_ENV['CONTRACT_LOADED'] = $marker;
-    $library = Library::infection(Seconds::of(10.0));
-    $startUp = $library->runner()->startUp(Withheld::standard());
-    $loadedByStartUp = is_file($marker);
-    $library->runner()->coverage(CoverageRun::of(Filter::nothing(), Path::of('.mutation-gate/loaded')));
-    unset($_ENV['CONTRACT_LOADED']);
+it('times a run of no test that loads every test file through the mutant\'s wrapper and runs none, with Pest', function (): void {
+    $marks = contractMarks(static function (): void {
+        Library::pest(Patching::off())->runner()->startUp(Path::of('src/Money.php'), Withheld::standard());
+    });
 
-    expect($startUp)->toBeInstanceOf(Seconds::class)
-        ->and($loadedByStartUp)->toBeFalse()
-        ->and(is_file($marker))->toBeTrue();
+    expect($marks)->toBe(['loaded' => true, 'wrapped' => true, 'ran' => false]);
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the library');
+
+it('times a run of no test that loads no test file, through the mutant\'s wrapper, where a filtered run loads them all, with Infection', function (): void {
+    $library = Library::infection(Seconds::of(10.0));
+    $startUp = contractMarks(static function () use ($library): void {
+        $library->runner()->startUp(Path::of('src/Money.php'), Withheld::standard());
+    });
+    $filtered = contractMarks(static function () use ($library): void {
+        $library->runner()->coverage(CoverageRun::of(Filter::nothing(), Path::of('.mutation-gate/loaded')));
+    });
+
+    expect($startUp)->toBe(['loaded' => false, 'wrapped' => true, 'ran' => false])
+        ->and($filtered)->toBe(['loaded' => true, 'wrapped' => false, 'ran' => false]);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 it('judges a held path by the tests its #[Holds] filter names, with Infection', function (): void {

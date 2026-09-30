@@ -8,6 +8,9 @@ use function array_filter;
 use function array_key_exists;
 use function array_key_first;
 use function array_values;
+use function basename;
+use function copy;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
@@ -43,6 +46,7 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\Runner;
 
+use function realpath;
 use function sprintf;
 
 /**
@@ -65,6 +69,11 @@ final readonly class Pest implements Runner
     private const string NOT_FOUND_AGAIN = 'Run again alone, Pest made no mutant with this id.';
 
     private const string NO_PROJECT = '%s holds no project Pest can run: Pest is not installed in its %s.';
+
+    /** Where a run of no test finds its unchanged mutant, among the adapter's own files. */
+    private const string START_UP_COPY = 'pest/start-up/%s';
+
+    private const string NOT_COPIED = 'Pest\'s run of no test needs an unchanged copy of %s, and it could not be made.';
 
     private const string NOT_STARTED = "Pest's run of no test, timing a mutant's start-up, failed. Pest said:\n%s";
 
@@ -171,15 +180,31 @@ final readonly class Pest implements Runner
         return $selection->fits() ? $this->tests->naming($selection->classes()) : $this->tests->all();
     }
 
-    /** Every mutant of the requested files, where there are any to mutate: Pest's `--path` never names none. */
-    /** A run of no test, timed from its start to its end, started as pest-plugin-mutate starts a mutant's own run. */
-    public function startUp(Withheld $withheld): Seconds|CannotJudge
+    /**
+     * A run of no test, timed from its start to its end, started as
+     * pest-plugin-mutate starts a mutant's own run of this file, its mutant
+     * an unchanged copy, so the plugin serves the file through its own
+     * wrapper as it does a mutant's.
+     */
+    public function startUp(Path $file, Withheld $withheld): Seconds|CannotJudge
     {
-        $ran = $this->shell->run(Invocation::installedIn($this->project->vendor())->startingUp($withheld));
+        $original = realpath($this->project->absolute($file));
+        $copy = $original === false
+            ? CannotJudge::because(sprintf(self::NOT_COPIED, $file->value()))
+            : $this->unchanged($original);
+
+        if ($copy instanceof CannotJudge) {
+            return $copy;
+        }
+
+        $ran = $this->shell->run(
+            Invocation::installedIn($this->project->vendor())->startingUp($withheld, $original, $copy),
+        );
 
         return $ran->succeeded() ? $ran->took() : CannotJudge::because(sprintf(self::NOT_STARTED, $ran->output()));
     }
 
+    /** Every mutant of the requested files, where there are any to mutate: Pest's `--path` never names none. */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
         return $this->run($this->shell)->of($request);
@@ -273,6 +298,22 @@ final readonly class Pest implements Runner
         return Invocation::installedIn($project->vendor())->isIn($project)
             ? new self($project, $this->shell->in($project->root()), $this->patching)
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
+    }
+
+    /**
+     * An unchanged copy of a file among the adapter's own files, which a run
+     * of no test serves in its place, copied as the adapter writes its other
+     * files.
+     */
+    private function unchanged(string $original): string|CannotJudge
+    {
+        $copy = $this->project->fresh(sprintf(self::START_UP_COPY, basename($original)));
+
+        if (is_string($copy)) {
+            copy($original, $copy);
+        }
+
+        return $copy;
     }
 
     /** A clean coverage run into a directory, with no earlier run's map or log left there. */

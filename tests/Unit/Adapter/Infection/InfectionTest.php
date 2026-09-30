@@ -276,7 +276,7 @@ it('times a run of no test, started as a mutant\'s run, withholding what it is t
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: 'No tests executed!')->taking(Seconds::of(1.2)));
     $withheld = Withheld::of('DEPLOY_*');
 
-    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp($withheld))
+    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp(Path::of('src/Money.php'), $withheld))
         ->toEqual(Seconds::of(1.2))
         ->and(array_map(static fn(Command $command): Withheld => $command->withheld(), $shell->commands()))
         ->toEqual([Withheld::standard()->and($withheld)])
@@ -292,9 +292,9 @@ it('cannot judge a run of no test that fails, with what PHPUnit said, or one ove
 
     Scratch::write($at->root(), 'phpunit.xml', '<phpunit/>');
 
-    expect(new Infection($at, $failed, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp(Withheld::standard()))
+    expect(new Infection($at, $failed, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp(Path::of('src/Money.php'), Withheld::standard()))
         ->toEqual(CannotJudge::because("PHPUnit's run of no test, timing a mutant's start-up, failed. It said:\nFatal error"))
-        ->and(new Infection($refused, $untouched, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp(Withheld::standard()))
+        ->and(new Infection($refused, $untouched, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp(Path::of('src/Money.php'), Withheld::standard()))
         ->toEqual(CannotJudge::because(
             'infection.json5 points phpUnit.customPath at vendor/bin/pest. Infection cannot run Pest tests: use the Pest runner.',
         ))
@@ -305,7 +305,7 @@ it('cannot time a run of no test in a project with no PHPUnit config, running no
     $at = infectionProject();
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
-    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp(Withheld::standard()))
+    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->startUp(Path::of('src/Money.php'), Withheld::standard()))
         ->toEqual(CannotJudge::because(sprintf('The run of no test needs PHPUnit\'s config, and there is none in %s.', $at->root())))
         ->and($shell->commands())->toBe([]);
 });
