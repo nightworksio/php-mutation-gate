@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
 
@@ -43,6 +44,12 @@ final readonly class Checkout implements ChangeSource, Repository
     public function unstaged(): Paths|CannotTell
     {
         return $this->changes->unstaged();
+    }
+
+    /** @return ByPath<Instant>|CannotTell */
+    public function lastChanged(Paths $paths): ByPath|CannotTell
+    {
+        return $this->changes->lastChanged($paths);
     }
 
     public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell

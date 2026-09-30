@@ -153,6 +153,18 @@ final readonly class Reach
         return $this->lines->at($file, Lines::none());
     }
 
+    /** Whether the change added or modified a line of a unit: of its file, or of a file within the path it holds. */
+    public function changesLinesOf(Unit $unit): bool
+    {
+        foreach ($this->lines->paths() as $file) {
+            if ($file->within($unit->path()) && $this->changedLines($file)->count() > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** Whether the change reaches every unit of every package. */
     public function isEverywhere(): bool
     {

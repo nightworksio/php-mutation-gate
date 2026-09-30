@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
@@ -73,7 +74,8 @@ final readonly class Results
 
     /**
      * Each unit a shard ran, with the mutants of it and those of them that
-     * were flaky; a held unit its holding tests miss lines of did not run.
+     * were flaky; a held unit its holding tests miss lines of did not run,
+     * nor did a unit the shard's time budget ran out before.
      */
     public function units(): UnitResults
     {
@@ -81,7 +83,7 @@ final readonly class Results
 
         foreach ($this->read as [$shard, $result, $mutated]) {
             foreach ($shard->units() as $unit) {
-                if ($result->misses()->misses($unit->path())) {
+                if ($result->misses()->misses($unit->path()) || $result->unjudged()->has($unit->path())) {
                     continue;
                 }
 
@@ -105,6 +107,20 @@ final readonly class Results
         }
 
         return $misses;
+    }
+
+    /** Every shard's units its time budget ran out before (ADR-0008, decision 1). */
+    public function unjudged(): Units
+    {
+        $unjudged = Units::none();
+
+        foreach ($this->read as [, $result]) {
+            foreach ($result->unjudged() as $unit) {
+                $unjudged = $unjudged->with($unit);
+            }
+        }
+
+        return $unjudged;
     }
 
     /** What every shard warns of, shard by shard. */

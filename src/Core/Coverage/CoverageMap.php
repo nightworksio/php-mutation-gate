@@ -209,6 +209,22 @@ final readonly class CoverageMap
             : Unmeasured::duration();
     }
 
+    /**
+     * How long the whole suite takes, test after test, as the map timed it:
+     * what a runner's opening run costs before it has measured one of its
+     * own. A test the map did not time adds nothing.
+     */
+    public function suiteDuration(): Seconds
+    {
+        $seconds = 0.0;
+
+        foreach ($this->durations as $duration) {
+            $seconds += $duration->seconds();
+        }
+
+        return Seconds::of($seconds);
+    }
+
     /** @param array<string, string> $ids */
     private function testsOf(array $ids): TestIds
     {

@@ -8,6 +8,7 @@ use function intval;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Time\Budgets;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
@@ -80,7 +81,7 @@ final readonly class Triage implements Part
     /** How long a run may take, riskiest code first (ADR-0008). */
     public function budget(): Seconds|Unlimited
     {
-        return $this->budget instanceof Seconds ? $this->budget : Unlimited::time();
+        return $this->budget instanceof Seconds ? $this->budget : Budgets::standard()->run();
     }
 
     /** `timeouts.mode` */

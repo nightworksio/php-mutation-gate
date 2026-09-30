@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Time\Budgets;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
@@ -13,8 +14,6 @@ use function sprintf;
 /** How long the gate runs while a person works and before a push (ADR-0010): `local`. */
 final readonly class Local implements Part
 {
-    private const int PRE_PUSH = 300;
-
     private function __construct(private Seconds|Absent $watchBudget, private Seconds|Absent $prePushBudget)
     {
     }
@@ -50,12 +49,12 @@ final readonly class Local implements Part
 
     public function watchBudget(): Seconds
     {
-        return $this->watchBudget instanceof Seconds ? $this->watchBudget : Seconds::minutes(1);
+        return $this->watchBudget instanceof Seconds ? $this->watchBudget : Budgets::standard()->watch();
     }
 
     public function prePushBudget(): Seconds
     {
-        return $this->prePushBudget instanceof Seconds ? $this->prePushBudget : Seconds::of(self::PRE_PUSH);
+        return $this->prePushBudget instanceof Seconds ? $this->prePushBudget : Budgets::standard()->prePush();
     }
 
     public function written(PathOrigin $origin): Json

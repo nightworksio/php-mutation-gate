@@ -22,3 +22,18 @@ it('adds a unit without changing the units it came from', function () use ($path
     expect($paths($units->with(Unit::file(Path::of('src/B.php')))))->toBe(['src/A.php', 'src/B.php'])
         ->and($units)->toHaveCount(1);
 });
+
+it('says whether one of its units is at a path', function (): void {
+    $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
+
+    expect($units->has(Path::of('src/B.php')))->toBeTrue()
+        ->and($units->has(Path::of('src/C.php')))->toBeFalse()
+        ->and($units->has(Path::of('src')))->toBeFalse();
+});
+
+it('leaves out the units at the paths of others', function () use ($paths): void {
+    $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')), Unit::file(Path::of('src/C.php')));
+
+    expect($paths($units->except(Units::of(Unit::file(Path::of('src/B.php'))))))->toBe(['src/A.php', 'src/C.php'])
+        ->and($paths($units->except(Units::none())))->toBe(['src/A.php', 'src/B.php', 'src/C.php']);
+});

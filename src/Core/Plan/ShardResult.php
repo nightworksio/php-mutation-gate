@@ -11,13 +11,15 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 /**
  * What one shard left for the verdict: the plan it followed, its units with
  * their keys, every mutant's record or the runner's cannot judge, what it
  * measured, the mutants that gave two answers, the held units whose holding
- * tests miss lines of them, which it did not mutate, and what it warns of.
+ * tests miss lines of them, which it did not mutate, what it warns of, and
+ * the units its budget ran out before.
  */
 final readonly class ShardResult
 {
@@ -30,6 +32,7 @@ final readonly class ShardResult
         private MutantIds $flaky,
         private HeldMisses $misses,
         private Warnings $warnings,
+        private Units $unjudged,
     ) {
     }
 
@@ -49,6 +52,7 @@ final readonly class ShardResult
             MutantIds::none(),
             HeldMisses::none(),
             Warnings::none(),
+            Units::none(),
         );
     }
 
@@ -68,6 +72,12 @@ final readonly class ShardResult
     public function withWarnings(Warnings $warnings): self
     {
         return clone($this, ['warnings' => $warnings]);
+    }
+
+    /** This result, with the units the budget ran out before, which it never started (ADR-0008, decision 1). */
+    public function withUnjudged(Units $unjudged): self
+    {
+        return clone($this, ['unjudged' => $unjudged]);
     }
 
     /** The digest of the plan the shard followed. */
@@ -114,5 +124,11 @@ final readonly class ShardResult
     public function warnings(): Warnings
     {
         return $this->warnings;
+    }
+
+    /** The units the budget ran out before, which the shard never started. */
+    public function unjudged(): Units
+    {
+        return $this->unjudged;
     }
 }

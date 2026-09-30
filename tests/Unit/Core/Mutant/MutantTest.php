@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -64,6 +65,22 @@ it('gives no reason until one is said', function (): void {
         ->and($explained->mutation())->toBe($mutation)
         ->and($explained->status())->toBe(MutantStatus::Unjudged)
         ->and($explained->duration())->toEqual(Seconds::of(0.4));
+});
+
+it('is left unjudged by a budget that ran out, saying before what, keeping the rest of its record', function (): void {
+    $id = MutantId::hash(Path::of('src/Money.php'), 'LessThan', "-<\n+<=", 0);
+    $location = Location::of(Path::of('src/Money.php'), Line::of(42), Line::of(42));
+    $mutation = Mutation::of('LessThan', MutatorFamily::Boundary, "-<\n+<=");
+    $mutant = Mutant::of($id, '9a0b7e', $location, $mutation, MutantStatus::Survived, Seconds::of(0.4));
+    $unjudged = $mutant->unjudged(OutOfTime::BeforeConfirming);
+
+    expect($unjudged->status())->toBe(MutantStatus::Unjudged)
+        ->and($unjudged->reason())->toEqual(OutOfTime::BeforeConfirming->reason())
+        ->and($unjudged->id())->toBe($id)
+        ->and($unjudged->location())->toBe($location)
+        ->and($unjudged->mutation())->toBe($mutation)
+        ->and($unjudged->duration())->toEqual(Seconds::of(0.4))
+        ->and($mutant->status())->toBe(MutantStatus::Survived);
 });
 
 it('names the tests that killed it, none until they are said, keeping the rest of its record', function (): void {

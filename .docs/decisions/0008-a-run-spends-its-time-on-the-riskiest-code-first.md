@@ -41,19 +41,34 @@ presets for Laravel, Symfony and plain libraries.
         to judge.
      3. Units never mutated.
      4. Units reached by a changed test or test support.
-     5. Everything else, most recently changed first.
+     5. Everything else, most recently changed first, by the newest commit on
+        `HEAD` that changed the unit (a held path by its newest file). A unit
+        no commit changed comes after those one did.
+
+     A run that knows no change, as a full run does not, has no unit in
+     classes 1 and 4.
    - **Batches.** A runner orders mutants inside one invocation itself, so the
      gate controls order between invocations. It runs units in batches, each
      sized by the cost model (ADR-0006) to fit the remaining budget. Batches
      are as large as the budget allows, because each one pays the runner's
      opening run. When the next batch does not fit, none is started. At the
-     deadline the runner is stopped.
+     deadline the runner is stopped, and a batch it could not judge once the
+     deadline passed is left unjudged. A timeout retry or a survivor
+     confirmation runs only as many mutants as fit in the time left, each at
+     its whole limit.
    - **Unjudged mutants.** Every mutant the budget left without a result is
      *unjudged*. Such a mutant:
      - counts as not killed (ADR-0003);
      - is listed by unit in every report, with the command that judges it;
      - keeps its unit out of the ledger (ADR-0007);
      - means its tree's floor is never raised by this run.
+
+     A unit the budget never started counts by its newest result in the
+     ledgers the run reads, with every mutant of it unjudged. A unit with no
+     result in any ledger has no mutants to count, so it fails the verdict,
+     named with the command that judges it. Why a mutant is unjudged is one of
+     three: the budget ran out before its unit was mutated, before its timeout
+     could run again, or before its survival could be confirmed.
 
      A budgeted run can fail for lack of time. It can never pass a mutant it did
      not judge.

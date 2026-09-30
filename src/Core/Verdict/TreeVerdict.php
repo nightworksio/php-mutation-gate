@@ -149,14 +149,17 @@ final readonly class TreeVerdict
     /**
      * The floor the baseline rises to: the score, where it is above the floor
      * the tree was held to, or where no floor holds it at all. A floor only
-     * the declaration holds and the score merely meets is left unrecorded.
+     * the declaration holds and the score merely meets is left unrecorded, and
+     * so is the floor of a tree with an unjudged mutant, which the run did
+     * not judge whole (ADR-0003, decision 4).
      */
     public function raised(): Floor|Unraised
     {
         $score = $this->score();
         $floor = $this->floor();
+        $unjudged = $this->counts()->number(MutantJudgement::Unjudged) > 0;
 
-        if ($score instanceof NothingToMutate || $floor instanceof Exempt) {
+        if ($unjudged || $score instanceof NothingToMutate || $floor instanceof Exempt) {
             return Unraised::floor();
         }
 

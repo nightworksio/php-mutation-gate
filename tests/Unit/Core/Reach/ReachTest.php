@@ -165,3 +165,15 @@ it('says whether reached files and trees reach each unit in time linear in their
     expect($reached(10)())->toBe(10)
         ->and(Growth::of(1000, $reached))->toBeLessThan(Growth::LINEAR);
 });
+
+it('says whether the change added or modified a line of a unit, or of a file a held unit holds', function () use ($nothing): void {
+    $reach = $nothing()
+        ->withLines(Path::of('src/Money.php'), Lines::of(Line::of(3)))
+        ->withLines(Path::of('src/Clock/Tick.php'), Lines::of(Line::of(9)))
+        ->withLines(Path::of('src/Removed.php'), Lines::none());
+
+    expect($reach->changesLinesOf(Unit::file(Path::of('src/Money.php'))))->toBeTrue()
+        ->and($reach->changesLinesOf(Unit::held(Path::of('src/Clock'), Group::named('holds:src/Clock'))))->toBeTrue()
+        ->and($reach->changesLinesOf(Unit::file(Path::of('src/Removed.php'))))->toBeFalse()
+        ->and($reach->changesLinesOf(Unit::file(Path::of('src/Other.php'))))->toBeFalse();
+});

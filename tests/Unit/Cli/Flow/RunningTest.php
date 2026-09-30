@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\Tests;
@@ -30,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
@@ -55,6 +57,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -67,6 +70,7 @@ use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
 use NightWorksIO\MutationGate\Tests\Support\TickingClock;
 
 afterEach(function (): void {
@@ -80,6 +84,19 @@ $ticking = static fn(): Setup => new Setup(
     Digest::sha256Of('installed'),
     new TickingClock('2026-09-30T12:00:00+00:00', 3),
 );
+
+/** A setup whose clock moves on this many seconds each time the run reads it. */
+$tickingBy = static fn(int $step): Setup => new Setup(
+    Absent::setting(),
+    Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
+    Digest::sha256Of('installed'),
+    new TickingClock('2026-09-30T12:00:00+00:00', $step),
+);
+
+/** @return list<string> the paths of the units a result says its budget ran out before */
+$unjudged = static fn(ShardResult|CannotJudge $result): array => $result instanceof ShardResult
+    ? array_map(static fn(Unit $unit): string => $unit->path()->value(), [...$result->unjudged()])
+    : [];
 
 /** The result a shard left in a project, as the verdict reads it. */
 $resultIn = static function (string $project, int $shard): ShardResult|CannotJudge {
@@ -625,4 +642,116 @@ it('judges a shard whose kill history cannot be read without it, and warns of it
         ->and($warnings[0] ?? null)->toBeInstanceOf(Warning::class)
         ->and(($warnings[0] ?? null)?->text())
         ->toStartWith('Shard 1 ran its tests without the kill history the plan handed it. A kill history cannot be read: ');
+});
+
+it('runs every batch that fits a budget with the time left, leaving nothing unjudged', function () use ($resultIn, $unjudged): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+    $setup = new Setup(
+        Absent::setting(),
+        Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
+        Digest::sha256Of('installed'),
+        new StoppedClock('2026-09-30T12:00:00Z'),
+    );
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('2s')), $setup)
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect(array_map(
+        static fn(MutationRequest $request): array => [
+            array_map(static fn(Path $file): string => $file->value(), [...$request->files()]),
+            $request->deadline(),
+        ],
+        $runner->requests(),
+    ))->toEqual([[['src/Money.php'], Seconds::of(2.0)], [['src/Held.php'], Seconds::of(2.0)]])
+        ->and($unjudged($resultIn($project, 1)))->toBe([]);
+});
+
+it('starts nothing a budget has no room for, and leaves every unit unjudged', function () use ($resultIn, $unjudged, $statuses): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+    $setup = new Setup(
+        Absent::setting(),
+        Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
+        Digest::sha256Of('installed'),
+        new StoppedClock('2026-09-30T12:00:00Z'),
+    );
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('1s')), $setup)
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+
+    expect($runner->requests())->toBe([])
+        ->and($unjudged($result))->toBe(['src/Money.php', 'src/Held.php'])
+        ->and($statuses($result))->toBe([]);
+});
+
+it('leaves the units no batch took unjudged, and each survivor it had no time to confirm', function () use (
+    $tickingBy,
+    $resultIn,
+    $unjudged,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('25s')), $tickingBy(10))
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
+    $survivor = array_values(array_filter(
+        $outcome instanceof MutationResult ? [...$outcome->mutants()] : [],
+        static fn(Mutant $mutant): bool => $mutant->nativeId() === 'GreaterThan-16',
+    ));
+
+    expect(count($runner->requests()))->toBe(1)
+        ->and($runner->requests()[0]->deadline())->toEqual(Seconds::of(5.0))
+        ->and($runner->retries())->toBe([])
+        ->and($unjudged($result))->toBe(['src/Held.php'])
+        ->and($survivor[0]->status())->toBe(MutantStatus::Unjudged)
+        ->and($survivor[0]->reason())->toEqual(OutOfTime::BeforeConfirming->reason());
+});
+
+it('leaves a batch unjudged whose runner stopped at the deadline, and cannot judge one that failed before it', function (
+    int $step,
+    array $left,
+    bool $judged,
+) use ($tickingBy, $resultIn, $unjudged): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture()->refusing('Pest was stopped at its deadline before it had made its mutants.');
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('25s')), $tickingBy($step))
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+
+    expect($unjudged($result))->toBe($left)
+        ->and($result instanceof ShardResult && $result->outcome() instanceof MutationResult)->toBe($judged);
+})->with([
+    'stopped at the deadline' => [10, ['src/Money.php', 'src/Held.php'], true],
+    'failed before it' => [1, [], false],
+]);
+
+it('runs no timeout again whose doubled cap does not fit the time left, and leaves it unjudged', function () use (
+    $tickingBy,
+    $statuses,
+    $resultIn,
+): void {
+    $project = Flows::project();
+    $timedOut = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
+        'Plus-1',
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
+        MutantStatus::TimedOut,
+        Seconds::of(5.0),
+    )->withLimit(Seconds::of(5.0));
+    $scripted = ScriptedRunner::fixture()->answering(Mutants::of($timedOut), 0);
+
+    new Running(
+        Flows::adapters($project, [], $scripted),
+        Flows::settings(Timeouts::seconds(5), Timeouts::retries(2), Flaky::notConfirmingSurvivors(), Budget::of('6s')),
+        $tickingBy(1),
+    )->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect($scripted->retries())->toBe([])
+        ->and($statuses($resultIn($project, 1)))->toContain('Plus-1 unjudged');
 });

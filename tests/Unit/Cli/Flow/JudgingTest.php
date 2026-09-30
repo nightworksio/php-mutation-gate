@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Baseline as BaselineSetting;
+use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
 use NightWorksIO\MutationGate\Config\Ignores;
@@ -71,6 +72,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
+use NightWorksIO\MutationGate\Core\Score\Unraised;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -84,6 +86,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -900,4 +903,35 @@ it('clusters the survivors of one cause from the project\'s source before it rep
         ->and($clusters[0]->kind())->toBe(ClusterKind::Expression)
         ->and($clusters[0]->members())->toHaveCount(2)
         ->and($recorded->reported)->toBe([$verdict]);
+});
+
+it('counts each unit a budget ran out before by its newest result, unjudged, and fails one no ledger holds', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()->withProof(Proof::of(
+        Digest::sha256Of('money before'),
+        Path::of('src/Money.php'),
+        Flows::mutantsOf('src/Money.php'),
+        Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('main')),
+    )));
+
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters($project, [], $store, $tree(Floor::of(10))),
+        judgingSettings(Budget::of('1s')),
+        $reporting(new ReporterFake()),
+    ));
+    $trees = [...$verdict->trees()];
+
+    expect(judgingTexts($verdict->failures()))->toBe([
+        "src/Held.php is unjudged: the time budget ran out before this run mutated it.\n"
+        . 'No ledger holds a result of it to count as not killed. More time judges it: vendor/bin/mutation-gate run --budget=<duration>',
+    ])
+        ->and($trees[0]->counts()->number(MutantJudgement::Unjudged))->toBe(count(Flows::mutantsOf('src/Money.php')))
+        ->and($trees[0]->raised())->toEqual(Unraised::floor())
+        ->and(count($store->read(Scope::branch('main'))->proofs()))->toBe(1);
 });

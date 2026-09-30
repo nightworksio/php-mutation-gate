@@ -11,9 +11,11 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\RiskOrder;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
@@ -22,12 +24,14 @@ use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Plan\Workload;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Reach\Packages;
+use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 
 use function sprintf;
@@ -101,7 +105,8 @@ final readonly class Planning
             $proving->toRun(),
             $inventory->trees,
             $ledgers,
-            $cut->opening($this->openingOf($map)),
+            $cut->opening($map->suiteDuration()),
+            $this->riskOrder($reached, $inventory->trees, $ledgers, $proving->toRun()),
         );
         $changed = $this->newCode($inventory->standing, $reached);
 
@@ -126,32 +131,39 @@ final readonly class Planning
 
     /**
      * The units to run cut into shards, each of the project's root package,
-     * where the runner has no ignore marker in them the config refuses.
+     * where the runner has no ignore marker in them the config refuses, and
+     * each shard's units the riskiest first, the order a budget runs them in.
      */
-    private function shardsOf(Units $toRun, Trees $trees, Ledgers $ledgers, Cut $cut): Shards|CannotJudge
-    {
+    private function shardsOf(
+        Units $toRun,
+        Trees $trees,
+        Ledgers $ledgers,
+        Cut $cut,
+        RiskOrder $order,
+    ): Shards|CannotJudge {
         $unmarked = new RunnerMarkers($this->adapters, $this->settings)->refusing($toRun);
         $shards = $unmarked instanceof Units
             ? $cut->cut($this->workload($unmarked, $trees, $ledgers), $trees)
             : $unmarked;
 
-        return $shards instanceof Shards ? $this->rooted($shards) : $shards;
+        return $shards instanceof Shards ? $this->rooted($shards, $order) : $shards;
     }
 
     /**
-     * How long a shard's runner spends on its opening run, before it has
-     * measured one of its own: the coverage run's, every test's duration.
+     * The order a budget takes these units in, knowing when each of the least
+     * risky last changed; by path among those where git cannot tell. A run
+     * that knows no change, as a full one does not, reaches no unit by one.
      */
-    private function openingOf(CoverageMap $map): Seconds
+    private function riskOrder(Reached $reached, Trees $trees, Ledgers $ledgers, Units $units): RiskOrder
     {
-        $seconds = 0.0;
+        $order = RiskOrder::of(
+            $reached->changed() instanceof Changes ? $reached->reach() : Reach::nothing(Packages::of($trees)),
+            $ledgers->newest(),
+            TimeoutTriage::under($this->settings->triage()->timeouts()),
+        );
+        $changed = $this->adapters->changes->lastChanged($order->least($units));
 
-        foreach ($map->tests() as $test) {
-            $duration = $map->durationOf($test);
-            $seconds += $duration instanceof Seconds ? $duration->seconds() : 0.0;
-        }
-
-        return Seconds::of($seconds);
+        return $changed instanceof ByPath ? $order->knowing($changed) : $order;
     }
 
     /**
@@ -196,18 +208,22 @@ final readonly class Planning
         };
     }
 
-    /** The shards, where each is of the project's root package. */
-    private function rooted(Shards $shards): Shards|CannotJudge
+    /** The shards, each in this order, where each is of the project's root package. */
+    private function rooted(Shards $shards, RiskOrder $order): Shards|CannotJudge
     {
+        $ordered = Shards::none();
+
         foreach ($shards as $shard) {
             $package = $shard->package()->path();
 
             if (! $package->equals(Path::root())) {
                 return CannotJudge::because(sprintf(self::PACKAGED, $package->value()));
             }
+
+            $ordered = $ordered->with($shard->ordered($order));
         }
 
-        return $shards;
+        return $ordered;
     }
 
     private function unitsOf(UnitResults $results): Units

@@ -8,12 +8,16 @@ use NightWorksIO\MutationGate\Cli\Flow\Ledgers;
 use NightWorksIO\MutationGate\Cli\Flow\Recorded;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Standing;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -46,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -61,6 +66,7 @@ use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\TickingClock;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -86,9 +92,20 @@ function recordedRan(string $project, ScriptedRunner $runner, CoverageMap $map):
 /** Every shard of a plan run in a project, each handed the map, and the results read back. */
 function recordedRanOf(Plan $plan, string $project, ScriptedRunner $runner, CoverageMap $map): Results
 {
+    return recordedRanWith($plan, $project, $runner, $map, Flows::settings(), Flows::setup());
+}
+
+/** Every shard of a plan run in a project on these settings and this setup, each handed the map, and the results read back. */
+function recordedRanWith(
+    Plan $plan,
+    string $project,
+    ScriptedRunner $runner,
+    CoverageMap $map,
+    Settings $settings,
+    Setup $setup,
+): Results {
     new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none());
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
-        ->runAll($plan, Workspace::results());
+    new Running(Flows::adapters($project, [], $runner), $settings, $setup)->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), Directory::at($project));
 
     return $results instanceof Results ? $results : throw new RuntimeException($results->why());
@@ -221,6 +238,31 @@ it('learns what each shard cost of its units, timed by the map it was handed', f
         [Units::of(Planned::money()), 4, $map()->onlyFor(Paths::of(Path::of('src/Money.php')))],
         [Units::of(Planned::held()), 1, $map()->onlyFor(Paths::none())],
     ]);
+});
+
+it('learns nothing of a unit a shard\'s budget ran out before', function () use ($map, $run, $ledgers): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::oneShard();
+    $setup = new Setup(
+        Absent::setting(),
+        Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
+        Digest::sha256Of('installed'),
+        new TickingClock('2026-09-30T12:00:00+00:00', 10),
+    );
+    $results = recordedRanWith($plan, $project, ScriptedRunner::fixture(), $map(), Flows::settings(Budget::of('25s')), $setup);
+
+    new Recorded(Flows::adapters($project, [], $store))->write(
+        $plan,
+        $results,
+        $ledgers($store, $plan),
+        $run($plan),
+        CannotTell::because('It failed.'),
+    );
+    $timings = $store->read(Scope::branch('main'))->timings();
+
+    expect($timings->secondsFor(Path::of('src/Money.php')))->toBeInstanceOf(Seconds::class)
+        ->and($timings->secondsFor(Path::of('src/Held.php')))->not->toBeInstanceOf(Seconds::class);
 });
 
 it('cannot judge a shard that was handed no map, and writes nothing', function () use ($map, $run, $ledgers): void {

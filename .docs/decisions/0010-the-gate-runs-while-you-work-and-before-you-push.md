@@ -87,7 +87,12 @@ The pieces already exist in the design:
    plan, run and verdict steps (ADR-0006), in one process, with the console
    reporter. The one local-only blocking rule is pre-push's: it also blocks on
    an unjudged mutant, which CI counts as not killed, so a push the hook lets
-   through has had every mutant the change reaches judged.
+   through has had every mutant the change reaches judged. In CI a unit a
+   budget never started counts by its newest ledger result with every mutant
+   unjudged, and one with no result in any ledger fails the verdict
+   (ADR-0008, decision 1).
+   - **The budgets.** Without a configured one, `watch` has a minute,
+     `pre-push` five, and `run` none.
    - **The local ledger.** Every run outside CI (`CI` unset), `run` included,
      writes its proofs only to a directory on the machine: at
      `proofs.store`'s path when the config's store is `directory`, and at

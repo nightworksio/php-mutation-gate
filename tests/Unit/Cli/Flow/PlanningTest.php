@@ -432,3 +432,69 @@ it('cuts to a target wall time counting the coverage run\'s tests as each shard\
     'an opening run that leaves room for every unit in one shard' => [0.0, 1],
     'an opening run that leaves room for one unit a shard' => [2.0, 2],
 ]);
+
+/** The default branch's ledger, proving each of these units with no mutant, so none is at risk from its last result. */
+$settled = static function (string ...$units): ProofStoreFake {
+    $store = new ProofStoreFake();
+    $ledger = Ledger::empty();
+
+    foreach ($units as $unit) {
+        $ledger = $ledger->withProof(Proof::of(
+            Digest::sha256Of(sprintf('%s before', $unit)),
+            Path::of($unit),
+            Mutants::none(),
+            Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('main')),
+        ));
+    }
+
+    $store->write(Scope::branch('main'), $ledger);
+
+    return $store;
+};
+
+it('lists each shard\'s units the riskiest first, a unit never mutated before a settled one', function () use (
+    $plan,
+    $shards,
+    $settled,
+    $money,
+    $held,
+): void {
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $settled('src/Held.php'));
+
+    expect($shards($planned))->toEqual([1 => [$money, $held]]);
+});
+
+it('lists the least risky units the most recently changed first, by what git says', function (
+    string $moneyChanged,
+    string $heldChanged,
+    bool $moneyFirst,
+) use ($plan, $shards, $settled, $money, $held): void {
+    $checkout = new ChangeSourceFake(
+        Revision::ref('base'),
+        Changes::none(),
+        [Revision::workingTree()->name() => Flows::FILES, 'base' => Flows::FILES, Flows::MAIN => Flows::FILES],
+        ['src/Money.php' => $moneyChanged, 'src/Held.php' => $heldChanged],
+    );
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $settled('src/Held.php', 'src/Money.php'), $checkout);
+
+    expect($shards($planned))->toEqual([1 => $moneyFirst ? [$money, $held] : [$held, $money]]);
+})->with([
+    'the money file changed last' => ['2026-09-20T10:00:00Z', '2026-09-01T10:00:00Z', true],
+    'the held path changed last' => ['2026-09-01T10:00:00Z', '2026-09-20T10:00:00Z', false],
+]);
+
+it('lists a unit whose lines the change touched first, before one never mutated', function () use (
+    $plan,
+    $shards,
+    $money,
+    $held,
+): void {
+    $checkout = new ChangeSourceFake(
+        Revision::ref('base'),
+        Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(2)))),
+        [Revision::workingTree()->name() => Flows::FILES, 'base' => Flows::FILES],
+    );
+
+    expect($shards($plan(Flows::project(), Mode::since('base'), Cut::exactly(1), new ProofStoreFake(), $checkout)))
+        ->toEqual([1 => [$money, $held]]);
+});

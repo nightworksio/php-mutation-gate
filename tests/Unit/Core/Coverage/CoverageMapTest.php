@@ -151,3 +151,14 @@ it('builds and reads a map in time linear in its entries', function (): void {
     expect($read(10)())->toBe(410 + 10 * 80)
         ->and(Growth::of(1250, $read))->toBeLessThan(Growth::LINEAR);
 });
+
+it('times the whole suite, test after test, adding nothing for a test it did not time', function (): void {
+    $map = CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'))
+        ->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('MoneyTest::untimed'))
+        ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.25))
+        ->timed(TestId::of('IdleTest::waits'), Seconds::of(1.5));
+
+    expect($map->suiteDuration())->toEqual(Seconds::of(1.75))
+        ->and(CoverageMap::empty()->suiteDuration())->toEqual(Seconds::of(0.0));
+});

@@ -20,19 +20,27 @@ use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 
 use function sprintf;
 
 /**
  * A repository with one base and a working tree, each file held as text by
- * revision name.
+ * revision name, and when each committed file last changed.
  */
 final readonly class ChangeSourceFake implements ChangeSource
 {
-    /** @param array<string, array<string, string>> $files what each file holds, by revision name and path */
-    public function __construct(private Revision $base, private Changes $changes, private array $files)
-    {
+    /**
+     * @param array<string, array<string, string>> $files     what each file holds, by revision name and path
+     * @param array<string, string>                $changedAt when each committed file last changed, by its path
+     */
+    public function __construct(
+        private Revision $base,
+        private Changes $changes,
+        private array $files,
+        private array $changedAt = [],
+    ) {
     }
 
     /** The repository of the contract suite's fixture: a base, and a working tree that changed one line and added a file. */
@@ -48,6 +56,7 @@ final readonly class ChangeSourceFake implements ChangeSource
                 'fixture-base' => ['src/Money.php' => "<?php\nreturn 1;\n"],
                 Revision::workingTree()->name() => ['src/Money.php' => "<?php\nreturn 2;\n", 'src/Limit.php' => "<?php\n"],
             ],
+            ['src/Money.php' => '2026-09-29T10:00:00Z'],
         );
     }
 
@@ -77,6 +86,25 @@ final readonly class ChangeSourceFake implements ChangeSource
         }
 
         return $unstaged;
+    }
+
+    /** @return ByPath<Instant> */
+    public function lastChanged(Paths $paths): ByPath
+    {
+        $changed = ByPath::none();
+
+        foreach ($paths as $path) {
+            $newest = '';
+
+            foreach ($this->changedAt as $file => $at) {
+                $newest = Path::of($file)->within($path) && $at > $newest ? $at : $newest;
+            }
+
+            $instant = Instant::parse($newest);
+            $changed = $instant instanceof Instant ? $changed->with($path, $instant) : $changed;
+        }
+
+        return $changed;
     }
 
     /** What a file held at a revision; git cannot tell for a revision the repository does not have. */
