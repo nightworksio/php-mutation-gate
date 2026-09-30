@@ -10,7 +10,6 @@ use function count;
 use function implode;
 use function iterator_to_array;
 
-use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
@@ -22,8 +21,9 @@ use function sprintf;
 /**
  * The verdict as JUnit XML: a suite per tree and one for new code, each with
  * one test case per floor that fails exactly when the gate fails that set,
- * and a `run` suite with a test case for each failure that belongs to no
- * floor. JUnit failures match gate failures one to one (ADR-0009, decision 2).
+ * and a `run` suite with a test case for each thing that kept the run from
+ * judging and each failure that belongs to no floor. JUnit failures match
+ * gate failures one to one (ADR-0009, decision 2).
  */
 final readonly class JUnit
 {
@@ -62,9 +62,10 @@ final readonly class JUnit
             $suites[] = self::suite(self::NEW_CODE, array_map(self::newCode(...), $sets));
         }
 
-        if (count($verdict->failures()) > 0) {
-            $failures = iterator_to_array($verdict->failures(), preserve_keys: false);
-            $suites[] = self::suite('run', array_map(self::failure(...), $failures));
+        $run = self::run($verdict);
+
+        if ($run !== []) {
+            $suites[] = self::suite('run', $run);
         }
 
         $tests = 0;
@@ -125,12 +126,33 @@ final readonly class JUnit
         );
     }
 
-    /** @return array{string, bool} */
-    private static function failure(Failure $failure): array
+    /**
+     * A failing test case for each thing that kept the run from judging, then
+     * for each failure that belongs to no floor.
+     *
+     * @return list<array{string, bool}>
+     */
+    private static function run(Verdict $verdict): array
     {
-        $message = Xml::text($failure->text());
+        $cases = [];
 
-        return [sprintf(self::CASE, $message, 'run', sprintf(self::FAILED, 'run', $message, $message)), true];
+        foreach ($verdict->obstacles() as $obstacle) {
+            $cases[] = self::failure(Judgement::CannotJudge->value, $obstacle->why());
+        }
+
+        foreach ($verdict->failures() as $failure) {
+            $cases[] = self::failure('run', $failure->text());
+        }
+
+        return $cases;
+    }
+
+    /** @return array{string, bool} */
+    private static function failure(string $type, string $text): array
+    {
+        $message = Xml::text($text);
+
+        return [sprintf(self::CASE, $message, 'run', sprintf(self::FAILED, $type, $message, $message)), true];
     }
 
     /** @return array{string, bool} */
@@ -141,18 +163,16 @@ final readonly class JUnit
         string $said,
         JudgedMutants $survivors,
     ): array {
-        $body = match ($judgement) {
-            Judgement::Failed => sprintf(
-                self::FAILED,
-                'floor',
-                Xml::text($said),
-                Xml::text(self::listing($said, $survivors)),
-            ),
-            Judgement::Exempt => sprintf(self::SKIPPED, Xml::text($said)),
-            Judgement::Passed, Judgement::NothingToMutate => sprintf(self::OUTPUT, Xml::text($said)),
+        [$body, $failed] = match ($judgement) {
+            Judgement::Failed, Judgement::CannotJudge => [
+                sprintf(self::FAILED, 'floor', Xml::text($said), Xml::text(self::listing($said, $survivors))),
+                true,
+            ],
+            Judgement::Exempt => [sprintf(self::SKIPPED, Xml::text($said)), false],
+            Judgement::Passed, Judgement::NothingToMutate => [sprintf(self::OUTPUT, Xml::text($said)), false],
         };
 
-        return [sprintf(self::CASE, Xml::text($name), Xml::text($class), $body), $judgement === Judgement::Failed];
+        return [sprintf(self::CASE, Xml::text($name), Xml::text($class), $body), $failed];
     }
 
     /** What a failed floor says, then every mutant it counts as not killed. */

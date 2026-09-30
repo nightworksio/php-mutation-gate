@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
@@ -98,18 +99,19 @@ final readonly class JsonReport
             'cutShort' => $verdict->wasCutShort(),
             'uncovered' => $overview->uncovered()->value,
             ...self::scored($overview->score()),
-            'counts' => self::counts($verdict->mutants()->counts()),
+            'counts' => self::counts($verdict->trees()->mutants()->counts()),
             'trees' => self::each($verdict->trees(), self::tree(...)),
             'newCode' => self::each($verdict->newCode(), self::newCode(...)),
             'matrix' => $verdict->matrix()->kind()->value,
             'tests' => self::tests($verdict, $table),
             'mutants' => self::each(
-                $verdict->mutants(),
+                $verdict->trees()->mutants(),
                 static fn(JudgedMutant $judged): array => self::mutant($judged, $verdict->matrix(), $table),
             ),
             'reach' => self::texts($verdict->reach(), static fn(Cause $reason): string => $reason->text()),
             'warnings' => self::texts($verdict->warnings(), static fn(Warning $warning): string => $warning->text()),
             'failures' => self::texts($verdict->failures(), static fn(Failure $failure): string => $failure->text()),
+            'cannotJudge' => self::texts($verdict->obstacles(), static fn(CannotJudge $why): string => $why->why()),
             ...AccountJson::of($verdict),
         ]);
     }

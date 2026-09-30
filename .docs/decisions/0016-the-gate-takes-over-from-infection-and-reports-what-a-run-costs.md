@@ -187,6 +187,13 @@ Operating the gate raises four needs its reports do not yet meet.
       - *recovered*: the first pass after either;
       - *floor lowered*: a baseline `lowered` entry landed (ADR-0003
         decision 7).
+    - **A verdict that cannot judge says so itself.** The flows add each
+      reason with `Verdict::withCannotJudge(CannotJudge)`, and any one makes
+      the verdict's judgement `cannot-judge`, whatever its trees scored.
+      Every report that shows the verdict's judgement shows it with the
+      reasons: the console and the Markdown under *Cannot judge*, the JSON
+      report as `cannotJudge`, and JUnit as a failing case of type
+      `cannot-judge` in its `run` suite.
     - **The previous state** comes from the newest entry of `trend.json`,
       which gains a `verdict` field (ADR-0009 decision 5). It is restored
       into `--publish-dir` as the badge is.

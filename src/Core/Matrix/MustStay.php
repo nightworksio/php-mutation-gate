@@ -74,7 +74,7 @@ final readonly class MustStay
     {
         $held = self::heldPaths($verdict);
 
-        foreach ($verdict->mutants() as $judged) {
+        foreach ($verdict->trees()->mutants() as $judged) {
             $path = $judged->mutant()->location()->file()->value();
 
             foreach (array_key_exists($path, $held) ? $judged->tests() : [] as $test) {
@@ -94,7 +94,7 @@ final readonly class MustStay
     {
         $held = [];
 
-        foreach ($verdict->units() as $unit) {
+        foreach ($verdict->trees()->units() as $unit) {
             $held += $unit->unit()->isHeld() ? [$unit->unit()->path()->value() => []] : [];
         }
 

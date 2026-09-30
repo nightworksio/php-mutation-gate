@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function explode;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Cost;
 use NightWorksIO\MutationGate\Core\Cost\Phase;
 use NightWorksIO\MutationGate\Core\Cost\RunAccount;
@@ -73,6 +74,9 @@ use function sprintf;
  */
 final class Verdicts
 {
+    /** Why the verdict named *cannot judge* could not judge. */
+    public const string UNJUDGED = 'Shard 2 wrote no result, so its units are unjudged.';
+
     public const string MONEY = <<<'PHP'
         <?php
 
@@ -298,6 +302,7 @@ final class Verdicts
             'cut short' => self::passing()->cutShort(),
             'accounted' => self::failing()->withAccount(self::account()),
             'with a matrix' => self::failing()->withMatrix(self::matrix(MatrixKind::FirstKiller)),
+            'cannot judge' => self::failing()->withCannotJudge(CannotJudge::because(self::UNJUDGED)),
             default => self::empty(),
         };
     }

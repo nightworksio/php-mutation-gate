@@ -88,7 +88,7 @@ final readonly class TestStandings implements Countable, IteratorAggregate
         $matrix = $verdict->matrix();
         $tallies = [];
 
-        foreach ($verdict->mutants() as $judged) {
+        foreach ($verdict->trees()->mutants() as $judged) {
             foreach ($matrix->coveredBy($judged) as $test) {
                 if (! $matrix->judges($judged, $test)) {
                     continue;

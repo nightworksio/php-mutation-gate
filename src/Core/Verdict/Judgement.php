@@ -13,7 +13,8 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
 /**
  * What became of a set of mutants held to a floor. A set with nothing to
  * mutate passes, and says so rather than showing 100%. An exempt tree is not
- * mutated, and is printed with its reason.
+ * mutated, and is printed with its reason. Only a whole verdict cannot judge,
+ * never one set.
  */
 enum Judgement: string
 {
@@ -21,6 +22,7 @@ enum Judgement: string
     case Failed = 'failed';
     case NothingToMutate = 'nothing-to-mutate';
     case Exempt = 'exempt';
+    case CannotJudge = 'cannot-judge';
 
     /** A score held to a floor. With no floor anywhere the score passes; a run in CI refuses that before it judges. */
     public static function of(Floor|Exempt|Undeclared $floor, Score|NothingToMutate $score): self

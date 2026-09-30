@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function array_filter;
+use function array_map;
 use function array_slice;
 use function count;
 use function implode;
 use function intdiv;
 use function iterator_to_array;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
@@ -30,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\Obstacles;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -41,10 +44,11 @@ use function sprintf;
  * The verdict as GitHub Markdown, for the sticky comment and the step
  * summary: the verdict, each tree's floor and score with its change against
  * the base, the new-code sets, the survivors, the unjudged and flaky
- * mutants, the failures, the warnings, the floors that can rise, and a link
- * to the run. The comment holds up to 20 survivors on changed lines, each
- * with its diff, hint and reproduce command; the summary lists every mutant
- * counted as not killed in a table (ADR-0009, decision 3).
+ * mutants, why the run could not judge, the failures, the warnings, the
+ * floors that can rise, and a link to the run. The comment holds up to 20
+ * survivors on changed lines, each with its diff, hint and reproduce
+ * command; the summary lists every mutant counted as not killed in a table
+ * (ADR-0009, decision 3).
  */
 final readonly class Markdown
 {
@@ -190,6 +194,7 @@ final readonly class Markdown
         }
 
         return [
+            ...self::section('Cannot judge', self::reasons($verdict->obstacles())),
             ...self::section('Failures', self::bullets($verdict->failures())),
             ...self::section('Warnings', self::bullets($verdict->warnings())),
             ...self::section('Floors that can rise', $raised === [] ? [] : [implode("\n", $raised), self::RAISE]),
@@ -285,6 +290,21 @@ final readonly class Markdown
         }
 
         return $bullets === [] ? [] : [implode("\n", $bullets)];
+    }
+
+    /**
+     * Why the run could not judge, as one list; nothing where it judged.
+     *
+     * @return list<string>
+     */
+    private static function reasons(Obstacles $obstacles): array
+    {
+        $reasons = array_map(
+            static fn(CannotJudge $obstacle): string => sprintf('- %s', Escape::text($obstacle->why())),
+            iterator_to_array($obstacles, preserve_keys: false),
+        );
+
+        return array_filter([implode("\n", $reasons)], static fn(string $list): bool => $list !== '');
     }
 
     /** Where a mutant is, as code: its file and line. */

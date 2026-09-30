@@ -29,13 +29,13 @@ final readonly class KillMatrixCsv
     {
         $origins = [];
 
-        foreach ($verdict->units() as $unit) {
+        foreach ($verdict->trees()->units() as $unit) {
             $origins[$unit->unit()->path()->value()] = $unit->origin();
         }
 
         yield Csv::record('mutant', 'file', 'line', 'mutator', 'status', 'source', 'test', 'outcome', 'matrix');
 
-        foreach ($verdict->mutants() as $judged) {
+        foreach ($verdict->trees()->mutants() as $judged) {
             $file = $judged->mutant()->location()->file()->value();
             $origin = array_key_exists($file, $origins) ? $origins[$file] : Origin::Run;
 

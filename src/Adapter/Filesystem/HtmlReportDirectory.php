@@ -88,7 +88,7 @@ final readonly class HtmlReportDirectory implements Configurable, Reporter
     {
         $sources = [];
 
-        foreach ($verdict->mutants() as $judged) {
+        foreach ($verdict->trees()->mutants() as $judged) {
             $file = $judged->mutant()->location()->file();
             $contents = array_key_exists($file->value(), $sources) ? Missing::at($file) : $this->project->read($file);
 

@@ -11,7 +11,8 @@
         "judgement": {
             "enum": [
                 "passed",
-                "failed"
+                "failed",
+                "cannot-judge"
             ]
         },
         "cutShort": {
@@ -140,7 +141,8 @@
                             "passed",
                             "failed",
                             "nothing-to-mutate",
-                            "exempt"
+                            "exempt",
+                            "cannot-judge"
                         ]
                     },
                     "counts": {
@@ -546,6 +548,12 @@
                 "type": "string"
             }
         },
+        "cannotJudge": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
         "run": {
             "type": "object",
             "properties": {
@@ -904,7 +912,8 @@
         "mutants",
         "reach",
         "warnings",
-        "failures"
+        "failures",
+        "cannotJudge"
     ],
     "additionalProperties": false
 }
