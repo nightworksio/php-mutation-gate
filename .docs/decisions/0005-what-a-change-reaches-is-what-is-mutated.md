@@ -296,8 +296,10 @@ The same repository has two more needs.
     by default, and only in suites of 20 tests or more), when no group holds
     it. The warning appears in the console, the step summary and the PR comment
     (ADR-0009): *`src/Kernel.php` is run by 412 of 430 tests and nothing holds
-    it; each of its mutants runs most of the suite.* It is a warning, not a
-    failure, because the verdict stays correct and only its cost is at stake.
+    it; each of its mutants runs most of the suite.* The verdict finds them in
+    the coverage map the plan hands it (ADR-0014, decision 11), among the
+    files of the units the run considered. It is a warning, not a failure,
+    because the verdict stays correct and only its cost is at stake.
 
 ## Alternatives considered
 

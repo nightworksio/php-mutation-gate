@@ -775,6 +775,33 @@ it('holds each mutant\'s killers alone, and warns, where the plan handed the ver
         ->and($verdict->judgement())->toBe(Judgement::Passed);
 });
 
+it('warns of each file most of the suite runs through that nothing holds, past holds.hotPath', function () use (
+    $tree,
+    $reporting,
+): void {
+    $project = Flows::project();
+    $plan = Planned::oneShard();
+    $map = Flows::map();
+
+    foreach (range(1, 20) as $each) {
+        $test = TestId::of(sprintf('SuiteTest::case%d', $each));
+        $map = $map->covered(Path::of('src/Money.php'), Line::of(11), $test)
+            ->covered(Path::of('src/Held.php'), Line::of(11), $test);
+    }
+
+    $adapters = Flows::adapters($project, [], $tree(Floor::of(0)));
+    new Handoff($adapters->project)->write($plan, $map, KillHistory::none());
+    new Running($adapters, judgingSettings(), Flows::setup())->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), $adapters->project);
+    $judging = new Judging($adapters, judgingSettings(), Flows::setup(), $reporting(new ReporterFake()));
+
+    $verdict = judgingVerdictOf($results instanceof Results ? $judging->verdict($plan, $results) : $results);
+
+    expect(judgingTexts($verdict->warnings()))->toBe([
+        '`src/Money.php` is run by 21 of 22 tests and nothing holds it; each of its mutants runs most of the suite.',
+    ]);
+});
+
 it('fails a verdict on a held unit its holding tests miss lines of, and proves nothing of it', function (
     Setting $uncovered,
 ) use ($tree, $reporting): void {
