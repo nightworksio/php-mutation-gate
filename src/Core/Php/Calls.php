@@ -20,7 +20,7 @@ final readonly class Calls
         $function = Names::of($symbol->owner());
         $found = References::none();
 
-        foreach ($tokens->indicesOf(...Source::NAMES) as $at) {
+        foreach ($tokens->indicesOf(...Names::TOKENS) as $at) {
             $calls = $tokens->is($at + 1, '(')
                 && ! $tokens->is($at - 1, ...self::NOT_A_CALL)
                 && $source->scope()->resolve($tokens->text($at))->meet($function);

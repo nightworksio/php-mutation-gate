@@ -85,7 +85,7 @@ final readonly class StaticReads
             $tokens->is($left, T_STATIC) => $this->fromStatic($colon, $around),
             $said === 'self' => $this->reachedBy(Names::of($around->key()), $colon),
             $said === 'parent' => $this->reachedBy($around->parents(), $colon),
-            $tokens->is($left, ...Source::NAMES) => $this->reachedBy(
+            $tokens->is($left, ...Names::TOKENS) => $this->reachedBy(
                 $this->source->scope()->resolve($tokens->text($left)),
                 $colon,
             ),

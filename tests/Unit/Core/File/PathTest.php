@@ -8,6 +8,18 @@ it('spells a path with forward slashes', function (): void {
     expect(Path::of('src\\Core\\Money.php')->value())->toBe('src/Core/Money.php');
 });
 
+it('says whether it is the path of a PHP file', function (): void {
+    expect(Path::of('src/Money.php')->isPhp())->toBeTrue()
+        ->and(Path::of('src/Money.phpt')->isPhp())->toBeFalse()
+        ->and(Path::of('composer.json')->isPhp())->toBeFalse();
+});
+
+it('names the file it ends in, without its .php', function (): void {
+    expect(Path::of('tests/Unit/MoneyTest.php')->stem())->toBe('MoneyTest')
+        ->and(Path::of('/abs/src/Money.php')->stem())->toBe('Money')
+        ->and(Path::of('phpunit.xml')->stem())->toBe('phpunit.xml');
+});
+
 it('drops empty and current-directory segments', function (): void {
     expect(Path::of('./src//Core/./Money.php')->value())->toBe('src/Core/Money.php');
 });

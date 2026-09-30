@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 use function count;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -18,9 +19,6 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  */
 final readonly class Shard
 {
-    /** What an empty shard is labelled. */
-    public const string NOTHING = 'nothing to mutate';
-
     private function __construct(
         private ShardId $id,
         private Package $package,
@@ -38,7 +36,7 @@ final readonly class Shard
     /** A shard with nothing to mutate, which passes having run nothing. */
     public static function empty(ShardId $id): self
     {
-        return new self($id, Package::at(Path::root()), Units::none(), Seconds::of(0.0), self::NOTHING);
+        return new self($id, Package::at(Path::root()), Units::none(), Seconds::of(0.0), NothingToMutate::SAID);
     }
 
     public function id(): ShardId

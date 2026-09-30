@@ -8,8 +8,6 @@ use function array_any;
 use function array_map;
 use function implode;
 use function is_string;
-use function mb_strlen;
-use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
@@ -24,7 +22,6 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use function preg_quote;
 use function sprintf;
 use function str_contains;
-use function str_starts_with;
 
 /**
  * Every declaration that some tests hold a path, from the groups a runner
@@ -33,9 +30,6 @@ use function str_starts_with;
  */
 final readonly class Holdings
 {
-    /** How the name of a group that holds a path begins. */
-    private const string GROUP = 'holds:';
-
     /** Why a held path cannot be judged when it names nothing the gate mutates. */
     private const string MISSPELT = <<<'SAID'
         %s names %s, which is not a tree, or a file or directory inside one,
@@ -71,8 +65,8 @@ final readonly class Holdings
         $holdings = self::none();
 
         foreach ($groups as $group) {
-            $holdings = str_starts_with($group->name(), self::GROUP)
-                ? $holdings->with(Holding::byGroup(mb_substr($group->name(), mb_strlen(self::GROUP)), $group))
+            $holdings = $group->isHolding()
+                ? $holdings->with(Holding::byGroup($group->held(), $group))
                 : $holdings;
         }
 

@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function array_key_exists;
 use function array_values;
-use function in_array;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -25,8 +24,6 @@ use function sprintf;
  */
 final readonly class Retrial
 {
-    private const array TIMED = [MutantStatus::TimedOut, MutantStatus::Skipped];
-
     private const string NOT_FOUND_AGAIN = 'Run again, Infection made no mutant with this id.';
 
     private function __construct(private Seconds $cap)
@@ -44,7 +41,7 @@ final readonly class Retrial
     {
         $limit = $mutant->limit();
 
-        return ! in_array($mutant->status(), self::TIMED, strict: true)
+        return ! $mutant->status()->ranOutOfTime()
             || ($limit instanceof Seconds && $limit->seconds() >= $this->cap->seconds());
     }
 

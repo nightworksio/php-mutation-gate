@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
@@ -44,11 +45,8 @@ use function sprintf;
  */
 final readonly class Infection implements Runner
 {
-    private const string RUNNER = 'infection';
-
-
-    /** Where the gate works, as the flows spell it. */
-    private const string WORKSPACE = '.mutation-gate';
+    /** The runner's name, which its identity and the directory it keeps its own files in carry. */
+    public const string RUNNER = 'infection';
 
     private const string HERE = '.';
 
@@ -71,7 +69,7 @@ final readonly class Infection implements Runner
         $setup = Setup::of($options);
 
         return $setup instanceof Invalid ? $setup : new self(
-            Project::at(self::HERE, $setup->tests(), Path::of(self::WORKSPACE)),
+            Project::at(self::HERE, $setup->tests(), Workspace::root()),
             new ProcessShell(self::HERE, getenv()),
             $setup->cap(),
             nativeMarkersAllowed: $setup->allowsNativeMarkers(),

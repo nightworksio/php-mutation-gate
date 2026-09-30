@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Hold;
 
+use NightWorksIO\MutationGate\Core\Test\Group;
+
 use function sprintf;
 
 /**
@@ -48,6 +50,8 @@ final readonly class HeldPath
     /** The argument that names the matching group, as PHP. */
     public function group(): string
     {
-        return $this->literal ? sprintf("'holds:%s'", $this->text) : sprintf("'holds:' . %s", $this->text);
+        return $this->literal
+            ? sprintf("'%s'", Group::holding($this->text)->name())
+            : sprintf("'%s' . %s", Group::HOLDING, $this->text);
     }
 }

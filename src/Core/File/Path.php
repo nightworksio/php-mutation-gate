@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\File;
 
 use function array_filter;
+use function basename;
 use function explode;
 use function implode;
 use function mb_strlen;
 use function mb_substr;
 use function sprintf;
+use function str_ends_with;
 use function str_replace;
 use function str_starts_with;
 
@@ -19,6 +21,9 @@ use function str_starts_with;
  */
 final readonly class Path
 {
+    /** How the name of a PHP file ends. */
+    private const string PHP = '.php';
+
     private const string ROOT = '.';
 
     /** @param non-empty-string $value */
@@ -71,5 +76,17 @@ final readonly class Path
         $prefix = sprintf('%s/', $directory->value);
 
         return str_starts_with($this->value, $prefix) ? self::of(mb_substr($this->value, mb_strlen($prefix))) : $this;
+    }
+
+    /** Whether this is the path of a PHP file. */
+    public function isPhp(): bool
+    {
+        return str_ends_with($this->value, self::PHP);
+    }
+
+    /** The name of the file this path ends in, without its `.php` where it has one: a PHP file's class name. */
+    public function stem(): string
+    {
+        return basename($this->value, self::PHP);
     }
 }

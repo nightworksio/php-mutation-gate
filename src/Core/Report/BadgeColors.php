@@ -7,9 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Report;
 use function arsort;
 
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
+use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Score;
-
-use function round;
 
 /**
  * `badge.colors`: each shields.io colour with the lowest score that earns it,
@@ -23,8 +22,6 @@ final readonly class BadgeColors
 
     /** The colour of a badge with no score to show. */
     private const string NONE = 'lightgrey';
-
-    private const int HUNDREDTHS = 100;
 
     /** @param array<string, int> $bands each colour's lowest score in hundredths, highest first */
     private function __construct(private array $bands)
@@ -42,7 +39,7 @@ final readonly class BadgeColors
         $bands = [];
 
         foreach ($lowest as $color => $percent) {
-            $bands[$color] = (int) round($percent * self::HUNDREDTHS);
+            $bands[$color] = Percentage::hundredthsOf($percent);
         }
 
         arsort($bands);

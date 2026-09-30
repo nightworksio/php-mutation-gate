@@ -14,6 +14,7 @@ use Closure;
 use function debug_backtrace;
 
 use NightWorksIO\MutationGate\Attribute\Holds;
+use NightWorksIO\MutationGate\Core\Test\Group as TestGroup;
 use Pest\Contracts\TestCaseMethodFilter;
 use Pest\Factories\Attribute;
 use Pest\Factories\TestCaseMethodFactory;
@@ -22,8 +23,6 @@ use Pest\Repositories\TestRepository;
 use PHPUnit\Framework\Attributes\Group;
 use ReflectionAttribute;
 use ReflectionFunction;
-
-use function sprintf;
 
 /**
  * Pest's filter over the tests it registers, which adds `holds:<path>` as a
@@ -34,9 +33,6 @@ use function sprintf;
  */
 final readonly class HoldsGroups implements TestCaseMethodFilter
 {
-    /** How a group that holds a path is named. */
-    private const string GROUP = 'holds:%s';
-
     /** Adds the filter to the tests Pest registers from here on. */
     public static function register(TestRepository $tests): void
     {
@@ -48,7 +44,7 @@ final readonly class HoldsGroups implements TestCaseMethodFilter
         $named = $this->groupsOf($factory);
 
         foreach ($this->heldBy([$factory->closure, ...$this->describing()]) as $path) {
-            $group = sprintf(self::GROUP, $path);
+            $group = TestGroup::holding($path)->name();
             $factory->attributes = array_key_exists($group, $named)
                 ? $factory->attributes
                 : [...$factory->attributes, new Attribute(Group::class, [$group])];

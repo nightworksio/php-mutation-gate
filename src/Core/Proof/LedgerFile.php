@@ -25,9 +25,6 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-
-use function preg_match;
-
 use stdClass;
 
 /**
@@ -49,19 +46,19 @@ use stdClass;
  */
 final readonly class LedgerFile
 {
+    /** The ledger's name, in whatever directory or bucket keeps it. */
+    public const string NAME = 'ledger.json.gz';
+
     private const int FORMAT = 2;
 
     /** What a message calls the file. */
     private const string NAMED = 'The ledger';
 
-    /** A content key or a base: a SHA-256, in lowercase hex. */
-    private const string DIGEST = '/^[0-9a-f]{64}$/D';
-
     private const string SECONDS = 'seconds';
 
     private const string RUNNER = 'runner';
 
-    private const string AT = 'at';
+    private const string AT = ProofRecord::AT;
 
     private const string BASES = 'bases';
 
@@ -253,7 +250,7 @@ final readonly class LedgerFile
     private static function basesAt(Node $base): array
     {
         try {
-            return preg_match(self::DIGEST, $base->text()) === 1 ? [Digest::of($base->text())] : [];
+            return Digest::isSha256($base->text()) ? [Digest::of($base->text())] : [];
         } catch (NotInShape) {
             return [];
         }
@@ -268,7 +265,7 @@ final readonly class LedgerFile
     private static function proofsIn(string $key, Node $entry, array $mutators, array $tests): array
     {
         try {
-            return preg_match(self::DIGEST, $key) === 1
+            return Digest::isSha256($key)
                 ? [ProofRecord::read(Digest::of($key), $entry, $mutators, $tests)]
                 : [];
         } catch (NotInShape) {

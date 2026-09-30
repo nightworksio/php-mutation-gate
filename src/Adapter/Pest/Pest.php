@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -49,9 +50,6 @@ final readonly class Pest implements Runner
 
     /** Where the gate runs Pest: the project's root, which the gate runs in. */
     private const string ROOT = '.';
-
-    /** Where the adapter keeps what it writes. */
-    private const string WORKSPACE = '.mutation-gate';
 
     /** The file Pest loads before any test, in the test directory it runs with, which the gate leaves at `tests`. */
     private const string BOOT_FILE = 'tests/Pest.php';
@@ -91,7 +89,7 @@ final readonly class Pest implements Runner
             return $read;
         }
 
-        $project = Project::at(self::ROOT, $read->tests(), Path::of(self::WORKSPACE), $vendor);
+        $project = Project::at(self::ROOT, $read->tests(), Workspace::root(), $vendor);
 
         return new self($project, new ProcessShell($project->root()), $read->patching());
     }

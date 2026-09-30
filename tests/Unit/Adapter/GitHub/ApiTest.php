@@ -24,6 +24,13 @@ it('asks GitHub at a path of its API with a token, and reads the answer', functi
         );
 });
 
+it("asks GitHub's own API where no other is named", function (): void {
+    $response = new JsonMockResponse(['sha' => 'abc']);
+    Api::at(new MockHttpClient($response), '', 'secret')->get('/repos/octo/gate/commits/abc');
+
+    expect($response->getRequestUrl())->toBe('https://api.github.com/repos/octo/gate/commits/abc');
+});
+
 it('cannot tell what GitHub did not answer', function (): void {
     $answer = Api::at(new MockHttpClient(new MockResponse('{"message": "Not Found"}', ['http_code' => 404])), 'https://api.github.com', 'secret')
         ->get('/repos/octo/gate/commits/abc');

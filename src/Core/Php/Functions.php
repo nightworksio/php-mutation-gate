@@ -20,9 +20,6 @@ use PhpToken;
  */
 final readonly class Functions
 {
-    /** What opens a block. */
-    private const array OPENS = ['{', T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES];
-
     /** How a function's name is spelt after `function` and an optional `&`. */
     private const array NAMES = [T_STRING];
 
@@ -45,7 +42,7 @@ final readonly class Functions
             $pending = $token->is(T_FUNCTION) ? [self::nameAfter($tokens, $at), $token->line] : $pending;
             $pending = $token->is(';') ? [] : $pending;
 
-            if ($token->is(self::OPENS)) {
+            if ($token->is(TopLevel::OPENS)) {
                 $blocks[] = $pending;
                 $pending = [];
             }

@@ -10,6 +10,7 @@ use function explode;
 use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Php\Names;
 use PhpToken;
 
 use function preg_match_all;
@@ -31,9 +32,6 @@ use function trim;
  */
 final readonly class PhpFile
 {
-    /** What a name is spelled with. */
-    private const array NAME_TOKENS = [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_NAME_RELATIVE];
-
     /** The tokens that carry text rather than code. */
     private const array TEXT_TOKENS = [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE, T_INLINE_HTML];
 
@@ -101,7 +99,7 @@ final readonly class PhpFile
 
         foreach ($tokens as $token) {
             $lower = mb_strtolower($token->text);
-            $names += $token->is(self::NAME_TOKENS) ? self::named(self::lastSegmentOf($lower)) : [];
+            $names += $token->is(Names::TOKENS) ? self::named(self::lastSegmentOf($lower)) : [];
             $names += $token->is(self::TEXT_TOKENS) ? self::wordsIn($lower) : [];
         }
 

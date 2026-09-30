@@ -26,9 +26,10 @@ use function str_contains;
  *
  * `600` seconds per shard, `20000` proofs kept and `100` as a floor are
  * decisions, and a decision written as a literal cannot be found by what it
- * means. Only method bodies are read, so a class constant or an enum case is
- * the cure. 0, 1 and 2 mean empty, one and a pair, and an array index is a
- * position rather than a quantity; tests keep their numbers.
+ * means. Only method bodies are read, so naming the number is the cure: an
+ * invariant, an enum case or a policy's default. 0, 1 and 2 mean empty, one
+ * and a pair, and an array index is a position rather than a quantity; tests
+ * keep their numbers.
  *
  * @implements Rule<ClassMethod>
  */
@@ -53,7 +54,7 @@ final class NoMagicNumberRule implements Rule
 
         foreach ($this->literalsIn($node->stmts ?? []) as $literal) {
             $found[] = RuleErrorBuilder::message(sprintf(
-                'D6 — give %s a name. A number written into a method body is a decision nobody can search for by what it means. Declare it as a class constant or an enum case (D6).',
+                'D6 — give %s a name. A number written into a method body cannot be searched for by what it means. Name it where it belongs: an invariant is a class constant, one of a closed set is an enum case, and a decision that could vary is a policy that owns its default (D6, D8).',
                 $this->render($literal),
             ))
                 ->identifier('mutationGate.magicNumber')

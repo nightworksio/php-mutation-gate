@@ -8,17 +8,15 @@ use function is_array;
 use function is_dir;
 use function is_file;
 
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 
 use function scandir;
 use function sprintf;
-use function str_ends_with;
 
 /** The PHP files a path names: the file itself, or every PHP file under the directory, in name order. */
 final readonly class PhpFiles
 {
-    private const string SUFFIX = '.php';
-
     /**
      * @return list<string> every PHP file these paths name, by its path on disk
      */
@@ -37,7 +35,7 @@ final readonly class PhpFiles
     public static function under(string $path): array
     {
         if (is_file($path)) {
-            return str_ends_with($path, self::SUFFIX) ? [$path] : [];
+            return Path::of($path)->isPhp() ? [$path] : [];
         }
 
         $entries = is_dir($path) ? scandir($path) : [];

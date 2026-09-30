@@ -6,6 +6,9 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_map;
 use function mb_strtoupper;
+
+use NightWorksIO\MutationGate\Core\ThisPackage;
+
 use function sprintf;
 
 /**
@@ -21,13 +24,13 @@ enum Format: string
     case Neon = 'neon';
 
     /** What a config file is called, before its extension. */
-    private const string STEM = 'mutation-gate';
+    private const string STEM = ThisPackage::NAME;
 
     /** The other extension a YAML file is written with. */
     private const string YML = 'yml';
 
     /** The package whose own code reads PHP and JSON. */
-    private const string THIS_PACKAGE = 'nightworksio/mutation-gate';
+    private const string THIS_PACKAGE = ThisPackage::COMPOSER;
 
     /** The format a file's extension names, `.yml` being YAML; or none of these. */
     public static function fromExtension(string $extension): self|Absent

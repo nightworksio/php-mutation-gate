@@ -30,8 +30,6 @@ use function trim;
  */
 final readonly class BucketLedger implements Configurable, ProofStore
 {
-    private const string FILE = 'ledger.json.gz';
-
     private function __construct(private S3Client $client, private string $bucket, private string $prefix)
     {
     }
@@ -103,8 +101,8 @@ final readonly class BucketLedger implements Configurable, ProofStore
 
         return match (true) {
             $parsed instanceof CannotJudge => $parsed,
-            $this->prefix === '' => sprintf('%s/%s', $parsed->ref(), self::FILE),
-            default => sprintf('%s/%s/%s', $this->prefix, $parsed->ref(), self::FILE),
+            $this->prefix === '' => sprintf('%s/%s', $parsed->ref(), LedgerFile::NAME),
+            default => sprintf('%s/%s/%s', $this->prefix, $parsed->ref(), LedgerFile::NAME),
         };
     }
 }

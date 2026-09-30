@@ -11,17 +11,12 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 
-use function str_ends_with;
-
 /**
  * What the reach rules read: files as they are on disk, and changed files as
  * they were at the base.
  */
 final readonly class Sources
 {
-    /** How the name of a PHP file ends. */
-    private const string PHP = '.php';
-
     /**
      * @param ByPath<Contents|Missing> $now    each file as it is on disk
      * @param ByPath<Contents|Missing> $before each changed file as it was at the base
@@ -80,7 +75,7 @@ final readonly class Sources
         $paths = [];
 
         foreach ($this->now as $path => $contents) {
-            if ($contents instanceof Contents && str_ends_with($path->value(), self::PHP)) {
+            if ($contents instanceof Contents && $path->isPhp()) {
                 $read[$path->value()] = PhpFile::read($contents);
                 $paths[] = $path;
             }

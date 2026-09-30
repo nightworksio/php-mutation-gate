@@ -12,6 +12,7 @@ use function mb_strpos;
 use function mb_substr;
 use function mb_substr_count;
 
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
@@ -19,7 +20,6 @@ use PhpToken;
 
 use function scandir;
 use function sprintf;
-use function str_ends_with;
 
 /**
  * Pest's own ignore marker (ADR-0008), `@pest-mutate-ignore` in a comment of
@@ -30,10 +30,7 @@ final readonly class NativeMarkers
 {
     public const string MARKER = '@pest-mutate-ignore';
 
-    private const string SUFFIX = '.php';
 
-    private const string REPLACEMENT
-        = '{"mutant": "<the id of each mutant it hides>", "reason": "<why no test can tell>"}';
 
     /** Every marker in the PHP files these paths name. */
     public static function in(Project $project, Paths $files): Markers
@@ -59,7 +56,7 @@ final readonly class NativeMarkers
             if ($at !== false) {
                 $line = $token->line + mb_substr_count(mb_substr($token->text, 0, $at), "\n");
                 $where = sprintf('%s:%d', $project->relative($file)->value(), $line);
-                $markers = $markers->with(Marker::of($where, self::MARKER, self::REPLACEMENT));
+                $markers = $markers->with(Marker::inSource($where, self::MARKER));
             }
         }
 
@@ -70,7 +67,7 @@ final readonly class NativeMarkers
     private static function under(string $path): array
     {
         if (is_file($path)) {
-            return str_ends_with($path, self::SUFFIX) ? [$path] : [];
+            return Path::of($path)->isPhp() ? [$path] : [];
         }
 
         $entries = is_dir($path) ? scandir($path) : [];

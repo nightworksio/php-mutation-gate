@@ -20,4 +20,10 @@ enum MutantStatus: string
     case Unjudged = 'unjudged';
     case IgnoredByMarker = 'ignored-by-marker';
     case Skipped = 'skipped';
+
+    /** Whether the mutant's time ran out: it timed out, or was skipped for taking as long as its timeout. */
+    public function ranOutOfTime(): bool
+    {
+        return $this === self::TimedOut || $this === self::Skipped;
+    }
 }

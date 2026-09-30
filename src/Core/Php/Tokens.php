@@ -25,8 +25,8 @@ use function sprintf;
  */
 final readonly class Tokens implements Countable
 {
-    /** Where a token that no bracket encloses stands: at no token's index. */
-    private const int OUTSIDE = -1;
+    /** At no token's index: where a token that no bracket encloses stands, or what is not found. */
+    public const int NONE = -1;
 
     /**
      * What opens a bracket, an attribute group's `#[` among them. A token is
@@ -55,10 +55,10 @@ final readonly class Tokens implements Countable
         $closing = [];
 
         foreach ($tokens as $at => $token) {
-            $enclosing[$at] = array_last($open) ?? self::OUTSIDE;
+            $enclosing[$at] = array_last($open) ?? self::NONE;
 
             if ($token->is(self::CLOSES)) {
-                $closing[array_pop($open) ?? self::OUTSIDE] = $at;
+                $closing[array_pop($open) ?? self::NONE] = $at;
             }
 
             if ($token->is(self::OPENS)) {
@@ -103,7 +103,7 @@ final readonly class Tokens implements Countable
     /** Whether some bracket encloses the token at an index. */
     public function isEnclosed(int $at): bool
     {
-        return $this->enclosing[$at] !== self::OUTSIDE;
+        return $this->enclosing[$at] !== self::NONE;
     }
 
     /** Whether a token stands at an index, and is of one of these kinds. */

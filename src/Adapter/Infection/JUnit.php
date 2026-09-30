@@ -8,9 +8,6 @@ use function array_key_exists;
 
 use DOMDocument;
 use DOMElement;
-
-use function is_file;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 
 use function sprintf;
@@ -22,9 +19,6 @@ use function sprintf;
  */
 final readonly class JUnit
 {
-    /** Options that keep the reader off the network and out of the error log. */
-    private const int QUIET = LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING;
-
     private const string MISSING
         = '%s is not there or is not a JUnit log, so the gate cannot say how long the tests took.';
 
@@ -38,10 +32,10 @@ final readonly class JUnit
 
     public static function at(string $file): self|CannotJudge
     {
-        $document = new DOMDocument();
+        $document = XmlFile::read($file, CannotJudge::because(sprintf(self::MISSING, $file)));
 
-        if (! is_file($file) || ! $document->load($file, self::QUIET)) {
-            return CannotJudge::because(sprintf(self::MISSING, $file));
+        if ($document instanceof CannotJudge) {
+            return $document;
         }
 
         return new self(self::classesIn($document), self::testsIn($document));

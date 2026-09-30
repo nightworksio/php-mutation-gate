@@ -33,8 +33,6 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     /** Where the ledgers are kept unless the config says otherwise. */
     public const string PATH = '.mutation-gate/ledger';
 
-    private const string FILE = 'ledger.json.gz';
-
     private function __construct(private Directory $directory)
     {
     }
@@ -78,6 +76,6 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     {
         $parsed = Scope::parse($scope->ref());
 
-        return $parsed instanceof Scope ? Path::of(sprintf('%s/%s', $parsed->ref(), self::FILE)) : $parsed;
+        return $parsed instanceof Scope ? Path::of(sprintf('%s/%s', $parsed->ref(), LedgerFile::NAME)) : $parsed;
     }
 }

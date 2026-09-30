@@ -38,8 +38,6 @@ final readonly class PullRequestComment implements Configurable, Reporter
     /** The identity `GITHUB_TOKEN` comments as, which cannot read `/user`. */
     public const string ACTIONS = 'github-actions[bot]';
 
-    private const string API = 'https://api.github.com';
-
     private const string COMMENTS = '/repos/%s/issues/%d/comments';
 
     private const int PAGE = 100;
@@ -83,7 +81,6 @@ final readonly class PullRequestComment implements Configurable, Reporter
         $read = static fn(string $name): string => array_key_exists($name, $environment) ? $environment[$name] : '';
         $payload = Node::decode($event)->field('pull_request');
         $number = self::numberIn($payload);
-        $api = $read('GITHUB_API_URL') === '' ? self::API : $read('GITHUB_API_URL');
         $refusal = match (true) {
             ! str_contains($read('GITHUB_EVENT_NAME'), 'pull_request') || $number === 0 => self::NOT_A_PULL_REQUEST,
             $read('GITHUB_TOKEN') === '' => self::NO_TOKEN,
@@ -93,7 +90,7 @@ final readonly class PullRequestComment implements Configurable, Reporter
 
         return new self(
             $refusal,
-            Api::at($client, $api, $read('GITHUB_TOKEN')),
+            Api::at($client, $read('GITHUB_API_URL'), $read('GITHUB_TOKEN')),
             $read('GITHUB_REPOSITORY'),
             $number,
             sprintf(

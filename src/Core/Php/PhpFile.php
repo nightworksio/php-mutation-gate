@@ -20,9 +20,6 @@ use PhpToken;
  */
 final readonly class PhpFile
 {
-    /** How a name is spelt. */
-    private const array NAMES = [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_NAME_RELATIVE];
-
     private function __construct(
         private Names $declares,
         private Names $mentions,
@@ -90,7 +87,7 @@ final readonly class PhpFile
         $names = [];
 
         foreach ($tokens as $token) {
-            if ($token->is(self::NAMES)) {
+            if ($token->is(Names::TOKENS)) {
                 $names[] = $scope->resolve($token->text);
             }
         }

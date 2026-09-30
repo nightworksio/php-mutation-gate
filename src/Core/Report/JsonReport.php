@@ -87,8 +87,6 @@ final readonly class JsonReport
     /** The version of this format, which changes only when a reader would misread the new one. */
     public const int FORMAT = 1;
 
-    private const float HUNDREDTHS = 100.0;
-
     public static function encode(Verdict $verdict): string
     {
         $overview = Overview::of($verdict);
@@ -249,7 +247,7 @@ final readonly class JsonReport
 
     private static function percent(Score|Floor $value): float
     {
-        return $value->hundredths() / self::HUNDREDTHS;
+        return $value->percent();
     }
 
     /** @return list<string> */

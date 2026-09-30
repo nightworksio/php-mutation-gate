@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Baseline;
 
 use function implode;
-use function intdiv;
 use function json_encode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -13,8 +12,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Percentage;
 
-use function rtrim;
 use function sprintf;
 
 /**
@@ -42,11 +41,6 @@ final readonly class BaselineFile
 
     private const int FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         | JSON_INVALID_UTF8_SUBSTITUTE;
-
-    private const int HUNDREDTHS_PER_PERCENT = 100;
-
-    /** The highest floor there is, in percent. */
-    private const int HIGHEST = 100;
 
     private const string FLOOR = 'floor';
 
@@ -99,11 +93,7 @@ final readonly class BaselineFile
     /** A floor as the file writes it: a whole number where it is one, and otherwise no trailing zero. */
     public static function number(Floor $floor): string
     {
-        $hundredths = $floor->hundredths();
-        $fraction = $hundredths % self::HUNDREDTHS_PER_PERCENT;
-        $whole = intdiv($hundredths, self::HUNDREDTHS_PER_PERCENT);
-
-        return $fraction === 0 ? sprintf('%d', $whole) : rtrim(sprintf('%d.%02d', $whole, $fraction), '0');
+        return Percentage::of($floor)->written();
     }
 
     private static function entry(Entry $entry): string
@@ -159,7 +149,7 @@ final readonly class BaselineFile
     {
         $percent = $floor->number();
 
-        return $percent >= 0 && $percent <= self::HIGHEST
+        return Percentage::parse($percent) instanceof Percentage
             ? Floor::of($percent)
             : throw NotInShape::at($floor->at(), 'a floor from 0 to 100');
     }

@@ -39,4 +39,34 @@ enum Standing: string
      * interface, an enum, an anonymous class or one of its methods.
      */
     case Elsewhere = 'elsewhere';
+
+    /** Whether Pest passes a `#[Holds]` standing here to its filter, which turns it into a group. */
+    public function isFiltered(): bool
+    {
+        return match ($this) {
+            self::HookClosure, self::DatasetClosure, self::NamedFunction => false,
+            self::TestClosure, self::DescribeClosure, self::KeptClosure, self::OtherClosure,
+            self::TestClass, self::TestMethod, self::Elsewhere => true,
+        };
+    }
+
+    /** Whether Pest loads what stands here as PHPUnit's own: a test class or one of its methods. */
+    public function isPhpUnits(): bool
+    {
+        return $this === self::TestClass || $this === self::TestMethod;
+    }
+
+    /** What a refusal calls the place. */
+    public function called(): string
+    {
+        return match ($this) {
+            self::HookClosure => 'a beforeEach, afterEach, beforeAll or afterAll closure',
+            self::DatasetClosure => 'a dataset closure',
+            self::NamedFunction => 'a named function',
+            self::TestClass => 'class',
+            self::TestMethod => 'method',
+            self::TestClosure, self::DescribeClosure, self::KeptClosure, self::OtherClosure,
+            self::Elsewhere => $this->value,
+        };
+    }
 }

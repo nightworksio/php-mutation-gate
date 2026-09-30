@@ -40,7 +40,7 @@ final readonly class Creations
         return match (true) {
             $tokens->is($class, T_STATIC) || $said === 'self' => $this->reachedBy(Names::of($around->key()), $new),
             $said === 'parent' => $this->reachedBy($around->parents(), $new),
-            $tokens->is($class, ...Source::NAMES) => $this->reachedBy(
+            $tokens->is($class, ...Names::TOKENS) => $this->reachedBy(
                 $this->source->scope()->resolve($tokens->text($class)),
                 $new,
             ),

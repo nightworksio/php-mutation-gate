@@ -25,9 +25,6 @@ final readonly class Guard
     /** The variable the adapter names the guard's file in. */
     public const string FILE = 'MUTATION_GATE_GUARD';
 
-    /** The variable that names the file Pest's override replaces. */
-    private const string ORIGINAL = 'PEST_MUTATION_TESTING';
-
     private function __construct(private string $file, private string $original, private bool $before)
     {
     }
@@ -35,7 +32,7 @@ final readonly class Guard
     /** Guarding where the adapter named a file and the override an original, by the files loaded so far. */
     public static function fromEnvironment(): self|Off
     {
-        return self::watching(getenv(self::FILE), getenv(self::ORIGINAL), get_included_files());
+        return self::watching(getenv(self::FILE), getenv(Recorder::MUTANT), get_included_files());
     }
 
     /** @param list<string> $loaded */

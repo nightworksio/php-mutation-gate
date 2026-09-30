@@ -9,6 +9,9 @@ use function array_map;
 use function count;
 use function implode;
 use function max;
+
+use NightWorksIO\MutationGate\Core\Score\Percentage;
+
 use function sprintf;
 
 /**
@@ -21,8 +24,6 @@ final readonly class TrendSvg
     private const int WIDTH = 240;
 
     private const int HEIGHT = 40;
-
-    private const int WHOLE = 100;
 
     private const string STROKE = '#4c1';
 
@@ -43,7 +44,7 @@ final readonly class TrendSvg
             static fn(int $at, float $score): string => sprintf(
                 '%.1f,%.1f',
                 $at * $step,
-                self::HEIGHT - ($score / self::WHOLE * self::HEIGHT),
+                self::HEIGHT - (Percentage::fractionOf($score) * self::HEIGHT),
             ),
             array_keys($scores),
             $scores,

@@ -28,8 +28,6 @@ final readonly class Trend
     /** How many entries it keeps, the newest. */
     private const int KEPT = 500;
 
-    private const float HUNDREDTHS = 100.0;
-
     /**
      * @param list<array{commit: string, time: string, score?: float, trees: array<string, float>}> $runs oldest first
      */
@@ -74,14 +72,14 @@ final readonly class Trend
             $treeScore = $tree->score();
 
             if ($treeScore instanceof Score) {
-                $trees[$tree->tree()->path()->value()] = $treeScore->hundredths() / self::HUNDREDTHS;
+                $trees[$tree->tree()->path()->value()] = $treeScore->percent();
             }
         }
 
         $run = [
             'commit' => $commit,
             'time' => $time->value(),
-            ...$score instanceof Score ? ['score' => $score->hundredths() / self::HUNDREDTHS] : [],
+            ...$score instanceof Score ? ['score' => $score->percent()] : [],
             'trees' => $trees,
         ];
         $runs = [...$this->runs, $run];

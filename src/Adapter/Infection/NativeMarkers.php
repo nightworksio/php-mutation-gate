@@ -30,8 +30,6 @@ final readonly class NativeMarkers
     /** What a replacement names in place of the mutator, where a setting applies to more than one. */
     private const string ANY_MUTATOR = '<a mutator or family>';
 
-    private const string REPLACES_SOURCE
-        = '{"mutant": "<the id of each mutant it hides>", "reason": "<why no test can tell>"}';
 
     private const string REPLACES_IGNORE
         = '{"path": "<the file %s is in>", "mutator": "%s", "reason": "<why no test can tell>"}';
@@ -61,7 +59,7 @@ final readonly class NativeMarkers
             if ($at !== false) {
                 $line = $token->line + mb_substr_count(mb_substr($token->text, 0, $at), "\n");
                 $where = sprintf('%s:%d', $project->relative($file)->value(), $line);
-                $markers = $markers->with(Marker::of($where, self::IN_SOURCE, self::REPLACES_SOURCE));
+                $markers = $markers->with(Marker::inSource($where, self::IN_SOURCE));
             }
         }
 
