@@ -8,19 +8,24 @@ use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
+use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
 use NightWorksIO\MutationGate\Core\Proof\Key\Exceptions;
 use NightWorksIO\MutationGate\Core\Proof\Key\Ignored;
 use NightWorksIO\MutationGate\Core\Proof\Key\Source;
 
 $fingerprint = static fn(string $path): Fingerprint => Fingerprint::of(Path::of($path), Digest::of('9c1e'));
 
-it('reads every file outside the tests but the exceptions and the CI definition it reads as it runs', function () use ($fingerprint): void {
-    $ci = CiDefinition::at(Path::of('.gitlab/mutation-gate.yml'), Contents::of('image: php'));
+it('reads every file outside the tests but the exceptions and the CI definitions it reads as they run', function () use ($fingerprint): void {
+    $ci = CiDefinitions::of(
+        CiDefinition::at(Path::of('.gitlab/mutation-gate.yml'), Contents::of('image: php')),
+        CiDefinition::at(Path::of('ci/template.yml'), Contents::of('stages: [test]')),
+    );
     $source = Source::of(
         Fingerprints::of(
             $fingerprint('src/Money.php'),
             $fingerprint('mutation-gate.json'),
             $fingerprint('.gitlab/mutation-gate.yml'),
+            $fingerprint('ci/template.yml'),
             $fingerprint('composer.json'),
         ),
         $ci,

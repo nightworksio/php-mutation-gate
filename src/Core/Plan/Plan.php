@@ -14,7 +14,9 @@ use function count;
 use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 
@@ -33,8 +35,12 @@ use Traversable;
 final readonly class Plan implements Countable, IteratorAggregate
 {
     /** @param array<int, Shard> $shards by number, in the order they were added */
-    private function __construct(private Revision $commit, private Keys $keys, private array $shards)
-    {
+    private function __construct(
+        private Revision $commit,
+        private RunOn $runOn,
+        private Keys $keys,
+        private array $shards,
+    ) {
     }
 
     public static function of(Revision $commit, Keys $keys, Shards $shards): self
@@ -45,13 +51,30 @@ final readonly class Plan implements Countable, IteratorAggregate
             $numbered[$shard->id()->number()] = $shard;
         }
 
-        return new self($commit, $keys, $numbered);
+        return new self(
+            $commit,
+            RunOn::detached(CannotTell::because('The plan was made without asking what it runs on.')),
+            $keys,
+            $numbered,
+        );
+    }
+
+    /** This plan, made for a run on this ref, which every shard and the verdict judge as. */
+    public function on(RunOn $runOn): self
+    {
+        return clone($this, ['runOn' => $runOn]);
     }
 
     /** The commit the plan was made on. */
     public function commit(): Revision
     {
         return $this->commit;
+    }
+
+    /** The run's ref, whether it is a pull request, and the default branch, as the plan was made for them. */
+    public function runOn(): RunOn
+    {
+        return $this->runOn;
     }
 
     /** The content key of every unit the plan considered, in a shard or proved. */

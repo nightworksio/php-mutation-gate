@@ -122,8 +122,20 @@ final readonly class ContentKeys
             'runner', $runner->runner(), ...self::versionsIn($runner), $runner->platform()->value(),
             'installed', $installed->value(),
             'files', ...self::fingerprintsIn([...$source->files()]),
-            'ci', $source->ci()->path()->value(), $source->ci()->asItRuns(),
+            'ci', ...self::definitionsIn($source->ci()),
         ];
+    }
+
+    /** @return list<string> */
+    private static function definitionsIn(CiDefinitions $definitions): array
+    {
+        $fields = [sprintf('%d', count($definitions))];
+
+        foreach ($definitions as $definition) {
+            $fields = [...$fields, $definition->path()->value(), $definition->asItRuns()];
+        }
+
+        return $fields;
     }
 
     /** @return list<string> */

@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
+use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
 use NightWorksIO\MutationGate\Core\Proof\Key\ContentKeys;
 use NightWorksIO\MutationGate\Core\Proof\Key\Exceptions;
 use NightWorksIO\MutationGate\Core\Proof\Key\Ignored;
@@ -81,6 +82,7 @@ function contentKeyOf(
     string $installed = 'installed',
     array $source = CONTENT_KEY_SOURCE,
     string $ci = CONTENT_KEY_CI,
+    string $template = '',
     array $cases = CONTENT_KEY_CASES,
     array $others = CONTENT_KEY_OTHERS,
     array $known = ['tests/Unit/MoneyTest.php', 'tests/Unit/OtherTest.php', 'tests/Unit/CanaryTest.php'],
@@ -126,7 +128,12 @@ function contentKeyOf(
         Digest::of($installed),
         Source::of(
             $outside,
-            CiDefinition::at(Path::of('.github/workflows/mutation.yml'), Contents::of($ci)),
+            $template === ''
+                ? CiDefinitions::of(CiDefinition::at(Path::of('.github/workflows/mutation.yml'), Contents::of($ci)))
+                : CiDefinitions::of(
+                    CiDefinition::at(Path::of('.github/workflows/mutation.yml'), Contents::of($ci)),
+                    CiDefinition::at(Path::of('.gitlab/template.yml'), Contents::of($template)),
+                ),
             Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate-baseline.json'), Ignored::globs('docs/**')),
         ),
         Tests::of(TestFiles::of(...$files), contentKeyPaths($known), contentKeyPaths($canaries)),
@@ -191,6 +198,7 @@ it('hashes everything a result could depend on, in order', function () use ($key
             'src/B.php',
             'b1',
             'ci',
+            '1',
             '.github/workflows/mutation.yml',
             "name: mutation\n  - uses: actions/checkout",
             'tests',
@@ -235,6 +243,7 @@ it('changes with every input a result could depend on', function (Closure $chang
     'what is installed' => [fn(): Digest|Unkeyed => $keyOf(installed: 'installed differently')],
     'a source file' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, 'src/A.php' => 'a2'])],
     'the CI definition' => [fn(): Digest|Unkeyed => $keyOf(ci: "name: mutation\n  - run: vendor/bin/pest\n")],
+    'a second CI definition that runs the gate' => [fn(): Digest|Unkeyed => $keyOf(template: 'stages: [mutation]')],
     'a judging test' => [fn(): Digest|Unkeyed => $keyOf(cases: [...CONTENT_KEY_CASES, 'tests/Unit/MoneyTest.php' => ['m2', "<?php\nit('adds', fn() => new Helper());\n"]])],
     'the support a judging test names' => [fn(): Digest|Unkeyed => $keyOf(others: [...CONTENT_KEY_OTHERS, 'tests/Support/Helper.php' => ['h2', "<?php\nfinal class Helper {}\n"]])],
     'a file that runs when it is loaded' => [fn(): Digest|Unkeyed => $keyOf(others: [...CONTENT_KEY_OTHERS, 'tests/Pest.php' => ['p2', "<?php\nuses(Base::class);\n"]])],
@@ -256,6 +265,7 @@ it('stays the same for what no result depends on', function (Closure $unchanged)
     'the baseline' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, 'mutation-gate-baseline.json' => 'l2'])],
     'what proofs.ignore matches' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, 'docs/index.md' => 'd2'])],
     'another CI definition' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, '.github/workflows/ci.yml' => 'w2'])],
+    'the ledger' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, '.mutation-gate/ledger/refs/heads/main/ledger.json' => 'l2'])],
     'the CI definition\'s own digest' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, '.github/workflows/mutation.yml' => 'm2'])],
     'a comment in the CI definition' => [fn(): Digest|Unkeyed => $keyOf(ci: sprintf("name: mutation\n\n# Another comment.\n  - uses: actions/checkout@%s # v7\n", str_repeat('3d', 20)))],
     'the commit an action is pinned at' => [fn(): Digest|Unkeyed => $keyOf(ci: sprintf("name: mutation\n  - uses: actions/checkout@%s # v8\n", str_repeat('4e', 20)))],
@@ -292,7 +302,7 @@ $bare = static fn(): ContentKeys => ContentKeys::of(
     Configured::document('{}'),
     Identity::of('pest', Versions::none(), Digest::of('platform')),
     Digest::of('installed'),
-    Source::of(Fingerprints::none(), CiDefinition::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing())),
+    Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing())),
     Tests::of(TestFiles::of(), Paths::none(), Paths::none()),
 );
 
@@ -314,8 +324,7 @@ it('writes what holds a unit, by its name', function (Unit $unit, string $heldBy
         'files',
         '0',
         'ci',
-        '.',
-        '',
+        '0',
         'tests',
         '0',
         'unit',

@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -12,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -68,6 +71,18 @@ it('holds the commit it was made on and the key of every unit it considered', fu
 
     expect($plan->commit())->toEqual(Revision::ref('5eeca8f'))
         ->and($plan->keys())->toBe($keys);
+});
+
+it('is made for a detached run that cannot tell its default branch, until told what it runs on', function () use ($shard, $planOf): void {
+    $plan = $planOf($shard(1));
+    $runOn = RunOn::at(Scope::pullRequest(12), Scope::branch('main'));
+    $on = $plan->on($runOn);
+
+    expect($plan->runOn())->toEqual(RunOn::detached(CannotTell::because('The plan was made without asking what it runs on.')))
+        ->and($on->runOn())->toBe($runOn)
+        ->and($on->commit())->toBe($plan->commit())
+        ->and($on->keys())->toBe($plan->keys())
+        ->and($on)->toHaveCount(1);
 });
 
 it('is named by the digest of what its file holds', function () use ($shard, $planOf): void {

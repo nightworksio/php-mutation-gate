@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 
@@ -37,4 +38,25 @@ it('reads a default branch the CI names', function (): void {
         ->and(RunOn::branchNamed(''))->toEqual(CannotTell::because(
             '"refs/heads/" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.',
         ));
+});
+
+it('is a ref already read as a scope, a pull request where the scope says so', function (): void {
+    expect(RunOn::at(Scope::pullRequest(12), Scope::branch('main'))->isPullRequest())->toBeTrue()
+        ->and(RunOn::at(Scope::branch('feature'), Scope::branch('main'))->isPullRequest())->toBeFalse()
+        ->and(RunOn::at(Scope::branch('feature'), Scope::branch('main'))->scope())->toEqual(Scope::branch('feature'));
+});
+
+it('is a detached HEAD, with no scope and never a pull request', function (): void {
+    $run = RunOn::detached(Scope::branch('main'));
+
+    expect($run->scope())->toEqual(Detached::head())
+        ->and($run->isPullRequest())->toBeFalse()
+        ->and($run->defaultBranch())->toEqual(Scope::branch('main'));
+});
+
+it('takes the default branch it is told, in place of the one the CI named', function (): void {
+    $run = RunOn::at(Scope::pullRequest(12), CannotTell::because('The CI does not say.'))->withDefaultBranch(Scope::branch('trunk'));
+
+    expect($run->defaultBranch())->toEqual(Scope::branch('trunk'))
+        ->and($run->scope())->toEqual(Scope::pullRequest(12));
 });
