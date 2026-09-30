@@ -16,12 +16,11 @@ use NightWorksIO\MutationGate\Core\Score\Score;
  */
 final readonly class BadgeColors
 {
+    /** The colour of a badge with nothing to show. */
+    public const string NONE = 'lightgrey';
     private const array DEFAULTS = ['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60];
 
     private const string BELOW = 'red';
-
-    /** The colour of a badge with no score to show. */
-    private const string NONE = 'lightgrey';
 
     /** @param array<string, int> $bands each colour's lowest score in hundredths, highest first */
     private function __construct(private array $bands)

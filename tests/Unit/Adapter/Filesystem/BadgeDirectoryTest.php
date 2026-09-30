@@ -3,14 +3,17 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Badge;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Report\TrendSvg;
 use NightWorksIO\MutationGate\Core\Score\Score;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
@@ -27,10 +30,10 @@ $clock = static fn(): StoppedClock => new StoppedClock('2026-09-30T12:00:00Z');
 
 it('writes the badge, and the trend with this verdict appended to the one it finds', function () use ($clock): void {
     $publish = sprintf('%s/publish', Scratch::directory());
-    $earlier = Trend::none()->with(Verdicts::failing(), 'before', Moment::at('2026-09-29T12:00:00Z'));
+    $earlier = Trend::none()->with(Verdicts::failing(), Revision::ref('before'), Moment::at('2026-09-29T12:00:00Z'));
     Scratch::write($publish, 'trend.json', $earlier->json());
     $answer = BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())->report(Verdicts::passing());
-    $trend = $earlier->with(Verdicts::passing(), 'abc123', Moment::at('2026-09-30T12:00:00Z'));
+    $trend = $earlier->with(Verdicts::passing(), Revision::ref('abc123'), Moment::at('2026-09-30T12:00:00Z'));
 
     expect($answer)->toEqual(Written::to($publish))
         ->and(file_get_contents(sprintf('%s/badge.json', $publish)))->toBe(Badge::json(Score::ofHundredths(10_000), BadgeColors::defaults()))
@@ -42,7 +45,7 @@ it('starts a trend where it finds none', function () use ($clock): void {
     $publish = sprintf('%s/publish', Scratch::directory());
     BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())->report(Verdicts::failing());
 
-    expect(Trend::decode((string) file_get_contents(sprintf('%s/trend.json', $publish)))->scores())->toBe([37.5]);
+    expect(iterator_to_array(Trend::decode((string) file_get_contents(sprintf('%s/trend.json', $publish)))->scores(), preserve_keys: false))->toBe([37.5]);
 });
 
 it('updates neither the badge nor the trend for a run its budget cut short', function () use ($clock): void {
@@ -59,7 +62,7 @@ it('says why it could not write', function (string $blocked) use ($clock): void 
 
     expect(BadgeDirectory::at(sprintf('%s/publish', $root), BadgeColors::defaults(), 'abc123', $clock())->report(Verdicts::passing()))
         ->toEqual(NotWritten::because(sprintf('%s/publish/%s could not be written.', $root, $blocked)));
-})->with(['badge.json', 'trend.json', 'trend.svg']);
+})->with(['badge.json', 'trend.json', 'trend.svg', 'savings.json']);
 
 it('reads its directory, its colours and its commit from its options', function () use ($clock): void {
     $options = Options::ofJson('{"path": "out", "colors": {"blue": 50}, "commit": "def456"}');
@@ -90,3 +93,23 @@ it('refuses colours that are not a map of scores, and a directory that is not te
     'colours as a number' => ['{"colors": 80}', 'colors', 'Each badge colour maps to the lowest score that earns it.'],
     'a directory as a number' => ['{"path": 3}', 'path', 'The badge and trend are written to a directory, as text.'],
 ]);
+
+it('writes what the gate saved over the last 30 days beside the badge', function () use ($clock): void {
+    $publish = sprintf('%s/publish', Scratch::directory());
+    Scratch::write($publish, 'trend.json', '{"format": 1, "runs": [
+        {"commit": "a", "time": "2026-08-01T00:00:00Z", "trees": {}, "runnerSeconds": 60, "fullRunSeconds": 99999},
+        {"commit": "b", "time": "2026-09-10T00:00:00Z", "trees": {}, "runnerSeconds": 60, "fullRunSeconds": 3660}
+    ]}');
+
+    BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())->report(Verdicts::named('accounted'));
+
+    expect(file_get_contents(sprintf('%s/savings.json', $publish)))->toBe(Badge::savings(Seconds::of(8_820.0)));
+});
+
+it('says there is no history yet where no run knew what it saved', function () use ($clock): void {
+    $publish = sprintf('%s/publish', Scratch::directory());
+
+    BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())->report(Verdicts::failing());
+
+    expect(file_get_contents(sprintf('%s/savings.json', $publish)))->toBe(Badge::savings(NoHistory::yet()));
+});

@@ -3,12 +3,16 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
+use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
+use NightWorksIO\MutationGate\Core\Report\CostText;
+use NightWorksIO\MutationGate\Core\Report\SavingsText;
+use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -92,7 +96,7 @@ it('comments on up to 20 survivors on changed lines, and 20 unjudged or flaky, t
 });
 
 it('writes the step summary with every mutant counted as not killed in one table', function () use ($run): void {
-    $summary = Markdown::summary(Verdicts::failing(), $run);
+    $summary = Markdown::summary(Verdicts::failing(), $run, Verdicts::monthAgo());
 
     expect($summary)->toStartWith("## mutation-gate: failed\n\nThe project scores 37.50%.")
         ->and($summary)->not->toContain(Markdown::MARKER)
@@ -110,7 +114,7 @@ it('fits the step summary into the size one step may write, saying how many it l
         $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Money.php:%d', $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived)->judgedBy($tests);
     }
 
-    $summary = Markdown::summary(Verdicts::of(Floor::of(80), ...$mutants), '');
+    $summary = Markdown::summary(Verdicts::of(Floor::of(80), ...$mutants), '', Verdicts::monthAgo());
 
     expect(strlen($summary))->toBeLessThanOrEqual(Markdown::SUMMARY_BYTES)
         ->and($summary)->toContain('### Not killed (300)')
@@ -135,4 +139,30 @@ it('lets nothing the project wrote become markup, a link, a mention or a new cel
             'Its tests killed it on one run and let it survive on another, so they are the suspects. It is judged by <code>it &#64;octocat &lt;/code&gt;&lt;script&gt;</code>.',
             $hostile->reproduce(),
         )]);
+});
+
+it('says what the run took and saved under the verdict, and folds what it cost into the comment\'s end', function () use ($run): void {
+    $comment = Markdown::comment(Verdicts::named('accounted'), $run);
+
+    expect($comment)->toStartWith(sprintf(
+        "%s\n\n## mutation-gate: failed\n\n%s\n\nThe project scores 37.50%%.",
+        Markdown::MARKER,
+        SavingsText::of(Verdicts::named('accounted'), NoHistory::yet()),
+    ))
+        ->and($comment)->toEndWith(sprintf("\n\n%s\n", CostText::of(Verdicts::named('accounted'))))
+        ->and(Markdown::comment(Verdicts::failing(), $run))->not->toContain('What this run cost');
+});
+
+it('adds to the step summary what the default branch saved lately', function () use ($run): void {
+    $verdict = Verdicts::failing()->withAccount(Verdicts::account()->after(Trend::decode(
+        '{"format": 1, "runs": [{"commit": "a", "time": "2026-09-10T00:00:00Z", "trees": {}, "runnerSeconds": 60, "fullRunSeconds": 3660}]}',
+    )));
+    $summary = Markdown::summary($verdict, $run, Verdicts::monthAgo());
+
+    expect($summary)->toContain(sprintf(
+        "%s\nIn the last 30 days the gate saved 2h 27m of runner time.\n\nThe project scores 37.50%%.",
+        SavingsText::of($verdict, NoHistory::yet()),
+    ))
+        ->and(Markdown::summary(Verdicts::named('accounted'), $run, Verdicts::monthAgo()))->not->toContain('In the last 30 days')
+        ->and(Markdown::summary(Verdicts::named('accounted'), $run, Verdicts::monthAgo()))->not->toContain('What this run cost');
 });

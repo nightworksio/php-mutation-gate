@@ -4,23 +4,29 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
+use function array_filter;
 use function array_slice;
 use function count;
 use function implode;
 use function intdiv;
 use function iterator_to_array;
 
+use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Report\CostText;
 use NightWorksIO\MutationGate\Core\Report\Escape;
 use NightWorksIO\MutationGate\Core\Report\Label;
 use NightWorksIO\MutationGate\Core\Report\Mutator;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Percent;
+use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
+use NightWorksIO\MutationGate\Core\Time\Instant;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -76,7 +82,7 @@ final readonly class Markdown
 
         return self::document([
             self::MARKER,
-            ...self::head($verdict, $overview),
+            ...self::head($verdict, $overview, NoHistory::yet()),
             ...self::section(
                 sprintf('Survivors on changed lines (%d)', count($changed)),
                 self::details(array_slice($changed, 0, self::COMMENTED), count($changed)),
@@ -86,14 +92,16 @@ final readonly class Markdown
                 self::table(array_slice($other, 0, self::COMMENTED), count($other)),
             ),
             ...self::tail($verdict, $run),
+            CostText::of($verdict),
         ]);
     }
 
-    public static function summary(Verdict $verdict, string $run): string
+    /** The summary, with what the default branch saved since this instant under the headline. */
+    public static function summary(Verdict $verdict, string $run, Instant $since): string
     {
         $overview = Overview::of($verdict);
         $survivors = iterator_to_array($overview->survivors(), preserve_keys: false);
-        $head = self::head($verdict, $overview);
+        $head = self::head($verdict, $overview, $verdict->account()->savedSince($since));
         $tail = self::tail($verdict, $run);
         $shown = count($survivors);
 
@@ -117,11 +125,15 @@ final readonly class Markdown
      */
     private static function document(array $blocks): string
     {
-        return sprintf("%s\n", implode("\n\n", $blocks));
+        return sprintf("%s\n", implode("\n\n", array_filter($blocks, static fn(string $block): bool => $block !== '')));
     }
 
-    /** @return list<string> */
-    private static function head(Verdict $verdict, Overview $overview): array
+    /**
+     * The verdict, what the run took and saved, the project's score, the trees and the new-code sets.
+     *
+     * @return list<string>
+     */
+    private static function head(Verdict $verdict, Overview $overview, Seconds|NoHistory $lately): array
     {
         $trees = ['| Tree | Floor | Score | Against the base | Result |', '|---|---|---|---|---|'];
 
@@ -137,6 +149,7 @@ final readonly class Markdown
 
         return [
             sprintf('## mutation-gate: %s', $verdict->judgement()->value),
+            SavingsText::of($verdict, $lately),
             implode(' ', [
                 SetText::project($overview->score()),
                 ...$verdict->wasCutShort() ? ['The run\'s budget stopped it before every mutant was judged.'] : [],

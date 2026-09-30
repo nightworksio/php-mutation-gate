@@ -315,8 +315,8 @@ Each reporter is registered by a name:
 
 | Name | When it runs | What it writes |
 |------|--------------|----------------|
-| `console` | Always | The verdict, each tree and new-code set, the units, the reach, every mutant counted as not killed with its diff, judging tests, hint, and reproduce and explain commands, the ignores, the mutants proven equivalent, the floors that can rise, failures and warnings |
-| `json` | Listed in `reports` | The gate's own report at `path`, `"format": 1`, described by [`resources/report.schema.json`](resources/report.schema.json); every score and floor in it is a percentage with at most two decimals, truncated; the tests are listed once, and each mutant points at those that cover and killed it |
+| `console` | Always | The verdict, each tree and new-code set, the units, the reach, every mutant counted as not killed with its diff, judging tests, hint, and reproduce and explain commands, the ignores, the mutants proven equivalent, the floors that can rise, failures and warnings, and last what a timed run took and saved |
+| `json` | Listed in `reports` | The gate's own report at `path`, `"format": 1`, described by [`resources/report.schema.json`](resources/report.schema.json); every score and floor in it is a percentage with at most two decimals, truncated; the tests are listed once, and each mutant points at those that cover and killed it; a timed run adds its `run`, `cost` and `savings` |
 | `junit` | Listed in `reports` | JUnit XML at `path`: a suite per tree with a `floor` test case, a `new code` suite, and a `run` suite for failures no floor decides |
 | `sarif` | Listed in `reports` | SARIF 2.1.0 at `path`, for code scanning; with `CI` unset it also names the repository's root as a `file://` URI, for an editor's SARIF viewer |
 | `html` | Listed in `reports` | `mutation-report.json` and a self-contained `index.html` under the `path` directory, shown with Stryker's viewer |
@@ -325,9 +325,9 @@ Each reporter is registered by a name:
 | `tests` | Listed in `reports` | JSON at `path`, described by [`resources/tests.schema.json`](resources/tests.schema.json), and Markdown beside it: the tests that kill nothing they judged, those never the first to kill, and, from a full kill matrix, those that can go together without losing a kill |
 | `problems` | With `--output=problems` | One `<path>:<line>:<col>: <error\|warning>: <message> [<rule>] <id>` line per result, between `mutation-gate: judging` and `mutation-gate: judged`, for an editor's problem matcher |
 | `github-annotations` | Under GitHub Actions | Up to 10 error, 10 warning and 10 notice annotations, changed lines first |
-| `github-summary` | Under GitHub Actions | The step summary, with every mutant counted as not killed in one table |
-| `github-comment` | On a pull request, with `GITHUB_TOKEN` | One sticky comment, updated in place; `with: {identity: …}` names the account it is found by when the token is not `GITHUB_TOKEN` |
-| `badge` | In CI, on the default branch | `badge.json`, `trend.json` and `trend.svg` in `--publish-dir` |
+| `github-summary` | Under GitHub Actions | The step summary: what a timed run took and saved, what the default branch saved over 30 days, and every mutant counted as not killed in one table |
+| `github-comment` | On a pull request, with `GITHUB_TOKEN` | One sticky comment, updated in place, with what a timed run took and saved under the verdict and what it cost folded at the end; `with: {identity: …}` names the account it is found by when the token is not `GITHUB_TOKEN` |
+| `badge` | In CI, on the default branch | `badge.json`, `trend.json`, `trend.svg` and `savings.json` in `--publish-dir` |
 
 Every mutant the score counts as not killed carries its reproduce command,
 `vendor/bin/mutation-gate reproduce <id>`, and a sentence saying what the

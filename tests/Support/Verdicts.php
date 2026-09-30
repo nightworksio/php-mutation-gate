@@ -6,6 +6,13 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function explode;
 
+use NightWorksIO\MutationGate\Core\Cost\Cost;
+use NightWorksIO\MutationGate\Core\Cost\Phase;
+use NightWorksIO\MutationGate\Core\Cost\RunAccount;
+use NightWorksIO\MutationGate\Core\Cost\RunTime;
+use NightWorksIO\MutationGate\Core\Cost\RunTimings;
+use NightWorksIO\MutationGate\Core\Cost\Savings;
+use NightWorksIO\MutationGate\Core\Cost\ShardTiming;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -26,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -34,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -229,6 +238,57 @@ final class Verdicts
         )));
     }
 
+    /** 30 days before the stopped clock the reporters' tests read, 2026-09-30T12:00:00Z. */
+    public static function monthAgo(): Instant
+    {
+        return Moment::at('2026-08-31T12:00:00Z');
+    }
+
+    /**
+     * The failing verdict's run, in two shards: it took 6 minutes of wall
+     * time and 14 of runner time, as GitHub measured them; it planned 7 and
+     * 15, with 1 minute of setup a job; reach and proofs spared 41 minutes;
+     * and against a full one-job run of 1h 41m, 94.5% measured, reach saved
+     * 1h 20m and proofs 7m, while sharding cut the wait by 38m and cost 3m of
+     * setup.
+     */
+    public static function account(): RunAccount
+    {
+        $at = static fn(string $time): Instant => Moment::at(sprintf('2026-09-30T%sZ', $time));
+        $timings = RunTimings::of('github:12345/1', RunTime::measured(Seconds::of(360.0), Seconds::of(840.0)))
+            ->withPlan(Phase::of($at('11:50:00'), Seconds::of(40.0)))
+            ->withShard(ShardTiming::of(1, Phase::of($at('11:51:00'), Seconds::of(20.0)), Phase::of($at('11:51:20'), Seconds::of(200.0))))
+            ->withShard(ShardTiming::of(2, Phase::of($at('11:51:05'), Seconds::of(25.0)), Phase::of($at('11:51:30'), Seconds::of(180.0))))
+            ->withVerdict(Phase::of($at('11:55:10'), Seconds::of(30.0)));
+        $percent = Percentage::inHundredths(9_450);
+        $measured = $percent instanceof Percentage ? $percent : Percentage::of(Floor::of(0));
+
+        return RunAccount::none()
+            ->withTimings($timings)
+            ->withCost(Cost::of(
+                RunTime::estimated(Seconds::of(420.0), Seconds::of(900.0)),
+                RunTime::measured(Seconds::of(360.0), Seconds::of(840.0)),
+                Seconds::of(2_460.0),
+                Seconds::of(60.0),
+            ))
+            ->withSavings(Savings::of(
+                Seconds::of(6_060.0),
+                $measured,
+                Seconds::of(4_800.0),
+                Seconds::of(420.0),
+            )->sharded(Seconds::of(2_280.0), Seconds::of(180.0)));
+    }
+
+    /** A third shard, which a test adds to the account's timings. */
+    public static function shard(): ShardTiming
+    {
+        return ShardTiming::of(
+            3,
+            Phase::of(Moment::at('2026-09-30T11:51:10Z'), Seconds::of(10.0)),
+            Phase::of(Moment::at('2026-09-30T11:51:20Z'), Seconds::of(10.0)),
+        );
+    }
+
     /** One of the verdicts above, by its name, for a dataset to list. */
     public static function named(string $name): Verdict
     {
@@ -236,6 +296,7 @@ final class Verdicts
             'failing' => self::failing(),
             'passing' => self::passing(),
             'cut short' => self::passing()->cutShort(),
+            'accounted' => self::failing()->withAccount(self::account()),
             'with a matrix' => self::failing()->withMatrix(self::matrix(MatrixKind::FirstKiller)),
             default => self::empty(),
         };

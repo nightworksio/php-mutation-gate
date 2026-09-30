@@ -80,7 +80,10 @@ final readonly class FirstParty implements Extension
             ->withReporter(Name::of('sarif'), SarifReportFile::fromOptions(...))
             ->withReporter(Name::of('html'), HtmlReportDirectory::fromOptions(...))
             ->withReporter(Name::of('github-annotations'), Annotations::fromOptions(...))
-            ->withReporter(Name::of('github-summary'), StepSummary::fromOptions(...))
+            ->withReporter(
+                Name::of('github-summary'),
+                static fn(Options $options): Reporter => StepSummary::configured($options, new SystemClock()),
+            )
             ->withReporter(Name::of('github-comment'), PullRequestComment::fromOptions(...))
             ->withReporter(
                 Name::of('badge'),

@@ -8,6 +8,7 @@ use function array_keys;
 use function array_map;
 use function count;
 use function implode;
+use function iterator_to_array;
 use function max;
 
 use NightWorksIO\MutationGate\Core\Score\Percentage;
@@ -37,7 +38,7 @@ final readonly class TrendSvg
 
     public static function of(Trend $trend): string
     {
-        $scores = $trend->scores();
+        $scores = iterator_to_array($trend->scores(), preserve_keys: false);
         $last = count($scores) - 1;
         $step = self::WIDTH / max($last, 1);
         $points = array_map(

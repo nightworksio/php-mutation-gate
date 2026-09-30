@@ -73,10 +73,42 @@ final readonly class ReportSchema
 
     private const array FLAG = ['type' => 'boolean'];
 
+    private const array INSTANT = ['type' => 'string', 'pattern' => '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$'];
+
+    private const array TRACE_ID = ['type' => 'string', 'pattern' => '^[0-9a-f]{32}$'];
+
     private const array ID_SPELLING = ['type' => 'string', 'pattern' => '^[0-9a-f]{12}$'];
 
     public static function json(): string
     {
+        $timed = self::object(['start' => self::INSTANT, 'seconds' => self::SECONDS], []);
+        $units = [];
+
+        foreach (Origin::cases() as $origin) {
+            $units[$origin->value] = self::WHOLE;
+        }
+
+        $run = self::object([
+            'id' => self::TEXT,
+            'traceId' => self::TRACE_ID,
+            'phases' => self::object(['plan' => $timed, 'verdict' => $timed], ['plan', 'verdict']),
+            'shards' => ['type' => 'array', 'items' => self::object([
+                'shard' => self::LINE,
+                'start' => self::INSTANT,
+                'openingRunSeconds' => self::SECONDS,
+                'mutateSeconds' => self::SECONDS,
+            ], [])],
+            'units' => self::object($units, []),
+            'wallSeconds' => self::SECONDS,
+            'runnerSeconds' => self::SECONDS,
+            'measured' => self::FLAG,
+        ], []);
+        $money = self::object(['amount' => self::SECONDS, 'currency' => self::TEXT], []);
+        $figure = self::object(
+            ['wallSeconds' => self::SECONDS, 'runnerSeconds' => self::SECONDS, 'price' => $money],
+            ['price'],
+        );
+
         return Json::encode([
             '$schema' => self::DRAFT,
             '$id' => sprintf(self::ID, 'report'),
@@ -103,7 +135,32 @@ final readonly class ReportSchema
                 'reach' => self::listOf(self::TEXT),
                 'warnings' => self::listOf(self::TEXT),
                 'failures' => self::listOf(self::TEXT),
-            ], ['score']),
+                'run' => $run,
+                'cost' => self::object([
+                    'planned' => $figure,
+                    'measured' => $figure,
+                    'spared' => self::object(['seconds' => self::SECONDS, 'price' => $money], ['price']),
+                    'setupEstimated' => self::FLAG,
+                    'perRunnerMinute' => $money,
+                ], ['perRunnerMinute']),
+                'savings' => ['oneOf' => [
+                    self::object([
+                        'fullRun' => self::object(
+                            ['seconds' => self::SECONDS, 'measuredPercent' => self::PERCENT],
+                            [],
+                        ),
+                        'saved' => self::object(
+                            ['reachSeconds' => self::SECONDS, 'proofsSeconds' => self::SECONDS],
+                            [],
+                        ),
+                        'sharding' => self::object(
+                            ['waitSavedSeconds' => self::SECONDS, 'setupSeconds' => self::SECONDS],
+                            [],
+                        ),
+                    ], ['sharding']),
+                    self::object(['noHistory' => ['const' => true]], []),
+                ]],
+            ], ['score', 'run', 'cost', 'savings']),
         ]);
     }
 

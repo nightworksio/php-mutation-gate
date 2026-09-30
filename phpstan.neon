@@ -595,6 +595,8 @@ services:
                     - DEFAULT # the default command
                 'NightWorksIO\MutationGate\Core\Report\Stryker':
                     - LANGUAGE # Stryker's name for the language
+                'NightWorksIO\MutationGate\Core\Report\SavingsText':
+                    - DAYS # days the savings count
             # Constants still to refer to their value's one home, by the builder whose area holds them.
             awaiting:
                 'NightWorksIO\MutationGate\Cli\Command\Init':

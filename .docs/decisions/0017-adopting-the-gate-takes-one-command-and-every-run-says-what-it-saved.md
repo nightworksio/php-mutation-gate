@@ -278,15 +278,30 @@ would have cost without them.
       comment's line directly under the verdict. It is not collapsed.
       ADR-0016 decision 8's collapsed section keeps the breakdown and the
       money.
+    - An unsharded run leaves out the sharding clause. A runner time the CI
+      did not measure reads *14m runner time (estimated)*. A run with no
+      history reads *Judged in 6m wall, 14m runner time. No history yet, so
+      nothing saved is shown.* The line never carries money. Durations are
+      said to the nearest unit shown: `45s`, `6m`, `1h 41m`, `0s`.
     - The JSON report gains a `savings` object beside `cost` and `run`
-      (ADR-0016).
+      (ADR-0016): `{"fullRun": {"seconds", "measuredPercent"}, "saved":
+      {"reachSeconds", "proofsSeconds"}, "sharding"?: {"waitSavedSeconds",
+      "setupSeconds"}}`, or `{"noHistory": true}`. `measuredPercent` is a
+      whole percent, truncated.
     - On the default branch:
       - each `trend.json` entry gains `runnerSeconds` and `fullRunSeconds`
         (ADR-0009 decision 5);
-      - the step summary shows the total of the last 30 days;
+      - the step summary shows the total of the last 30 days, under the
+        headline: *In the last 30 days the gate saved 41h of runner time.*
+        Each run counts its full one-job run less its runner time, never
+        below nothing, and this run counts too. The flows hand the verdict
+        the trend they read, on the default branch only, and the line shows
+        only then;
       - the verdict writes `savings.json` beside `badge.json`, a shields.io
         endpoint (*mutation time saved: 41h / 30 days*), which the publish
         job publishes with the others. Showing it is the project's choice.
+        With no run that knew both times, its message is *no history yet*,
+        in lightgrey; otherwise it is blue.
 
 ### The benchmark
 

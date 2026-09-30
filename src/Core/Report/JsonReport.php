@@ -110,6 +110,7 @@ final readonly class JsonReport
             'reach' => self::texts($verdict->reach(), static fn(Cause $reason): string => $reason->text()),
             'warnings' => self::texts($verdict->warnings(), static fn(Warning $warning): string => $warning->text()),
             'failures' => self::texts($verdict->failures(), static fn(Failure $failure): string => $failure->text()),
+            ...AccountJson::of($verdict),
         ]);
     }
 
