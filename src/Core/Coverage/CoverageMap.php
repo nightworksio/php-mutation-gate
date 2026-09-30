@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
+use function array_intersect_key;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
@@ -17,6 +18,10 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+
+use function strval;
+
+use Traversable;
 
 /**
  * Which tests ran which line of which file, and how long each test took. A
@@ -92,6 +97,35 @@ final readonly class CoverageMap
         }
 
         return new self($this->lines, $tests, $durations);
+    }
+
+    /** This map, covering only these files: every test it knows and how long each took, and the lines of these. */
+    public function onlyFor(Paths $files): self
+    {
+        $kept = [];
+
+        foreach ($files as $file) {
+            $kept[$file->value()] = true;
+        }
+
+        return new self(array_intersect_key($this->lines, $kept), $this->tests, $this->durations);
+    }
+
+    /**
+     * Every covered line of every file, with the tests that ran it, file by
+     * file in the order they were first covered.
+     *
+     * @return Traversable<int, CoveredLine>
+     */
+    public function lines(): Traversable
+    {
+        foreach ($this->lines as $file => $lines) {
+            $path = Path::of(strval($file));
+
+            foreach ($lines as $line => $tests) {
+                yield CoveredLine::of($path, $line, ...array_values($tests));
+            }
+        }
     }
 
     public function tests(): TestIds
