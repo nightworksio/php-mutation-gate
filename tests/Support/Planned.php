@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -64,7 +65,7 @@ final readonly class Planned
     /** A plan whose shards were handed the fixture runner's map in a project, as `plan` hands them. */
     public static function handedIn(string $project, Plan $plan): Plan
     {
-        new Handoff(Directory::at($project))->write($plan, Flows::map());
+        new Handoff(Directory::at($project))->write($plan, Flows::map(), KillHistory::none());
 
         return $plan;
     }

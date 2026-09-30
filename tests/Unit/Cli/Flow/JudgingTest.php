@@ -49,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -120,7 +121,7 @@ $judged = static function (
     Settings $settings,
     Reporting $reporting,
 ): Judged|Invalid|CannotJudge {
-    new Handoff($adapters->project)->write($plan, Flows::map());
+    new Handoff($adapters->project)->write($plan, Flows::map(), KillHistory::none());
     new Running($adapters, $settings, Flows::setup())->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), $adapters->project);
 
@@ -599,7 +600,7 @@ it('kills a timeout only where triage confirms it, so a tree at 100 fails on one
         $tree(Floor::of(100)),
         ScriptedRunner::fixture()->answering(Mutants::of(...$timedOut), 0),
     );
-    new Handoff($adapters->project)->write($plan, $map);
+    new Handoff($adapters->project)->write($plan, $map, KillHistory::none());
     new Running($adapters, judgingSettings($timeouts), Flows::setup())->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), $adapters->project);
 
@@ -666,7 +667,7 @@ it('fails a verdict on a held unit its holding tests miss lines of, and proves n
         $store,
         new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::empty()),
     );
-    new Handoff($adapters->project)->write($plan, Flows::map());
+    new Handoff($adapters->project)->write($plan, Flows::map(), KillHistory::none());
     new Running($adapters, judgingSettings($uncovered), Flows::setup())->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), $adapters->project);
     $judging = new Judging($adapters, judgingSettings($uncovered), Flows::setup(), $reporting(new ReporterFake()));

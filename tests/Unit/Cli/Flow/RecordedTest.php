@@ -86,7 +86,7 @@ function recordedRan(string $project, ScriptedRunner $runner, CoverageMap $map):
 /** Every shard of a plan run in a project, each handed the map, and the results read back. */
 function recordedRanOf(Plan $plan, string $project, ScriptedRunner $runner, CoverageMap $map): Results
 {
-    new Handoff(Directory::at($project))->write($plan, $map);
+    new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none());
     new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), Directory::at($project));

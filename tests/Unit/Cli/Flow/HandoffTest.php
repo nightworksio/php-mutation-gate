@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -66,7 +67,7 @@ it('hands each shard the lines of its own files alone, with every test and its t
     $handed = static fn(Paths $files): CoverageMap|CannotJudge => CoverageMapFile::decode(
         CoverageMapFile::encode($map->onlyFor($files)),
     );
-    $written = $handoff->write($plan, $map);
+    $written = $handoff->write($plan, $map, KillHistory::none());
     $held = $handoff->read(ShardId::of(2));
 
     expect($written)->toEqual(Written::to('.mutation-gate/coverage'))
@@ -80,7 +81,7 @@ it('hands each shard the lines of its own files alone, with every test and its t
 
 it('writes each map where run reads it, as the gate\'s own format', function () use ($plan, $map): void {
     $project = Scratch::directory();
-    new Handoff(Directory::at($project))->write($plan, $map);
+    new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none());
 
     expect(file_exists(sprintf('%s/.mutation-gate/coverage/shard-1/map.json.gz', $project)))->toBeTrue()
         ->and(file_exists(sprintf('%s/.mutation-gate/coverage/shard-2/map.json.gz', $project)))->toBeTrue();
@@ -90,7 +91,7 @@ it('cannot hand a shard a map it cannot write', function () use ($plan, $map): v
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/coverage/shard-2/map.json.gz/blocked', '');
 
-    expect(new Handoff(Directory::at($project))->write($plan, $map))->toEqual(CannotJudge::because(
+    expect(new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none()))->toEqual(CannotJudge::because(
         sprintf('%s/.mutation-gate/coverage/shard-2/map.json.gz could not be written.', $project),
     ));
 });

@@ -9,19 +9,24 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Proof\KillHistoryFile;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
 
 /**
- * The coverage a plan hands each shard, as the gate's own map: every test
- * and its duration, and the lines of the files that shard mutates alone. A
- * runner's own map, which may be code, never leaves the job that read it.
+ * What a plan hands each shard: its coverage, as the gate's own map of every
+ * test and its duration and the lines of the files that shard mutates alone,
+ * and beside it the kill history of those files' functions (ADR-0013,
+ * decision 2). A runner's own map, which may be code, never leaves the job
+ * that read it.
  */
 final readonly class Handoff
 {
@@ -31,14 +36,21 @@ final readonly class Handoff
     {
     }
 
-    /** Each shard's map, in the directory `run` reads it from. */
-    public function write(Plan $plan, CoverageMap $map): Written|CannotJudge
+    /** Each shard's map, and the history of its files' functions, in the directory `run` reads them from. */
+    public function write(Plan $plan, CoverageMap $map, KillHistory $history): Written|CannotJudge
     {
         $written = Written::to(Workspace::coverage()->value());
 
         foreach ($plan as $shard) {
-            $kept = $map->onlyFor($this->filesOf($shard, $map));
-            $wrote = $this->project->write($this->fileOf($shard->id()), Contents::of(CoverageMapFile::encode($kept)));
+            $files = $this->filesOf($shard, $map);
+            $wrote = $this->project->write(
+                $this->fileOf($shard->id()),
+                Contents::of(CoverageMapFile::encode($map->onlyFor($files))),
+            );
+            $wrote = $wrote instanceof CannotJudge ? $wrote : $this->project->write(
+                $this->killersOf($shard->id()),
+                Contents::of(KillHistoryFile::encode($history->onlyIn($files))),
+            );
 
             if ($wrote instanceof CannotJudge) {
                 return $wrote;
@@ -46,6 +58,17 @@ final readonly class Handoff
         }
 
         return $written;
+    }
+
+    /**
+     * The kill history a shard was handed; missing where it was handed none,
+     * which orders its tests as though no test had killed anything yet.
+     */
+    public function history(ShardId $shard): KillHistory|Missing|CannotJudge
+    {
+        $contents = $this->project->read($this->killersOf($shard));
+
+        return $contents instanceof Contents ? KillHistoryFile::decode($contents->text()) : $contents;
     }
 
     /** The map a shard was handed. */
@@ -66,6 +89,11 @@ final readonly class Handoff
     private function fileOf(ShardId $shard): Path
     {
         return CoverageMapFile::in(Workspace::shardCoverage($shard));
+    }
+
+    private function killersOf(ShardId $shard): Path
+    {
+        return KillHistoryFile::in(Workspace::shardCoverage($shard));
     }
 
     /** The covered files a shard mutates: each unit's file, and every file within a held path. */

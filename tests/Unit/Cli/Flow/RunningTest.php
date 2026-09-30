@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -363,7 +364,7 @@ it('keeps with each timed-out mutant the time its covering tests take, from the 
     $resultIn,
 ): void {
     $project = Flows::project();
-    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map());
+    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map(), KillHistory::none());
 
     new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
@@ -431,7 +432,7 @@ it('runs no timeout again whose limit its runner\'s own formula decided', functi
 
 it('mutates no held unit whose holding tests miss lines of it, and leaves why', function () use ($resultIn): void {
     $project = Flows::project();
-    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map());
+    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map(), KillHistory::none());
     $scripted = ScriptedRunner::fixture();
     $runner = new CoverageAsked($scripted, CoverageMap::empty());
     $adapters = Flows::adapters($project, [], $runner);
@@ -463,7 +464,7 @@ it('mutates each held unit its holding tests cover, and cannot judge a shard who
     string $outcome,
 ) use ($resultIn): void {
     $project = Flows::project();
-    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map());
+    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map(), KillHistory::none());
 
     new Running(
         Flows::adapters($project, [], new CoverageAsked(ScriptedRunner::fixture(), $answer)),

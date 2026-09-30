@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 use function array_flip;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
@@ -17,15 +18,23 @@ use function sprintf;
 /**
  * A kill history as a file of its own holds it, `"format": 1`: the tests it
  * names and its `killers`, each as a ledger's sections hold them (ADR-0013,
- * decision 2). The plan hands each shard one beside its map, and the Pest
- * adapter hands its plugin one. A history orders tests and never decides a
- * result, so it enters no key.
+ * decision 2). The plan hands each shard one beside its map, as
+ * `killers.json`, and the Pest adapter hands its plugin one. A history orders
+ * tests and never decides a result, so it enters no key.
  *
  * @internal the shape of a kill history file
  */
 final readonly class KillHistoryFile
 {
     private const int FORMAT = 1;
+
+    private const string NAME = 'killers.json';
+
+    /** Where the history stands in the directory a job hands it over in, beside the coverage map. */
+    public static function in(Path $directory): Path
+    {
+        return Path::of(sprintf('%s/%s', $directory->value(), self::NAME));
+    }
 
     public static function encode(KillHistory $history): string
     {

@@ -39,3 +39,8 @@ it('cannot read what is not a kill history of its format, saying where it went w
     'no tests' => ['{"format": 1, "killers": {}}', 'the file.tests is missing.'],
     'not JSON' => ['{"format": 1,', 'the file.format is missing.'],
 ]);
+
+it('stands beside the coverage map in the directory a job hands it over in', function (): void {
+    expect(KillHistoryFile::in(Path::of('.mutation-gate/coverage/shard-2')))
+        ->toEqual(Path::of('.mutation-gate/coverage/shard-2/killers.json'));
+});
