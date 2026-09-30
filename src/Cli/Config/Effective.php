@@ -48,7 +48,7 @@ final readonly class Effective
 
         $registry = $given->firstPartyOnly
             ? $this->extensions
-            : new Chosen($this->extensions)->withExtensions(self::strings($file, 'extensions'), 'the config file');
+            : new Chosen($this->extensions)->withExtensions($this->strings($file, 'extensions'), 'the config file');
 
         return $registry instanceof CannotJudge ? $registry : $this->layered($file, $given, $registry);
     }
@@ -59,7 +59,7 @@ final readonly class Effective
         $file = ConfigFile::in($this->project, $given);
 
         if (! $file instanceof Path) {
-            return $file instanceof Absent ? self::document([]) : $file;
+            return $file instanceof Absent ? $this->document([]) : $file;
         }
 
         $loader = Formats::loader($this->extensions, $file);
@@ -69,7 +69,7 @@ final readonly class Effective
 
     private function layered(Document $file, Given $given, Extensions $registry): Settings|Invalid|CannotJudge
     {
-        $presets = self::strings($file, 'preset');
+        $presets = $this->strings($file, 'preset');
         $detected = $presets === [] ? $this->detected->preset() : '';
 
         if ($detected instanceof CannotJudge) {
@@ -82,25 +82,23 @@ final readonly class Effective
             $layers[] = $registry->preset(Name::of($preset));
         }
 
-        return $this->validated([...$layers, $file, self::document($given->layer())], $detected);
+        return $this->validated([...$layers, $file, $this->document($given->layer())], $detected);
     }
 
     /** @param list<Document|CannotJudge> $layers */
     private function validated(array $layers, string $preset): Settings|Invalid|CannotJudge
     {
-        $merged = self::document([]);
+        $merged = $this->document([]);
 
         foreach ($layers as $layer) {
-            $merged = $merged instanceof Document && $layer instanceof Document
-                ? Layers::over($merged, $layer)
-                : $layer;
-
-            if ($merged instanceof CannotJudge) {
-                return $merged;
-            }
+            $merged = match (true) {
+                $merged instanceof CannotJudge => $merged,
+                $layer instanceof CannotJudge => $layer,
+                default => Layers::over($merged, $layer),
+            };
         }
 
-        $base = $this->base($merged, $preset);
+        $base = $merged instanceof Document ? $this->base($merged, $preset) : $merged;
 
         return $base instanceof Document ? new Validator($this->now)->validate($base) : $base;
     }
@@ -109,13 +107,13 @@ final readonly class Effective
     private function base(Document $merged, string $preset): Document|CannotJudge
     {
         $base = $preset === '' ? [] : ['preset' => $preset];
-        $runner = array_key_exists('runner', self::decoded($merged)) ? '' : $this->detected->runner();
+        $runner = array_key_exists('runner', $this->decoded($merged)) ? '' : $this->detected->runner();
 
         if ($runner instanceof CannotJudge) {
             return $runner;
         }
 
-        $layer = self::document($runner === '' ? $base : [...$base, 'runner' => $runner]);
+        $layer = $this->document($runner === '' ? $base : [...$base, 'runner' => $runner]);
 
         return $layer instanceof Document ? Layers::over($layer, $merged) : $layer;
     }
@@ -125,9 +123,9 @@ final readonly class Effective
      *
      * @return list<string>
      */
-    private static function strings(Document $document, string $key): array
+    private function strings(Document $document, string $key): array
     {
-        $tree = self::decoded($document);
+        $tree = $this->decoded($document);
         $value = array_key_exists($key, $tree) ? $tree[$key] : [];
         $strings = [];
 
@@ -141,7 +139,7 @@ final readonly class Effective
     }
 
     /** @return array<mixed> */
-    private static function decoded(Document $document): array
+    private function decoded(Document $document): array
     {
         $tree = Json::decode($document->json());
 
@@ -149,7 +147,7 @@ final readonly class Effective
     }
 
     /** @param array<mixed> $tree */
-    private static function document(array $tree): Document|CannotJudge
+    private function document(array $tree): Document|CannotJudge
     {
         return Document::ofJson(Json::encode(Json::object($tree)));
     }

@@ -22,11 +22,9 @@ afterEach(function (): void {
  *
  * @return list<array{string, mixed}>|CannotJudge
  */
-$found = static function (Trees|CannotJudge $trees): array|CannotJudge {
-    return $trees instanceof Trees
-        ? array_map(static fn(Tree $tree): array => [$tree->path()->value(), $tree->declared()], [...$trees])
-        : $trees;
-};
+$found = (static fn(Trees|CannotJudge $trees): array|CannotJudge => $trees instanceof Trees
+    ? array_map(static fn(Tree $tree): array => [$tree->path()->value(), $tree->declared()], [...$trees])
+    : $trees);
 
 /** A phpunit.xml whose <source> includes and excludes these. */
 $phpunit = static fn(string $source): string => sprintf(

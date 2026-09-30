@@ -12,6 +12,7 @@ afterEach(function (): void {
 });
 
 /** What zero-config finds in a project with this composer.json and these installed packages. */
+/** @param list<string> $installed the packages installed, by name */
 $detected = static function (string $manifest, array $installed): Detected {
     $project = Scratch::directory();
 
@@ -20,7 +21,7 @@ $detected = static function (string $manifest, array $installed): Detected {
     }
 
     Scratch::write($project, 'vendor/composer/installed.json', (string) json_encode([
-        'packages' => array_map(static fn(string $name): array => ['name' => $name], $installed),
+        'packages' => array_map(static fn(mixed $name): array => ['name' => $name], $installed),
     ]));
 
     return new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)));

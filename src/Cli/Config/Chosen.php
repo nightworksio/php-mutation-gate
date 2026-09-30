@@ -44,28 +44,28 @@ final readonly class Chosen
 
     public function runner(Choice $choice): Runner|Invalid|CannotJudge
     {
-        return self::built('runner', Runner::class, $choice, $this->extensions->runner(...));
+        return $this->built('runner', Runner::class, $choice, $this->extensions->runner(...));
     }
 
     public function treeSource(Choice $choice): TreeSource|Invalid|CannotJudge
     {
-        return self::built('treeSource', TreeSource::class, $choice, $this->extensions->treeSource(...));
+        return $this->built('treeSource', TreeSource::class, $choice, $this->extensions->treeSource(...));
     }
 
     public function proofStore(Choice $choice): ProofStore|Invalid|CannotJudge
     {
-        return self::built('proofs.store', ProofStore::class, $choice, $this->extensions->proofStore(...));
+        return $this->built('proofs.store', ProofStore::class, $choice, $this->extensions->proofStore(...));
     }
 
     public function ciPlan(Choice $choice): CiPlan|Invalid|CannotJudge
     {
-        return self::built('ci.plan', CiPlan::class, $choice, $this->extensions->ciPlan(...));
+        return $this->built('ci.plan', CiPlan::class, $choice, $this->extensions->ciPlan(...));
     }
 
     /** The reporter of the `reports` entry at this index. */
     public function reporter(Choice $choice, int $index): Reporter|Invalid|CannotJudge
     {
-        return self::built(sprintf('reports[%d]', $index), Reporter::class, $choice, $this->extensions->reporter(...));
+        return $this->built(sprintf('reports[%d]', $index), Reporter::class, $choice, $this->extensions->reporter(...));
     }
 
     /**
@@ -78,7 +78,7 @@ final readonly class Chosen
         $registry = $this->extensions;
 
         foreach ($classes as $class) {
-            $extended = self::extended($registry, $class, $file);
+            $extended = $this->extended($registry, $class, $file);
 
             if ($extended instanceof CannotJudge) {
                 return $extended;
@@ -90,7 +90,7 @@ final readonly class Chosen
         return $registry;
     }
 
-    private static function extended(Extensions $registry, string $class, string $file): Extensions|CannotJudge
+    private function extended(Extensions $registry, string $class, string $file): Extensions|CannotJudge
     {
         return is_a($class, Extension::class, allow_string: true)
             ? $registry->merge(new $class()->extend(new Extensions(Origin::of($file))))
@@ -109,14 +109,14 @@ final readonly class Chosen
      * @param  Closure(Name, Options): (T|Invalid|CannotJudge)        $registered
      * @return T|Invalid|CannotJudge
      */
-    private static function built(string $setting, string $port, Choice $choice, Closure $registered): object
+    private function built(string $setting, string $port, Choice $choice, Closure $registered): object
     {
         $options = Options::ofJson($choice->options());
         $built = str_contains($choice->use(), '\\')
-            ? self::fromClass($choice->use(), $port, $options)
+            ? $this->fromClass($choice->use(), $port, $options)
             : $registered(Name::of($choice->use()), $options);
 
-        return $built instanceof Invalid ? self::under(sprintf('%s.with', $setting), $built) : $built;
+        return $built instanceof Invalid ? $this->under(sprintf('%s.with', $setting), $built) : $built;
     }
 
     /**
@@ -125,7 +125,7 @@ final readonly class Chosen
      * @param  class-string<T>       $port
      * @return T|Invalid|CannotJudge
      */
-    private static function fromClass(string $class, string $port, Options $options): object
+    private function fromClass(string $class, string $port, Options $options): object
     {
         if (! is_a($class, Configurable::class, allow_string: true) || ! is_a($class, $port, allow_string: true)) {
             return CannotJudge::because(sprintf(
@@ -144,7 +144,7 @@ final readonly class Chosen
     }
 
     /** A class's problems with its options, each under the setting's `with`. */
-    private static function under(string $with, Invalid $invalid): Invalid
+    private function under(string $with, Invalid $invalid): Invalid
     {
         return Invalid::because(...array_map(
             static fn(Problem $problem): Problem => Problem::at(

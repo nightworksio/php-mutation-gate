@@ -78,7 +78,7 @@ it('writes every setting of the configuration reference', function (): void {
                 'Acme\\Runner',
                 Option::of('workers', 4),
                 Option::list('groups', 'a', 'b'),
-                Option::nested('retry', Option::of('times', 2), Option::of('on', true)),
+                Option::nested('retry', Option::of('times', 2), Option::of('on', value: true)),
             ))
             ->treeSource(Source::composer())
             ->trees(Tree::at('src'), Tree::at('app', floor: 83.5), Tree::at('gen', floor: 0, because: 'Generated'))

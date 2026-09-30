@@ -35,13 +35,13 @@ final readonly class Gate
     /** `extensions`: extension classes to load beside those Composer names. */
     public function extensions(Load ...$extensions): self
     {
-        return $this->set('extensions', self::each($extensions, static fn(Load $load): string => $load->class()));
+        return $this->set('extensions', $this->each($extensions, static fn(Load $load): string => $load->class()));
     }
 
     /** `preset`: one preset, or several applied in order. */
     public function preset(Preset $preset, Preset ...$more): self
     {
-        $names = self::each([$preset, ...$more], static fn(Preset $one): string => $one->name());
+        $names = $this->each([$preset, ...$more], static fn(Preset $one): string => $one->name());
 
         return $this->set('preset', count($names) === 1 ? $preset->name() : $names);
     }
@@ -59,7 +59,7 @@ final readonly class Gate
     /** `trees`: every tree, in place of those the tree source would find. */
     public function trees(Tree ...$trees): self
     {
-        return $this->set('trees', self::each($trees, static fn(Tree $tree): mixed => Json::decode($tree->written())));
+        return $this->set('trees', $this->each($trees, static fn(Tree $tree): mixed => Json::decode($tree->written())));
     }
 
     /** `newCode.floor` */
@@ -71,7 +71,7 @@ final readonly class Gate
     /** `ignores.entries`, added to those already given. */
     public function ignoring(Ignore ...$ignores): self
     {
-        $entries = self::each($ignores, static fn(Ignore $ignore): mixed => Json::decode($ignore->written()));
+        $entries = $this->each($ignores, static fn(Ignore $ignore): mixed => Json::decode($ignore->written()));
 
         return $this->merge(['ignores' => ['entries' => $entries]]);
     }
@@ -81,7 +81,7 @@ final readonly class Gate
     {
         return $this->set(
             'reports',
-            self::each($reports, static fn(Report $report): mixed => Json::decode($report->written())),
+            $this->each($reports, static fn(Report $report): mixed => Json::decode($report->written())),
         );
     }
 
@@ -122,7 +122,7 @@ final readonly class Gate
      * @param  Closure(T): mixed $json
      * @return list<mixed>
      */
-    private static function each(array $values, Closure $json): array
+    private function each(array $values, Closure $json): array
     {
         $each = [];
 

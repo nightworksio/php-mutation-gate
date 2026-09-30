@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Config;
 
 use function array_column;
+use function array_filter;
 use function array_flip;
 use function array_key_exists;
 use function is_array;
+use function is_string;
 use function json_decode;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
@@ -61,7 +63,7 @@ final readonly class Detected
     {
         $installed = $this->decoded($this->vendor, 'composer/installed.json');
         $packages = is_array($installed) && array_key_exists('packages', $installed) && is_array($installed['packages'])
-            ? array_flip(array_column($installed['packages'], 'name'))
+            ? array_flip(array_filter(array_column($installed['packages'], 'name'), is_string(...)))
             : [];
         $pest = array_key_exists(self::PEST, $packages);
         $infection = array_key_exists(self::INFECTION, $packages);

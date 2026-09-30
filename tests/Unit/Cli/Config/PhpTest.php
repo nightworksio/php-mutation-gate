@@ -64,7 +64,12 @@ it('writes a config that reads back into the same effective config', function (a
         'ignores' => [
             'entries' => [
                 ['mutant' => '3f9a1c2b7d04', 'reason' => 'Both branches build one list', 'expires' => '2026-12-29'],
-                ['path' => 'src/Log/**', 'mutator' => 'MethodCallRemoval', 'reason' => 'Logging is asserted elsewhere'],
+                [
+                    'path' => 'src/Log/**',
+                    'mutator' => 'MethodCallRemoval',
+                    'reason' => 'Logging is asserted elsewhere',
+                    'expires' => '2026-10-01',
+                ],
             ],
             'maxDays' => 90,
             'native' => 'allow',

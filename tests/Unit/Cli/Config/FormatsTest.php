@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Nette\Neon\Neon;
 use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
@@ -15,6 +16,7 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Extension\Origin;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use Symfony\Component\Yaml\Yaml;
 
 /** This package's registry, with YAML and NEON installed or not. */
 $registry = static fn(bool $installed): Extensions => Registered::config(
@@ -109,7 +111,7 @@ it('asks the installed check about the library each format needs', function (): 
     $formats->render(Configs::document('{}'), 'yaml');
     $formats->render(Configs::document('{}'), 'neon');
 
-    expect($asked->getArrayCopy())->toBe([Symfony\Component\Yaml\Yaml::class, Nette\Neon\Neon::class]);
+    expect($asked->getArrayCopy())->toBe([Yaml::class, Neon::class]);
 });
 
 it('cannot write a config in a format it does not know', function (): void {

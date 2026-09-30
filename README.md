@@ -262,6 +262,7 @@ chooses an adapter takes a registered name or `{"use": <name or class>,
 | `preset` | a preset name, or a list of them: `library`, `laravel`, `symfony` | chosen from `composer.json` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `runner` | adapter: `pest`, `infection` | the one installed | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `treeSource` | adapter: `phpunit`, `composer` | `phpunit` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| `treeSource.with.fallback` | list of paths, the trees when `phpunit.xml` has no `<source>` | `[]`, or the preset's; `[]` takes the `autoload` paths of `composer.json` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `trees` | list of `{path, floor, reason}` | the tree source's trees | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `trees[].floor` | number, 0 to 100 | the nearest manifest's, if any | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `trees[].reason` | string | none; required when `floor` is 0 | [0003](.docs/decisions/0003-a-floor-only-rises.md) |

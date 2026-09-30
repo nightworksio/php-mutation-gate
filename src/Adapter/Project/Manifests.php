@@ -65,7 +65,7 @@ final readonly class Manifests
         $paths = Paths::none();
 
         foreach (self::AUTOLOAD as $kind) {
-            foreach (self::strings(self::under($manifest, ['autoload', $kind])) as $path) {
+            foreach ($this->strings($this->under($manifest, ['autoload', $kind])) as $path) {
                 $paths = $paths->with(Path::of($path));
             }
         }
@@ -111,8 +111,8 @@ final readonly class Manifests
         $manifest = $this->read($directory);
 
         return match (true) {
-            is_array($manifest) => self::floor(
-                self::under($manifest, ['extra', 'mutation-gate']),
+            is_array($manifest) => $this->floor(
+                $this->under($manifest, ['extra', 'mutation-gate']),
                 Path::of(sprintf('%s/%s', $directory->value(), self::MANIFEST))->value(),
             ),
             $manifest instanceof CannotJudge => $manifest,
@@ -139,14 +139,14 @@ final readonly class Manifests
             ));
     }
 
-    private static function floor(mixed $settings, string $file): Floor|Exempt|Undeclared|CannotJudge
+    private function floor(mixed $settings, string $file): Floor|Exempt|Undeclared|CannotJudge
     {
-        $floor = self::under($settings, ['floor']);
-        $reason = self::under($settings, ['floorReason']);
+        $floor = $this->under($settings, ['floor']);
+        $reason = $this->under($settings, ['floorReason']);
 
         return match (true) {
             $floor instanceof Absent => Undeclared::floor(),
-            ! self::isPercentage($floor) => CannotJudge::because(sprintf(
+            ! $this->isPercentage($floor) => CannotJudge::because(sprintf(
                 '%s declares extra.mutation-gate.floor as %s, which is not a number from 0 to 100.',
                 $file,
                 Json::encode($floor),
@@ -161,7 +161,7 @@ final readonly class Manifests
     }
 
     /** @phpstan-assert-if-true int|float $floor */
-    private static function isPercentage(mixed $floor): bool
+    private function isPercentage(mixed $floor): bool
     {
         return (is_int($floor) || is_float($floor)) && $floor >= self::NONE && $floor <= self::WHOLE;
     }
@@ -171,7 +171,7 @@ final readonly class Manifests
      *
      * @param list<string> $keys
      */
-    private static function under(mixed $data, array $keys): mixed
+    private function under(mixed $data, array $keys): mixed
     {
         foreach ($keys as $key) {
             if (! is_array($data) || ! array_key_exists($key, $data)) {
@@ -189,7 +189,7 @@ final readonly class Manifests
      *
      * @return list<string>
      */
-    private static function strings(mixed $entry): array
+    private function strings(mixed $entry): array
     {
         $strings = [];
 

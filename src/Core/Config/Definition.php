@@ -38,6 +38,31 @@ final readonly class Definition
     private const string PUBLISHED
         = 'https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v1/resources/mutation-gate.schema.json';
 
+    /** The floor new code is held to (ADR-0003). */
+    private const int NEW_CODE_FLOOR = 100;
+
+    /** The share of the suite past which code nothing holds is warned about (ADR-0005). */
+    private const float HOT_PATH = 0.8;
+
+    /** The seconds of work one shard is cut to, and the most shards a plan cuts (ADR-0006). */
+    private const int SHARD_SECONDS = 600;
+
+    private const int MOST_SHARDS = 20;
+
+    /** The seconds a line of code costs to mutate before any are measured (ADR-0006). */
+    private const float SECONDS_PER_LINE = 0.2;
+
+    /** The seconds a mutant may run, and how many timed-out mutants are run again (ADR-0008). */
+    private const int TIMEOUT_SECONDS = 10;
+
+    private const int TIMEOUT_RETRIES = 20;
+
+    /** The lowest score of each badge colour (ADR-0009). */
+    private const array BADGE_COLORS = ['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60];
+
+    /** The widest a percentage goes. */
+    private const int WHOLE = 100;
+
     /** @return Section<Fields> */
     public static function config(): Section
     {
@@ -56,7 +81,9 @@ final readonly class Definition
                 Field::optional('floor', Percent::floor(), $judges),
                 Field::optional('reason', Text::of('a reason'), $judges),
             ))),
-            Field::section('newCode', Section::fields(Field::setting('floor', Percent::floor(), $judges, 100))),
+            Field::section('newCode', Section::fields(
+                Field::setting('floor', Percent::floor(), $judges, self::NEW_CODE_FLOOR),
+            )),
             Field::setting('uncovered', Enumerated::of(UncoveredMutants::cases()), $judges, 'count'),
             Field::section('baseline', Section::fields(
                 Field::setting('path', Location::path(), $judges, 'mutation-gate.baseline.json'),
@@ -66,13 +93,20 @@ final readonly class Definition
             Field::section('reach', Section::fields(
                 Field::setting('everything', Items::of(Text::of('a glob')), $judges, []),
             )),
-            Field::section('holds', Section::fields(Field::setting('hotPath', Number::between(0, 1), $judges, 0.8))),
+            Field::section('holds', Section::fields(
+                Field::setting('hotPath', Number::between(0, 1), $judges, self::HOT_PATH),
+            )),
             Field::section('shards', Section::fields(
-                Field::setting('seconds', Integer::atLeast(1), $judges, 600),
-                Field::setting('max', Integer::atLeast(1), $judges, 20),
+                Field::setting('seconds', Integer::atLeast(1), $judges, self::SHARD_SECONDS),
+                Field::setting('max', Integer::atLeast(1), $judges, self::MOST_SHARDS),
             )),
             Field::section('costs', Section::fields(
-                Field::setting('secondsPerLine', NumberMap::of(Number::atLeast(0)), $judges, ['' => 0.2]),
+                Field::setting(
+                    'secondsPerLine',
+                    NumberMap::of(Number::atLeast(0)),
+                    $judges,
+                    ['' => self::SECONDS_PER_LINE],
+                ),
             )),
             Field::section('ci', self::ci()),
             Field::section('proofs', Section::fields(
@@ -83,22 +117,22 @@ final readonly class Definition
             Field::optional('budget', Duration::written(), $judges),
             Field::section('timeouts', Section::fields(
                 Field::setting('mode', Enumerated::of(TimeoutMode::cases()), $judges, 'confirm'),
-                Field::setting('seconds', Integer::atLeast(1), $results, 10),
-                Field::setting('retries', Integer::atLeast(0), $results, 20),
+                Field::setting('seconds', Integer::atLeast(1), $results, self::TIMEOUT_SECONDS),
+                Field::setting('retries', Integer::atLeast(0), $results, self::TIMEOUT_RETRIES),
             )),
             Field::section('flaky', Section::fields(
-                Field::setting('confirmSurvivors', Flag::boolean(), $results, true),
+                Field::setting('confirmSurvivors', Flag::boolean(), $results, default: true),
             )),
             Field::section('ignores', self::ignores()),
             Field::setting('reports', Items::of(ReportEntry::choosing(self::reporters())), $judges, []),
             Field::section('badge', Section::fields(Field::setting(
                 'colors',
-                NumberMap::of(Number::between(0, 100)),
+                NumberMap::of(Number::between(0, self::WHOLE)),
                 $judges,
-                ['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60],
+                self::BADGE_COLORS,
             ))),
             Field::section('pest', Section::fields(
-                Field::setting('patch', Flag::boolean(), $results, false),
+                Field::setting('patch', Flag::boolean(), $results, default: false),
                 Field::setting('canary', Text::of('a group name'), $results, 'mutation-canary'),
             )),
             Field::section('local', Section::fields(
@@ -126,6 +160,7 @@ final readonly class Definition
         return self::config()->settings();
     }
 
+    /** @return Section<Fields> */
     private static function ci(): Section
     {
         $judges = Effect::JudgesOrReportsOnly;
@@ -140,6 +175,7 @@ final readonly class Definition
         );
     }
 
+    /** @return Section<Fields> */
     private static function ignores(): Section
     {
         $judges = Effect::JudgesOrReportsOnly;

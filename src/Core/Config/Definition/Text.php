@@ -22,7 +22,7 @@ final readonly class Text implements Node
     {
         return is_string($value) && $value !== ''
             ? Reading::of($value, $value)
-            : Reading::mismatch($at, $this->expected(), $value);
+            : Reading::mismatch($at, $this->what, $value);
     }
 
     public function expected(): string

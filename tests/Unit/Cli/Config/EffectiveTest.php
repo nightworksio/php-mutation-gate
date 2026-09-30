@@ -35,7 +35,9 @@ $nothing = static fn(): Given => new Given('', '', [], '', '', firstPartyOnly: f
 
 /** @return array<mixed> */
 $shown = static fn(Settings|Invalid|CannotJudge $settings): array => $settings instanceof Settings
-    ? (array) json_decode($settings->effective(), associative: true)
+    ? (static fn(mixed $shown): array => is_array($shown) ? $shown : [])(
+        json_decode($settings->effective(), associative: true),
+    )
     : ['not settings' => Configs::problems($settings)];
 
 it('finds the preset and the runner of a project with no config', function () use (
@@ -197,7 +199,7 @@ it('loads the extensions the config file names, unless told to load none', funct
         ));
 });
 
-it('reads the config file --config names', function () use ($effective, $nothing, $shown): void {
+it('reads the config file --config names', function () use ($effective, $shown): void {
     $project = Scratch::directory();
     Scratch::write($project, 'ci/gate.neon', "runner: pest\nbudget: 90s\n");
 

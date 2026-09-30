@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use NightWorksIO\MutationGate\Core\Config\Definition\Fields;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 
@@ -21,6 +22,18 @@ final readonly class Floors
         private Path $baseline,
         private Improvement $improvement,
     ) {
+    }
+
+    /** The floors a config was read into. */
+    public static function read(Fields $read): self
+    {
+        return new self(
+            $read->has('trees') ? Listed::of($read->objects('trees', DeclaredTree::class)) : Absent::setting(),
+            $read->fields('newCode')->object('floor', Floor::class),
+            $read->object('uncovered', UncoveredMutants::class),
+            $read->fields('baseline')->object('path', Path::class),
+            $read->fields('baseline')->object('improvement', Improvement::class),
+        );
     }
 
     /** @return Listed<DeclaredTree>|Absent the trees the config declares, or none, when the tree source finds them */

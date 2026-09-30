@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Definition\Json;
 
 use function sprintf;
+use function var_export;
 
 /**
  * A config a YAML or NEON parser read, made into the tree every format
@@ -43,7 +44,7 @@ final readonly class Parsed
         return match (true) {
             is_array($value) => self::each($value, $file),
             $value instanceof DateTimeInterface => $value->format(self::DAY),
-            is_float($value) && ! is_finite($value) => sprintf('%s', $value),
+            is_float($value) && ! is_finite($value) => var_export($value, return: true),
             is_object($value) => CannotJudge::because(
                 sprintf('%s holds an object, %s, and a config holds data only.', $file, get_debug_type($value)),
             ),

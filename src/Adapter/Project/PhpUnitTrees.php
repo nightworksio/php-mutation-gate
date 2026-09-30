@@ -67,9 +67,9 @@ final readonly class PhpUnitTrees implements TreeSource
             return $xml;
         }
 
-        $included = self::paths($xml, self::INCLUDED);
+        $included = $this->paths($xml, self::INCLUDED);
 
-        return count($included) > 0 ? $this->source($included, self::paths($xml, self::EXCLUDED)) : $this->fallback();
+        return count($included) > 0 ? $this->source($included, $this->paths($xml, self::EXCLUDED)) : $this->fallback();
     }
 
     /** The `<directory>` of every `<testsuite>`, where the tests are. */
@@ -77,7 +77,7 @@ final readonly class PhpUnitTrees implements TreeSource
     {
         $xml = $this->xml();
 
-        return $xml instanceof CannotJudge ? $xml : self::paths($xml, self::TESTS);
+        return $xml instanceof CannotJudge ? $xml : $this->paths($xml, self::TESTS);
     }
 
     private function source(Paths $included, Paths $excluded): Trees|CannotJudge
@@ -86,11 +86,11 @@ final readonly class PhpUnitTrees implements TreeSource
         $exempt = Paths::none();
 
         foreach ($included as $path) {
-            $kept = self::isInAny($path, $excluded) ? $kept : $kept->with($path);
+            $kept = $this->isInAny($path, $excluded) ? $kept : $kept->with($path);
         }
 
         foreach ($excluded as $path) {
-            $exempt = self::isInAny($path, $kept) ? $exempt->with($path) : $exempt;
+            $exempt = $this->isInAny($path, $kept) ? $exempt->with($path) : $exempt;
         }
 
         $trees = $this->manifests->trees($kept);
@@ -141,7 +141,7 @@ final readonly class PhpUnitTrees implements TreeSource
             : CannotJudge::because(sprintf('%s is not XML, so the trees and tests in it cannot be read.', $config));
     }
 
-    private static function paths(SimpleXMLElement|Absent $xml, string $query): Paths
+    private function paths(SimpleXMLElement|Absent $xml, string $query): Paths
     {
         $nodes = $xml instanceof SimpleXMLElement ? $xml->xpath($query) : [];
         $paths = Paths::none();
@@ -154,7 +154,7 @@ final readonly class PhpUnitTrees implements TreeSource
     }
 
     /** Whether a path is one of these, or inside one. */
-    private static function isInAny(Path $path, Paths $directories): bool
+    private function isInAny(Path $path, Paths $directories): bool
     {
         return array_any(
             [...$directories],

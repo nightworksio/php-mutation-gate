@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\Effect;
  */
 final readonly class Adapter implements Node
 {
+    /** @param Section<Fields> $written */
     private function __construct(private Builtins $builtins, private Section $written)
     {
     }

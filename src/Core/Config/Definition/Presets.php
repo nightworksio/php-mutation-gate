@@ -21,7 +21,7 @@ final readonly class Presets implements Node
     {
         $names = is_string($value) ? [$value] : $value;
 
-        return is_array($names) && array_is_list($names) && array_all($names, self::isName(...))
+        return is_array($names) && array_is_list($names) && array_all($names, $this->isName(...))
             ? Reading::of($names, $value)
             : Reading::mismatch($at, $this->expected(), $value);
     }
@@ -43,7 +43,7 @@ final readonly class Presets implements Node
         return [];
     }
 
-    private static function isName(mixed $name): bool
+    private function isName(mixed $name): bool
     {
         return is_string($name) && $name !== '';
     }

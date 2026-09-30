@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Config\Definition\Fields;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -58,7 +57,7 @@ final readonly class Settings
             Listed::of($read->strings('preset')),
             $read->object('runner', Choice::class),
             $read->object('treeSource', Choice::class),
-            self::floorsFrom($read),
+            Floors::read($read),
             new Reach(
                 Listed::of($read->strings('packages')),
                 Listed::of($read->fields('reach')->strings('everything')),
@@ -205,16 +204,5 @@ final readonly class Settings
     public function canonical(): string
     {
         return $this->canonical;
-    }
-
-    private static function floorsFrom(Fields $read): Floors
-    {
-        return new Floors(
-            $read->has('trees') ? Listed::of($read->objects('trees', DeclaredTree::class)) : Absent::setting(),
-            $read->fields('newCode')->object('floor', Floor::class),
-            $read->object('uncovered', UncoveredMutants::class),
-            $read->fields('baseline')->object('path', Path::class),
-            $read->fields('baseline')->object('improvement', Improvement::class),
-        );
     }
 }

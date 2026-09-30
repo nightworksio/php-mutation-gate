@@ -59,7 +59,7 @@ final readonly class Given
         }
 
         if ($this->reports !== []) {
-            $layer['reports'] = array_map(self::report(...), $this->reports);
+            $layer['reports'] = array_map($this->report(...), $this->reports);
         }
 
         if ($this->budget !== '') {
@@ -74,7 +74,7 @@ final readonly class Given
     }
 
     /** @return array{use: string, path?: string} */
-    private static function report(string $report): array
+    private function report(string $report): array
     {
         $parts = explode(':', $report, 2);
 

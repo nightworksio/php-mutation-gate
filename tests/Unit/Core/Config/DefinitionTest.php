@@ -83,11 +83,17 @@ it('declares every setting as affecting results or as judging or reporting only'
     ]);
 });
 
-it('declares a setting for every key of the README\'s configuration reference', function (): void {
+it('declares every key of the README\'s configuration reference, or the entries it lists', function (): void {
     $readme = (string) file_get_contents(Tree::at('README.md'));
     $from = (string) strstr($readme, '### Configuration reference');
     $reference = (string) strstr($from, 'In a `composer.json`', before_needle: true);
     preg_match_all('/^\| `([a-zA-Z$.\[\]]+)`(?: \(`[a-z0-9]+`\))? \|/m', $reference, $keys);
 
-    expect(array_values(array_diff($keys[1], array_keys(Definition::effects()))))->toBe([]);
+    $declared = array_keys(Definition::effects());
+    $undeclared = array_filter($keys[1], static fn(string $key): bool => ! array_any(
+        $declared,
+        static fn(string $setting): bool => $setting === $key || str_starts_with($setting, sprintf('%s[].', $key)),
+    ));
+
+    expect(array_values($undeclared))->toBe([]);
 });

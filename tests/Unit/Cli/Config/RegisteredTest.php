@@ -44,19 +44,23 @@ $paths = static function (TreeSource|Invalid|CannotJudge $source): array|CannotJ
 };
 
 it('registers the PHP and JSON loaders whatever is installed', function () use ($registered): void {
-    expect($registered(false)->configLoader(Name::of('php'), Options::none()))->toBeInstanceOf(PhpConfig::class)
-        ->and($registered(false)->configLoader(Name::of('json'), Options::none()))->toBeInstanceOf(JsonConfig::class);
+    expect($registered(installed: false)->configLoader(Name::of('php'), Options::none()))
+        ->toBeInstanceOf(PhpConfig::class)
+        ->and($registered(installed: false)->configLoader(Name::of('json'), Options::none()))
+        ->toBeInstanceOf(JsonConfig::class);
 });
 
 it('registers the YAML and NEON loaders where their library is installed', function () use ($registered): void {
-    expect($registered(true)->configLoader(Name::of('yaml'), Options::none()))->toBeInstanceOf(YamlConfig::class)
-        ->and($registered(true)->configLoader(Name::of('neon'), Options::none()))->toBeInstanceOf(NeonConfig::class);
+    expect($registered(installed: true)->configLoader(Name::of('yaml'), Options::none()))
+        ->toBeInstanceOf(YamlConfig::class)
+        ->and($registered(installed: true)->configLoader(Name::of('neon'), Options::none()))
+        ->toBeInstanceOf(NeonConfig::class);
 });
 
 it('registers no YAML or NEON loader where their library is missing', function () use ($registered): void {
-    expect($registered(false)->configLoader(Name::of('yaml'), Options::none()))
+    expect($registered(installed: false)->configLoader(Name::of('yaml'), Options::none()))
         ->toEqual(CannotJudge::because('No config loader is registered as "yaml".'))
-        ->and($registered(false)->configLoader(Name::of('neon'), Options::none()))
+        ->and($registered(installed: false)->configLoader(Name::of('neon'), Options::none()))
         ->toEqual(CannotJudge::because('No config loader is registered as "neon".'));
 });
 
@@ -75,7 +79,7 @@ it('asks whether the class each library reads with can be loaded', function (): 
 });
 
 it('registers the presets this package ships', function (string $preset, Closure $shipped) use ($registered): void {
-    expect($registered(false)->preset(Name::of($preset)))->toEqual($shipped());
+    expect($registered(installed: false)->preset(Name::of($preset)))->toEqual($shipped());
 })->with([
     'library' => ['library', Presets::library(...)],
     'laravel' => ['laravel', Presets::laravel(...)],
@@ -89,7 +93,7 @@ it('finds the trees of the working directory from phpunit.xml, or the fallback i
     $project = Scratch::directory();
     Scratch::write($project, 'composer.json', '{"autoload": {"psr-4": {"Acme\\\\": "src/"}}}');
     chdir($project);
-    $phpunit = static fn(string $options): TreeSource|Invalid|CannotJudge => $registered(false)
+    $phpunit = static fn(string $options): TreeSource|Invalid|CannotJudge => $registered(installed: false)
         ->treeSource(Name::of('phpunit'), Options::ofJson($options));
 
     expect($paths($phpunit('{}')))->toBe(['src'])
@@ -112,5 +116,5 @@ it('finds the trees of the working directory from the autoload of composer.json'
     );
     chdir($project);
 
-    expect($paths($registered(false)->treeSource(Name::of('composer'), Options::none())))->toBe(['lib']);
+    expect($paths($registered(installed: false)->treeSource(Name::of('composer'), Options::none())))->toBe(['lib']);
 });

@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
  */
 final readonly class ReportEntry implements Node
 {
+    /** @param Section<Fields> $written */
     private function __construct(private Builtins $builtins, private Section $written)
     {
     }

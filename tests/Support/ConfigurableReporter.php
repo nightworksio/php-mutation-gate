@@ -10,7 +10,6 @@ use function json_decode;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -37,7 +36,7 @@ final readonly class ConfigurableReporter implements Configurable, Reporter
             : new self($channel);
     }
 
-    public function report(Verdict $verdict): Written|NotWritten
+    public function report(Verdict $verdict): Written
     {
         return Written::to($this->channel);
     }

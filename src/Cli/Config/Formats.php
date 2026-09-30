@@ -82,14 +82,14 @@ final readonly class Formats
         return match ($format) {
             'json' => sprintf("%s\n", $document->json()),
             'php' => Php::render($document),
-            'yaml' => ($this->installed)(Yaml::class) ? new YamlConfig()->render($document) : self::needs('yaml'),
-            'neon' => ($this->installed)(Neon::class) ? new NeonConfig()->render($document) : self::needs('neon'),
+            'yaml' => ($this->installed)(Yaml::class) ? new YamlConfig()->render($document) : $this->needs('yaml'),
+            'neon' => ($this->installed)(Neon::class) ? new NeonConfig()->render($document) : $this->needs('neon'),
             default => CannotJudge::because(sprintf('--format is php, json, yaml or neon, not "%s".', $format)),
         };
     }
 
     /** @param 'yaml'|'neon' $format */
-    private static function needs(string $format): CannotJudge
+    private function needs(string $format): CannotJudge
     {
         return CannotJudge::because(sprintf(
             '--format=%s needs %s. Install it: composer require --dev %s',

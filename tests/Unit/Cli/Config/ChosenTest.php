@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
@@ -33,7 +34,10 @@ $registry = static fn(): Extensions => new Extensions(Origin::of('acme/gate'))
     ->withRunner(Name::of('it'), static fn(): Runner => RunnerFake::ofTheFixture())
     ->withTreeSource(Name::of('it'), static fn(): TreeSource => TreeSourceFake::ofTheFixture())
     ->withProofStore(Name::of('it'), static fn(): ProofStore => new ProofStoreFake())
-    ->withCiPlan(Name::of('it'), static fn(): CiPlan => new CiPlanFake(ShardId::of(1)))
+    ->withCiPlan(
+        Name::of('it'),
+        static fn(): CiPlan => new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')),
+    )
     ->withRunner(
         Name::of('picky'),
         static fn(): Invalid => Invalid::because(Problem::at('workers', 'expected a number')),
@@ -48,7 +52,8 @@ it('builds the adapter an extension registered under the name a setting chooses'
     expect($chosen->runner(Choice::of('it', '{}')))->toEqual(RunnerFake::ofTheFixture())
         ->and($chosen->treeSource(Choice::of('it', '{}')))->toEqual(TreeSourceFake::ofTheFixture())
         ->and($chosen->proofStore(Choice::of('it', '{}')))->toBeInstanceOf(ProofStoreFake::class)
-        ->and($chosen->ciPlan(Choice::of('it', '{}')))->toEqual(new CiPlanFake(ShardId::of(1)));
+        ->and($chosen->ciPlan(Choice::of('it', '{}')))
+        ->toEqual(new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')));
 });
 
 it('cannot judge with a name nothing registered', function () use ($registry): void {
