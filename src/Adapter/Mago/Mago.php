@@ -8,6 +8,7 @@ use function array_filter;
 use function array_map;
 use function explode;
 use function file_get_contents;
+use function getenv;
 use function is_file;
 use function is_string;
 
@@ -26,11 +27,16 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Port\StaticChecker;
 
 use function preg_match;
 use function sprintf;
+
+use Symfony\Component\Process\Exception\RuntimeException;
+use Symfony\Component\Process\Process;
 
 /**
  * Mago, asked about a mutant with `--substitute`, the option its authors
@@ -109,7 +115,7 @@ final readonly class Mago implements StaticChecker
      */
     private function withinScope(Paths $files, Withheld $withheld): Paths|CannotJudge
     {
-        $listed = $this->run($withheld, ['list-files', '-0']);
+        $listed = $this->mago($withheld, ['list-files', '-0']);
 
         if ($listed instanceof CannotJudge || $listed->exit() !== 0) {
             return CannotJudge::because(sprintf(
@@ -134,7 +140,7 @@ final readonly class Mago implements StaticChecker
     private function identified(Withheld $withheld, Digest $config): AnalyserIdentity|CannotJudge
     {
         $binary = $this->binary;
-        $version = is_string($binary) ? Started::run($this->root, $withheld, [$binary, '--version']) : $binary;
+        $version = is_string($binary) ? $this->ran($withheld, [$binary, '--version']) : $binary;
 
         return match (true) {
             $version instanceof CannotJudge => $version,
@@ -148,24 +154,44 @@ final readonly class Mago implements StaticChecker
     /** @param list<string> $arguments */
     private function analysed(Withheld $withheld, array $arguments): Findings|CannotJudge
     {
-        $ran = $this->run($withheld, ['--threads=1', 'analyze', '--reporting-format=json', ...$arguments]);
+        $ran = $this->mago($withheld, ['--threads=1', 'analyze', '--reporting-format=json', ...$arguments]);
 
         return $ran instanceof CannotJudge ? $ran : Report::of($ran);
     }
 
-    /** @param list<string> $arguments */
-    private function run(Withheld $withheld, array $arguments): Started|CannotJudge
+    /**
+     * Mago in the workspace, with its config and no colours, given these arguments.
+     *
+     * @param list<string> $arguments
+     */
+    private function mago(Withheld $withheld, array $arguments): ChildProcess|CannotJudge
     {
         $binary = $this->binary;
         $config = $this->config();
 
-        return is_string($binary) ? Started::run($this->root, $withheld, [
+        return is_string($binary) ? $this->ran($withheld, [
             $binary,
             sprintf('--workspace=%s', $this->root->value()),
             ...$config instanceof Path ? [sprintf('--config=%s', $this->absolute($config))] : [],
             '--colors=never',
             ...$arguments,
         ]) : $binary;
+    }
+
+    /**
+     * A command, run to its end in the project's root without what is withheld.
+     *
+     * @param list<string> $arguments
+     */
+    private function ran(Withheld $withheld, array $arguments): ChildProcess
+    {
+        $process = new Process($arguments, $this->root->value(), Withholding::of($withheld, getenv()), timeout: null);
+
+        try {
+            return ChildProcess::exited($process->run(), $process->getOutput(), $process->getErrorOutput());
+        } catch (RuntimeException $failure) {
+            return ChildProcess::neverStarted($failure->getMessage());
+        }
     }
 
     /** The config staticCheck.config names, or else the first Mago finds at the root, or none, for Mago's defaults. */

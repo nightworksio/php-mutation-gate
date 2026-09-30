@@ -102,3 +102,10 @@ it('cannot judge where it cannot write its own config', function (): void {
     expect(phpstanIn($project)->findings(Paths::none(), Withheld::standard()))
         ->toEqual(CannotJudge::because(sprintf('The gate cannot write PHPStan\'s config for its checks to %s/.mutation-gate/phpstan/check.neon.', $project)));
 });
+
+it('cannot judge in a root that is not there, where its process never starts', function (): void {
+    $gone = PhpStan::fromOptions(Configs::options('{}'), sprintf('%s/gone', Scratch::directory()));
+
+    expect($gone instanceof PhpStan ? $gone->identity(Withheld::standard()) : $gone)
+        ->toEqual(CannotJudge::because('PHPStan has no config to read: add a phpstan.neon, or name one in staticCheck.config.'));
+});

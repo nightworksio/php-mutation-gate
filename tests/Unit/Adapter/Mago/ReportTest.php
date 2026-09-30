@@ -3,22 +3,13 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Mago\Report;
-use NightWorksIO\MutationGate\Adapter\Mago\Started;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\File\Root;
-use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
 
-it('cannot judge from an exit that is no finished analysis, or output that is no report', function (string $code): void {
-    expect(Report::of(Started::run(Root::here(), Withheld::standard(), [PHP_BINARY, '-r', $code])))
-        ->toBeInstanceOf(CannotJudge::class);
+it('cannot judge from an exit that is no finished analysis, output that is no report, or a Mago that never ran', function (ChildProcess $mago): void {
+    expect(Report::of($mago))->toEqual(CannotJudge::because(sprintf('Mago wrote no report (%s).', $mago->said())));
 })->with([
-    'a usage error' => ['echo \'{"issues": []}\'; exit(2);'],
-    'no report' => ['echo "Mago panicked";'],
+    'a usage error' => [ChildProcess::exited(2, '{"issues": []}', 'ERROR --substitute: no such file')],
+    'no report' => [ChildProcess::exited(1, 'Mago panicked', '')],
+    'never ran' => [ChildProcess::neverStarted('No such directory.')],
 ]);
-
-it('says why of a command that never started', function (): void {
-    $started = Started::run(Root::of('/nowhere/at/all'), Withheld::standard(), ['mago']);
-
-    expect($started->said())->toStartWith('it did not run: ')
-        ->and(Report::of($started))->toBeInstanceOf(CannotJudge::class);
-});
