@@ -53,9 +53,9 @@ final readonly class Invocation
         return new self(sprintf(self::SCRIPT, $vendor->value()));
     }
 
-    public function listingGroups(): Command
+    public function listingGroups(Withheld $withheld): Command
     {
-        return Command::pest($this->script, Withheld::standard(), '--list-groups', '--colors=never');
+        return Command::pest($this->script, $withheld, '--list-groups', '--colors=never');
     }
 
     public function coverage(CoverageRequest $request, string $directory): Command

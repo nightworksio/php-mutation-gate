@@ -31,8 +31,11 @@ interface Runner
     /** The runner's name, the exact version of every package it drives, and a digest of the PHP it runs on. */
     public function identity(): Identity|CannotJudge;
 
-    /** The suite's groups, as the runner itself lists them. */
-    public function groups(): Groups|CannotJudge;
+    /**
+     * The suite's groups, as the runner itself lists them. Listing loads the
+     * project's code, which never sees the variables withheld.
+     */
+    public function groups(Withheld $withheld): Groups|CannotJudge;
 
     /**
      * Which tests run which line, with each test's duration, by running the

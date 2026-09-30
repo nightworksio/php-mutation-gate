@@ -102,9 +102,11 @@ final readonly class Pest implements Runner
         return Identity::of(self::RUNNER, $versions, Platform::current()->digest());
     }
 
-    public function groups(): Groups|CannotJudge
+    public function groups(Withheld $withheld): Groups|CannotJudge
     {
-        return Listing::groupsIn($this->shell->run(Invocation::installedIn($this->project->vendor())->listingGroups()));
+        return Listing::groupsIn(
+            $this->shell->run(Invocation::installedIn($this->project->vendor())->listingGroups($withheld)),
+        );
     }
 
     public function coverage(CoverageRequest $request): CoverageMap|CannotJudge
@@ -259,7 +261,7 @@ final readonly class Pest implements Runner
             return $command;
         }
 
-        $refusal = $this->refusal();
+        $refusal = $this->refusal($request->withheld());
         $map = sprintf('%s/%s', $this->project->absolute($directory), Invocation::MAP);
         $coverage = $refusal instanceof CannotJudge ? $refusal : CoverageFile::at($map);
 
@@ -271,13 +273,13 @@ final readonly class Pest implements Runner
     }
 
     /** Why a shard cannot open on the canary group, if it cannot. */
-    private function refusal(): Groups|CannotJudge
+    private function refusal(Withheld $withheld): Groups|CannotJudge
     {
         if (! Patch::isAppliedIn($this->project->absolute($this->project->vendor()))) {
             return CannotJudge::because(sprintf(self::NOT_PATCHED, $this->project->vendor()->value()));
         }
 
-        $groups = $this->groups();
+        $groups = $this->groups($withheld);
 
         return $groups instanceof CannotJudge || $groups->has($this->patching->canary())
             ? $groups

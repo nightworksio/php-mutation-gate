@@ -90,13 +90,15 @@ final readonly class Infection implements Runner
             : Identity::of(self::RUNNER, $versions, Platform::current()->digest());
     }
 
-    public function groups(): Groups|CannotJudge
+    public function groups(Withheld $withheld): Groups|CannotJudge
     {
         $config = OwnConfig::in($this->project);
 
         return $config instanceof CannotJudge
             ? $config
-            : Listing::groupsIn($this->shell->run(Invocation::listingGroups($this->project, $config)));
+            : Listing::groupsIn(
+                $this->shell->run(Invocation::listingGroups($this->project, $config)->withholding($withheld)),
+            );
     }
 
     public function coverage(CoverageRequest $request): CoverageMap|CannotJudge

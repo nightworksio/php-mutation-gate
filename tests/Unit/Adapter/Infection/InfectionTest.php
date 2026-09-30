@@ -150,9 +150,13 @@ it('lists the groups PHPUnit lists, and none in a project whose config it refuse
     $refused = infectionProject('{"testFramework": "codeception"}');
     $untouched = infectionShell($refused, []);
 
-    expect(new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false)->groups())->toEqual(Groups::of(Group::named('slow')))
+    $infection = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false);
+
+    expect($infection->groups(Withheld::of('CI_JOB_TOKEN')))->toEqual(Groups::of(Group::named('slow')))
         ->and(infectionRan($shell))->toBe([[sprintf('%s/vendor/bin/phpunit', $at->root()), sprintf('--configuration=%s', $at->root()), '--list-groups', '--colors=never']])
-        ->and(new Infection($refused, $untouched, Seconds::of(10.0), nativeMarkersAllowed: false)->groups())->toBeInstanceOf(CannotJudge::class)
+        ->and($shell->commands()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('CI_JOB_TOKEN')))
+        ->and(new Infection($refused, $untouched, Seconds::of(10.0), nativeMarkersAllowed: false)->groups(Withheld::standard()))
+        ->toBeInstanceOf(CannotJudge::class)
         ->and($untouched->commands())->toBe([]);
 });
 

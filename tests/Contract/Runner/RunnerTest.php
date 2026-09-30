@@ -74,7 +74,7 @@ it('answers the same identity every time it is asked', function (Library $librar
 })->with($libraries);
 
 it('lists the group that holds a path, and the canary, among the suite\'s groups', function (Library $library): void {
-    $groups = $library->runner()->groups();
+    $groups = $library->runner()->groups(Withheld::standard());
 
     expect($groups instanceof Groups && $groups->has(Group::named('holds:src/Held.php')))->toBeTrue()
         ->and($groups instanceof Groups && $groups->has(Library::canary()))->toBeTrue();
