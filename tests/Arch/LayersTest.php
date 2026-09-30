@@ -118,14 +118,15 @@ it('keeps the attribute to PHP alone, and named by nothing else under src', func
             ...$offenders,
             ...namesRefusedIn(
                 $layer,
-                static fn(Source $source, string $name): bool => Layer::Attribute->holds($name),
+                static fn(Source $source, string $name): bool => Layer::Attribute->holds($name)
+                    && ! str_ends_with($source->path, 'src/Adapter/Pest/Grouping/HoldsGroups.php'),
             ),
         ];
     }
 
     // A5
     expect($offenders)->toBe([], sprintf(
-        "These cross the attribute's boundary:\n  %s\n\nTests write #[Holds] and the gate reads its tokens (A5).",
+        "These cross the attribute's boundary:\n  %s\n\nTests write #[Holds], the gate reads its tokens, and only the Pest plugin's filter reflects on it (A5).",
         implode("\n  ", $offenders),
     ));
 });

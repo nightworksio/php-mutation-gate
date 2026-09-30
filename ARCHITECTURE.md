@@ -50,7 +50,7 @@ gate reads `#[Holds]` from a test's tokens without loading it.
 | **A2** | A port is an interface | arch: every declaration under `src/Port` |
 | **A3** | An adapter names no other adapter | arch: every class name each adapter's files write |
 | **A4** | A layer names only itself and the layers before it | arch: every class name each file under `src` writes |
-| **A5** | Attribute names nothing but PHP, and nothing else under `src` names it | arch: every class name each file under `src` writes |
+| **A5** | Attribute names nothing but PHP, and nothing else under `src` names it but the Pest plugin's filter, which reads `#[Holds]` from test closures (ADR-0004) | arch: every class name each file under `src` writes |
 
 ## B — input and output
 
