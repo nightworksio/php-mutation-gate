@@ -83,6 +83,8 @@ itself, and goes up with the tests.
 
    A declared floor of 0 has to carry a reason, or the run stops with exit
    code 2. That tree is not mutated, and every run prints it with its reason.
+   A reason beside any other floor, or beside none, would do nothing, and is
+   refused alike.
 
 3. **The baseline is a committed file.** Its path is `baseline.path`,
    `mutation-gate.baseline.json` by default.

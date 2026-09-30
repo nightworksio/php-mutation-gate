@@ -134,6 +134,9 @@ final readonly class FloorsKeys
         $excluding = $exclude instanceof Absent ? Listed::of() : $exclude;
 
         return match (true) {
+            ! $reason instanceof Absent && ($floor instanceof Absent || $floor->hundredths() > 0) => Invalid::because(
+                $tree->field('reason')->mismatch('no reason, as only a floor of 0 takes one'),
+            ),
             $floor instanceof Absent => DeclaredTree::of($path, Undeclared::floor(), $excluding),
             $floor->hundredths() > 0 => DeclaredTree::of($path, $floor, $excluding),
             ! $reason instanceof Absent => DeclaredTree::of($path, Exempt::because($reason), $excluding),

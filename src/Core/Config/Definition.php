@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\TriageKeys;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 
 /**
  * Every setting of the config, with its type and what it can change, as the
@@ -104,7 +105,7 @@ final readonly class Definition
         return Json::object()
             ->with(Member::of('$schema', self::SCHEMA))
             ->with(Member::of('$id', self::PUBLISHED))
-            ->with(Member::of('title', 'mutation-gate'))
+            ->with(Member::of('title', ThisPackage::NAME))
             ->with(Member::of('description', self::DESCRIPTION))
             ->merged(self::config($origin)->schemaUnder(Layer::standard()->written($origin)))
             ->pretty();

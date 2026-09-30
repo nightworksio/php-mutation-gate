@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
 
@@ -77,7 +78,7 @@ final readonly class Builtins
                 Field::optional('path', Location::path($origin), $judges),
             ),
             BuiltinStore::S3->value => Section::options(
-                Json::object(Member::of('prefix', 'mutation-gate'))->with(Member::of('region', 'us-east-1')),
+                Json::object(Member::of('prefix', ThisPackage::NAME))->with(Member::of('region', 'us-east-1')),
                 Field::required('bucket', Text::of('a bucket name'), $judges),
                 Field::optional('prefix', Text::of('a key prefix'), $judges),
                 Field::optional('region', Text::of('a region'), $judges),
