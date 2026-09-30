@@ -192,10 +192,10 @@ it('cannot say which Pest it runs where Composer installed none', function (): v
 it('lists the suite\'s groups as Pest lists them', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: RUN_LISTING));
 
-    $groups = new Pest(adapterProject(), $shell, Patching::off())->groups();
+    $groups = new Pest(adapterProject(), $shell, Patching::off())->groups(Withheld::of('CI_JOB_TOKEN'));
 
     expect($groups)->toEqual(Groups::of(Group::named('mutation-canary')))
-        ->and($shell->commands())->toEqual([adapterInvocation()->listingGroups()]);
+        ->and($shell->commands())->toEqual([adapterInvocation()->listingGroups(Withheld::of('CI_JOB_TOKEN'))]);
 });
 
 it('runs the suite under coverage into a directory it makes, and reads the map', function (): void {
@@ -294,7 +294,7 @@ it('opens a patched shard on the canary group, reading the planning job\'s map',
 
     expect($result)->toBeInstanceOf(MutationResult::class)
         ->and($shell->commands())->toEqual([
-            adapterInvocation()->listingGroups(),
+            adapterInvocation()->listingGroups(Withheld::standard()),
             adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))->with([
                 'MUTATION_GATE_SHARED_COVERAGE' => sprintf('%s/planned/coverage.php', $at->root()),
                 'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
@@ -339,7 +339,7 @@ it('finds Pest, what Composer installed and the patch in the vendor directory th
 
     expect($pest->identity())->toBeInstanceOf(Identity::class)
         ->and($pest->mutate(adapterMoney()->reusingCoverage(Path::of('planned'))))->toBeInstanceOf(MutationResult::class)
-        ->and($shell->commands()[0])->toEqual($invocation->listingGroups());
+        ->and($shell->commands()[0])->toEqual($invocation->listingGroups(Withheld::standard()));
 });
 
 it('cannot open a shard on a canary group with no test, or one it cannot list', function (): void {

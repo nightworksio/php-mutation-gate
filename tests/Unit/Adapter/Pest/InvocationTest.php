@@ -25,12 +25,12 @@ function invocation(): Invocation
 }
 
 it('lists the groups without colour', function (): void {
-    expect(invocation()->listingGroups())
+    expect(invocation()->listingGroups(Withheld::standard()))
         ->toEqual(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups', '--colors=never'));
 });
 
 it('runs Pest\'s own script in the vendor directory the project installs into', function (): void {
-    expect(Invocation::installedIn(Path::of('lib/vendor'))->listingGroups())
+    expect(Invocation::installedIn(Path::of('lib/vendor'))->listingGroups(Withheld::standard()))
         ->toEqual(Command::pest('lib/vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups', '--colors=never'));
 });
 
@@ -125,7 +125,7 @@ it('leaves out one held path by name', function (): void {
         ->and($command->deadline())->toEqual(Unlimited::time());
 });
 
-it('withholds from the coverage run and the mutation run what their requests withhold', function (): void {
+it('withholds from the listing, the coverage run and the mutation run what each is told to withhold', function (): void {
     $before = getenv('CI_JOB_TOKEN');
     putenv('CI_JOB_TOKEN=secret');
 
@@ -140,12 +140,14 @@ it('withholds from the coverage run and the mutation run what their requests wit
             WholeSuite::tests(),
             '/p/results.jsonl',
         );
-        $listing = invocation()->listingGroups();
+        $listing = invocation()->listingGroups(Withheld::of('CI_JOB_TOKEN'));
+        $unlisted = invocation()->listingGroups(Withheld::standard());
     } finally {
         putenv(is_string($before) ? sprintf('CI_JOB_TOKEN=%s', $before) : 'CI_JOB_TOKEN');
     }
 
     expect($coverage->environment())->toMatchArray(['CI_JOB_TOKEN' => false])
         ->and($mutation->environment())->toMatchArray(['CI_JOB_TOKEN' => false])
-        ->and($listing->environment())->not->toHaveKey('CI_JOB_TOKEN');
+        ->and($listing->environment())->toMatchArray(['CI_JOB_TOKEN' => false])
+        ->and($unlisted->environment())->not->toHaveKey('CI_JOB_TOKEN');
 });

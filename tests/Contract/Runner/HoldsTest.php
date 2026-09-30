@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
@@ -89,7 +90,7 @@ it('puts a test with two #[Holds] in both groups', function (): void {
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('lists every holds: group among the suite\'s groups, one only #[Holds] on a closure names too', function (): void {
-    $groups = Library::pest(Patching::off())->runner()->groups();
+    $groups = Library::pest(Patching::off())->runner()->groups(Withheld::standard());
     $listed = static fn(string $group): bool => $groups instanceof Groups && $groups->has(Group::named($group));
 
     expect($listed('holds:src/Shapes.php'))->toBeTrue()

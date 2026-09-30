@@ -86,7 +86,7 @@ final readonly class RunnerFake implements Runner
         return $this->identity;
     }
 
-    public function groups(): Groups|CannotJudge
+    public function groups(Withheld $withheld): Groups|CannotJudge
     {
         return $this->groups;
     }
