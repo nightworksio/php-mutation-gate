@@ -23,7 +23,7 @@ it('reads the extensions, the settings and the drivers installed beside them, wi
     $extensions = sprintf('%s/extensions', $directory);
     Scratch::write($directory, 'extensions/pcov.so', '');
     file_put_contents(sprintf('%s/info.txt', $directory), str_replace('EXT', $extensions, (string) file_get_contents(sprintf('%s/info.txt', $directory))));
-    $php = PhpProbe::of(sprintf('%s/php', $directory), ['PATH' => '/usr/bin', 'XDEBUG_MODE' => 'coverage'])
+    $php = PhpProbe::of(sprintf('%s/php', $directory), ['PATH' => '/usr/bin:/bin', 'XDEBUG_MODE' => 'coverage'])
         ->describe(Withheld::standard(), '-d', 'memory_limit=1G');
 
     expect($php)->toBeInstanceOf(RunnerPhp::class)

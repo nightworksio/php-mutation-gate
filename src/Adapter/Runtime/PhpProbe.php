@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Runtime;
 
 use function array_key_exists;
-use function array_keys;
 use function array_values;
 use function explode;
 use function implode;
@@ -89,8 +88,8 @@ final readonly class PhpProbe
     {
         $environment = [];
 
-        foreach (array_keys($this->environment) as $name) {
-            $environment += preg_match($withheld->pattern(), $name) === 1 ? [$name => false] : [];
+        foreach ($this->environment as $name => $value) {
+            $environment[$name] = preg_match($withheld->pattern(), $name) === 1 ? false : $value;
         }
 
         $process = new Process([$this->binary, ...$arguments], null, $environment, null, $this->limit->seconds());

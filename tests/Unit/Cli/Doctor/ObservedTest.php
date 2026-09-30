@@ -64,3 +64,16 @@ it('observes a runner the command line chooses, and none installed where Compose
         ->and(Doctored::observed($none, $php)->of($given())->runners())
         ->toEqual(InstalledRunners::of(pest: false, infection: false, chosen: false));
 });
+
+it('hands the runner\'s PHP none of the CI plan\'s credentials, nor those the runner\'s config withholds', function (): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($project, 'mutation-gate.json', '{"runner": {"use": "infection", "withhold": ["DEPLOY_*"]}}');
+    $php = FakePhp::answering("[PHP Modules]\npcov\n", '');
+    $environment = ['CI_JOB_TOKEN' => 'job', 'DEPLOY_KEY' => 'key', 'GITHUB_TOKEN' => 'token', 'KEPT' => 'yes'];
+    Doctored::observed($project, sprintf('%s/php', $php), $environment)
+        ->of(new CommandLine('', '', [], '', 'gitlab', firstPartyOnly: false));
+    $seen = (string) file_get_contents(sprintf('%s/environment.txt', $php));
+
+    expect(array_map(static fn(string $name): bool => str_contains($seen, sprintf('%s=', $name)), array_keys($environment)))
+        ->toBe([false, false, false, true]);
+});
