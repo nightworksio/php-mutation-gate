@@ -1,3 +1,9 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".docs/brand/mark-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset=".docs/brand/mark-light.svg">
+  <img alt="mutation-gate" src=".docs/brand/mark-light.svg" height="48">
+</picture>
+
 # mutation-gate
 
 > **In development, not yet released.** This README describes what the
