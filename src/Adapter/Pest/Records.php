@@ -16,7 +16,6 @@ use function explode;
 use function file_get_contents;
 use function is_file;
 use function json_validate;
-use function ksort;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordField;
@@ -132,8 +131,9 @@ final class Records
 
     /**
      * The tests that failed in a mutant's own process, in the order they
-     * failed: the first killed it. None where no test is known to have. Two
-     * mutants that share an id share their mutated copy, and so these.
+     * failed: the first killed it. None where no test is known to have. Any
+     * two mutants that leave the same source share their mutated copy, and
+     * so these, even under different mutators.
      */
     public function killersOf(PlannedMutant $mutant): TestIds
     {
@@ -167,9 +167,8 @@ final class Records
      */
     public function addUpTo(Summary $summary): bool
     {
-        $planned = count($this->planned);
         $finished = array_merge(...array_values($this->finished));
-        $counted = $this->ended && $this->finishedAsPlanned() && $summary->total() === $planned;
+        $counted = $this->ended && $this->finishedAsPlanned();
 
         foreach (PestStatus::cases() as $status) {
             $ended = array_filter($finished, static fn(PestStatus $final): bool => $final === $status);
@@ -236,8 +235,11 @@ final class Records
     }
 
     /**
-     * What was recorded of a mutant among those that share its id, the first
-     * such record being the first such mutant's, or the given where none was.
+     * What was recorded of a mutant among those that share its id, or the
+     * given where none was. Pest writes `finished` in the order it planned
+     * them, so the first such record is the first such mutant's. It writes
+     * `outcome` as each ends, so among mutants that share an id the pairing
+     * is arbitrary, and harmless: they leave the same source.
      *
      * @template T of PestStatus|float
      *
@@ -252,16 +254,16 @@ final class Records
         return array_key_exists($mutant->occurrence(), $sharing) ? $sharing[$mutant->occurrence()] : $none;
     }
 
-    /** Whether each planned id finished once for every mutant Pest gave it, and no other id did. */
+    /**
+     * Whether each planned id finished once for every mutant Pest gave it,
+     * and no other id did, in the order Pest planned them, which is the order
+     * it writes them finished.
+     */
     private function finishedAsPlanned(): bool
     {
         $ids = array_map(static fn(PlannedMutant $mutant): string => $mutant->id(), $this->planned);
-        $sharing = array_count_values($ids);
-        $finished = array_map(count(...), $this->finished);
-        ksort($sharing, SORT_STRING);
-        ksort($finished, SORT_STRING);
 
-        return $finished === $sharing;
+        return array_map(count(...), $this->finished) === array_count_values($ids);
     }
 
     /** @throws NotInShape */

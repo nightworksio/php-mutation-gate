@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
 use function array_map;
-use function array_sum;
 use function implode;
 use function intval;
 
@@ -58,10 +57,5 @@ final readonly class Summary
     public function count(PestStatus $status): int
     {
         return array_key_exists($status->value, $this->counts) ? $this->counts[$status->value] : 0;
-    }
-
-    public function total(): int
-    {
-        return array_sum($this->counts);
     }
 }

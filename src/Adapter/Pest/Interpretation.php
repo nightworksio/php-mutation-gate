@@ -109,7 +109,7 @@ final readonly class Interpretation
         $planned = $records->planned();
         $ids = Identities::of(Root::of($this->project->root()), $planned);
 
-        foreach ($planned as $mutant) {
+        foreach ($planned as $at => $mutant) {
             $selection = Selection::of($coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()));
 
             if (! $selection->fits() && ! $this->patching->isOn()) {
@@ -121,7 +121,7 @@ final readonly class Interpretation
                 ));
             }
 
-            $mutants[] = $this->mutant($ids[$mutant->key()], $mutant, $records, $selection);
+            $mutants[] = $this->mutant($ids[$at], $mutant, $records, $selection);
         }
 
         return MutationResult::of(Mutants::of(...$mutants), 0);

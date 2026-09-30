@@ -55,6 +55,17 @@ final readonly class Mutant
         );
     }
 
+    /**
+     * This mutant under another of the gate's ids: a run again that makes
+     * only some of a file's mutants numbers those that share a change among
+     * themselves, so it hands each back under the id the run that first made
+     * it gave.
+     */
+    public function identifiedAs(MutantId $id): self
+    {
+        return clone($this, ['id' => $id]);
+    }
+
     /** This mutant, with the seconds its runner allowed it. */
     public function withLimit(Seconds $limit): self
     {

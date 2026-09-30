@@ -277,19 +277,31 @@ final readonly class Pest implements Runner
         return $ran->succeeded() ? $ran : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
     }
 
-    /** Each mutant as the run found it again, by the gate's id, or unjudged where the run made no such mutant. */
+    /**
+     * Each mutant as the run found it again, by Pest's id, under the gate's
+     * id the first run gave it; or unjudged where the run made no such
+     * mutant. A run that makes only some of a file's mutants numbers those
+     * that share a change among themselves, so its own gate ids can name
+     * another mutant. Mutants that share Pest's id leave the same source, so
+     * any of them found again is the result of each.
+     */
     private function matching(Mutants $mutants, Mutants $found): Mutants
     {
         $again = [];
+        $taken = [];
         $matched = [];
 
         foreach ($found as $mutant) {
-            $again[$mutant->id()->value()] = $mutant;
+            $again[$mutant->nativeId()][] = $mutant;
         }
 
         foreach ($mutants as $mutant) {
-            $matched[] = array_key_exists($mutant->id()->value(), $again)
-                ? $again[$mutant->id()->value()]
+            $native = $mutant->nativeId();
+            $next = array_key_exists($native, $taken) ? $taken[$native] : 0;
+            $same = array_key_exists($native, $again) ? $again[$native] : [];
+            $taken[$native] = $next + 1;
+            $matched[] = array_key_exists($next, $same)
+                ? $same[$next]->identifiedAs($mutant->id())
                 : Interpretation::unjudged($mutant, Reason::that(self::NOT_FOUND_AGAIN));
         }
 

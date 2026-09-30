@@ -261,14 +261,13 @@ it('keeps apart the mutants Pest gives one id, as two changes that leave the sam
     ]));
     $read = $records instanceof Records ? $records->planned() : [];
     $of = static fn(PlannedMutant $each): array => $records instanceof Records
-        ? [$each->key(), $records->statusOf($each), $records->durationOf($each)]
+        ? [$each->occurrence(), $records->statusOf($each), $records->durationOf($each)]
         : [];
 
     expect(array_map($of, $read))->toEqual([
-        ['same', PestStatus::Tested, Seconds::of(0.5)],
-        ['same#1', PestStatus::Tested, Unmeasured::duration()],
-    ])->and(array_map(static fn(PlannedMutant $each): int => $each->occurrence(), $read))->toBe([0, 1])
-        ->and($mutant('same', '/p/src/Money.php', 10)->key())->toBe('same');
+        [0, PestStatus::Tested, Seconds::of(0.5)],
+        [1, PestStatus::Tested, Unmeasured::duration()],
+    ])->and($mutant('same', '/p/src/Money.php', 10)->occurrence())->toBe(0);
 });
 
 it('adds up to a summary that counts each mutant sharing an id, once each finished', function () use ($results, $planned): void {
@@ -290,4 +289,21 @@ it('adds up to a summary that counts each mutant sharing an id, once each finish
         ->and($adds([$finished(PestStatus::Tested)], '1 tested'))->toBeFalse()
         ->and($adds([$finished(PestStatus::Tested)], '1 uncovered, 1 tested'))->toBeFalse()
         ->and($adds(array_fill(0, 3, $finished(PestStatus::Tested)), '3 tested'))->toBeFalse();
+});
+
+it('adds up only where the mutants finished in the order they were planned, as the plugin writes them', function () use ($results, $planned): void {
+    $adds = static function (string ...$ids) use ($results, $planned): bool {
+        $read = Records::in($results([
+            $planned('a', '/p/Money.php', 10),
+            $planned('b', '/p/Money.php', 20),
+            ...array_map(static fn(string $id): string => RecordLine::finished($id, PestStatus::Tested, 0.1), $ids),
+            RecordLine::end(),
+        ]));
+        $by = Summary::in('Mutations: 2 tested');
+
+        return $read instanceof Records && $by instanceof Summary && $read->addUpTo($by);
+    };
+
+    expect($adds('a', 'b'))->toBeTrue()
+        ->and($adds('b', 'a'))->toBeFalse();
 });

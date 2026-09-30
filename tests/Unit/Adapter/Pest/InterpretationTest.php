@@ -115,7 +115,8 @@ $mutant = static function (
 };
 
 /**
- * What the plugin writes of a run with six mutants, one of each status, one of them covered by a test Pest cannot name.
+ * What the plugin writes of a run with six mutants, one of each status, one of them covered by a test Pest cannot name,
+ * each finished in the order it was planned, as the plugin writes them.
  *
  * @return list<array<string, mixed>>
  */
@@ -129,8 +130,8 @@ $six = static fn(string $root): array => [
     PestRun::made(6),
     PestRun::outcome('n1', PestStatus::Tested),
     PestRun::killed('n1', INTERPRETED_TESTS[0]),
-    PestRun::finished('n1', PestStatus::Tested, 0.25),
     PestRun::finished('n2', PestStatus::Uncovered, 0.0),
+    PestRun::finished('n1', PestStatus::Tested, 0.25),
     PestRun::finished('n3', PestStatus::Untested, 0.5),
     PestRun::finished('n4', PestStatus::Timeout, 5.0),
     PestRun::finished('n5', PestStatus::Uncovered, 0.0),

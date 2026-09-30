@@ -9,7 +9,6 @@ use function array_key_exists;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 
-use function sprintf;
 use function usort;
 
 /**
@@ -91,19 +90,13 @@ final readonly class PlannedMutant
         return $this->id;
     }
 
-    /** How many mutants before it Pest gave the same id: 0 for the first. */
+    /**
+     * How many mutants before it Pest gave the same id: 0 for the first, and
+     * for every mutant numbered() has not seen.
+     */
     public function occurrence(): int
     {
         return $this->occurrence;
-    }
-
-    /**
-     * What names this mutant alone among a run's: Pest's id, and after the
-     * first that shares it, how many came before.
-     */
-    public function key(): string
-    {
-        return $this->occurrence === 0 ? $this->id : sprintf('%s#%d', $this->id, $this->occurrence);
     }
 
     public function file(): DiskPath
