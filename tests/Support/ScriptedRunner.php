@@ -46,6 +46,9 @@ final class ScriptedRunner implements Runner
     /** @var list<Withheld> */
     private array $listings = [];
 
+    /** @var list<Withheld> */
+    private array $identified = [];
+
     private function __construct(
         private readonly RunnerFake $fake,
         private readonly Identity|CannotJudge $identity,
@@ -61,7 +64,7 @@ final class ScriptedRunner implements Runner
     public static function fixture(): self
     {
         $fake = RunnerFake::ofTheFixture();
-        $identity = $fake->identity();
+        $identity = $fake->identity(Withheld::nothing());
 
         $groups = $fake->groups(Withheld::nothing());
 
@@ -208,8 +211,10 @@ final class ScriptedRunner implements Runner
         return $this->retries;
     }
 
-    public function identity(): Identity|CannotJudge
+    public function identity(Withheld $withheld): Identity|CannotJudge
     {
+        $this->identified[] = $withheld;
+
         return $this->identity;
     }
 
@@ -224,6 +229,12 @@ final class ScriptedRunner implements Runner
     public function listings(): array
     {
         return $this->listings;
+    }
+
+    /** @return list<Withheld> what it was handed each time it was asked who it is, in order */
+    public function identified(): array
+    {
+        return $this->identified;
     }
 
     public function coverage(CoverageRequest $request): CoverageMap|CannotJudge

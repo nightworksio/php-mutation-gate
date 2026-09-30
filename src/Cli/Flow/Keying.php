@@ -45,7 +45,7 @@ final readonly class Keying
         Suite $suite,
         CoverageMap $map,
     ): self|CannotJudge {
-        $identity = $adapters->runner->identity();
+        $identity = $adapters->runner->identity($adapters->withheld);
         $definitions = self::definitions($adapters);
 
         foreach ([$identity, $definitions] as $read) {

@@ -77,7 +77,7 @@ final readonly class Inventory
     /** What the groups the runner lists and the `#[Holds]` in the suite declare. */
     private static function holdingsOf(Adapters $adapters, Suite $suite, Groups $groups): Holdings|CannotJudge
     {
-        $identity = $adapters->runner->identity();
+        $identity = $adapters->runner->identity($adapters->withheld);
         $holds = $identity instanceof Identity && $identity->runner() === Pest::RUNNER
             ? $suite->pestHolds($adapters->runner->definitions())
             : Holdings::inGroups($groups)->merge($suite->holdings());

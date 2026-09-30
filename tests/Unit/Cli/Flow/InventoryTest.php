@@ -218,11 +218,12 @@ it('cannot find the units under Pest where a #[Holds] stands where no group can 
         ->toStartWith("tests/Pest.php:5: #[Holds('src/Held.php')] stands in tests/Pest.php");
 });
 
-it('lists the runner\'s groups withholding what every process running the project\'s code does', function (): void {
+it('lists the groups and asks who the runner is withholding what the project\'s code may not see', function (): void {
     $runner = ScriptedRunner::fixture();
     $adapters = Flows::adapters(Flows::project(), [], $runner);
 
     Inventory::of($adapters, Flows::settings());
 
-    expect($runner->listings())->toEqual([$adapters->withheld]);
+    expect($runner->listings())->toEqual([$adapters->withheld])
+        ->and($runner->identified())->toEqual([$adapters->withheld]);
 });

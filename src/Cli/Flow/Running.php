@@ -111,7 +111,7 @@ final readonly class Running
         $outcome = $this->mutated($shard, new Handoff($this->adapters->project)->read($id));
         $ended = $this->setup->clock->now();
         $spent = Seconds::of((float) $ended->format('U.u') - (float) $started->format('U.u'));
-        $identity = $this->adapters->runner->identity();
+        $identity = $this->adapters->runner->identity($this->adapters->withheld);
         $result = ShardResult::of(
             $plan->digest(),
             $id,
@@ -190,7 +190,7 @@ final readonly class Running
      */
     private function retried(Mutants $mutants, MutationRequest $request, int $retries): Mutants|CannotJudge
     {
-        $identity = $this->adapters->runner->identity();
+        $identity = $this->adapters->runner->identity($this->adapters->withheld);
         $taken = array_slice($this->capped($mutants), 0, max(0, $retries));
 
         if ($taken === [] || ($identity instanceof Identity && $identity->runner() === Pest::RUNNER)) {

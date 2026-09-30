@@ -43,9 +43,9 @@ final class CoverageAsked implements Runner
         return $this->asked;
     }
 
-    public function identity(): Identity|CannotJudge
+    public function identity(Withheld $withheld): Identity|CannotJudge
     {
-        return $this->runner->identity();
+        return $this->runner->identity($withheld);
     }
 
     public function groups(Withheld $withheld): Groups|CannotJudge

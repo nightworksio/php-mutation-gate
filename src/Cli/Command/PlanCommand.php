@@ -88,7 +88,7 @@ final readonly class PlanCommand
     /** One line where a sharded plan runs Pest without the patch, since each shard then pays a full opening run. */
     private static function saidIfUnpatched(Composed $composed, int $shards, OutputInterface $output): void
     {
-        $identity = $composed->adapters->runner->identity();
+        $identity = $composed->adapters->runner->identity($composed->adapters->withheld);
         $pest = $identity instanceof Identity && $identity->runner() === Pest::RUNNER;
 
         if ($pest && $shards > 1 && ! $composed->settings->pest()->patch()) {

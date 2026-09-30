@@ -208,7 +208,9 @@ it('runs the held path by its group, the rest by the suite, on the shard\'s map,
         ->and($held->coverage())->toEqual(Workspace::shardCoverage(ShardId::of(1)))
         ->and($rest->coverage())->toEqual(Workspace::shardCoverage(ShardId::of(1)))
         ->and($held->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
-        ->and($rest->withheld())->toEqual(Withheld::standard()->and($adapters->withheld));
+        ->and($rest->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
+        ->and($runner->identified())->not->toBeEmpty()
+        ->and($runner->identified())->each->toEqual($adapters->withheld);
 });
 
 it('leaves every invocation\'s mutants in one result, with what each skipped added up', function () use (
