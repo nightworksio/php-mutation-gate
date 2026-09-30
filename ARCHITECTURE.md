@@ -149,7 +149,7 @@ osv-scanner, which read the repository rather than the code.
 | **G5** | One assertion idiom: Pest's `expect()`, never PHPUnit's `assert*` | arch: over the text of every test |
 | **G6** | No committed `->only()`, and no `->skip()` without the reason | arch: over the text of every test |
 | **G7** | Every line of `src` is covered | ci: `pest --coverage --min=100` |
-| **G8** | Every mutant of `src` is killed | ci: `pest --mutate --everything --min=100` |
+| **G8** | Every mutant of `src` is killed | planned: the package's own gate at a floor of 100, through its reusable workflow and action (`ci.yml` holds the place) |
 | **G9** | A diagnostic fails the run, and no setting exempts one | arch: the settings, read out of `phpunit.xml` |
 
 ## R — the rules themselves

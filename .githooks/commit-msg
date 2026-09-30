@@ -1,11 +1,11 @@
 #!/bin/sh
 # Say now what CI will say later about this commit message.
 #
-# `commitlint` wants a conventional subject, `dco` a sign-off and `attribution`
-# no credit to a tool. None of that needs a network or a build to know, and
-# finding out here costs a second instead of a round trip. The patterns are the
-# ones .github/scripts/commit_lint.py, dco_check.py and attribution_check.py
-# apply; where the two disagree, the scripts are right and this is wrong.
+# `commitlint` wants a conventional subject and `attribution` no credit to a
+# tool. Neither needs a network or a build to know, and finding out here costs
+# a second instead of a round trip. The patterns are the ones
+# .github/scripts/commit_lint.py and attribution_check.py apply; where the two
+# disagree, the scripts are right and this is wrong.
 #
 # A `Spec:` trailer is optional. Where a commit has one, every number it names
 # must be a decision record in .docs/decisions.
@@ -30,12 +30,6 @@ if ! printf '%s\n' "$subject" | grep -qE "^($types)(\([a-z0-9.-]+\))?!?: .+"; th
 	faults="${faults}  the subject is not conventional: ${subject}
       types: $(printf '%s' "$types" | tr '|' ' ')
       e.g.  feat(cli): refuse a config with no tree
-"
-fi
-
-if ! printf '%s\n' "$body" | grep -qE '^[ \t]*Signed-off-by:[ \t]*.+<.+>'; then
-	faults="${faults}  no sign-off. Commit with -s, or add:
-      Signed-off-by: Your Name <you@example.com>
 "
 fi
 

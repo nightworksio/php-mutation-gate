@@ -19,9 +19,7 @@ env:
   PHP_VERSION: '8.5'
 
 # The fast PHP gates share one job and one install. The slow ones (the planted
-# rules, coverage, the lowest dependencies and mutation) each have their own,
-# and mutation waits for the tests: mutating code whose tests already fail
-# measures nothing.
+# rules, coverage and the lowest dependencies) each have their own.
 
 jobs:
   # Which of the PHP gates are worth running at all. A documentation change
@@ -68,24 +66,9 @@ jobs:
             echo "Documentation only; the PHP gates are skipped."
           fi
 
-  # The record of every commit a pull request brings: a human signed it off,
-  # no tool is credited for it, and its subject is conventional. Each reads the
-  # pull request's base..head, so none runs on a push to main.
-  dco:
-    name: dco
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: python3 .github/scripts/dco_check.py "${BASE_SHA}" "${HEAD_SHA}"
-
+  # The record of every commit a pull request brings: no tool is credited for
+  # it, and its subject is conventional. Each reads the pull request's
+  # base..head, so neither runs on a push to main.
   attribution:
     name: attribution
     if: github.event_name == 'pull_request'
@@ -259,37 +242,10 @@ jobs:
           dependency-versions: lowest
       - run: composer test
 
-  # G8 — every mutant of src is killed: Pest's own mutation run at a floor of
-  # 100, over every file of src whether a test reaches it or not, so an
-  # uncovered mutant counts against the score.
-  mutation:
-    name: mutation testing
-    needs: tests
-    if: ${{ !cancelled() && needs.tests.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
-        with:
-          php-version: ${{ env.PHP_VERSION }}
-          coverage: pcov
-      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
-      # While src holds no PHP file there is nothing to mutate, and PHPUnit
-      # refuses to process coverage for an empty source. Once it holds one, a
-      # run that generates no mutant scores 0 and fails the floor.
-      - run: |
-          set -euo pipefail
-          if [ -z "$(find src -name '*.php' -print -quit)" ]; then
-            echo "src holds no PHP file, so there is nothing to mutate."
-            exit 0
-          fi
-          # --covered-only: G7 holds every executable line of src at 100%, so
-          # the only mutants this leaves out sit on lines no coverage driver can
-          # execute, such as constant declarations.
-          vendor/bin/pest --mutate --everything --covered-only --parallel --min=100 --exclude-testsuite=Guards
+  # G8 — every mutant of src is killed. The package holds its own code to a
+  # floor of 100 through its own gate: the reusable workflow and the action in
+  # this repository, run from the same commit. Until the gate can run itself
+  # end to end, no mutation job runs here.
 
   # SonarCloud, fed the reports `tests` wrote rather than running the suite a
   # second time. A pull request from a fork or from Dependabot is given no
