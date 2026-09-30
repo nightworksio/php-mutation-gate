@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_map;
 
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
@@ -19,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 final readonly class WrittenPaths
 {
     /**
-     * @param  iterable<string> $globs
+     * @param  iterable<Glob> $globs
      * @return list<string>
      */
     public static function globs(Origin $origin, iterable $globs): array
@@ -27,7 +28,7 @@ final readonly class WrittenPaths
         $written = [];
 
         foreach ($globs as $glob) {
-            $written[] = $origin->written(Path::of($glob));
+            $written[] = $origin->written(Path::of($glob->value()));
         }
 
         return $written;

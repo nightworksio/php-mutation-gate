@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -18,20 +19,20 @@ use function sprintf;
 final readonly class IgnoredPattern implements Ignored
 {
     private function __construct(
-        private string $path,
+        private Glob $path,
         private string $mutator,
         private string $reason,
         private Day|Absent $expires,
     ) {
     }
 
-    public static function of(string $path, string $mutator, string $reason, Day|Absent $expires): self
+    public static function of(Glob $path, string $mutator, string $reason, Day|Absent $expires): self
     {
         return new self($path, $mutator, $reason, $expires);
     }
 
     /** The glob. */
-    public function path(): string
+    public function path(): Glob
     {
         return $this->path;
     }
@@ -54,7 +55,7 @@ final readonly class IgnoredPattern implements Ignored
     public function written(Origin $origin): Json
     {
         $written = Json::object()
-            ->with(Member::of('path', $origin->written(Path::of($this->path))))
+            ->with(Member::of('path', $origin->written(Path::of($this->path->value()))))
             ->with(Member::of('mutator', $this->mutator))
             ->with(Member::of('reason', $this->reason));
 
@@ -68,7 +69,7 @@ final readonly class IgnoredPattern implements Ignored
         return sprintf(
             'Ignore::mutator(%s, in: %s, because: %s%s)',
             PhpCalls::literal($this->mutator),
-            PhpCalls::literal($origin->written(Path::of($this->path))),
+            PhpCalls::literal($origin->written(Path::of($this->path->value()))),
             PhpCalls::literal($this->reason),
             $this->expires instanceof Day ? sprintf(', until: %s', PhpCalls::literal($this->expires->value())) : '',
         );

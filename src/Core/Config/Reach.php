@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Hold\HotPaths;
@@ -18,8 +19,8 @@ use function sprintf;
 final readonly class Reach implements Part
 {
     /**
-     * @param Listed<string>|Absent $packages
-     * @param Listed<string>|Absent $everything
+     * @param Listed<Glob>|Absent $packages
+     * @param Listed<Glob>|Absent $everything
      */
     private function __construct(
         private Listed|Absent $packages,
@@ -29,8 +30,8 @@ final readonly class Reach implements Part
     }
 
     /**
-     * @param Listed<string>|Absent $packages
-     * @param Listed<string>|Absent $everything
+     * @param Listed<Glob>|Absent $packages
+     * @param Listed<Glob>|Absent $everything
      */
     public static function of(
         Listed|Absent $packages = new Absent(),
@@ -63,13 +64,13 @@ final readonly class Reach implements Part
             : $this;
     }
 
-    /** @return Listed<string> the globs of the packages in a monorepo */
+    /** @return Listed<Glob> the globs of the packages in a monorepo */
     public function packages(): Listed
     {
         return $this->packages instanceof Listed ? $this->packages : Listed::of();
     }
 
-    /** @return Listed<string> the globs of the files that reach everything */
+    /** @return Listed<Glob> the globs of the files that reach everything */
     public function everything(): Listed
     {
         return $this->everything instanceof Listed ? $this->everything : Listed::of();
@@ -122,16 +123,16 @@ final readonly class Reach implements Part
     }
 
     /**
-     * @param  Listed<string>|Absent $earlier
-     * @param  Listed<string>|Absent $later
-     * @return Listed<string>|Absent
+     * @param  Listed<Glob>|Absent $earlier
+     * @param  Listed<Glob>|Absent $later
+     * @return Listed<Glob>|Absent
      */
     private function joined(Listed|Absent $earlier, Listed|Absent $later): Listed|Absent
     {
         return match (true) {
             $later instanceof Absent => $earlier,
             $earlier instanceof Absent => $later,
-            default => $earlier->and($later, static fn(string $glob): string => $glob),
+            default => $earlier->and($later, static fn(Glob $glob): string => $glob->value()),
         };
     }
 }

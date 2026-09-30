@@ -9,6 +9,7 @@ use function array_map;
 use function array_values;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
@@ -29,7 +30,7 @@ final readonly class Proofs implements Part
     /** Where the directory store keeps its ledgers. */
     private const string PATH = 'path';
 
-    /** @param Listed<string>|Absent $ignore */
+    /** @param Listed<Glob>|Absent $ignore */
     private function __construct(
         private Choice|Absent $store,
         private Listed|Absent $ignore,
@@ -37,7 +38,7 @@ final readonly class Proofs implements Part
     ) {
     }
 
-    /** @param Listed<string>|Absent $ignore */
+    /** @param Listed<Glob>|Absent $ignore */
     public static function of(
         Choice|Absent $store = new Absent(),
         Listed|Absent $ignore = new Absent(),
@@ -67,7 +68,7 @@ final readonly class Proofs implements Part
                 match (true) {
                     $later->ignore instanceof Absent => $this->ignore,
                     $this->ignore instanceof Absent => $later->ignore,
-                    default => $this->ignore->and($later->ignore, static fn(string $glob): string => $glob),
+                    default => $this->ignore->and($later->ignore, static fn(Glob $glob): string => $glob->value()),
                 },
                 Absent::laid($this->write, $later->write),
             )
@@ -81,7 +82,7 @@ final readonly class Proofs implements Part
             : Choice::of(self::STORE, Json::object(Member::of('path', Workspace::ledger()->value())));
     }
 
-    /** @return Listed<string> the globs of the files no test reads */
+    /** @return Listed<Glob> the globs of the files no test reads */
     public function ignore(): Listed
     {
         return $this->ignore instanceof Listed ? $this->ignore : Listed::of();

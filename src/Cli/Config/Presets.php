@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Config;
 
+use function array_map;
+
 use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
@@ -11,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -55,7 +58,7 @@ final readonly class Presets
                 Layer::of(
                     Setup::of(treeSource: Setup::phpunit(...$preset['fallback'])),
                     Floors::of(newCode: Floor::whole()),
-                    Reach::of(everything: Listed::of(...$preset['everything'])),
+                    Reach::of(everything: Listed::of(...array_map(Glob::of(...), $preset['everything']))),
                     Triage::of(limit: Seconds::of($preset['seconds'])),
                 ),
             );
