@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Hint\Change;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use PhpToken;
 
 /**
@@ -57,13 +58,18 @@ final readonly class Columns
         return new self($tokens, explode("\n", $source->text()));
     }
 
-    /** @return array{start: array{line: int, column: int}, end: array{line: int, column: int}} */
-    public function of(Mutant $mutant): array
+    /**
+     * Where a mutant's change is; for a kill a ledger proved, which keeps no
+     * diff, its whole line.
+     *
+     * @return array{start: array{line: int, column: int}, end: array{line: int, column: int}}
+     */
+    public function of(Mutant|ProvedKill $mutant): array
     {
         $first = $mutant->location()->start()->number();
         $end = $mutant->location()->end();
         $last = $end instanceof Line ? $end->number() : $first;
-        $changed = Change::of($mutant->mutation()->diff())->changed();
+        $changed = $mutant instanceof Mutant ? Change::of($mutant->mutation()->diff())->changed() : [];
         $tokens = array_values(array_filter(
             $this->tokens,
             static fn(array $token): bool => $token['line'] >= $first && $token['line'] <= $last,

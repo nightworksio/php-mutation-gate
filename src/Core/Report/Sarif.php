@@ -102,7 +102,7 @@ final readonly class Sarif
             'partialFingerprints' => ['primaryLocationLineHash' => $mutant->id()->value()],
             'properties' => [
                 'id' => $mutant->id()->value(),
-                'mutator' => $mutant->mutation()->mutator(),
+                'mutator' => $mutant->mutator(),
                 'judgement' => $judged->judgement()->value,
                 'diff' => $mutant->mutation()->diff(),
                 'reproduce' => $judged->reproduce(),

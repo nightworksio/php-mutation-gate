@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 
 /**
@@ -50,12 +52,18 @@ final readonly class ProofRecord
             self::BASE => $proof->run()->base()->value(),
             self::AT => $proof->run()->at()->value(),
             'run' => $proof->run()->id(),
-            'mutants' => array_map(
-                static fn(Mutant $mutant): array => $mutant->status() === MutantStatus::Killed
-                    ? MutantRecord::killed($mutant, $mutators, $tests)
-                    : MutantRecord::full($mutant),
-                [...$proof->mutants()],
-            ),
+            'mutants' => [
+                ...array_map(
+                    static fn(Mutant $mutant): array => $mutant->status() === MutantStatus::Killed
+                        ? MutantRecord::killed($mutant, $mutators, $tests)
+                        : MutantRecord::full($mutant),
+                    [...$proof->reported()],
+                ),
+                ...array_map(
+                    static fn(ProvedKill $kill): array => MutantRecord::killed($kill, $mutators, $tests),
+                    [...$proof->kills()],
+                ),
+            ],
         ];
     }
 
@@ -68,18 +76,24 @@ final readonly class ProofRecord
     public static function read(Digest $key, Node $entry, array $mutators, array $tests): Proof
     {
         $unit = Path::of($entry->field('unit')->text());
-        $mutants = [];
+        $reported = [];
+        $kills = [];
 
         foreach ($entry->field('mutants')->items() as $record) {
-            $mutants[] = MutantRecord::isFull($record)
-                ? self::notKilledIn($record)
-                : MutantRecord::readKilled($record, $unit, $mutators, $tests);
+            if (MutantRecord::isFull($record)) {
+                $reported[] = self::notKilledIn($record);
+
+                continue;
+            }
+
+            $kills[] = MutantRecord::readKilled($record, $unit, $mutators, $tests);
         }
 
-        return Proof::of(
+        return Proof::held(
             $key,
             $unit,
-            Mutants::of(...$mutants),
+            Mutants::of(...$reported),
+            ProvedKills::of(...$kills),
             Run::of($entry->field('run')->text(), self::instantIn($entry), self::baseIn($entry)),
         );
     }

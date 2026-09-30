@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
+use function array_merge;
 use function array_slice;
 
-use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Order\Bound;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 
@@ -89,11 +90,11 @@ final readonly class LedgerRetention
         $held = [];
 
         foreach ($this->proofsOf($ledger) as $proof) {
-            $held = [...$held, ...$proof->mutants()];
+            $held[] = [...$proof->ids()];
         }
 
         return $ledger->killers()->keeping(
-            Mutants::of(...$held),
+            MutantIds::of(...array_merge(...$held)),
             Bound::atMost($this->killed),
             Bound::atMost($this->functions),
         );

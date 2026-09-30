@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 
 /**
@@ -18,19 +19,27 @@ final readonly class UnitResult
         private Unit $unit,
         private Origin $origin,
         private Mutants $mutants,
+        private ProvedKills $kills,
         private MutantIds $flaky,
     ) {
     }
 
+    /** A unit's result as a run reported it: every mutant in full. */
     public static function of(Unit $unit, Origin $origin, Mutants $mutants): self
     {
-        return new self($unit, $origin, $mutants, MutantIds::none());
+        return new self($unit, $origin, $mutants, ProvedKills::none(), MutantIds::none());
+    }
+
+    /** A unit's result as a proof holds it: its mutants reported in full, and the kills a ledger proved. */
+    public static function held(Unit $unit, Origin $origin, Mutants $mutants, ProvedKills $kills): self
+    {
+        return new self($unit, $origin, $mutants, $kills, MutantIds::none());
     }
 
     /** This result, with these of its mutants flaky: they survived once and were killed when run again. */
     public function withFlaky(MutantIds $flaky): self
     {
-        return new self($this->unit, $this->origin, $this->mutants, $flaky);
+        return new self($this->unit, $this->origin, $this->mutants, $this->kills, $flaky);
     }
 
     public function unit(): Unit
@@ -43,9 +52,16 @@ final readonly class UnitResult
         return $this->origin;
     }
 
+    /** The mutants reported in full. */
     public function mutants(): Mutants
     {
         return $this->mutants;
+    }
+
+    /** The kills a ledger proved; none for a unit a run just mutated. */
+    public function kills(): ProvedKills
+    {
+        return $this->kills;
     }
 
     public function flaky(): MutantIds

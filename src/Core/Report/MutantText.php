@@ -11,6 +11,7 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 
 use function rtrim;
@@ -33,7 +34,7 @@ final readonly class MutantText
     private const string MESSAGE = 'Mutant %s: %s. %s Reproduce: %s';
 
     /** The first line: where it is, what made it, how it was judged and its id. */
-    public static function heading(JudgedMutant $judged): string
+    public static function heading(JudgedMutant|JudgedKill $judged): string
     {
         $mutant = $judged->mutant();
 
@@ -41,7 +42,7 @@ final readonly class MutantText
             '%s:%d  %s  %s%s  %s',
             $mutant->location()->file()->value(),
             $mutant->location()->start()->number(),
-            Mutator::short($mutant->mutation()->mutator()),
+            Mutator::short($mutant->mutator()),
             Label::of($judged->judgement()),
             $judged->isOnChangedLine() ? self::CHANGED : '',
             $mutant->id()->value(),
@@ -57,7 +58,7 @@ final readonly class MutantText
         return sprintf(
             self::MESSAGE,
             Label::of($judged->judgement()),
-            Mutator::short($judged->mutant()->mutation()->mutator()),
+            Mutator::short($judged->mutant()->mutator()),
             $judged->hint()->text(),
             $judged->reproduce(),
         );

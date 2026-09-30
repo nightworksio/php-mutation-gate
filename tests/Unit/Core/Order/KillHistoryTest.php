@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
-use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
@@ -117,9 +117,9 @@ it('keeps the newest so many of the mutants held and of the functions, and the f
         ->withMutant($mutants[2]->id(), $ranking)
         ->withFunction($add, $ranking)
         ->withFunction($cart, $ranking);
-    $kept = $history->keeping(Mutants::of(...$mutants), Bound::atMost(2), Bound::atMost(1));
+    $kept = $history->keeping(MutantIds::of(...array_map(static fn(Mutant $mutant): MutantId => $mutant->id(), $mutants)), Bound::atMost(2), Bound::atMost(1));
 
-    expect(historyMutants($history->keeping(Mutants::of($mutants[0]), Bound::atMost(5), Bound::atMost(5))))
+    expect(historyMutants($history->keeping(MutantIds::of($mutants[0]->id()), Bound::atMost(5), Bound::atMost(5))))
         ->toBe([$mutants[0]->id()->value()])
         ->and(historyMutants($kept))->toBe([$mutants[1]->id()->value(), $mutants[2]->id()->value()])
         ->and(historyFunctions($kept))->toBe(['total'])

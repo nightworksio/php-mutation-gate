@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
 use function array_key_exists;
-use function array_merge;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
@@ -16,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -98,14 +98,14 @@ final readonly class Judge
             }
 
             $units[] = JudgedUnit::of($result->unit(), $result->origin());
-            $mutants[] = [...$this->judged($result->mutants(), $result->flaky())];
+            $mutants[] = $this->judged($result->mutants(), $result->flaky(), $result->kills());
         }
 
         $verdict = TreeVerdict::judged(
             $tree,
             $this->baseline->floorOf($tree->path()),
             JudgedUnits::of(...$units),
-            JudgedMutants::of(...array_merge(...$mutants)),
+            JudgedMutants::none()->and(...$mutants),
             $this->uncovered,
         );
         $entry = $this->baseline->entryOf($tree->path());
@@ -114,8 +114,11 @@ final readonly class Judge
         return $lowering instanceof Lowered ? $verdict->withLowering($lowering) : $verdict;
     }
 
-    /** Each mutant as its status reports it after timeout triage, or flaky where it gave two answers. */
-    private function judged(Mutants $mutants, MutantIds $flaky): JudgedMutants
+    /**
+     * Each mutant as its status reports it after timeout triage, or flaky where
+     * it gave two answers, and each kill a ledger proved.
+     */
+    private function judged(Mutants $mutants, MutantIds $flaky, ProvedKills $kills): JudgedMutants
     {
         $judged = [];
 
@@ -126,7 +129,13 @@ final readonly class Judge
             );
         }
 
-        return JudgedMutants::of(...$judged)->within($this->reach);
+        $proved = [];
+
+        foreach ($kills as $kill) {
+            $proved[] = JudgedKill::of($kill);
+        }
+
+        return JudgedMutants::of(...$judged)->and(JudgedMutants::kills(...$proved))->within($this->reach);
     }
 
     /** @param list<NewCodeVerdict> $sets */

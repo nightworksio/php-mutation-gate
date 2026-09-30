@@ -107,7 +107,7 @@ it('writes a proof of every unit that ran to the end, at the plan\'s base, and w
     expect($written)->toEqual(Written::to('memory:refs/heads/main'))
         ->and($ledger->bases())->toEqual(Bases::of($plan->base()))
         ->and(count($ledger->proofs()))->toBe(2)
-        ->and($proof instanceof Proof ? [$proof->unit(), $proof->run(), count($proof->mutants())] : $proof)
+        ->and($proof instanceof Proof ? [$proof->unit(), $proof->run(), count($proof->reported())] : $proof)
         ->toEqual([Path::of('src/Money.php'), $run($plan), 4])
         ->and($ledger->proofs()->has(Digest::sha256Of('held')))->toBeTrue()
         ->and(count($ledger->timings()))->toBe(2)

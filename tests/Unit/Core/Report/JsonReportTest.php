@@ -44,7 +44,7 @@ it('writes everything in the verdict, and what the committed schema describes', 
     $json = JsonReport::encode(Verdicts::named($verdict));
 
     expect(Schema::errors($json, Schema::at('resources/report.schema.json')))->toBe([]);
-})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge']);
+})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge', 'proved']);
 
 it('says the run cannot judge, and why', function (): void {
     $report = JsonReport::encode(Verdicts::named('cannot judge'));
@@ -252,4 +252,23 @@ it('leaves out the phases no one timed, and the sharding of an unsharded run', f
         ->and(Decoded::at($report, 'run', 'measured'))->toBeFalse()
         ->and(Decoded::at($report, 'savings'))->not->toHaveKey('sharding')
         ->and(Schema::errors($report, Schema::at('resources/report.schema.json')))->toBe([]);
+});
+
+it('writes a kill a ledger proved with no family or diff, which the ledger does not keep', function (): void {
+    $report = JsonReport::encode(Verdicts::named('proved'));
+    $kill = Verdicts::provedKill()->mutant();
+
+    expect(Decoded::at($report, 'mutants'))->toHaveCount(2)
+        ->and(Decoded::at($report, 'mutants', 0))->toHaveKeys(['family', 'diff'])
+        ->and(Decoded::at($report, 'mutants', 1))->toMatchArray([
+            'id' => $kill->id()->value(),
+            'file' => 'src/Money.php',
+            'line' => 9,
+            'mutator' => 'TrueValue',
+            'status' => 'killed',
+            'judgement' => 'killed',
+        ])
+        ->and(Decoded::at($report, 'mutants', 1))->not->toHaveKeys(['family', 'diff', 'end', 'seconds', 'limit', 'reason'])
+        ->and(Decoded::at($report, 'mutants', 1, 'killedBy'))->toBe([0])
+        ->and(Decoded::at($report, 'tests', 0, 'id'))->toBe('MoneyTest::fits');
 });

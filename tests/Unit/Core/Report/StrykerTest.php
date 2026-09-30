@@ -24,7 +24,7 @@ $sources = static fn(): array => ['src/Money.php' => Contents::of(Verdicts::MONE
 
 it('writes a report the mutation-testing-report-schema accepts', function (string $verdict) use ($sources): void {
     expect(Schema::errors(Stryker::json(Verdicts::named($verdict), $sources()), Schema::at('tests/Fixtures/mutation-testing-report-schema.json')))->toBe([]);
-})->with(['failing', 'passing', 'empty', 'with a matrix']);
+})->with(['failing', 'passing', 'empty', 'with a matrix', 'proved']);
 
 it('fills the viewer\'s test view: the tests by file, and those that cover, killed and ran for each mutant', function () use ($sources): void {
     $report = Stryker::json(Verdicts::named('with a matrix'), $sources());
@@ -127,4 +127,19 @@ it('names the judging tests in a mutant\'s description as the runner named them'
 
     expect(Decoded::at($report, 'files', 'src/Money.php', 'mutants', 0, 'description'))
         ->toStartWith('Judged by: tests/Unit/MoneyTest.php::it fits, tests/Unit/MoneyTest.php::it fits with data set "over", PriceTest::adds');
+});
+
+it('writes a kill a ledger proved across its whole line, with no replacement, which the ledger does not keep', function () use ($sources): void {
+    $kill = Verdicts::provedKill()->mutant();
+    $line = explode("\n", Verdicts::MONEY)[8];
+    $mutant = Decoded::at(Stryker::json(Verdicts::named('proved'), $sources()), 'files', 'src/Money.php', 'mutants', 1);
+
+    expect($mutant)->toMatchArray([
+        'id' => $kill->id()->value(),
+        'mutatorName' => 'TrueValue',
+        'location' => ['start' => ['line' => 9, 'column' => 1], 'end' => ['line' => 9, 'column' => mb_strlen($line) + 1]],
+        'status' => 'Killed',
+        'killedBy' => ['MoneyTest::fits'],
+    ])
+        ->and($mutant)->not->toHaveKey('replacement');
 });

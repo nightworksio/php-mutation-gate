@@ -15,6 +15,7 @@ use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Scoring;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -122,7 +123,7 @@ final readonly class TestStandings implements Countable, IteratorAggregate
     }
 
     /** Whether the gate counts the mutant as killed, so a test the run stopped before ran behind its first kill. */
-    private static function wasKilled(JudgedMutant $judged): bool
+    private static function wasKilled(JudgedMutant|JudgedKill $judged): bool
     {
         return $judged->judgement()->scoring(Uncovered::Count) === Scoring::Killed;
     }

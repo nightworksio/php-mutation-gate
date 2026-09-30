@@ -39,7 +39,7 @@ final readonly class Agreement
         foreach ($ledgers as $proofs) {
             $proof = $proofs->proofFor($key);
             $flaky = $proof instanceof Proof
-                ? $flaky->and($result->mutants()->disagreeingWith($proof->mutants()))
+                ? $flaky->and($proof->disagreeingWith($result->mutants()))
                 : $flaky;
         }
 

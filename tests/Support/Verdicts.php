@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily as Family;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -52,6 +53,7 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
@@ -149,6 +151,32 @@ final class Verdicts
             MutantStatus::Killed,
             Unmeasured::duration(),
         )->killedBy(TestIds::of(TestId::of('MoneyTest::fits')));
+    }
+
+    /** The mutant of `Money.php`'s ninth line as a ledger proved its kill by `MoneyTest::fits`. */
+    public static function provedKill(): JudgedKill
+    {
+        $killed = self::killed();
+
+        return JudgedKill::of(ProvedKill::of(
+            $killed->id(),
+            $killed->location()->file(),
+            $killed->location()->start(),
+            $killed->mutator(),
+            $killed->killers(),
+        ));
+    }
+
+    /** A verdict on a unit a ledger proved: the survivor a run reported in full, and the kill the ledger proved. */
+    public static function proved(): Verdict
+    {
+        return Verdict::of(TreeVerdicts::of(TreeVerdict::judged(
+            Tree::at(Path::of('src'), Floor::of(80), Package::at(Path::root())),
+            Unrecorded::floor(),
+            JudgedUnits::of(JudgedUnit::of(Unit::file(Path::of('src/Money.php')), Origin::Proved)),
+            JudgedMutants::of(self::survivor())->and(JudgedMutants::kills(self::provedKill())),
+            Uncovered::Count,
+        )));
     }
 
     /**
@@ -325,6 +353,7 @@ final class Verdicts
             'accounted' => self::failing()->withAccount(self::account()),
             'with a matrix' => self::failing()->withMatrix(self::matrix(MatrixKind::FirstKiller)),
             'cannot judge' => self::failing()->withCannotJudge(CannotJudge::because(self::UNJUDGED)),
+            'proved' => self::proved(),
             default => self::empty(),
         };
     }

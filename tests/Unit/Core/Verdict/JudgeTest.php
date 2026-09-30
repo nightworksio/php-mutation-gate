@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -27,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -34,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
@@ -182,6 +186,31 @@ it('judges a mutant flaky where its unit\'s result names it so, and every other 
     $judge = Judge::of($trees, Baseline::none(), $reach, Uncovered::Count, TimeoutMode::Confirm);
     [$app] = [...$judge->trees(UnitResults::of($result))];
 
-    expect(array_map(static fn(JudgedMutant $judged): MutantJudgement => $judged->judgement(), [...$app->mutants()]))
+    expect(array_map(static fn(JudgedMutant|JudgedKill $judged): MutantJudgement => $judged->judgement(), [...$app->mutants()]))
         ->toBe([MutantJudgement::Flaky, MutantJudgement::Killed, MutantJudgement::Survived]);
+});
+
+it('judges each kill a ledger proved killed beside the mutants it reported in full, and marks those on changed lines', function () use ($judge, $mutant): void {
+    $kill = static fn(int $line): ProvedKill => ProvedKill::of(
+        MutantId::hash(Path::of('packages/billing/src/Invoice.php'), 'LessThan', sprintf('%d', $line), 0),
+        Path::of('packages/billing/src/Invoice.php'),
+        Line::of($line),
+        'LessThan',
+        TestIds::none(),
+    );
+    $results = UnitResults::of(UnitResult::held(
+        Unit::file(Path::of('packages/billing/src/Invoice.php')),
+        Origin::Proved,
+        Mutants::of($mutant('packages/billing/src/Invoice.php', 2, MutantStatus::Survived)),
+        ProvedKills::of($kill(9), $kill(10), $kill(11)),
+    ));
+    $billing = [...$judge->trees($results)][2];
+    $judged = [...$billing->mutants()];
+
+    expect($billing->score())->toEqual(Score::ofHundredths(7_500))
+        ->and($billing->counts()->number(MutantJudgement::Killed))->toBe(3)
+        ->and(array_map(static fn(JudgedMutant|JudgedKill $mutant): string => $mutant->mutant()::class, $judged))
+        ->toBe([Mutant::class, ProvedKill::class, ProvedKill::class, ProvedKill::class])
+        ->and(array_map(static fn(JudgedMutant|JudgedKill $mutant): bool => $mutant->isOnChangedLine(), $judged))->toBe([false, true, false, false])
+        ->and([...$results][0]->kills())->toEqual(ProvedKills::of($kill(9), $kill(10), $kill(11)));
 });

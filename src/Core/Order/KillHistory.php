@@ -12,7 +12,7 @@ use function count;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
-use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -122,13 +122,13 @@ final readonly class KillHistory
      * This history, keeping of these mutants, and of its functions, the ones
      * that learned a killer most recently, at most so many of each.
      */
-    public function keeping(Mutants $held, Bound $mutants, Bound $functions): self
+    public function keeping(MutantIds $held, Bound $mutants, Bound $functions): self
     {
         $ids = [];
         $kept = [];
 
-        foreach ($held as $mutant) {
-            $ids[$mutant->id()->value()] = true;
+        foreach ($held as $id) {
+            $ids[$id->value()] = true;
         }
 
         foreach ($this->mutants as $key => $mutant) {

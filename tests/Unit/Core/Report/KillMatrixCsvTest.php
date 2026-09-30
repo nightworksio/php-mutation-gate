@@ -50,3 +50,13 @@ it('writes only the header for a verdict whose mutants no test covers', function
     expect(iterator_to_array(KillMatrixCsv::records(Verdicts::passing()), preserve_keys: false))
         ->toBe(["mutant,file,line,mutator,status,source,test,outcome,matrix\r\n"]);
 });
+
+it('writes a record per covering test of a kill a ledger proved, by its mutator, as proved', function (): void {
+    $killed = Verdicts::killed()->id()->value();
+    $records = iterator_to_array(KillMatrixCsv::records(Verdicts::named('proved')->withMatrix(Verdicts::matrix(MatrixKind::FirstKiller))), preserve_keys: false);
+
+    expect(array_slice($records, -2))->toBe([
+        sprintf("%s,src/Money.php,9,TrueValue,killed,proved,tests/Unit/MoneyTest.php::it fits,killed,first-killer\r\n", $killed),
+        sprintf("%s,src/Money.php,9,TrueValue,killed,proved,PriceTest::adds,not-run,first-killer\r\n", $killed),
+    ]);
+});

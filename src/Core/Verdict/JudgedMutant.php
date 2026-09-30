@@ -19,10 +19,10 @@ use function sprintf;
 final readonly class JudgedMutant
 {
     /** The command that runs one mutant again, which every report prints beside it (ADR-0009, decision 6). */
-    private const string REPRODUCE = 'vendor/bin/mutation-gate reproduce %s';
+    public const string REPRODUCE = 'vendor/bin/mutation-gate reproduce %s';
 
     /** The command that explains one mutant without running anything (ADR-0014, decision 12). */
-    private const string EXPLAIN = 'vendor/bin/mutation-gate explain %s';
+    public const string EXPLAIN = 'vendor/bin/mutation-gate explain %s';
 
     private function __construct(
         private Mutant $mutant,

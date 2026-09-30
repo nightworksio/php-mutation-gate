@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 
@@ -110,7 +111,7 @@ final readonly class KillMatrix
     }
 
     /** Every test that covers the mutant, and every test its record names as a killer. */
-    public function coveredBy(JudgedMutant $judged): TestIds
+    public function coveredBy(JudgedMutant|JudgedKill $judged): TestIds
     {
         $mutant = $judged->mutant();
         $id = $mutant->id()->value();
@@ -133,13 +134,13 @@ final readonly class KillMatrix
      * Whether this test judged the mutant: it is among the tests that judge
      * it, such as a held unit's group, or nobody named those tests.
      */
-    public function judges(JudgedMutant $judged, TestId $test): bool
+    public function judges(JudgedMutant|JudgedKill $judged, TestId $test): bool
     {
         return count($judged->tests()) === 0 || $judged->tests()->has($test);
     }
 
     /** What is known of this covering test with the mutant in place; a test that did not judge it never ran with it. */
-    public function outcome(JudgedMutant $judged, TestId $test): Outcome
+    public function outcome(JudgedMutant|JudgedKill $judged, TestId $test): Outcome
     {
         $mutant = $judged->mutant();
         $unknown = array_key_exists($mutant->id()->value(), $this->moved)
@@ -154,7 +155,7 @@ final readonly class KillMatrix
     }
 
     /** The outcome the mutant's own record gives the test. */
-    private function reported(JudgedMutant $judged, TestId $test): Outcome
+    private function reported(JudgedMutant|JudgedKill $judged, TestId $test): Outcome
     {
         $killers = $judged->mutant()->killers();
         $afterTheKiller = $this->kind === MatrixKind::Full ? Outcome::Passed : Outcome::NotRun;
@@ -175,7 +176,7 @@ final readonly class KillMatrix
     }
 
     /** The tests the coverage map holds for any line the mutant spans. */
-    private function onLines(JudgedMutant $judged): TestIds
+    private function onLines(JudgedMutant|JudgedKill $judged): TestIds
     {
         $location = $judged->mutant()->location();
         $end = $location->end();

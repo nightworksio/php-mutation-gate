@@ -96,6 +96,9 @@ sees the same verdict.
        `tests`, its `hint`, its `reproduce` command, and the `seconds` it ran
        and the `limit` it was allowed where the runner says.
      - A value that is not known is left out, never written as null.
+     - The mutants a run reported in full come first, then the kills a
+       ledger proved. A ledger keeps a kill's id, line, mutator and killing
+       tests, so a proved kill has no `family`, `diff` or `end`.
      - Every score and floor is a percentage: a number from 0 to 100 with at
        most two decimals, truncated from hundredths, as `83.41` or `100.0`.
    - **JUnit XML** (`junit`). One `<testsuite>` per tree, and one for new code.
@@ -233,7 +236,9 @@ sees the same verdict.
    shows which tests kill, which only cover and which cover nothing
    (ADR-0014). The schema requires a column for each location. The gate
    takes it from the file's tokens, and a mutant it cannot place there spans
-   its lines from the first column to the end. The viewer's licence
+   its lines from the first column to the end. A kill a ledger proved spans
+   its line that way too, and has no `replacement`, since the ledger keeps no
+   diff. The viewer's licence
    (Apache-2.0) is shipped with it, and every generated page names the
    viewer, its version and its licence in a comment (ADR-0018).
 
