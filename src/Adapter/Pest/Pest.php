@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
@@ -150,6 +151,12 @@ final readonly class Pest implements Runner
         }
 
         return $retried;
+    }
+
+    /** Every `@pest-mutate-ignore` in the PHP files these paths name. */
+    public function markers(Paths $files): Markers
+    {
+        return NativeMarkers::in($this->project, $files);
     }
 
     /**

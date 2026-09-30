@@ -7,7 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
 /**
  * What a runner reports of one mutant, the same for every runner. A mutant
  * the runner's own config ignored, where the config allows that, is ignored by
- * a native marker.
+ * a native marker. A skipped mutant is one Infection never ran, because its
+ * covering tests alone take as long as its timeout.
  */
 enum MutantStatus: string
 {
@@ -18,4 +19,5 @@ enum MutantStatus: string
     case Errored = 'errored';
     case Unjudged = 'unjudged';
     case IgnoredByMarker = 'ignored-by-marker';
+    case Skipped = 'skipped';
 }

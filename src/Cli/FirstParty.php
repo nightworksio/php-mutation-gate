@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
+use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
@@ -52,7 +53,8 @@ final readonly class FirstParty implements Extension
             ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Git::at(self::HERE))
             ->withRepository(Name::of('git'), static fn(): Repository => Git::at(self::HERE))
             ->withChangeSource(Name::of('github'), static fn(): ChangeSource => self::github())
-            ->withRepository(Name::of('github'), static fn(): Repository => self::github());
+            ->withRepository(Name::of('github'), static fn(): Repository => self::github())
+            ->withRunner(Name::of('infection'), Infection::fromOptions(...));
     }
 
     /** Git, with GitHub's word on what the default branch already proved. */

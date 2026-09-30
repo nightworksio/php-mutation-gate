@@ -161,6 +161,19 @@ presets for Laravel, Symfony and plain libraries.
      before anything is mutated, listing each marker and the config entry that
      replaces it. A marker hides the mutant from the count without a reason or
      an end.
+   - **How native markers are found.** Before anything is mutated, the gate asks
+     the runner for its markers in the files the run mutates (the Runner port's
+     `markers()`, ADR-0004).
+     - Pest's: `@pest-mutate-ignore` in any comment of those files.
+     - Infection's: `@infection-ignore-all` in any comment of those files, and
+       each value of `ignore` or `ignoreSourceCodeByRegex` under `mutators` in
+       the project's Infection config, whether under a mutator, a profile,
+       `global-ignore` or `global-ignoreSourceCodeByRegex`.
+     - Each is listed where it is, as a file and line or as the config file and
+       key, with the entry that replaces it. For a marker in source or a
+       pattern over source, that is `{"mutant": "<id>", "reason": "…"}` for each
+       mutant it hides. For an `ignore` pattern it is `{"path": "<the file of
+       the class it names>", "mutator": "<its mutator>", "reason": "…"}`.
    - **`ignores.native: allow` lets a project migrate.** `init --from`
      converts Infection's `ignore` patterns into entries, and sets `allow`
      only for the regex ignores that have no equivalent (ADR-0016,

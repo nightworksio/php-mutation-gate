@@ -76,7 +76,10 @@ has to bring its result with it.
       - Every setting is declared as affecting results or not, and a test fails
         when a setting is neither. A new setting cannot be left out by accident.
    4. **The runner's identity** (ADR-0004):
-      - the exact version and source reference of every package it drives;
+      - the exact version and source reference of every package it drives,
+        including, for Infection, the static analysis tool its config has kill
+        mutants with (`staticAnalysisTool`). That tool's own config is a file of
+        the repository like any runner config, so item 6 holds it;
       - a digest of the PHP it runs on: version, extensions and their versions,
         ini settings, operating system family and architecture.
    5. **What is installed**: the digest of `vendor/composer/installed.json`. It

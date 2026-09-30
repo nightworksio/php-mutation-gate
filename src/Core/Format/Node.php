@@ -11,6 +11,7 @@ use function is_float;
 use function is_int;
 use function is_string;
 use function json_decode;
+use function json_encode;
 use function sprintf;
 
 /**
@@ -21,6 +22,10 @@ use function sprintf;
 final readonly class Node
 {
     private const string ROOT = 'the file';
+
+    /** How a place is written back out: as it was read, slashes and non-ASCII text as they are. */
+    private const int FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        | JSON_PRESERVE_ZERO_FRACTION;
 
     private function __construct(private mixed $value, private string $at, private bool $present)
     {
@@ -107,6 +112,17 @@ final readonly class Node
         }
 
         return $entries;
+    }
+
+    /**
+     * What this place holds, written back out as JSON. An empty object reads
+     * as a map with no keys, and is written as an empty list.
+     *
+     * @throws NotInShape
+     */
+    public function json(): string
+    {
+        return $this->present ? json_encode($this->value, self::FLAGS) : throw NotInShape::missing($this->at);
     }
 
     private function refused(string $expected): NotInShape

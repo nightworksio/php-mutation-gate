@@ -8,16 +8,20 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Marker;
+use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -31,12 +35,19 @@ use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 // in src/Held.php one held by the group holds:src/Held.php. Each runs against
 // the fake (RunnerFake) and against every adapter whose runner is installed:
 // the Pest adapter (Pest) once the runner contracts job has installed the
-// library. Pest's runs are real, so each request runs once per library.
+// library, and the Infection adapter (Infection) once its job has installed
+// infection-fixture/, the same code tested by PHPUnit. Each library also
+// holds its runner's own ignore marker in marked/Marked.php. The runs are
+// real, so each request runs once per library.
 
 $libraries = ['the fake' => fn(): Library => Library::fake()];
 
 if (Library::isInstalled()) {
     $libraries['pest'] = fn(): Library => Library::pest(Patching::off());
+}
+
+if (Library::isInfectionInstalled()) {
+    $libraries['infection'] = fn(): Library => Library::infection(Seconds::of(10.0));
 }
 
 /** Money's four mutants, as a library's runner reports them. */
@@ -89,8 +100,10 @@ it('measures each mutant it ran, and gives a timed-out one its limit', function 
         $limits[$mutant->status()->value] = $limit instanceof Seconds && $limit->seconds() >= 5.0;
     }
 
+    $ran = $library->measures();
+
     expect($measured)
-        ->toEqualCanonicalizing(['killed' => true, 'survived' => true, 'uncovered' => false, 'timed-out' => true])
+        ->toEqualCanonicalizing(['killed' => $ran, 'survived' => $ran, 'uncovered' => false, 'timed-out' => $ran])
         ->and($limits)
         ->toEqualCanonicalizing(['killed' => false, 'survived' => false, 'uncovered' => false, 'timed-out' => true]);
 })->with($libraries);
@@ -170,6 +183,65 @@ it('names the test files that judge a covered file, and none for an uncovered on
         ->and($uncovered)->toEqual(Paths::none());
 })->with($libraries);
 
+it('finds its runner\'s own ignore marker, and none in code without one', function (Library $library): void {
+    $found = $library->runner()->markers(Paths::of(Path::of('marked')));
+    $none = $library->runner()->markers(Paths::of(Path::of('src/Money.php')));
+    $where = $found instanceof Markers
+        ? array_map(static fn(Marker $marker): string => $marker->where(), iterator_to_array($found, preserve_keys: false))
+        : [];
+
+    expect($where)->toBe([Library::MARKER])
+        ->and($none instanceof Markers ? count($none) : -1)->toBe(0);
+})->with($libraries);
+
+it('judges a held path by the tests its #[Holds] filter names, with Infection', function (): void {
+    $library = Library::infection(Seconds::of(10.0));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Held.php')), Filter::matching('HeldSpec'))
+        ->onlyMutators($library->mutators('held'));
+    $result = $library->mutate('held by filter', $request);
+
+    expect($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
+        ->toBe($library->expected('held'));
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
+it('reports a mutant Infection skips, allowed the cap, and judges it when run again at a higher cap', function (): void {
+    $library = Library::infection(Seconds::of(1.0));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Slow.php')), WholeSuite::tests())
+        ->onlyMutators(Mutators::named('Minus'));
+    $result = $library->mutate('slow', $request);
+    $skipped = $result instanceof MutationResult ? $result->mutants() : Mutants::none();
+    $limits = array_map(
+        static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0,
+        iterator_to_array($skipped, preserve_keys: false),
+    );
+    $again = $library->runner()->retry($skipped, Seconds::of(3.0), WholeSuite::tests());
+    $statuses = static fn(Mutants $mutants): array => array_map(
+        static fn(Mutant $mutant): string => $mutant->status()->value,
+        iterator_to_array($mutants, preserve_keys: false),
+    );
+
+    expect($statuses($skipped))->toBe([MutantStatus::Skipped->value])
+        ->and($limits)->toBe([1.0])
+        ->and($again instanceof Mutants ? $statuses($again) : [])->toBe([MutantStatus::Killed->value]);
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
+it('allows a mutant Infection times out five seconds and five times its tests\' time, and runs it again only at the cap', function (): void {
+    $library = Library::infection(Seconds::of(10.0));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->onlyMutators($library->mutators('drains'));
+    $result = $library->mutate('drains', $request);
+    $timedOut = $result instanceof MutationResult ? $result->mutants() : Mutants::none();
+    $limits = array_map(
+        static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0,
+        iterator_to_array($timedOut, preserve_keys: false),
+    );
+    $again = $library->runner()->retry($timedOut, Seconds::of(20.0), WholeSuite::tests());
+
+    expect(Library::records($timedOut))->toBe($library->expected('drains'))
+        ->and($limits[0] ?? 0.0)->toBeGreaterThan(5.0)->toBeLessThan(6.0)
+        ->and($again)->toEqual($timedOut);
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
 it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select a covering test', function (): void {
     $library = Library::pest(Patching::off());
     $request = MutationRequest::of(Paths::of(Path::of('src/Legacy.php')), WholeSuite::tests())
@@ -231,4 +303,8 @@ it('reads coverage in the serialization format the library writes it in', functi
 
 it('has the library installed wherever the runner contracts run', function (): void {
     expect(Library::isInstalled())->toBeTrue();
-})->skip(getenv('RUNNER_CONTRACTS') === false, 'only the runner contracts job installs the fixture library');
+})->skip(getenv('RUNNER_CONTRACTS') !== 'pest', 'only the runner contracts job installs the fixture library');
+
+it('has the Infection library installed wherever the Infection runner contracts run', function (): void {
+    expect(Library::isInfectionInstalled())->toBeTrue();
+})->skip(getenv('RUNNER_CONTRACTS') !== 'infection', 'only the Infection runner contracts job installs its library');

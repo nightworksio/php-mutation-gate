@@ -24,6 +24,7 @@ return (new Configuration())
     // The runner contract suite's fixture is a project of its own, with its own
     // dependencies.
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/fixture')
+    ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/infection-fixture')
     ->ignoreErrorsOnPackages(
         [
             // Included by phpstan.neon, which is configuration rather than code.
@@ -59,4 +60,9 @@ return (new Configuration())
     ->ignoreErrorsOnPackages(
         ['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/php-code-coverage'],
         [ErrorType::DEV_DEPENDENCY_IN_PROD],
-    );
+    )
+    // The Infection adapter runs only in a project that runs Infection, which
+    // requires these: it reads the project's infection.json5, and PHPUnit's XML
+    // coverage and JUnit log. composer.json suggests each.
+    ->ignoreErrorsOnPackages(['colinodell/json5'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    ->ignoreErrorsOnExtension('ext-dom', [ErrorType::DEV_DEPENDENCY_IN_PROD]);

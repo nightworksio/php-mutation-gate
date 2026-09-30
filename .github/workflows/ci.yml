@@ -255,9 +255,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      RUNNER_CONTRACTS: pest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -286,6 +284,8 @@ jobs:
           composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
           composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
       - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php
+        env:
+          RUNNER_CONTRACTS: pest
       - name: install the highest supported Pest into the fixture library
         working-directory: tests/Contract/Runner/fixture
         run: |
@@ -293,6 +293,45 @@ jobs:
           composer update --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
           composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
       - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php
+        env:
+          RUNNER_CONTRACTS: pest
+      # Infection's library is a project of its own too, installed at the lowest
+      # and the highest Infection 0.35, each with PHPUnit 12 and with PHPUnit 13.
+      # Its runs read only the PHPUnit XML coverage and JUnit log its own PHPUnit
+      # writes, so it keeps its own php-code-coverage. The filter runs the tests
+      # of the Infection library alone; the Pest library's ran above.
+      - name: install the lowest Infection with PHPUnit 12 into its library
+        working-directory: tests/Contract/Runner/infection-fixture
+        run: |
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/phpunit:^12.0"
+          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
+      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php --filter='infection|Infection'
+        env:
+          RUNNER_CONTRACTS: infection
+      - name: install the lowest Infection with PHPUnit 13 into its library
+        working-directory: tests/Contract/Runner/infection-fixture
+        run: |
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/phpunit:^13.0"
+          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
+      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php --filter='infection|Infection'
+        env:
+          RUNNER_CONTRACTS: infection
+      - name: install the highest Infection with PHPUnit 12 into its library
+        working-directory: tests/Contract/Runner/infection-fixture
+        run: |
+          composer update --no-interaction --no-progress --with "phpunit/phpunit:^12.0"
+          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
+      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php --filter='infection|Infection'
+        env:
+          RUNNER_CONTRACTS: infection
+      - name: install the highest Infection with PHPUnit 13 into its library
+        working-directory: tests/Contract/Runner/infection-fixture
+        run: |
+          composer update --no-interaction --no-progress --with "phpunit/phpunit:^13.0"
+          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
+      - run: vendor/bin/pest tests/Contract/Runner/RunnerTest.php --filter='infection|Infection'
+        env:
+          RUNNER_CONTRACTS: infection
 
   # G8 — every mutant of src is killed. The package holds its own code to a
   # floor of 100 through its own gate: the reusable workflow and the action in

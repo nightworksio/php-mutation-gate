@@ -83,7 +83,9 @@ Requirements:
 - One of the two runners:
   - **Pest**: `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0, on
     the PHPUnit 13 release Pest pins;
-  - **Infection**: `infection/infection` ~0.35.0, with PHPUnit 12 or 13.
+  - **Infection**: `infection/infection` ~0.35.0, with PHPUnit 12 or 13. The
+    adapter reads the project's `infection.json5` and PHPUnit's XML coverage
+    with `colinodell/json5` and `ext-dom`, which Infection itself requires.
 
   Infection does not run Pest suites, so a Pest project uses Pest's own
   mutation testing.
@@ -398,6 +400,8 @@ Files the gate reads and writes:
 | `.mutation-gate/pipeline.yml` | GitLab's child pipeline | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `.mutation-gate/ledger/<scope>/ledger.json` | The proof ledger of one ref | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `.mutation-gate/mutants/<native id>.php` | The mutated file of a mutant judged by reference (Pest) | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `infection.json5`, `infection.json`, `infection.json5.dist` or `infection.json.dist` | The project's own Infection config, the first found, whose mutators, `bootstrap`, `phpUnit`, `initialTestsPhpOptions`, `testFrameworkExtraArgs` and static analysis the gate keeps | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `.mutation-gate/infection/` | The config the gate writes for each run of Infection, Infection's logs, its temporary files, and the coverage the adapter runs PHPUnit for | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `.mutation-gate/publish/badge.json`, `trend.json`, `trend.svg` | The badge and trend | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `.mutation-gate/publish/savings.json` | A shields.io endpoint with the time saved in the last 30 days | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | `.mutation-gate/baseline.measured.json` | The baseline a CI run measured for trees with no floor, to commit as `mutation-gate.baseline.json` | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |

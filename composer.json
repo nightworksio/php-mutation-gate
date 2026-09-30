@@ -39,11 +39,14 @@
         "symfony/process": "^7.4 || ^8.0"
     },
     "require-dev": {
+        "ext-dom": "*",
         "ext-sodium": "*",
         "async-aws/core": "^1.30",
         "async-aws/s3": "^3",
+        "colinodell/json5": "^3.0",
         "ergebnis/composer-normalize": "^2.54",
         "ergebnis/phpstan-rules": "^2.13",
+        "infection/infection": "~0.35.0",
         "laravel/pint": "^1.32",
         "nette/neon": "^3.4",
         "nikic/php-parser": "^5.9",
@@ -68,7 +71,10 @@
         "pestphp/pest-plugin-mutate": "<5.0.2 || >5.0.2"
     },
     "suggest": {
+        "ext-dom": "To read PHPUnit's XML coverage and JUnit log, which the Infection adapter does (infection/infection requires it)",
         "async-aws/s3": "To keep proofs in S3 or R2 (^3)",
+        "colinodell/json5": "To read a project's infection.json5, which the Infection adapter does (^3.0; infection/infection requires it)",
+        "infection/infection": "To mutate with Infection (~0.35.0) and PHPUnit 12 or 13, through the Infection adapter",
         "nette/neon": "To read a mutation-gate.neon config",
         "pestphp/pest": "To mutate with Pest (^5.1), through the Pest adapter and its plugin",
         "symfony/yaml": "To read a mutation-gate.yaml config"
@@ -92,6 +98,7 @@
     "config": {
         "allow-plugins": {
             "ergebnis/composer-normalize": true,
+            "infection/extension-installer": true,
             "pestphp/pest-plugin": true
         },
         "platform": {
