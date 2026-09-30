@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
@@ -19,11 +20,11 @@ it('lists its arguments in order, however they were spread', function (): void {
 });
 
 it('runs Pest on the PHP that runs the gate', function (): void {
-    expect(Command::pest('vendor/pestphp/pest/bin/pest', '--list-groups')->arguments())->toBe([PHP_BINARY, 'vendor/pestphp/pest/bin/pest', '--list-groups']);
+    expect(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups')->arguments())->toBe([PHP_BINARY, 'vendor/pestphp/pest/bin/pest', '--list-groups']);
 });
 
 it('puts that PHP first on Pest\'s path, and hands Pest none of its own or the gate\'s variables', function (): void {
-    expect(Command::pest('vendor/pestphp/pest/bin/pest', '--list-groups')->environment())->toMatchArray([
+    expect(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups')->environment())->toMatchArray([
         'PARATEST' => false,
         'TEST_TOKEN' => false,
         'UNIQUE_TEST_TOKEN' => false,
@@ -35,7 +36,7 @@ it('puts that PHP first on Pest\'s path, and hands Pest none of its own or the g
         'MUTATION_GATE_CANARY' => false,
         'MUTATION_GATE_GUARD' => false,
         'PATH' => sprintf('%s:%s', dirname(PHP_BINARY), getenv('PATH')),
-    ])->and(Command::pest('pest')->with(['MUTATION_GATE_RESULTS' => '/r'])->environment())
+    ])->and(Command::pest('pest', Withheld::standard())->with(['MUTATION_GATE_RESULTS' => '/r'])->environment())
         ->toHaveKey('MUTATION_GATE_RESULTS', '/r');
 });
 
@@ -68,7 +69,7 @@ it('hands Pest none of the CI\'s credentials', function (): void {
             putenv(sprintf('%s=secret', $name));
         }
 
-        $environment = Command::pest('pest')->environment();
+        $environment = Command::pest('pest', Withheld::standard())->environment();
     } finally {
         foreach ($set as $at => $name) {
             putenv(is_string($before[$at]) ? sprintf('%s=%s', $name, $before[$at]) : $name);
@@ -81,4 +82,28 @@ it('hands Pest none of the CI\'s credentials', function (): void {
         'GITHUB_TOKEN' => false,
         'SONAR_TOKEN' => false,
     ])->and($environment)->not->toHaveKey('GITHUB_SHA');
+});
+
+it('hands Pest none of the variables it is told to withhold, and every other', function (): void {
+    $set = ['DEPLOY_KEY', 'DEPLOY_HOST', 'AWS_SECRET_ACCESS_KEY'];
+    $before = [];
+
+    foreach ($set as $name) {
+        $before[] = getenv($name);
+    }
+
+    try {
+        foreach ($set as $name) {
+            putenv(sprintf('%s=secret', $name));
+        }
+
+        $environment = Command::pest('pest', Withheld::of('DEPLOY_*'))->environment();
+    } finally {
+        foreach ($set as $at => $name) {
+            putenv(is_string($before[$at]) ? sprintf('%s=%s', $name, $before[$at]) : $name);
+        }
+    }
+
+    expect($environment)->toMatchArray(['DEPLOY_KEY' => false, 'DEPLOY_HOST' => false])
+        ->and($environment)->not->toHaveKey('AWS_SECRET_ACCESS_KEY');
 });

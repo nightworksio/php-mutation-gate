@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -80,4 +81,8 @@ it('gives no scope to a tag, which is no branch the gate writes for', function (
 
 it('is run by the config CircleCI reads from the repository', function (): void {
     expect(CircleCiPlan::printing('', Variables::of([]))->definitions())->toEqual(Paths::of(Path::of('.circleci/config.yml')));
+});
+
+it('withholds the job\'s OpenID Connect tokens', function (): void {
+    expect(CircleCiPlan::printing('', Variables::of([]))->withheld())->toEqual(Withheld::of('CIRCLE_OIDC_TOKEN*'));
 });

@@ -23,9 +23,12 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -53,11 +56,16 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
 
     private const string PLAN = '.mutation-gate/plan.json';
 
+    /** The pipeline Buildkite uploads, where `ci.buildkite.definition` names no other. */
     private const string DEFINITION = '.buildkite/pipeline.yml';
 
     /** @param array<string, mixed> $step the step template */
-    private function __construct(private Variables $variables, private array $step, private string $to)
-    {
+    private function __construct(
+        private Variables $variables,
+        private array $step,
+        private string $to,
+        private Path $definition,
+    ) {
     }
 
     /**
@@ -67,18 +75,30 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
      */
     public static function printing(string $to, array $step, Variables $variables): self
     {
-        return new self($variables, $step, $to);
+        return new self($variables, $step, $to, Path::of(self::DEFINITION));
     }
 
-    /** `{"step": {…}}`, printed to the output. */
+    /** This plan, run by the pipeline at this path rather than `.buildkite/pipeline.yml`. */
+    public function definedIn(Path $definition): self
+    {
+        return new self($this->variables, $this->step, $this->to, $definition);
+    }
+
+    /** `{"step": {…}, "definition": "<path>"}`, printed to the output. */
     public static function fromOptions(Options $options): self|Invalid
     {
         $with = json_decode($options->json(), associative: true);
         $step = is_array($with) && array_key_exists('step', $with) ? $with['step'] : [];
+        $definition = self::definitionIn(Node::decode($options->json())->field('definition'));
 
-        return is_array($step) && ($step === [] || ! array_is_list($step))
-            ? self::printing('php://output', self::keyed($step), Variables::of(getenv()))
-            : Invalid::because(Problem::at('step', 'The step template is a map of step keys.'));
+        return match (true) {
+            ! is_array($step) || ($step !== [] && array_is_list($step)) => Invalid::because(
+                Problem::at('step', 'The step template is a map of step keys.'),
+            ),
+            $definition instanceof Invalid => $definition,
+            default => self::printing('php://output', self::keyed($step), Variables::of(getenv()))
+                ->definedIn($definition),
+        };
     }
 
     public function publish(Plan $plan): Written|CannotJudge
@@ -115,10 +135,29 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
         };
     }
 
-    /** The pipeline Buildkite uploads from the repository. */
+    /** The pipeline Buildkite uploads from the repository to run the gate. */
     public function definitions(): Paths
     {
-        return Paths::of(Path::of(self::DEFINITION));
+        return Paths::of($this->definition);
+    }
+
+    /** The agent's token, which can upload and change pipelines. */
+    public function withheld(): Withheld
+    {
+        return Withheld::of('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN');
+    }
+
+    private static function definitionIn(Node $definition): Path|Invalid
+    {
+        try {
+            $path = $definition->isPresent() ? $definition->text() : self::DEFINITION;
+        } catch (NotInShape) {
+            $path = '';
+        }
+
+        return $path === ''
+            ? Invalid::because(Problem::at('definition', 'The pipeline that runs the gate is a path, as text.'))
+            : Path::of($path);
     }
 
     /** @return array<string, mixed> */

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -54,13 +55,14 @@ final readonly class Invocation
 
     public function listingGroups(): Command
     {
-        return Command::pest($this->script, '--list-groups', '--colors=never');
+        return Command::pest($this->script, Withheld::standard(), '--list-groups', '--colors=never');
     }
 
     public function coverage(CoverageRequest $request, string $directory): Command
     {
         return Command::pest(
             $this->script,
+            $request->withheld(),
             '--parallel',
             sprintf('--processes=%d', $request->processes()->count()),
             '--no-tia',
@@ -87,6 +89,7 @@ final readonly class Invocation
     {
         return Command::pest(
             $this->script,
+            $request->withheld(),
             '--mutate',
             '--no-cache',
             '--parallel',

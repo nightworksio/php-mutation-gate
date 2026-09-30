@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -148,7 +149,7 @@ it('runs a survivor again alone and matches it back by the gate\'s id', function
         $survivors = $mutant->status() === MutantStatus::Survived ? $survivors->with($mutant) : $survivors;
     }
 
-    $retried = $library->runner()->retry($survivors, Seconds::of(60.0), WholeSuite::tests());
+    $retried = $library->runner()->retry($survivors, Seconds::of(60.0), WholeSuite::tests(), Withheld::standard());
 
     expect(count($survivors))->toBe(1)
         ->and($retried instanceof Mutants ? Library::records($retried) : [])->toBe(Library::records($survivors));
@@ -162,7 +163,7 @@ it('retries a mutant by the tests that judged its unit', function (Library $libr
         $survivors = $mutant->status() === MutantStatus::Survived ? $survivors->with($mutant) : $survivors;
     }
 
-    $retried = $library->runner()->retry($survivors, Seconds::of(60.0), Group::named('holds:src/Held.php'));
+    $retried = $library->runner()->retry($survivors, Seconds::of(60.0), Group::named('holds:src/Held.php'), Withheld::standard());
     $statuses = [];
 
     foreach ($retried instanceof Mutants ? $retried : Mutants::none() as $mutant) {
@@ -214,7 +215,7 @@ it('reports a mutant Infection skips, allowed the cap, and judges it when run ag
         static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0,
         iterator_to_array($skipped, preserve_keys: false),
     );
-    $again = $library->runner()->retry($skipped, Seconds::of(3.0), WholeSuite::tests());
+    $again = $library->runner()->retry($skipped, Seconds::of(3.0), WholeSuite::tests(), Withheld::standard());
     $statuses = static fn(Mutants $mutants): array => array_map(
         static fn(Mutant $mutant): string => $mutant->status()->value,
         iterator_to_array($mutants, preserve_keys: false),
@@ -235,7 +236,7 @@ it('allows a mutant Infection times out five seconds and five times its tests\' 
         static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0,
         iterator_to_array($timedOut, preserve_keys: false),
     );
-    $again = $library->runner()->retry($timedOut, Seconds::of(20.0), WholeSuite::tests());
+    $again = $library->runner()->retry($timedOut, Seconds::of(20.0), WholeSuite::tests(), Withheld::standard());
 
     expect(Library::records($timedOut))->toBe($library->expected('drains'))
         ->and($limits[0] ?? 0.0)->toBeGreaterThan(5.0)->toBeLessThan(6.0)

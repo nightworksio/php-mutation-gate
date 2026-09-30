@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -104,7 +105,7 @@ final readonly class Infection implements Runner
         $directory = $this->project->directory($request->directory());
         $covered = $config instanceof CannotJudge || ! $request->runs()
             ? $config
-            : $this->covered($config, $request->tests(), $directory);
+            : $this->covered($config, $request->tests(), $request->withheld(), $directory);
 
         return $covered instanceof CannotJudge ? $covered : CoverageXml::read($this->project, $directory);
     }
@@ -139,12 +140,16 @@ final readonly class Infection implements Runner
     /**
      * Each timed-out or skipped mutant the cap decided runs again with this
      * limit as the cap, judged by the tests that judged its unit, and the rest
-     * are answered as they were.
+     * are answered as they were. The tests never see a variable withheld.
      */
-    public function retry(Mutants $mutants, Seconds $limit, WholeSuite|Group|Filter $judgedBy): Mutants|CannotJudge
-    {
+    public function retry(
+        Mutants $mutants,
+        Seconds $limit,
+        WholeSuite|Group|Filter $judgedBy,
+        Withheld $withheld,
+    ): Mutants|CannotJudge {
         $retrial = Retrial::under($this->cap);
-        $again = $this->again($retrial, $mutants, $limit, $judgedBy);
+        $again = $this->again($retrial, $mutants, $limit, $judgedBy, $withheld);
 
         return $again instanceof CannotJudge ? $again : $retrial->matched($mutants, $again);
     }
@@ -167,12 +172,19 @@ final readonly class Infection implements Runner
 
         return $reused instanceof Path && $request->judgedBy() instanceof WholeSuite
             ? $this->project->absolute($reused)
-            : $this->covered($config, $request->judgedBy(), $this->ownCoverage());
+            : $this->covered($config, $request->judgedBy(), $request->withheld(), $this->ownCoverage());
     }
 
-    /** The directory, once PHPUnit has run these tests under coverage into it, with no earlier run's reports left. */
-    private function covered(OwnConfig $config, WholeSuite|Group|Filter $tests, string $directory): string|CannotJudge
-    {
+    /**
+     * The directory, once PHPUnit has run these tests under coverage into it,
+     * never seeing a variable withheld, with no earlier run's reports left.
+     */
+    private function covered(
+        OwnConfig $config,
+        WholeSuite|Group|Filter $tests,
+        Withheld $withheld,
+        string $directory,
+    ): string|CannotJudge {
         foreach ([sprintf('%s/index.xml', Invocation::XML), Invocation::JUNIT] as $report) {
             $fresh = $this->project->fresh(sprintf('%s/%s', $directory, $report));
 
@@ -181,7 +193,9 @@ final readonly class Infection implements Runner
             }
         }
 
-        $ran = $this->shell->run(Invocation::coverage($this->project, $config, $tests, $directory));
+        $ran = $this->shell->run(
+            Invocation::coverage($this->project, $config, $tests, $directory)->withholding($withheld),
+        );
 
         return $ran->succeeded() ? $directory : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
     }
@@ -191,6 +205,7 @@ final readonly class Infection implements Runner
         Mutants $mutants,
         Seconds $limit,
         WholeSuite|Group|Filter $judgedBy,
+        Withheld $withheld,
     ): Mutants|CannotJudge {
         $runs = $retrial->runs($mutants);
         $config = $runs === [] ? Mutants::none() : OwnConfig::in($this->project);
@@ -199,11 +214,11 @@ final readonly class Infection implements Runner
             return $config;
         }
 
-        $coverage = $this->covered($config, $judgedBy, $this->ownCoverage());
+        $coverage = $this->covered($config, $judgedBy, $withheld, $this->ownCoverage());
 
         return $coverage instanceof CannotJudge
             ? $coverage
-            : $this->rerun($config, $coverage, $runs, $limit, $judgedBy);
+            : $this->rerun($config, $coverage, $runs, $limit, $judgedBy, $withheld);
     }
 
     /**
@@ -218,11 +233,14 @@ final readonly class Infection implements Runner
         array $runs,
         Seconds $limit,
         WholeSuite|Group|Filter $judgedBy,
+        Withheld $withheld,
     ): Mutants|CannotJudge {
         $again = Mutants::none();
 
         foreach ($runs as [$file, $mutator]) {
-            $request = MutationRequest::of(Paths::of($file), $judgedBy)->onlyMutators(Mutators::named($mutator));
+            $request = MutationRequest::of(Paths::of($file), $judgedBy)
+                ->onlyMutators(Mutators::named($mutator))
+                ->withholding($withheld);
             $result = $this->run($config)->of($request, $coverage, $limit);
 
             if ($result instanceof CannotJudge) {

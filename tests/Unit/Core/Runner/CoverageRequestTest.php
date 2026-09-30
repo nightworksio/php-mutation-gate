@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -35,4 +36,15 @@ it('runs across as many processes as it is given, leaving the rest as it was', f
         ->and($across->tests())->toEqual(WholeSuite::tests())
         ->and($across->directory()->value())->toBe('cov')
         ->and($request->processes())->toEqual(Processes::of(1));
+});
+
+it('withholds the CI\'s credentials by default, and more where it is told, never fewer', function (): void {
+    $running = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+    $reading = CoverageRequest::reading(Path::of('.mutation-gate/coverage'));
+    $more = $running->withholding(Withheld::of('DEPLOY_*'));
+
+    expect($running->withheld())->toEqual(Withheld::standard())
+        ->and($reading->withheld())->toEqual(Withheld::standard())
+        ->and($more->withheld())->toEqual(Withheld::standard()->and(Withheld::of('DEPLOY_*')))
+        ->and($more->directory())->toBe($running->directory());
 });

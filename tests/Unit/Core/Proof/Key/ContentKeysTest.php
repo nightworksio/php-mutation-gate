@@ -203,7 +203,7 @@ it('hashes everything a result could depend on, in order', function () use ($key
             'ci',
             '1',
             '.github/workflows/mutation.yml',
-            "name: mutation\n  - uses: actions/checkout",
+            "name: mutation\n  - uses: actions/checkout@",
             'always',
             '4',
             'tests/Pest.php',

@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -81,5 +82,11 @@ final readonly class CircleCiPlan implements CiPlan, Configurable
     public function definitions(): Paths
     {
         return Paths::of(Path::of(self::DEFINITION));
+    }
+
+    /** The job's OpenID Connect tokens. */
+    public function withheld(): Withheld
+    {
+        return Withheld::of('CIRCLE_OIDC_TOKEN*');
     }
 }

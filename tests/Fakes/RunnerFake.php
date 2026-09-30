@@ -30,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -117,7 +118,7 @@ final readonly class RunnerFake implements Runner
         return MutationResult::of($found, 0);
     }
 
-    public function retry(Mutants $mutants, Seconds $limit, WholeSuite|Group|Filter $judgedBy): Mutants
+    public function retry(Mutants $mutants, Seconds $limit, WholeSuite|Group|Filter $judgedBy, Withheld $withheld): Mutants
     {
         $found = Mutants::none();
 

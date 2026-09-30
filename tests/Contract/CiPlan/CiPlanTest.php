@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
@@ -71,4 +72,11 @@ it('names the CI definitions that run the gate as paths from the root', function
     }
 
     expect($ci->definitions()->count())->toBeLessThanOrEqual(2);
+})->with($plans);
+
+it('names the credentials of its CI that no runner hands the tests, over and above what every run withholds', function (CiPlan $ci): void {
+    $withheld = Withheld::standard()->and($ci->withheld());
+
+    expect(preg_match($withheld->pattern(), 'AWS_SECRET_ACCESS_KEY'))->toBe(1)
+        ->and(preg_match($withheld->pattern(), 'PATH'))->toBe(0);
 })->with($plans);

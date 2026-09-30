@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
@@ -56,5 +57,10 @@ final class CiPlanFake implements CiPlan
     public function definitions(): Paths
     {
         return $this->definitions;
+    }
+
+    public function withheld(): Withheld
+    {
+        return Withheld::of('FAKE_CI_TOKEN');
     }
 }

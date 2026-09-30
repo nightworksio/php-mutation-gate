@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -57,4 +58,14 @@ it('leaves the request it came from as it was', function (): void {
     $request->reusingCoverage(Path::of('c'));
 
     expect($request)->toEqual(MutationRequest::of(Paths::none(), Filter::matching('KernelTest')));
+});
+
+it('withholds the CI\'s credentials by default, and more where it is told, never fewer', function (): void {
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+    $more = $request->withholding(Withheld::of('DEPLOY_*'));
+
+    expect($request->withheld())->toEqual(Withheld::standard())
+        ->and($more->withheld())->toEqual(Withheld::standard()->and(Withheld::of('DEPLOY_*')))
+        ->and($more->withholding(Withheld::nothing())->withheld())->toEqual($more->withheld())
+        ->and($more->files())->toBe($request->files());
 });

@@ -9,6 +9,7 @@ use function array_values;
 use function dirname;
 use function getenv;
 
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
@@ -40,9 +41,6 @@ final readonly class Command
         'MUTATION_GATE_GUARD' => false,
     ];
 
-    /** The CI's credentials: AWS's, GitHub's and SonarCloud's tokens, and the Actions runtime's. */
-    private const string SECRET = '~^(?:AWS_.*|ACTIONS_.*|GITHUB_TOKEN|SONAR_TOKEN)$~';
-
     /**
      * @param list<string>                $arguments
      * @param array<string, string|false> $environment
@@ -62,14 +60,14 @@ final readonly class Command
     /**
      * Pest's script, run on the PHP that runs the gate, with that PHP first
      * on the path, because Pest starts each mutant's own run through the same
-     * script, which finds `php` there. The project's tests never see the CI's
-     * credentials.
+     * script, which finds `php` there. The project's tests never see a
+     * variable withheld.
      */
-    public static function pest(string $script, string ...$arguments): self
+    public static function pest(string $script, Withheld $withheld, string ...$arguments): self
     {
         return self::of(PHP_BINARY, $script, ...$arguments)->with([
             ...self::INHERITED,
-            ...self::secretsIn(getenv()),
+            ...self::withheldFrom(getenv(), $withheld),
             'PATH' => sprintf('%s%s%s', dirname(PHP_BINARY), PATH_SEPARATOR, getenv('PATH')),
         ]);
     }
@@ -103,21 +101,21 @@ final readonly class Command
     }
 
     /**
-     * Every credential among these variables, as one the command does not inherit.
+     * Every withheld variable among these, as one the command does not inherit.
      *
      * @param array<string, string> $variables
      * @return array<string, false>
      */
-    private static function secretsIn(array $variables): array
+    private static function withheldFrom(array $variables, Withheld $withheld): array
     {
-        $secrets = [];
+        $kept = [];
 
         foreach (array_keys($variables) as $name) {
-            if (preg_match(self::SECRET, $name) === 1) {
-                $secrets[$name] = false;
+            if (preg_match($withheld->pattern(), $name) === 1) {
+                $kept[$name] = false;
             }
         }
 
-        return $secrets;
+        return $kept;
     }
 }

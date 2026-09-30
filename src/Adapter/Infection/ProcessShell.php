@@ -6,15 +6,18 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function array_any;
 use function array_key_exists;
+use function array_keys;
 use function array_map;
 use function array_shift;
 use function dirname;
 use function hrtime;
 use function is_int;
 
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
+use function preg_match;
 use function preg_match_all;
 use function sprintf;
 use function str_starts_with;
@@ -32,8 +35,9 @@ use function usleep;
  *   line runs on the same PHP as the gate.
  * - No inherited variable that makes PHPUnit or Infection act as a worker of
  *   another run, or makes a plugin act for the gate, reaches it unless the
- *   command sets it, and no credential of the CI or the proof store does: the
- *   project's tests, and every mutant of its code, run in it.
+ *   command sets it, and no variable the command withholds does, such as a
+ *   credential of the CI or the proof store: the project's tests, and every
+ *   mutant of its code, run in it.
  * - At its deadline it is stopped with every process it started.
  * - A process that cannot start, or fails while running, ends as a failure, with
  *   the reason as its output.
@@ -42,7 +46,7 @@ final readonly class ProcessShell implements Shell
 {
     private const string PATH = 'PATH';
 
-    /** The prefixes of the inherited variables that are removed. */
+    /** The prefixes of the inherited variables that make a process another run's worker, which are removed. */
     private const array WITHHELD = [
         'INFECTION_',
         'MUTATION_GATE_',
@@ -50,10 +54,6 @@ final readonly class ProcessShell implements Shell
         'PARATEST',
         'TEST_TOKEN',
         'UNIQUE_TEST_TOKEN',
-        'AWS_',
-        'GITHUB_TOKEN',
-        'SONAR_TOKEN',
-        'ACTIONS_',
     ];
 
     /** How long the shell waits between looks at a running process, in microseconds. */
@@ -74,7 +74,7 @@ final readonly class ProcessShell implements Shell
         $process = new Process(
             $command->arguments(),
             $this->directory,
-            [...$this->environment(), ...$command->environment()],
+            [...$this->environment($command->withheld()), ...$command->environment()],
             timeout: null,
         );
 
@@ -91,12 +91,15 @@ final readonly class ProcessShell implements Shell
     }
 
     /** @return array<string, string|false> each variable the process gets, or false for one it must not inherit */
-    private function environment(): array
+    private function environment(Withheld $withheld): array
     {
         $environment = [];
 
-        foreach ($this->inherited as $name => $value) {
-            if (array_any(self::WITHHELD, static fn(string $prefix): bool => str_starts_with($name, $prefix))) {
+        foreach (array_keys($this->inherited) as $name) {
+            if (
+                preg_match($withheld->pattern(), $name) === 1
+                || array_any(self::WITHHELD, static fn(string $prefix): bool => str_starts_with($name, $prefix))
+            ) {
                 $environment[$name] = false;
             }
         }

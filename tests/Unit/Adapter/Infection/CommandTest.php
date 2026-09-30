@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
@@ -33,4 +34,14 @@ it('takes a deadline, keeping what it runs', function (): void {
         ->and($command->arguments())->toBe([PHP_BINARY, 'infection'])
         ->and($command->environment())->toBe(['A' => '1'])
         ->and($command->within(Unlimited::time())->deadline())->toEqual(Unlimited::time());
+});
+
+it('withholds what every run withholds, and more when told, through every change', function (): void {
+    $command = Command::php('phpunit')->withholding(Withheld::of('DEPLOY_*'))->with(['A' => '1'])->within(Seconds::of(9.0));
+
+    expect(Command::php('phpunit')->withheld())->toEqual(Withheld::standard())
+        ->and($command->withheld())->toEqual(Withheld::standard()->and(Withheld::of('DEPLOY_*')))
+        ->and($command->environment())->toBe(['A' => '1'])
+        ->and($command->deadline())->toEqual(Seconds::of(9.0))
+        ->and($command->arguments())->toBe([PHP_BINARY, 'phpunit']);
 });
