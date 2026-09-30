@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
-use function array_key_exists;
+use function array_any;
+use function array_diff;
 use function array_keys;
 use function array_map;
+use function array_values;
 use function file_get_contents;
 use function json_encode;
 
@@ -16,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use function preg_match;
 use function sprintf;
 use function str_replace;
+use function str_starts_with;
 
 use Symfony\Component\Yaml\Yaml;
 
@@ -30,11 +33,14 @@ use Symfony\Component\Yaml\Yaml;
  */
 final readonly class Gates
 {
-    /** The workflow every CI job starts from. */
-    public const string CI = '.github/workflows/ci.yml';
+    /** The workflows every CI job starts from: the code's, and the pull request text's. */
+    public const array WORKFLOWS = ['.github/workflows/ci.yml', '.github/workflows/pr.yml'];
 
     /** The table of the gates. */
     public const string TABLE = '.github/gates.json';
+
+    /** The action that gathers a run's evidence into one artifact. */
+    private const string GATHERS = 'actions/upload-artifact/merge@';
 
     /** What gates.json says in place of a job's producers where it leaves no evidence. */
     private const string NONE = 'none';
@@ -43,8 +49,8 @@ final readonly class Gates
     private const string CALLED = '#^\./(\.github/workflows/[\w.-]+\.ya?ml)$#';
 
     /**
-     * Every CI job by the name its evidence goes by: a job of ci.yml by its
-     * id, and a job of a workflow ci.yml calls as `<caller>/<job>`.
+     * Every CI job by the name its evidence goes by: a job of a workflow by
+     * its id, and a job of a workflow it calls as `<caller>/<job>`.
      *
      * @return array<string, Job>
      */
@@ -52,38 +58,38 @@ final readonly class Gates
     {
         $jobs = [];
 
-        foreach (self::jobsOf(self::CI) as $id => $job) {
-            if (preg_match(self::CALLED, Lenient::text($job->field('uses')), $workflow) !== 1) {
-                $jobs[$id] = self::job(self::named($job, $id), $job);
-
-                continue;
-            }
-
-            foreach (self::jobsOf($workflow[1]) as $inner => $called) {
-                $jobs[sprintf('%s/%s', $id, $inner)] = self::job(sprintf('%s / %s', $id, self::named($called, $inner)), $called);
-            }
+        foreach (self::WORKFLOWS as $workflow) {
+            $jobs = [...$jobs, ...self::jobsIn($workflow)];
         }
 
         return $jobs;
     }
 
     /**
-     * The ids of the jobs ci.yml runs, a called workflow as the job that calls it.
+     * For each workflow, the jobs its gathering job does not wait for.
      *
-     * @return list<string>
+     * @return array<string, list<string>>
      */
-    public static function ciJobIds(): array
+    public static function ungathered(): array
     {
-        return array_keys(self::jobsOf(self::CI));
-    }
+        $ungathered = [];
 
-    /** @return list<string> what a job of ci.yml waits for */
-    public static function needsOf(string $id): array
-    {
-        $jobs = self::jobsOf(self::CI);
-        $needs = array_key_exists($id, $jobs) ? $jobs[$id]->field('needs') : Node::decode('{}');
+        foreach (self::WORKFLOWS as $workflow) {
+            $jobs = self::jobsOf($workflow);
+            $gatherer = '';
+            $needs = [];
 
-        return array_map(Lenient::text(...), Lenient::items($needs));
+            foreach ($jobs as $id => $job) {
+                if (self::gathers($job)) {
+                    $gatherer = $id;
+                    $needs = array_map(Lenient::text(...), Lenient::items($job->field('needs')));
+                }
+            }
+
+            $ungathered[$workflow] = array_values(array_diff(array_keys($jobs), $needs, [$gatherer]));
+        }
+
+        return $ungathered;
     }
 
     /**
@@ -107,6 +113,32 @@ final readonly class Gates
     public static function fileName(string $gate): string
     {
         return str_replace('/', '-', $gate);
+    }
+
+    /** @return array<string, Job> */
+    private static function jobsIn(string $workflow): array
+    {
+        $jobs = [];
+
+        foreach (self::jobsOf($workflow) as $id => $job) {
+            if (preg_match(self::CALLED, Lenient::text($job->field('uses')), $calls) !== 1) {
+                $jobs[$id] = self::job(self::named($job, $id), $job);
+
+                continue;
+            }
+
+            foreach (self::jobsOf($calls[1]) as $inner => $called) {
+                $jobs[sprintf('%s/%s', $id, $inner)] = self::job(sprintf('%s / %s', $id, self::named($called, $inner)), $called);
+            }
+        }
+
+        return $jobs;
+    }
+
+    /** Whether a job gathers its run's evidence into one artifact. */
+    private static function gathers(Node $job): bool
+    {
+        return array_any(Lenient::items($job->field('steps')), fn(Node $step): bool => str_starts_with(Lenient::text($step->field('uses')), self::GATHERS));
     }
 
     /** @return Job */

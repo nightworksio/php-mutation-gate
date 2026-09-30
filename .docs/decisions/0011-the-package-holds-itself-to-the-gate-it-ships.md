@@ -148,7 +148,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | Job | Runs | Required |
    |-----|------|----------|
    | what changed | Skips the PHP jobs for a documentation-only change | yes |
-   | commitlint, attribution | Every commit's conventional subject and trailers, the title and the body; in the `pr` workflow, which also runs on an edited title or body, with `Spec:` numbers and a breaking change's *Migration* section checked (ADR-0019) | yes |
+   | commitlint, attribution, description | Every commit's conventional subject and trailers, the title and the body; in the `pr` workflow, which also runs on an edited title or body, where `description` checks the `Spec:` numbers and a breaking change's *Migration* section (ADR-0019) | yes |
    | hygiene | actionlint, typos, lychee (links), markdownlint and zizmor | yes |
    | scripts | `python3 -m unittest` over the deciding halves of `.github/scripts` (ADR-0019) | yes |
    | security | gitleaks and osv-scanner | yes |

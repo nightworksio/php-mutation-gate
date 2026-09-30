@@ -149,8 +149,9 @@ it('leaves evidence from every CI job, and explains every failure', function ():
         };
     }
 
-    $gathered = array_diff(Gates::ciJobIds(), Gates::needsOf('evidence'), ['evidence']);
-    $wrong[] = $gathered === [] ? '' : sprintf('the evidence job does not wait for %s', implode(', ', $gathered));
+    foreach (Gates::ungathered() as $workflow => $waiting) {
+        $wrong[] = $waiting === [] ? '' : sprintf('the job gathering the evidence of %s does not wait for %s', $workflow, implode(', ', $waiting));
+    }
 
     // V2
     expect(stated($wrong))->toBe([], sprintf(

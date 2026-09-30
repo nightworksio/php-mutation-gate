@@ -70,85 +70,6 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py scope
 
-  # The record of every commit a pull request brings: no tool is credited for
-  # it, and its subject is conventional. Each reads the pull request's
-  # base..head, so neither runs on a push to main.
-  attribution:
-    name: attribution
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      # The body as well as the commits, because a squash merge writes the pull
-      # request's title and body into the commit that lands on main.
-      - env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-        id: check
-        run: |
-          mkdir -p evidence/raw
-          printf '%s\n\n%s\n' "${PR_TITLE}" "${PR_BODY}" \
-            | python3 .github/scripts/attribution_check.py "${BASE_SHA}" "${HEAD_SHA}" --body-on-stdin \
-              --findings evidence/raw/attribution.json
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
-      - name: evidence
-        if: ${{ !cancelled() }}
-        env:
-          STEPS: ${{ toJSON(steps) }}
-        run: python3 .github/scripts/evidence.py attribution
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() }}
-        with:
-          name: evidence-attribution
-          path: evidence/attribution*
-          if-no-files-found: error
-          retention-days: 7
-      - name: what failed
-        if: failure()
-        run: python3 .github/scripts/gate_summary.py attribution
-
-  commitlint:
-    name: commitlint
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        id: check
-        run: |
-          mkdir -p evidence/raw
-          python3 .github/scripts/commit_lint.py "${BASE_SHA}" "${HEAD_SHA}" --title "${PR_TITLE}" \
-            --findings evidence/raw/commitlint.json
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
-      - name: evidence
-        if: ${{ !cancelled() }}
-        env:
-          STEPS: ${{ toJSON(steps) }}
-        run: python3 .github/scripts/evidence.py commitlint
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() }}
-        with:
-          name: evidence-commitlint
-          path: evidence/commitlint*
-          if-no-files-found: error
-          retention-days: 7
-      - name: what failed
-        if: failure()
-        run: python3 .github/scripts/gate_summary.py commitlint
-
   # The deciding half of every script under .github/scripts, tested without a
   # runner (ADR-0019, decision 1).
   scripts:
@@ -629,7 +550,7 @@ jobs:
   # left none.
   evidence:
     name: evidence
-    needs: [scope, attribution, commitlint, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contracts, sonar, gate]
+    needs: [scope, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contracts, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

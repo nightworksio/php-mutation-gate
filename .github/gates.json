@@ -34,6 +34,28 @@
         "conventional-title": "The pull request title is not conventional. A squash merge makes it the subject of the commit on main, so write it as type(scope): subject."
       }
     },
+    "description": {
+      "check": "description",
+      "checks": "The pull request's body: every Spec: line names a decision in .docs/decisions, and a breaking title (feat!:) has a Migration section.",
+      "reproduce": "PR_TITLE=\"<the title>\" PR_BODY=\"<the body>\" python3 .github/scripts/pr_text.py origin/main HEAD",
+      "evidence": [
+        {"step": "check", "tool": "description", "raw": "evidence/raw/description.json"}
+      ],
+      "rules": {
+        "description": "The check could not read the pull request's changes.",
+        "unknown-spec": "A Spec: line names a number that is no decision in .docs/decisions. The body becomes main's commit message, so it names only decisions that exist.",
+        "missing-migration": "The title marks a breaking change, and the body has no Migration section saying what a user changes. Add a ## Migration section.",
+        "suggest-title": "A conventional title for these changes starts like this.",
+        "suggest-spec": "These changes touch paths that belong to these decisions. Name the one this pull request follows with a Spec: line."
+      }
+    },
+    "pr-evidence": {
+      "check": "pr evidence",
+      "checks": "It gathers the pr workflow's evidence into the one artifact the bot reads.",
+      "reproduce": "Nothing to reproduce",
+      "evidence": "none",
+      "why": "It holds the other jobs' evidence and checks nothing itself."
+    },
     "scripts": {
       "check": "scripts",
       "checks": "The deciding half of every script under .github/scripts, by its unit tests.",
