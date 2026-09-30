@@ -90,6 +90,23 @@ it('adds the group of every describe a test is registered inside, at any depth',
     expect(groupingGroups($factory))->toBe(['holds:src/Money.php', 'holds:src/Kernel.php', 'holds:src/Held.php']);
 });
 
+it('reads only the describe around a test whose closure is unset', function (): void {
+    $factory = new TestCaseMethodFactory('tests/MoneyTest.php', static fn(): bool => true);
+    $factory->closure = null;
+
+    new DescribeCall(
+        TestSuite::getInstance(),
+        'tests/MoneyTest.php',
+        new Description('money'),
+        #[Holds('src/Held.php')]
+        static function () use ($factory): void {
+            new HoldsGroups()->accept($factory);
+        },
+    );
+
+    expect(groupingGroups($factory))->toBe(['holds:src/Held.php']);
+});
+
 it('filters every test Pest registers from then on', function (): void {
     $tests = new TestRepository();
     HoldsGroups::register($tests);
