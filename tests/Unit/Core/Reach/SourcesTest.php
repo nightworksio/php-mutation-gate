@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Reach\Sources;
@@ -12,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Reach\Sources;
 it('holds nothing to begin with', function (): void {
     expect(Sources::none()->now(Path::of('src/Money.php')))->toEqual(Missing::at(Path::of('src/Money.php')))
         ->and(Sources::none()->before(Path::of('src/Money.php')))->toEqual(Missing::at(Path::of('src/Money.php')))
-        ->and(Sources::none()->php())->toBe([]);
+        ->and(Sources::none()->php())->toHaveCount(0);
 });
 
 it('holds a file as it is on disk and as it was at the base, apart', function (): void {
@@ -34,13 +36,24 @@ it('reads every PHP file on disk, and no other file', function (): void {
         ->withBefore(Path::of('src/Old.php'), Contents::of("<?php\n\nfinal class Old {}\n"));
 
     $read = $sources->php();
+    $clock = $read->at(Path::of('tests/Fakes/ClockFake.php'), PhpFile::read(Contents::of('')));
+    $money = $read->at(Path::of('src/Money.php'), PhpFile::read(Contents::of('')));
 
-    expect($read)->toHaveCount(2)
-        ->and($read[0][0]->value())->toBe('tests/Fakes/ClockFake.php')
-        ->and($read[1][0]->value())->toBe('src/Money.php')
-        ->and($read[0][1])->toBeInstanceOf(PhpFile::class)
-        ->and($read[0][1]->declares()->meet(Names::of('Tests\Fakes\ClockFake')))->toBeTrue()
-        ->and($read[1][1]->declares()->meet(Names::of('Money')))->toBeTrue();
+    expect($read->paths())->toEqual(Paths::of(Path::of('tests/Fakes/ClockFake.php'), Path::of('src/Money.php')))
+        ->and($clock->declares()->meet(Names::of('Tests\Fakes\ClockFake')))->toBeTrue()
+        ->and($money->declares()->meet(Names::of('Money')))->toBeTrue();
+});
+
+it('holds the files a change source read together, a missing one among them', function (): void {
+    $paths = Paths::of(Path::of('src/Money.php'), Path::of('src/Gone.php'));
+    $sources = Sources::of(
+        ByPath::mapping($paths, static fn(Path $path): Contents|Missing => $path->value() === 'src/Money.php' ? Contents::of("<?php\n\nfinal class Money {}\n") : Missing::at($path)),
+        ByPath::mapping($paths, static fn(Path $path): Contents => Contents::of(sprintf('before %s', $path->value()))),
+    );
+
+    expect($sources->now(Path::of('src/Gone.php')))->toEqual(Missing::at(Path::of('src/Gone.php')))
+        ->and($sources->before(Path::of('src/Gone.php')))->toEqual(Contents::of('before src/Gone.php'))
+        ->and($sources->php()->paths())->toEqual(Paths::of(Path::of('src/Money.php')));
 });
 
 it('leaves the sources it came from as they were', function (): void {

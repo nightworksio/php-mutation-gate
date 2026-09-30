@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Git;
 
-use function array_key_exists;
 use function array_map;
 use function array_merge;
 use function array_pop;
@@ -15,9 +14,11 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 
 use function preg_match;
 use function preg_match_all;
@@ -55,16 +56,16 @@ final readonly class Diff
      * Every changed path, from `git diff --name-status -z`, with the lines
      * each gained.
      *
-     * @param array<string, Lines> $lines the lines each path gained, by its path
+     * @param ByPath<Lines> $lines the lines each path gained
      */
-    public static function changes(string $status, array $lines): Changes
+    public static function changes(string $status, ByPath $lines): Changes
     {
         preg_match_all(self::ENTRY, $status, $entries, PREG_SET_ORDER);
         $changes = [];
 
         foreach ($entries as $entry) {
             $from = rtrim($entry['from'], "\0");
-            $changes[] = self::change($entry['kind'], $from, $entry['path'], $lines);
+            $changes[] = self::change($entry['kind'], $from, Path::of($entry['path']), $lines);
         }
 
         return Changes::of(...$changes);
@@ -73,19 +74,22 @@ final readonly class Diff
     /**
      * The lines each file gained on its new side, from `git diff --unified=0`.
      *
-     * @return array<string, Lines>
+     * @return ByPath<Lines>
      */
-    public static function lines(string $patch): array
+    public static function lines(string $patch): ByPath
     {
         $lines = [];
+        $paths = [];
 
         foreach (explode(self::PART, $patch) as $part) {
             if (preg_match(self::NEW_SIDE, $part, $side) === 1) {
-                $lines[stripcslashes($side['path'])] = self::gainedIn($part);
+                $path = Path::of(stripcslashes($side['path']));
+                $lines[$path->value()] = self::gainedIn($part);
+                $paths[] = $path;
             }
         }
 
-        return $lines;
+        return ByPath::mapping(Paths::of(...$paths), static fn(Path $path): Lines => $lines[$path->value()]);
     }
 
     /** Every line of a text, as the lines a new file gains. */
@@ -97,21 +101,17 @@ final readonly class Diff
         return self::linesAt(self::spanning(1, count($pieces) + ($last === '' ? 0 : 1)));
     }
 
-    /** @param array<string, Lines> $lines */
-    private static function change(string $kind, string $from, string $path, array $lines): Change
+    /** @param ByPath<Lines> $lines */
+    private static function change(string $kind, string $from, Path $path, ByPath $lines): Change
     {
-        return match ($kind) {
-            'R' => Change::renamed(Path::of($from), Path::of($path), self::linesOf($lines, $path)),
-            'A' => Change::added(Path::of($path), self::linesOf($lines, $path)),
-            'D' => Change::deleted(Path::of($path)),
-            default => Change::modified(Path::of($path), self::linesOf($lines, $path)),
-        };
-    }
+        $gained = $lines->at($path, Lines::none());
 
-    /** @param array<string, Lines> $lines */
-    private static function linesOf(array $lines, string $path): Lines
-    {
-        return array_key_exists($path, $lines) ? $lines[$path] : Lines::none();
+        return match ($kind) {
+            'R' => Change::renamed(Path::of($from), $path, $gained),
+            'A' => Change::added($path, $gained),
+            'D' => Change::deleted($path),
+            default => Change::modified($path, $gained),
+        };
     }
 
     /** The lines the hunks of one file's part of a patch gained. */

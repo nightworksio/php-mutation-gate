@@ -9,6 +9,7 @@ use function array_diff_key;
 use function array_filter;
 use function array_key_exists;
 use function array_values;
+use function count;
 use function ksort;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -52,7 +53,8 @@ final readonly class SupportUsers
         $places = [];
         $mentioning = [];
 
-        foreach ($sources->php() as $place => [$path, $file]) {
+        foreach ($sources->php() as $path => $file) {
+            $place = count($files);
             $files[] = [$path, $file, self::roleOf($layout, $packages, $path)];
             $places[$path->value()] = $place;
 

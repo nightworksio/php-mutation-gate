@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
-use function array_key_exists;
-
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -20,14 +19,14 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
  */
 final readonly class Reach
 {
-    /** @param array<string, Lines> $lines the changed lines of each source file, by its path */
+    /** @param ByPath<Lines> $lines the changed lines of each source file */
     private function __construct(
         private Packages $packages,
         private bool $everywhere,
         private Paths $wholly,
         private Reached $files,
         private Reached $trees,
-        private array $lines,
+        private ByPath $lines,
         private Reasons $reasons,
     ) {
     }
@@ -41,7 +40,7 @@ final readonly class Reach
             wholly: Paths::none(),
             files: Reached::none(),
             trees: Reached::none(),
-            lines: [],
+            lines: ByPath::none(),
             reasons: Reasons::of(),
         );
     }
@@ -119,16 +118,13 @@ final readonly class Reach
     /** This reach, knowing which lines of a source file the change added or modified. */
     public function withLines(Path $file, Lines $lines): self
     {
-        $changed = $this->lines;
-        $changed[$file->value()] = $lines;
-
         return new self(
             $this->packages,
             $this->everywhere,
             $this->wholly,
             $this->files,
             $this->trees,
-            $changed,
+            $this->lines->with($file, $lines),
             $this->reasons,
         );
     }
@@ -154,7 +150,7 @@ final readonly class Reach
     /** The lines of a source file the change added or modified; none for a file it did not change. */
     public function changedLines(Path $file): Lines
     {
-        return array_key_exists($file->value(), $this->lines) ? $this->lines[$file->value()] : Lines::none();
+        return $this->lines->at($file, Lines::none());
     }
 
     /** Whether the change reaches every unit of every package. */
