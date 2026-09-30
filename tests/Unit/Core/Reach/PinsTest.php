@@ -50,3 +50,10 @@ it('finds more than a pin moved when an action is pinned at a tag', function () 
         $workflow('actions/checkout@v5', sprintf('shivammathur/setup-php@%s', $one), 'composer test'),
     ))->toBeFalse();
 });
+
+it('reads a definition without the commit each action is pinned at and the comment after it, quoted or not', function (): void {
+    $pin = str_repeat('4e', 20);
+    $definition = Contents::of(sprintf("- uses: a/b@%1\$s # v1\n- uses: 'c/d@%1\$s'\n- uses: e/f@v2 # tag\n", $pin));
+
+    expect(Pins::unpinned($definition))->toBe("- uses: a/b@\n- uses: 'c/d@'\n- uses: e/f@v2 # tag\n");
+});

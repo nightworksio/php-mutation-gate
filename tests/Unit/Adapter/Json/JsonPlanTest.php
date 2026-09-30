@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -69,4 +70,8 @@ it('leaves the run to git', function (): void {
 
 it('is run by no definition of its own', function (): void {
     expect(JsonPlan::printing('', Variables::of([]))->definitions())->toEqual(Paths::none());
+});
+
+it('withholds nothing of its own', function (): void {
+    expect(JsonPlan::printing('', Variables::of([]))->withheld())->toEqual(Withheld::nothing());
 });

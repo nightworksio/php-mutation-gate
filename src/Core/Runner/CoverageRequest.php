@@ -20,22 +20,41 @@ final readonly class CoverageRequest
         private Path $directory,
         private bool $runs,
         private Processes $processes,
+        private Withheld $withheld,
     ) {
     }
 
     public static function running(WholeSuite|Group $tests, Path $into): self
     {
-        return new self($tests, $into, runs: true, processes: Processes::of(1));
+        return new self($tests, $into, runs: true, processes: Processes::of(1), withheld: Withheld::standard());
     }
 
     public static function reading(Path $from): self
     {
-        return new self(WholeSuite::tests(), $from, runs: false, processes: Processes::of(1));
+        return new self(
+            WholeSuite::tests(),
+            $from,
+            runs: false,
+            processes: Processes::of(1),
+            withheld: Withheld::standard(),
+        );
     }
 
     public function across(Processes $processes): self
     {
         return clone($this, ['processes' => $processes]);
+    }
+
+    /** This request, withholding these variables from the tests as well as those it already withholds. */
+    public function withholding(Withheld $withheld): self
+    {
+        return clone($this, ['withheld' => $this->withheld->and($withheld)]);
+    }
+
+    /** The variables the tests never see. */
+    public function withheld(): Withheld
+    {
+        return $this->withheld;
     }
 
     public function tests(): WholeSuite|Group

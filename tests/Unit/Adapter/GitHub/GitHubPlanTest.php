@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -203,4 +204,8 @@ it('reads the output file from the environment', function (): void {
 
     expect($written)->toEqual(Written::to($output))
         ->and(file_get_contents($output))->toBe("shards=[]\n");
+});
+
+it('withholds the Actions runtime\'s credentials and the workflow\'s token', function (): void {
+    expect(GitHubPlan::in(Variables::of([]))->withheld())->toEqual(Withheld::of('ACTIONS_*', 'GITHUB_TOKEN'));
 });

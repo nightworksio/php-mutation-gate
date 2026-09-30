@@ -25,7 +25,15 @@ final readonly class Pins
 
     public static function onlyMoved(Contents $before, Contents $after): bool
     {
-        return preg_replace(self::PIN, self::UNPINNED, $before->text())
-            === preg_replace(self::PIN, self::UNPINNED, $after->text());
+        return self::unpinned($before) === self::unpinned($after);
+    }
+
+    /**
+     * A CI definition with every action pinned at a full commit read without
+     * that commit and the comment after it, so a moved pin is no change.
+     */
+    public static function unpinned(Contents $definition): string
+    {
+        return preg_replace(self::PIN, self::UNPINNED, $definition->text()) ?? $definition->text();
     }
 }

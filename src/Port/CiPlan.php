@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 
 /** A CI's own way of running a plan: GitHub Actions, GitLab, Buildkite, CircleCI or plain JSON. */
@@ -35,4 +36,7 @@ interface CiPlan
      * repository.
      */
     public function definitions(): Paths;
+
+    /** The CI's own credentials, which no runner hands the project's tests. */
+    public function withheld(): Withheld;
 }

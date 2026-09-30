@@ -196,8 +196,12 @@ its parser attributes. Both change when the checkout moves.
        inherits the environment the gate's PHP started with, where a variable
        set later by `putenv()` alone does not reach it. It inherits none of
        the variables that make a process a paratest worker or a mutant's run,
-       none of the gate's own, and none of the CI's credentials (`AWS_*`,
-       `ACTIONS_*`, `GITHUB_TOKEN`, `SONAR_TOKEN`).
+       none of the gate's own, and none of the variables a request withholds.
+       Every request withholds the CI's credentials (`AWS_*`, `ACTIONS_*`,
+       `GITHUB_TOKEN`, `SONAR_TOKEN`), each CI plan adds its own CI's tokens
+       (such as GitLab's `CI_JOB_TOKEN` and Buildkite's
+       `BUILDKITE_AGENT_ACCESS_TOKEN`), and `runner.withhold`, a list of names
+       or globs, adds a project's own. The list only ever grows.
      - Pest runs with the project root as its working directory, and one
        `--mutate` invocation at a time runs in a checkout, because each writes
        its opening map to the same path.

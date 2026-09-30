@@ -5,15 +5,14 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use function array_filter;
-use function array_map;
 use function explode;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Reach\Pins;
 
 use function preg_match;
-use function preg_replace;
 
 /**
  * A CI definition that runs the gate, read as it runs: without its comments,
@@ -25,8 +24,6 @@ final readonly class CiDefinition
     /** A line that holds nothing but a comment, or nothing at all. */
     private const string SILENT = '/^\s*(?:#.*)?$/u';
 
-    /** An action pinned at a commit, `uses: owner/repo@<sha>`, and the comment that names its tag. */
-    private const string PIN = '/^(\s*(?:-\s+)?uses:\s*[^@\s]+)@[0-9a-f]{40}(?:\s+#.*)?$/u';
 
     private function __construct(private Path $path, private string $asItRuns)
     {
@@ -38,12 +35,8 @@ final readonly class CiDefinition
             explode("\n", $contents->text()),
             static fn(string $line): bool => preg_match(self::SILENT, $line) !== 1,
         );
-        $unpinned = array_map(
-            static fn(string $line): string => preg_replace(self::PIN, '$1', $line) ?? $line,
-            $lines,
-        );
 
-        return new self($path, implode("\n", $unpinned));
+        return new self($path, Pins::unpinned(Contents::of(implode("\n", $lines))));
     }
 
     public function path(): Path

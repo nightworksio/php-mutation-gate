@@ -31,6 +31,7 @@ final readonly class MutationRequest
         private Uncovered $uncovered,
         private Processes $processes,
         private Path|Fresh $coverage,
+        private Withheld $withheld,
     ) {
     }
 
@@ -45,6 +46,7 @@ final readonly class MutationRequest
             Uncovered::Count,
             Processes::of(1),
             Fresh::coverage(),
+            Withheld::standard(),
         );
     }
 
@@ -73,6 +75,18 @@ final readonly class MutationRequest
     public function across(Processes $processes): self
     {
         return clone($this, ['processes' => $processes]);
+    }
+
+    /** This request, withholding these variables from the tests as well as those it already withholds. */
+    public function withholding(Withheld $withheld): self
+    {
+        return clone($this, ['withheld' => $this->withheld->and($withheld)]);
+    }
+
+    /** The variables the tests never see. */
+    public function withheld(): Withheld
+    {
+        return $this->withheld;
     }
 
     /** This request, reading the coverage map left in a directory instead of running the suite for one. */

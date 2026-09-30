@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
 
 $pin = str_repeat('3d', 20);
 
-it('reads the definition as it runs: no comments, no blank lines, and no commit an action is pinned at', function () use ($pin): void {
+it('reads the definition as it runs: no comments, no blank lines, and no commit an action is pinned at, quoted or not', function () use ($pin): void {
     $definition = CiDefinition::at(Path::of('.github/workflows/mutation.yml'), Contents::of(sprintf(<<<'YAML'
         # The gate.
         name: mutation
@@ -21,6 +21,7 @@ it('reads the definition as it runs: no comments, no blank lines, and no commit 
                   fetch-depth: 0
               - uses: shivammathur/setup-php@%1$s
                   # indented comment
+              - uses: "actions/upload-artifact@%1$s" # v4
               - uses: actions/cache@v4
               - run: echo "#1"
         YAML, $pin)));
@@ -31,10 +32,11 @@ it('reads the definition as it runs: no comments, no blank lines, and no commit 
             jobs:
               mutation:
                 steps:
-                  - uses: actions/checkout
+                  - uses: actions/checkout@
                     with:
                       fetch-depth: 0
-                  - uses: shivammathur/setup-php
+                  - uses: shivammathur/setup-php@
+                  - uses: "actions/upload-artifact@"
                   - uses: actions/cache@v4
                   - run: echo "#1"
             YAML);

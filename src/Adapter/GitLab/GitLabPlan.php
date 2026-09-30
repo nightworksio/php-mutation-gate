@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -135,6 +136,18 @@ final readonly class GitLabPlan implements CiPlan, Configurable
         $pipeline = $this->variables->valueOf('CI_CONFIG_PATH');
 
         return Paths::of(Path::of($pipeline === '' ? self::PIPELINE_DEFINITION : $pipeline), Path::of($this->template));
+    }
+
+    /** The job's token and its signed identity, and the registry's and deploy tokens' passwords. */
+    public function withheld(): Withheld
+    {
+        return Withheld::of(
+            'CI_JOB_TOKEN',
+            'CI_JOB_JWT*',
+            'CI_REGISTRY_PASSWORD',
+            'CI_DEPLOY_PASSWORD',
+            'CI_DEPENDENCY_PROXY_PASSWORD',
+        );
     }
 
     /** @return array<string, mixed> */

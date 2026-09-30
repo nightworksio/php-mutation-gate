@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -121,6 +122,12 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         return preg_match(self::WORKFLOW, $this->variables->valueOf('GITHUB_WORKFLOW_REF'), $found) === 1
             ? Paths::of(Path::of($found['path']))
             : Paths::none();
+    }
+
+    /** The Actions runtime's token and variables, and the workflow's `GITHUB_TOKEN`. */
+    public function withheld(): Withheld
+    {
+        return Withheld::of('ACTIONS_*', 'GITHUB_TOKEN');
     }
 
     private function runIn(Node|CannotTell $payload, Scope|CannotTell $defaultBranch): RunOn|CannotTell

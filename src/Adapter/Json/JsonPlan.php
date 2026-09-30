@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -66,5 +67,11 @@ final readonly class JsonPlan implements CiPlan, Configurable
     public function definitions(): Paths
     {
         return Paths::none();
+    }
+
+    /** None: the JSON plan knows no CI. */
+    public function withheld(): Withheld
+    {
+        return Withheld::nothing();
     }
 }

@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Options;
@@ -119,6 +120,12 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
     public function definitions(): Paths
     {
         return Paths::of(Path::of(self::DEFINITION));
+    }
+
+    /** The agent's token, which can upload and change pipelines. */
+    public function withheld(): Withheld
+    {
+        return Withheld::of('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN');
     }
 
     /** @return array<string, mixed> */
