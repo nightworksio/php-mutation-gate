@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Doctor\RunnerPhp;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function preg_match;
@@ -66,12 +67,7 @@ final readonly class PhpProbe
     public function platform(Withheld $withheld, string ...$options): Platform|CannotJudge
     {
         $arguments = [...array_values($options), ...Platform::describing()];
-        $environment = [];
-
-        foreach ($this->environment as $name => $value) {
-            $environment[$name] = preg_match($withheld->pattern(), $name) === 1 ? false : $value;
-        }
-
+        $environment = Withholding::of($withheld, $this->environment);
         $process = new Process([$this->binary, ...$arguments], null, $environment, null, $this->limit->seconds());
 
         try {

@@ -16,8 +16,8 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Withholding;
 
-use function preg_match;
 use function proc_close;
 use function proc_open;
 use function sprintf;
@@ -92,9 +92,8 @@ final readonly class Command
     public static function withholding(string $directory, Withheld $withheld, array $inherited): self
     {
         $kept = array_filter(
-            $inherited,
-            static fn(string $name): bool => preg_match($withheld->pattern(), $name) !== 1,
-            ARRAY_FILTER_USE_KEY,
+            Withholding::of($withheld, $inherited),
+            static fn(string|false $value): bool => $value !== false,
         );
 
         return new self($directory, $kept);
