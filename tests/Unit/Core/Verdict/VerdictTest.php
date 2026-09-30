@@ -3,44 +3,107 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
-use NightWorksIO\MutationGate\Core\Score\Undeclared;
+use NightWorksIO\MutationGate\Core\Reach\Reason;
+use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Verdict\Failure;
+use NightWorksIO\MutationGate\Core\Verdict\Failures;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
+use NightWorksIO\MutationGate\Tests\Support\Judged;
 
-$judged = static fn(Judgement $judgement): TreeVerdict => TreeVerdict::of(Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root())), NothingToMutate::found(), $judgement);
+$tree = static fn(string $path, JudgedUnits $units, JudgedMutants $mutants): TreeVerdict => TreeVerdict::judged(
+    Tree::at(Path::of($path), Floor::of(100), Package::at(Path::root())),
+    Unrecorded::floor(),
+    $units,
+    $mutants,
+    Uncovered::Count,
+);
+$unit = static fn(string $path): JudgedUnit => JudgedUnit::of(Unit::file(Path::of($path)), Origin::Run);
+$passed = $tree('src', JudgedUnits::none(), Judged::mutants(MutantJudgement::Killed));
+$failed = $tree('src', JudgedUnits::none(), Judged::mutants(MutantJudgement::Survived));
+$newCode = static fn(MutantJudgement $judgement): NewCodeVerdict => NewCodeVerdict::judged(
+    Package::at(Path::root()),
+    Floor::of(100),
+    Judged::mutants($judgement),
+    Uncovered::Count,
+);
 
-it('holds the trees, the mutants and the warnings', function () use ($judged): void {
-    $trees = TreeVerdicts::of($judged(Judgement::Passed));
-    $mutants = Mutants::none();
-    $warnings = Warnings::of(Warning::that('src/Kernel.php is run by 412 of 430 tests and nothing holds it.'));
-    $verdict = Verdict::of($trees, $mutants, $warnings);
+it('holds its trees, and nothing else to begin with', function () use ($passed): void {
+    $trees = TreeVerdicts::of($passed);
+    $verdict = Verdict::of($trees);
 
     expect($verdict->trees())->toBe($trees)
-        ->and($verdict->mutants())->toBe($mutants)
-        ->and($verdict->warnings())->toBe($warnings);
+        ->and($verdict->newCode())->toHaveCount(0)
+        ->and($verdict->reach())->toHaveCount(0)
+        ->and($verdict->warnings())->toHaveCount(0)
+        ->and($verdict->failures())->toHaveCount(0);
 });
 
-it('fails when any tree failed, and passes otherwise', function (array $judgements, Judgement $whole) use ($judged): void {
-    $trees = TreeVerdicts::none();
+it('takes the new-code sets, the reach, the warnings and the failures, each without losing the others', function () use ($passed, $newCode): void {
+    $sets = NewCodeVerdicts::of($newCode(MutantJudgement::Killed));
+    $reach = Reasons::of(Reason::that('src/Money.php changed.'));
+    $warnings = Warnings::of(Warning::that('src/Kernel.php is run by 412 of 430 tests and nothing holds it.'));
+    $failures = Failures::of(Failure::that('The ignore of src/Money.php:12 matched no mutant.'));
+    $verdict = Verdict::of(TreeVerdicts::of($passed))
+        ->withNewCode($sets)
+        ->withReach($reach)
+        ->withWarnings($warnings)
+        ->withFailures($failures);
+    $again = $verdict->withNewCode($sets)->withReach($reach)->withWarnings($warnings)->withFailures($failures);
 
-    foreach ($judgements as $judgement) {
-        $trees = $judgement instanceof Judgement ? $trees->with($judged($judgement)) : $trees;
-    }
+    expect($again->newCode())->toBe($sets)
+        ->and($again->reach())->toBe($reach)
+        ->and($again->warnings())->toBe($warnings)
+        ->and($again->failures())->toBe($failures)
+        ->and($again->trees())->toEqual(TreeVerdicts::of($passed));
+});
 
-    $verdict = Verdict::of($trees, Mutants::none(), Warnings::none());
+it('lists every unit and every mutant, tree by tree', function () use ($tree, $unit): void {
+    $verdict = Verdict::of(TreeVerdicts::of(
+        $tree('app', JudgedUnits::of($unit('app/A.php'), $unit('app/B.php')), Judged::mutants(MutantJudgement::Killed)),
+        $tree('src', JudgedUnits::of($unit('src/C.php')), Judged::mutants(MutantJudgement::Survived, MutantJudgement::Flaky)),
+    ));
+    $paths = array_map(
+        static fn(JudgedUnit $judged): string => $judged->unit()->path()->value(),
+        iterator_to_array($verdict->units(), preserve_keys: true),
+    );
 
-    expect($verdict->judgement())->toBe($whole);
+    expect($paths)->toBe(['app/A.php', 'app/B.php', 'src/C.php'])
+        ->and($verdict->mutants()->counts()->number(MutantJudgement::Killed))->toBe(1)
+        ->and($verdict->mutants()->counts()->number(MutantJudgement::Flaky))->toBe(1)
+        ->and($verdict->mutants())->toHaveCount(3);
+});
+
+it('fails when any tree or new-code set failed, or anything else did, and passes otherwise', function (
+    TreeVerdicts $trees,
+    NewCodeVerdicts $newCode,
+    Failures $failures,
+    Judgement $whole,
+): void {
+    expect(Verdict::of($trees)->withNewCode($newCode)->withFailures($failures)->judgement())->toBe($whole);
 })->with([
-    'no tree' => [[], Judgement::Passed],
-    'every tree passed' => [[Judgement::Passed, Judgement::Passed], Judgement::Passed],
-    'the last tree failed' => [[Judgement::Passed, Judgement::Failed], Judgement::Failed],
-    'the first tree failed' => [[Judgement::Failed, Judgement::Passed], Judgement::Failed],
+    'no tree' => [TreeVerdicts::none(), NewCodeVerdicts::none(), Failures::none(), Judgement::Passed],
+    'every tree passed' => [TreeVerdicts::of($passed, $passed), NewCodeVerdicts::none(), Failures::none(), Judgement::Passed],
+    'the last tree failed' => [TreeVerdicts::of($passed, $failed), NewCodeVerdicts::none(), Failures::none(), Judgement::Failed],
+    'the first tree failed' => [TreeVerdicts::of($failed, $passed), NewCodeVerdicts::none(), Failures::none(), Judgement::Failed],
+    'the new code passed' => [TreeVerdicts::of($passed), NewCodeVerdicts::of($newCode(MutantJudgement::Killed)), Failures::none(), Judgement::Passed],
+    'the new code failed' => [TreeVerdicts::of($passed), NewCodeVerdicts::of($newCode(MutantJudgement::Survived)), Failures::none(), Judgement::Failed],
+    'a failure no floor decides' => [TreeVerdicts::of($passed), NewCodeVerdicts::none(), Failures::of(Failure::that('A stale ignore.')), Judgement::Failed],
 ]);
