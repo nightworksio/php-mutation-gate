@@ -300,7 +300,7 @@ decides are accepted for that release too.
       command gives its own process a `memory_limit` of PHP's default 128M
       for the rest of a run and 38 bytes for each byte of the largest ledger
       a run reads, at least a fifth more than 30.99: 1,578,217,728 bytes,
-      which is 1506M. A later measurement is checked against this shape. It
+      which is 1506M. The command
       raises the limit only where it is lower, never where it is `-1`, and
       only for itself; library code changes no setting. Where PHP does not
       let it, `doctor` reports `memory-limit-low`.
