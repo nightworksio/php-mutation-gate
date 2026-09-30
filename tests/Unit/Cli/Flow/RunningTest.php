@@ -49,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -226,6 +227,19 @@ it('stops at the first shard whose result cannot be written', function (): void 
         ->and(is_file(sprintf('%s/.mutation-gate/results/2.json', $project)))->toBeFalse();
 });
 
+it('asks a runner that runs a mutant per core for every core the machine has', function (): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture()->behaving(RunnerBehaviour::standard()->runningPerCore());
+    $adapters = Flows::adapters($project, [], $runner);
+
+    new Running($adapters, Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect(array_map(static fn(MutationRequest $request): Processes => $request->processes(), $runner->requests()))
+        ->toEqual([$adapters->cores, $adapters->cores])
+        ->and($adapters->cores)->not->toEqual(Processes::single());
+});
+
 it('runs the held path by its group, the rest by the suite, on the shard\'s map, secrets withheld', function (): void {
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
@@ -242,6 +256,7 @@ it('runs the held path by its group, the rest by the suite, on the shard\'s map,
         ->and($rest->judgedBy())->toEqual(WholeSuite::tests())
         ->and($held->coverage())->toEqual(Workspace::shardCoverage(ShardId::of(1)))
         ->and($rest->coverage())->toEqual(Workspace::shardCoverage(ShardId::of(1)))
+        ->and($held->processes())->toEqual(Processes::single())
         ->and($held->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($rest->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($runner->identified())->not->toBeEmpty()

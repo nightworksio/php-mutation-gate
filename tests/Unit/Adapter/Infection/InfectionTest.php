@@ -701,9 +701,9 @@ it('runs a shard of the flows on the map the plan handed it, in its own layout',
         ->and(infectionRan($shell)[0])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()));
 });
 
-it('behaves as the port expects of a runner, but stops each mutant at its first killer', function (): void {
+it('behaves as the port expects of a runner, but stops each mutant at its first killer and runs one per core', function (): void {
     $at = infectionProject();
 
     expect(new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->behaviour())
-        ->toEqual(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection));
+        ->toEqual(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->runningPerCore());
 });

@@ -83,6 +83,7 @@ final readonly class Wiring
                 $project,
                 $this->environment,
                 $withheld,
+                Cores::counted(),
             ),
         };
     }

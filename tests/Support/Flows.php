@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -164,6 +165,7 @@ final readonly class Flows
             Directory::at($project),
             Variables::of($environment),
             Withheld::standard()->and(CiPlanFake::withheld()),
+            Processes::of(2),
         );
     }
 

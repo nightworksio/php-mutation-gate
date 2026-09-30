@@ -113,11 +113,12 @@ final readonly class Infection implements Runner
     /**
      * Infection lists `#[Holds]` as groups, raises its limit, and reuses the
      * map the plan handed each shard; it stops each mutant at its first
-     * failing test, so it cannot record every killer.
+     * failing test, so it cannot record every killer. It runs a mutant per
+     * core, across the threads a request asks for.
      */
     public function behaviour(): RunnerBehaviour
     {
-        return RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection);
+        return RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->runningPerCore();
     }
 
     public function groups(Withheld $withheld): Groups|CannotJudge
