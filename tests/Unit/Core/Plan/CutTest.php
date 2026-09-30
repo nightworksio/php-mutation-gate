@@ -199,3 +199,29 @@ it('cannot judge a fixed count smaller than the packages', function () use ($wei
         '--shards=1 cannot hold 2 packages, because packages never share a shard. Ask for 2 shards or more.',
     ));
 });
+
+it('cuts to a target wall time the fewest shards whose overhead and share of the cost fit it', function (
+    Cut $cut,
+    int $count,
+) use ($weighed, $src, $shards): void {
+    $work = Workload::of(
+        $weighed('src/A.php', 400.0),
+        $weighed('src/B.php', 400.0),
+        $weighed('src/C.php', 400.0),
+    );
+
+    expect($shards($cut->cut($work, $src)))->toHaveCount($count);
+})->with([
+    'a setup that leaves room for half the cost' => [Cut::toTarget(Seconds::of(700.0), Seconds::of(100.0), 20), 2],
+    'an opening run on top of the setup' => [
+        Cut::toTarget(Seconds::of(700.0), Seconds::of(100.0), 20)->opening(Seconds::of(200.0)),
+        3,
+    ],
+    'more than the most shards there may be' => [Cut::toTarget(Seconds::of(150.0), Seconds::of(100.0), 2), 2],
+    'an overhead past the target' => [Cut::toTarget(Seconds::of(60.0), Seconds::of(100.0), 3), 3],
+]);
+
+it('cuts no shard to a target where there is no work', function (): void {
+    expect(Cut::toTarget(Seconds::of(600.0), Seconds::of(60.0), 20)->cut(Workload::of(), Trees::none()))
+        ->toHaveCount(0);
+});

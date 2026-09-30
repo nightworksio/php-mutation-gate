@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\WholeNumber;
 
 use function sprintf;
@@ -92,8 +93,14 @@ final readonly class FlowOptions
     public static function cut(InputInterface $input, Settings $settings): Cut|CannotJudge
     {
         $shards = self::text($input, self::SHARDS);
+        $target = $settings->shards()->target();
 
         return match (true) {
+            $shards === '' && $target instanceof Seconds => Cut::toTarget(
+                $target,
+                $settings->shards()->setup(),
+                $settings->shards()->max(),
+            ),
             $shards === '' => Cut::bySize(
                 (int) $settings->shards()->seconds()->seconds(),
                 $settings->shards()->max(),

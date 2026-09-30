@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Plan\Workload;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -89,7 +90,12 @@ final readonly class Planning
         );
         $keys = $keying->keysOf($considering->considered());
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base());
-        $shards = $this->shardsOf($proving->toRun(), $inventory->trees, $ledgers, $cut);
+        $shards = $this->shardsOf(
+            $proving->toRun(),
+            $inventory->trees,
+            $ledgers,
+            $cut->opening($this->openingOf($map)),
+        );
         $changed = $this->newCode($inventory->standing, $reached);
 
         return match (true) {
@@ -118,6 +124,22 @@ final readonly class Planning
             : $unmarked;
 
         return $shards instanceof Shards ? $this->rooted($shards) : $shards;
+    }
+
+    /**
+     * How long a shard's runner spends on its opening run, before it has
+     * measured one of its own: the coverage run's, every test's duration.
+     */
+    private function openingOf(CoverageMap $map): Seconds
+    {
+        $seconds = 0.0;
+
+        foreach ($map->tests() as $test) {
+            $duration = $map->durationOf($test);
+            $seconds += $duration instanceof Seconds ? $duration->seconds() : 0.0;
+        }
+
+        return Seconds::of($seconds);
     }
 
     /** The plan, once each shard is handed the map of its own files. */
