@@ -45,6 +45,9 @@ use function strval;
  */
 final readonly class CoverageMapFile
 {
+    /** The map's name in the directory a job hands it over in. */
+    private const string NAME = 'map.json.gz';
+
     private const int FORMAT = 1;
 
     /** Why a file cannot be read as a map. */
@@ -54,6 +57,12 @@ final readonly class CoverageMapFile
     private const string LINE = '/^[1-9]\d*$/D';
 
     private const string SECONDS = 'seconds';
+
+    /** Where the map stands in the directory a job hands it over in. */
+    public static function in(Path $directory): Path
+    {
+        return Path::of(sprintf('%s/%s', $directory->value(), self::NAME));
+    }
 
     public static function encode(CoverageMap $map): string
     {

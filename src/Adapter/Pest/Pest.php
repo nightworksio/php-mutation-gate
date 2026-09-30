@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_key_exists;
 use function array_values;
 use function count;
+use function dirname;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
@@ -68,6 +69,9 @@ final readonly class Pest implements Runner
 
     private const string EMPTY_CANARY = 'pest.patch is on, but the canary group %s holds no test. Add one.';
 
+    /** Where the map another job handed over is written again for this job's Pest, beside the results. */
+    private const string SHARED_MAP = '%s/shared.coverage.php';
+
     private const string NOT_FOUND_AGAIN = 'Run again alone, Pest made no mutant with this id.';
 
     public function __construct(private Project $project, private Shell $shell, private Patching $patching)
@@ -111,19 +115,20 @@ final readonly class Pest implements Runner
         );
     }
 
+    /**
+     * A per-test line map: this job's own run of the suite under coverage, or
+     * the map of the gate's own another job handed over, and never a
+     * runner's map another job wrote.
+     */
     public function coverage(CoverageRequest $request): CoverageMap|CannotJudge
     {
-        $directory = $this->project->directory($request->directory());
-
-        if ($request->runs()) {
-            $ran = $this->measured($request, $directory);
-
-            if ($ran instanceof CannotJudge) {
-                return $ran;
-            }
+        if (! $request->runs()) {
+            return SharedCoverage::in($this->project, $request->directory());
         }
 
-        $file = CoverageFile::at(sprintf('%s/%s', $directory, Invocation::MAP));
+        $directory = $this->project->directory($request->directory());
+        $ran = $this->measured($request, $directory);
+        $file = $ran instanceof CannotJudge ? $ran : CoverageFile::at(sprintf('%s/%s', $directory, Invocation::MAP));
 
         return $file instanceof CannotJudge ? $file : $file->map($this->project);
     }
@@ -242,6 +247,7 @@ final readonly class Pest implements Runner
             default => $this->shared(
                 $request,
                 Invocation::installedIn($this->project->vendor())->mutation($request, $judgedBy, $results),
+                $results,
             ),
         };
     }
@@ -260,8 +266,12 @@ final readonly class Pest implements Runner
         return $ran->succeeded() ? $ran : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
     }
 
-    /** The mutation command, reading the map another job wrote where `pest:patch` lets a whole-suite run do so. */
-    private function shared(MutationRequest $request, Command $command): Command|CannotJudge
+    /**
+     * The mutation command, reading the map another job handed over where
+     * `pest:patch` lets a whole-suite run do so: the gate's own map, written
+     * again beside the results as this job's Pest loads one.
+     */
+    private function shared(MutationRequest $request, Command $command, string $results): Command|CannotJudge
     {
         $directory = $request->coverage();
 
@@ -270,12 +280,18 @@ final readonly class Pest implements Runner
         }
 
         $refusal = $this->refusal($request->withheld());
-        $map = sprintf('%s/%s', $this->project->absolute($directory), Invocation::MAP);
-        $coverage = $refusal instanceof CannotJudge ? $refusal : CoverageFile::at($map);
+        $coverage = $refusal instanceof CannotJudge ? $refusal : SharedCoverage::in($this->project, $directory);
 
-        return $coverage instanceof CannotJudge ? $coverage : $command->with([
+        if ($coverage instanceof CannotJudge) {
+            return $coverage;
+        }
+
+        $map = sprintf(self::SHARED_MAP, dirname($results));
+        SharedCoverage::write($coverage, $this->project, $map);
+
+        return $command->with([
             Patch::COVERAGE => $map,
-            Patch::SECONDS => sprintf('%F', $coverage->seconds()),
+            Patch::SECONDS => sprintf('%F', SharedCoverage::seconds($coverage)),
             Patch::CANARY => $this->patching->canary()->name(),
         ]);
     }

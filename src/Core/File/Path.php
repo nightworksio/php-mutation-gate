@@ -21,6 +21,7 @@ final readonly class Path
 {
     private const string ROOT = '.';
 
+    /** @param non-empty-string $value */
     private function __construct(private string $value)
     {
     }
@@ -45,6 +46,7 @@ final readonly class Path
         return new self(self::ROOT);
     }
 
+    /** @return non-empty-string */
     public function value(): string
     {
         return $this->value;
@@ -68,6 +70,6 @@ final readonly class Path
     {
         $prefix = sprintf('%s/', $directory->value);
 
-        return str_starts_with($this->value, $prefix) ? new self(mb_substr($this->value, mb_strlen($prefix))) : $this;
+        return str_starts_with($this->value, $prefix) ? self::of(mb_substr($this->value, mb_strlen($prefix))) : $this;
     }
 }

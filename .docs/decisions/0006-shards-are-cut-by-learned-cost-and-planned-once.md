@@ -36,10 +36,9 @@ Two parts of that do not carry over to a public package.
    - **`mutation-gate plan`** does the preparation:
      - reads the config and the trees;
      - takes the coverage map, either by running the suite or from
-       `--coverage=<dir>`, which an earlier test job wrote in the runner's
-       layout (ADR-0004). A PHP coverage map, such as Pest's, is code that
-       reading it runs, so a PHP coverage map is read only when this same job
-       wrote it;
+       `--coverage=<dir>`, where an earlier job wrote the gate's own map
+       (ADR-0004). A PHP coverage map, such as Pest's, is code that reading it
+       runs, so a PHP coverage map is read only when this same job wrote it;
      - works out the reach (ADR-0005) and each considered unit's content key
        (ADR-0007), and drops every unit a proof already covers;
      - weighs the rest with the cost model and cuts the shards.

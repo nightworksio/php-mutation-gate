@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
@@ -272,11 +273,16 @@ it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select
         )]);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
-it('opens a patched shard on the canary group and reads the map the planning job wrote', function (): void {
+it('opens a patched shard on the canary group and reads the map the planning job handed over', function (): void {
     $patched = Patch::applyIn(Library::vendor());
     $library = Library::pest(Patching::on(Library::canary()));
     $planned = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/planned'));
     $map = $library->runner()->coverage($planned);
+    $handedOver = CoverageMapFile::in(Path::of('.mutation-gate/planned'))->value();
+    file_put_contents(
+        Tree::at(sprintf('%s/%s', Library::DIRECTORY, $handedOver)),
+        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty()),
+    );
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->onlyMutators($library->mutators('adds', 'large'))
         ->reusingCoverage(Path::of('.mutation-gate/planned'));

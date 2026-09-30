@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Diff;
 use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
@@ -18,6 +19,9 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
+use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -156,10 +160,16 @@ function adapterPatched(string $vendor = 'vendor'): Project
     }
 
     Patch::applyIn(sprintf('%s/%s', $at->root(), $vendor));
-    mkdir(sprintf('%s/planned', $at->root()));
-    adapterMap($at->root(), 'planned/coverage.php', [], [RUN_ADDS => 1.25, 'Tests\B::c' => 2.0]);
+    adapterHandedOver($at, 'planned', CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 11, RUN_ADDS))
+        ->timedEach(TimedTest::of(RUN_ADDS, 1.25), TimedTest::of('Tests\B::c', 2.0)));
 
     return $at;
+}
+
+/** The gate's own map, as another job hands it over in a directory of the project. */
+function adapterHandedOver(Project $at, string $directory, CoverageMap $map): void
+{
+    Scratch::write($at->root(), CoverageMapFile::in(Path::of($directory))->value(), CoverageMapFile::encode($map));
 }
 
 it('names Pest, the exact versions it mutates with, and the PHP it runs on', function (): void {
@@ -223,17 +233,26 @@ it('cannot judge a coverage run that failed, with what Pest said', function (): 
         ->toEqual(CannotJudge::because("Pest's coverage run failed. Pest said:\nNo code coverage driver"));
 });
 
-it('reads the map another job wrote, running nothing', function (): void {
+it('reads the gate\'s own map another job handed over, running nothing', function (): void {
     $at = adapterProject();
-    mkdir(sprintf('%s/planned', $at->root()));
-    adapterMap($at->root(), 'planned/coverage.php', ['src/Held.php' => [5 => [0]]], []);
+    $map = CoverageMap::empty()->covered(Path::of('src/Held.php'), Line::of(5), TestId::of(RUN_ADDS));
+    adapterHandedOver($at, 'planned', $map);
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'not run'));
     $pest = new Pest($at, $shell, Patching::off());
 
-    expect($pest->coverage(CoverageRequest::reading(Path::of('planned'))))
-        ->toEqual(CoverageMap::empty()->covered(Path::of('src/Held.php'), Line::of(5), TestId::of(RUN_ADDS)))
-        ->and($pest->coverage(CoverageRequest::reading(Path::of('elsewhere'))))->toBeInstanceOf(CannotJudge::class)
+    expect($pest->coverage(CoverageRequest::reading(Path::of('planned'))))->toEqual($map)
         ->and($shell->commands())->toBe([]);
+});
+
+it('never reads a runner\'s map another job wrote, which is PHP that reading runs', function (): void {
+    $at = adapterProject();
+    Scratch::write($at->root(), 'planned/coverage.php', '<?php throw new RuntimeException(\'ran\');');
+    $pest = new Pest($at, ShellFake::answering(Ran::finished(succeeded: false, output: '')), Patching::off());
+
+    expect($pest->coverage(CoverageRequest::reading(Path::of('planned'))))->toEqual(CannotJudge::because(sprintf(
+        'The gate wrote no coverage map at %s/planned/map.json.gz, and reads no runner\'s map another job wrote.',
+        $at->root(),
+    )));
 });
 
 it('names the test files a covering test\'s filter selects, or all when it will not fit', function (): void {
@@ -284,19 +303,27 @@ it('mutates against a group without reading a shared map', function (): void {
     expect($shell->commands())->toEqual([adapterInvocation()->mutation($request, $held, adapterResults($at))]);
 });
 
-it('opens a patched shard on the canary group, reading the planning job\'s map', function (): void {
+it('opens a patched shard on the canary group, with the planning job\'s map written again for its Pest', function (): void {
     $at = adapterPatched();
-    $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
-        ? Ran::finished(succeeded: true, output: RUN_LISTING)
-        : adapterKilled($command, $at));
+    $written = sprintf('%s/shared.coverage.php', dirname(adapterResults($at)));
+    $loaded = null;
+    $shell = new ShellFake(static function (Command $command, int $before) use ($at, $written, &$loaded): Ran {
+        $loaded ??= is_file($written) ? CoverageFile::at($written) : null;
+
+        return $before === 0 ? Ran::finished(succeeded: true, output: RUN_LISTING) : adapterKilled($command, $at);
+    });
     $request = adapterMoney()->reusingCoverage(Path::of('planned'));
     $result = new Pest($at, $shell, adapterCanary())->mutate($request);
 
     expect($result)->toBeInstanceOf(MutationResult::class)
+        ->and($loaded instanceof CoverageFile ? $loaded->map($at) : $loaded)->toEqual(
+            CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 11, RUN_ADDS))
+                ->timedEach(TimedTest::of(RUN_ADDS, 1.25), TimedTest::of('Tests\B::c', 2.0)),
+        )
         ->and($shell->commands())->toEqual([
             adapterInvocation()->listingGroups(Withheld::standard()),
             adapterInvocation()->mutation($request, WholeSuite::tests(), adapterResults($at))->with([
-                'MUTATION_GATE_SHARED_COVERAGE' => sprintf('%s/planned/coverage.php', $at->root()),
+                'MUTATION_GATE_SHARED_COVERAGE' => $written,
                 'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
                 'MUTATION_GATE_CANARY' => 'mutation-canary',
             ]),
@@ -362,9 +389,10 @@ it('cannot open a shard on the canary group without the planning job\'s map', fu
     $request = adapterMoney()->reusingCoverage(Path::of('absent'));
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: RUN_LISTING));
 
-    expect(new Pest($at, $shell, adapterCanary())->mutate($request))->toEqual(CannotJudge::because(
-        sprintf('There is no coverage map at %s/absent/coverage.php, so no test runs any line.', $at->root()),
-    ));
+    expect(new Pest($at, $shell, adapterCanary())->mutate($request))->toEqual(CannotJudge::because(sprintf(
+        'The gate wrote no coverage map at %s/absent/map.json.gz, and reads no runner\'s map another job wrote.',
+        $at->root(),
+    )));
 });
 
 it('runs the mutants again once per file and mutator, with no deadline, matched back by id', function (): void {
