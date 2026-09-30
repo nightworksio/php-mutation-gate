@@ -19,8 +19,18 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Order\Enclosing;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\Ranking;
+use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
@@ -37,6 +47,7 @@ use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -75,7 +86,7 @@ function recordedRan(string $project, ScriptedRunner $runner, CoverageMap $map):
 /** Every shard of a plan run in a project, each handed the map, and the results read back. */
 function recordedRanOf(Plan $plan, string $project, ScriptedRunner $runner, CoverageMap $map): Results
 {
-    new Handoff(Directory::at($project))->write($plan, $map);
+    new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none());
     new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), Directory::at($project));
@@ -301,4 +312,55 @@ it('records no proof of a unit with no key, and leaves the ledger as it was for 
         static fn(Proof $proof): string => $proof->unit()->value(),
         [...$store->read(Scope::branch('main'))->proofs()],
     ))->toBe(['src/Money.php']);
+});
+
+it('learns each killed mutant\'s first killer in its function, and forgets functions of files gone', function () use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $project = Flows::project();
+    Scratch::write($project, 'src/Money.php', <<<'PHP'
+        <?php
+
+        final class Money
+        {
+            public function add(): int
+            {
+                return 1 + 1;
+            }
+        }
+
+        PHP);
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards();
+    $gone = Enclosing::named(Path::of('src/Gone.php'), 'old');
+    $store->write(Scope::branch('main'), Ledger::empty()->withKillers(
+        KillHistory::none()->withFunction($gone, Ranking::none()->killedBy(TestId::of('GoneTest::old'))),
+    ));
+    $killed = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
+        'Plus-7',
+        Location::of(Path::of('src/Money.php'), Line::of(7), Line::of(7)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
+        MutantStatus::Killed,
+        Seconds::of(0.1),
+    )->killedBy(TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('MoneyTest::subtracts')));
+    $runner = ScriptedRunner::fixture()->answering(Mutants::of($killed), 0);
+
+    new Recorded(Flows::adapters($project, [], $store))->write(
+        $plan,
+        recordedRanOf($plan, $project, $runner, $map()),
+        $ledgers($store, $plan),
+        $run($plan),
+        CannotTell::because('It failed.'),
+    );
+    $killers = $store->read(Scope::branch('main'))->killers();
+    $unseen = MutantId::hash(Path::of('src/Money.php'), 'Minus', '@@ @@', 0);
+    $add = Enclosing::named(Path::of('src/Money.php'), 'add');
+
+    expect($killers->likelyKillers($killed->id(), Nameless::code()))
+        ->toEqual(TestIds::of(TestId::of('MoneyTest::adds')))
+        ->and($killers->likelyKillers($unseen, $add))->toEqual(TestIds::of(TestId::of('MoneyTest::adds')))
+        ->and($killers->likelyKillers($unseen, $gone))->toEqual(TestIds::none());
 });

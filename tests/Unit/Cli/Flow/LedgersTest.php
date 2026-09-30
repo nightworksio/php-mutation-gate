@@ -10,7 +10,12 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Order\Enclosing;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\Kills;
+use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -23,6 +28,8 @@ use NightWorksIO\MutationGate\Core\Proof\Scopes;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -156,4 +163,22 @@ it('counts no timing twice', function () use ($read): void {
     expect($read(RunOn::at(Scope::branch('main'), Scope::branch('main')))->timings())->toEqual(Timings::of(
         Timing::of(Path::of('src/A.php'), Seconds::of(2.0), 'fake', Moment::at('2026-09-30T10:00:00Z')),
     ));
+});
+
+it('reads the kill history of every ledger, its own scope\'s where both know a mutant', function () use (
+    $ledger,
+): void {
+    $mutant = MutantId::hash(Path::of('src/A.php'), 'Plus', '@@ @@', 0);
+    $add = Enclosing::named(Path::of('src/A.php'), 'add');
+    $killedBy = static fn(string $test): Ranking => Ranking::of(Kills::of(TestId::of($test), 1));
+    $main = KillHistory::none()->withMutant($mutant, $killedBy('main'))->withFunction($add, $killedBy('main'));
+    $own = KillHistory::none()->withMutant($mutant, $killedBy('own'));
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), $ledger('src/A.php', 'a', 'now', 'main-passed')->withKillers($main));
+    $store->write(Scope::pullRequest(7), $ledger('src/B.php', 'b', 'now', 'pr-passed')->withKillers($own));
+    $killers = ledgersOn(RunOn::at(Scope::pullRequest(7), Scope::branch('main')), Writing::Auto, $store)->killers();
+
+    expect($killers)->toEqual($own->and($main))
+        ->and($killers->likelyKillers($mutant, $add))->toEqual(TestIds::of(TestId::of('own')))
+        ->and([...$killers->functions()])->toHaveCount(1);
 });

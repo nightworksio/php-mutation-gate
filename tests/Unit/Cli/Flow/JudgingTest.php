@@ -49,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -121,7 +122,7 @@ $judged = static function (
     Settings $settings,
     Reporting $reporting,
 ): Judged|Invalid|CannotJudge {
-    new Handoff($adapters->project)->write($plan, Flows::map());
+    new Handoff($adapters->project)->write($plan, Flows::map(), KillHistory::none());
     new Running($adapters, $settings, Flows::setup())->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), $adapters->project);
 
@@ -600,7 +601,7 @@ it('kills a timeout only where triage confirms it, so a tree at 100 fails on one
         $tree(Floor::of(100)),
         ScriptedRunner::fixture()->answering(Mutants::of(...$timedOut), 0),
     );
-    new Handoff($adapters->project)->write($plan, $map);
+    new Handoff($adapters->project)->write($plan, $map, KillHistory::none());
     new Running($adapters, judgingSettings($timeouts), Flows::setup())->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), $adapters->project);
 
@@ -654,6 +655,28 @@ it('says how many of the runner\'s own ignore markers ignores.native allows in w
     ],
 ]);
 
+it('warns of what a shard warned of, and judges as it would without it', function () use (
+    $tree,
+    $reporting,
+): void {
+    $project = Flows::project();
+    $plan = Planned::oneShard();
+    $adapters = Flows::adapters($project, [], $tree(Floor::of(0)));
+    new Handoff($adapters->project)->write($plan, Flows::map(), KillHistory::none());
+    Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json', 'garbled');
+    new Running($adapters, judgingSettings(), Flows::setup())->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), $adapters->project);
+    $judging = new Judging($adapters, judgingSettings(), Flows::setup(), $reporting(new ReporterFake()));
+
+    $verdict = judgingVerdictOf($results instanceof Results ? $judging->verdict($plan, $results) : $results);
+    $said = judgingTexts($verdict->warnings());
+
+    expect($said)->toHaveCount(1)
+        ->and($said[0] ?? '')->toStartWith('Shard 1 ran its tests without the kill history the plan handed it.')
+        ->and($verdict->failures())->toHaveCount(0)
+        ->and($verdict->judgement())->toBe(Judgement::Passed);
+});
+
 it('fails a verdict on a held unit its holding tests miss lines of, and proves nothing of it', function (
     Setting $uncovered,
 ) use ($tree, $reporting): void {
@@ -667,7 +690,7 @@ it('fails a verdict on a held unit its holding tests miss lines of, and proves n
         $store,
         new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::empty()),
     );
-    new Handoff($adapters->project)->write($plan, Flows::map());
+    new Handoff($adapters->project)->write($plan, Flows::map(), KillHistory::none());
     new Running($adapters, judgingSettings($uncovered), Flows::setup())->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), $adapters->project);
     $judging = new Judging($adapters, judgingSettings($uncovered), Flows::setup(), $reporting(new ReporterFake()));

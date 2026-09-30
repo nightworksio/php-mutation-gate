@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -597,7 +598,7 @@ it('runs a shard of the flows on the map the plan handed it, in its own layout',
     );
     new Handoff(Directory::at($at->root()))->write($plan, CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
-        ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5)));
+        ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5)), KillHistory::none());
     $shell = infectionShell($at, infectionKilled($at));
     $infection = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false);
 

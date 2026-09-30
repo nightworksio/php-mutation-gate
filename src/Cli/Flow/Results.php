@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 use function sprintf;
 
@@ -104,6 +105,20 @@ final readonly class Results
         }
 
         return $misses;
+    }
+
+    /** What every shard warns of, shard by shard. */
+    public function warnings(): Warnings
+    {
+        $warnings = Warnings::none();
+
+        foreach ($this->read as [, $result]) {
+            foreach ($result->warnings() as $warning) {
+                $warnings = $warnings->with($warning);
+            }
+        }
+
+        return $warnings;
     }
 
     /** @return list<array{Shard, ShardResult, MutationResult}> each shard, with its result and its mutants */

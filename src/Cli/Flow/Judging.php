@@ -133,6 +133,7 @@ final readonly class Judging
                 ->and($refused ? $this->unfloored($baseline, $verdicts) : Failures::none()),
             $judge,
             $verdicts,
+            $results->warnings(),
         );
         $ownScopeProofs = $proving->ownScopeProofs() + $carrying->ownScopeProofs();
         $recorded = $this->recorded($plan, $results, $ledgers, $verdict, $ownScopeProofs);
@@ -166,6 +167,7 @@ final readonly class Judging
     /**
      * @param Failures $lowered each floor the run lowers from the default branch's without its reason
      * @param Failures $missed  each held unit its holding tests miss lines of
+     * @param Warnings $shards  what the shards warn of
      */
     private function verdictOf(
         Plan $plan,
@@ -173,6 +175,7 @@ final readonly class Judging
         Failures $missed,
         Judge $judge,
         TreeVerdicts $verdicts,
+        Warnings $shards,
     ): Verdict {
         $pullRequest = $plan->runOn()->isPullRequest();
         $newCode = $pullRequest
@@ -185,7 +188,7 @@ final readonly class Judging
         return Verdict::of($verdicts)
             ->withNewCode($newCode)
             ->withReach($plan->reach())
-            ->withWarnings($this->warnings($plan, $verdicts))
+            ->withWarnings($this->warnings($plan, $verdicts, $shards))
             ->withFailures($failures);
     }
 
@@ -242,10 +245,17 @@ final readonly class Judging
             : Baseline::none();
     }
 
-    /** Each tree held to no floor, and the runner's own ignore markers the config lets through. */
-    private function warnings(Plan $plan, TreeVerdicts $verdicts): Warnings
+    /**
+     * Each tree held to no floor, the runner's own ignore markers the config
+     * lets through, and what the shards warn of.
+     */
+    private function warnings(Plan $plan, TreeVerdicts $verdicts, Warnings $shards): Warnings
     {
         $warnings = new RunnerMarkers($this->adapters, $this->settings)->allowed($plan);
+
+        foreach ($shards as $warning) {
+            $warnings = $warnings->with($warning);
+        }
 
         foreach ($this->adapters->environment->inCi() ? [] : Ratchet::unfloored($verdicts) as $tree) {
             $warnings = $warnings->with(Warning::that(sprintf(

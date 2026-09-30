@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Access;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
@@ -72,6 +73,15 @@ final readonly class Ledgers
         return $this->scope instanceof Scope && $this->scope->equals($this->default)
             ? $this->defaultBranch
             : $this->own;
+    }
+
+    /**
+     * Which tests killed each mutant and the mutants of each function, as
+     * every ledger read learned it: the run's own scope's where both know one.
+     */
+    public function killers(): KillHistory
+    {
+        return $this->own->killers()->and($this->defaultBranch->killers());
     }
 
     /** How long each unit took, as every ledger read learned it. */

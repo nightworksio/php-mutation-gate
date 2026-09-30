@@ -82,6 +82,14 @@ decides are accepted for that release too.
      run reads its own scope's and the default branch's, as it reads
      timings, with its own scope's ranking where both know a mutant or a
      function, and the verdict writes its own scope's.
+   - **How a shard reads it.** The plan hands each shard its history beside
+     its map: `killers.json` in the shard's coverage directory, `"format": 1`,
+     holding every mutant's ranking and the rankings of the functions in the
+     files that shard mutates. A shard handed
+     none runs its tests as though no test had killed anything yet; one whose
+     history cannot be read does too, and the verdict warns of it. The history
+     enters no proof key and no plan digest: it changes the order a mutant's
+     killer is found in, never whether it is.
    - **What it keeps.** The mutant ids a kept proof holds, and of those and
      of the functions, the 20,000 mutants and 5,000 functions that most
      recently learned a killer. Functions of files that no longer exist are

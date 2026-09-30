@@ -21,8 +21,12 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\Kills;
+use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -124,6 +128,29 @@ it('hands each shard the map of its own files', function () use ($plan): void {
         ->toEqual(CoverageMapFile::decode(
             CoverageMapFile::encode($map->onlyFor(Paths::of(Path::of('src/Money.php')))),
         ));
+});
+
+it('hands each shard the kill history the ledgers learned, which enters no key and no plan digest', function () use (
+    $plan,
+): void {
+    $ranked = Ranking::of(Kills::of(TestId::of('MoneyTest::adds'), 3));
+    $history = KillHistory::none()
+        ->withMutant(MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0), $ranked)
+        ->withFunction(Enclosing::named(Path::of('src/Money.php'), 'add'), $ranked)
+        ->withFunction(Enclosing::named(Path::of('src/Held.php'), 'doubles'), $ranked);
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()->withKillers($history));
+    $project = Flows::project();
+    $learned = $plan($project, Mode::full(), Cut::exactly(2), $store);
+    $cold = $plan(Flows::project(), Mode::full(), Cut::exactly(2), new ProofStoreFake());
+    $handed = new Handoff(Flows::adapters($project)->project);
+
+    expect($handed->history(ShardId::of(2)))->toEqual($history->onlyIn(Paths::of(Path::of('src/Money.php'))))
+        ->and($handed->history(ShardId::of(1)))->toEqual($history->onlyIn(Paths::of(Path::of('src/Held.php'))))
+        ->and($learned instanceof Plan ? $learned->digest() : $learned)
+        ->toEqual($cold instanceof Plan ? $cold->digest() : $cold)
+        ->and($learned instanceof Plan ? $learned->keys() : $learned)
+        ->toEqual($cold instanceof Plan ? $cold->keys() : $cold);
 });
 
 it('asks for coverage withholding what every process that runs the project\'s code withholds', function () use (
