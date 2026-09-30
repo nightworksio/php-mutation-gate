@@ -38,6 +38,9 @@ use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
+use NightWorksIO\MutationGate\Core\Ci\CiEnvironment;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Ci;
@@ -46,11 +49,13 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -189,4 +194,54 @@ it('withholds both Buildkite agent tokens though the step it is given cannot bui
     expect($chosen->ciPlan(Choice::of($buildkite->value(), $ci->planOptions($buildkite))))->toBeInstanceOf(Invalid::class)
         ->and([...$chosen->withheld($ci, Withheld::nothing())])
         ->toContain('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN');
+});
+
+it('detects the plan of the CI a job runs in, GitHub Actions first, and none anywhere else', function (
+    Variables $environment,
+    Name|NotGiven $plan,
+): void {
+    $registry = new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)));
+
+    expect($registry->detectedCiPlan(CiEnvironment::of($environment)->shows(...)))->toEqual($plan);
+})->with([
+    'GitHub Actions' => [Variables::of(['GITHUB_ACTIONS' => 'true']), BuiltinCiPlan::GitHub->named()],
+    'GitLab CI' => [Variables::of(['GITLAB_CI' => 'true']), BuiltinCiPlan::GitLab->named()],
+    'Buildkite' => [Variables::of(['BUILDKITE' => 'true']), BuiltinCiPlan::Buildkite->named()],
+    'CircleCI' => [Variables::of(['CIRCLECI' => 'true']), BuiltinCiPlan::CircleCi->named()],
+    'GitHub Actions before any other' => [
+        Variables::of(['GITLAB_CI' => 'true', 'GITHUB_ACTIONS' => 'true']),
+        BuiltinCiPlan::GitHub->named(),
+    ],
+    'GitLab CI before Buildkite' => [
+        Variables::of(['BUILDKITE' => 'true', 'GITLAB_CI' => 'true']),
+        BuiltinCiPlan::GitLab->named(),
+    ],
+    'Buildkite before CircleCI' => [
+        Variables::of(['CIRCLECI' => 'true', 'BUILDKITE' => 'true']),
+        BuiltinCiPlan::Buildkite->named(),
+    ],
+    'a variable not set to true' => [Variables::of(['GITLAB_CI' => '1']), NotGiven::value()],
+    'no CI' => [Variables::of([]), NotGiven::value()],
+]);
+
+it('keeps GitHub Actions for github where an extension claims it too, and detects the extension\'s own CI', function (): void {
+    $extension = new Extensions(Origin::of('acme/ci'))
+        ->withCiPlan(
+            Name::of('acme'),
+            static fn(): Invalid => Invalid::because(Problem::at('x', 'unbuilt')),
+            Withheld::nothing(),
+            CiMarker::saying('GITHUB_ACTIONS'),
+        )
+        ->withCiPlan(
+            Name::of('acme-own'),
+            static fn(): Invalid => Invalid::because(Problem::at('x', 'unbuilt')),
+            Withheld::nothing(),
+            CiMarker::setting('ACME_BUILD'),
+        );
+    $registry = new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)))->merge($extension);
+
+    expect($registry instanceof Extensions ? $registry->detectedCiPlan(CiEnvironment::of(Variables::of(['GITHUB_ACTIONS' => 'true']))->shows(...)) : $registry)
+        ->toEqual(BuiltinCiPlan::GitHub->named())
+        ->and($registry instanceof Extensions ? $registry->detectedCiPlan(CiEnvironment::of(Variables::of(['ACME_BUILD' => '42']))->shows(...)) : $registry)
+        ->toEqual(Name::of('acme-own'));
 });

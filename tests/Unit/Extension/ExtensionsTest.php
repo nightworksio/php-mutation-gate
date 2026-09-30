@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
 use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -139,11 +140,17 @@ it('names what is registered at an extension point, and nothing at any other', f
 
 it('holds what each CI plan declares withheld as it registers, and takes in another package\'s', function (): void {
     $plan = static fn(string $package, string $name, string $variable): Extensions => new Extensions(Origin::of($package))
-        ->withCiPlan(Name::of($name), static fn(): Invalid => Invalid::because(Problem::at('x', 'unbuilt')), Withheld::of($variable));
+        ->withCiPlan(
+            Name::of($name),
+            static fn(): Invalid => Invalid::because(Problem::at('x', 'unbuilt')),
+            Withheld::of($variable),
+            CiMarker::none(),
+        );
     $ours = $plan('acme/a', 'one', 'ONE_TOKEN')->withCiPlan(
         Name::of('two'),
         static fn(): Invalid => Invalid::because(Problem::at('x', 'unbuilt')),
         Withheld::of('TWO_TOKEN'),
+        CiMarker::none(),
     );
     $merged = $ours->merge($plan('acme/b', 'three', 'THREE_TOKEN'));
 

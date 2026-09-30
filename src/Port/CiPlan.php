@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Port;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -42,4 +43,11 @@ interface CiPlan
      * whatever its options, which its registration repeats.
      */
     public static function withheld(): Withheld;
+
+    /**
+     * The variable the plan's CI marks every job with: a declaration of the
+     * plan's class, which its registration repeats, so a config that names no
+     * plan takes the one the job runs in.
+     */
+    public static function marker(): CiMarker;
 }

@@ -151,8 +151,15 @@ Two parts of that do not carry over to a public package.
      a verdict wrong.
 
 5. **The CiPlan port renders a plan and says which shard a job is.** `ci.plan`
-   chooses the adapter, detected by default from `GITHUB_ACTIONS`, `GITLAB_CI`,
-   `BUILDKITE` or `CIRCLECI` and otherwise `json`. `--ci=<name>`, accepted by
+   chooses the adapter. Where it names none, the plan whose CI the job runs in
+   is taken: each plan declares `CiPlan::marker()`, the variable its CI marks
+   every job with, set to `true` (`CiMarker::saying`) or to any
+   value (`CiMarker::setting`), which its registration repeats. So `github`,
+   `gitlab`, `buildkite` and `circleci` are taken on `GITHUB_ACTIONS`,
+   `GITLAB_CI`, `BUILDKITE` and `CIRCLECI`, in that order, and a job no
+   plan's marker shows takes `json`. A plan this package builds in
+   wins its own CI: another package's plan is taken only where none of this
+   package's markers is shown, and is otherwise chosen by name. `--ci=<name>`, accepted by
    `plan` and `run`, overrides it for one command.
 
    | CI | How the plan reaches it | Which shard a job is |

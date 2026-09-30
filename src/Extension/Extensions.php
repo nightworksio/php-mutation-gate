@@ -9,11 +9,14 @@ use Closure;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Registry\Detections;
 use NightWorksIO\MutationGate\Core\Registry\Entries;
 use NightWorksIO\MutationGate\Core\Registry\Entry;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
@@ -80,6 +83,9 @@ final readonly class Extensions
     /** What the CI plans registered here declare no runner may see, whether or not a config lets them build. */
     private Withheld $ciWithheld;
 
+    /** How each CI plan registered here tells a job runs in its CI. */
+    private Detections $ciDetections;
+
     /** An empty registry, whose additions come from this package. */
     public function __construct(private Origin $origin)
     {
@@ -96,6 +102,7 @@ final readonly class Extensions
         $this->presets = new Entries(ExtensionPoint::Preset);
         $this->mutatorSets = new Entries(ExtensionPoint::MutatorSet);
         $this->ciWithheld = Withheld::nothing();
+        $this->ciDetections = Detections::none();
     }
 
     /** @param Closure(Options): (Runner|Invalid) $build */
@@ -132,15 +139,17 @@ final readonly class Extensions
 
     /**
      * A CI plan, with the credentials of its CI that no process running the project's code may see, declared
-     * apart from its options, so a config that stops it building never stops them being withheld (ADR-0004).
+     * apart from its options, so a config that stops it building never stops them being withheld (ADR-0004);
+     * and the variable its CI marks every job with, so a config that names no plan takes the one the job runs in.
      *
      * @param Closure(Options): (CiPlan|Invalid) $build
      */
-    public function withCiPlan(Name $name, Closure $build, Withheld $withheld): self
+    public function withCiPlan(Name $name, Closure $build, Withheld $withheld, CiMarker $marker): self
     {
         return clone($this, [
             'ciPlans' => $this->ciPlans->with(Entry::of($name, $this->origin, $build)),
             'ciWithheld' => $this->ciWithheld->and($withheld),
+            'ciDetections' => $this->ciDetections->with($name, $this->origin, $marker),
         ]);
     }
 
@@ -246,6 +255,7 @@ final readonly class Extensions
             'presets' => $this->presets->merge($other->presets),
             'mutatorSets' => $this->mutatorSets->merge($other->mutatorSets),
             'ciWithheld' => $this->ciWithheld->and($other->ciWithheld),
+            'ciDetections' => $this->ciDetections->merge($other->ciDetections),
         ]);
     }
 
@@ -257,6 +267,20 @@ final readonly class Extensions
     public function ciWithheld(): Withheld
     {
         return $this->ciWithheld;
+    }
+
+    /**
+     * The CI plan of the CI the job runs in, by the markers the plans
+     * registered here declare: this package's own first, another package's
+     * only where none of this package's is shown; none where none is.
+     *
+     * @internal extensions register; only the command line looks up
+     *
+     * @param Closure(CiMarker): bool $shows whether the job's environment shows a marker
+     */
+    public function detectedCiPlan(Closure $shows): Name|NotGiven
+    {
+        return $this->ciDetections->detected($shows, $this->origin);
     }
 
     /**

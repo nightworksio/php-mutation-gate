@@ -11,12 +11,14 @@ use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Ci\CiEnvironment;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
 use NightWorksIO\MutationGate\Core\Config\BuiltinVersionControl;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -100,17 +102,18 @@ final readonly class Wiring
     }
 
     /**
-     * The CI plan the config names, with the options its `ci.*` settings give laid under its own, or the one the
-     * environment shows, with those options.
+     * The CI plan the config names, with the options its `ci.*` settings give laid under its own, or the one a
+     * registered plan detects the job runs in, with those options; the JSON plan where none does.
      */
     private function ciOf(Settings $settings): Choice
     {
         $named = $settings->ci()->plan();
-        $detected = BuiltinCiPlan::detected($this->environment);
+        $found = $this->extensions->detectedCiPlan(CiEnvironment::of($this->environment)->shows(...));
+        $detected = $found instanceof Name ? $found : BuiltinCiPlan::Json->named();
 
         return $named instanceof Choice
             ? $named
-            : Choice::of($detected->value, $settings->ci()->planOptions($detected->named()));
+            : Choice::of($detected->value(), $settings->ci()->planOptions($detected));
     }
 
     /** GitHub's change source, reading each pull request's own ledger from the proof store; any other as it is. */

@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -46,6 +47,7 @@ $registry = static fn(): Extensions => new Extensions(Origin::of('acme/gate'))
         Name::of('it'),
         static fn(): CiPlan => new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')),
         CiPlanFake::withheld(),
+        CiPlanFake::marker(),
     )
     ->withStaticChecker(Name::of('it'), static fn(): StaticChecker => StaticCheckerFake::findingNothing())
     ->withRunner(
@@ -212,6 +214,7 @@ it('withholds what every registered CI plan declares, whether or not a config le
         Name::of('broken'),
         static fn(): Invalid => Invalid::because(Problem::at('template', 'expected a path')),
         Withheld::of('BROKEN_CI_TOKEN'),
+        CiMarker::none(),
     ));
     $unbuilt = Configs::settings(['runner' => 'pest', 'ci' => ['plan' => '\Acme\NoPlan']])->ci();
 

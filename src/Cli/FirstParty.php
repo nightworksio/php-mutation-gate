@@ -77,11 +77,36 @@ final readonly class FirstParty implements Extension
             ->withProofStore(BuiltinStore::Directory->named(), LedgerDirectory::fromOptions(...))
             ->withProofStore(BuiltinStore::S3->named(), BucketLedger::fromOptions(...))
             ->withCostModel(BuiltinCostModel::Learned->named(), MeasuredCosts::fromOptions(...))
-            ->withCiPlan(BuiltinCiPlan::GitHub->named(), GitHubPlan::fromOptions(...), GitHubPlan::withheld())
-            ->withCiPlan(BuiltinCiPlan::GitLab->named(), GitLabPlan::fromOptions(...), GitLabPlan::withheld())
-            ->withCiPlan(BuiltinCiPlan::Buildkite->named(), BuildkitePlan::fromOptions(...), BuildkitePlan::withheld())
-            ->withCiPlan(BuiltinCiPlan::CircleCi->named(), CircleCiPlan::fromOptions(...), CircleCiPlan::withheld())
-            ->withCiPlan(BuiltinCiPlan::Json->named(), JsonPlan::fromOptions(...), JsonPlan::withheld())
+            ->withCiPlan(
+                BuiltinCiPlan::GitHub->named(),
+                GitHubPlan::fromOptions(...),
+                GitHubPlan::withheld(),
+                GitHubPlan::marker(),
+            )
+            ->withCiPlan(
+                BuiltinCiPlan::GitLab->named(),
+                GitLabPlan::fromOptions(...),
+                GitLabPlan::withheld(),
+                GitLabPlan::marker(),
+            )
+            ->withCiPlan(
+                BuiltinCiPlan::Buildkite->named(),
+                BuildkitePlan::fromOptions(...),
+                BuildkitePlan::withheld(),
+                BuildkitePlan::marker(),
+            )
+            ->withCiPlan(
+                BuiltinCiPlan::CircleCi->named(),
+                CircleCiPlan::fromOptions(...),
+                CircleCiPlan::withheld(),
+                CircleCiPlan::marker(),
+            )
+            ->withCiPlan(
+                BuiltinCiPlan::Json->named(),
+                JsonPlan::fromOptions(...),
+                JsonPlan::withheld(),
+                JsonPlan::marker(),
+            )
             ->withRunner(
                 BuiltinRunner::Pest->named(),
                 static fn(Options $options): Pest|Invalid => Pest::fromOptions(

@@ -9,6 +9,7 @@ use function getenv;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
@@ -70,6 +71,12 @@ final readonly class JsonPlan implements CiPlan, Configurable
     }
 
     /** None: the JSON plan knows no CI. */
+    /** The JSON plan marks no CI: a job takes it where no other plan's CI is marked. */
+    public static function marker(): CiMarker
+    {
+        return CiMarker::none();
+    }
+
     public static function withheld(): Withheld
     {
         return Withheld::nothing();
