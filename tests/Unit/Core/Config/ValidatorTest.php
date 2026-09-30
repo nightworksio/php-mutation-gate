@@ -28,7 +28,6 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 const DEFAULTS = <<<'JSON'
     {
         "extensions": [],
-        "preset": [],
         "runner": "pest",
         "treeSource": {
             "use": "phpunit",
@@ -494,6 +493,54 @@ it('refuses an ignore that does not expire within ignores.maxDays of today', fun
         'ignores.entries[1].expires: expected a date by 2026-10-30, within ignores.maxDays of today, got "2026-10-31"',
         'ignores.entries[2].expires: expected a date by 2026-10-30, within ignores.maxDays of today, got nothing',
     ]);
+});
+
+it('refuses a late ignore with every other problem, and leaves an expiry written wrong to its own', function (): void {
+    expect(Configs::problems(Configs::validated([
+        'budget' => 'soon',
+        'ignores' => [
+            'maxDays' => 30,
+            'entries' => [
+                ['mutant' => '81d0c9e2aa17', 'reason' => 'A day late', 'expires' => '2026-10-31'],
+                ['mutant' => '3f9a1c2b7d04', 'reason' => 'Not a date', 'expires' => 'soon'],
+            ],
+        ],
+    ])))->toBe([
+        'runner: expected a name, a class, or an object with use and with, got nothing',
+        'budget: expected a duration such as 90s, 15m or 1h30m, got "soon"',
+        'ignores.entries[1].expires: expected a date written YYYY-MM-DD, got "soon"',
+        'ignores.entries[0].expires: expected a date by 2026-10-30, within ignores.maxDays of today, got "2026-10-31"',
+    ]);
+});
+
+it('judges no expiry against a maxDays written wrong, or entries that are not a list', function (array $ignores): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'ignores' => $ignores])))
+        ->each->not->toStartWith('ignores.entries[0].expires: expected a date by');
+})->with([
+    'maxDays as text' => [['maxDays' => '30', 'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'Never']]]],
+    'maxDays of 0' => [['maxDays' => 0, 'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'Never']]]],
+    'entries as an object' => [
+        ['maxDays' => 30, 'entries' => ['a' => ['mutant' => '81d0c9e2aa17', 'reason' => 'Never']]],
+    ],
+]);
+
+it('judges expiries against a maxDays of one day', function (): void {
+    expect(Configs::problems(Configs::validated([
+        'runner' => 'pest',
+        'ignores' => ['maxDays' => 1, 'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'Never']]],
+    ])))->toBe(['ignores.entries[0].expires: expected a date by 2026-10-01, within ignores.maxDays of today, got nothing']);
+});
+
+it('keeps any $schema a file names, without reading it', function (mixed $schema): void {
+    expect(Configs::shown(Configs::settings(['$schema' => $schema, 'runner' => 'pest']), '$schema'))->toBe($schema);
+})->with([
+    'a path' => ['vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json'],
+    'an empty string' => [''],
+    'a number' => [3],
+]);
+
+it('applies no preset when a config names none', function (): void {
+    expect([...Configs::settings(['runner' => 'pest'])->presets()])->toBe([]);
 });
 
 it('reads an adapter written as an object, checking a built-in one\'s options strictly', function (): void {

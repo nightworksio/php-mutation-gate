@@ -40,6 +40,9 @@ use function trim;
  */
 final readonly class PhpUnitTrees implements TreeSource
 {
+    private const string ALL_EXCLUDED
+        = 'phpunit.xml excludes every path its <source> includes, so no tree is left; list trees in the config.';
+
     /** The files PHPUnit reads its configuration from, in the order it looks for them. */
     private const array CONFIGS = ['phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist'];
 
@@ -80,20 +83,25 @@ final readonly class PhpUnitTrees implements TreeSource
         return $xml instanceof CannotJudge ? $xml : $this->paths($xml, self::TESTS);
     }
 
+    /** The paths that are, or are not, inside one of the others. */
+    private function within(Paths $paths, Paths $others, bool $inside): Paths
+    {
+        $within = Paths::none();
+
+        foreach ($paths as $path) {
+            $within = $this->isInAny($path, $others) === $inside ? $within->with($path) : $within;
+        }
+
+        return $within;
+    }
+
     private function source(Paths $included, Paths $excluded): Trees|CannotJudge
     {
-        $kept = Paths::none();
-        $exempt = Paths::none();
-
-        foreach ($included as $path) {
-            $kept = $this->isInAny($path, $excluded) ? $kept : $kept->with($path);
-        }
-
-        foreach ($excluded as $path) {
-            $exempt = $this->isInAny($path, $kept) ? $exempt->with($path) : $exempt;
-        }
-
-        $trees = $this->manifests->trees($kept);
+        $kept = $this->within($included, $excluded, inside: false);
+        $exempt = $this->within($excluded, $kept, inside: true);
+        $trees = count($kept) > 0
+            ? $this->manifests->trees($kept)
+            : CannotJudge::because(self::ALL_EXCLUDED);
 
         if ($trees instanceof CannotJudge) {
             return $trees;

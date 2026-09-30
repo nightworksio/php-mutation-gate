@@ -66,6 +66,12 @@ final readonly class Console
             mode: InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
             description: 'Add a file report to reports, written <name>:<path>',
         ));
+        $definition->addOption(new InputOption(
+            'budget',
+            mode: InputOption::VALUE_REQUIRED,
+            description: 'Set budget, the time a run may take: 90s, 15m, 1h30m',
+        ));
+        $definition->addOption(new InputOption('ci', mode: InputOption::VALUE_REQUIRED, description: 'Set ci.plan'));
 
         foreach (self::COMMANDS as $name => $description) {
             $application->addCommand(NotBuilt::command($name, $description));

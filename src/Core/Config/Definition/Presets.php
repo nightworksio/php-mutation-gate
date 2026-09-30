@@ -35,7 +35,10 @@ final readonly class Presets implements Node
     {
         $name = ['type' => 'string', 'minLength' => 1];
 
-        return ['anyOf' => [$name, ['type' => 'array', 'items' => $name]]];
+        return [
+            'description' => 'Chosen from what composer.json requires when no layer names one.',
+            'anyOf' => [$name, ['type' => 'array', 'items' => $name]],
+        ];
     }
 
     public function effects(): array

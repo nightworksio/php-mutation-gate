@@ -134,3 +134,16 @@ it('refuses an extension a config names that registers what another package does
             . 'Remove one of the packages, or run with --no-extensions.',
         ));
 });
+
+it('suggests the registered name a misspelt one most likely meant', function () use ($registry): void {
+    expect(new Chosen($registry())->runner(Choice::of('pickey', '{}')))
+        ->toEqual(CannotJudge::because('No runner is registered as "pickey". Did you mean "picky"?'));
+});
+
+it('builds a class in the global namespace a config names without a backslash', function () use ($classes): void {
+    expect($classes()->runner(Choice::of('ArrayObject', '{}')))->toEqual(CannotJudge::because(sprintf(
+        'ArrayObject is not a class that implements %s and %s, so a config cannot choose it.',
+        Runner::class,
+        Configurable::class,
+    )));
+});

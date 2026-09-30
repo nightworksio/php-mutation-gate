@@ -110,7 +110,7 @@ to write one.
 | `watch` | Re-judge what each save reaches |
 | `pre-push` | Judge the commits being pushed, as CI will |
 | `hook install` / `hook uninstall` | Add or remove the pre-push hook |
-| `init [--format=php\|json\|yaml\|neon]` | Write a config holding what zero-config found (PHP by default), and add `.mutation-gate/` to `.gitignore` |
+| `init [--format=php\|json\|yaml\|neon]` | Write a config holding what zero-config found (PHP by default, or the file `--config` names, in the format of its extension), and add `.mutation-gate/` to `.gitignore` |
 | `config:show [--format=…]` / `config:schema` | Print the effective config (JSON by default), or the JSON Schema |
 | `pest:patch` | Apply the optional Pest patches ([ADR-0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md)) |
 
@@ -252,7 +252,8 @@ A setting that names an adapter takes either a registered name (`"pest"`,
 ### Configuration reference
 
 Every key, with its type, its default and the decision that sets it. Durations
-are written `90s`, `15m` or `1h30m`, and dates `YYYY-MM-DD`. A key that
+are written `90s`, `15m` or `1h30m`, and dates `YYYY-MM-DD`. A path is
+relative to the config file. A key that
 chooses an adapter takes a registered name or `{"use": <name or class>,
 "with": <options>}`.
 

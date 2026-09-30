@@ -179,3 +179,14 @@ it('reads the floor a tree\'s nearest manifest declares, from the tree up', func
         ['app', Floor::of(60)],
     ]);
 });
+
+it('cannot judge a <source> that excludes every path it includes', function () use ($phpunit): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'phpunit.xml', $phpunit(
+        '<include><directory>src</directory></include><exclude><directory>src</directory></exclude>',
+    ));
+
+    expect(PhpUnitTrees::in($project, Paths::none())->trees())->toEqual(CannotJudge::because(
+        'phpunit.xml excludes every path its <source> includes, so no tree is left; list trees in the config.',
+    ));
+});

@@ -47,19 +47,23 @@ it('accepts --no-extensions before any command, as a flag', function () use ($co
         ->and(array_key_exists('no-extensions', $options) && $options['no-extensions']->acceptValue())->toBeFalse();
 });
 
-it('takes the config file, the runner and the reports on any command', function () use ($console): void {
+it('takes the config file, the runner, the reports, the budget and the CI on any command', function () use ($console): void {
     $definition = $console()->getDefinition();
 
     expect($definition->getOption('config')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('runner')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('report')->isArray())->toBeTrue()
-        ->and($definition->getOption('report')->isValueRequired())->toBeTrue();
+        ->and($definition->getOption('report')->isValueRequired())->toBeTrue()
+        ->and($definition->getOption('budget')->isValueRequired())->toBeTrue()
+        ->and($definition->getOption('ci')->isValueRequired())->toBeTrue();
 });
 
 it('builds the config commands', function () use ($console): void {
     $tester = new ApplicationTester($console());
 
-    expect($tester->run(['command' => 'config:schema']))->toBe(0);
+    expect($tester->run(['command' => 'config:schema']))->toBe(0)
+        ->and(Printed::by($tester->getOutput()))
+        ->toBe((string) file_get_contents(Tree::at('resources/mutation-gate.schema.json')));
 });
 
 it('answers with an exit code rather than ending the process', function () use ($console): void {

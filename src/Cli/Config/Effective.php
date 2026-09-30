@@ -4,13 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Config;
 
-use function array_key_exists;
-
 use DateTimeImmutable;
-
-use function is_array;
-use function is_string;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Definition\Json;
@@ -18,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Document;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layers;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Validator;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -48,7 +43,7 @@ final readonly class Effective
 
         $registry = $given->firstPartyOnly
             ? $this->extensions
-            : new Chosen($this->extensions)->withExtensions($this->strings($file, 'extensions'), 'the config file');
+            : new Chosen($this->extensions)->withExtensions(Written::strings($file, 'extensions'), 'the config file');
 
         return $registry instanceof CannotJudge ? $registry : $this->layered($file, $given, $registry);
     }
@@ -63,26 +58,66 @@ final readonly class Effective
         }
 
         $loader = Formats::loader($this->extensions, $file);
+        $loaded = $loader instanceof CannotJudge ? $loader : $loader->load($file);
 
-        return $loader instanceof CannotJudge ? $loader : $loader->load($file);
+        return $loaded instanceof Document ? Relocated::file($loaded, $file, $this->project) : $loaded;
     }
 
     private function layered(Document $file, Given $given, Extensions $registry): Settings|Invalid|CannotJudge
     {
-        $presets = $this->strings($file, 'preset');
-        $detected = $presets === [] ? $this->detected->preset() : '';
+        $named = Written::presets($file);
+        $detected = $named === [] ? $this->detected->preset() : '';
 
         if ($detected instanceof CannotJudge) {
             return $detected;
         }
 
-        $layers = [];
+        [$layers, $problems] = $this->presetLayers($detected === '' ? $named : ['preset' => $detected], $registry);
+        $settings = $this->validated([...$layers, $file, $this->document($given->layer())], $detected);
 
-        foreach ($detected === '' ? $presets : [$detected] as $preset) {
-            $layers[] = $registry->preset(Name::of($preset));
+        return $problems === [] ? $settings : $this->joined($problems, $settings);
+    }
+
+    /**
+     * The layer of each preset, in order, and a problem at its path for each one nothing registered.
+     *
+     * @param  array<string, string>                   $presets by the path the config names each at
+     * @return array{list<Document>, list<Problem>}
+     */
+    private function presetLayers(array $presets, Extensions $registry): array
+    {
+        $layers = [];
+        $problems = [];
+
+        foreach ($presets as $path => $preset) {
+            $layer = $registry->preset(Name::of($preset));
+
+            if ($layer instanceof Document) {
+                $layers[] = $layer;
+
+                continue;
+            }
+
+            $problems[] = Problem::at($path, $layer->why());
         }
 
-        return $this->validated([...$layers, $file, $this->document($given->layer())], $detected);
+        return [$layers, $problems];
+    }
+
+    /**
+     * Every problem with the config at once: those of its presets, then the rest.
+     *
+     * @param list<Problem> $problems
+     */
+    private function joined(array $problems, Settings|Invalid|CannotJudge $settings): Invalid
+    {
+        $rest = match (true) {
+            $settings instanceof Invalid => [...$settings],
+            $settings instanceof CannotJudge => [Problem::at('', $settings->why())],
+            default => [],
+        };
+
+        return Invalid::because(...$problems, ...$rest);
     }
 
     /** @param list<Document|CannotJudge> $layers */
@@ -107,7 +142,7 @@ final readonly class Effective
     private function base(Document $merged, string $preset): Document|CannotJudge
     {
         $base = $preset === '' ? [] : ['preset' => $preset];
-        $runner = array_key_exists('runner', $this->decoded($merged)) ? '' : $this->detected->runner();
+        $runner = Written::has($merged, 'runner') ? '' : $this->detected->runner();
 
         if ($runner instanceof CannotJudge) {
             return $runner;
@@ -116,34 +151,6 @@ final readonly class Effective
         $layer = $this->document($runner === '' ? $base : [...$base, 'runner' => $runner]);
 
         return $layer instanceof Document ? Layers::over($layer, $merged) : $layer;
-    }
-
-    /**
-     * A setting that is a string or a list of them, as a config wrote it before it is validated.
-     *
-     * @return list<string>
-     */
-    private function strings(Document $document, string $key): array
-    {
-        $tree = $this->decoded($document);
-        $value = array_key_exists($key, $tree) ? $tree[$key] : [];
-        $strings = [];
-
-        foreach (is_array($value) ? $value : [$value] as $entry) {
-            if (is_string($entry)) {
-                $strings[] = $entry;
-            }
-        }
-
-        return $strings;
-    }
-
-    /** @return array<mixed> */
-    private function decoded(Document $document): array
-    {
-        $tree = Json::decode($document->json());
-
-        return is_array($tree) ? $tree : [];
     }
 
     /** @param array<mixed> $tree */

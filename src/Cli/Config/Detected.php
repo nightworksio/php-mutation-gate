@@ -11,6 +11,7 @@ use function array_key_exists;
 use function is_array;
 use function is_string;
 use function json_decode;
+use function json_validate;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -91,7 +92,11 @@ final readonly class Detected
         $contents = $directory->read(Path::of($file));
 
         return match (true) {
-            $contents instanceof Contents => json_decode($contents->text(), associative: true),
+            $contents instanceof Contents && json_validate($contents->text()) => json_decode(
+                $contents->text(),
+                associative: true,
+            ),
+            $contents instanceof Contents => CannotJudge::because(sprintf('%s is not JSON.', $file)),
             $contents instanceof CannotJudge => $contents,
             default => [],
         };

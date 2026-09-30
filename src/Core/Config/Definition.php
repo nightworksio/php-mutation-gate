@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\Presets;
 use NightWorksIO\MutationGate\Core\Config\Definition\ReportEntry;
 use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Config\Definition\Text;
+use NightWorksIO\MutationGate\Core\Config\Definition\Unchecked;
 
 /**
  * Every setting of the config, with its type, its default and what it can
@@ -34,6 +35,9 @@ use NightWorksIO\MutationGate\Core\Config\Definition\Text;
 final readonly class Definition
 {
     private const string SCHEMA = 'https://json-schema.org/draft/2020-12/schema';
+
+    /** What the `$schema` key of a config file is for. */
+    private const string SCHEMA_KEY = 'The JSON Schema an editor checks this file by.';
 
     private const string PUBLISHED
         = 'https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v1/resources/mutation-gate.schema.json';
@@ -70,10 +74,10 @@ final readonly class Definition
         $judges = Effect::JudgesOrReportsOnly;
 
         return Section::fields(
-            Field::optional('$schema', Text::of('the path or URL of this JSON Schema'), $judges),
+            Field::optional('$schema', Unchecked::describedAs(self::SCHEMA_KEY), $judges),
             Field::setting('extensions', Items::of(Text::of('a class name')), $judges, []),
-            Field::setting('preset', Presets::named(), $judges, []),
-            Field::required('runner', Adapter::choosing(self::runners()), $results),
+            Field::optional('preset', Presets::named(), $judges),
+            Field::found('runner', Adapter::choosing(self::runners()), $results),
             Field::setting('treeSource', Adapter::choosing(self::treeSources()), $results, 'phpunit'),
             Field::entries(
                 'trees',

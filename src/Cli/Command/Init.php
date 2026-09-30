@@ -7,16 +7,21 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 use function array_flip;
 use function array_key_exists;
 use function array_map;
+use function basename;
+
+use Closure;
+
 use function count;
+use function dirname;
 use function explode;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
-use NightWorksIO\MutationGate\Cli\Config\ConfigFile;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
 use NightWorksIO\MutationGate\Cli\Config\Given;
+use NightWorksIO\MutationGate\Cli\Config\Relocated;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -50,6 +55,9 @@ final readonly class Init
 {
     private const string SCHEMA = 'vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json';
 
+    /** The gate's own directory, as `.gitignore` names it with or without its slashes. */
+    private const string DIRECTORY = '.mutation-gate';
+
     private const string IGNORED = '.mutation-gate/';
 
     private const string GITIGNORE = '.gitignore';
@@ -75,11 +83,13 @@ final readonly class Init
                 $formats,
             ): int {
                 $format = $input->getOption('format');
-                $existing = ConfigFile::in($project, '');
+                $given = Given::from($input);
+                $destination = Destination::of($project, $given->config, is_string($format) ? $format : '');
+                $existing = $destination->existing();
                 $settings = $existing instanceof Absent
-                    ? $effective->settings(Given::from($input))
+                    ? $effective->settings($given->withoutConfig())
                     : self::refused($existing);
-                $written = self::written($project, $extensions, $settings, $formats, is_string($format) ? $format : '');
+                $written = self::written($project, $extensions, $settings, $formats, $destination);
 
                 if (! is_string($written)) {
                     return Failed::because($output, $written);
@@ -107,21 +117,20 @@ final readonly class Init
         Extensions $extensions,
         Settings|Invalid|CannotJudge $settings,
         Formats $formats,
-        string $format,
+        Destination $destination,
     ): string|Invalid|CannotJudge {
-        $config = self::config($extensions, $settings, $format);
-        $text = $config instanceof Document ? $formats->render($config, $format) : $config;
+        $config = self::config($project, $extensions, $settings, $destination);
+        $text = $config instanceof Document ? $formats->render($config, $destination->format()) : $config;
 
-        return is_string($text)
-            ? self::write(Directory::at($project), sprintf('mutation-gate.%s', $format), $text)
-            : $text;
+        return is_string($text) ? self::write($project, $destination, $text) : $text;
     }
 
     /** The preset, the runner and the trees zero-config found, as a config, or why there is none to write. */
     private static function config(
+        string $project,
         Extensions $extensions,
         Settings|Invalid|CannotJudge $settings,
-        string $format,
+        Destination $destination,
     ): Document|Invalid|CannotJudge {
         if (! $settings instanceof Settings) {
             return $settings;
@@ -130,45 +139,60 @@ final readonly class Init
         $source = new Chosen($extensions)->treeSource($settings->treeSource());
         $trees = $source instanceof Invalid || $source instanceof CannotJudge ? $source : $source->trees();
 
-        return $trees instanceof Trees ? self::document($settings, $trees, $format) : $trees;
+        return $trees instanceof Trees ? self::document($settings, $trees, $destination, $project) : $trees;
     }
 
-    private static function document(Settings $settings, Trees $trees, string $format): Document|CannotJudge
-    {
+    /** The config, with every path it names from the file's own directory (ADR-0002). */
+    private static function document(
+        Settings $settings,
+        Trees $trees,
+        Destination $destination,
+        string $project,
+    ): Document|CannotJudge {
         $presets = [...$settings->presets()];
+        $from = static fn(string $path): string => Relocated::fromProject($path, $destination->file(), $project);
         $config = [
             'preset' => count($presets) === 1 ? $presets[0] : $presets,
             'runner' => $settings->runner()->use(),
-            'trees' => array_map(self::tree(...), [...$trees]),
+            'trees' => array_map(static fn(Tree $tree): array => self::tree($tree, $from), [...$trees]),
         ];
 
-        return Document::ofJson(Json::pretty($format === 'json' ? ['$schema' => self::SCHEMA, ...$config] : $config));
+        return Document::ofJson(Json::pretty(
+            $destination->format() === 'json' ? ['$schema' => $from(self::SCHEMA), ...$config] : $config,
+        ));
     }
 
-    /** @return array<string, mixed> a tree as `trees` lists it, with the floor of 0 an exclusion gives it */
-    private static function tree(Tree $tree): array
+    /**
+     * A tree as `trees` lists it, with the floor of 0 an exclusion gives it.
+     *
+     * @param  Closure(string): string $from the path as the config file names it
+     * @return array<string, mixed>
+     */
+    private static function tree(Tree $tree, Closure $from): array
     {
         $declared = $tree->declared();
+        $path = $from($tree->path()->value());
 
         return $declared instanceof Exempt
-            ? ['path' => $tree->path()->value(), 'floor' => 0, 'reason' => $declared->reason()]
-            : ['path' => $tree->path()->value()];
+            ? ['path' => $path, 'floor' => 0, 'reason' => $declared->reason()]
+            : ['path' => $path];
     }
 
     /** The config written, said as a sentence. */
-    private static function write(Directory $project, string $file, string $text): string|CannotJudge
+    private static function write(string $project, Destination $destination, string $text): string|CannotJudge
     {
-        $written = $project->write(Path::of($file), Contents::of($text));
-        $ignored = $written instanceof CannotJudge ? $written : self::ignore($project);
+        $file = $destination->file()->value();
+        $written = Directory::at(dirname($file))->write(Path::of(basename($file)), Contents::of($text));
+        $ignored = $written instanceof CannotJudge ? $written : self::ignore(Directory::at($project));
 
         return match (true) {
             $ignored instanceof CannotJudge => $ignored,
             $ignored => sprintf(
                 'Wrote %s with what zero-config found, and added %s to .gitignore.',
-                $file,
+                $destination->shown(),
                 self::IGNORED,
             ),
-            default => sprintf('Wrote %s with what zero-config found.', $file),
+            default => sprintf('Wrote %s with what zero-config found.', $destination->shown()),
         };
     }
 
@@ -177,13 +201,16 @@ final readonly class Init
     {
         $gitignore = $project->read(Path::of(self::GITIGNORE));
         $text = $gitignore instanceof Contents ? $gitignore->text() : '';
-        $lines = array_flip(array_map(trim(...), explode("\n", $text)));
+        $lines = array_flip(array_map(
+            static fn(string $line): string => trim(trim($line), '/'),
+            explode("\n", $text),
+        ));
 
         if ($gitignore instanceof CannotJudge) {
             return $gitignore;
         }
 
-        if (array_key_exists(self::IGNORED, $lines) || array_key_exists(sprintf('/%s', self::IGNORED), $lines)) {
+        if (array_key_exists(self::DIRECTORY, $lines)) {
             return false;
         }
 

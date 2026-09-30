@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Config;
 
 use function array_map;
+use function class_exists;
 
 use Closure;
 
 use function is_a;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
@@ -112,9 +114,11 @@ final readonly class Chosen
     private function built(string $setting, string $port, Choice $choice, Closure $registered): object
     {
         $options = Options::ofJson($choice->options());
-        $built = str_contains($choice->use(), '\\')
-            ? $this->fromClass($choice->use(), $port, $options)
-            : $registered(Name::of($choice->use()), $options);
+        $use = $choice->use();
+        $named = str_contains($use, '\\') ? Absent::setting() : $registered(Name::of($use), $options);
+        $built = $named instanceof Absent || ($named instanceof CannotJudge && class_exists($use))
+            ? $this->fromClass($use, $port, $options)
+            : $named;
 
         return $built instanceof Invalid ? $this->under(sprintf('%s.with', $setting), $built) : $built;
     }

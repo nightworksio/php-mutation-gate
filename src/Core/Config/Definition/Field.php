@@ -45,6 +45,12 @@ final readonly class Field
         return new self($key, $node, $effect, Presence::Required, Absent::setting());
     }
 
+    /** A setting the effective config must hold, which zero-config finds when a config file leaves it out. */
+    public static function found(string $key, Node $node, Effect $effect): self
+    {
+        return new self($key, $node, $effect, Presence::Found, Absent::setting());
+    }
+
     /** A list whose entries' own settings declare what each can change, and whose absence means something. */
     public static function entries(string $key, Node $node): self
     {
@@ -62,6 +68,7 @@ final readonly class Field
         return $this->key;
     }
 
+    /** Whether a config file must write it, as the JSON Schema says. */
     public function isRequired(): bool
     {
         return $this->presence === Presence::Required;
@@ -82,7 +89,7 @@ final readonly class Field
 
         return match ($this->presence) {
             Presence::Optional => Reading::nothing(),
-            Presence::Required => Reading::refused([
+            Presence::Required, Presence::Found => Reading::refused([
                 Problem::at($path, sprintf('expected %s, got nothing', $this->node->expected())),
             ]),
             Presence::Defaulted, Presence::Section => $this->counted($this->node->read($this->default, $path)),

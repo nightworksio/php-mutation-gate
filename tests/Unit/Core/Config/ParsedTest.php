@@ -42,3 +42,15 @@ it('refuses an object that is not data, however deep', function (): void {
             'mutation-gate.neon holds an object, ArrayObject, and a config holds data only.',
         ));
 });
+
+it('refuses a date with a time of day', function (DateTimeImmutable $date, string $shown): void {
+    expect(Parsed::document(['expires' => $date], 'mutation-gate.yaml'))
+        ->toEqual(CannotJudge::because(sprintf(
+            'mutation-gate.yaml holds a date with a time, %s; a config date is a day, YYYY-MM-DD.',
+            $shown,
+        )));
+})->with([
+    'an hour' => [new DateTimeImmutable('2027-03-31T10:00:00+00:00'), '2027-03-31T10:00:00+00:00'],
+    'a second' => [new DateTimeImmutable('2027-03-31T00:00:01+00:00'), '2027-03-31T00:00:01+00:00'],
+    'a fraction of a second' => [new DateTimeImmutable('2027-03-31T00:00:00.5+00:00'), '2027-03-31T00:00:00+00:00'],
+]);

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Config;
 
 use function array_diff_key;
+use function array_filter;
 use function array_key_exists;
 use function array_map;
-use function array_unique;
 use function array_values;
 use function count;
 use function explode;
@@ -19,9 +19,8 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Definition\Json;
 use NightWorksIO\MutationGate\Core\Config\Document;
 
-use function preg_match_all;
-use function sort;
 use function sprintf;
+use function str_contains;
 
 /**
  * A config written as a `mutation-gate.php` (ADR-0002): `Gate::configure()`
@@ -30,6 +29,12 @@ use function sprintf;
  */
 final readonly class Php
 {
+    /** The builder classes a config's calls name, in the order their `use` statements are written. */
+    private const array CLASSES = [
+        'Badge', 'Baseline', 'Budget', 'Ci', 'Flaky', 'Floor', 'Gate', 'Ignore', 'Ignores', 'Load', 'Local', 'Option',
+        'Pest', 'Preset', 'Proofs', 'Reach', 'Report', 'Runner', 'Shards', 'Source', 'Timeouts', 'Tree', 'Uncovered',
+    ];
+
     /** Settings written as one call each, `%s` taking the value. */
     private const array VALUES = [
         'baseline.path' => 'Baseline::at(%s)',
@@ -107,9 +112,10 @@ final readonly class Php
         $config = Json::decode($document->json());
         $tree = is_array($config) ? $config : [];
         $code = implode('', [...self::gate($tree), ...self::with($tree)]);
-        preg_match_all('/\b([A-Z][A-Za-z]+)::/', $code, $classes);
-        $used = array_unique(['Gate', ...$classes[1]]);
-        sort($used);
+        $used = array_filter(
+            self::CLASSES,
+            static fn(string $class): bool => $class === 'Gate' || str_contains($code, sprintf('%s::', $class)),
+        );
 
         return sprintf(
             "<?php\n\ndeclare(strict_types=1);\n\n%s\nreturn Gate::configure()%s;\n",
