@@ -239,6 +239,7 @@ final readonly class Fixtures
                 PHP, 'names a closed set as an enum rather than a class'),
             self::inTheCore('D5', 'PlantedFlag', "return in_array(1, [1], true) ? 1 : 0;", 'int', 'D5 —'),
             self::inTheCore('D6', 'PlantedNumber', 'return 600;', 'int', 'D6 — give 600 a name'),
+            self::inTheCore('D10', 'PlantedMixed', 'return 1;', 'mixed', 'D10 — this type says mixed'),
             Fixture::suite('D7', 'src/Core/PlantedOpen.php', <<<'PHP'
                 <?php
 

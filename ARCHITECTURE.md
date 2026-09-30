@@ -96,6 +96,7 @@ every core type their public signatures reach (ADR-0001).
 | **D5** | No bare `true` or `false` at a call site | phpstan: own rule |
 | **D6** | No unnamed number in a method body | phpstan: own rule |
 | **D7** | Every class is final, and every class on the API surface or in the core that is not an exception is readonly | arch: reflection over every class under `src` |
+| **D10** | `mixed` appears only in a decoder of untrusted input, which hands on typed values; the files still to type are listed, and the list only shrinks | phpstan: own rule, over `src` and `tests/Support`; arch: every listed file still holds a `mixed` |
 
 ## H — names, size and layout
 
