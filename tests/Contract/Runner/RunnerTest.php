@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
@@ -217,6 +218,21 @@ it('judges a held path by the tests its #[Holds] filter names, with Infection', 
 
     expect($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
         ->toBe($library->expected('held'));
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
+it('names the test that killed a mutant, as the coverage map names it, with Infection', function () use ($money): void {
+    $library = Library::infection(Seconds::of(10.0));
+    $result = $money($library);
+    $killers = [];
+
+    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
+        $killers[$mutant->location()->start()->number()] = array_map(
+            static fn(TestId $test): string => $test->value(),
+            [...$mutant->killers()],
+        );
+    }
+
+    expect($killers)->toBe([11 => ['Tests\\MoneySpec::addsTwoAmounts'], 16 => [], 21 => [], 27 => []]);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 it('reports a mutant Infection skips, allowed the cap, and judges it when run again at a higher cap', function (): void {

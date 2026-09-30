@@ -122,6 +122,35 @@ it('reads every list of the log as the gate\'s status, by file and then by line,
         ->toEqual(Seconds::of(5.0));
 });
 
+it('names the tests that killed a mutant, and none for one static analysis, an error or a timeout killed', function (): void {
+    $at = resultsProject();
+    $failed = "There was 1 failure:\n\n1) Tests\\MoneySpec::addsTwoAmounts#0 with data (2, 3)\nFailed.";
+    $result = resultsRead($at, [
+        'killed' => [
+            [...resultsMutant($at, 'Plus', 'src/Money.php', 11, 'return $a + $b;', 'return $a - $b;'), 'processOutput' => $failed],
+            array_diff_key(resultsMutant($at, 'Plus', 'src/Held.php', 11, '$a + $a', '$a - $a'), ['processOutput' => true]),
+        ],
+        'killedByStaticAnalysis' => [[...resultsMutant($at, 'TrueValue', 'src/Money.php', 30, 'true', 'false'), 'processOutput' => $failed]],
+        'errored' => [[...resultsMutant($at, 'Throw_', 'src/Money.php', 31, 'throw $e;', '$e;'), 'processOutput' => $failed]],
+        'timeouted' => [[...resultsMutant($at, 'Decrement', 'src/Money.php', 27, '$a--;', '$a++;'), 'processOutput' => $failed]],
+    ], text: ['Timed Out' => [[sprintf('%s/src/Money.php', $at->root()), 27, 'Decrement', 'n27', '$a--;', '$a++;']]]);
+    $killers = $result instanceof MutationResult ? array_map(
+        static fn(Mutant $mutant): array => [
+            sprintf('%s:%d', $mutant->location()->file()->value(), $mutant->location()->start()->number()),
+            array_map(static fn(TestId $test): string => $test->value(), [...$mutant->killers()]),
+        ],
+        iterator_to_array($result->mutants(), preserve_keys: false),
+    ) : [];
+
+    expect($killers)->toBe([
+        ['src/Held.php:11', []],
+        ['src/Money.php:11', ['Tests\\MoneySpec::addsTwoAmounts#0']],
+        ['src/Money.php:27', []],
+        ['src/Money.php:30', []],
+        ['src/Money.php:31', []],
+    ]);
+});
+
 it('counts mutants that share a file, a mutator and a change, so each has an id of its own', function (): void {
     $at = resultsProject();
     $diff = InfectionRun::diff('$a + 1', '$a - 1');
