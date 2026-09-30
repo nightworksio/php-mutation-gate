@@ -10,6 +10,7 @@ use function getenv;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
+use NightWorksIO\MutationGate\Adapter\Console\ProblemsReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\CodeQualityReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory;
@@ -89,6 +90,7 @@ final readonly class FirstParty implements Extension
             )
             ->withReporter(Name::of('gitlab'), CodeQualityReportFile::fromOptions(...))
             ->withReporter(Name::of('kill-matrix'), KillMatrixFile::fromOptions(...))
+            ->withReporter(Name::of('problems'), ProblemsReport::fromOptions(...))
             ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Git::at(self::HERE))
             ->withRepository(Name::of('git'), static fn(): Repository => Git::at(self::HERE))
             ->withChangeSource(Name::of('github'), static fn(): ChangeSource => self::github())

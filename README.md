@@ -322,6 +322,7 @@ Each reporter is registered by a name:
 | `html` | Listed in `reports` | `mutation-report.json` and a self-contained `index.html` under the `path` directory, shown with Stryker's viewer |
 | `gitlab` | Listed in `reports` | GitLab's Code Quality JSON at `path`: an issue per mutant counted as not killed, `major` in a set that failed and `minor` otherwise |
 | `kill-matrix` | Listed in `reports` | CSV at `path`: a record per mutant and covering test, with what the test did with the mutant in place |
+| `problems` | With `--output=problems` | One `<path>:<line>:<col>: <error\|warning>: <message> [<rule>] <id>` line per result, between `mutation-gate: judging` and `mutation-gate: judged`, for an editor's problem matcher |
 | `github-annotations` | Under GitHub Actions | Up to 10 error, 10 warning and 10 notice annotations, changed lines first |
 | `github-summary` | Under GitHub Actions | The step summary, with every mutant counted as not killed in one table |
 | `github-comment` | On a pull request, with `GITHUB_TOKEN` | One sticky comment, updated in place; `with: {identity: …}` names the account it is found by when the token is not `GITHUB_TOKEN` |
