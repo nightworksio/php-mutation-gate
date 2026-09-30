@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Core\Config\Definition\Json;
 use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -42,18 +43,18 @@ final readonly class Registered
     public static function config(Extensions $extensions, Closure $installed): Extensions
     {
         $registry = $extensions
-            ->withConfigLoader(Name::of('php'), static fn(): ConfigLoader => new PhpConfig())
-            ->withConfigLoader(Name::of('json'), static fn(): ConfigLoader => new JsonConfig())
+            ->withConfigLoader(Name::of(Format::Php->value), static fn(): ConfigLoader => new PhpConfig())
+            ->withConfigLoader(Name::of(Format::Json->value), static fn(): ConfigLoader => new JsonConfig())
             ->withTreeSource(
                 Name::of('phpunit'),
                 static fn(Options $options): TreeSource => PhpUnitTrees::in(self::here(), self::fallback($options)),
             )
             ->withTreeSource(Name::of('composer'), static fn(): TreeSource => AutoloadTrees::in(self::here()));
         $withYaml = $installed(Yaml::class)
-            ? $registry->withConfigLoader(Name::of('yaml'), static fn(): ConfigLoader => new YamlConfig())
+            ? $registry->withConfigLoader(Name::of(Format::Yaml->value), static fn(): ConfigLoader => new YamlConfig())
             : $registry;
         $withNeon = $installed(Neon::class)
-            ? $withYaml->withConfigLoader(Name::of('neon'), static fn(): ConfigLoader => new NeonConfig())
+            ? $withYaml->withConfigLoader(Name::of(Format::Neon->value), static fn(): ConfigLoader => new NeonConfig())
             : $withYaml;
 
         return self::presets($withNeon);

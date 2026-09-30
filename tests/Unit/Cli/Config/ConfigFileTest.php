@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -22,7 +23,7 @@ it('finds the one config file in the project', function (string $name): void {
     Scratch::write($project, $name, '');
 
     expect(ConfigFile::in($project, ''))->toEqual(Path::of(sprintf('%s/%s', $project, $name)));
-})->with(ConfigFile::NAMES);
+})->with(Format::fileNames());
 
 it('is zero-config where there is none', function (): void {
     $project = Scratch::directory();

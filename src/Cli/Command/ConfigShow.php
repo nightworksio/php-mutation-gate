@@ -12,7 +12,9 @@ use NightWorksIO\MutationGate\Cli\Config\Given;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -33,7 +35,7 @@ final readonly class ConfigShow
                 'format',
                 mode: InputOption::VALUE_REQUIRED,
                 description: 'php, json, yaml or neon',
-                default: 'json',
+                default: Format::Json->value,
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($effective, $formats): int {
                 $shown = self::shown($effective, $formats, $input);
@@ -55,15 +57,13 @@ final readonly class ConfigShow
     ): string|Invalid|CannotJudge {
         $settings = $effective->settings(Given::from($input));
         $format = $input->getOption('format');
+        $chosen = Formats::chosen(is_string($format) ? $format : '');
+        $document = $settings instanceof Settings ? Document::ofJson($settings->effective()) : $settings;
 
-        if ($settings instanceof Invalid || $settings instanceof CannotJudge) {
-            return $settings;
-        }
-
-        $document = Document::ofJson($settings->effective());
-
-        return $document instanceof Document
-            ? $formats->render($document, is_string($format) ? $format : '')
-            : $document;
+        return match (true) {
+            ! $document instanceof Document => $document,
+            $chosen instanceof CannotJudge => $chosen,
+            default => $formats->render($document, $chosen),
+        };
     }
 }

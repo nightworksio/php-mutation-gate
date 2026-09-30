@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Reach;
 use function array_any;
 use function array_map;
 
+use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Globs;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -21,13 +22,8 @@ use function str_ends_with;
  */
 final readonly class Layout
 {
-    /** The files that decide how the gate runs in every package, spelt from the package's own directory. */
+    /** The files besides its config that decide how the gate runs in every package, spelt from its own directory. */
     private const array DECISIVE = [
-        'mutation-gate.php',
-        'mutation-gate.json',
-        'mutation-gate.yaml',
-        'mutation-gate.yml',
-        'mutation-gate.neon',
         'composer.json',
         'phpunit.xml',
         'phpunit.xml.dist',
@@ -60,7 +56,7 @@ final readonly class Layout
     public static function standard(): self
     {
         return new self(
-            Globs::of(...array_map(Glob::of(...), self::DECISIVE)),
+            Globs::of(...array_map(Glob::of(...), [...Format::fileNames(), ...self::DECISIVE])),
             Globs::of(),
             Paths::of(Path::of(self::TESTS)),
             Paths::none(),
