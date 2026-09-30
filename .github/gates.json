@@ -85,9 +85,10 @@
     "guards": {
       "check": "the rules refuse violations",
       "checks": "Every rule refuses a violation of itself, planted in a copy of the checkout.",
-      "reproduce": "composer test:guards",
+      "reproduce": "composer test:guards && composer test:guards:ci",
       "evidence": [
-        {"step": "guards", "tool": "pest", "raw": "evidence/raw/guards.xml"}
+        {"step": "guards", "tool": "pest", "raw": "evidence/raw/guards.xml"},
+        {"step": "guards-ci", "tool": "pest", "raw": "evidence/raw/guards-ci.xml"}
       ],
       "rules": {
         "pest": "The suite did not run to the end, so it wrote no log of its tests.",
@@ -98,7 +99,7 @@
     "checks": {
       "check": "checks",
       "checks": "The manifest, the formatting (Pint), the static analysis (PHPStan), dead idioms (Rector), the advisories and the dependencies.",
-      "reproduce": "composer validate --strict && composer normalize --dry-run && composer audit && composer lint && composer analyse && composer refactor && composer deps",
+      "reproduce": "composer validate --strict && composer normalize --dry-run && composer audit --locked && composer lint && composer analyse && composer refactor && composer deps",
       "fix": "composer refactor:fix && composer lint:fix && composer normalize",
       "evidence": [
         {"step": "validate", "tool": "composer-validate"},

@@ -19,6 +19,16 @@ enum Proof: string
     /** A change to a file the repository owns, made in the copy; the test the marker names fails. */
     case Edit = 'edit';
 
+    /** A change to the lock, made in the copy; `composer audit --locked` over the copy names the advisory. CI only. */
+    case Audit = 'audit';
+
+    /**
+     * A file of its own, planted in a copy of its own that holds nothing else
+     * planted; the covered suite run there falls below its floor and lists the
+     * file under 100%. CI only.
+     */
+    case Coverage = 'coverage';
+
     /** The rule's own judgement, called with the violation by a test beside it. */
     case Direct = 'direct';
 
@@ -30,7 +40,7 @@ enum Proof: string
     {
         return match ($this) {
             self::Analyser, self::Suite, self::Dependencies => true,
-            self::Edit, self::Direct, self::NotDrivable => false,
+            self::Edit, self::Audit, self::Coverage, self::Direct, self::NotDrivable => false,
         };
     }
 
@@ -39,7 +49,8 @@ enum Proof: string
     {
         return match ($this) {
             self::Suite, self::Edit => true,
-            self::Analyser, self::Dependencies, self::Direct, self::NotDrivable => false,
+            self::Analyser, self::Dependencies, self::Audit, self::Coverage, self::Direct, self::NotDrivable => false,
         };
     }
+
 }

@@ -143,6 +143,61 @@ it('hears the dependency analyser refuse every dependency planted for it', funct
     expect($silent)->toBe([], sprintf("The dependency analyser did not name these:\n  %s\n\nIt said:\n%s", implode("\n  ", $silent), $said));
 });
 
+// The two below run in CI only, as the `ci-only` group phpunit.xml leaves out
+// by default: the audit asks Packagist for its advisories, and the coverage
+// floor runs the whole covered suite once more. CI's guards job runs them, and
+// there a missing answer fails, as any other would.
+
+it('hears composer audit refuse every advisory planted for it, in a copy of its own', function (): void {
+    $copy = aCopy();
+
+    foreach (fixturesProvenBy(Proof::Audit) as $fixture) {
+        plantEdit($copy, $fixture);
+    }
+
+    $audit = new Process(['composer', 'audit', '--locked', '--format=json', '--no-interaction'], $copy, timeout: 300);
+    $audit->run();
+    $said = $audit->getOutput();
+    $silent = [];
+
+    foreach (fixturesProvenBy(Proof::Audit) as $fixture) {
+        if (! str_contains($said, $fixture->evidence)) {
+            $silent[] = sprintf('%s: %s', $fixture->rule, $fixture->evidence);
+        }
+    }
+
+    expect($audit->isSuccessful())->toBeFalse()
+        ->and($silent)->toBe([], sprintf(
+            "composer audit did not report these:\n  %s\n\nIt said:\n%s\n%s",
+            implode("\n  ", $silent),
+            $said,
+            $audit->getErrorOutput(),
+        ));
+})->group('ci-only');
+
+it('sees the coverage floor refuse every uncovered line planted for it, alone in a copy of its own', function (): void {
+    $copy = aCopy();
+
+    foreach (fixturesProvenBy(Proof::Coverage) as $fixture) {
+        plantFile(sprintf('%s/%s', $copy, $fixture->path), $fixture->code);
+    }
+
+    $covered = new Process(['sh', 'scripts/coverage.sh'], $copy, timeout: null);
+    $covered->run();
+    $said = sprintf('%s%s', $covered->getOutput(), $covered->getErrorOutput());
+    $silent = [];
+
+    foreach (fixturesProvenBy(Proof::Coverage) as $fixture) {
+        if (preg_match(sprintf('#%s\b[^\n]*?(\d+(?:\.\d+)?)\s?%%#', preg_quote($fixture->evidence, '#')), $said, $listed) !== 1 || $listed[1] === '100.0') {
+            $silent[] = sprintf('%s: %s is not listed under 100%%', $fixture->rule, $fixture->evidence);
+        }
+    }
+
+    expect($covered->isSuccessful())->toBeFalse()
+        ->and($said)->toContain('Code coverage below expected')
+        ->and($silent)->toBe([], sprintf("The covered run did not count these:\n  %s\n\nIt said:\n%s", implode("\n  ", $silent), $said));
+})->group('ci-only');
+
 /**
  * The documented rules nothing is planted under.
  *

@@ -158,20 +158,27 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # pcov for G7's guard, which runs the covered suite in a copy of its own.
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: ${{ env.PHP_VERSION }}
-          coverage: none
+          coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
       - id: guards
         run: |
           mkdir -p evidence/raw
           composer test:guards -- --log-junit=evidence/raw/guards.xml
+      # The guards phpunit.xml leaves out by default: S2's, which asks
+      # Packagist for advisories, and G7's, which runs the covered suite.
+      # Neither skips: without the network or a driver, it fails.
+      - id: guards-ci
+        if: ${{ !cancelled() }}
+        run: composer test:guards:ci -- --log-junit=evidence/raw/guards-ci.xml
       # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
       - name: evidence
         if: ${{ !cancelled() }}
@@ -226,7 +233,7 @@ jobs:
           set -o pipefail
           composer normalize --dry-run 2>&1 | tee evidence/raw/normalize.txt
       - id: audit
-        run: composer audit --format=json > evidence/raw/audit.json
+        run: composer audit --locked --format=json > evidence/raw/audit.json
       - id: lint
         run: composer lint -- --format=json > evidence/raw/pint.json
       - id: analyse

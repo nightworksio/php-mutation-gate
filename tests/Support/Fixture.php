@@ -51,6 +51,25 @@ final readonly class Fixture
         return new self($rule, Proof::Edit, $path, $code, $marker, $evidence, $replacing);
     }
 
+    /**
+     * A change to `composer.lock`: `$replacing` is found exactly once and
+     * replaced by `$code`, and `composer audit --locked` over the copy must
+     * report `$evidence`.
+     */
+    public static function audit(string $rule, string $replacing, string $code, string $evidence): self
+    {
+        return new self($rule, Proof::Audit, 'composer.lock', $code, '', $evidence, $replacing);
+    }
+
+    /**
+     * A file planted alone in a copy of its own; the covered suite run there
+     * must fall below its floor and list `$evidence` under 100%.
+     */
+    public static function coverage(string $rule, string $path, string $code, string $evidence): self
+    {
+        return new self($rule, Proof::Coverage, $path, $code, '', $evidence, '');
+    }
+
     /** A rule whose judgement a test calls with the violation; `$how` names that test. */
     public static function direct(string $rule, string $how): self
     {

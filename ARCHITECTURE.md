@@ -151,7 +151,7 @@ Extension, and every core type their public signatures reach (ADR-0001).
 | Rule | Says | Enforced by |
 |---|---|---|
 | **S1** | The dangerous, execution, insecure and non-timing-safe call bundles are on | phpstan `disallowed-calls`, the four shipped bundles |
-| **S2** | No package with a published advisory resolves | `roave/security-advisories` + `composer audit` in ci |
+| **S2** | No package with a published advisory resolves | `roave/security-advisories` + `composer audit --locked` in ci |
 
 Secrets and vulnerable dependencies are scanned in CI by gitleaks and
 osv-scanner, which read the repository rather than the code.

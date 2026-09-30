@@ -384,7 +384,12 @@ final readonly class Fixtures
             self::inTheCore('Q4', 'PlantedEcho', "echo 'x';\n\n    return 1;", 'int', 'Q4 —'),
             self::inTheCore('L3', 'PlantedBytes', "return strlen('één');", 'int', 'L3 —'),
             self::inTheCore('S1', 'PlantedDanger', 'return phpinfo();', 'bool', 'phpinfo()'),
-            Fixture::notDrivable('S2', 'An advisory is published by somebody else, and roave/security-advisories refuses the install that would plant one; composer audit reads the lock in CI.'),
+            Fixture::audit(
+                'S2',
+                "\"name\": \"symfony/process\",\n            \"version\": \"v8.1.7\",",
+                "\"name\": \"symfony/process\",\n            \"version\": \"v7.1.6\",",
+                'CVE-2024-51736',
+            ),
         ];
     }
 
@@ -447,8 +452,23 @@ final readonly class Fixtures
                     expect(true)->toBeTrue();
                 })->only();
                 PHP, 'commits no focused test and no unexplained skip'),
-            Fixture::notDrivable('G7', 'A floor is a number over the whole run, so no one snippet breaks it; `pest --coverage --min=100` fails the CI run below it.'),
-            Fixture::notDrivable('G8', 'A floor is a number over the whole run, so no one snippet breaks it; `pest --mutate --everything --min=100` fails the CI run below it.'),
+            Fixture::coverage('G7', 'src/Core/Planted/Uncovered.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                namespace NightWorksIO\MutationGate\Core\Planted;
+
+                /** A class no test reaches. */
+                final readonly class Uncovered
+                {
+                    public static function reached(): string
+                    {
+                        return 'never';
+                    }
+                }
+                PHP, 'Core/Planted/Uncovered'),
+            Fixture::notDrivable('G8', 'Planting a survivor means running mutation testing over a copy, which runs in CI only, never in this suite.'),
             Fixture::edit('G9', 'phpunit.xml', 'failOnWarning="true"', 'failOnWarning="false"', 'fails the run on every diagnostic', 'failOnWarning is not'),
         ];
     }

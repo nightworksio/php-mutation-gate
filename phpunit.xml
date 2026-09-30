@@ -57,6 +57,14 @@
         </testsuite>
     </testsuites>
 
+    <!-- The guards that need the network or a whole covered run, which CI's
+         guards job runs as a group of their own. -->
+    <groups>
+        <exclude>
+            <group>ci-only</group>
+        </exclude>
+    </groups>
+
     <source
         ignoreSuppressionOfDeprecations="true"
         ignoreSuppressionOfPhpDeprecations="true"
