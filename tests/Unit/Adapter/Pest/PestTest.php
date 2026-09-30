@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Diff;
+use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
@@ -97,7 +98,7 @@ function adapterProject(): Project
 /** What Pest and the plugin leave when a run mutates src/Money.php's line 11 once, and a test kills it. */
 function adapterKilled(Command $command, Project $project): Ran
 {
-    $results = $command->environment()['MUTATION_GATE_RESULTS'] ?? '';
+    $results = sprintf('%s', $command->environment()['MUTATION_GATE_RESULTS'] ?? '');
 
     if (is_file($results)) {
         return Ran::finished(succeeded: false, output: 'an earlier run\'s results were left in place');
@@ -108,6 +109,7 @@ function adapterKilled(Command $command, Project $project): Ran
     CoverageMaps::write($map, sprintf('%s/', $project->root()), ['src/Money.php' => [11 => [0]]], [RUN_ADDS], []);
     PestRun::write($results, [
         PestRun::planned('n1', $money, 11, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+        PestRun::made(1),
         PestRun::finished('n1', 'tested', 0.25),
         PestRun::end(),
     ]);
@@ -337,7 +339,7 @@ it('cannot open a shard on the canary group without the planning job\'s map', fu
     ));
 });
 
-it('runs each mutant again alone by its file and mutator, matched back by id', function (): void {
+it('runs the mutants again once per file and mutator, with no deadline, matched back by id', function (): void {
     $at = adapterProject();
     $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
     $survivor = adapterMutant();
@@ -345,22 +347,112 @@ it('runs each mutant again alone by its file and mutator, matched back by id', f
     $change = Mutation::of(RUN_PLUS, MutatorFamily::Arithmetic, '-gone');
     $id = MutantId::hash(Path::of('src/Money.php'), RUN_PLUS, '-gone', 0);
     $gone = Mutant::of($id, 'n9', $place, $change, MutantStatus::Survived, Unmeasured::duration());
-    $request = adapterMoney()->onlyMutators(Mutators::named(RUN_PLUS))->within(Seconds::of(20.0));
-    $retried = new Pest($at, $shell, Patching::off())->retry(Mutants::of($survivor, $gone), Seconds::of(20.0));
+    $elsewhere = Mutant::of(
+        MutantId::hash(Path::of('src/Held.php'), RUN_PLUS, '-held', 0),
+        'n8',
+        Location::of(Path::of('src/Held.php'), Line::of(3), Line::of(3)),
+        Mutation::of(RUN_PLUS, MutatorFamily::Arithmetic, '-held'),
+        MutantStatus::Survived,
+        Unmeasured::duration(),
+    );
+    $request = adapterMoney()->onlyMutators(Mutators::named(RUN_PLUS));
+    $held = MutationRequest::of(Paths::of(Path::of('src/Held.php')), WholeSuite::tests())
+        ->onlyMutators(Mutators::named(RUN_PLUS));
+    $retried = new Pest($at, $shell, Patching::off())
+        ->retry(Mutants::of($survivor, $gone, $elsewhere), Seconds::of(20.0), WholeSuite::tests());
+    $notFound = Reason::that('Run again alone, Pest made no mutant with this id.');
 
     expect($retried)->toEqual(Mutants::of(
         $survivor,
-        Mutant::of($id, 'n9', $place, $change, MutantStatus::Unjudged, Unmeasured::duration())
-            ->because(Reason::that('Run again alone, Pest made no mutant with this id.')),
+        Mutant::of($id, 'n9', $place, $change, MutantStatus::Unjudged, Unmeasured::duration())->because($notFound),
+        Interpretation::unjudged($elsewhere, $notFound),
     ))->and($shell->commands())->toEqual([
         Invocation::mutation($request, WholeSuite::tests(), adapterResults($at)),
-        Invocation::mutation($request, WholeSuite::tests(), adapterResults($at)),
+        Invocation::mutation($held, WholeSuite::tests(), adapterResults($at)),
     ]);
+});
+
+it('runs a held unit\'s mutant again by the group that holds it', function (): void {
+    $at = adapterProject();
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+    $holding = Group::named('holds:src/Money.php');
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $holding)
+        ->onlyMutators(Mutators::named(RUN_PLUS));
+
+    new Pest($at, $shell, Patching::off())->retry(Mutants::of(adapterMutant()), Seconds::of(20.0), $holding);
+
+    expect($shell->commands())->toEqual([Invocation::mutation($request, $holding, adapterResults($at))]);
 });
 
 it('cannot judge a retry whose run failed', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
 
-    expect(new Pest(adapterProject(), $shell, Patching::off())->retry(Mutants::of(adapterMutant()), Seconds::of(20.0)))
-        ->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
+    $retried = new Pest(adapterProject(), $shell, Patching::off())
+        ->retry(Mutants::of(adapterMutant()), Seconds::of(20.0), WholeSuite::tests());
+
+    expect($retried)->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
+});
+
+it('mutates nothing, and runs nothing, where no file is asked for', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $request = MutationRequest::of(Paths::none(), WholeSuite::tests());
+
+    expect(new Pest(adapterProject(), $shell, Patching::off())->mutate($request))
+        ->toEqual(MutationResult::of(Mutants::none(), 0))
+        ->and($shell->commands())->toBe([]);
+});
+
+it('refuses a path with a comma, which Pest\'s lists of paths split on', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $pest = new Pest(adapterProject(), $shell, Patching::off());
+    $asked = MutationRequest::of(Paths::of(Path::of('src/a,b.php')), WholeSuite::tests());
+    $leftOut = adapterMoney()->leavingOut(Paths::of(Path::of('src/c,d.php'), Path::of('src/e.php')));
+
+    expect($pest->mutate($asked))->toEqual(CannotJudge::because(
+        "Pest's --path and --ignore split on commas, so Pest cannot mutate src/a,b.php less .",
+    ))->and($pest->mutate($leftOut))->toEqual(CannotJudge::because(
+        "Pest's --path and --ignore split on commas, so Pest cannot mutate src/Money.php less src/c,d.php, src/e.php.",
+    ))->and($shell->commands())->toBe([]);
+});
+
+it('cannot judge a run whose earlier results cannot be removed', function (): void {
+    $at = adapterProject();
+    mkdir(adapterResults($at), recursive: true);
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    expect(new Pest($at, $shell, Patching::off())->mutate(adapterMoney()))->toEqual(CannotJudge::because(sprintf(
+        'An earlier run left %s or the map beside it, and the gate cannot remove them.',
+        adapterResults($at),
+    )))->and($shell->commands())->toBe([]);
+});
+
+it('removes an earlier coverage run\'s map and log before it measures again', function (): void {
+    $at = adapterProject();
+    $directory = sprintf('%s/.mutation-gate/coverage', $at->root());
+    Scratch::write($at->root(), '.mutation-gate/coverage/coverage.php', '<?php return [];');
+    Scratch::write($at->root(), '.mutation-gate/coverage/junit.xml', '<testsuites/>');
+    $request = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+    $seen = [];
+    $shell = new ShellFake(static function () use ($directory, &$seen): Ran {
+        $seen = [is_file(sprintf('%s/coverage.php', $directory)), is_file(sprintf('%s/junit.xml', $directory))];
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+
+    expect(new Pest($at, $shell, Patching::off())->coverage($request))->toEqual(CannotJudge::because(
+        sprintf('There is no coverage map at %s/coverage.php, so no test runs any line.', $directory),
+    ))->and($seen)->toBe([false, false]);
+});
+
+it('cannot measure coverage where an earlier map cannot be removed', function (): void {
+    $at = adapterProject();
+    mkdir(sprintf('%s/.mutation-gate/coverage/coverage.php', $at->root()), recursive: true);
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $request = CoverageRequest::running(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+
+    expect(new Pest($at, $shell, Patching::off())->coverage($request))->toEqual(CannotJudge::because(sprintf(
+        'An earlier run left %s/.mutation-gate/coverage/coverage.php or its JUnit log, '
+        . 'and the gate cannot remove them.',
+        $at->root(),
+    )))->and($shell->commands())->toBe([]);
 });

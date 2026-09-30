@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Fakes;
 
 use function in_array;
 use function iterator_to_array;
+use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -27,9 +28,11 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Port\Runner;
@@ -71,7 +74,7 @@ final readonly class RunnerFake implements Runner
                 ->covered(Path::of('src/Held.php'), Line::of(11), TestId::of('HeldTest::doubles'))
                 ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.2)),
             $mutants,
-            Paths::of(Path::of('tests/MoneyTest.php')),
+            Paths::of(Path::of('tests/DrainSpec.php'), Path::of('tests/MoneySpec.php')),
         );
     }
 
@@ -105,21 +108,21 @@ final readonly class RunnerFake implements Runner
             $asked = $this->within($file, $request->files()) && ! $this->within($file, $request->leftOut());
 
             if ($asked && $this->applies($request->mutators(), $mutant)) {
-                $found = $found->with($mutant);
+                $found = $found->with($this->judged($mutant, $request->judgedBy()));
             }
         }
 
         return MutationResult::of($found, 0);
     }
 
-    public function retry(Mutants $mutants, Seconds $limit): Mutants
+    public function retry(Mutants $mutants, Seconds $limit, WholeSuite|Group|Filter $judgedBy): Mutants
     {
         $found = Mutants::none();
 
         foreach ($this->library as $known) {
             foreach ($mutants as $asked) {
                 if ($known->id()->value() === $asked->id()->value()) {
-                    $found = $found->with($known);
+                    $found = $found->with($this->judged($known, $judgedBy));
                 }
             }
         }
@@ -134,13 +137,31 @@ final readonly class RunnerFake implements Runner
         $line = Line::of($change['line']);
         $diff = sprintf("@@ @@\n-%s\n+%s", $change['removed'], $change['added']);
 
-        return Mutant::of(
+        $mutant = Mutant::of(
             MutantId::hash($file, $mutator, $diff, 0),
             sprintf('%s-%d', $mutator, $change['line']),
             Location::of($file, $line, $line),
             Mutation::of($mutator, $family, $diff),
             $change['status'],
-            Unmeasured::duration(),
+            $change['status'] === MutantStatus::Uncovered ? Unmeasured::duration() : Seconds::of(0.1),
+        );
+
+        return $change['status'] === MutantStatus::TimedOut ? $mutant->withLimit(Seconds::of(5.0)) : $mutant;
+    }
+
+    /** A mutant as its judging tests see it: a group that does not hold its file runs no test on it. */
+    private function judged(Mutant $mutant, WholeSuite|Group|Filter $judgedBy): Mutant
+    {
+        $held = ! $judgedBy instanceof Group
+            || $this->within($mutant->location()->file(), Paths::of(Path::of(mb_substr($judgedBy->name(), 6))));
+
+        return $held ? $mutant : Mutant::of(
+            $mutant->id(),
+            $mutant->nativeId(),
+            $mutant->location(),
+            $mutant->mutation(),
+            MutantStatus::Uncovered,
+            $mutant->duration(),
         );
     }
 

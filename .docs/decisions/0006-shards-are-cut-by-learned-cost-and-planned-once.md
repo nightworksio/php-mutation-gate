@@ -37,7 +37,8 @@ Two parts of that do not carry over to a public package.
      - reads the config and the trees;
      - takes the coverage map, either by running the suite or from
        `--coverage=<dir>`, which an earlier test job wrote in the runner's
-       layout (ADR-0004);
+       layout (ADR-0004). A Pest map is PHP code, which reading it runs, so
+       only a map the same pipeline run wrote is ever read;
      - works out the reach (ADR-0005) and each considered unit's content key
        (ADR-0007), and drops every unit a proof already covers;
      - weighs the rest with the cost model and cuts the shards.

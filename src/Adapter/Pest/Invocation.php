@@ -27,7 +27,15 @@ final readonly class Invocation
     /** The coverage map's name in a coverage directory. */
     public const string MAP = 'coverage.php';
 
-    private const string JUNIT = 'junit.xml';
+    /** JUnit's log of a coverage run, in the same directory. */
+    public const string JUNIT = 'junit.xml';
+
+    /**
+     * What `--ignore` names when the gate leaves nothing out: its own
+     * directory, which holds no source, so that a project's own ignore list
+     * in `pest()->mutate()` never decides what is mutated.
+     */
+    private const string NOTHING = '.mutation-gate';
 
     public static function listingGroups(): Command
     {
@@ -54,6 +62,10 @@ final readonly class Invocation
      * each mutant's own run, which is not parallel and fails on it, so every
      * covered mutant would read as killed. Pest runs as many mutants at once
      * as the machine has cores.
+     *
+     * The options after `--no-tia` undo what a project's own
+     * `pest()->mutate()` could set: covered lines only, a class list, a stop
+     * at the first escaped or uncovered mutant, and escaped mutants first.
      */
     public static function mutation(MutationRequest $request, WholeSuite|Group $judgedBy, string $results): Command
     {
@@ -62,9 +74,14 @@ final readonly class Invocation
             '--no-cache',
             '--parallel',
             '--no-tia',
+            '--everything',
+            '--covered-only=false',
+            '--stop-on-untested=false',
+            '--stop-on-uncovered=false',
+            '--retry=false',
             '--colors=never',
-            sprintf('--path=%s', self::joined($request->files())),
-            ...self::ignoring($request->leftOut()),
+            sprintf('--path=%s', PathList::of($request->files())->joined(',')),
+            sprintf('--ignore=%s', self::ignored($request->leftOut())),
             ...self::narrowedTo($judgedBy),
             ...self::applying($request->mutators()),
         )->with([Recorder::RESULTS => $results])->within($request->deadline());
@@ -76,10 +93,9 @@ final readonly class Invocation
         return $tests instanceof Group ? [sprintf('--group=%s', $tests->name())] : [];
     }
 
-    /** @return list<string> */
-    private static function ignoring(Paths $paths): array
+    private static function ignored(Paths $paths): string
     {
-        return count($paths) === 0 ? [] : [sprintf('--ignore=%s', self::joined($paths))];
+        return count($paths) === 0 ? self::NOTHING : PathList::of($paths)->joined(',');
     }
 
     /** @return list<string> */
@@ -92,16 +108,5 @@ final readonly class Invocation
         }
 
         return $mutators->isAll() ? [] : [sprintf('--mutator=%s', implode(',', $named))];
-    }
-
-    private static function joined(Paths $paths): string
-    {
-        $values = [];
-
-        foreach ($paths as $path) {
-            $values[] = $path->value();
-        }
-
-        return implode(',', $values);
     }
 }

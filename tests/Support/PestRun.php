@@ -59,9 +59,15 @@ final readonly class PestRun
         return ['event' => 'outcome', 'id' => $id, 'status' => $status];
     }
 
+    /** @return array<string, mixed> how many mutants Pest made, after an opening run of 1.5 seconds */
+    public static function made(int $count): array
+    {
+        return ['event' => 'made', 'count' => $count, 'opening' => 1.5];
+    }
+
     /** @return array<string, mixed> */
     public static function end(): array
     {
-        return ['event' => 'end', 'opening' => 1.5];
+        return ['event' => 'end'];
     }
 }

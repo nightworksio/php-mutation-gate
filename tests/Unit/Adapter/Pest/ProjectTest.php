@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -75,5 +76,18 @@ it('names a results file with no earlier run\'s results left in it or beside it'
 it('makes the directory a results file goes in', function () use ($project): void {
     $at = $project();
 
-    expect(is_dir(dirname($at->freshResults())))->toBeTrue();
+    $results = $at->freshResults();
+
+    expect(is_string($results) && is_dir(dirname($results)))->toBeTrue();
+});
+
+it('cannot name a results file where an earlier run\'s cannot be removed', function () use ($project): void {
+    $at = $project();
+    $results = sprintf('%s/.mutation-gate/pest/results.jsonl', $at->root());
+    mkdir(sprintf('%s.coverage.php', $results), recursive: true);
+
+    expect($at->freshResults())->toEqual(CannotJudge::because(sprintf(
+        'An earlier run left %s or the map beside it, and the gate cannot remove them.',
+        $results,
+    )));
 });

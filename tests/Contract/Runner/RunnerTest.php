@@ -77,6 +77,24 @@ it('reports a killed, a survived, an uncovered and a timed-out mutant', function
         ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'));
 })->with($libraries);
 
+it('measures each mutant it ran, and gives a timed-out one its limit', function (Library $library) use ($money): void {
+    $result = $money($library);
+    $measured = [];
+    $limits = [];
+
+    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
+        $duration = $mutant->duration();
+        $limit = $mutant->limit();
+        $measured[$mutant->status()->value] = $duration instanceof Seconds && $duration->seconds() > 0.0;
+        $limits[$mutant->status()->value] = $limit instanceof Seconds && $limit->seconds() >= 5.0;
+    }
+
+    expect($measured)
+        ->toEqualCanonicalizing(['killed' => true, 'survived' => true, 'uncovered' => false, 'timed-out' => true])
+        ->and($limits)
+        ->toEqualCanonicalizing(['killed' => false, 'survived' => false, 'uncovered' => false, 'timed-out' => true]);
+})->with($libraries);
+
 it('reports only the files it was asked for, less the paths left out', function (Library $library) use ($files): void {
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
         ->onlyMutators($library->mutators('adds'));
@@ -99,7 +117,7 @@ it('gives every mutant an id of its own in the gate\'s spelling', function (Libr
         ->and(array_filter($ids, static fn(string $id): bool => ! MutantId::parse($id) instanceof MutantId))->toBe([]);
 })->with($libraries);
 
-it('judges a held path by its group alone', function (Library $library): void {
+it('judges a held path by its group alone, where a test outside it would kill it', function (Library $library): void {
     $request = MutationRequest::of(Paths::of(Path::of('src/Held.php')), Group::named('holds:src/Held.php'))
         ->onlyMutators($library->mutators('held'));
     $result = $library->mutate('held', $request);
@@ -117,10 +135,29 @@ it('runs a survivor again alone and matches it back by the gate\'s id', function
         $survivors = $mutant->status() === MutantStatus::Survived ? $survivors->with($mutant) : $survivors;
     }
 
-    $retried = $library->runner()->retry($survivors, Seconds::of(60.0));
+    $retried = $library->runner()->retry($survivors, Seconds::of(60.0), WholeSuite::tests());
 
     expect(count($survivors))->toBe(1)
         ->and($retried instanceof Mutants ? Library::records($retried) : [])->toBe(Library::records($survivors));
+})->with($libraries);
+
+it('retries a mutant by the tests that judged its unit', function (Library $library) use ($money): void {
+    $result = $money($library);
+    $survivors = Mutants::none();
+
+    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
+        $survivors = $mutant->status() === MutantStatus::Survived ? $survivors->with($mutant) : $survivors;
+    }
+
+    $retried = $library->runner()->retry($survivors, Seconds::of(60.0), Group::named('holds:src/Held.php'));
+    $statuses = [];
+
+    foreach ($retried instanceof Mutants ? $retried : Mutants::none() as $mutant) {
+        $statuses[] = $mutant->status();
+    }
+
+    // The group holds another file, so none of its tests reaches the survivor.
+    expect($statuses)->toBe([MutantStatus::Uncovered]);
 })->with($libraries);
 
 it('names the test files that judge a covered file, and none for an uncovered one', function (Library $library): void {
@@ -129,7 +166,7 @@ it('names the test files that judge a covered file, and none for an uncovered on
     $covered = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('src/Money.php'), $map) : $map;
     $uncovered = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('src/Nowhere.php'), $map) : $map;
 
-    expect($covered instanceof Paths ? $covered->count() : 0)->toBeGreaterThan(0)
+    expect($covered)->toEqual(Paths::of(Path::of('tests/DrainSpec.php'), Path::of('tests/MoneySpec.php')))
         ->and($uncovered)->toEqual(Paths::none());
 })->with($libraries);
 
@@ -177,7 +214,8 @@ it('holds the library to the pest-plugin-mutate the package allows', function ()
     };
 
     expect($conflict(sprintf('%s/composer.json', Library::DIRECTORY)))->toBe($conflict('composer.json'))
-        ->and($conflict('composer.json'))->toBe(['pestphp/pest-plugin-mutate' => '<5.0.2 || >5.0.2']);
+        ->and($conflict('composer.json'))
+        ->toBe(['pestphp/pest' => '<5.1', 'pestphp/pest-plugin-mutate' => '<5.0.2 || >5.0.2']);
 });
 
 // The adapter reads the maps the library's Pest writes with the

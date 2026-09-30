@@ -49,7 +49,7 @@ it('runs one group under coverage', function (): void {
     ]);
 });
 
-it('mutates some files against the whole suite, recording to a results file, with no deadline', function (): void {
+it('mutates some files against the whole suite, over the project\'s own config, with no deadline', function (): void {
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')), WholeSuite::tests());
 
     expect(Invocation::mutation($request, WholeSuite::tests(), '/p/results.jsonl'))->toEqual(Command::pest(
@@ -57,12 +57,18 @@ it('mutates some files against the whole suite, recording to a results file, wit
         '--no-cache',
         '--parallel',
         '--no-tia',
+        '--everything',
+        '--covered-only=false',
+        '--stop-on-untested=false',
+        '--stop-on-uncovered=false',
+        '--retry=false',
         '--colors=never',
         '--path=src/Money.php,src/Held.php',
+        '--ignore=.mutation-gate',
     )->with(['MUTATION_GATE_RESULTS' => '/p/results.jsonl']));
 });
 
-it('mutates a tree less its held paths, against a group, with some mutators, by a deadline, at Pest\'s own concurrency', function (): void {
+it('mutates a tree less its held paths, by a group and some mutators, by a deadline', function (): void {
     $request = MutationRequest::of(Paths::of(Path::of('src')), Group::named('holds:src'))
         ->leavingOut(Paths::of(Path::of('src/Kernel.php'), Path::of('src/Boot')))
         ->onlyMutators(Mutators::named(
@@ -80,6 +86,11 @@ it('mutates a tree less its held paths, against a group, with some mutators, by 
         '--no-cache',
         '--parallel',
         '--no-tia',
+        '--everything',
+        '--covered-only=false',
+        '--stop-on-untested=false',
+        '--stop-on-uncovered=false',
+        '--retry=false',
         '--colors=never',
         '--path=src',
         '--ignore=src/Kernel.php,src/Boot',

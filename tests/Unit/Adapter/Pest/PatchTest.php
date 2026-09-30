@@ -96,3 +96,32 @@ it('cannot patch a pest-plugin-mutate that is not installed', function (): void 
         $at,
     )))->and(Patch::isAppliedIn($at))->toBeFalse();
 });
+
+it('writes nothing when a file it rewrites cannot be written', function () use ($vendor, $source): void {
+    $at = $vendor();
+    $locked = sprintf('%s/pestphp/pest-plugin-mutate/src/Tester', $at);
+    chmod(sprintf('%s/MutationTestRunner.php', $locked), 0o444);
+    $before = $source($at, 'MutationTest.php');
+
+    try {
+        $patched = Patch::applyIn($at);
+    } finally {
+        chmod(sprintf('%s/MutationTestRunner.php', $locked), 0o644);
+    }
+
+    expect($patched)->toEqual(CannotJudge::because(sprintf(
+        'pest:patch cannot write %s/MutationTestRunner.php. Make the vendor directory writable.',
+        $locked,
+    )))->and($source($at, 'MutationTest.php'))->toBe($before);
+});
+
+it('writes nothing where a line it rewrites is there twice', function () use ($vendor, $source): void {
+    $at = $vendor();
+    $twice = sprintf('%s/pestphp/pest-plugin-mutate/src/Plugins/Mutate.php', $at);
+    $shipped = $source($at, 'Plugins/Mutate.php');
+    $again = mb_substr($shipped, (int) mb_strpos($shipped, 'public function handleArguments'));
+    file_put_contents($twice, sprintf('%s%s', $shipped, $again));
+
+    expect(Patch::applyIn($at))->toBeInstanceOf(CannotJudge::class)
+        ->and($source($at, 'MutationTest.php'))->toBe($source($vendor(), 'MutationTest.php'));
+});

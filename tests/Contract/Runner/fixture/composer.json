@@ -9,6 +9,7 @@
         "pestphp/pest-plugin-mutate": "^5.0"
     },
     "conflict": {
+        "pestphp/pest": "<5.1",
         "pestphp/pest-plugin-mutate": "<5.0.2 || >5.0.2"
     },
     "minimum-stability": "stable",

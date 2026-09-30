@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_diff_key;
 use function array_filter;
 use function array_key_exists;
 use function count;
@@ -26,9 +27,9 @@ use function sprintf;
 use function uasort;
 
 /**
- * What the plugin wrote of one Pest run: every mutant it planned, the status
- * each ended with, how long each ran, whether the run reached its end, and
- * how long its opening run took.
+ * What the plugin wrote of one Pest run: every mutant it planned, and whether
+ * it wrote all of them, the status each ended with, how long each ran, how
+ * long the opening run took, and whether the run reached its end.
  *
  * @phpstan-type Planned array{file: string, start: int, end: int, mutator: string, diff: string}
  */
@@ -58,6 +59,7 @@ final readonly class Records
         private array $durations,
         private array $finished,
         private Seconds|Unmeasured $opening,
+        private bool $made,
         private bool $ended,
     ) {
     }
@@ -71,7 +73,7 @@ final readonly class Records
             ));
         }
 
-        $records = new self([], [], [], [], Unmeasured::duration(), ended: false);
+        $records = new self([], [], [], [], Unmeasured::duration(), made: false, ended: false);
 
         foreach (explode("\n", sprintf('%s', file_get_contents($file))) as $line) {
             $records = $records->read($line);
@@ -125,11 +127,29 @@ final readonly class Records
             : Unmeasured::duration();
     }
 
-    /** Whether the run reached its end, and every planned mutant's final status adds up to Pest's own summary. */
+    /** Whether Pest wrote every mutant it made, which a run stopped while it wrote them did not. */
+    public function allMade(): bool
+    {
+        return $this->made;
+    }
+
+    /** Whether the run reached its end, whatever its exit code. */
+    public function ended(): bool
+    {
+        return $this->ended;
+    }
+
+    /**
+     * Whether the run reached its end, every planned mutant finished and no
+     * other did, and their final statuses add up to Pest's own summary.
+     */
     public function addUpTo(Summary $summary): bool
     {
         $planned = count($this->planned);
-        $counted = $this->ended && count($this->finished) === $planned && $summary->total() === $planned;
+        $counted = $this->ended
+            && array_diff_key($this->planned, $this->finished) === []
+            && count($this->finished) === $planned
+            && $summary->total() === $planned;
 
         foreach (self::STATUSES as $status) {
             $finished = array_filter($this->finished, static fn(string $final): bool => $final === $status);
@@ -146,9 +166,12 @@ final readonly class Records
 
         return match ($this->text($record, 'event')) {
             'planned' => $this->withPlanned($record),
-            'outcome' => $this->withOutcome($record),
+            'made' => $this->withMade($record),
+            'outcome' => clone($this, [
+                'statuses' => [...$this->statuses, $this->text($record, 'id') => $this->text($record, 'status')],
+            ]),
             'finished' => $this->withFinished($record),
-            'end' => $this->withEnd($record),
+            'end' => clone($this, ['ended' => true]),
             default => $this,
         };
     }
@@ -164,27 +187,20 @@ final readonly class Records
             'diff' => $this->text($record, 'diff'),
         ];
 
-        return new self(
-            [...$this->planned, $this->text($record, 'id') => $planned],
-            $this->statuses,
-            $this->durations,
-            $this->finished,
-            $this->opening,
-            $this->ended,
-        );
+        return clone($this, ['planned' => [...$this->planned, $this->text($record, 'id') => $planned]]);
     }
 
     /** @param array<mixed> $record */
-    private function withOutcome(array $record): self
+    private function withMade(array $record): self
     {
-        return new self(
-            $this->planned,
-            [...$this->statuses, $this->text($record, 'id') => $this->text($record, 'status')],
-            $this->durations,
-            $this->finished,
-            $this->opening,
-            $this->ended,
-        );
+        $opening = array_key_exists('opening', $record) && is_float($record['opening'])
+            ? Seconds::of($record['opening'])
+            : Unmeasured::duration();
+
+        return clone($this, [
+            'opening' => $opening,
+            'made' => $this->number($record, 'count') === count($this->planned),
+        ]);
     }
 
     /** @param array<mixed> $record */
@@ -196,24 +212,11 @@ final readonly class Records
             ? [...$this->durations, $id => $record['duration']]
             : $this->durations;
 
-        return new self(
-            $this->planned,
-            [...$this->statuses, $id => $status],
-            $durations,
-            [...$this->finished, $id => $status],
-            $this->opening,
-            $this->ended,
-        );
-    }
-
-    /** @param array<mixed> $record */
-    private function withEnd(array $record): self
-    {
-        $opening = array_key_exists('opening', $record) && is_float($record['opening'])
-            ? Seconds::of($record['opening'])
-            : Unmeasured::duration();
-
-        return new self($this->planned, $this->statuses, $this->durations, $this->finished, $opening, ended: true);
+        return clone($this, [
+            'statuses' => [...$this->statuses, $id => $status],
+            'durations' => $durations,
+            'finished' => [...$this->finished, $id => $status],
+        ]);
     }
 
     /** @param array<mixed> $record */

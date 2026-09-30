@@ -64,6 +64,7 @@
         "tomasvotruba/type-coverage": "^2.3"
     },
     "conflict": {
+        "pestphp/pest": "<5.1",
         "pestphp/pest-plugin-mutate": "<5.0.2 || >5.0.2"
     },
     "suggest": {

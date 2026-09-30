@@ -14,3 +14,10 @@ it('rewrites the lines a file ships into what they become', function (): void {
         ->and($hunk->isAppliedTo("x();\nb();\n"))->toBeTrue()
         ->and($hunk->isAppliedTo("x();\na();\n"))->toBeFalse();
 });
+
+it('fits or finds its lines only where they are there once', function (): void {
+    $hunk = Hunk::in('MutationTest.php', "a();\n", "b();\n");
+
+    expect($hunk->fits("a();\na();\n"))->toBeFalse()
+        ->and($hunk->isAppliedTo("b();\nb();\n"))->toBeFalse();
+});

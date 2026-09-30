@@ -125,7 +125,7 @@ it('adds up to a summary only once ended with every status as counted', function
         $finished('c', 'uncovered'),
         $finished('d', 'timeout'),
     ];
-    $end = ['event' => 'end', 'opening' => 1.5];
+    $end = ['event' => 'end'];
     /** @param list<array<string, mixed>|string> $records */
     $adds = static function (array $records, string $summary) use ($results): bool {
         $read = Records::in($results($records));
@@ -142,6 +142,7 @@ it('adds up to a summary only once ended with every status as counted', function
         ->and($adds([...$all, $finished('e', 'none')], $each))->toBeFalse()
         ->and($adds([...$all, $end], $each))->toBeFalse()
         ->and($adds([...$all, $finished('e', 'none'), $finished('x', 'odd'), $end], $each))->toBeFalse()
+        ->and($adds([...$all, $finished('x', 'none'), $end], $each))->toBeFalse()
         ->and($adds([...$all, $finished('e', 'odd'), $end], $shifted('1 untested, 1 uncovered, 1 timeout, 1 tested')))
         ->toBeFalse()
         ->and($adds($ended, $shifted('2 untested, 1 uncovered, 1 pending, 1 timeout, 0 tested')))->toBeFalse()
@@ -158,7 +159,7 @@ it('cannot judge a run that wrote no results', function (): void {
 
 it('allows a mutant the opening run\'s seconds plus the larger of 5 and a fifth', function () use ($results): void {
     $limit = static function (mixed $opening) use ($results): mixed {
-        $records = Records::in($results([['event' => 'end', 'opening' => $opening]]));
+        $records = Records::in($results([['event' => 'made', 'count' => 0, 'opening' => $opening]]));
 
         return $records instanceof Records ? $records->limit() : $records;
     };
@@ -166,4 +167,24 @@ it('allows a mutant the opening run\'s seconds plus the larger of 5 and a fifth'
     expect($limit(1.5))->toEqual(Seconds::of(6.0))
         ->and($limit(30.7))->toEqual(Seconds::of(36.0))
         ->and($limit(opening: false))->toEqual(Unmeasured::duration());
+});
+
+it('knows it wrote every mutant Pest made once it says how many', function () use ($results, $planned): void {
+    $made = static function (array $records) use ($results): bool {
+        $read = Records::in($results($records));
+
+        return $read instanceof Records && $read->allMade();
+    };
+
+    expect($made([$planned('a', '/p/Money.php', 10), ['event' => 'made', 'count' => 1]]))->toBeTrue()
+        ->and($made([$planned('a', '/p/Money.php', 10)]))->toBeFalse()
+        ->and($made([$planned('a', '/p/Money.php', 10), ['event' => 'made', 'count' => 2]]))->toBeFalse();
+});
+
+it('knows whether the run reached its end', function () use ($results): void {
+    $ended = Records::in($results([['event' => 'end']]));
+    $running = Records::in($results([['event' => 'outcome', 'id' => 'a', 'status' => 'tested']]));
+
+    expect($ended instanceof Records && $ended->ended())->toBeTrue()
+        ->and($running instanceof Records && $running->ended())->toBeFalse();
 });

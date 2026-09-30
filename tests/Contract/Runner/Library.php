@@ -86,7 +86,7 @@ final class Library
             'line' => 11,
             'removed' => 'return $amount + $amount;',
             'added' => 'return $amount - $amount;',
-            'status' => MutantStatus::Killed,
+            'status' => MutantStatus::Survived,
         ],
     ];
 

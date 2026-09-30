@@ -10,6 +10,7 @@ use function array_map;
 use function array_sum;
 use function array_unique;
 use function array_values;
+use function file_get_contents;
 use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -26,6 +27,8 @@ use SebastianBergmann\CodeCoverage\Exception as CoverageFailure;
 use SebastianBergmann\CodeCoverage\Serialization\Unserializer;
 
 use function sprintf;
+use function str_ends_with;
+use function trim;
 
 /**
  * A coverage map as `--coverage-php` writes it, read with
@@ -34,6 +37,11 @@ use function sprintf;
  */
 final readonly class CoverageFile
 {
+    /** How php-code-coverage ends a map it wrote whole. */
+    private const string END = "END_OF_COVERAGE_SERIALIZATION\n);";
+
+    private const string CUT_OFF = '%s cannot be read as a coverage map: it ends before the map does.';
+
     /**
      * @param array<string, array<int, array<int, string>>> $lines     the tests on each line, by file and line
      * @param array<string, float>                    $durations each test's seconds, by id
@@ -49,18 +57,11 @@ final readonly class CoverageFile
             return CannotJudge::because(sprintf('There is no coverage map at %s, so no test runs any line.', $file));
         }
 
-        try {
-            $coverage = new Unserializer()->unserialize($file);
-        } catch (CoverageFailure $failure) {
-            $why = $failure->getMessage();
-
-            return CannotJudge::because(sprintf('%s cannot be read as a coverage map: %s', $file, $why));
+        if (! str_ends_with(trim(sprintf('%s', file_get_contents($file))), self::END)) {
+            return CannotJudge::because(sprintf(self::CUT_OFF, $file));
         }
 
-        return new self(
-            self::linesOf($coverage['basePath'], $coverage['codeCoverage']),
-            array_map(static fn(array $result): float => $result['time'], $coverage['testResults']),
-        );
+        return self::unserialized($file);
     }
 
     /** The map, with each file as the project spells it. */
@@ -97,6 +98,27 @@ final readonly class CoverageFile
     public function seconds(): float
     {
         return array_sum($this->durations);
+    }
+
+    /**
+     * A whole map, which is PHP that reading runs.
+     *
+     * @param non-empty-string $file
+     */
+    private static function unserialized(string $file): self|CannotJudge
+    {
+        try {
+            $coverage = new Unserializer()->unserialize($file);
+        } catch (CoverageFailure $failure) {
+            $why = $failure->getMessage();
+
+            return CannotJudge::because(sprintf('%s cannot be read as a coverage map: %s', $file, $why));
+        }
+
+        return new self(
+            self::linesOf($coverage['basePath'], $coverage['codeCoverage']),
+            array_map(static fn(array $result): float => $result['time'], $coverage['testResults']),
+        );
     }
 
     /**
