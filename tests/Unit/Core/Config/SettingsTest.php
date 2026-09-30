@@ -566,15 +566,14 @@ it('refuses a floor of 0 without the reason it needs', function (): void {
         ->toBe(['trees[0].reason: expected a reason when floor is 0, got nothing']);
 });
 
-it('keeps a reason beside a floor above 0 out of the floor', function (): void {
-    $trees = Configs::settings(['runner' => 'pest', 'trees' => [['path' => 'src', 'floor' => 0.01, 'reason' => 'Why']]])
-        ->floors()
-        ->trees();
-
-    expect($trees instanceof Absent
-        ? []
-        : array_map(static fn(DeclaredTree $tree): mixed => $tree->declared(), [...$trees]))
-        ->toEqual([Floor::ofHundredths(1)]);
+it('refuses a reason beside a floor above 0, or beside none, which it would do nothing for', function (): void {
+    expect(Configs::problems(Configs::validated([
+        'runner' => 'pest',
+        'trees' => [['path' => 'src', 'floor' => 0.01, 'reason' => 'Why'], ['path' => 'lib', 'reason' => 'Why']],
+    ])))->toBe([
+        'trees[0].reason: expected no reason, as only a floor of 0 takes one, got "Why"',
+        'trees[1].reason: expected no reason, as only a floor of 0 takes one, got "Why"',
+    ]);
 });
 
 it('reads an empty list of trees as no tree at all, not as the tree source\'s', function (): void {
