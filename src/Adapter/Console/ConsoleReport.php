@@ -68,6 +68,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
             sprintf('mutation-gate: %s', $verdict->judgement()->value),
             ...$verdict->wasCutShort() ? ['The run\'s budget stopped it before every mutant was judged.'] : [],
             SetText::project($overview->score()),
+            ...$this->section('Cannot judge', $this->obstacles($verdict)),
             ...$this->section('Trees', $this->trees($verdict)),
             ...$this->section('New code', $this->newCode($verdict)),
             ...$this->section('Units', $this->units($verdict)),
@@ -141,7 +142,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
     /** @return list<string> */
     private function units(Verdict $verdict): array
     {
-        $units = $verdict->units();
+        $units = $verdict->trees()->units();
         $from = [];
 
         foreach (Origin::cases() as $origin) {
@@ -182,7 +183,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
     {
         $lines = [];
 
-        foreach ($verdict->mutants() as $judged) {
+        foreach ($verdict->trees()->mutants() as $judged) {
             if (! in_array($judged->judgement(), $judgements, strict: true)) {
                 continue;
             }
@@ -221,6 +222,22 @@ final readonly class ConsoleReport implements Configurable, Reporter
         $headline = SavingsText::of($verdict, NoHistory::yet());
 
         return $headline === '' ? [] : ['', $headline];
+    }
+
+    /**
+     * Why the run could not judge, one reason to a line.
+     *
+     * @return list<string>
+     */
+    private function obstacles(Verdict $verdict): array
+    {
+        $whys = [];
+
+        foreach ($verdict->obstacles() as $obstacle) {
+            $whys[] = $obstacle->why();
+        }
+
+        return $whys;
     }
 
     /**

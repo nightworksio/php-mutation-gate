@@ -52,13 +52,13 @@ final readonly class Overview
     /** The score over every mutant of the project, by the same formula as a tree's (ADR-0009, decision 5). */
     public function score(): Score|NothingToMutate
     {
-        return $this->verdict->mutants()->counts()->score($this->uncovered);
+        return $this->verdict->trees()->mutants()->counts()->score($this->uncovered);
     }
 
     /** Every mutant the score counts as not killed, those on changed lines first. */
     public function survivors(): JudgedMutants
     {
-        return $this->verdict->mutants()->survivors($this->uncovered);
+        return $this->verdict->trees()->mutants()->survivors($this->uncovered);
     }
 
     /** Whether a mutant is in a set that failed: a tree below its floor, or new code below its own. */

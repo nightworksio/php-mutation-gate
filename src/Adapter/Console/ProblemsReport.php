@@ -86,7 +86,7 @@ final readonly class ProblemsReport implements Configurable, Reporter
     {
         $sources = [];
 
-        foreach ($verdict->mutants() as $judged) {
+        foreach ($verdict->trees()->mutants() as $judged) {
             $path = $judged->mutant()->location()->file()->value();
             $file = $this->project->at($judged->mutant()->location()->file())->value();
             $text = array_key_exists($path, $sources) || ! is_file($file) ? false : file_get_contents($file);

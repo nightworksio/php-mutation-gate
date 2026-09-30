@@ -81,7 +81,7 @@ final readonly class AccountJson
             $units[$origin->value] = 0;
         }
 
-        foreach ($verdict->units() as $unit) {
+        foreach ($verdict->trees()->units() as $unit) {
             ++$units[$unit->origin()->value];
         }
 

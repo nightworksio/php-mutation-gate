@@ -69,3 +69,14 @@ it('escapes what the project wrote', function () use ($failing): void {
     expect(JUnit::xml(Verdicts::failing()))->toContain('if ($amount &lt; $limit) {')
         ->and($failing('/testsuites'))->toHaveCount(1);
 });
+
+it('fails a case of the run for each thing that kept it from judging, before its failures', function (): void {
+    $xml = JUnit::xml(Verdicts::named('cannot judge'));
+
+    expect(Xpath::of($xml, '/testsuites/@failures'))->toBe(['4'])
+        ->and(Xpath::of($xml, '/testsuites/testsuite[5]/testcase/@name'))->toBe([
+            Verdicts::UNJUDGED,
+            'The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.',
+        ])
+        ->and(Xpath::of($xml, '/testsuites/testsuite[5]/testcase/failure/@type'))->toBe(['cannot-judge', 'run']);
+});

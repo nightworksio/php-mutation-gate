@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 
 use function count;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\RunAccount;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
@@ -13,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reasons;
 /**
  * What a run decided, and the one value every reporter renders: every tree
  * judged whole, the new-code sets, the reach and its reasons, the warnings,
- * and the failures no floor decides.
+ * the failures no floor decides, and anything that kept the run from judging.
  */
 final readonly class Verdict
 {
@@ -26,6 +27,7 @@ final readonly class Verdict
         private bool $cutShort,
         private KillMatrix $matrix,
         private RunAccount $account,
+        private Obstacles $obstacles,
     ) {
     }
 
@@ -41,6 +43,7 @@ final readonly class Verdict
             cutShort: false,
             matrix: KillMatrix::none(),
             account: RunAccount::none(),
+            obstacles: Obstacles::none(),
         );
     }
 
@@ -78,6 +81,12 @@ final readonly class Verdict
         return clone($this, ['account' => $account]);
     }
 
+    /** This verdict, from a run that met something it cannot judge honestly past, which decides it. */
+    public function withCannotJudge(CannotJudge $why): self
+    {
+        return clone($this, ['obstacles' => $this->obstacles->with($why)]);
+    }
+
     /** This verdict, from a run a budget or a deadline stopped before it judged every mutant. */
     public function cutShort(): self
     {
@@ -93,30 +102,6 @@ final readonly class Verdict
     public function newCode(): NewCodeVerdicts
     {
         return $this->newCode;
-    }
-
-    /** Every unit of every tree, tree by tree. */
-    public function units(): JudgedUnits
-    {
-        $units = JudgedUnits::none();
-
-        foreach ($this->trees as $tree) {
-            $units = $units->and($tree->units());
-        }
-
-        return $units;
-    }
-
-    /** Every mutant of every tree, tree by tree. */
-    public function mutants(): JudgedMutants
-    {
-        $mutants = JudgedMutants::none();
-
-        foreach ($this->trees as $tree) {
-            $mutants = $mutants->and($tree->mutants());
-        }
-
-        return $mutants;
     }
 
     /** Why the change reached what it did; none for a full run. */
@@ -147,15 +132,28 @@ final readonly class Verdict
         return $this->failures;
     }
 
+    /** What kept the run from judging honestly, in the order it was met; none for a judged run. */
+    public function obstacles(): Obstacles
+    {
+        return $this->obstacles;
+    }
+
     /** Whether a budget or a deadline stopped the run before it judged every mutant. */
     public function wasCutShort(): bool
     {
         return $this->cutShort;
     }
 
-    /** Failed when any tree or new-code set failed, or anything else did; passed otherwise. */
+    /**
+     * Cannot judge when anything kept the run from judging; failed when any
+     * tree or new-code set failed, or anything else did; passed otherwise.
+     */
     public function judgement(): Judgement
     {
+        if (count($this->obstacles) > 0) {
+            return Judgement::CannotJudge;
+        }
+
         $sets = [...$this->trees, ...$this->newCode];
 
         foreach ($sets as $set) {

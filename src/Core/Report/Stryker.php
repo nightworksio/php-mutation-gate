@@ -66,7 +66,7 @@ final readonly class Stryker
         $files = [];
         $columns = [];
 
-        foreach ($verdict->mutants() as $judged) {
+        foreach ($verdict->trees()->mutants() as $judged) {
             $path = $judged->mutant()->location()->file()->value();
             $source = array_key_exists($path, $sources) ? $sources[$path] : Contents::of('');
             $columns[$path] = array_key_exists($path, $columns) ? $columns[$path] : Columns::in($source);

@@ -73,7 +73,7 @@ final readonly class KillingTests implements IteratorAggregate
         $matrix = $verdict->matrix();
         $rows = [];
 
-        foreach ($verdict->mutants() as $judged) {
+        foreach ($verdict->trees()->mutants() as $judged) {
             foreach ($matrix->coveredBy($judged) as $test) {
                 $kills = array_key_exists($test->value(), $rows) ? $rows[$test->value()][1] : MutantIds::none();
                 $killed = $matrix->outcome($judged, $test) === Outcome::Killed;
