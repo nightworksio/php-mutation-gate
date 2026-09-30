@@ -25,7 +25,7 @@ final readonly class Settings
     private function __construct(
         private Listed $extensions,
         private Listed $presets,
-        private Choice $runner,
+        private ChosenRunner $runner,
         private Choice $treeSource,
         private Floors $floors,
         private Reach $reach,
@@ -55,7 +55,7 @@ final readonly class Settings
         return new self(
             Listed::of($read->strings('extensions')),
             Listed::of($read->has('preset') ? $read->strings('preset') : []),
-            $read->object('runner', Choice::class),
+            $read->object('runner', ChosenRunner::class),
             $read->object('treeSource', Choice::class),
             Floors::read($read),
             new Reach(
@@ -76,8 +76,10 @@ final readonly class Settings
                 $read->fields('ci')->has('defaultBranch')
                     ? $read->fields('ci')->string('defaultBranch')
                     : Absent::setting(),
+                $read->fields('ci')->string('check'),
                 $read->fields('ci')->fields('gitlab')->object('template', Path::class),
                 $read->fields('ci')->fields('buildkite')->string('step'),
+                $read->fields('ci')->fields('buildkite')->object('definition', Path::class),
             ),
             new Proofs(
                 $read->fields('proofs')->object('store', Choice::class),
@@ -118,7 +120,8 @@ final readonly class Settings
         return $this->presets;
     }
 
-    public function runner(): Choice
+    /** The runner chosen, and what it withholds from the project's tests besides what every run withholds. */
+    public function runner(): ChosenRunner
     {
         return $this->runner;
     }

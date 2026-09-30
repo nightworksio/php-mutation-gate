@@ -44,6 +44,13 @@
                         "use": {
                             "const": "pest"
                         },
+                        "withhold": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -59,6 +66,13 @@
                     "properties": {
                         "use": {
                             "const": "infection"
+                        },
+                        "withhold": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
                         },
                         "with": {
                             "type": "object",
@@ -83,12 +97,35 @@
                                 ]
                             }
                         },
+                        "withhold": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        },
                         "with": {
                             "type": "object"
                         }
                     },
                     "required": [
                         "use"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "withhold": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    },
+                    "required": [
+                        "withhold"
                     ],
                     "additionalProperties": false
                 }
@@ -461,6 +498,11 @@
                     "type": "string",
                     "minLength": 1
                 },
+                "check": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "mutation / verdict"
+                },
                 "gitlab": {
                     "type": "object",
                     "properties": {
@@ -478,6 +520,11 @@
                         "step": {
                             "type": "object",
                             "default": {}
+                        },
+                        "definition": {
+                            "type": "string",
+                            "minLength": 1,
+                            "default": ".buildkite/pipeline.yml"
                         }
                     },
                     "additionalProperties": false

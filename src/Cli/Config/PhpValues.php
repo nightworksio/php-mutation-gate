@@ -48,8 +48,10 @@ final readonly class PhpValues
      */
     public static function choice(string $class, mixed $choice): string
     {
-        $use = is_array($choice) && is_string($choice['use']) ? $choice['use'] : $choice;
-        $with = is_array($choice) && is_array($choice['with']) ? $choice['with'] : [];
+        $use = is_array($choice) && array_key_exists('use', $choice) ? $choice['use'] : $choice;
+        $with = is_array($choice) && array_key_exists('with', $choice) && is_array($choice['with'])
+            ? $choice['with']
+            : [];
 
         return is_string($use) && $with === [] && array_key_exists($use, self::NAMED[$class])
             ? sprintf('%s::%s()', $class, $use)

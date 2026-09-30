@@ -12,6 +12,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Core\Config\Definition\At;
 use NightWorksIO\MutationGate\Core\Config\Definition\Json;
 use NightWorksIO\MutationGate\Core\Config\Document;
+use NightWorksIO\MutationGate\Core\Config\Layers;
 
 /**
  * A config as a file or a layer wrote it, before it is validated: the few
@@ -19,10 +20,12 @@ use NightWorksIO\MutationGate\Core\Config\Document;
  */
 final readonly class Written
 {
-    /** Whether a key is written at the top of a config. */
-    public static function has(Document $document, string $key): bool
+    /** Whether a config chooses a runner, rather than leave it to zero-config, with or without its `withhold`. */
+    public static function choosesRunner(Document $document): bool
     {
-        return array_key_exists($key, self::decoded($document));
+        $tree = self::decoded($document);
+
+        return array_key_exists('runner', $tree) && ! Layers::onlyWithholds($tree['runner']);
     }
 
     /**

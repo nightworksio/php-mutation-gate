@@ -103,7 +103,8 @@ The same repository has two more needs.
       is one of these files: under GitHub Actions the workflow
       `GITHUB_WORKFLOW_REF` names; on GitLab the file `CI_CONFIG_PATH` names
       (`.gitlab-ci.yml` by default) and the file `ci.gitlab.template` names;
-      on Buildkite `.buildkite/pipeline.yml`; on CircleCI
+      on Buildkite the file `ci.buildkite.definition` names
+      (`.buildkite/pipeline.yml` by default); on CircleCI
       `.circleci/config.yml`; and none under the JSON plan or locally. It
       reaches everything except when every line its change touched is an
       action pin (`uses: owner/repo@<40-hex sha>`, with or without a trailing

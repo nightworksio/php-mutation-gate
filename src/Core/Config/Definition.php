@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\Percent;
 use NightWorksIO\MutationGate\Core\Config\Definition\Presets;
 use NightWorksIO\MutationGate\Core\Config\Definition\Refused;
 use NightWorksIO\MutationGate\Core\Config\Definition\ReportEntry;
+use NightWorksIO\MutationGate\Core\Config\Definition\RunnerChoice;
 use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Config\Definition\Text;
 use NightWorksIO\MutationGate\Core\Config\Definition\Unchecked;
@@ -88,7 +89,7 @@ final readonly class Definition
             Field::optional('$schema', Unchecked::describedAs(self::SCHEMA_KEY), $judges),
             Field::setting('extensions', Items::of(Text::of('a class name')), $judges, []),
             Field::optional('preset', Presets::named(), $judges),
-            Field::found('runner', Adapter::choosing(self::runners()), $results),
+            Field::found('runner', RunnerChoice::choosing(self::runners()), $results),
             Field::setting('treeSource', Adapter::choosing(self::treeSources()), $results, 'phpunit'),
             Field::entries(
                 'trees',
@@ -268,13 +269,20 @@ final readonly class Definition
         return Section::fields(
             Field::optional('plan', Adapter::choosing(self::ciPlans()), $judges),
             Field::optional('defaultBranch', Text::of('a branch name'), $judges),
+            Field::setting('check', Text::of('a check-run name'), $judges, 'mutation / verdict'),
             Field::section(
                 'gitlab',
                 Section::fields(
                     Field::setting('template', Location::path(), $judges, '.gitlab/mutation-gate.yml'),
                 ),
             ),
-            Field::section('buildkite', Section::fields(Field::setting('step', OpenObject::any(), $judges, []))),
+            Field::section(
+                'buildkite',
+                Section::fields(
+                    Field::setting('step', OpenObject::any(), $judges, []),
+                    Field::setting('definition', Location::path(), $judges, '.buildkite/pipeline.yml'),
+                ),
+            ),
         );
     }
 

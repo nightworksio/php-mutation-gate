@@ -141,7 +141,7 @@ final readonly class Effective
     private function base(Document $merged, string $preset): Document|CannotJudge
     {
         $base = $preset === '' ? [] : ['preset' => $preset];
-        $runner = Written::has($merged, 'runner') ? '' : $this->detected->runner();
+        $runner = Written::choosesRunner($merged) ? '' : $this->detected->runner();
 
         if ($runner instanceof CannotJudge) {
             return $runner;
