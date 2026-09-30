@@ -334,7 +334,7 @@ Each reporter is registered by a name:
 | `problems` | With `--output=problems` | One `<path>:<line>:<col>: <error\|warning>: <message> [<rule>] <id>` line per result, between `mutation-gate: judging` and `mutation-gate: judged`, for an editor's problem matcher |
 | `slack` | In CI, on the default branch, when its state changes | A Slack message to the URL `MUTATION_GATE_SLACK_URL` holds, or the variable `with: {urlEnv: …}` names: the change, the trees below their floor, the failures, up to five survivors, and the run |
 | `discord` | In CI, on the default branch, when its state changes | The same as one Discord embed to the URL `MUTATION_GATE_DISCORD_URL` holds, red, green or grey, mentioning no one |
-| `webhook` | In CI, on the default branch, when its state changes | JSON described by [`resources/webhook.schema.json`](resources/webhook.schema.json) to the URL `MUTATION_GATE_WEBHOOK_URL` holds, signed in `X-Mutation-Gate-Signature` where `MUTATION_GATE_WEBHOOK_SECRET`, or the variable `with: {secretEnv: …}` names, holds a secret |
+| `webhook` | In CI, on the default branch, when its state changes | JSON described by [`resources/webhook.schema.json`](resources/webhook.schema.json) to the URL `MUTATION_GATE_WEBHOOK_URL` holds, signed in `X-Mutation-Gate-Signature` ([verifying it](#verifying-a-webhook)) where `MUTATION_GATE_WEBHOOK_SECRET`, or the variable `with: {secretEnv: …}` names, holds a secret |
 | `github-annotations` | Under GitHub Actions | Up to 10 error, 10 warning and 10 notice annotations, changed lines first |
 | `github-summary` | Under GitHub Actions | The step summary: what a timed run took and saved, what the default branch saved over 30 days, and every mutant counted as not killed in one table |
 | `github-comment` | On a pull request, with `GITHUB_TOKEN` | One sticky comment, updated in place, with what a timed run took and saved under the verdict and what it cost folded at the end; `with: {identity: …}` names the account it is found by when the token is not `GITHUB_TOKEN` |
@@ -435,7 +435,7 @@ Environment variables that change what the gate does:
 | `GITHUB_TOKEN` | Lets the sticky PR comment be posted, and the GitHub change source prove which pull request's run passed | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_ROLE_ARN` | The S3 proof store's credentials, and its only ones: no `~/.aws` file, instance, container or web identity role is read. With `AWS_ROLE_ARN` set, those keys assume that role | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`, `MUTATION_GATE_WEBHOOK_URL` | The webhook URLs of the `slack`, `discord` and `webhook` reporters, unless their `with.urlEnv` names other variables | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
-| `MUTATION_GATE_WEBHOOK_SECRET` | Signs each `webhook` request as `X-Mutation-Gate-Signature`, unless `with.secretEnv` names another variable | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
+| `MUTATION_GATE_WEBHOOK_SECRET` | Signs each `webhook` request, with the time it was sent, as `X-Mutation-Gate-Signature`, unless `with.secretEnv` names another variable | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES` | Where and how the `otlp` reporter sends | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `MUTATION_GATE_RESULTS` | Set by the Pest adapter for its own plugin; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `MUTATION_GATE_SHARED_COVERAGE`, `MUTATION_GATE_SUITE_SECONDS`, `MUTATION_GATE_CANARY` | Set by the Pest adapter for the lines `pest:patch` writes into pest-plugin-mutate: the planning job's coverage map, its suite's seconds and the canary group; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
@@ -806,6 +806,24 @@ branch. Proofs can also live in S3 or R2
 To publish the badge and trend, restore the published files into
 `.mutation-gate/publish` before the verdict on your default branch, and publish
 that directory after it.
+
+### Verifying a webhook
+
+A signed `webhook` request carries `X-Mutation-Gate-Signature:
+t=<unix seconds>,sha256=<hex>`, the HMAC-SHA256 of `<t>.<body>` under the
+secret. A receiver checks it before it trusts the body:
+
+```php
+[$t, $mac] = sscanf($_SERVER['HTTP_X_MUTATION_GATE_SIGNATURE'] ?? '', 't=%d,sha256=%64s');
+$body = file_get_contents('php://input');
+$fresh = abs(time() - (int) $t) <= 300;
+$valid = hash_equals(hash_hmac('sha256', "{$t}.{$body}", $secret), (string) $mac);
+
+if (! $fresh || ! $valid) {
+    http_response_code(401);
+    exit;
+}
+```
 
 ## Local use
 

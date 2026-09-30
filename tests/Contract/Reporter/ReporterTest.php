@@ -62,6 +62,7 @@ $alerting = static fn(Channel $channel): Reporter => AlertReporter::to(
         $channel->urlEnv() => 'https://hooks.example/alert',
     ]),
     Delivery::over(new MockHttpClient([new MockResponse('ok')]), new StoppedClock('2026-09-30T12:00:00Z'), Pause::for(...)),
+    new StoppedClock('2026-09-30T12:00:00Z'),
     $channel->urlEnv(),
     AlertReporter::SECRET_ENV,
 );
