@@ -68,6 +68,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -662,3 +663,33 @@ it('fails a verdict on a held unit its holding tests miss lines of, and proves n
     'uncovered mutants counted' => [Uncovered::counted()],
     'uncovered mutants left out' => [Uncovered::excluded()],
 ]);
+
+it('judges flaky what a fresh result and a proof under its key disagree on, and keeps neither', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards();
+    $earlier = Run::of('github:0/1', Moment::at('2026-09-28T12:00:00Z'), $plan->base());
+    $store->write(Scope::branch('main'), Ledger::empty()->atBase($plan->base())->withProof(
+        Proof::of(Digest::sha256Of('money'), Path::of('src/Money.php'), Mutants::none(), $earlier),
+    ));
+
+    $verdict = judgingVerdictOf($judged(
+        $plan,
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), $store),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+    $money = array_values(array_filter(
+        [...$verdict->mutants()],
+        static fn(JudgedMutant $mutant): bool => $mutant->mutant()->location()->file()->value() === 'src/Money.php',
+    ));
+    $ledger = $store->read(Scope::branch('main'));
+
+    expect(array_unique(array_map(static fn(JudgedMutant $mutant): string => $mutant->judgement()->value, $money)))
+        ->toBe(['flaky'])
+        ->and($ledger->proofs()->has(Digest::sha256Of('money')))->toBeFalse()
+        ->and($ledger->proofs()->has(Digest::sha256Of('held')))->toBeTrue();
+});

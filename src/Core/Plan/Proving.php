@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
+use function count;
+
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -18,7 +20,8 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 /**
  * Of the units a run considers, those a proof whose key still matches
  * already covers, and those left to run. The default branch's proof is taken
- * before the run's own scope's. A unit with no key always runs.
+ * before the run's own scope's, and where the two disagree the unit runs. A
+ * unit with no key always runs.
  */
 final readonly class Proving
 {
@@ -68,12 +71,25 @@ final readonly class Proving
         return $this->ownScope;
     }
 
+    /**
+     * The proof under a key, the default branch's before the run's own; none
+     * where the two disagree, since the same code then gave two answers and
+     * neither is used (ADR-0007, decision 3).
+     */
     private static function proofOf(Digest|Unkeyed $key, Proofs $defaultBranch, Proofs $own): Proof|Unproved|Unkeyed
     {
+        if (! $key instanceof Digest) {
+            return $key;
+        }
+
+        $trusted = $defaultBranch->proofFor($key);
+        $owned = $own->proofFor($key);
+
         return match (true) {
-            ! $key instanceof Digest => $key,
-            $defaultBranch->has($key) => $defaultBranch->proofFor($key),
-            default => $own->proofFor($key),
+            $trusted instanceof Proof && $owned instanceof Proof
+                && count($trusted->mutants()->disagreeingWith($owned->mutants())) > 0 => Unproved::key($key),
+            $trusted instanceof Proof => $trusted,
+            default => $owned,
         };
     }
 }

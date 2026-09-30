@@ -23,7 +23,9 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -32,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
+use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -66,7 +69,12 @@ $run = static fn(Plan $plan): Run => Run::of('local:now', Moment::at('2026-09-30
  */
 function recordedRan(string $project, ScriptedRunner $runner, CoverageMap $map): Results
 {
-    $plan = Planned::twoShards();
+    return recordedRanOf(Planned::twoShards(), $project, $runner, $map);
+}
+
+/** Every shard of a plan run in a project, each handed the map, and the results read back. */
+function recordedRanOf(Plan $plan, string $project, ScriptedRunner $runner, CoverageMap $map): Results
+{
     new Handoff(Directory::at($project))->write($plan, $map);
     new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->runAll($plan, Workspace::results());
@@ -262,4 +270,35 @@ it('says why the store did not write', function () use ($map, $run, $ledgers): v
         $run($plan),
         CannotTell::because('It failed.'),
     ))->toEqual(NotWritten::because('The bucket is gone.'));
+});
+
+it('records no proof of a unit with no key, and leaves the ledger as it was for it', function () use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $keyed = Keys::none()
+        ->with(Path::of('src/Money.php'), Digest::sha256Of('money'))
+        ->with(Path::of('src/Held.php'), Unkeyed::because('The runner cannot name its tests.'));
+    $plan = Plan::of(
+        Revision::ref(Flows::HEAD),
+        Digest::sha256Of(Planned::BASE),
+        $keyed,
+        Shards::of(...Planned::twoShards()),
+    )->on(RunOn::at(Scope::branch('main'), Scope::branch('main')));
+
+    new Recorded(Flows::adapters($project, [], $store))->write(
+        $plan,
+        recordedRanOf($plan, $project, ScriptedRunner::fixture(), $map()),
+        $ledgers($store, $plan),
+        $run($plan),
+        CannotTell::because('It failed.'),
+    );
+
+    expect(array_map(
+        static fn(Proof $proof): string => $proof->unit()->value(),
+        [...$store->read(Scope::branch('main'))->proofs()],
+    ))->toBe(['src/Money.php']);
 });

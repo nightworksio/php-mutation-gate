@@ -3,14 +3,22 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -75,4 +83,29 @@ it('counts every proof it took from the run\'s own scope', function () use ($uni
     expect($proving->ownScopeProofs())->toBe(2)
         ->and($proving->proved())->toHaveCount(2)
         ->and($paths($proving->toRun()))->toBe(['src/C.php']);
+});
+
+it('runs a unit whose default branch and own proofs under its key disagree', function () use ($units, $keys, $paths): void {
+    $proofWith = static fn(MutantStatus $status): Proof => Proof::of(
+        Digest::of('a'),
+        Path::of('src/A.php'),
+        Mutants::of(Mutant::of(
+            MutantId::hash(Path::of('src/A.php'), 'LessThan', '', 0),
+            '1',
+            Location::of(Path::of('src/A.php'), Line::of(1), Line::of(1)),
+            Mutation::of('LessThan', MutatorFamily::Boundary, ''),
+            $status,
+            Unmeasured::duration(),
+        )),
+        Run::of('run', Moment::at('2026-09-29T10:00:00Z'), Digest::of(str_repeat('b', 64))),
+    );
+    $proving = Proving::of(
+        $units,
+        $keys,
+        Proofs::of($proofWith(MutantStatus::Killed)),
+        Proofs::of($proofWith(MutantStatus::Survived)),
+    );
+
+    expect($proving->proved())->toHaveCount(0)
+        ->and($paths($proving->toRun()))->toBe(['src/A.php', 'src/B.php', 'src/C.php']);
 });

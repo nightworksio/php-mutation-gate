@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
+use NightWorksIO\MutationGate\Core\Proof\Agreement;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -107,7 +108,13 @@ final readonly class Judging
             $uncovered,
             $this->settings->triage()->timeouts(),
         );
-        $verdicts = $judge->trees($results->units()->and($proving->proved())->and($carrying->carried()));
+        $fresh = Agreement::checked(
+            $results->units(),
+            $plan->keys(),
+            $ledgers->defaultBranch()->proofs(),
+            $ledgers->own()->proofs(),
+        );
+        $verdicts = $judge->trees($fresh->and($proving->proved())->and($carrying->carried()));
         $unfloored = Ratchet::unfloored($verdicts);
         $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));
 
