@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Alert\DiscordMessage;
 use NightWorksIO\MutationGate\Core\Alert\SlackMessage;
 use NightWorksIO\MutationGate\Core\Alert\WebhookPayload;
 use NightWorksIO\MutationGate\Core\Ci\CiRun;
+use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 
 /** Where an alert goes, the variable its URL is read from by default, and how it is written there (ADR-0016). */
 enum Channel
@@ -21,9 +22,9 @@ enum Channel
     public function urlEnv(): string
     {
         return match ($this) {
-            self::Slack => 'MUTATION_GATE_SLACK_URL',
-            self::Discord => 'MUTATION_GATE_DISCORD_URL',
-            self::Webhook => 'MUTATION_GATE_WEBHOOK_URL',
+            self::Slack => GateSecret::SlackUrl->value,
+            self::Discord => GateSecret::DiscordUrl->value,
+            self::Webhook => GateSecret::WebhookUrl->value,
         };
     }
 

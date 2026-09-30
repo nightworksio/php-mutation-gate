@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\NoTrend;
+use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -34,9 +35,6 @@ use function sprintf;
  */
 final readonly class AlertReporter implements Reporter
 {
-    /** The variable that holds the webhook's secret unless `with.secretEnv` names another. */
-    public const string SECRET_ENV = 'MUTATION_GATE_WEBHOOK_SECRET';
-
     private const string NO_URL = '%s is not set, so no alert goes to %s.';
 
     private const string NOT_CI = 'Alerts are sent from CI only.';
@@ -66,7 +64,7 @@ final readonly class AlertReporter implements Reporter
         ClockInterface $clock,
     ): self|Invalid {
         $urlEnv = self::named($options, 'urlEnv', $channel->urlEnv());
-        $secretEnv = self::named($options, 'secretEnv', self::SECRET_ENV);
+        $secretEnv = self::named($options, 'secretEnv', GateSecret::WebhookSecret->value);
 
         return match (true) {
             $urlEnv instanceof Problem => Invalid::because($urlEnv),
