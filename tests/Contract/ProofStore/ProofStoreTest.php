@@ -38,8 +38,8 @@ it('reads an empty ledger for a scope nothing wrote', function (ProofStore $stor
 
 it('reads back what was written to a scope, and only to that scope', function (ProofStore $store): void {
     $key = Digest::sha256Of('src/Money.php');
-    $run = Run::of('github:1/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')));
-    $ledger = Ledger::empty()->withProof(Proof::of($key, Path::of('src/Money.php'), Mutants::none(), $run));
+    $run = Run::of('github:1/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')), Digest::of(str_repeat('b', 64)));
+    $ledger = Ledger::empty()->withProof(Proof::of($key, Path::of('src/Money.php'), Mutants::none(), $run))->atBase($run->base());
 
     expect($store->write(Scope::pullRequest(12), $ledger))->toBeInstanceOf(Written::class)
         ->and($store->read(Scope::pullRequest(12))->proofs()->has($key))->toBeTrue()

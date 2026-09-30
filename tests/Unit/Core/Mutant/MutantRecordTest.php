@@ -83,8 +83,8 @@ it('writes the reason a runner left a mutant unjudged in the full record', funct
     expect(MutantRecord::full($unjudged))->toMatchArray(['status' => 'unjudged', 'reason' => 'No test references the constant it changes.']);
 });
 
-it('writes a killed mutant briefly: its id, line, mutator and status', function () use ($killed, $id): void {
-    expect(MutantRecord::brief($killed))->toBe(['id' => $id->value(), 'line' => 1, 'mutator' => 'LessThan', 'status' => 'killed']);
+it('writes a killed mutant as its id, line and the index of its mutator', function () use ($killed, $id): void {
+    expect(MutantRecord::killed($killed, 3))->toBe([$id->value(), 1, 3]);
 });
 
 it('reads back the mutant it wrote in full', function () use ($timedOut, $killed, $unjudged, $read): void {
@@ -93,7 +93,7 @@ it('reads back the mutant it wrote in full', function () use ($timedOut, $killed
         ->and(MutantRecord::readFull($read(MutantRecord::full($unjudged))))->toEqual($unjudged);
 });
 
-it('reads a brief record as a mutant of the unit it was proved in', function () use ($killed, $id, $read): void {
+it('reads a killed record as a mutant of the unit it was proved in', function () use ($killed, $id, $read): void {
     $expected = Mutant::of(
         $id,
         '',
@@ -103,12 +103,13 @@ it('reads a brief record as a mutant of the unit it was proved in', function () 
         Unmeasured::duration(),
     );
 
-    expect(MutantRecord::readBrief($read(MutantRecord::brief($killed)), Path::of('src/Money.php')))->toEqual($expected);
+    expect(MutantRecord::readKilled($read(MutantRecord::killed($killed, 1)), Path::of('src/Money.php'), ['Plus', 'LessThan']))
+        ->toEqual($expected);
 });
 
-it('tells a full record from a brief one', function () use ($killed, $read): void {
+it('tells a full record from a killed one', function () use ($killed, $read): void {
     expect(MutantRecord::isFull($read(MutantRecord::full($killed))))->toBeTrue()
-        ->and(MutantRecord::isFull($read(MutantRecord::brief($killed))))->toBeFalse();
+        ->and(MutantRecord::isFull($read(MutantRecord::killed($killed, 0))))->toBeFalse();
 });
 
 it('refuses a record that does not hold a mutant, saying where', function (array $change, NotInShape $refusal) use ($timedOut, $read): void {
@@ -125,9 +126,13 @@ it('refuses a record that does not hold a mutant, saying where', function (array
     'a reason that is not text' => [['reason' => 7], NotInShape::at('the file.reason', 'text')],
 ]);
 
-it('refuses a brief record that does not hold a mutant', function () use ($killed, $read): void {
-    expect(fn(): Mutant => MutantRecord::readBrief($read([...MutantRecord::brief($killed), 'line' => 0]), Path::of('src/Money.php')))
-        ->toThrow(NotInShape::at('the file.line', 'a line'))
-        ->and(fn(): Mutant => MutantRecord::readBrief($read([...MutantRecord::brief($killed), 'status' => 'x']), Path::of('src/Money.php')))
-        ->toThrow(NotInShape::at('the file.status', 'a status'));
-});
+it('refuses a killed record that does not hold a killed mutant, saying where', function (array $record, NotInShape $refusal) use ($read): void {
+    expect(fn(): Mutant => MutantRecord::readKilled($read($record), Path::of('src/Money.php'), ['Plus']))->toThrow($refusal);
+})->with([
+    'too few fields' => [['3f9a1c2b7d04', 44], NotInShape::at('the file', 'a killed mutant, as [id, line, mutator]')],
+    'too many fields' => [['3f9a1c2b7d04', 44, 0, 0], NotInShape::at('the file', 'a killed mutant, as [id, line, mutator]')],
+    'an id that is not one' => [['xyz', 44, 0], NotInShape::at('the file[0]', 'a mutant id')],
+    'a line before the first' => [['3f9a1c2b7d04', 0, 0], NotInShape::at('the file[1]', 'a line')],
+    'a mutator past the last' => [['3f9a1c2b7d04', 44, 1], NotInShape::at('the file[2]', 'a mutator')],
+    'a mutator that is not an index' => [['3f9a1c2b7d04', 44, 'Plus'], NotInShape::at('the file[2]', 'a whole number')],
+]);

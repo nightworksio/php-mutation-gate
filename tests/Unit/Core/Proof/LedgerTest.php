@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Proof\Bases;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
@@ -21,7 +22,7 @@ $proof = static fn(string $key, string $unit): Proof => Proof::of(
     Digest::of($key),
     Path::of($unit),
     Mutants::none(),
-    Run::of('local', Moment::at('2026-09-29T20:48:17Z')),
+    Run::of('local', Moment::at('2026-09-29T20:48:17Z'), Digest::of(str_repeat('b', 64))),
 );
 $timing = static fn(string $unit, float $seconds, string $at = '2026-09-29T20:00:00Z'): Timing => Timing::of(
     Path::of($unit),
@@ -129,4 +130,33 @@ it('takes many proofs at once, keeping its own where both prove a key', function
         $proof(str_repeat('b', 64), 'src/B.php'),
     ))
         ->and($ledger->proofs())->toHaveCount(1);
+});
+
+it('holds the bases its runs keyed at, the most recently seen first, whatever else changes', function () use ($proof, $timing): void {
+    $first = Digest::of(str_repeat('1', 64));
+    $second = Digest::of(str_repeat('2', 64));
+    $ledger = Ledger::empty()
+        ->atBase($first)
+        ->atBase($second)
+        ->withProof($proof(str_repeat('a', 64), 'src/A.php'))
+        ->withProofs(Proofs::none())
+        ->withoutProof(Digest::of(str_repeat('a', 64)))
+        ->withTiming($timing('src/A.php', 1.0))
+        ->withTimings(Timings::none())
+        ->withPassed(Revision::ref('206b4e0'))
+        ->keepingTimingsOf(Paths::none());
+
+    expect(Ledger::empty()->bases())->toEqual(Bases::none())
+        ->and($ledger->bases())->toEqual(Bases::of($second, $first))
+        ->and($ledger->atBase($first)->bases())->toEqual(Bases::of($first, $second))
+        ->and(Ledger::empty()->withBases(Bases::of($first))->withBases(Bases::of($second, $first))->bases())->toEqual(Bases::of($first, $second))
+        ->and(Ledger::empty()->atBase($second)->and(Ledger::empty()->atBase($first))->bases())->toEqual(Bases::of($second, $first));
+});
+
+it('says whether any proof it holds was established at a base', function () use ($proof): void {
+    $ledger = Ledger::empty()->withProof($proof(str_repeat('a', 64), 'src/A.php'));
+
+    expect($ledger->provesAt(Digest::of(str_repeat('b', 64))))->toBeTrue()
+        ->and($ledger->provesAt(Digest::of(str_repeat('c', 64))))->toBeFalse()
+        ->and(Ledger::empty()->provesAt(Digest::of(str_repeat('b', 64))))->toBeFalse();
 });

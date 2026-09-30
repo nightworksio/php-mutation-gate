@@ -24,7 +24,7 @@ use function sprintf;
 
 /**
  * The proof store `directory`: one ledger file per scope,
- * `<path>/<scope>/ledger.json`, where the path is `.mutation-gate/ledger`
+ * `<path>/<scope>/ledger.json.gz`, where the path is `.mutation-gate/ledger`
  * unless `with: {path: …}` names another. It is the default locally, and
  * what every CI cache keeps.
  */
@@ -33,7 +33,7 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     /** Where the ledgers are kept unless the config says otherwise. */
     public const string PATH = '.mutation-gate/ledger';
 
-    private const string FILE = 'ledger.json';
+    private const string FILE = 'ledger.json.gz';
 
     private function __construct(private Directory $directory)
     {

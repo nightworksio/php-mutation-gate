@@ -38,31 +38,39 @@ $files = TestFiles::of(
 );
 $known = $paths('tests/Unit/MoneyTest.php', 'tests/Unit/OtherTest.php', 'tests/Unit/CanaryTest.php');
 
-it('reads the judging files, the support they name transitively, and what is in every key', function () use ($files, $known, $paths, $values): void {
+it('reads what is in every key, and the judging files and the support they name transitively beyond it', function () use ($files, $known, $paths, $values): void {
     $tests = Tests::of($files, $known, $paths('tests/Unit/CanaryTest.php'));
 
-    expect($values($tests->readBy($paths('tests/Unit/MoneyTest.php'))))->toBe([
+    expect($values($tests->inEveryKey()))->toBe([
         'tests/Unit/CanaryTest.php',
         'tests/Unit/UnknownTest.php',
         'tests/Pest.php',
         'tests/fixtures/money.json',
         'tests/Support/Bird.php',
         'tests/Support/Base.php',
-        'tests/Unit/MoneyTest.php',
-        'tests/Support/Helper.php',
-        'tests/Support/Wing.php',
-    ]);
+    ])
+        ->and($values($tests->readBy($paths('tests/Unit/MoneyTest.php'))))->toBe([
+            'tests/Unit/MoneyTest.php',
+            'tests/Support/Helper.php',
+            'tests/Support/Wing.php',
+        ])
+        ->and($values($tests->readBy($paths('tests/Unit/CanaryTest.php', 'tests/Unit/MoneyTest.php'))))->toBe([
+            'tests/Unit/MoneyTest.php',
+            'tests/Support/Helper.php',
+            'tests/Support/Wing.php',
+        ]);
 });
 
 it('reads no canary where the patch is off', function () use ($files, $known, $values): void {
     $tests = Tests::of($files, $known, Paths::none());
 
-    expect($values($tests->readBy(Paths::none())))->toBe([
+    expect($values($tests->inEveryKey()))->toBe([
         'tests/Unit/UnknownTest.php',
         'tests/Pest.php',
         'tests/fixtures/money.json',
         'tests/Support/Base.php',
-    ]);
+    ])
+        ->and($values($tests->readBy(Paths::none())))->toBe([]);
 });
 
 it('follows what each file names before the files it named later', function () use ($other, $case, $paths, $values): void {
@@ -85,7 +93,7 @@ it('follows what each file names before the files it named later', function () u
 it('reads a judge it holds no file of by its path alone', function () use ($files, $known, $paths, $values): void {
     $tests = Tests::of($files, $known, Paths::none());
 
-    expect($values($tests->readBy($paths('tests/Unit/GoneTest.php')))[4])->toBe('tests/Unit/GoneTest.php')
+    expect($values($tests->readBy($paths('tests/Unit/GoneTest.php'))))->toBe(['tests/Unit/GoneTest.php'])
         ->and($tests->digestOf(Path::of('tests/Unit/GoneTest.php')))->toEqual(Missing::at(Path::of('tests/Unit/GoneTest.php')))
         ->and($tests->digestOf(Path::of('tests/Pest.php')))->toEqual(Digest::of('digest of tests/Pest.php'));
 });
@@ -102,5 +110,5 @@ it('names every file of test cases, each of which can judge a held unit', functi
 it('reads a path named only by digits as a path', function () use ($other, $values): void {
     $tests = Tests::of(TestFiles::of($other('123', '{}')), Paths::none(), Paths::none());
 
-    expect($values($tests->readBy(Paths::none())))->toBe(['123']);
+    expect($values($tests->inEveryKey()))->toBe(['123']);
 });

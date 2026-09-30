@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
+use function array_filter;
+use function array_flip;
 use function array_map;
 use function array_merge;
-use function array_slice;
+use function array_unique;
+use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
@@ -26,26 +30,40 @@ use function preg_match;
 
 use stdClass;
 
-use function usort;
-
 /**
- * A ledger as its file holds it, `"format": 1`. Reading keeps each
- * well-formed entry and drops anything else, never repairing it, so an
- * unreadable ledger costs a run and never a verdict. Writing keeps the newest
- * {@see KEPT} proofs, each mutant that was not killed with its full record and
- * each killed one with its id, line and status.
+ * A ledger as its file holds it: `"format": 2`, compact JSON, gzipped.
+ *
+ * Writing keeps what {@see LedgerRetention::standard()} keeps: the bases its
+ * runs saw most recently, and the proofs established at them. Each mutant
+ * that was not killed keeps its full record, and each killed one is
+ * `[id, line, mutator]`, the mutator an index into the ledger's `mutators`.
+ *
+ * Reading keeps each well-formed entry and drops anything else, never
+ * repairing it, so an unreadable ledger, one of another format among them,
+ * costs a run and never a verdict.
  *
  * @internal the shape of the ledger file
+ *
+ * @phpstan-type KilledRecord array{string, int, int}
+ * @phpstan-type FullRecord array<string, int|float|string>
+ * @phpstan-type ProofRecord array{
+ *     unit: string,
+ *     base: string,
+ *     at: string,
+ *     run: string,
+ *     mutants: list<KilledRecord|FullRecord>,
+ * }
+ * @phpstan-type TimingRecord array{seconds: float, runner: string, at: string}
  */
 final readonly class LedgerFile
 {
-    /** How many proofs a ledger keeps, the newest; older ones are of code long since changed. */
-    public const int KEPT = 20_000;
+    private const int FORMAT = 2;
 
-    private const int FORMAT = 1;
+    /** What a message calls the file. */
+    private const string NAMED = 'The ledger';
 
-    /** A content key: a SHA-256, in lowercase hex. */
-    private const string KEY = '/^[0-9a-f]{64}$/D';
+    /** A content key or a base: a SHA-256, in lowercase hex. */
+    private const string DIGEST = '/^[0-9a-f]{64}$/D';
 
     private const string SECONDS = 'seconds';
 
@@ -53,50 +71,58 @@ final readonly class LedgerFile
 
     private const string AT = 'at';
 
+    private const string BASE = 'base';
+
+    private const string BASES = 'bases';
+
+    private const string MUTATORS = 'mutators';
+
     private const string PASSED = 'passed';
 
     private const string MUTANTS = 'mutants';
 
     public static function encode(Ledger $ledger): string
     {
+        $retention = LedgerRetention::standard();
+        $kept = $retention->proofsOf($ledger);
+        $mutators = self::mutatorsOf($kept);
         $proofs = [];
-        $timings = [];
 
-        foreach (self::newestOf($ledger->proofs()) as $proof) {
-            $proofs[$proof->key()->value()] = self::proof($proof);
+        foreach ($kept as $proof) {
+            $proofs[$proof->key()->value()] = self::proof($proof, array_flip($mutators));
         }
 
-        foreach ($ledger->timings() as $timing) {
-            $timings[$timing->unit()->value()] = [
-                self::SECONDS => $timing->seconds()->seconds(),
-                self::RUNNER => $timing->runner(),
-                self::AT => $timing->at()->value(),
-            ];
-        }
-
+        $timings = self::timings($ledger->timings());
         $passed = $ledger->lastPassed();
 
-        return Json::encode([
+        return Gzip::pack(Json::compact([
             'format' => self::FORMAT,
+            self::BASES => array_map(
+                static fn(Digest $base): string => $base->value(),
+                [...$retention->basesOf($ledger)],
+            ),
+            self::MUTATORS => $mutators,
             'proofs' => $proofs === [] ? new stdClass() : $proofs,
             'timings' => $timings === [] ? new stdClass() : $timings,
             ...$passed instanceof Revision ? [self::PASSED => $passed->name()] : [],
-        ]);
+        ]));
     }
 
-    public static function decode(string $json): Ledger
+    public static function decode(string $bytes): Ledger
     {
-        $file = Node::decode($json);
+        $json = Gzip::unpack($bytes, self::NAMED);
+        $file = Node::decode($json instanceof CannotJudge ? '' : $json);
 
         if (! self::isThisFormat($file)) {
             return Ledger::empty();
         }
 
+        $mutators = self::mutatorsIn($file);
         $proofs = [];
         $timings = [];
 
         foreach (self::entriesOf($file->field('proofs')) as $key => $entry) {
-            $proofs[] = self::proofsIn($key, $entry);
+            $proofs[] = self::proofsIn($key, $entry, $mutators);
         }
 
         foreach (self::entriesOf($file->field('timings')) as $unit => $entry) {
@@ -104,41 +130,69 @@ final readonly class LedgerFile
         }
 
         return self::passedIn($file)
+            ->withBases(self::basesIn($file))
             ->withProofs(Proofs::of(...array_merge(...$proofs)))
             ->withTimings(Timings::of(...array_merge(...$timings)));
     }
 
     /**
-     * The newest {@see KEPT} proofs, by when their runs established them,
-     * newest first; of two as new, the one held first.
+     * The name of every mutator of a killed mutant of these proofs, each
+     * once, in the order they first appear.
      *
-     * @return list<Proof>
+     * @param  list<Proof>  $proofs
+     * @return list<string>
      */
-    private static function newestOf(Proofs $proofs): array
+    private static function mutatorsOf(array $proofs): array
     {
-        $newest = [...$proofs];
-        usort(
-            $newest,
-            static fn(Proof $one, Proof $other): int => $other->run()->at()->value() <=> $one->run()->at()->value(),
-        );
+        $named = [];
 
-        return array_slice($newest, 0, self::KEPT);
+        foreach ($proofs as $proof) {
+            $named[] = array_map(
+                static fn(Mutant $mutant): string => $mutant->mutation()->mutator(),
+                array_filter(
+                    [...$proof->mutants()],
+                    static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed,
+                ),
+            );
+        }
+
+        return array_values(array_unique(array_merge(...$named)));
     }
 
-    /** @return array<string, mixed> */
-    private static function proof(Proof $proof): array
+    /**
+     * @param  array<string, int> $mutators each mutator's index, by its name
+     * @return ProofRecord
+     */
+    private static function proof(Proof $proof, array $mutators): array
     {
         return [
             'unit' => $proof->unit()->value(),
+            self::BASE => $proof->run()->base()->value(),
             self::AT => $proof->run()->at()->value(),
             'run' => $proof->run()->id(),
             self::MUTANTS => array_map(
                 static fn(Mutant $mutant): array => $mutant->status() === MutantStatus::Killed
-                    ? MutantRecord::brief($mutant)
+                    ? MutantRecord::killed($mutant, $mutators[$mutant->mutation()->mutator()])
                     : MutantRecord::full($mutant),
                 [...$proof->mutants()],
             ),
         ];
+    }
+
+    /** @return array<string, TimingRecord> */
+    private static function timings(Timings $timings): array
+    {
+        $written = [];
+
+        foreach ($timings as $timing) {
+            $written[$timing->unit()->value()] = [
+                self::SECONDS => $timing->seconds()->seconds(),
+                self::RUNNER => $timing->runner(),
+                self::AT => $timing->at()->value(),
+            ];
+        }
+
+        return $written;
     }
 
     private static function isThisFormat(Node $file): bool
@@ -159,6 +213,47 @@ final readonly class LedgerFile
         }
     }
 
+    /** The bases a ledger holds, the most recently seen first; one that is no digest is dropped. */
+    private static function basesIn(Node $file): Bases
+    {
+        $bases = [];
+
+        foreach (self::itemsOf($file->field(self::BASES)) as $base) {
+            $bases[] = self::basesAt($base);
+        }
+
+        return Bases::of(...array_merge(...$bases));
+    }
+
+    /**
+     * The mutator names a ledger's killed mutants point into, each at its
+     * index; none where any is not a name, since an index past it would then
+     * point at the wrong one.
+     *
+     * @return list<string>
+     */
+    private static function mutatorsIn(Node $file): array
+    {
+        try {
+            return array_map(
+                static fn(Node $mutator): string => $mutator->text(),
+                $file->field(self::MUTATORS)->items(),
+            );
+        } catch (NotInShape) {
+            return [];
+        }
+    }
+
+    /** @return list<Node> */
+    private static function itemsOf(Node $list): array
+    {
+        try {
+            return $list->items();
+        } catch (NotInShape) {
+            return [];
+        }
+    }
+
     /** @return array<string, Node> */
     private static function entriesOf(Node $map): array
     {
@@ -169,50 +264,77 @@ final readonly class LedgerFile
         }
     }
 
-    /** @return list<Proof> the proof an entry holds, or none where it is malformed */
-    private static function proofsIn(string $key, Node $entry): array
+    /** @return list<Digest> the base a place holds, or none where it holds none */
+    private static function basesAt(Node $base): array
     {
         try {
-            return preg_match(self::KEY, $key) === 1 ? [self::proofIn(Digest::of($key), $entry)] : [];
+            return [self::digestIn($base, 'a base')];
         } catch (NotInShape) {
             return [];
         }
     }
 
     /** @throws NotInShape */
-    private static function proofIn(Digest $key, Node $entry): Proof
+    private static function digestIn(Node $digest, string $expected): Digest
+    {
+        return preg_match(self::DIGEST, $digest->text()) === 1
+            ? Digest::of($digest->text())
+            : throw NotInShape::at($digest->at(), $expected);
+    }
+
+    /**
+     * @param  list<string> $mutators
+     * @return list<Proof>  the proof an entry holds, or none where it is malformed
+     */
+    private static function proofsIn(string $key, Node $entry, array $mutators): array
+    {
+        try {
+            return preg_match(self::DIGEST, $key) === 1 ? [self::proofIn(Digest::of($key), $entry, $mutators)] : [];
+        } catch (NotInShape) {
+            return [];
+        }
+    }
+
+    /**
+     * @param list<string> $mutators
+     *
+     * @throws NotInShape
+     */
+    private static function proofIn(Digest $key, Node $entry, array $mutators): Proof
     {
         $unit = Path::of($entry->field('unit')->text());
         $mutants = [];
 
         foreach ($entry->field(self::MUTANTS)->items() as $record) {
-            $mutants[] = self::mutantIn($record, $unit);
+            $mutants[] = MutantRecord::isFull($record)
+                ? self::notKilledIn($record)
+                : MutantRecord::readKilled($record, $unit, $mutators);
         }
 
         return Proof::of(
             $key,
             $unit,
             Mutants::of(...$mutants),
-            Run::of($entry->field('run')->text(), self::instantIn($entry)),
+            Run::of(
+                $entry->field('run')->text(),
+                self::instantIn($entry),
+                self::digestIn($entry->field(self::BASE), 'a base'),
+            ),
         );
     }
 
     /**
-     * A mutant of a proof: a full record, or the brief one of a killed mutant.
+     * A mutant's full record, which the ledger keeps of every mutant that was not killed.
      *
      * @throws NotInShape
      */
-    private static function mutantIn(Node $record, Path $unit): Mutant
+    private static function notKilledIn(Node $record): Mutant
     {
-        if (MutantRecord::isFull($record)) {
-            return MutantRecord::readFull($record);
-        }
-
-        $mutant = MutantRecord::readBrief($record, $unit);
+        $mutant = MutantRecord::readFull($record);
 
         return $mutant->status() === MutantStatus::Killed
-            ? $mutant
-            : throw NotInShape::at($record->at(), 'the full record of a mutant that was not killed');
+            ? throw NotInShape::at($record->at(), 'a killed mutant, as [id, line, mutator]')
+            : $mutant;
     }
 
     /** @return list<Timing> the timing an entry holds, or none where it is malformed */

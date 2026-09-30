@@ -27,8 +27,8 @@ $proved = static fn(): Ledger => Ledger::empty()->withProof(Proof::of(
     Digest::sha256Of('src/Money.php'),
     Path::of('src/Money.php'),
     Mutants::none(),
-    Run::of('github:1/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z'))),
-));
+    Run::of('github:1/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')), Digest::of(str_repeat('b', 64))),
+))->atBase(Digest::of(str_repeat('b', 64)));
 
 it('reads an empty ledger for a scope nothing wrote', function (): void {
     expect(LedgerDirectory::at(Scratch::directory())->read(Scope::branch('main')))->toEqual(Ledger::empty());
@@ -38,8 +38,8 @@ it('writes a scope\'s ledger to its own file under the directory, and says where
     $root = Scratch::directory();
     $written = LedgerDirectory::at($root)->write(Scope::pullRequest(12), $proved());
 
-    expect($written)->toEqual(Written::to(sprintf('%s/refs/pull/12/ledger.json', $root)))
-        ->and(file_get_contents(sprintf('%s/refs/pull/12/ledger.json', $root)))->toBe(LedgerFile::encode($proved()));
+    expect($written)->toEqual(Written::to(sprintf('%s/refs/pull/12/ledger.json.gz', $root)))
+        ->and(file_get_contents(sprintf('%s/refs/pull/12/ledger.json.gz', $root)))->toBe(LedgerFile::encode($proved()));
 });
 
 it('reads back the ledger it wrote to a scope', function () use ($proved): void {
@@ -52,7 +52,7 @@ it('reads back the ledger it wrote to a scope', function () use ($proved): void 
 
 it('reads a ledger file that is not a ledger as empty', function (): void {
     $root = Scratch::directory();
-    Scratch::write($root, 'refs/heads/main/ledger.json', 'not JSON at all');
+    Scratch::write($root, 'refs/heads/main/ledger.json.gz', 'not JSON at all');
 
     expect(LedgerDirectory::at($root)->read(Scope::branch('main')))->toEqual(Ledger::empty());
 });
@@ -77,10 +77,10 @@ it('writes nothing for a scope that is not a ref, and says why', function () use
 
 it('says why a ledger it cannot write was not written', function () use ($proved): void {
     $root = Scratch::directory();
-    mkdir(sprintf('%s/refs/heads/main/ledger.json', $root), recursive: true);
+    mkdir(sprintf('%s/refs/heads/main/ledger.json.gz', $root), recursive: true);
 
     expect(LedgerDirectory::at($root)->write(Scope::branch('main'), $proved()))
-        ->toEqual(NotWritten::because(sprintf('%s/refs/heads/main/ledger.json could not be written.', $root)));
+        ->toEqual(NotWritten::because(sprintf('%s/refs/heads/main/ledger.json.gz could not be written.', $root)));
 });
 
 it('keeps its ledgers under .mutation-gate/ledger unless the options name another directory', function (): void {

@@ -16,7 +16,7 @@ $proof = static fn(string $key, string $unit): Proof => Proof::of(
     Digest::of($key),
     Path::of($unit),
     Mutants::none(),
-    Run::of('local', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z'))),
+    Run::of('local', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')), Digest::of(str_repeat('b', 64))),
 );
 $units = static fn(Proofs $proofs): array => array_map(
     static fn(Proof $proof): string => $proof->unit()->value(),
