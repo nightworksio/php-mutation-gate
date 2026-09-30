@@ -135,13 +135,13 @@ final readonly class Ci implements Part
                 Member::of('check', $this->check),
                 Member::unlessEmpty(
                     'gitlab',
-                    Json::object(Member::of('template', self::path($origin, $this->gitlabTemplate))),
+                    Json::object(Member::of('template', $this->path($origin, $this->gitlabTemplate))),
                 ),
                 Member::unlessEmpty(
                     'buildkite',
                     Json::object(
                         Member::of('step', $this->buildkiteStep),
-                        Member::of('definition', self::path($origin, $this->buildkiteDefinition)),
+                        Member::of('definition', $this->path($origin, $this->buildkiteDefinition)),
                     ),
                 ),
             ),
@@ -169,7 +169,7 @@ final readonly class Ci implements Part
         ]);
     }
 
-    private static function path(Origin $origin, Path|Absent $path): string|Absent
+    private function path(Origin $origin, Path|Absent $path): string|Absent
     {
         return $path instanceof Path ? $origin->written($path) : $path;
     }

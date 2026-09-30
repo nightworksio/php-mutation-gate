@@ -164,7 +164,7 @@ final readonly class Section implements Shape
 
     public function read(Node $at): Reading
     {
-        if (! self::isObject($at)) {
+        if (! $this->isObject($at)) {
             return Reading::refused($at->mismatch(self::EXPECTED));
         }
 
@@ -199,7 +199,7 @@ final readonly class Section implements Shape
         $properties = Json::object();
 
         foreach ($this->fields as $field) {
-            $default = $defaults instanceof Json ? self::member($defaults, $field->key()) : $defaults;
+            $default = $defaults instanceof Json ? $this->member($defaults, $field->key()) : $defaults;
             $properties = $properties->with(Member::of($field->key(), $field->schema($default)));
         }
 
@@ -249,7 +249,7 @@ final readonly class Section implements Shape
     }
 
     /** What an object holds under a key, or nothing. */
-    private static function member(Json $object, string $key): Json|Absent
+    private function member(Json $object, string $key): Json|Absent
     {
         foreach ($object as $name => $value) {
             if ($name === $key) {
@@ -261,7 +261,7 @@ final readonly class Section implements Shape
     }
 
     /** Whether a place holds an object, or nothing, which reads as an object with every setting left out. */
-    private static function isObject(Node $at): bool
+    private function isObject(Node $at): bool
     {
         return match ($at->kind()) {
             Kind::Map, Kind::Empty, Kind::Nothing => true,

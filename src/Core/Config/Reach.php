@@ -56,8 +56,8 @@ final readonly class Reach implements Part
     {
         return $later instanceof self
             ? new self(
-                self::joined($this->packages, $later->packages),
-                self::joined($this->everything, $later->everything),
+                $this->joined($this->packages, $later->packages),
+                $this->joined($this->everything, $later->everything),
                 $later->hotPath instanceof Absent ? $this->hotPath : $later->hotPath,
             )
             : $this;
@@ -119,7 +119,7 @@ final readonly class Reach implements Part
      * @param  Listed<string>|Absent $later
      * @return Listed<string>|Absent
      */
-    private static function joined(Listed|Absent $earlier, Listed|Absent $later): Listed|Absent
+    private function joined(Listed|Absent $earlier, Listed|Absent $later): Listed|Absent
     {
         return match (true) {
             $later instanceof Absent => $earlier,

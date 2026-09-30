@@ -12,8 +12,6 @@ use function array_unique;
 use function array_values;
 use function count;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\Adapter;
-use NightWorksIO\MutationGate\Core\Config\Definition\Presets;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -88,8 +86,8 @@ final readonly class Setup implements Part
     {
         return $later instanceof self
             ? new self(
-                self::joined($this->extensions, $later->extensions),
-                self::joined($this->presets, $later->presets),
+                $this->joined($this->extensions, $later->extensions),
+                $this->joined($this->presets, $later->presets),
                 Absent::laid($this->runner, $later->runner),
                 array_values(array_unique([...$this->withhold, ...$later->withhold])),
                 Absent::laid($this->treeSource, $later->treeSource),
@@ -141,7 +139,7 @@ final readonly class Setup implements Part
             ? Json::object(Member::of('extensions', Json::items(...$this->extensions)))
             : Json::object();
         $written = $this->presets instanceof Listed
-            ? $written->with(Member::of('preset', self::presetsWritten($this->presets)))
+            ? $written->with(Member::of('preset', $this->presetsWritten($this->presets)))
             : $written;
         $written = $this->runnerWritten($written);
 
@@ -162,12 +160,12 @@ final readonly class Setup implements Part
             )
             : PhpCalls::none();
         $calls = $this->presets instanceof Listed && [...$this->presets] !== []
-            ? $calls->and(PhpCalls::onGate('preset', ...array_map(self::preset(...), [...$this->presets])))
+            ? $calls->and(PhpCalls::onGate('preset', ...array_map($this->preset(...), [...$this->presets])))
             : $calls;
         $calls = $calls->and($this->runnerPhp());
 
         return $this->treeSource instanceof Choice
-            ? $calls->and(PhpCalls::onGate('treeSource', self::source($this->treeSource)))
+            ? $calls->and(PhpCalls::onGate('treeSource', $this->source($this->treeSource)))
             : $calls;
     }
 
@@ -207,14 +205,14 @@ final readonly class Setup implements Part
     }
 
     /** @param Listed<string> $presets */
-    private static function presetsWritten(Listed $presets): Json|string
+    private function presetsWritten(Listed $presets): Json|string
     {
         $names = [...$presets];
 
         return count($names) === 1 ? $names[0] : Json::items(...$names);
     }
 
-    private static function preset(string $name): string
+    private function preset(string $name): string
     {
         return array_key_exists($name, array_flip(self::PRESETS))
             ? sprintf('Preset::%s()', $name)
@@ -222,7 +220,7 @@ final readonly class Setup implements Part
     }
 
     /** The tree source, by `Source::phpunit()` with its fallback paths where it is that one. */
-    private static function source(Choice $source): string
+    private function source(Choice $source): string
     {
         $options = Node::config($source->options()->line());
         $fallback = $options->field('fallback');
@@ -245,7 +243,7 @@ final readonly class Setup implements Part
      * @param  Listed<string>|Absent $later
      * @return Listed<string>|Absent
      */
-    private static function joined(Listed|Absent $earlier, Listed|Absent $later): Listed|Absent
+    private function joined(Listed|Absent $earlier, Listed|Absent $later): Listed|Absent
     {
         return match (true) {
             $later instanceof Absent => $earlier,

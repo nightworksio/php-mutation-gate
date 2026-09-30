@@ -104,7 +104,7 @@ final readonly class Proofs implements Part
     public function php(Origin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
-            ...$this->store instanceof Choice ? [self::storeCall($this->store)] : [],
+            ...$this->store instanceof Choice ? [$this->storeCall($this->store)] : [],
             ...$this->ignore instanceof Listed
                 ? [sprintf('Proofs::ignore(%s)', PhpCalls::literals(...$this->ignore))]
                 : [],
@@ -116,7 +116,7 @@ final readonly class Proofs implements Part
     }
 
     /** The proof store, by `Proofs::directory()` or `Proofs::s3()` for the built-in ones. */
-    private static function storeCall(Choice $store): string
+    private function storeCall(Choice $store): string
     {
         $options = Node::config($store->options()->line());
         $entries = $options->kind() === Kind::Map ? $options->entries() : [];

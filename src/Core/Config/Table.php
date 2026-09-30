@@ -8,9 +8,6 @@ use ArrayIterator;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
-
-use function sprintf;
-
 use Traversable;
 
 /**
@@ -55,7 +52,7 @@ final readonly class Table implements IteratorAggregate
         $written = Json::object();
 
         foreach ($this->numbers as $key => $number) {
-            $written = $written->with(Member::of(sprintf('%s', $key), $number));
+            $written = $written->with(Member::of($key, $number));
         }
 
         return $written;

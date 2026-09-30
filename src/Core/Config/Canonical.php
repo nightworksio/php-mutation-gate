@@ -102,7 +102,7 @@ final readonly class Canonical
                 $whole => $this->whole($member, $under),
                 default => $this->kept($member, $under),
             };
-            $members = $members->with(Member::of(sprintf('%s', $key), $kept));
+            $members = $members->with(Member::of($key, $kept));
         }
 
         return $members;

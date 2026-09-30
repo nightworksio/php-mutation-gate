@@ -14,8 +14,6 @@ use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
-use function sprintf;
-
 /**
  * An object whose keys are data, such as path prefixes or colour names, and
  * whose values are numbers.
@@ -48,7 +46,7 @@ final readonly class NumberMap implements Shape
             $readings[] = $reading;
 
             if (is_int($number) || is_float($number)) {
-                $numbers = $numbers->merged(Table::row(sprintf('%s', $key), $number));
+                $numbers = $numbers->merged(Table::row($key, $number));
             }
         }
 

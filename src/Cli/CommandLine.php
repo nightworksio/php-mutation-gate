@@ -69,13 +69,13 @@ final readonly class CommandLine
         $layer = $this->runner === '' ? $layer : $layer->with(Member::of('runner', $this->runner));
         $layer = $this->reports === []
             ? $layer
-            : $layer->with(Member::of('reports', Json::items(...array_map(self::report(...), $this->reports))));
+            : $layer->with(Member::of('reports', Json::items(...array_map($this->report(...), $this->reports))));
         $layer = $this->budget === '' ? $layer : $layer->with(Member::of('budget', $this->budget));
 
         return $this->ci === '' ? $layer : $layer->with(Member::of('ci', Json::object(Member::of('plan', $this->ci))));
     }
 
-    private static function report(string $report): Json
+    private function report(string $report): Json
     {
         $parts = explode(':', $report, 2);
         $written = Json::object(Member::of('use', $parts[0]));

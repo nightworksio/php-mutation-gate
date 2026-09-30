@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_key_last;
+use function array_last;
 use function array_pop;
 use function array_slice;
 use function count;
@@ -73,7 +73,7 @@ final readonly class ConfigPath
         $segments = [];
 
         foreach (explode('/', Path::of($joined)->value()) as $segment) {
-            $last = $segments === [] ? self::UP : $segments[array_key_last($segments)];
+            $last = $segments === [] ? self::UP : array_last($segments);
 
             if ($segment === self::UP && $last !== self::UP && $last !== '') {
                 array_pop($segments);

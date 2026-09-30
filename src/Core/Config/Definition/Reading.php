@@ -21,7 +21,8 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 final readonly class Reading
 {
     /**
-     * @param T|Absent      $value
+     * @phpstan-param T|Absent $value
+     *
      * @param list<Problem> $problems
      */
     private function __construct(private object|string|int|float|bool $value, private array $problems)
