@@ -10,6 +10,7 @@ use function count;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\ProvingRange;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -32,14 +33,12 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * request's head, and that pull request's run of this workflow passed, the
  * branch was up to date and its run judged exactly the tree that landed, so
  * those commits reach nothing and only what is uncommitted counts. A range of
- * more than twenty commits, or one commit it cannot prove, is read from the
- * other source whole. Where the checkout stands, the other source says.
+ * more commits than the proving range holds, or one commit it cannot prove,
+ * is read from the other source whole. Where the checkout stands, the other
+ * source says.
  */
 final readonly class PassedPullRequests implements ChangeSource, Repository
 {
-    /** The most commits back GitHub is asked about. */
-    private const int FARTHEST = 20;
-
     /** Where GitHub's API is, unless `GITHUB_API_URL` says otherwise. */
     private const string API = 'https://api.github.com';
 
@@ -131,7 +130,7 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
 
         $commits = $comparison->items('commits');
 
-        return count($commits) <= self::FARTHEST
+        return count($commits) <= ProvingRange::standard()->farthest()
             && count($commits) === $comparison->number('total_commits')
             && $this->provesAll($commits);
     }

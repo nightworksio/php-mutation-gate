@@ -214,3 +214,24 @@ it('is run by the pipeline it uploads from the repository', function () use ($on
 it('withholds the agent\'s token', function () use ($on): void {
     expect($on(Variables::of([]))->withheld())->toEqual(Withheld::of('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN'));
 });
+
+it('is run by the pipeline its options name, and refuses one that is not a path', function (): void {
+    $definitions = static function (string $options): Paths|Invalid {
+        $plan = BuildkitePlan::fromOptions(Options::ofJson($options));
+
+        return $plan instanceof BuildkitePlan ? $plan->definitions() : $plan;
+    };
+    $refused = Invalid::because(Problem::at('definition', 'The pipeline that runs the gate is a path, as text.'));
+
+    expect($definitions('{"definition": ".buildkite/mutation.yml"}'))->toEqual(Paths::of(Path::of('.buildkite/mutation.yml')))
+        ->and($definitions('{}'))->toEqual(Paths::of(Path::of('.buildkite/pipeline.yml')))
+        ->and($definitions('{"definition": 3}'))->toEqual($refused)
+        ->and($definitions('{"definition": ""}'))->toEqual($refused);
+});
+
+it('keeps its steps and variables when it is run by another pipeline', function () use ($on): void {
+    $plan = $on(Variables::of(['SHARD' => '2']))->definedIn(Path::of('ci/mutation.yml'));
+
+    expect($plan->definitions())->toEqual(Paths::of(Path::of('ci/mutation.yml')))
+        ->and($plan->shard(ShardedPlan::of(3)))->toEqual(ShardId::of(2));
+});
