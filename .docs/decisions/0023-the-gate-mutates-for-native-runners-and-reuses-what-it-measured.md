@@ -96,8 +96,8 @@ manual.
      decision 4.
 
 3. **Only some tests are measured, through the existing coverage method.**
-   - The Runner port's `coverage(CoverageRequest)` takes a subset of tests
-     in its request.
+   - The Runner port's `coverage(CoverageRun|CoverageRead)` takes a subset
+     of tests in its `CoverageRun`.
    - **Pest:** `--coverage-php` with the test files as paths, and `--filter`
      for single tests where a file's entries are mixed.
    - **Infection:** PHPUnit with `--test-id-filter-file`, or `--filter` on a

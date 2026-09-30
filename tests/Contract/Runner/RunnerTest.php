@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -55,6 +56,9 @@ if (Library::isInstalled()) {
 if (Library::isInfectionInstalled()) {
     $libraries['infection'] = fn(): Library => Library::infection(Seconds::of(10.0));
 }
+
+/** The libraries whose runner reads a map from disk: every one but the fake. */
+$onDisk = array_diff_key($libraries, ['the fake' => true]);
 
 /** Money's four mutants, as a library's runner reports them. */
 $money = static fn(Library $library): MutationResult|CannotJudge => $library->mutate(
@@ -178,6 +182,27 @@ it('retries a mutant by the tests that judged its unit', function (Library $libr
     // The group holds another file, so none of its tests reaches the survivor.
     expect($statuses)->toBe([MutantStatus::Uncovered]);
 })->with($libraries);
+
+it('reads back the gate\'s own map of what it ran, and cannot judge a map that is not there', function (
+    Library $library,
+): void {
+    $ran = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+    $written = CoverageMapFile::encode($ran instanceof CoverageMap ? $ran : CoverageMap::empty());
+    $handed = Path::of('.mutation-gate/handed');
+    $file = sprintf('%s/%s', $library->root(), CoverageMapFile::in($handed)->value());
+    if (!is_dir(dirname($file))) {
+        mkdir(dirname($file), recursive: true);
+    }
+    file_put_contents($file, $written);
+    $read = $library->runner()->coverage(CoverageRead::from($handed));
+    $missing = $library->runner()->coverage(CoverageRead::from(Path::of('.mutation-gate/nowhere')));
+    unlink($file);
+
+    expect($ran)->toBeInstanceOf(CoverageMap::class)
+        ->and($read)->toEqual(CoverageMapFile::decode($written))
+        ->and($missing)->toBeInstanceOf(CannotJudge::class);
+})->with($onDisk === [] ? ['none installed' => fn(): Library => Library::fake()] : $onDisk)
+    ->skip($onDisk === [], 'the runner contracts jobs install the libraries whose runner reads from disk');
 
 it('names the test files that judge a covered file, and none for an uncovered one', function (Library $library): void {
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));

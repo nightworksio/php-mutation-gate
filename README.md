@@ -341,6 +341,10 @@ extension registers decodes its format into JSON and reads it with
 preset an extension registers is a layer of config, such as
 `Gate::configure()->…->layer(ProjectRoot::origin())` builds
 ([ADR-0002](.docs/decisions/0002-one-typed-config-from-several-formats.md)).
+A runner an extension registers answers `coverage()` for a `CoverageRun`, the
+tests it runs under coverage, and for a `CoverageRead`, the directory of a map
+another job wrote; the runner contract in `tests/Contract/Runner` holds it to
+both ([ADR-0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md)).
 
 ### Reports
 

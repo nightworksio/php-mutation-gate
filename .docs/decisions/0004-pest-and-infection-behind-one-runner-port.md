@@ -116,7 +116,7 @@ its parser attributes. Both change when the checkout moves.
    |--------|---------|
    | `identity()` | The runner's name, the exact installed version of every package it drives, and a digest of the PHP it runs on, as that PHP describes itself when started the way the runner starts it, without the variables withheld: version, extensions and their versions, every ini setting except the inert ones (ADR-0007), operating system family and architecture. All of these go into the content key (ADR-0007). |
    | `groups()` | The suite's groups, as the runner itself lists them |
-   | `coverage(request)` | A per-test line map of the whole suite or of one group, plus each test's duration, either by running the suite or by reading a map another job wrote |
+   | `coverage(CoverageRun\|CoverageRead)` | A per-test line map of the whole suite, one group or the tests a filter names, plus each test's duration: by running them for a `CoverageRun`, or by reading the gate's own map another job wrote for a `CoverageRead` |
    | `judges(file, map)` | The test files that can judge a mutant of this file, by the runner's own selection rules (decision 5) |
    | `mutate(request)` | Every mutant's normalised result for some files, judged by the whole suite or by a group, under a deadline |
    | `retry(mutants, limit)` | The same, for a few mutants run again (ADR-0008) |
