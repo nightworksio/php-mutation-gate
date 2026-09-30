@@ -146,8 +146,9 @@ Operating the gate raises four needs its reports do not yet meet.
    - **Measured:** the same two figures from the shards' results.
    - **Spared:** the cost-model time of every unit reach carried or a proof
      covered, "saved 41 runner-minutes".
-   - `shards.setup` is included, and labelled *estimated*, because the gate
-     cannot see the CI's setup.
+   - `shards.setup` is included, and labelled *estimated*, where the gate
+     cannot see the CI's setup. On GitHub the jobs' own start and end times
+     replace it (ADR-0017).
 
 7. **Money is shown only when the team gives a rate.**
    `costs.perRunnerMinute` is `{amount, currency}`, and unset by default.
@@ -156,7 +157,8 @@ Operating the gate raises four needs its reports do not yet meet.
 
 8. **The cost appears once, out of the way.**
    - It is a collapsed `<details>` section at the end of the sticky PR
-     comment (ADR-0009 decision 3).
+     comment (ADR-0009 decision 3). What the run saved is one line directly
+     under the verdict, outside it (ADR-0017).
    - The step summary and the console each give one line.
    - The JSON report gains a `cost` object.
 
@@ -338,3 +340,4 @@ across its jobs, with no new dependency.
 - [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): the new reporters, the JSON report's `cost` and `run`, and `trend.json`'s `verdict`
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the reusable workflow's secrets
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): shard overhead and `shards.setup`
+- [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): measured job times on GitHub, and the savings line outside the collapsed section

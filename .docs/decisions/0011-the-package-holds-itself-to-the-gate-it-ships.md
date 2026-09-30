@@ -148,10 +148,12 @@ about Laravel, NativePHP or the project's modules, and does not.
    | Job | Runs | Required |
    |-----|------|----------|
    | what changed | Skips the PHP jobs for a documentation-only change | yes |
-   | commitlint, attribution | Every commit's conventional subject and trailers | yes |
-   | hygiene | actionlint, typos, lychee (links) and markdownlint | yes |
+   | commitlint, attribution | Every commit's conventional subject and trailers, the title and the body; in the `pr` workflow, which also runs on an edited title or body, with `Spec:` numbers and a breaking change's *Migration* section checked (ADR-0019) | yes |
+   | hygiene | actionlint, typos, lychee (links), markdownlint and zizmor | yes |
+   | scripts | `python3 -m unittest` over the deciding halves of `.github/scripts` (ADR-0019) | yes |
    | security | gitleaks and osv-scanner | yes |
    | rules | `pest --testsuite=Arch` | yes |
+   | docs | the Docs suite: every example, the generated reference and the message slugs (ADR-0018) | yes |
    | the rules refuse violations | `composer test:guards` | yes |
    | checks | validate, normalize, lint, analyse, refactor, deps, audit | yes |
    | tests and coverage | `test:report` and `test:floors`, with the highest dependencies | yes |
@@ -162,6 +164,9 @@ about Laravel, NativePHP or the project's modules, and does not.
    | analyze | CodeQL for the workflows, the reusable workflow and the action | yes |
    | scorecard | OpenSSF Scorecard | no |
    | full mutation | the weekly scheduled full run | no |
+   | runner canary | daily: the Runner contract suite against the newest Pest and Infection releases, red when one the `conflict` excludes passes (ADR-0017) | no |
+   | benchmark | `bench.yml`, on demand and monthly: the gate against plain Pest and Infection on four open-source projects (ADR-0017) | no |
+   | the contributor bot | `bot-*.yml`: the relay, the explainer, the commands, the checklist and the release draft (ADR-0019) | no |
 
 7. **The public API, and semantic versioning from 1.0.0.** What semver
    protects:
@@ -172,6 +177,9 @@ about Laravel, NativePHP or the project's modules, and does not.
    - the file formats: the baseline, the JSON report, the ledger, and the plan
      as `plan --ci=json` prints it;
    - the problems output's line format (ADR-0015);
+   - `doctor`'s JSON output (ADR-0017);
+   - the message slugs and the troubleshooting links built from them
+     (ADR-0018);
    - the action's and the reusable workflow's inputs, outputs, secrets and job
      names;
    - the eight ports, `Extension`, `Extensions`, `Configurable`, the `Core`
@@ -238,7 +246,9 @@ about Laravel, NativePHP or the project's modules, and does not.
        to the `verdict` job; and `OTEL_EXPORTER_OTLP_ENDPOINT` and
        `OTEL_EXPORTER_OTLP_HEADERS`, passed to every job (ADR-0016).
      - **Outputs** are `verdict`, `scores` and `plan`, as the action's. The
-       reports are uploaded as the artifact `mutation-gate-reports`.
+       reports are uploaded as the artifact `mutation-gate-reports`, and a
+       baseline measured for trees with no floor as `mutation-gate-baseline`
+       (ADR-0017).
      - **Jobs:**
        - `plan` sets up as the action does, restores the ledgers, runs
          `plan --ci=github` and uploads `.mutation-gate` as an artifact. The
@@ -265,7 +275,11 @@ about Laravel, NativePHP or the project's modules, and does not.
        `actions: read` and `pull-requests: write`, for the same reason and for
        the comment. `publish` has `contents: write`. The one-step action needs
        `contents: read`, `actions: read` and `pull-requests: write` in its one
-       job.
+       job. A job that reaches an S3 store through an OIDC role adds
+       `id-token: write`, and the role that can write the default branch's
+       prefix trusts only an environment restricted to the default branch,
+       or this workflow's `job_workflow_ref`, never a bare `ref`
+       (ADR-0007, ADR-0019).
    - **Pinning.** Every action either one uses is pinned by a full commit SHA
      with its tag in a comment, and Dependabot moves the pins. The README's
      examples pin this repository the same way.
@@ -281,9 +295,11 @@ about Laravel, NativePHP or the project's modules, and does not.
 
 9. **Commits and releases.**
    - **Every commit:**
-     - is signed;
      - uses a conventional-commit subject;
      - carries no AI co-author trailer (the attribution check).
+   - **Every commit on `main` is signed.** `main` takes only squash commits,
+     which GitHub signs, so a contributor's own commits need not be
+     (ADR-0018).
    - **A commit that implements a decision** names it in a `Spec:` trailer:
      `Spec: 0006`, or several numbers. The commit-msg hook checks that each
      number is an ADR in `.docs/decisions`.
@@ -292,8 +308,12 @@ about Laravel, NativePHP or the project's modules, and does not.
      is tagged before that: no 0.x and no release candidates. Until then a
      project can require `dev-main`.
    - **Each release** is a signed tag on `main` and a GitHub release with notes
-     drawn from the conventional commits. Packagist follows through GitHub's
-     webhook.
+     drawn from the conventional commits: the version's `CHANGELOG.md`
+     section, generated and then edited before the tag (ADR-0018). The
+     release workflow publishes nothing for a tag whose signature the
+     repository's allowed signers do not verify, or that points off `main`,
+     and a tag ruleset lets only the maintainer create `v*` tags
+     (ADR-0019). Packagist follows through GitHub's webhook.
 
 10. **Supported versions at 1.0.0.**
 
@@ -349,3 +369,6 @@ points at the ADR that decides it.
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the release gate covers every feature the README lists
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the problems output as public API, and the CI templates pinned to the package's own workflows
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): the reusable workflow's secrets for chat alerts and OpenTelemetry
+- [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the runner canary, the benchmark, `doctor`'s JSON and the measured-baseline artifact
+- [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the `docs` job, message slugs, signed commits on `main`, and the changelog and release notes
+- [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): the `pr` and `scripts` jobs, zizmor, the contributor bot, tag verification, and the OIDC roles

@@ -26,6 +26,9 @@ that reproduces it and a sentence saying what the tests miss.
 | | Feature | Decided in |
 |---|---------|------------|
 | **Adoption** | Zero-config start: trees from `phpunit.xml`'s `<source>`, and an optional config file | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
+| | A guided `init`: it detects the runner, preset and CI, asks only what it cannot tell, writes the config and the CI, and estimates the first run from one coverage run | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| | `doctor`: what would fail or run slowly, and the fix, before a run finds out | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| | A first CI run with no baseline measures, then hands over the baseline to commit | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | `init --from=infection.json5`: a config taken over from Infection's | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | | `init --ci`: a ready, pinned workflow for GitHub, GitLab, Buildkite or CircleCI | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | | Floors that only rise: a committed baseline, which fails on regression and rises on improvement | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
@@ -56,17 +59,23 @@ that reproduces it and a sentence saying what the tests miss.
 | | Survivors the compiler proves equivalent, left out of the score | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | | Presets for Laravel, Symfony and plain libraries | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | **Visibility** | An HTML report | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
-| | A sticky comment on the pull request | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| | A sticky comment on the pull request, posted when the plan is made with the changed lines no test covers, then updated with the verdict | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md), [0019](.docs/decisions/0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md) |
 | | A cost estimate in the PR comment: time planned, measured and spared, and money at the team's rate | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | | Chat alerts to Slack, Discord or a webhook when the default branch fails, cannot be judged, or recovers | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | | Run metrics as OpenTelemetry traces and metrics, and in the JSON report | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | | A badge (a shields.io endpoint) and a trend on the default branch | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| | Every run says what it saved against a full run in one job: reach and proofs, and what sharding saved in waiting and cost in runner time | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| | Progress and an ETA during a run | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| | A benchmark against plain Pest and Infection on four open-source projects: cold, warm and per pull request, losses included | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 
 ## Install
 
 ```sh
-composer require --dev nightworksio/mutation-gate
+composer require --dev nightworksio/mutation-gate -W
 ```
+
+`-W` lets Composer move `pestphp/pest-plugin-mutate` to the release the gate
+has tested, which its `conflict` pins exactly.
 
 Requirements:
 
@@ -93,7 +102,8 @@ vendor/bin/mutation-gate
 
 With no config file, the gate works everything out:
 
-- **trees**: from the `<source>` of `phpunit.xml` (or `phpunit.xml.dist`);
+- **trees**: from the `<source>` of `phpunit.xml` (or `phpunit.dist.xml`, or
+  `phpunit.xml.dist`);
 - **runner**: whichever of Pest and Infection is installed;
 - **preset**: Laravel, Symfony or library, from your `composer.json`.
 
@@ -109,8 +119,13 @@ On a first local run there is no baseline yet, so the gate writes
 `mutation-gate.baseline.json` with each tree's floor at the score it measured,
 and asks you to commit it. From then on a tree's score may not fall below its
 floor. When the score improves, `vendor/bin/mutation-gate baseline --write`
-raises the floor. In CI, a tree with no floor at all stops the run and says how
-to write one.
+raises the floor. In CI, a tree with no floor at all fails the run with exit
+code 2, after mutating: the step summary and the PR comment carry the baseline
+it measured, ready to commit.
+
+`vendor/bin/mutation-gate init` sets a project up in one command, and
+`vendor/bin/mutation-gate doctor` says what would fail or run slowly before a
+run does.
 
 ## Commands
 
@@ -129,8 +144,9 @@ to write one.
 | `pre-push` | Judge the commits being pushed, as CI will, after printing each reached tree's score change |
 | `pre-commit` | Print each reached tree's score change from the local ledger; runs nothing and always exits 0 |
 | `hook install [--pre-commit]` / `hook uninstall` | Add or remove the pre-push hook, and with `--pre-commit` the pre-commit hook too |
-| `init [--format=php\|json\|yaml\|neon] [--ci=github\|gitlab\|buildkite\|circleci] [--editor=vscode]` | Write a config holding what zero-config found (PHP by default, or the file `--config` names, in the format of its extension), and add `.mutation-gate/` to `.gitignore`; with `--ci`, a pinned CI definition, and with `--editor`, VS Code's watch task, each only where none exists |
+| `init [--format=php\|json\|yaml\|neon] [--ci[=github\|gitlab\|buildkite\|circleci]] [--editor=vscode]` | Detect the runner, preset, trees, CI, an Infection config and native markers, and ask only what detection cannot settle; write a config holding the runner, the preset and the answers (PHP by default, or the file `--config` names, in the format of its extension), with the trees it found as a comment, and add `.mutation-gate/` to `.gitignore`; with `--ci`, a pinned CI definition (`--ci` alone takes the detected CI), and with `--editor`, VS Code's watch task, each only where none exists; then print the first run's estimate |
 | `init --from=<file>` or `import <file>` | Write a config from an Infection config, and report how each of its keys maps |
+| `doctor [--measure] [--online] [--format=text\|json]` | Report what would fail, run slowly or deserves attention, each with its fix, reading only files and earlier runs; exits 1 when something would fail |
 | `stub <id>` | Print a failing Pest or PHPUnit test for a survivor or an uncovered mutant, in the style of its nearest covering test |
 | `config:show [--format=…]` / `config:schema` | Print the effective config (JSON by default), or the JSON Schema |
 | `pest:patch` | Apply the optional Pest patches ([ADR-0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md)) |
@@ -158,6 +174,12 @@ Options:
 | `--style=pest\|phpunit` | `stub` | The stub's style, instead of the nearest covering test's | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | `--stdout` | `init` with `--ci` or `--editor` | Print the files instead of writing them | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | `--sharded`, `--single` | `init --ci=github` | The reusable workflow or the one-step action, instead of the one the estimated cost picks | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
+| `--native=allow\|refuse` | `init` | Answer the native-markers question: write `ignores.native` | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| `--hook`, `--no-hook` | `init` | Answer the pre-push hook question | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| `--no-measure` | `init` | Estimate the first run from lines of code, without the coverage run | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| `--dry-run` | `init` | Print every file instead of writing it | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| `--measure` | `doctor` | Add one coverage run: a green suite, a working driver and the hot paths | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| `--online` | `doctor` | Also read GitHub's settings with the token: the required verdict, the fork approval policy, the schedule | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | `--kill-matrix=first\|full` | `run` | `full` records every test that kills each mutant, for the redundant-test report (Pest only) | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | `--publish-dir=<dir>` | `verdict`, `run` without a plan | Where the badge and trend are written, `.mutation-gate/publish` by default | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 
@@ -377,6 +399,8 @@ Files the gate reads and writes:
 | `.mutation-gate/ledger/<scope>/ledger.json` | The proof ledger of one ref | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `.mutation-gate/mutants/<native id>.php` | The mutated file of a mutant judged by reference (Pest) | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `.mutation-gate/publish/badge.json`, `trend.json`, `trend.svg` | The badge and trend | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `.mutation-gate/publish/savings.json` | A shields.io endpoint with the time saved in the last 30 days | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| `.mutation-gate/baseline.measured.json` | The baseline a CI run measured for trees with no floor, to commit as `mutation-gate.baseline.json` | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 
 ### Holding tests
 
@@ -443,6 +467,11 @@ boundary there. Wherever a pull request must read the default branch's proofs
 safely, keep the ledger in S3, with credentials that can write the default
 branch's prefix held only by default-branch runs
 ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
+With an AWS OIDC role, make its trust policy match a GitHub environment that
+only the default branch may deploy to, or the verdict workflow's
+`job_workflow_ref`, never `ref: refs/heads/main` alone: every job a workflow
+runs on the default branch carries that `ref`, whatever started it
+([ADR-0019](.docs/decisions/0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md)).
 
 A fork's pull request runs without credentials. On GitHub's cache it restores
 the default branch's ledger read-only, as any pull request does. With S3, set
@@ -548,7 +577,8 @@ proof store, `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`,
 `MUTATION_GATE_WEBHOOK_URL` and `MUTATION_GATE_WEBHOOK_SECRET` for chat alerts,
 and `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` for
 OpenTelemetry. Its outputs are `verdict`, `scores` and `plan`, and it uploads the
-reports as the artifact `mutation-gate-reports`.
+reports as the artifact `mutation-gate-reports`, and a baseline measured for
+trees with no floor as `mutation-gate-baseline`.
 
 Here is what the examples rely on:
 

@@ -117,8 +117,13 @@ sees the same verdict.
        marker `<!-- mutation-gate -->` among comments by the token's identity. It
        is updated in place on every run, passing runs included, so an old
        failure never lingers. The token needs `pull-requests: write`.
+     - **Planned, then judged.** The `plan` job posts it first, in a
+       *planned* state: the units to be mutated, the estimate (ADR-0017), and
+       the changed lines no test covers, read from the coverage map the plan
+       holds. The verdict replaces that state with what follows (ADR-0019).
      - **What it holds:**
-       - the verdict;
+       - the verdict, with the line saying what the run saved directly under
+         it (ADR-0017);
        - each tree's floor and score, with the change against the base;
        - the new-code score;
        - up to 20 survivors on changed lines, each with its diff, hint and
@@ -165,7 +170,8 @@ sees the same verdict.
    (ADR-0014). The schema requires a column for each location. The gate
    takes it from the file's tokens, and a mutant it cannot place there spans
    its lines from the first column to the end. The viewer's licence
-   (Apache-2.0) is shipped with it.
+   (Apache-2.0) is shipped with it, and every generated page names the
+   viewer, its version and its licence in a comment (ADR-0018).
 
 5. **The badge and the trend on the default branch.**
    - **The badge.** The verdict writes `badge.json` for shields.io's endpoint
@@ -184,7 +190,8 @@ sees the same verdict.
      - orange at 60;
      - red below the lowest.
    - **The trend.** `trend.json` gets one entry per run on the default branch:
-     commit, time, the verdict, the project's score and each tree's score.
+     commit, time, the verdict, the project's score, each tree's score, and
+     the run's runner time and full-run time (ADR-0017).
      The verdict is what chat alerts compare against (ADR-0016). It keeps the
      newest 500. The verdict also draws `trend.svg`, a plain sparkline with no
      script, which the step summary and the HTML report show.
@@ -193,10 +200,12 @@ sees the same verdict.
      `--publish-dir=<dir>`, an option of `verdict` and of a one-process run,
      `.mutation-gate/publish` by default. It appends to the `trend.json` it
      finds there, so the files published last time are restored into that
-     directory first.
+     directory first. It also writes `savings.json`, a shields.io endpoint
+     with the time saved in the last 30 days (ADR-0017), published with the
+     others.
    - **What never updates them.** A run cut short by its budget (ADR-0008).
    - **Where they are published.** The reusable workflow (ADR-0011) restores
-     the three files from a branch named `mutation-gate` in the same
+     the four files from a branch named `mutation-gate` in the same
      repository before its verdict, and its publish job pushes them back
      through GitHub's contents API with the job's own token and no custom
      author. GitHub signs commits made that way, so a ruleset that requires
@@ -280,3 +289,6 @@ but data.
 - [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): test-level data, the `tests` and `kill-matrix` reports, and `explain`
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the problems output, and SARIF's local root
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): the `gitlab`, chat and `otlp` reporters, the JSON report's `cost` and `run`, and `trend.json`'s `verdict`
+- [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the savings line, the JSON report's `savings`, `trend.json`'s times and `savings.json`
+- [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the viewer's notice in every HTML report
+- [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): the comment's planned state

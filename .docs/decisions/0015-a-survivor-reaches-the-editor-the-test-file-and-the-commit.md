@@ -200,7 +200,8 @@ one of those values the gate can know or check.
       the reusable workflow.
     - `--sharded` and `--single` override the choice.
     - `init` prints the choice and the estimate. On a first run the estimate
-      comes from lines of code (ADR-0006), and the output says so.
+      comes from one coverage run (ADR-0017), or from lines of code with
+      `--no-measure` (ADR-0006), and the output says which.
 
 16. **Everything the gate can know is filled in, and the rest is loud.**
     - **Detected:**
@@ -279,3 +280,4 @@ linted and the shape the package runs itself.
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the problems output as public API, and the pinned templates
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the schedule the templates write
 - [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): `explain`, which `stub` shares its lookup with
+- [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the guided `init` these options belong to, and its estimate
