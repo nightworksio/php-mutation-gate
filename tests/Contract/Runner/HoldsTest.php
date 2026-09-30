@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -54,8 +55,9 @@ function shapesLines(string $trace): array
 }
 
 /**
- * Runs the fixture's Pest with these arguments, and answers its exit code and
- * what the tests it ran traced.
+ * Runs the fixture's Pest over a holds: group with these arguments, as the
+ * gate narrows a run to one, and answers its exit code and what the tests it
+ * ran traced.
  *
  * @return array{int, list<string>}
  */
@@ -63,7 +65,7 @@ function shapesRun(string ...$arguments): array
 {
     $trace = sprintf('%s/trace', Scratch::directory());
     $process = new Process(
-        [PHP_BINARY, 'vendor/bin/pest', ...$arguments],
+        [PHP_BINARY, 'vendor/bin/pest', ...$arguments, Invocation::EMPTY_PASSES],
         Tree::at(Library::DIRECTORY),
         ['LIBRARY_TRACE' => $trace, 'PARATEST' => false, 'TEST_TOKEN' => false, 'UNIQUE_TEST_TOKEN' => false],
     );

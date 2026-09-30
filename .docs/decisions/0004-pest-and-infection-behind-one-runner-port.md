@@ -166,10 +166,16 @@ its parser attributes. Both change when the checkout moves.
      <vendor>/pestphp/pest/bin/pest --mutate --no-cache --parallel --no-tia --everything
          --covered-only=false --stop-on-untested=false
          --stop-on-uncovered=false --retry=false --path=<files>
-         --ignore=<held paths, or .mutation-gate> [--group=<holds group>]
+         --ignore=<held paths, or .mutation-gate>
+         [--group=<holds group> --do-not-fail-on-empty-test-suite]
          [--mutator=<class names>]
      ```
 
+     - Every run narrowed to a group also passes
+       `--do-not-fail-on-empty-test-suite`. Under `--parallel`, Pest can sum a
+       run that ran every test of the group as one with no tests, and fail it.
+       A narrowed run with none of the group's tests passes too, so it kills
+       no mutant.
      - `--path` makes the gate, not a test's `covers()` or `mutates()`, decide
        what is mutated and which tests judge it. A contract test proves that a
        suite using `covers()` is still judged by every covering test.
