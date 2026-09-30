@@ -230,6 +230,22 @@ it('cannot plan more packages than the shards asked for', function () use ($plan
         ));
 });
 
+it('cannot plan a shard of a package other than the project\'s root', function () use ($plan): void {
+    $trees = Trees::of(
+        Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())),
+        Tree::at(Path::of('packages/a/src'), Floor::of(50), Package::at(Path::of('packages/a'))),
+    );
+    $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [
+        Revision::workingTree()->name() => [...Flows::FILES, 'packages/a/src/Limit.php' => "<?php\n"],
+    ]);
+
+    expect($plan(Flows::project(), Mode::full(), Cut::exactly(2), new TreeSourceFake($trees), $checkout))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            The package at packages/a has units to mutate, and the runner runs the suite of the project's root alone,
+            which does not judge another package's code, so their mutants cannot be judged.
+            SAID));
+});
+
 it('cannot plan where it cannot hand a shard its map', function () use ($plan): void {
     $project = Flows::project();
     Scratch::write($project, '.mutation-gate/coverage/shard-1/map.json.gz/blocked', '');

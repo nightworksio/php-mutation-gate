@@ -8,9 +8,11 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Plan\Workload;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -20,12 +22,21 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 
+use function sprintf;
+
 /**
  * `plan`: the units of the trees, what the change reaches, each considered
- * unit's key, and the shards the units no proof covers are cut into.
+ * unit's key, and the shards the units no proof covers are cut into. A shard
+ * of a package other than the project's root cannot be planned: the runner
+ * runs the root package's suite, which does not judge another package's code.
  */
 final readonly class Planning
 {
+    private const string PACKAGED = <<<'SAID'
+        The package at %s has units to mutate, and the runner runs the suite of the project's root alone,
+        which does not judge another package's code, so their mutants cannot be judged.
+        SAID;
+
     public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
     {
     }
@@ -71,6 +82,7 @@ final readonly class Planning
         $keys = $keying->keysOf($considering->considered());
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base());
         $shards = $cut->cut($this->workload($proving->toRun(), $inventory->trees, $ledgers), $inventory->trees);
+        $shards = $shards instanceof Shards ? $this->rooted($shards) : $shards;
 
         if ($shards instanceof CannotJudge) {
             return $shards;
@@ -89,6 +101,20 @@ final readonly class Planning
         $handed = new Handoff($this->adapters->project)->write($plan, $map);
 
         return $handed instanceof CannotJudge ? $handed : $plan;
+    }
+
+    /** The shards, where each is of the project's root package. */
+    private function rooted(Shards $shards): Shards|CannotJudge
+    {
+        foreach ($shards as $shard) {
+            $package = $shard->package()->path();
+
+            if (! $package->equals(Path::root())) {
+                return CannotJudge::because(sprintf(self::PACKAGED, $package->value()));
+            }
+        }
+
+        return $shards;
     }
 
     private function unitsOf(UnitResults $results): Units
