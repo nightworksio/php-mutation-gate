@@ -140,7 +140,10 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    `withMutators('laravel', …)` for a mutator set (ADR-0021). A preset is a layer of
    config (ADR-0002). The registry is made with the `Origin` of the package it
    comes from, `NightWorksIO\MutationGate\Core\Registry\Origin`, which the
-   registry's own entries record. Extensions only
+   registry's own entries record. What each registration builds from is the
+   options a config writes beside the adapter,
+   `NightWorksIO\MutationGate\Core\Config\Options`, read one key at a time
+   as a type (ADR-0002). Extensions only
    register: `Extensions` offers no lookup to them. The composition root in
    `Cli` looks up what was registered, by name, and refuses what a
    registration builds that is not the kind it was registered as. The package's own adapters register through a first-party extension

@@ -7,11 +7,11 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
@@ -73,5 +73,5 @@ it('is run by no definition of its own', function (): void {
 });
 
 it('withholds nothing of its own', function (): void {
-    expect(JsonPlan::printing('', Variables::of([]))->withheld())->toEqual(Withheld::nothing());
+    expect(JsonPlan::withheld())->toEqual(Withheld::nothing());
 });

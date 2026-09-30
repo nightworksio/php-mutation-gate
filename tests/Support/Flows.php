@@ -163,7 +163,7 @@ final readonly class Flows
             self::given(Repository::class, RepositoryFake::onMain(Revision::ref(self::HEAD)), $ports),
             Directory::at($project),
             Variables::of($environment),
-            Withheld::standard()->and($ci->withheld()),
+            Withheld::standard()->and(CiPlanFake::withheld()),
         );
     }
 

@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
@@ -31,7 +32,6 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
 use function preg_match;
@@ -132,7 +132,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     }
 
     /** The Actions runtime's token and variables, and the workflow's `GITHUB_TOKEN`. */
-    public function withheld(): Withheld
+    public static function withheld(): Withheld
     {
         return Withheld::of('ACTIONS_*', 'GITHUB_TOKEN');
     }

@@ -16,9 +16,17 @@ it('says whether it leads out of the directory it is spelt from', function (stri
     'dots in a name' => ['src/..hidden/a..b', false],
     'up' => ['../x', true],
     'up from inside' => ['src/../../x', true],
+    'up alone' => ['..', true],
+    'up at the end' => ['src/..', true],
     'a backslash spelling of up' => ['a\\..\\..\\x', true],
     'absolute' => ['/etc/passwd', true],
 ]);
+
+it('says whether it is spelt from the root of the file system', function (): void {
+    expect(Path::of('/etc/passwd')->isAbsolute())->toBeTrue()
+        ->and(Path::of('../x')->isAbsolute())->toBeFalse()
+        ->and(Path::of('src')->isAbsolute())->toBeFalse();
+});
 
 it('names an entry inside a directory', function (): void {
     expect(Path::of('packages/money')->child(Path::of('composer.json')))->toEqual(Path::of('packages/money/composer.json'))
@@ -81,3 +89,50 @@ it('is spelt as it is from a directory it is not inside, the root among them', f
         ->and(Path::of('src/Money.php')->relativeTo(Path::root())->value())->toBe('src/Money.php')
         ->and(Path::of('packages/moneyed/a.php')->relativeTo(Path::of('packages/money'))->value())->toBe('packages/moneyed/a.php');
 });
+
+it('spells itself from a directory, both spelt from the same base', function (
+    string $path,
+    string $directory,
+    string $written,
+): void {
+    expect(Path::of($path)->from(Path::of($directory)))->toEqual(Path::of($written));
+})->with([
+    'from the project' => ['src', '', 'src'],
+    'from a directory beside it' => ['src', 'ci', '../src'],
+    'from a directory that shares a parent' => ['ci/b/x.yml', 'ci/a', '../b/x.yml'],
+    'the directory itself' => ['.', 'ci', '..'],
+    'an absolute path from a directory of the project' => ['/etc/gate', 'ci', '/etc/gate'],
+    'an absolute path from an absolute directory' => ['/project/src', '/project', 'src'],
+    'an absolute path beside an absolute directory' => ['/shared/x', '/project', '../shared/x'],
+    'a path from the project, from an absolute directory' => ['src', '/project', 'src'],
+]);
+
+it('names the base it is spelt from, and itself as that base spells it', function (
+    string $path,
+    string $base,
+    string $fromBase,
+): void {
+    expect(Path::of($path)->base())->toBe($base)
+        ->and(Path::of($path)->fromBase())->toEqual(Path::of($fromBase));
+})->with([
+    'absolute' => ['/tmp/report.json', '/', 'tmp/report.json'],
+    'relative' => ['build/report.json', '.', 'build/report.json'],
+    'up' => ['../report.json', '.', '../report.json'],
+]);
+
+it('takes back the directory before each up, and keeps an up with none before it', function (
+    string $path,
+    string $collapsed,
+): void {
+    expect(Path::of($path)->collapsed())->toEqual(Path::of($collapsed));
+})->with([
+    'nothing to take back' => ['src/Money.php', 'src/Money.php'],
+    'one' => ['ci/../src', 'src'],
+    'two' => ['a/b/../../src', 'src'],
+    'to the root' => ['src/..', '.'],
+    'up first' => ['../src', '../src'],
+    'up after up' => ['../../src', '../../src'],
+    'more up than down' => ['ci/../../src', '../src'],
+    'absolute' => ['/project/ci/../src', '/project/src'],
+    'up right after the file system root' => ['/../src', '/../src'],
+]);

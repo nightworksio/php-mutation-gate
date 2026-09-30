@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use function array_flip;
-use function array_key_exists;
+use function array_filter;
+use function array_find;
+use function array_map;
+use function array_values;
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
+use NightWorksIO\MutationGate\Core\Config\EntryPath;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Report;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -30,15 +34,12 @@ use function sprintf;
  */
 final readonly class ReportEntry implements Shape
 {
-    /** The built-in reporters that send rather than write a file, and take no path (ADR-0016). */
-    private const array SENDING = ['slack', 'discord', 'webhook', 'otlp'];
-
     /** @param Section<Report> $object */
     private function __construct(private Builtins $builtins, private Section $object)
     {
     }
 
-    public static function choosing(Builtins $builtins, Origin $origin): self
+    public static function choosing(Builtins $builtins, PathOrigin $origin): self
     {
         $judges = Effect::JudgesOrReportsOnly;
         $use = Field::required('use', Text::of('a name or a class'), $judges);
@@ -89,7 +90,8 @@ final readonly class ReportEntry implements Shape
                         ),
                     ),
                     ['path'],
-                    self::SENDING,
+                    $this->named(EntryPath::Refused),
+                    $this->named(EntryPath::Optional),
                 )),
             ),
         );
@@ -103,14 +105,18 @@ final readonly class ReportEntry implements Shape
     private static function report(Builtins $builtins, Node $at, string $use, Path|Absent $path): Report|Invalid
     {
         $choice = Adapter::chosen($builtins->choose($use, $at->field('with')));
-        $sends = array_key_exists($use, array_flip(self::SENDING));
+        $builtin = array_find(
+            BuiltinReporter::cases(),
+            static fn(BuiltinReporter $case): bool => $case->value === $use,
+        );
+        $needs = $builtin instanceof BuiltinReporter ? $builtin->entryPath() : EntryPath::Optional;
 
         return match (true) {
             ! $choice instanceof Choice => $choice,
-            $path instanceof Absent && $builtins->has($use) && ! $sends => Invalid::because(
+            $path instanceof Absent && $needs === EntryPath::Required => Invalid::because(
                 $at->field('path')->mismatch('a path'),
             ),
-            $path instanceof Path && $sends => Invalid::because(Problem::at(
+            $path instanceof Path && $needs === EntryPath::Refused => Invalid::because(Problem::at(
                 $at->field('path')->at(),
                 sprintf(
                     'expected nothing, as %s writes no file, got "%s"',
@@ -120,5 +126,17 @@ final readonly class ReportEntry implements Shape
             )),
             default => Report::of($choice, $path),
         };
+    }
+
+    /** @return list<string> the built-in reporters whose entries name a path so */
+    private function named(EntryPath $entryPath): array
+    {
+        return array_values(array_map(
+            static fn(BuiltinReporter $reporter): string => $reporter->value,
+            array_filter(
+                BuiltinReporter::cases(),
+                static fn(BuiltinReporter $reporter): bool => $reporter->entryPath() === $entryPath,
+            ),
+        ));
     }
 }

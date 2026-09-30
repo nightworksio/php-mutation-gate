@@ -84,13 +84,13 @@ final readonly class Layer
     }
 
     /** What this layer sets, as a config file at this origin writes it. */
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return $this->parts->written($origin);
     }
 
     /** What this layer sets, as the PHP builder's calls. */
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         return $this->parts->php($origin);
     }

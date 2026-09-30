@@ -8,30 +8,34 @@ use function array_map;
 use function class_exists;
 
 use Closure;
+use Error;
 
 use function is_a;
 
+use LogicException;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\Ci;
+use NightWorksIO\MutationGate\Core\Config\ClassNamed;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
+use RuntimeException;
 
 use function sprintf;
-use function str_contains;
 
 /**
  * The adapters and extensions a config chooses, built (ADR-0002). A name is
@@ -80,6 +84,26 @@ final readonly class Chosen
         );
     }
 
+    /**
+     * What no process the gate starts may see: every run's credentials, what the runner withholds, and the
+     * credentials every CI plan registered declares, and the class `ci.plan` names, whichever the job runs on.
+     * Each is a declaration, apart from the plan's options, so no config can drop one by keeping its plan from
+     * building.
+     */
+    public function withheld(Ci $ci, Withheld $runner): Withheld
+    {
+        $named = $ci->plan();
+        $class = $named instanceof Choice ? $named->use() : $named;
+
+        return Withheld::composed(
+            $runner,
+            $this->extensions->ciWithheld(),
+            $class instanceof ClassNamed && is_a($class->value(), CiPlan::class, allow_string: true)
+                ? $class->value()::withheld()
+                : Withheld::nothing(),
+        );
+    }
+
     /** The reporter of the `reports` entry at this index. */
     public function reporter(Choice $choice, int $index): Reporter|Invalid|CannotJudge
     {
@@ -121,14 +145,25 @@ final readonly class Chosen
 
     private function extended(Extensions $registry, string $class, string $file): Extensions|CannotJudge
     {
-        return is_a($class, Extension::class, allow_string: true)
-            ? $registry->merge(new $class()->extend(new Extensions(Origin::of($file))))
-            : CannotJudge::because(sprintf(
+        if (! is_a($class, Extension::class, allow_string: true)) {
+            return CannotJudge::because(sprintf(
                 '%s names %s in extensions, and it is not a class that implements %s.',
                 $file,
                 $class,
                 Extension::class,
             ));
+        }
+
+        try {
+            return $registry->merge(new $class()->extend(new Extensions(Origin::of($file))));
+        } catch (Error|LogicException|RuntimeException $failed) {
+            return CannotJudge::because(sprintf(
+                '%s names %s in extensions, and it failed as it started: %s',
+                $file,
+                $class,
+                $failed->getMessage(),
+            ));
+        }
     }
 
     /**
@@ -140,14 +175,33 @@ final readonly class Chosen
      */
     private function built(string $setting, string $port, Choice $choice, Closure $registered): object
     {
-        $options = Options::ofJson($choice->options()->line());
         $use = $choice->use();
-        $named = str_contains($use, '\\') ? Absent::setting() : $registered(Name::of($use), $options);
-        $built = $named instanceof Absent || ($named instanceof CannotJudge && class_exists($use))
-            ? $this->fromClass($use, $port, $options)
-            : $named;
+        $built = $use instanceof Name
+            ? $this->named($use, $registered($use, $choice->options()))
+            : $this->fromClass($use->value(), $port, $choice->options());
 
         return $built instanceof Invalid ? $this->under(sprintf('%s.with', $setting), $built) : $built;
+    }
+
+    /**
+     * What a name built, and where nothing is registered under it but a class in the global namespace has it,
+     * how to choose that class instead.
+     *
+     * @template T of object
+     *
+     * @param  T|Invalid|CannotJudge $built
+     * @return T|Invalid|CannotJudge
+     */
+    private function named(Name $name, object $built): object
+    {
+        return $built instanceof CannotJudge && class_exists($name->value())
+            ? CannotJudge::because(sprintf(
+                '%s A class is written with its namespace, so the class %s is \\%s.',
+                $built->why(),
+                $name->value(),
+                $name->value(),
+            ))
+            : $built;
     }
 
     /**

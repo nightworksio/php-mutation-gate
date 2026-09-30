@@ -1,0 +1,7 @@
+runner: pest
+ignores:
+  entries:
+    - path: src/**
+      mutator: Plus
+      reason: Equivalent
+      expires: 2027-01-31

@@ -15,12 +15,12 @@ use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 
 use function sprintf;
@@ -78,7 +78,7 @@ final readonly class Formats
     }
 
     /** A layer of config written out as a person reads it, its paths named from this origin. */
-    public function render(Layer $layer, Format $format, Origin $origin): string|CannotJudge
+    public function render(Layer $layer, Format $format, PathOrigin $origin): string|CannotJudge
     {
         return $this->rendered($layer, $layer->written($origin), $format, $origin);
     }
@@ -95,7 +95,7 @@ final readonly class Formats
         return $this->rendered($layer, $format === Format::Json ? $schema->merged($written) : $written, $format, $file);
     }
 
-    private function rendered(Layer $layer, Json $written, Format $format, Origin $origin): string|CannotJudge
+    private function rendered(Layer $layer, Json $written, Format $format, PathOrigin $origin): string|CannotJudge
     {
         return match ($format) {
             Format::Json => sprintf("%s\n", $written->pretty()),

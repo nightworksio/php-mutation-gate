@@ -519,6 +519,23 @@
                     "properties": {
                         "step": {
                             "type": "object",
+                            "properties": {
+                                "command": {
+                                    "anyOf": [
+                                        {
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
                             "default": {}
                         },
                         "definition": {
@@ -589,7 +606,7 @@
                                         },
                                         "endpoint": {
                                             "type": "string",
-                                            "minLength": 1
+                                            "pattern": "^https?://."
                                         },
                                         "publicUrl": {
                                             "type": "string",
@@ -782,6 +799,54 @@
             "type": "array",
             "items": {
                 "anyOf": [
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "console"
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "github-annotations"
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "github-summary"
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
                     {
                         "type": "object",
                         "properties": {
@@ -1041,10 +1106,93 @@
                         "type": "object",
                         "properties": {
                             "use": {
+                                "const": "problems"
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "only": {
+                                        "enum": [
+                                            "all",
+                                            "changed"
+                                        ]
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "github-comment"
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "identity": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "badge"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "colors": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                        }
+                                    },
+                                    "commit": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
                                 "type": "string",
                                 "minLength": 1,
                                 "not": {
                                     "enum": [
+                                        "console",
+                                        "github-annotations",
+                                        "github-summary",
                                         "json",
                                         "junit",
                                         "sarif",
@@ -1055,7 +1203,10 @@
                                         "slack",
                                         "discord",
                                         "webhook",
-                                        "otlp"
+                                        "otlp",
+                                        "problems",
+                                        "github-comment",
+                                        "badge"
                                     ]
                                 }
                             },
@@ -1106,6 +1257,7 @@
                 "canary": {
                     "type": "string",
                     "minLength": 1,
+                    "pattern": "^\\S+$",
                     "default": "mutation-canary"
                 }
             },

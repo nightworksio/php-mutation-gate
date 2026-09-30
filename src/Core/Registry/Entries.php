@@ -11,6 +11,7 @@ use function array_map;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Definition\Nearest;
 use NightWorksIO\MutationGate\Core\Config\Definition\NothingNear;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
 
 use function sprintf;
@@ -41,6 +42,12 @@ final readonly class Entries
         $entries[$entry->name()->value()] = $entry;
 
         return new self($this->point, $entries);
+    }
+
+    /** @return Listed<Name> the name of each entry, in the order it was registered */
+    public function names(): Listed
+    {
+        return Listed::of(...array_map(static fn(Entry $entry): Name => $entry->name(), $this->entries));
     }
 
     /** @return T|CannotJudge */

@@ -56,7 +56,7 @@ final readonly class DeclaredTree
     }
 
     /** This entry as a config at this origin writes it. */
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         $written = Json::object(Member::of('path', $origin->written($this->path)));
         $written = match (true) {
@@ -73,7 +73,7 @@ final readonly class DeclaredTree
     }
 
     /** This entry as the builder's `Tree::at()` writes it. */
-    public function php(Origin $origin): string
+    public function php(PathOrigin $origin): string
     {
         $arguments = PhpCalls::literal($origin->written($this->path));
         $arguments = match (true) {

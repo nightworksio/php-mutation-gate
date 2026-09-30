@@ -10,21 +10,20 @@ use function is_dir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Workspace;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -40,30 +39,33 @@ use function usort;
  */
 final readonly class LedgerDirectory implements Configurable, ProofStore
 {
-    private function __construct(private Directory $directory, private string $path)
+    private function __construct(private ProjectPath $path)
     {
     }
 
+    /** The ledgers under this directory: from the project and inside it, or absolute. */
     public static function at(string $path): self
     {
-        return new self(Directory::at($path), $path);
+        return new self(ProjectPath::of($path));
     }
 
     public static function fromOptions(Options $options): self|Invalid
     {
-        $path = Node::decode($options->json())->field('path');
+        $path = $options->text(Key::of('path'));
 
-        try {
-            return self::at($path->isPresent() ? $path->text() : Workspace::ledger()->value());
-        } catch (NotInShape) {
-            return Invalid::because(Problem::at('path', 'The directory the ledgers are kept in is a path, as text.'));
-        }
+        return match (true) {
+            $path instanceof Problem => Invalid::because($path),
+            $path instanceof NotGiven => Invalid::because(
+                Problem::at('path', 'expected the directory the ledgers are kept in, got nothing'),
+            ),
+            default => self::at($path),
+        };
     }
 
     public function read(Scope $scope): Ledger
     {
         $file = $this->fileOf($scope);
-        $contents = $file instanceof Path ? $this->directory->read($file) : $file;
+        $contents = $file instanceof Path ? $this->path->directory()->read($file) : $file;
 
         return $contents instanceof Contents ? LedgerFile::decode($contents->text()) : Ledger::empty();
     }
@@ -72,7 +74,7 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     {
         $file = $this->fileOf($scope);
         $written = $file instanceof Path
-            ? $this->directory->write($file, Contents::of(LedgerFile::encode($ledger)))
+            ? $this->path->directory()->write($file, Contents::of(LedgerFile::encode($ledger)))
             : $file;
 
         return $written instanceof CannotJudge ? NotWritten::because($written->why()) : $written;
@@ -81,13 +83,13 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     /** Every ledger kept here, one per scope, with its size as it is kept, compressed. */
     public function kept(): KeptLedgers
     {
-        if (! is_dir($this->path)) {
+        if (! is_dir($this->path->value())) {
             return KeptLedgers::of();
         }
 
         $kept = [];
         $files = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($this->path, FilesystemIterator::SKIP_DOTS),
+            new RecursiveDirectoryIterator($this->path->value(), FilesystemIterator::SKIP_DOTS),
         );
 
         foreach ($files as $file) {
@@ -121,6 +123,8 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     {
         $parsed = Scope::parse($scope->ref());
 
-        return $parsed instanceof Scope ? Path::of($parsed->ref())->child(Path::of(LedgerFile::NAME)) : $parsed;
+        return $parsed instanceof Scope
+            ? $this->path->inside()->child(Path::of($parsed->ref()))->child(Path::of(LedgerFile::NAME))
+            : $parsed;
     }
 }

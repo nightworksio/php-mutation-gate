@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function array_map;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -22,15 +24,12 @@ final readonly class Ci implements Part
 
     private const string BUILDKITE_DEFINITION = '.buildkite/pipeline.yml';
 
-    /** The CI plans the builder has a method of its own for. */
-    private const array PLANS = ['github', 'gitlab', 'buildkite', 'circleci', 'json'];
-
     private function __construct(
         private Choice|Absent $plan,
         private string|Absent $defaultBranch,
         private string|Absent $check,
         private Path|Absent $gitlabTemplate,
-        private Json|Absent $buildkiteStep,
+        private BuildkiteStep|Absent $buildkiteStep,
         private Path|Absent $buildkiteDefinition,
     ) {
     }
@@ -40,7 +39,7 @@ final readonly class Ci implements Part
         string|Absent $defaultBranch = new Absent(),
         string|Absent $check = new Absent(),
         Path|Absent $gitlabTemplate = new Absent(),
-        Json|Absent $buildkiteStep = new Absent(),
+        BuildkiteStep|Absent $buildkiteStep = new Absent(),
         Path|Absent $buildkiteDefinition = new Absent(),
     ): self {
         return new self($plan, $defaultBranch, $check, $gitlabTemplate, $buildkiteStep, $buildkiteDefinition);
@@ -81,10 +80,18 @@ final readonly class Ci implements Part
             : $this;
     }
 
-    /** The CI plan, or none, when it is detected from the environment. */
+    /**
+     * The CI plan, with the options this section gives a built-in one laid under its own, or none, when it is
+     * detected from the environment.
+     */
     public function plan(): Choice|Absent
     {
-        return $this->plan;
+        return $this->plan instanceof Choice && $this->plan->use() instanceof Name
+            ? Choice::of(
+                $this->plan->use()->value(),
+                $this->plan->options()->over($this->planOptions($this->plan->use())->written()),
+            )
+            : $this->plan;
     }
 
     /** The default branch, or none, when the CI or git says which it is. */
@@ -109,9 +116,9 @@ final readonly class Ci implements Part
     }
 
     /** `ci.buildkite.step`: the step keys every generated Buildkite step is built from. */
-    public function buildkiteStep(): Json
+    public function buildkiteStep(): BuildkiteStep
     {
-        return $this->buildkiteStep instanceof Json ? $this->buildkiteStep : Json::object();
+        return $this->buildkiteStep instanceof BuildkiteStep ? $this->buildkiteStep : BuildkiteStep::none();
     }
 
     /**
@@ -125,7 +132,7 @@ final readonly class Ci implements Part
             : Path::of(self::BUILDKITE_DEFINITION);
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
             'ci',
@@ -140,7 +147,12 @@ final readonly class Ci implements Part
                 Member::unlessEmpty(
                     'buildkite',
                     Json::object(
-                        Member::of('step', $this->buildkiteStep),
+                        Member::of(
+                            'step',
+                            $this->buildkiteStep instanceof BuildkiteStep
+                                ? $this->buildkiteStep->json()
+                                : $this->buildkiteStep,
+                        ),
                         Member::of('definition', $this->path($origin, $this->buildkiteDefinition)),
                     ),
                 ),
@@ -148,10 +160,10 @@ final readonly class Ci implements Part
         ));
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
-            ...$this->plan instanceof Choice ? [PhpCalls::chosen($this->plan, 'Ci', ...self::PLANS)] : [],
+            ...$this->plan instanceof Choice ? [PhpCalls::chosen($this->plan, 'Ci', ...$this->builtins())] : [],
             ...$this->defaultBranch instanceof Absent
                 ? []
                 : [sprintf('Ci::defaultBranch(%s)', PhpCalls::literal($this->defaultBranch))],
@@ -159,8 +171,8 @@ final readonly class Ci implements Part
             ...$this->gitlabTemplate instanceof Path
                 ? [sprintf('Ci::gitlabTemplate(%s)', PhpCalls::literal($origin->written($this->gitlabTemplate)))]
                 : [],
-            ...$this->buildkiteStep instanceof Json
-                ? [sprintf('Ci::buildkiteStep(%s)', implode(', ', PhpOptions::of($this->buildkiteStep)))]
+            ...$this->buildkiteStep instanceof BuildkiteStep
+                ? [sprintf('Ci::buildkiteStep(%s)', implode(', ', PhpOptions::of($this->buildkiteStep->json())))]
                 : [],
             ...$this->buildkiteDefinition instanceof Path ? [sprintf(
                 'Ci::buildkiteDefinition(%s)',
@@ -169,8 +181,30 @@ final readonly class Ci implements Part
         ]);
     }
 
-    private function path(Origin $origin, Path|Absent $path): string|Absent
+    /**
+     * The options the gate hands a CI plan it builds in, from this section: `gitlab` its template, and
+     * `buildkite` its step and the pipeline that runs it; none for any other.
+     */
+    public function planOptions(Name $plan): Options
+    {
+        return Options::of(match ($plan->value()) {
+            BuiltinCiPlan::GitLab->value => Json::object(Member::of('template', $this->gitlabTemplate()->value())),
+            BuiltinCiPlan::Buildkite->value => Json::object(
+                Member::of('step', $this->buildkiteStep()->json()),
+                Member::of('definition', $this->buildkiteDefinition()->value()),
+            ),
+            default => Json::object(),
+        });
+    }
+
+    private function path(PathOrigin $origin, Path|Absent $path): string|Absent
     {
         return $path instanceof Path ? $origin->written($path) : $path;
+    }
+
+    /** @return list<string> the names of the CI plans built in, each with a builder method of its own */
+    private function builtins(): array
+    {
+        return array_map(static fn(BuiltinCiPlan $plan): string => $plan->value, BuiltinCiPlan::cases());
     }
 }

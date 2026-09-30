@@ -7,16 +7,17 @@ use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -25,6 +26,7 @@ use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
+use NightWorksIO\MutationGate\Tests\Fakes\ExtensionThatCannotStart;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
@@ -43,6 +45,7 @@ $registry = static fn(): Extensions => new Extensions(Origin::of('acme/gate'))
     ->withCiPlan(
         Name::of('it'),
         static fn(): CiPlan => new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')),
+        CiPlanFake::withheld(),
     )
     ->withStaticChecker(Name::of('it'), static fn(): StaticChecker => StaticCheckerFake::findingNothing())
     ->withRunner(
@@ -89,7 +92,7 @@ it('builds a reporter the run chooses itself, putting its problems under what ch
     $registry,
 ): void {
     $chosen = new Chosen($registry());
-    $none = Json::object();
+    $none = Options::none();
 
     expect($chosen->reporterChosenBy('badge', Choice::of('it', $none)))->toBeInstanceOf(ReporterFake::class)
         ->and($chosen->reporterChosenBy('badge', Choice::of('picky', $none)))
@@ -109,6 +112,11 @@ it('puts the problems a class has with its options under with, as the gate\'s ow
         Problem::at('reports[2].with.channel', 'expected a channel name, got nothing'),
         Problem::at('reports[2].with', 'needs a channel'),
     ));
+});
+
+it('puts the problem the options find with a class\'s option under with', function () use ($classes): void {
+    expect($classes()->reporter(Choice::of(ConfigurableReporter::class, Configs::options('{"channel": 7}')), 1))
+        ->toEqual(Invalid::because(Problem::at('reports[1].with.channel', 'expected text, got 7')));
 });
 
 it('refuses a class that is not configurable, or adapts another port', function (string $class, string $port) use (
@@ -147,6 +155,15 @@ it('loads the extensions a config names, as coming from the config file', functi
         ->toEqual(RunnerFake::ofTheFixture());
 });
 
+it('refuses an extension a config names that fails as it starts', function () use ($classes): void {
+    expect($classes()->withExtensions([ExtensionThatCannotStart::class, ExtensionFake::class], 'mutation-gate.json'))
+        ->toEqual(CannotJudge::because(sprintf(
+            'mutation-gate.json names %s in extensions, and it failed as it started: %s',
+            ExtensionThatCannotStart::class,
+            'the settings file of this extension is missing',
+        )));
+});
+
 it('refuses an extension a config names that is not one', function () use ($classes): void {
     expect($classes()->withExtensions([RunnerFake::class, ExtensionFake::class], 'mutation-gate.json'))
         ->toEqual(CannotJudge::because(sprintf(
@@ -172,10 +189,42 @@ it('suggests the registered name a misspelt one most likely meant', function () 
         ->toEqual(CannotJudge::because('No runner is registered as "pickey". Did you mean "picky"?'));
 });
 
-it('builds a class in the global namespace a config names without a backslash', function () use ($classes): void {
-    expect($classes()->runner(Choice::of('ArrayObject', Configs::options('{}'))))->toEqual(CannotJudge::because(sprintf(
-        'ArrayObject is not a class that implements %s and %s, so a config cannot choose it.',
+it('takes a class in the global namespace by its leading backslash, and a word without one as a name', function () use (
+    $classes,
+): void {
+    expect($classes()->runner(Choice::of('\\ArrayObject', Configs::options('{}'))))->toEqual(CannotJudge::because(sprintf(
+        '\\ArrayObject is not a class that implements %s and %s, so a config cannot choose it.',
         Runner::class,
         Configurable::class,
-    )));
+    )))->and($classes()->runner(Choice::of('ArrayObject', Configs::options('{}'))))
+        ->toEqual(CannotJudge::because(
+            'No runner is registered as "ArrayObject". A class is written with its namespace, so the class ArrayObject '
+            . 'is \\ArrayObject.',
+        ))
+        ->and($classes()->runner(Choice::of('arrayobjects', Configs::options('{}'))))
+        ->toEqual(CannotJudge::because('No runner is registered as "arrayobjects".'));
+});
+
+it('withholds what every registered CI plan declares, whether or not a config lets it build', function () use (
+    $registry,
+): void {
+    $chosen = new Chosen($registry()->withCiPlan(
+        Name::of('broken'),
+        static fn(): Invalid => Invalid::because(Problem::at('template', 'expected a path')),
+        Withheld::of('BROKEN_CI_TOKEN'),
+    ));
+    $unbuilt = Configs::settings(['runner' => 'pest', 'ci' => ['plan' => '\Acme\NoPlan']])->ci();
+
+    expect([...$chosen->withheld(Ci::none(), Withheld::of('DEPLOY_*'))])
+        ->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN', 'BROKEN_CI_TOKEN', 'DEPLOY_*'])
+        ->and([...$chosen->withheld($unbuilt, Withheld::nothing())])
+        ->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN', 'BROKEN_CI_TOKEN']);
+});
+
+it('withholds what a CI plan class the config names declares, though no registry holds it', function () use (
+    $classes,
+): void {
+    $named = Configs::settings(['runner' => 'pest', 'ci' => ['plan' => sprintf('\\%s', CiPlanFake::class)]])->ci();
+
+    expect([...$classes()->withheld($named, Withheld::nothing())])->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN']);
 });

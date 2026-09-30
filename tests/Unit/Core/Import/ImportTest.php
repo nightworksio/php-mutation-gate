@@ -5,16 +5,16 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Setup;
-use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Import\Carried;
 use NightWorksIO\MutationGate\Core\Import\Import;
 
 it('lays each import over the ones before it, and says every key, the notes, and the keys to delete', function (): void {
     $import = Import::of(Layer::of(Setup::of(presets: Listed::of('library'))), Carried::imported('minMsi', 'the floor of every tree, 80.00'))
         ->and(Import::of(
-            Layer::of(Setup::of(runner: Choice::of('infection', Json::object()))),
+            Layer::of(Setup::of(runner: Choice::of('infection', Options::none()))),
             Carried::imported('mutators.Plus.ignore', 'an ignore'),
             Carried::stays('mutators.Plus.ignore', 'a pattern stays'),
             Carried::dropped('maxTimeouts', 'timeouts are triaged'),

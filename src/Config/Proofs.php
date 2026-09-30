@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Config;
 
 use function is_string;
 
+use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -20,7 +21,7 @@ final readonly class Proofs implements Setting
     /** A directory; `.mutation-gate/ledger` when no path is given. */
     public static function directory(string|NotGiven $path = new NotGiven()): self
     {
-        return self::store('directory', ['path' => $path]);
+        return self::store(BuiltinStore::Directory->value, ['path' => $path]);
     }
 
     /** An S3-compatible bucket, such as AWS S3, Cloudflare R2 or MinIO; an option left out takes its default. */
@@ -31,7 +32,7 @@ final readonly class Proofs implements Setting
         string|NotGiven $endpoint = new NotGiven(),
         string|NotGiven $publicUrl = new NotGiven(),
     ): self {
-        return self::store('s3', [
+        return self::store(BuiltinStore::S3->value, [
             'bucket' => $bucket,
             'prefix' => $prefix,
             'region' => $region,

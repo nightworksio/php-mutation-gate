@@ -4,27 +4,29 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /** How the keys a config writes are read into its `Ci` part (ADR-0002). */
 final readonly class CiKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(Origin $origin): array
+    public static function fields(PathOrigin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
-        $plan = Field::optional('plan', Adapter::choosing(Builtins::ciPlans()), $judges);
+        $plan = Field::optional('plan', Adapter::choosing(Builtins::ciPlans($origin)), $judges);
         $branch = Field::optional('defaultBranch', Text::of('a branch name'), $judges);
         $check = Field::optional('check', Text::of('a check-run name'), $judges);
         $template = Field::optional('template', Location::path($origin), $judges);
-        $step = Field::optional('step', OpenObject::any(), $judges);
+        $step = Field::optional('step', StepTemplate::buildkite(), $judges);
         $definition = Field::optional('definition', Location::path($origin), $judges);
         $gitlab = Field::section(
             'gitlab',
@@ -42,7 +44,7 @@ final readonly class CiKeys
 
                     return Reading::built(
                         static fn(): Ci => Ci::of(
-                            buildkiteStep: $keys->value(),
+                            buildkiteStep: self::step($keys->value()),
                             buildkiteDefinition: $pipeline->value(),
                         ),
                         $keys,
@@ -78,5 +80,10 @@ final readonly class CiKeys
                 $buildkite,
             ),
         )];
+    }
+
+    private static function step(Json|Absent $keys): BuildkiteStep|Absent
+    {
+        return $keys instanceof Json ? BuildkiteStep::of($keys) : $keys;
     }
 }

@@ -45,10 +45,12 @@ cannot.
    builder's own values is refused. Code that has to run belongs in an
    extension (ADR-0001).
    - An extension's loader reads its files the same way, and
-     `ConfigLoaderContract::failures()` holds it, on two fixture files in its
+     `ConfigLoaderContract::failures()` holds it, on fixture files in its
      format, to what every loader answers: the config read into the gate's own
-     layer, paths named from the file's directory, the gate's own problems for
-     an invalid file, and a file that is not there not judged.
+     layer, paths named from the file's directory, one that goes up from it
+     named from the project, a date read back as `YYYY-MM-DD`, the gate's own
+     problems for an invalid file and for a mutant id the format reads as a
+     number, and a file that is broken or not there not judged.
    - A preset an extension registers is a layer, `withPreset(Name, Layer)`,
      which it can build with the PHP builder:
      `Gate::configure()->…->layer(ProjectRoot::origin())`, its paths named
@@ -177,12 +179,23 @@ cannot.
    - `extensions` lists extension classes to load in addition to those found
      through Composer (ADR-0001). It is a list of class strings, empty by
      default.
+   - A `use` with a backslash is a class, `Acme\Gate\SlackReporter`, or
+     `\SlackReporter` for one in the global namespace. Any other is a name an
+     extension registered. The choice decides this once, as it is read.
    - A class named in `use` implements the port and
      `NightWorksIO\MutationGate\Extension\Configurable`, whose one method is a
-     named constructor from a validated `Options` value. The class validates
-     its own options and returns its errors as an outcome, and they are
-     reported with the same path prefix as the gate's own
-     (`reports[0].with.channel`).
+     named constructor from `Core\Config\Options`: the `with` object, read one
+     key at a time as the type it should hold. `text()`, `flag()`,
+     `integer()`, `number()`, `paths()` and `texts()` each answer the value,
+     `NotGiven` where the key is left out, or the `Problem` at its path;
+     `object()` answers the options under a key. An adapter never decodes
+     JSON. The class validates its own options and returns its errors as an
+     outcome, and they are reported with the same path prefix as the gate's
+     own (`reports[0].with.channel`).
+   - A built-in adapter's options arrive as the definition read them, with
+     every default filled in, so its defaults live only in the definition. A
+     CI plan and the cost model the gate builds in take theirs from `ci` and
+     `costs`: `Ci::planOptions()` and `Shards::costOptions()`.
    - The schema leaves `with` open for a class string, because it cannot know a
      third party's options, and checks it strictly for every built-in name.
 
@@ -219,9 +232,11 @@ cannot.
      `--budget=<duration>` (ADR-0008) and `--ci=<name>` (ADR-0006).
 
 6. **Validation reports everything at once, by path.** Each layer is read on
-   its own, and what only every layer together can say, that a runner is
-   chosen and that no ignore outlasts `ignores.maxDays`, is judged once every
-   layer reads. A config with three
+   its own, and what only every layer together can say, that each preset a
+   layer names is registered, that a runner is chosen and that no ignore
+   outlasts `ignores.maxDays`, is judged once every layer reads. A layer's
+   own problems come first: a preset is looked up in the registry the
+   config file's `extensions` extend, so it is judged once that file reads. A config with three
    mistakes prints three errors, each with its path and what was expected:
    `trees[1].floor: expected a number from 0 to 100, got "80"`. Types are
    strict, so a string is not a number. An unknown key is an error and suggests
@@ -233,7 +248,12 @@ cannot.
    none, and a config the gate writes, such as `init`'s, names them from its
    own directory. So are globs, the `phpunit` tree source's `fallback`, the
    `directory` store's `path` and each `costs.secondsPerLine` prefix but
-   `""`, which is every path wherever it is written. The
+   `""`, which is every path wherever it is written. A path or a glob that
+   lands outside the project, up through `..` or absolute, is refused
+   (`expected a path inside the project`). A config file outside the
+   project names its paths the same way, so it names only those that land
+   inside the project: `../project/src`. Only the command line names a file
+   outside the project, by its absolute path, as `--report` does. The
    configuration reference lists every key with its type, its default and the
    ADR that decides it. It is generated from the same definitions as the
    schema, into `.docs/reference/configuration.md`, and the README holds it

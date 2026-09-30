@@ -3,25 +3,35 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\S3\BucketOptions;
+use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 $said = static fn(BucketOptions|Invalid $bucket): mixed => $bucket instanceof BucketOptions
     ? [$bucket->bucket(), $bucket->prefix(), $bucket->configuration()]
     : $bucket;
 
-it('keeps ledgers under mutation-gate in us-east-1 unless the options say otherwise', function () use ($said): void {
-    $bucket = BucketOptions::read(Options::ofJson('{"bucket": "ledgers"}'));
+/** The `s3` store's options, as the definition reads what a config writes. */
+$s3 = static fn(string $with): Options => Configs::builtin(Builtins::stores(ProjectRoot::origin()), 's3', $with);
 
-    expect($said($bucket))
+it('keeps ledgers under the definition\'s prefix and region unless the options say otherwise', function () use (
+    $said,
+    $s3,
+): void {
+    expect($said(BucketOptions::read($s3('{"bucket": "ledgers"}'))))
         ->toBe(['ledgers', 'mutation-gate', ['region' => 'us-east-1']]);
 });
 
-it('addresses a bucket at another endpoint by path, in the region the options name', function () use ($said): void {
-    $bucket = BucketOptions::read(Options::ofJson(
-        '{"bucket": "ledgers", "prefix": "ci/proofs", "region": "auto", "endpoint": "https://account.r2.example"}',
-    ));
+it('addresses a bucket at another endpoint by path, in the region the options name', function () use (
+    $said,
+    $s3,
+): void {
+    $bucket = BucketOptions::read(
+        $s3('{"bucket": "ledgers", "prefix": "ci/proofs", "region": "auto", "endpoint": "https://account.r2.example"}'),
+    );
 
     expect($said($bucket))
         ->toBe(['ledgers', 'ci/proofs', [
@@ -31,21 +41,22 @@ it('addresses a bucket at another endpoint by path, in the region the options na
         ]]);
 });
 
-it('requires a bucket', function (): void {
-    $required = Invalid::because(Problem::at('bucket', 'The bucket the ledgers are kept in is required.'));
-
-    expect(BucketOptions::read(Options::none()))->toEqual($required)
-        ->and(BucketOptions::read(Options::ofJson('{"bucket": ""}')))->toEqual($required);
+it('requires a bucket, a prefix and a region, which the definition gives all but the first of', function (): void {
+    expect(BucketOptions::read(Options::none()))->toEqual(Invalid::because(
+        Problem::at('bucket', 'expected the bucket, got nothing'),
+        Problem::at('prefix', 'expected the prefix, got nothing'),
+        Problem::at('region', 'expected the region, got nothing'),
+    ));
 });
 
 it('refuses each option that is not written as text, and nothing more', function (): void {
-    expect(BucketOptions::read(Options::ofJson('{"bucket": 5}')))
-        ->toEqual(Invalid::because(Problem::at('bucket', 'The bucket is written as text.')))
-        ->and(BucketOptions::read(Options::ofJson('{"prefix": 5}')))
-        ->toEqual(Invalid::because(Problem::at('prefix', 'The prefix is written as text.')))
-        ->and(BucketOptions::read(Options::ofJson('{"bucket": "ledgers", "region": 1, "endpoint": ["minio"]}')))
+    expect(BucketOptions::read(Configs::options('{"bucket": 5, "prefix": "p", "region": "r"}')))
+        ->toEqual(Invalid::because(Problem::at('bucket', 'expected text, got 5')))
+        ->and(BucketOptions::read(Configs::options('{"bucket": "b", "prefix": "p", "region": 1, "endpoint": ["minio"]}')))
         ->toEqual(Invalid::because(
-            Problem::at('region', 'The region is written as text.'),
-            Problem::at('endpoint', 'The endpoint is written as text.'),
-        ));
+            Problem::at('region', 'expected text, got 1'),
+            Problem::at('endpoint', 'expected text, got a list'),
+        ))
+        ->and(BucketOptions::read(Configs::options('{"bucket": "b", "prefix": "p", "region": "r", "endpoint": 3}')))
+        ->toEqual(Invalid::because(Problem::at('endpoint', 'expected text, got 3')));
 });

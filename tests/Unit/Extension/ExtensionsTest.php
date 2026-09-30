@@ -10,16 +10,18 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Registering;
 
@@ -27,13 +29,13 @@ it('builds what was registered under a name from the options a config gives it',
     $adapter = Registering::adapter($point);
     $given = new ArrayObject();
     $registry = Registering::register($point, new Extensions(Origin::of('acme/a')), static function (Options $options) use ($given, $adapter): object {
-        $given->append($options->json());
+        $given->append($options->written()->line());
 
         return $adapter;
     });
 
-    expect(Registering::lookUp($point, $registry, Options::ofJson('{"channel": "#ci"}')))->toBe($adapter)
-        ->and($given->getArrayCopy())->toBe(['{"channel": "#ci"}']);
+    expect(Registering::lookUp($point, $registry, Configs::options('{"channel": "#ci"}')))->toBe($adapter)
+        ->and($given->getArrayCopy())->toBe(['{"channel":"#ci"}']);
 })->with(Registering::adapterPoints());
 
 it('passes on the problems an adapter finds in its options', function (ExtensionPoint $point): void {
@@ -125,4 +127,28 @@ it('takes in the sets of mutators another package registered, and refuses one re
         ->and($set('acme/a')->merge($set('acme/b')))->toEqual(CannotJudge::because(
             'Two packages register a mutator set named "acme": acme/a and acme/b. Remove one of the packages, or run with --no-extensions.',
         ));
+});
+
+it('names what is registered at an extension point, and nothing at any other', function (ExtensionPoint $point): void {
+    $registry = Registering::register($point, new Extensions(Origin::of('acme/a')), static fn(): object => Registering::adapter($point));
+    $other = $point === ExtensionPoint::Runner ? ExtensionPoint::Reporter : ExtensionPoint::Runner;
+
+    expect($registry->names($point))->toEqual(Listed::of(Name::of('it')))
+        ->and($registry->names($other))->toEqual(Listed::of());
+})->with(Registering::adapterPoints());
+
+it('holds what each CI plan declares withheld as it registers, and takes in another package\'s', function (): void {
+    $plan = static fn(string $package, string $name, string $variable): Extensions => new Extensions(Origin::of($package))
+        ->withCiPlan(Name::of($name), static fn(): Invalid => Invalid::because(Problem::at('x', 'unbuilt')), Withheld::of($variable));
+    $ours = $plan('acme/a', 'one', 'ONE_TOKEN')->withCiPlan(
+        Name::of('two'),
+        static fn(): Invalid => Invalid::because(Problem::at('x', 'unbuilt')),
+        Withheld::of('TWO_TOKEN'),
+    );
+    $merged = $ours->merge($plan('acme/b', 'three', 'THREE_TOKEN'));
+
+    expect([...new Extensions(Origin::of('acme/a'))->ciWithheld()])->toBe([])
+        ->and([...$ours->ciWithheld()])->toBe(['ONE_TOKEN', 'TWO_TOKEN'])
+        ->and($merged instanceof Extensions ? [...$merged->ciWithheld()] : $merged)
+        ->toBe(['ONE_TOKEN', 'TWO_TOKEN', 'THREE_TOKEN']);
 });

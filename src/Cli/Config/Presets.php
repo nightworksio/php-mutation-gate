@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Config;
 
 use function array_map;
 
+use NightWorksIO\MutationGate\Core\Config\BuiltinPreset;
 use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
@@ -34,13 +35,13 @@ final readonly class Presets
      * ADR-0008's table gives it, so a later preset in a list replaces each of an earlier one's.
      */
     private const array SHIPPED = [
-        'library' => ['fallback' => [], 'everything' => [], 'seconds' => 10],
-        'laravel' => [
+        BuiltinPreset::Library->value => ['fallback' => [], 'everything' => [], 'seconds' => 10],
+        BuiltinPreset::Laravel->value => [
             'fallback' => ['app'],
             'everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing'],
             'seconds' => 30,
         ],
-        'symfony' => [
+        BuiltinPreset::Symfony->value => [
             'fallback' => ['src'],
             'everything' => ['config/**', '.env.test', 'tests/bootstrap.php'],
             'seconds' => 30,

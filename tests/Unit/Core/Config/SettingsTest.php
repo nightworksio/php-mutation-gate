@@ -5,19 +5,24 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
+use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
 use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Config\Price;
-use NightWorksIO\MutationGate\Core\Config\ProofWriting;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Report;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
-use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -220,7 +225,7 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":[]}')))
         ->and($floors->trees())->toEqual(Absent::setting())
         ->and($floors->newCode())->toEqual(Floor::of(100))
-        ->and($floors->uncovered())->toBe(UncoveredMutants::Count)
+        ->and($floors->uncovered())->toBe(Uncovered::Count)
         ->and($floors->baseline())->toEqual(Path::of('mutation-gate.baseline.json'))
         ->and($floors->improvement())->toBe(Improvement::Require)
         ->and([...$settings->reach()->packages()])->toBe([])
@@ -233,12 +238,12 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->ci()->defaultBranch())->toEqual(Absent::setting())
         ->and($settings->ci()->check())->toBe('mutation / verdict')
         ->and($settings->ci()->gitlabTemplate())->toEqual(Path::of('.gitlab/mutation-gate.yml'))
-        ->and($settings->ci()->buildkiteStep()->line())->toBe('{}')
+        ->and($settings->ci()->buildkiteStep()->json()->line())->toBe('{}')
         ->and($settings->ci()->buildkiteDefinition())->toEqual(Path::of('.buildkite/pipeline.yml'))
         ->and($settings->runner()->withhold())->toEqual(Withheld::nothing())
         ->and($settings->proofs()->store())->toEqual(Choice::of('directory', Configs::options('{"path":".mutation-gate/ledger"}')))
         ->and([...$settings->proofs()->ignore()])->toBe([])
-        ->and($settings->proofs()->write())->toBe(ProofWriting::Auto)
+        ->and($settings->proofs()->write())->toBe(Writing::Auto)
         ->and($settings->triage()->budget())->toEqual(Unlimited::time())
         ->and($settings->triage()->timeouts())->toBe(TimeoutMode::Confirm)
         ->and($settings->triage()->limit())->toEqual(Seconds::of(10))
@@ -281,7 +286,7 @@ it('reads every setting a config writes into its type', function (): void {
             ['app/Legacy', Undeclared::floor()],
         ])
         ->and($floors->newCode())->toEqual(Floor::of(90))
-        ->and($floors->uncovered())->toBe(UncoveredMutants::Exclude)
+        ->and($floors->uncovered())->toBe(Uncovered::Exclude)
         ->and($floors->baseline())->toEqual(Path::of('build/baseline.json'))
         ->and($floors->improvement())->toBe(Improvement::Report)
         ->and([...$settings->reach()->packages()])->toEqual([Glob::of('packages/*')])
@@ -290,18 +295,19 @@ it('reads every setting a config writes into its type', function (): void {
         ->and($settings->shards()->seconds())->toEqual(Seconds::of(900))
         ->and($settings->shards()->max())->toBe(8)
         ->and(iterator_to_array($settings->shards()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.25, 'src/Legacy' => 2.0])
-        ->and($ci->plan())->toEqual(Choice::of('gitlab', Configs::options('{}')))
+        ->and($ci->plan() instanceof Choice ? $ci->plan()->options()->written()->line() : $ci->plan())
+        ->toBe('{"template":".gitlab/gate.yml"}')
         ->and($ci->defaultBranch())->toBe('trunk')
         ->and($ci->check())->toBe('gate / verdict')
         ->and($ci->gitlabTemplate())->toEqual(Path::of('.gitlab/gate.yml'))
-        ->and($ci->buildkiteStep()->line())->toBe('{"agents":{"queue":"mutation"}}')
+        ->and($ci->buildkiteStep()->json()->line())->toBe('{"agents":{"queue":"mutation"}}')
         ->and($ci->buildkiteDefinition())->toEqual(Path::of('.buildkite/mutation.yml'))
         ->and($proofs->store())->toEqual(Choice::of(
             's3',
             Configs::options('{"bucket":"proofs","prefix":"mutation-gate","region":"us-east-1","endpoint":"https://r2.example.com"}'),
         ))
         ->and([...$proofs->ignore()])->toEqual([Glob::of('docs/**')])
-        ->and($proofs->write())->toBe(ProofWriting::Never)
+        ->and($proofs->write())->toBe(Writing::Never)
         ->and($settings->triage()->budget())->toEqual(Seconds::of(5400))
         ->and($triage->timeouts())->toBe(TimeoutMode::Unjudged)
         ->and($triage->limit())->toEqual(Seconds::of(30))
@@ -545,20 +551,71 @@ it('takes the ends of every range', function (): void {
         ->and($settings->ignores()->maxDays())->toBe(1);
 });
 
+it('refuses a path or a glob that goes up out of the project, or is absolute', function (): void {
+    expect(Configs::problems(Configs::validated([
+        'runner' => 'pest',
+        'trees' => [['path' => '../../etc'], ['path' => 'src', 'exclude' => ['../gen/**', '/abs/src/Gen/**']], ['path' => '/abs/src']],
+        'packages' => ['/abs/*'],
+        'costs' => ['secondsPerLine' => ['' => 1, '../x' => 1, '/abs' => 1]],
+        'ci' => ['gitlab' => ['template' => '/abs.yml']],
+        'baseline' => ['path' => '../x.json'],
+        'proofs' => ['store' => ['use' => 'directory', 'with' => ['path' => '/var/ledger']], 'ignore' => ['/etc/**']],
+        'reports' => [['use' => 'json', 'path' => '/tmp/x.json']],
+    ])))->toBe([
+        'trees[0].path: expected a path inside the project, got "../../etc"',
+        'trees[1].exclude[0]: expected a path inside the project, got "../gen/**"',
+        'trees[1].exclude[1]: expected a path inside the project, got "/abs/src/Gen/**"',
+        'trees[2].path: expected a path inside the project, got "/abs/src"',
+        'baseline.path: expected a path inside the project, got "../x.json"',
+        'packages[0]: expected a path inside the project, got "/abs/*"',
+        'costs.secondsPerLine["../x"]: expected a path inside the project, got "../x"',
+        'costs.secondsPerLine["/abs"]: expected a path inside the project, got "/abs"',
+        'ci.gitlab.template: expected a path inside the project, got "/abs.yml"',
+        'proofs.store.with.path: expected a path inside the project, got "/var/ledger"',
+        'proofs.ignore[0]: expected a path inside the project, got "/etc/**"',
+        'reports[0].path: expected a path inside the project, got "/tmp/x.json"',
+    ]);
+});
+
+it('keeps an absolute path the command line names, and no path that goes up', function (): void {
+    $line = Definition::layer(
+        Node::config('{"reports": [{"use": "json", "path": "/tmp/x.json"}]}'),
+        ProjectRoot::commandLine(),
+    );
+    $up = Definition::layer(
+        Node::config('{"reports": [{"use": "json", "path": "../x.json"}]}'),
+        ProjectRoot::commandLine(),
+    );
+
+    expect($line instanceof Layer ? Configs::decoded($line) : Configs::problems($line))
+        ->toBe(['reports' => [['use' => 'json', 'path' => '/tmp/x.json']]])
+        ->and(Configs::problems($up))->toBe(['reports[0].path: expected a path inside the project, got "../x.json"']);
+});
+
+it('keeps each path of the tree source\'s fallback once, as the effective config writes it', function (): void {
+    $settings = Configs::settings([
+        'runner' => 'pest',
+        'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['./app/', 'app', 'lib']]],
+    ]);
+
+    expect($settings->treeSource()->options()->written()->line())->toBe('{"fallback":["app","lib"]}')
+        ->and(Configs::settings(Configs::effective($settings))->treeSource())
+        ->toEqual($settings->treeSource());
+});
+
 it('refuses a floor of 0 without the reason it needs', function (): void {
     expect(Configs::problems(Configs::validated(['runner' => 'pest', 'trees' => [['path' => 'src', 'floor' => 0]]])))
         ->toBe(['trees[0].reason: expected a reason when floor is 0, got nothing']);
 });
 
-it('keeps a reason beside a floor above 0 out of the floor', function (): void {
-    $trees = Configs::settings(['runner' => 'pest', 'trees' => [['path' => 'src', 'floor' => 0.01, 'reason' => 'Why']]])
-        ->floors()
-        ->trees();
-
-    expect($trees instanceof Absent
-        ? []
-        : array_map(static fn(DeclaredTree $tree): mixed => $tree->declared(), [...$trees]))
-        ->toEqual([Floor::ofHundredths(1)]);
+it('refuses a reason beside a floor above 0, or beside none, which it would do nothing for', function (): void {
+    expect(Configs::problems(Configs::validated([
+        'runner' => 'pest',
+        'trees' => [['path' => 'src', 'floor' => 0.01, 'reason' => 'Why'], ['path' => 'lib', 'reason' => 'Why']],
+    ])))->toBe([
+        'trees[0].reason: expected no reason, as only a floor of 0 takes one, got "Why"',
+        'trees[1].reason: expected no reason, as only a floor of 0 takes one, got "Why"',
+    ]);
 });
 
 it('reads an empty list of trees as no tree at all, not as the tree source\'s', function (): void {
@@ -732,6 +789,60 @@ it('refuses a map whose keys are settings where a map of numbers belongs', funct
         ->toBe(['shards: expected an object, got a list']);
 });
 
+it('refuses a badge written outside the project, by its entry or its options', function (
+    array $entry,
+    string $problem,
+): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'reports' => [['use' => 'badge', ...$entry]]])))
+        ->toBe([$problem]);
+})->with([
+    'an absolute path' => [['path' => '/tmp/x'], 'reports[0].path: expected a path inside the project, got "/tmp/x"'],
+    'a path up out of the project' => [['path' => '../x'], 'reports[0].path: expected a path inside the project, got "../x"'],
+    'a path among its options' => [['with' => ['path' => '/tmp/x']], 'reports[0].with.path: unknown key'],
+]);
+
+it('takes a path for a report it writes, may for the badge, and takes none for one it prints or sends', function (
+    string $use,
+    array $entry,
+    array $problems,
+): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'reports' => [['use' => $use, ...$entry]]])))
+        ->toBe($problems);
+})->with([
+    'a file with none' => ['json', [], ['reports[0].path: expected a path, got nothing']],
+    'the badge with none' => ['badge', [], []],
+    'the badge with one' => ['badge', ['path' => 'publish'], []],
+    'the console with one' => [
+        'console',
+        ['path' => 'out.txt'],
+        ['reports[0].path: expected nothing, as console writes no file, got "out.txt"'],
+    ],
+    'a comment with one' => [
+        'github-comment',
+        ['path' => 'out.md'],
+        ['reports[0].path: expected nothing, as github-comment writes no file, got "out.md"'],
+    ],
+]);
+
+it('reads the problems report\'s only and the comment\'s identity, and refuses what they do not take', function (): void {
+    $problems = static fn(array $with): array => Configs::problems(Configs::validated([
+        'runner' => 'pest',
+        'reports' => [['use' => 'problems', 'with' => $with]],
+    ]));
+
+    expect($problems(['only' => 'changed']))->toBe([])
+        ->and($problems(['only' => 'some']))->toBe(['reports[0].with.only: expected "all" or "changed", got "some"'])
+        ->and(Configs::problems(Configs::validated([
+            'runner' => 'pest',
+            'reports' => [['use' => 'github-comment', 'with' => ['identity' => 7]]],
+        ])))->toBe(['reports[0].with.identity: expected an account name, got 7']);
+});
+
+it('refuses a Buildkite step whose command is not text, or a list of text, at the command', function (): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'ci' => ['buildkite' => ['step' => ['command' => 7]]]])))
+        ->toBe(['ci.buildkite.step.command: expected a command, or a list of commands, as text, got 7']);
+});
+
 it('reads tree excludes, the shard target and setup, the price, the test order and the equivalence check', function (
 ): void {
     $settings = Configs::settings([
@@ -825,7 +936,7 @@ it('reads the file reporters, the chat reporters with their variables, and OpenT
             'with' => ['urlEnv' => 'MUTATION_GATE_WEBHOOK_URL', 'secretEnv' => 'MUTATION_GATE_WEBHOOK_SECRET'],
         ],
         ['use' => 'otlp', 'with' => ['endpoint' => 'https://otel.example.com']],
-    ])->and(array_map(static fn(Report $report): string => $report->reporter()->options()->line(), [...$settings->reports()]))
+    ])->and(array_map(static fn(Report $report): string => $report->reporter()->options()->written()->line(), [...$settings->reports()]))
         ->toBe([
             '{}',
             '{}',
@@ -857,3 +968,18 @@ it('refuses a webhook URL in the config, and a path a reporter cannot take or ne
         'reports[0].path: expected a path, got nothing',
     ],
 ]);
+
+it('refuses a canary group name with whitespace, and a store endpoint that is not a URL', function (): void {
+    expect(Configs::problems(Configs::validated([
+        'runner' => 'pest',
+        'pest' => ['canary' => 'mutation canary'],
+        'proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'endpoint' => 'minio.test:9000']]],
+    ])))->toBe([
+        'proofs.store.with.endpoint: expected an http:// or https:// URL, got "minio.test:9000"',
+        'pest.canary: expected a group name, with no whitespace, got "mutation canary"',
+    ])->and(Configs::validated([
+        'runner' => 'pest',
+        'pest' => ['canary' => 'mutation-canary'],
+        'proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'endpoint' => 'http://minio.test:9000']]],
+    ]))->toBeInstanceOf(Settings::class);
+});

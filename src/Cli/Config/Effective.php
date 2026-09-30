@@ -20,12 +20,12 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
@@ -201,7 +201,7 @@ final readonly class Effective
 
         return Layer::of(Setup::of(
             presets: $preset === '' ? Absent::setting() : Listed::of($preset),
-            runner: $runner === '' ? Absent::setting() : Choice::of($runner, Json::object()),
+            runner: $runner === '' ? Absent::setting() : Choice::of($runner, Options::none()),
         ));
     }
 }

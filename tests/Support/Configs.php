@@ -13,17 +13,21 @@ use function is_string;
 use function json_decode;
 use function json_encode;
 
+use LogicException;
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Definition;
+use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use RuntimeException;
 
 use function sprintf;
@@ -49,9 +53,9 @@ final readonly class Configs
      *
      * @param array<mixed>|string $config
      */
-    public static function layer(array|string $config, Origin $origin = new ProjectRoot()): Layer|Invalid
+    public static function layer(array|string $config, PathOrigin|NotGiven $origin = new NotGiven()): Layer|Invalid
     {
-        return Definition::layer(Node::config(self::json($config)), $origin);
+        return Definition::layer(Node::config(self::json($config)), $origin instanceof PathOrigin ? $origin : ProjectRoot::origin());
     }
 
     /**
@@ -103,9 +107,9 @@ final readonly class Configs
     }
 
     /** What a layer writes, decoded. */
-    public static function decoded(Layer $layer, Origin $origin = new ProjectRoot()): mixed
+    public static function decoded(Layer $layer, PathOrigin|NotGiven $origin = new NotGiven()): mixed
     {
-        return json_decode($layer->written($origin)->line(), associative: true);
+        return json_decode($layer->written($origin instanceof PathOrigin ? $origin : ProjectRoot::origin())->line(), associative: true);
     }
 
     /** The effective config, as `config:show` prints it as JSON. */
@@ -115,11 +119,25 @@ final readonly class Configs
     }
 
     /** An adapter's options, as a config that writes them is read. */
-    public static function options(string $json): Json
+    public static function options(string $json): Options
     {
-        $options = Node::config($json);
+        $options = Json::parse($json);
 
-        return $options->kind() === Kind::Empty ? Json::object() : $options->value();
+        return $options instanceof Json ? Options::of($options) : throw new LogicException($options->why());
+    }
+
+    /** An adapter's options, as the command line names them: a path among them may be absolute. */
+    public static function commandLine(string $json): Options
+    {
+        return Options::at(self::options($json)->written(), ProjectRoot::commandLine());
+    }
+
+    /** A built-in adapter's options, as the definition reads what a config writes beside it: every default filled in. */
+    public static function builtin(Builtins $builtins, string $use, string $with = '{}'): Options
+    {
+        $choice = $builtins->choose($use, Node::config(sprintf('{"with": %s}', $with))->field('with'))->value();
+
+        return $choice instanceof Choice ? $choice->options() : throw new LogicException(sprintf('%s reads', $with));
     }
 
     /** What the effective config shows under these keys. */

@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection\Import;
 
+use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Report;
 use NightWorksIO\MutationGate\Core\Config\Reports;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Import\Carried;
@@ -41,10 +42,6 @@ final readonly class Logs
 
     private const string HTML_GIVEN = 'logs.html gives the HTML report already';
 
-    private const string HTML = 'html';
-
-    private const string GITLAB = 'gitlab';
-
     public static function of(Node $settings): Import
     {
         $logs = $settings->field(Mapped::Logs->value);
@@ -60,10 +57,12 @@ final readonly class Logs
     private static function log(string $key, Node $value, Node $logs): Import
     {
         $path = Lenient::text($value);
+        $html = BuiltinReporter::Html->value;
+        $gitlab = BuiltinReporter::GitLab->value;
 
         return match (true) {
-            $key === self::HTML && $path !== '' => self::report($key, self::HTML, Choices::html(Path::of($path))),
-            $key === self::GITLAB && $path !== '' => self::report($key, self::GITLAB, Path::of($path)),
+            $key === $html && $path !== '' => self::report($key, $html, Choices::html(Path::of($path))),
+            $key === $gitlab && $path !== '' => self::report($key, $gitlab, Path::of($path)),
             $key === 'json' && $path !== '' => self::dropped($key, Choices::json(Path::of($path))),
             $key === 'github' => self::dropped($key, self::GITHUB),
             $key === self::STRYKER => self::stryker($value, $logs),
@@ -75,13 +74,14 @@ final readonly class Logs
     private static function stryker(Node $stryker, Node $logs): Import
     {
         $import = Import::none();
+        $html = BuiltinReporter::Html->value;
 
         foreach (Lenient::entries($stryker) as $key => $value) {
             $key = sprintf('%s.%s', self::STRYKER, $key);
             $import = $import->and(match (true) {
-                $key === 'stryker.report' && Lenient::text($logs->field(self::HTML)) === '' => self::report(
+                $key === 'stryker.report' && Lenient::text($logs->field($html)) === '' => self::report(
                     $key,
-                    self::HTML,
+                    $html,
                     Choices::dashboard(),
                 ),
                 $key === 'stryker.report' => self::dropped($key, self::HTML_GIVEN),
@@ -96,7 +96,7 @@ final readonly class Logs
     private static function report(string $key, string $reporter, Path $path): Import
     {
         return Import::of(
-            Layer::of(Reports::of(Listed::of(Report::of(Choice::of($reporter, Json::object()), $path)))),
+            Layer::of(Reports::of(Listed::of(Report::of(Choice::of($reporter, Options::none()), $path)))),
             Carried::imported(sprintf(self::KEY, $key), sprintf(self::REPORT, $reporter, $path->value())),
         );
     }

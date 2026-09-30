@@ -8,25 +8,19 @@ use function array_keys;
 use function array_map;
 use function array_values;
 use function implode;
+use function is_string;
 
+use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\File\Glob;
-use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
-use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Proof\Writing;
 
 use function sprintf;
 
 /** Where proofs are kept, what they leave out, and whether the verdict writes them (ADR-0007): `proofs`. */
 final readonly class Proofs implements Part
 {
-    /** The store when no layer names one, and where it keeps its ledgers. */
-    private const string STORE = 'directory';
-
-
-    private const string S3 = 's3';
-
     /** Where the directory store keeps its ledgers. */
     private const string PATH = 'path';
 
@@ -34,7 +28,7 @@ final readonly class Proofs implements Part
     private function __construct(
         private Choice|Absent $store,
         private Listed|Absent $ignore,
-        private ProofWriting|Absent $write,
+        private Writing|Absent $write,
     ) {
     }
 
@@ -42,7 +36,7 @@ final readonly class Proofs implements Part
     public static function of(
         Choice|Absent $store = new Absent(),
         Listed|Absent $ignore = new Absent(),
-        ProofWriting|Absent $write = new Absent(),
+        Writing|Absent $write = new Absent(),
     ): self {
         return new self($store, $ignore, $write);
     }
@@ -78,14 +72,14 @@ final readonly class Proofs implements Part
     /** Whether the store keeps its ledgers in a directory on this machine: the `directory` store. */
     public function keptOnDisk(): bool
     {
-        return $this->store()->use() === self::STORE;
+        return $this->store()->use()->value() === BuiltinStore::Directory->value;
     }
 
     public function store(): Choice
     {
         return $this->store instanceof Choice
             ? $this->store
-            : Choice::of(self::STORE, Json::object(Member::of('path', Workspace::ledger()->value())));
+            : Builtins::stores(ProjectRoot::origin())->standard(BuiltinStore::Directory->value);
     }
 
     /** @return Listed<Glob> the globs of the files no test reads */
@@ -94,12 +88,12 @@ final readonly class Proofs implements Part
         return $this->ignore instanceof Listed ? $this->ignore : Listed::of();
     }
 
-    public function write(): ProofWriting
+    public function write(): Writing
     {
-        return $this->write instanceof ProofWriting ? $this->write : ProofWriting::Auto;
+        return $this->write instanceof Writing ? $this->write : Writing::Auto;
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
             'proofs',
@@ -114,59 +108,63 @@ final readonly class Proofs implements Part
                         ? Json::items(...WrittenPaths::globs($origin, $this->ignore))
                         : $this->ignore,
                 ),
-                Member::of('write', $this->write instanceof ProofWriting ? $this->write->value : $this->write),
+                Member::of('write', $this->write instanceof Writing ? $this->write->value : $this->write),
             ),
         ));
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
             ...$this->store instanceof Choice ? [$this->storeCall($this->storeFrom($origin))] : [],
             ...$this->ignore instanceof Listed
                 ? [sprintf('Proofs::ignore(%s)', PhpCalls::literals(...WrittenPaths::globs($origin, $this->ignore)))]
                 : [],
-            ...$this->write instanceof ProofWriting ? [match ($this->write) {
-                ProofWriting::Auto => 'Proofs::writing()',
-                ProofWriting::Never => 'Proofs::readOnly()',
+            ...$this->write instanceof Writing ? [match ($this->write) {
+                Writing::Auto => 'Proofs::writing()',
+                Writing::Never => 'Proofs::readOnly()',
             }] : [],
         ]);
     }
 
     /** The store chosen, with the directory store's path named from the origin. */
-    private function storeFrom(Origin $origin): Choice
+    private function storeFrom(PathOrigin $origin): Choice
     {
         $store = $this->store();
 
-        return $store->use() === self::STORE ? WrittenPaths::choice($store, $origin, self::PATH) : $store;
+        return $store->use()->value() === BuiltinStore::Directory->value
+            ? WrittenPaths::choice($store, $origin, self::PATH)
+            : $store;
     }
 
     /** The proof store, by `Proofs::directory()` or `Proofs::s3()` for the built-in ones. */
     private function storeCall(Choice $store): string
     {
-        $options = Node::config($store->options()->line());
-        $entries = $options->kind() === Kind::Map ? $options->entries() : [];
+        $options = $store->options();
+        $texts = [];
 
-        return match ($store->use()) {
-            self::STORE => sprintf(
+        foreach ($options as $key) {
+            $text = $options->text($key);
+            $texts = is_string($text) ? [...$texts, $key->value() => $text] : $texts;
+        }
+
+        return match ($store->use()->value()) {
+            BuiltinStore::Directory->value => sprintf(
                 'Proofs::directory(%s)',
-                PhpCalls::literals(...array_map(
-                    static fn(Node $option): string => $option->text(),
-                    array_values($entries),
-                )),
+                PhpCalls::literals(...array_values($texts)),
             ),
-            self::S3 => sprintf(
+            BuiltinStore::S3->value => sprintf(
                 'Proofs::s3(%s)',
                 implode(
                     ', ',
                     array_map(
-                        static fn(string $option, Node $value): string => sprintf(
+                        static fn(string $option, string $value): string => sprintf(
                             '%s: %s',
                             $option,
-                            PhpCalls::literal($value->text()),
+                            PhpCalls::literal($value),
                         ),
-                        array_keys($entries),
-                        $entries,
+                        array_keys($texts),
+                        $texts,
                     ),
                 ),
             ),

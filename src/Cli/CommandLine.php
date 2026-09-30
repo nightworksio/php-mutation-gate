@@ -110,7 +110,7 @@ final readonly class CommandLine
     /** The settings the command line sets, as the last layer of the config, its paths named from the project. */
     public function layer(): Layer|Invalid
     {
-        return Definition::layer(Node::config($this->written()->line()), ProjectRoot::origin());
+        return Definition::layer(Node::config($this->written()->line()), ProjectRoot::commandLine());
     }
 
     /** The settings the command line sets, as a config file would write them. */

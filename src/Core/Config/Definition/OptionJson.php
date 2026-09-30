@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use BackedEnum;
+
 use function is_object;
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\Table;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
@@ -36,6 +39,8 @@ final readonly class OptionJson
     {
         return match (true) {
             $value instanceof Path => $value->value(),
+            $value instanceof Table => $value->written(),
+            $value instanceof BackedEnum => $value->value,
             $value instanceof Json, ! is_object($value) => $value,
             default => throw MisreadSetting::as('an option', 'a path, a list, or a value JSON writes'),
         };

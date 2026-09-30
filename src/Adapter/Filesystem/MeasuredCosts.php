@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
+use function array_filter;
 use function array_map;
 use function array_sum;
 use function is_array;
 use function is_dir;
+use function is_float;
 use function is_link;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Cost\LineRate;
 use NightWorksIO\MutationGate\Core\Cost\LinesOfCode;
@@ -20,16 +24,14 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Extension\Configurable;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\CostModel;
 
 use function scandir;
@@ -53,23 +55,40 @@ final readonly class MeasuredCosts implements Configurable, CostModel
         return new self($root, $perLine);
     }
 
-    /** `{"secondsPerLine": {"": 0.2, "src/Http": 0.5}}`, read from the working directory. */
+    /** `{"secondsPerLine": {"": 0.2, "src/Http": 0.5}}`, as `costs.secondsPerLine`, read from the working directory. */
     public static function fromOptions(Options $options): self|Invalid
     {
-        $perLine = Node::decode($options->json())->field('secondsPerLine');
+        $perLine = $options->object(Key::of(SecondsPerLine::KEY));
+
+        if ($perLine instanceof NotGiven) {
+            return Invalid::because(Problem::at(SecondsPerLine::KEY, 'expected the seconds a line costs, got nothing'));
+        }
+
+        if ($perLine instanceof Problem) {
+            return Invalid::because($perLine);
+        }
+
         $rates = [];
 
-        try {
-            foreach ($perLine->isPresent() ? $perLine->entries() : [] as $prefix => $seconds) {
-                $rates[] = LineRate::of($prefix, Seconds::of($seconds->number()));
-            }
-
-            $rate = $perLine->isPresent() ? SecondsPerLine::of(...$rates) : SecondsPerLine::standard();
-
-            return self::at(Root::here(), $rate);
-        } catch (NotInShape) {
-            return Invalid::because(Problem::at('secondsPerLine', 'This maps a path prefix to seconds a line.'));
+        foreach ($perLine as $prefix) {
+            $seconds = $perLine->number($prefix);
+            $rates[] = is_float($seconds) ? LineRate::of($prefix->value(), Seconds::of($seconds)) : $seconds;
         }
+
+        $problems = [...array_filter(
+            $rates,
+            static fn(LineRate|Problem|NotGiven $rate): bool => $rate instanceof Problem,
+        )];
+
+        return $problems === []
+            ? self::at(
+                Root::here(),
+                SecondsPerLine::of(...array_filter(
+                    $rates,
+                    static fn(LineRate|Problem|NotGiven $rate): bool => $rate instanceof LineRate,
+                )),
+            )
+            : Invalid::because(...$problems);
     }
 
     public function cost(Unit $unit, Timings $learned): Seconds

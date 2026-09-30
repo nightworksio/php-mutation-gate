@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -21,7 +22,6 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
 use function preg_match;
@@ -86,7 +86,7 @@ final readonly class CircleCiPlan implements CiPlan, Configurable
     }
 
     /** The job's OpenID Connect tokens. */
-    public function withheld(): Withheld
+    public static function withheld(): Withheld
     {
         return Withheld::of('CIRCLE_OIDC_TOKEN*');
     }

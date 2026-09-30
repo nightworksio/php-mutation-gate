@@ -23,6 +23,9 @@ use function usort;
  */
 final readonly class SecondsPerLine implements IteratorAggregate
 {
+    /** The key it is written under, in `costs` and in the options of the `learned` cost model. */
+    public const string KEY = 'secondsPerLine';
+
     /** The default: every path, at a fifth of a second a line. */
     private const float STANDARD = 0.2;
 

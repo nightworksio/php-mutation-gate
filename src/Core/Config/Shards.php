@@ -73,15 +73,18 @@ final readonly class Shards implements Part
         );
     }
 
-    /** Where a later layer sets `target` or `seconds`, the one it sets replaces the other. */
+    /**
+     * Where a later layer sets one of `target` and `seconds`, it replaces the other. A part that sets both keeps
+     * both, for the definition to refuse.
+     */
     public function over(Part $later): self
     {
         if (! $later instanceof self) {
             return $this;
         }
 
-        $cutByTarget = ! $later->target instanceof Absent;
-        $cutBySeconds = ! $later->seconds instanceof Absent;
+        $cutByTarget = ! $later->target instanceof Absent && $later->seconds instanceof Absent;
+        $cutBySeconds = ! $later->seconds instanceof Absent && $later->target instanceof Absent;
 
         return new self(
             $cutByTarget ? new Absent() : Absent::laid($this->seconds, $later->seconds),
@@ -121,6 +124,18 @@ final readonly class Shards implements Part
             : SecondsPerLine::standard();
     }
 
+    /** The options the gate hands the cost model it builds in, `learned`: the seconds a line costs, by prefix. */
+    public function costOptions(): Options
+    {
+        $perLine = Json::object();
+
+        foreach ($this->secondsPerLine() as $prefix => $seconds) {
+            $perLine = $perLine->with(Member::of($prefix, $seconds));
+        }
+
+        return Options::of(Json::object(Member::of(SecondsPerLine::KEY, $perLine)));
+    }
+
     /** `shards.target`: the wall time the count is cut to fit, in place of `shards.seconds` (ADR-0013). */
     public function target(): Seconds|Absent
     {
@@ -133,7 +148,7 @@ final readonly class Shards implements Part
         return $this->perRunnerMinute;
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return Json::object(
             Member::unlessEmpty(
@@ -152,7 +167,7 @@ final readonly class Shards implements Part
                 'costs',
                 Json::object(
                     Member::of(
-                        'secondsPerLine',
+                        SecondsPerLine::KEY,
                         $this->secondsPerLine instanceof Table
                             ? $this->perLineFrom($origin)->written()
                             : $this->secondsPerLine,
@@ -168,7 +183,7 @@ final readonly class Shards implements Part
         );
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         $settings = [
             ...$this->seconds instanceof Seconds
@@ -187,7 +202,7 @@ final readonly class Shards implements Part
     }
 
     /** @return list<string> */
-    private function costs(Origin $origin): array
+    private function costs(PathOrigin $origin): array
     {
         $calls = [];
 
@@ -219,7 +234,7 @@ final readonly class Shards implements Part
     }
 
     /** `costs.secondsPerLine` as a layer at this origin writes it: each prefix but `""`, every path, named from it. */
-    private function perLineFrom(Origin $origin): Table
+    private function perLineFrom(PathOrigin $origin): Table
     {
         $from = Table::none();
 

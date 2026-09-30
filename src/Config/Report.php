@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
+use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
@@ -16,23 +17,23 @@ final readonly class Report
 
     public static function json(string $path): self
     {
-        return self::writing('json', $path);
+        return self::writing(BuiltinReporter::Json->value, $path);
     }
 
     public static function junit(string $path): self
     {
-        return self::writing('junit', $path);
+        return self::writing(BuiltinReporter::JUnit->value, $path);
     }
 
     public static function sarif(string $path): self
     {
-        return self::writing('sarif', $path);
+        return self::writing(BuiltinReporter::Sarif->value, $path);
     }
 
     /** The HTML report, written into a directory. */
     public static function html(string $path): self
     {
-        return self::writing('html', $path);
+        return self::writing(BuiltinReporter::Html->value, $path);
     }
 
     /** A reporter another extension registers by name, or a class, with its options, writing no file. */

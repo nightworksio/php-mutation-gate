@@ -5,43 +5,35 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use function dirname;
-use function mb_strlen;
-use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function pathinfo;
-use function sprintf;
-use function str_starts_with;
 
 /**
  * A config file in a project (ADR-0002): the file a loader reads, and the
- * origin of its paths, which it names from its own directory. Where the
- * project itself is stays out of what is read, so every path a config holds
- * is the same on every machine.
+ * origin of its paths, which it names from its own directory. Each is read as
+ * the path from the project it lands on, wherever the file is, so every path
+ * a config holds is the same on every machine; one that lands outside the
+ * project, or is absolute, is refused.
  */
-final readonly class ConfigFile implements Origin
+final readonly class ConfigFile implements PathOrigin
 {
-    /** @param string $directory the file's directory from the project; '' for the project, absolute outside it */
-    private function __construct(private Path $file, private string $directory)
+    private function __construct(private Path $file, private Path $directory, private Path $project)
     {
     }
 
-    /** A config file, and the project whose paths it names. */
+    /** A config file, and the project whose paths it names; a file spelt from the project is inside it. */
     public static function at(Path $file, Path $project): self
     {
         $directory = dirname($file->value());
-        $root = $project->value();
 
         return new self(
             $file,
-            match (true) {
-                $directory === $root, $directory === '.' => '',
-                str_starts_with($directory, sprintf('%s/', $root)) => mb_substr($directory, mb_strlen($root) + 1),
-                default => $directory,
-            },
+            $file->isAbsolute() ? Path::of($directory) : ConfigPath::of($directory, $project->value())->path(),
+            $project,
         );
     }
 
@@ -66,13 +58,22 @@ final readonly class ConfigFile implements Origin
         return Definition::layer(Node::config($config->line()), $this);
     }
 
+    public function reachesOutside(): bool
+    {
+        return false;
+    }
+
     public function path(Path $written): Path
     {
-        return ConfigPath::of($written->value(), $this->directory)->path();
+        $landed = ConfigPath::of($written->value(), $this->directory->value())->path();
+
+        return $written->isAbsolute() ? $written : $landed->from($this->project);
     }
 
     public function written(Path $path): string
     {
-        return ConfigPath::from($path, $this->directory);
+        $from = ConfigPath::of($path->value(), $this->project->value())->path();
+
+        return $path->isAbsolute() ? $path->value() : $from->from($this->directory)->value();
     }
 }

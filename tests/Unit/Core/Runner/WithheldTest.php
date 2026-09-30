@@ -42,3 +42,12 @@ it('withholds what both withhold, each once, and only grows', function () use ($
         ->and($withholds($both, 'CI_JOB_TOKEN'))->toBeTrue()
         ->and($withholds(Withheld::standard(), 'CI_JOB_TOKEN'))->toBeFalse();
 });
+
+it('composes what every run withholds, each CI plan\'s credentials and the runner\'s, each once', function (): void {
+    expect([...Withheld::composed(
+        Withheld::of('DEPLOY_*', 'CI_JOB_TOKEN'),
+        Withheld::of('CI_JOB_TOKEN'),
+        Withheld::of('BUILDKITE_AGENT_TOKEN'),
+    )])->toBe([...Withheld::standard(), 'CI_JOB_TOKEN', 'BUILDKITE_AGENT_TOKEN', 'DEPLOY_*'])
+        ->and([...Withheld::composed(Withheld::nothing())])->toBe([...Withheld::standard()]);
+});

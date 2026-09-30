@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Registry\Entries;
 use NightWorksIO\MutationGate\Core\Registry\Entry;
@@ -76,4 +77,14 @@ it('merges another\'s entries into its own, the other\'s winning a shared name',
     expect($merged->find(Name::of('sarif')))->toEqual(Name::of('ours'))
         ->and($merged->find(Name::of('json')))->toEqual(Name::of('theirs'))
         ->and($merged->find(Name::of('junit')))->toEqual(Name::of('theirs'));
+});
+
+it('names each entry in the order it was registered, once', function (): void {
+    $entries = new Entries(ExtensionPoint::CiPlan)
+        ->with(registeredEntry('gitlab', 'nightworksio/mutation-gate', Name::of('GitLab')))
+        ->with(registeredEntry('acme', 'acme/gate', Name::of('Acme')))
+        ->with(registeredEntry('gitlab', 'nightworksio/mutation-gate', Name::of('GitLab again')));
+
+    expect($entries->names())->toEqual(Listed::of(Name::of('gitlab'), Name::of('acme')))
+        ->and(new Entries(ExtensionPoint::CiPlan)->names())->toEqual(Listed::of());
 });

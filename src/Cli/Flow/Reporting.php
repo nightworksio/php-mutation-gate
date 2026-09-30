@@ -8,8 +8,11 @@ use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -56,8 +59,10 @@ final readonly class Reporting
         foreach ([...$settings->reports()] as $index => $report) {
             $path = $report->path();
             $choice = $report->reporter();
-            $options = $path instanceof Path ? $this->withPath($choice->options(), $path) : $choice->options();
-            $reporters[] = $this->chosen->reporter(Choice::of($choice->use(), $options), $index);
+            $options = $path instanceof Path
+                ? $choice->options()->overPath(Key::of('path'), $path)
+                : $choice->options();
+            $reporters[] = $this->chosen->reporter(Choice::of($choice->use()->value(), $options), $index);
         }
 
         return $reporters;
@@ -66,19 +71,31 @@ final readonly class Reporting
     /** @return list<Reporter|Invalid|CannotJudge> the reporters where the run is and what it runs on choose */
     private function byTheRun(Settings $settings, RunOn $runOn): array
     {
-        $none = Json::object();
-        $badge = Choice::of('badge', Json::object(Member::of('colors', $settings->badge()->written())));
+        $none = Options::none();
+        $badge = Choice::of(
+            BuiltinReporter::Badge->value,
+            Options::of(Json::object(Member::of('colors', $settings->badge()->written()))),
+        );
 
         return [
             ...$this->onGitHub() ? [
-                $this->chosen->reporterChosenBy(Variables::GITHUB_ACTIONS, Choice::of('github-annotations', $none)),
-                $this->chosen->reporterChosenBy(Variables::GITHUB_ACTIONS, Choice::of('github-summary', $none)),
+                $this->chosen->reporterChosenBy(
+                    Variables::GITHUB_ACTIONS,
+                    Choice::of(BuiltinReporter::GitHubAnnotations->value, $none),
+                ),
+                $this->chosen->reporterChosenBy(
+                    Variables::GITHUB_ACTIONS,
+                    Choice::of(BuiltinReporter::GitHubSummary->value, $none),
+                ),
             ] : [],
             ...$this->onAPullRequestThatCanBeCommentedOn()
-                ? [$this->chosen->reporterChosenBy(Variables::GITHUB_ACTIONS, Choice::of('github-comment', $none))]
+                ? [$this->chosen->reporterChosenBy(
+                    Variables::GITHUB_ACTIONS,
+                    Choice::of(BuiltinReporter::GitHubComment->value, $none),
+                )]
                 : [],
             ...$this->environment->inCi() && $this->onDefaultBranch($runOn)
-                ? [$this->chosen->reporterChosenBy('badge', $badge)]
+                ? [$this->chosen->reporterChosenBy(BuiltinReporter::Badge->value, $badge)]
                 : [],
         ];
     }
@@ -101,11 +118,5 @@ final readonly class Reporting
         $default = $runOn->defaultBranch();
 
         return $scope instanceof Scope && $default instanceof Scope && $scope->equals($default);
-    }
-
-    /** A reporter's options, with the path its `reports` entry names, which it reads from there. */
-    private function withPath(Json $options, Path $path): Json
-    {
-        return Json::object(Member::of('path', $path->value()))->merged($options);
     }
 }

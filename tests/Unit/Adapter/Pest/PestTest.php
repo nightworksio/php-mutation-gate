@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Ran;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -64,7 +65,7 @@ use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -678,8 +679,8 @@ it('is Pest in the project the gate runs in, as its options say, or the options\
         Project::at('.', Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('lib/vendor')),
         new ProcessShell(Project::at('.', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'))->root()),
         Patching::off(),
-    ))->and(Pest::fromOptions(Options::ofJson('{"patch": 1}'), Path::of('vendor')))->toEqual(Invalid::because(
-        Problem::at('patch', 'Whether the project applies pest:patch is true or false.'),
+    ))->and(Pest::fromOptions(Configs::options('{"patch": 1}'), Path::of('vendor')))->toEqual(Invalid::because(
+        Problem::at('patch', 'expected true or false, got 1'),
     ));
 });
 

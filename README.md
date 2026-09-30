@@ -328,16 +328,33 @@ reports:
 Quote mutant ids in YAML and NEON: an id such as `12e456789012` would
 otherwise be read as a number. Dates need no quotes.
 
+Every path and glob a config file writes is named from the file's own
+directory, and one that goes up out of the project, or is absolute, is
+refused
+([ADR-0002](.docs/decisions/0002-one-typed-config-from-several-formats.md)).
+Only the command line names a file outside the project, by its absolute
+path: `--report json:/tmp/mutation.json`.
+
 A setting that names an adapter takes either a registered name (`"pest"`,
 `"sarif"`) or a class with its options (`{"use": "Acme\\Gate\\SlackReporter",
-"with": {"channel": "#ci"}}`). Packages that offer adapters are found through
+"with": {"channel": "#ci"}}`). A `use` with a backslash is a class, so a class
+in the global namespace is written `"\\SlackReporter"`. The adapter reads its
+options through `NightWorksIO\MutationGate\Core\Config\Options`, one key at a
+time as a type: `$options->text(Key::of('channel'))` answers the text,
+`NotGiven`, or the problem at `channel`. `$options->path(Key::of('cache'))`
+names a path from the config file's directory, as the gate names its own,
+and answers a path that lands outside the project as a problem. Packages that offer adapters are found through
 `extra.mutation-gate.extensions` in their `composer.json`
 ([ADR-0001](.docs/decisions/0001-a-framework-free-core-behind-nine-ports.md)).
 An extension's `Extensions` registry is made with the `Origin` of its package,
 `NightWorksIO\MutationGate\Core\Registry\Origin`. A config loader an
 extension registers decodes its format into JSON and reads it with
 `ConfigFile::read()`, so the gate's own definition judges every file, and
-`ConfigLoaderContract::failures()` holds it to what every loader answers. A
+`ConfigLoaderContract::failures()` holds it to what every loader answers. It
+reads one fixture of each case in the loader's format, from a directory the
+extension names: `valid`, `invalid`, `dated`, `up`, `adapter` and `broken`,
+and `unquoted` where the format can write a number as a mutant id. Its
+docblock says what each one writes. A
 preset an extension registers is a layer of config, such as
 `Gate::configure()->…->layer(ProjectRoot::origin())` builds
 ([ADR-0002](.docs/decisions/0002-one-typed-config-from-several-formats.md)).
@@ -409,8 +426,8 @@ and `?` match within one directory, and `**` across any number of them.
 | `treeSource.with.fallback` | list of paths, the trees when `phpunit.xml` has no `<source>` | `[]`, or the preset's; `[]` takes the `autoload` paths of `composer.json` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `trees` | list of `{path, floor, reason}` | the tree source's trees | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `trees[].floor` | number, 0 to 100 | the nearest manifest's, if any | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
-| `trees[].reason` | string | none; required when `floor` is 0 | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
-| `trees[].exclude` | list of globs from the repository root, each matching a file in the tree | `[]` | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
+| `trees[].reason` | string | none; required when `floor` is 0, and refused beside any other | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
+| `trees[].exclude` | list of globs, each matching a file in the tree | `[]` | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `newCode.floor` | number, 0 to 100 | `100` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `uncovered` | `count` or `exclude` | `count` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `baseline.path` | path | `mutation-gate.baseline.json` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
@@ -435,7 +452,7 @@ and `?` match within one directory, and `**` across any number of them.
 | `proofs.store.with.bucket` (`s3`) | string | none; required | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.prefix` (`s3`) | string | `mutation-gate` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.region` (`s3`) | string | `us-east-1` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
-| `proofs.store.with.endpoint` (`s3`) | URL | AWS's own | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `proofs.store.with.endpoint` (`s3`) | `http://` or `https://` URL | AWS's own | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.publicUrl` (`s3`) | `https://` URL a run without credentials reads ledgers from | none | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `proofs.ignore` | list of globs | `[]` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.write` | `auto` or `never` | `auto` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
@@ -449,13 +466,13 @@ and `?` match within one directory, and `**` across any number of them.
 | `ignores.maxDays` | integer | none | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `ignores.native` | `refuse` or `allow` | `refuse` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `equivalence.static` | boolean | `true` | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
-| `reports` | list of `{use, path, with}`; built-in `json`, `junit`, `sarif`, `html`, `tests`, `kill-matrix`, `gitlab`, and without a `path` `slack`, `discord`, `webhook`, `otlp` | `[]` | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `reports` | list of `{use, path, with}`; built-in `json`, `junit`, `sarif`, `html`, `tests`, `kill-matrix`, `gitlab`; `badge`, whose `path` is `--publish-dir` where it names none; and without a `path` `console`, `problems`, `slack`, `discord`, `webhook`, `otlp`, `github-annotations`, `github-summary`, `github-comment`. A config names every `path` inside the project | `[]` | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `badge.colors` | map of shields.io colour to lowest score | `{"brightgreen": 90, "green": 80, "yellow": 70, "orange": 60}`, red below | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `pest.patch` | boolean | `false` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
-| `pest.canary` | group name | `mutation-canary` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `pest.canary` | group name, with no whitespace | `mutation-canary` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `staticCheck.tool` | adapter: `mago`, `phpstan`, `psalm`; or `auto`, the first installed and configured, or `none` | `auto` | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | `staticCheck.config` | path | the analyser's own | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
-| `local.watchBudget` | duration | `60s` | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
+| `local.watchBudget` | duration | `1m` | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 | `local.prePushBudget` | duration | `5m` | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 
 In a `composer.json`, under `extra.mutation-gate`:

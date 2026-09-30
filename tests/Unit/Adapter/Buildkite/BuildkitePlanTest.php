@@ -6,10 +6,13 @@ use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -25,7 +28,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
@@ -57,7 +60,7 @@ $verdict = [
     'command' => [BUILDKITE_DOWNLOAD, BUILDKITE_VERDICT],
 ];
 
-$on = static fn(Variables $variables): BuildkitePlan => BuildkitePlan::printing('', [], $variables);
+$on = static fn(Variables $variables): BuildkitePlan => BuildkitePlan::printing('', BuildkiteStep::none(), $variables);
 
 it('prints a step per shard, a wait that continues on failure, and the verdict', function () use (
     $stepsIn,
@@ -66,7 +69,7 @@ it('prints a step per shard, a wait that continues on failure, and the verdict',
     $verdict,
 ): void {
     $file = sprintf('%s/steps.json', Scratch::directory());
-    $written = BuildkitePlan::printing($file, [], Variables::of([]))->publish(ShardedPlan::of(2));
+    $written = BuildkitePlan::printing($file, BuildkiteStep::none(), Variables::of([]))->publish(ShardedPlan::of(2));
 
     expect($written)->toEqual(Written::to($file))
         ->and($stepsIn((string) file_get_contents($file)))->toBe([
@@ -94,7 +97,7 @@ it('builds every command step from the template, whose commands run first', func
 ): void {
     $file = sprintf('%s/steps.json', Scratch::directory());
     $template = ['agents' => ['queue' => 'mutation'], 'command' => 'composer install', 'env' => ['CI' => 'true']];
-    BuildkitePlan::printing($file, $template, Variables::of([]))->publish(ShardedPlan::of(1));
+    BuildkitePlan::printing($file, BuildkiteStep::of(Configs::options((string) json_encode($template))->written()), Variables::of([]))->publish(ShardedPlan::of(1));
 
     expect($stepsIn((string) file_get_contents($file)))->toBe([
         [
@@ -116,10 +119,10 @@ it('builds every command step from the template, whose commands run first', func
     ]);
 });
 
-it('runs a template\'s list of commands first, leaving out what is not a command', function () use ($stepsIn): void {
+it('runs a template\'s list of commands first', function () use ($stepsIn): void {
     $file = sprintf('%s/steps.json', Scratch::directory());
-    $template = ['command' => ['composer install', 7, 'make warm']];
-    BuildkitePlan::printing($file, $template, Variables::of([]))->publish(ShardedPlan::of(0));
+    $template = ['command' => ['composer install', 'make warm']];
+    BuildkitePlan::printing($file, BuildkiteStep::of(Configs::options((string) json_encode($template))->written()), Variables::of([]))->publish(ShardedPlan::of(0));
 
     expect($stepsIn((string) file_get_contents($file))[1])->toBe([
         'command' => ['composer install', 'make warm', BUILDKITE_DOWNLOAD, BUILDKITE_VERDICT],
@@ -128,9 +131,14 @@ it('runs a template\'s list of commands first, leaving out what is not a command
     ]);
 });
 
+it('refuses a template whose command is neither a command nor a list of them', function (string $command): void {
+    expect(BuildkitePlan::fromOptions(Configs::options(sprintf('{"step": {"command": %s}, "definition": "ci.yml"}', $command))))
+        ->toEqual(Invalid::because(Problem::at('step.command', 'expected a command, or a list of commands, as text')));
+})->with(['a number' => ['7'], 'a list with a number' => ['["composer install", 7]']]);
+
 it('prints only the wait and the verdict for a plan with no shards', function () use ($stepsIn, $wait, $verdict): void {
     $file = sprintf('%s/steps.json', Scratch::directory());
-    BuildkitePlan::printing($file, [], Variables::of([]))->publish(ShardedPlan::of(0));
+    BuildkitePlan::printing($file, BuildkiteStep::none(), Variables::of([]))->publish(ShardedPlan::of(0));
 
     expect($stepsIn((string) file_get_contents($file)))->toBe([$wait, $verdict]);
 });
@@ -138,7 +146,7 @@ it('prints only the wait and the verdict for a plan with no shards', function ()
 it('cannot judge steps it cannot print', function (): void {
     $root = Scratch::directory();
     Scratch::write($root, 'file', 'a file where a directory should be');
-    $printing = BuildkitePlan::printing(sprintf('%s/file/steps.json', $root), [], Variables::of([]));
+    $printing = BuildkitePlan::printing(sprintf('%s/file/steps.json', $root), BuildkiteStep::none(), Variables::of([]));
     set_error_handler(static fn(): bool => true);
     $written = $printing->publish(ShardedPlan::of(1));
     restore_error_handler();
@@ -179,7 +187,7 @@ it('cannot tell the run where Buildkite names no branch', function () use ($on):
 });
 
 it('prints to the output with the step template its options give', function () use ($stepsIn): void {
-    $plan = BuildkitePlan::fromOptions(Options::ofJson('{"step": {"agents": {"queue": "mutation"}}}'));
+    $plan = BuildkitePlan::fromOptions(Configs::options('{"step": {"agents": {"queue": "mutation"}}, "definition": "ci.yml"}'));
     ob_start();
     $written = $plan instanceof BuildkitePlan ? $plan->publish(ShardedPlan::of(0)) : $plan;
     $printed = (string) ob_get_clean();
@@ -194,8 +202,8 @@ it('prints to the output with the step template its options give', function () u
 });
 
 it('takes no step template where its options name none', function () use ($stepsIn, $verdict): void {
-    foreach (['{}', '"not a map"', '{"step": {}}'] as $options) {
-        $plan = BuildkitePlan::fromOptions(Options::ofJson($options));
+    foreach (['{"definition": "ci.yml"}', '{"step": {}, "definition": "ci.yml"}'] as $options) {
+        $plan = BuildkitePlan::fromOptions(Configs::options($options));
         ob_start();
         $written = $plan instanceof BuildkitePlan ? $plan->publish(ShardedPlan::of(0)) : $plan;
         $printed = (string) ob_get_clean();
@@ -208,8 +216,8 @@ it('takes no step template where its options name none', function () use ($steps
 it('refuses a step template that is not a map of step keys', function (): void {
     $refused = Invalid::because(Problem::at('step', 'The step template is a map of step keys.'));
 
-    expect(BuildkitePlan::fromOptions(Options::ofJson('{"step": ["agents"]}')))->toEqual($refused)
-        ->and(BuildkitePlan::fromOptions(Options::ofJson('{"step": "agents"}')))->toEqual($refused);
+    expect(BuildkitePlan::fromOptions(Configs::options('{"step": ["agents"]}')))->toEqual($refused)
+        ->and(BuildkitePlan::fromOptions(Configs::options('{"step": "agents"}')))->toEqual($refused);
 });
 
 it('gives no scope to a tag, which is no branch the gate writes for', function () use ($on): void {
@@ -222,22 +230,24 @@ it('is run by the pipeline it uploads from the repository', function () use ($on
     expect($on(Variables::of([]))->definitions())->toEqual(Paths::of(Path::of('.buildkite/pipeline.yml')));
 });
 
-it('withholds the agent\'s token', function () use ($on): void {
-    expect($on(Variables::of([]))->withheld())->toEqual(Withheld::of('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN'));
+it('withholds the agent\'s token', function (): void {
+    expect(BuildkitePlan::withheld())->toEqual(Withheld::of('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN'));
 });
 
 it('is run by the pipeline its options name, and refuses one that is not a path', function (): void {
     $definitions = static function (string $options): Paths|Invalid {
-        $plan = BuildkitePlan::fromOptions(Options::ofJson($options));
+        $plan = BuildkitePlan::fromOptions(Configs::options($options));
 
         return $plan instanceof BuildkitePlan ? $plan->definitions() : $plan;
     };
-    $refused = Invalid::because(Problem::at('definition', 'The pipeline that runs the gate is a path, as text.'));
+    $missing = Invalid::because(Problem::at('definition', 'expected the pipeline that runs the gate, as a path'));
 
     expect($definitions('{"definition": ".buildkite/mutation.yml"}'))->toEqual(Paths::of(Path::of('.buildkite/mutation.yml')))
-        ->and($definitions('{}'))->toEqual(Paths::of(Path::of('.buildkite/pipeline.yml')))
-        ->and($definitions('{"definition": 3}'))->toEqual($refused)
-        ->and($definitions('{"definition": ""}'))->toEqual($refused);
+        ->and($definitions(Ci::none()->planOptions(Name::of('buildkite'))->written()->line()))
+        ->toEqual(Paths::of(Path::of('.buildkite/pipeline.yml')))
+        ->and($definitions('{"definition": 3}'))->toEqual(Invalid::because(Problem::at('definition', 'expected text, got 3')))
+        ->and($definitions('{}'))->toEqual($missing)
+        ->and($definitions('{"definition": ""}'))->toEqual($missing);
 });
 
 it('keeps its steps and variables when it is run by another pipeline', function () use ($on): void {
@@ -258,7 +268,7 @@ it('writes a label as the agent shows it, so a path a pull request names expands
         'src/$BUILDKITE_AGENT_ACCESS_TOKEN.php',
     )));
 
-    BuildkitePlan::printing($file, [], Variables::of([]))->publish($plan);
+    BuildkitePlan::printing($file, BuildkiteStep::none(), Variables::of([]))->publish($plan);
 
     expect($stepsIn((string) file_get_contents($file))[0])->toMatchArray(['label' => 'mutation: src/$$BUILDKITE_AGENT_ACCESS_TOKEN.php']);
 });

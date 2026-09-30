@@ -49,7 +49,9 @@ it('keeps only the parts of a setting that affect results where the setting itse
         ->toBe('{"timeouts":{"seconds":10}}');
 });
 
-it('writes an empty object as an empty list does', function () use ($affects): void {
-    expect(Canonical::of(Json::object(Member::of('x', Json::object())), ['x' => $affects]))
-        ->toBe(Canonical::of(Json::object(Member::of('x', Json::items())), ['x' => $affects]));
+it('keeps an empty object an object, and an empty list a list', function () use ($affects): void {
+    expect(Canonical::of(Json::object(Member::of('x', Json::object())), ['x' => $affects]))->toBe('{"x":{}}')
+        ->and(Canonical::of(Json::object(Member::of('x', Json::items())), ['x' => $affects]))->toBe('{"x":[]}')
+        ->and(Canonical::of(Json::object(Member::of('x', Json::items(Json::object()))), ['x' => $affects]))
+        ->toBe('{"x":[{}]}');
 });

@@ -13,11 +13,12 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
@@ -86,6 +87,7 @@ final class Registering
             ExtensionPoint::CiPlan => $registry->withCiPlan(
                 $name,
                 static fn(Options $options): CiPlan|Invalid => self::built($build($options), CiPlan::class),
+                Withheld::nothing(),
             ),
             ExtensionPoint::Reporter => $registry->withReporter(
                 $name,
@@ -127,7 +129,7 @@ final class Registering
             ExtensionPoint::TreeSource => $registry->withTreeSource($name, $build),
             ExtensionPoint::CostModel => $registry->withCostModel($name, $build),
             ExtensionPoint::ProofStore => $registry->withProofStore($name, $build),
-            ExtensionPoint::CiPlan => $registry->withCiPlan($name, $build),
+            ExtensionPoint::CiPlan => $registry->withCiPlan($name, $build, Withheld::nothing()),
             ExtensionPoint::Reporter => $registry->withReporter($name, $build),
             ExtensionPoint::ChangeSource => $registry->withChangeSource($name, $build),
             ExtensionPoint::Repository => $registry->withRepository($name, $build),

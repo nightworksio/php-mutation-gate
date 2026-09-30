@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 
 /** How the keys a config writes are read into its `Setup` part (ADR-0002). */
@@ -18,7 +18,7 @@ final readonly class SetupKeys
     private const string SCHEMA_KEY = 'The JSON Schema an editor checks this file by.';
 
     /** @return list<Field<Layer>> */
-    public static function fields(Origin $origin): array
+    public static function fields(PathOrigin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
         $results = Effect::AffectsResults;
@@ -51,7 +51,7 @@ final readonly class SetupKeys
             Field::optional(
                 'runner',
                 Into::of(
-                    RunnerChoice::choosing(Builtins::runners()),
+                    RunnerChoice::choosing(Builtins::runners($origin)),
                     static fn(Setup $runner): Layer => Layer::of($runner),
                 ),
                 $results,

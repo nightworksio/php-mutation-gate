@@ -34,17 +34,29 @@ use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
+use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
+use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
+use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
+use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\Ci;
+use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 
 $registry = static fn(): Extensions => new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)));
@@ -61,18 +73,22 @@ it('is named in this package\'s own composer.json', function (): void {
 });
 
 it('registers the directory and the bucket proof stores', function () use ($registry): void {
-    expect(Lookup::in($registry())->proofStore(Name::of('directory'), Options::none()))
+    $stores = Builtins::stores(ProjectRoot::origin());
+
+    expect(Lookup::in($registry())->proofStore(Name::of('directory'), Configs::builtin($stores, 'directory')))
         ->toEqual(LedgerDirectory::at(Workspace::ledger()->value()))
-        ->and(Lookup::in($registry())->proofStore(Name::of('s3'), Options::ofJson('{"bucket": "ledgers"}')))
+        ->and(Lookup::in($registry())->proofStore(Name::of('s3'), Configs::builtin($stores, 's3', '{"bucket": "ledgers"}')))
         ->toBeInstanceOf(BucketLedger::class);
 });
 
 it('registers the cost model that learns from every shard', function () use ($registry): void {
-    expect(Lookup::in($registry())->costModel(Name::of('learned'), Options::none()))->toBeInstanceOf(MeasuredCosts::class);
+    expect(Lookup::in($registry())->costModel(Name::of('learned'), Shards::none()->costOptions()))
+        ->toBeInstanceOf(MeasuredCosts::class);
 });
 
 it('registers a CI plan for each CI it knows, and plain JSON', function () use ($registry): void {
-    $plan = static fn(string $name): object => Lookup::in($registry())->ciPlan(Name::of($name), Options::none());
+    $plan = static fn(string $name): object => Lookup::in($registry())
+        ->ciPlan(Name::of($name), Ci::none()->planOptions(Name::of($name)));
 
     expect($plan('github'))->toBeInstanceOf(GitHubPlan::class)
         ->and($plan('gitlab'))->toBeInstanceOf(GitLabPlan::class)
@@ -100,11 +116,11 @@ it('verifies GitHub\'s word by the check-run its check option names, and takes g
     $lookup = Lookup::in($registry());
     $built = Environment::during(
         $run,
-        static fn(): object => $lookup->changeSource(Name::of('github'), Options::ofJson($options)),
+        static fn(): object => $lookup->changeSource(Name::of('github'), Configs::options($options)),
     );
     $repository = Environment::during(
         $run,
-        static fn(): object => $lookup->repository(Name::of('github'), Options::ofJson($options)),
+        static fn(): object => $lookup->repository(Name::of('github'), Configs::options($options)),
     );
 
     expect($built::class)->toBe($source)
@@ -130,7 +146,7 @@ it('registers a loader for every config format, the tree sources and the presets
 
 it('registers Infection as a runner, built from the options the flows write', function () use ($registry): void {
     expect(Lookup::in($registry())->runner(Name::of('infection'), Options::none()))->toBeInstanceOf(Infection::class)
-        ->and(Lookup::in($registry())->runner(Name::of('infection'), Options::ofJson('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
+        ->and(Lookup::in($registry())->runner(Name::of('infection'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
 });
 
 it('registers Pest as a runner, in the vendor directory Composer installed the project into', function () use (
@@ -141,7 +157,7 @@ it('registers Pest as a runner, in the vendor directory Composer installed the p
 });
 
 it('registers the console, every file report, GitHub\'s three and the badge by name', function () use ($registry): void {
-    $reporter = static fn(string $name, string $options = '{}'): object => Lookup::in($registry())->reporter(Name::of($name), Options::ofJson($options));
+    $reporter = static fn(string $name, string $options = '{}'): object => Lookup::in($registry())->reporter(Name::of($name), Configs::options($options));
     $sarif = Environment::during(['CI' => 'true'], static fn(): object => $reporter('sarif', '{"path": "build/mutation.sarif"}'));
 
     expect($reporter('console'))->toBeInstanceOf(ConsoleReport::class)
@@ -158,4 +174,19 @@ it('registers the console, every file report, GitHub\'s three and the badge by n
         ->and($reporter('github-comment'))->toBeInstanceOf(PullRequestComment::class)
         ->and($reporter('badge'))->toBeInstanceOf(BadgeDirectory::class)
         ->and($reporter('json'))->toBeInstanceOf(Invalid::class);
+});
+
+it('withholds both Buildkite agent tokens though the step it is given cannot build the plan', function () use (
+    $registry,
+): void {
+    $buildkite = BuiltinCiPlan::Buildkite->named();
+    $ci = Ci::of(
+        plan: Choice::of($buildkite->value(), Options::none()),
+        buildkiteStep: BuildkiteStep::of(Json::object(Member::of(BuildkiteStep::COMMAND, 7))),
+    );
+    $chosen = new Chosen($registry());
+
+    expect($chosen->ciPlan(Choice::of($buildkite->value(), $ci->planOptions($buildkite))))->toBeInstanceOf(Invalid::class)
+        ->and([...$chosen->withheld($ci, Withheld::nothing())])
+        ->toContain('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN');
 });

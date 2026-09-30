@@ -3,21 +3,6 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\ConfigPath;
-use NightWorksIO\MutationGate\Core\File\Path;
-
-it('names a path from the project as a file in a directory of it writes it', function (
-    string $path,
-    string $directory,
-    string $written,
-): void {
-    expect(ConfigPath::from(Path::of($path), $directory))->toBe($written);
-})->with([
-    'from the project' => ['src', '', 'src'],
-    'from a directory beside it' => ['src', 'ci', '../src'],
-    'from a directory that shares a parent' => ['ci/b/x.yml', 'ci/a', '../b/x.yml'],
-    'the directory itself' => ['.', 'ci', '..'],
-    'an absolute path' => ['/etc/gate', 'ci', '/etc/gate'],
-]);
 
 it('reads a path a file in a directory of the project writes, from the project', function (
     string $written,

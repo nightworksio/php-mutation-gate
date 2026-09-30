@@ -12,14 +12,14 @@ use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\Config\UncoveredMutants;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -28,7 +28,7 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
 final readonly class FloorsKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(Origin $origin): array
+    public static function fields(PathOrigin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
         $floor = Field::optional('floor', Percent::floor(), $judges);
@@ -53,8 +53,8 @@ final readonly class FloorsKeys
             Field::optional(
                 'uncovered',
                 Into::of(
-                    Enumerated::of(UncoveredMutants::cases()),
-                    static fn(UncoveredMutants $uncovered): Layer => Layer::of(Floors::of(uncovered: $uncovered)),
+                    Enumerated::of(Uncovered::cases()),
+                    static fn(Uncovered $uncovered): Layer => Layer::of(Floors::of(uncovered: $uncovered)),
                 ),
                 $judges,
             ),
@@ -86,7 +86,7 @@ final readonly class FloorsKeys
      *
      * @return Section<DeclaredTree>
      */
-    private static function tree(Origin $origin): Section
+    private static function tree(PathOrigin $origin): Section
     {
         $results = Effect::AffectsResults;
         $judges = Effect::JudgesOrReportsOnly;
@@ -134,6 +134,9 @@ final readonly class FloorsKeys
         $excluding = $exclude instanceof Absent ? Listed::of() : $exclude;
 
         return match (true) {
+            ! $reason instanceof Absent && ($floor instanceof Absent || $floor->hundredths() > 0) => Invalid::because(
+                $tree->field('reason')->mismatch('no reason, as only a floor of 0 takes one'),
+            ),
             $floor instanceof Absent => DeclaredTree::of($path, Undeclared::floor(), $excluding),
             $floor->hundredths() > 0 => DeclaredTree::of($path, $floor, $excluding),
             ! $reason instanceof Absent => DeclaredTree::of($path, Exempt::because($reason), $excluding),

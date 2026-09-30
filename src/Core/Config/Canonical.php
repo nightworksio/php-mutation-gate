@@ -41,7 +41,7 @@ final readonly class Canonical
      */
     public static function of(Json $written, array $effects): string
     {
-        $kept = new self($effects)->kept(Node::config($written->line()), '');
+        $kept = new self($effects)->kept(Node::config($written->line()), $written, '');
 
         return $kept instanceof Json ? $kept->line() : Json::object()->line();
     }
@@ -50,22 +50,25 @@ final readonly class Canonical
      * The part of a value at a path that affects results: all of it where its setting does, but for the
      * settings under it that only judge, and else each part under it that does.
      */
-    private function kept(Node $at, string $path): Json|string|int|float|bool|Absent
+    private function kept(Node $at, Json $as, string $path): Json|string|int|float|bool|Absent
     {
         return match (true) {
-            $this->effect($path) === Effect::AffectsResults => $this->whole($at, $path),
+            $this->effect($path) === Effect::AffectsResults => $this->whole($at, $as, $path),
             ! $this->holds($path) => Absent::setting(),
-            default => $this->parts($at, $path),
+            default => $this->parts($at, $as, $path),
         };
     }
 
-    /** A value whose setting affects results, without the settings under it that only judge. */
-    private function whole(Node $at, string $path): Json|string|int|float|bool|Absent
+    /**
+     * A value whose setting affects results, without the settings under it that only judge. An empty object
+     * stays an object, and an empty list a list.
+     */
+    private function whole(Node $at, Json $as, string $path): Json|string|int|float|bool|Absent
     {
         return match ($at->kind()) {
-            Kind::Map => $this->chosen($this->members($at, $path, whole: true)),
-            Kind::List => Json::items(...$this->items($at, $path, whole: true)),
-            Kind::Empty => Json::items(),
+            Kind::Map => $this->chosen($this->members($at, $as, $path, whole: true)),
+            Kind::List => Json::items(...$this->items($at, $as, $path, whole: true)),
+            Kind::Empty => $as->line() === Json::object()->line() ? Json::object() : Json::items(),
             Kind::Text => $at->text(),
             Kind::Integer => $at->integer(),
             Kind::Number => $at->number(),
@@ -75,29 +78,34 @@ final readonly class Canonical
     }
 
     /** The parts of a value under its path that affect results, or nothing where none does. */
-    private function parts(Node $at, string $path): Json|Absent
+    private function parts(Node $at, Json $as, string $path): Json|Absent
     {
         $parts = $at->kind() === Kind::List
-            ? Json::items(...$this->items($at, $path, whole: false))
-            : $this->members($at, $path, whole: false);
+            ? Json::items(...$this->items($at, $as, $path, whole: false))
+            : $this->members($at, $as, $path, whole: false);
 
         return $parts->isEmpty() ? Absent::setting() : $parts;
     }
 
     /** An object of settings, its keys in byte order. */
-    private function members(Node $at, string $path, bool $whole): Json
+    private function members(Node $at, Json $as, string $path, bool $whole): Json
     {
         $entries = $at->entries();
         ksort($entries, SORT_STRING);
         $members = Json::object();
+        $written = [];
+
+        foreach ($as as $key => $value) {
+            $written[sprintf('%s', $key)] = $value;
+        }
 
         foreach ($entries as $key => $member) {
             $under = $path === '' ? $key : sprintf('%s.%s', $path, $key);
             $judged = $this->effect($under) === Effect::JudgesOrReportsOnly;
             $kept = match (true) {
                 $whole && $judged => Absent::setting(),
-                $whole => $this->whole($member, $under),
-                default => $this->kept($member, $under),
+                $whole => $this->whole($member, $written[$key], $under),
+                default => $this->kept($member, $written[$key], $under),
             };
             $members = $members->with(Member::of($key, $kept));
         }
@@ -106,13 +114,14 @@ final readonly class Canonical
     }
 
     /** @return list<Json|string|int|float|bool> */
-    private function items(Node $at, string $path, bool $whole): array
+    private function items(Node $at, Json $as, string $path, bool $whole): array
     {
         $each = sprintf('%s%s', $path, self::EACH);
         $items = [];
+        $written = [...$as];
 
-        foreach ($at->items() as $item) {
-            $kept = $whole ? $this->whole($item, $each) : $this->kept($item, $each);
+        foreach ($at->items() as $index => $item) {
+            $kept = $whole ? $this->whole($item, $written[$index], $each) : $this->kept($item, $written[$index], $each);
 
             if (! $kept instanceof Absent) {
                 $items[] = $kept;

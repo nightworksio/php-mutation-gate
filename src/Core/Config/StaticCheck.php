@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function array_map;
+
 use NightWorksIO\MutationGate\Core\Analysis\BuiltInAnalyser;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -25,15 +27,6 @@ final readonly class StaticCheck implements Part
 
     /** No analyser: every mutant goes to its tests alone. */
     public const string NONE = 'none';
-
-    /** The analysers this package brings, which the PHP builder has a method of its own for. */
-    private const array BUILT_IN = [
-        self::AUTO,
-        self::NONE,
-        BuiltInAnalyser::Mago->value,
-        BuiltInAnalyser::PhpStan->value,
-        BuiltInAnalyser::Psalm->value,
-    ];
 
     private function __construct(private Choice|Absent $tool, private Path|Absent $config)
     {
@@ -65,7 +58,7 @@ final readonly class StaticCheck implements Part
     /** `staticCheck.tool`: the analyser chosen, `auto` where no layer chooses one. */
     public function tool(): Choice
     {
-        return $this->tool instanceof Choice ? $this->tool : Choice::of(self::AUTO, Json::object());
+        return $this->tool instanceof Choice ? $this->tool : Choice::of(self::AUTO, Options::none());
     }
 
     /** `staticCheck.config`: the config the analyser reads, or none, where it discovers its own. */
@@ -74,7 +67,7 @@ final readonly class StaticCheck implements Part
         return $this->config;
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
             'staticCheck',
@@ -85,13 +78,23 @@ final readonly class StaticCheck implements Part
         ));
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
-            ...$this->tool instanceof Choice ? [PhpCalls::chosen($this->tool, 'StaticCheck', ...self::BUILT_IN)] : [],
+            ...$this->tool instanceof Choice ? [PhpCalls::chosen($this->tool, 'StaticCheck', ...$this->builtIn())] : [],
             ...$this->config instanceof Path
                 ? [sprintf('StaticCheck::config(%s)', PhpCalls::literal($origin->written($this->config)))]
                 : [],
         ]);
+    }
+
+    /** @return list<string> `auto`, `none` and the analysers built in, each with a builder method of its own */
+    private function builtIn(): array
+    {
+        return [
+            self::AUTO,
+            self::NONE,
+            ...array_map(static fn(BuiltInAnalyser $analyser): string => $analyser->value, BuiltInAnalyser::cases()),
+        ];
     }
 }

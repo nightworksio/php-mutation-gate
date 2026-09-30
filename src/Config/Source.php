@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Config;
 
 use function array_values;
 
+use NightWorksIO\MutationGate\Core\Config\BuiltinTreeSource;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
@@ -23,8 +24,8 @@ final readonly class Source
     public static function phpunit(string ...$fallback): self
     {
         return $fallback === []
-            ? new self('phpunit')
-            : new self(Json::object(Member::of('use', 'phpunit'))->with(
+            ? new self(BuiltinTreeSource::PhpUnit->value)
+            : new self(Json::object(Member::of('use', BuiltinTreeSource::PhpUnit->value))->with(
                 Member::of(
                     'with',
                     Json::object(Member::of('fallback', Json::items(...array_values($fallback)))),
@@ -35,7 +36,7 @@ final readonly class Source
     /** One tree per `autoload` path of `composer.json`. */
     public static function composer(): self
     {
-        return self::uses('composer');
+        return self::uses(BuiltinTreeSource::Composer->value);
     }
 
     /** A tree source another extension registers by name, or a class, with its options. */

@@ -9,12 +9,12 @@ use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
@@ -85,5 +85,5 @@ it('is run by the config CircleCI reads from the repository', function (): void 
 });
 
 it('withholds the job\'s OpenID Connect tokens', function (): void {
-    expect(CircleCiPlan::printing('', Variables::of([]))->withheld())->toEqual(Withheld::of('CIRCLE_OIDC_TOKEN*'));
+    expect(CircleCiPlan::withheld())->toEqual(Withheld::of('CIRCLE_OIDC_TOKEN*'));
 });

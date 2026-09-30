@@ -10,12 +10,14 @@ use function get_debug_type;
 use function is_file;
 
 use JsonException;
+use LogicException;
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
+use RuntimeException;
 
 use function sprintf;
 
@@ -36,7 +38,7 @@ final readonly class PhpConfig implements ConfigLoader
 
         try {
             $returned = (static fn(string $path): mixed => require $path)($path);
-        } catch (Error|JsonException $error) {
+        } catch (Error|JsonException|LogicException|RuntimeException $error) {
             return CannotJudge::because(sprintf('%s could not be read: %s', $path, $error->getMessage()));
         }
 

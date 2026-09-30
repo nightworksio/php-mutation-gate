@@ -6,16 +6,16 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_flip;
 use function array_key_exists;
-use function array_keys;
 use function array_map;
 use function array_unique;
 use function array_values;
 use function count;
 
+use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
-use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 use function sprintf;
@@ -27,16 +27,17 @@ use function sprintf;
  */
 final readonly class Setup implements Part
 {
-    /** The tree source when no layer names one. */
-    private const string TREE_SOURCE = 'phpunit';
-
     /** The `phpunit` tree source's paths, where `phpunit.xml` has no `<source>`. */
     private const string FALLBACK = 'fallback';
 
     /** The runners and presets the builder has a method of its own for. */
-    private const array RUNNERS = ['pest', 'infection'];
+    private const array RUNNERS = [BuiltinRunner::Pest->value, BuiltinRunner::Infection->value];
 
-    private const array PRESETS = ['library', 'laravel', 'symfony'];
+    private const array PRESETS = [
+        BuiltinPreset::Library->value,
+        BuiltinPreset::Laravel->value,
+        BuiltinPreset::Symfony->value,
+    ];
 
     /**
      * @param Listed<string>|Absent $extensions
@@ -124,19 +125,21 @@ final readonly class Setup implements Part
 
     public function treeSource(): Choice
     {
-        return $this->treeSource instanceof Choice ? $this->treeSource : self::phpunit();
+        return $this->treeSource instanceof Choice
+            ? $this->treeSource
+            : Builtins::treeSources(ProjectRoot::origin())->standard(BuiltinTreeSource::PhpUnit->value);
     }
 
     /** The `phpunit` tree source, whose trees are these paths where `phpunit.xml` has no `<source>`. */
     public static function phpunit(string ...$fallback): Choice
     {
         return Choice::of(
-            self::TREE_SOURCE,
-            Json::object(Member::of(self::FALLBACK, Json::items(...array_values($fallback)))),
+            BuiltinTreeSource::PhpUnit->value,
+            Options::of(Json::object(Member::of(self::FALLBACK, Json::items(...array_values($fallback))))),
         );
     }
 
-    public function written(Origin $origin): Json
+    public function written(PathOrigin $origin): Json
     {
         $written = $this->extensions instanceof Listed
             ? Json::object(Member::of('extensions', Json::items(...$this->extensions)))
@@ -151,7 +154,7 @@ final readonly class Setup implements Part
             : $written;
     }
 
-    public function php(Origin $origin): PhpCalls
+    public function php(PathOrigin $origin): PhpCalls
     {
         $calls = $this->extensions instanceof Listed && [...$this->extensions] !== []
             ? PhpCalls::onGate(
@@ -223,30 +226,32 @@ final readonly class Setup implements Part
     }
 
     /** The tree source chosen, with the `phpunit` one's fallback paths named from the origin. */
-    private function sourceFrom(Origin $origin): Choice
+    private function sourceFrom(PathOrigin $origin): Choice
     {
         $source = $this->treeSource();
 
-        return $source->use() === self::TREE_SOURCE ? WrittenPaths::choice($source, $origin, self::FALLBACK) : $source;
+        return $source->use()->value() === BuiltinTreeSource::PhpUnit->value
+            ? WrittenPaths::choice($source, $origin, self::FALLBACK)
+            : $source;
     }
 
     /** The tree source, by `Source::phpunit()` with its fallback paths where it is that one. */
     private function source(Choice $source): string
     {
-        $options = Node::config($source->options()->line());
-        $fallback = $options->field(self::FALLBACK);
-        $paths = $fallback->kind() === Kind::List ? $fallback->items() : [];
-        $onlyFallback = array_keys($options->kind() === Kind::Map ? $options->entries() : []) === [self::FALLBACK];
+        $options = $source->options();
+        $fallback = $options->paths(Key::of(self::FALLBACK));
+        $keys = array_map(static fn(Key $key): string => $key->value(), [...$options]);
+        $onlyFallback = $keys === [self::FALLBACK] || $keys === [];
 
-        return $source->use() === self::TREE_SOURCE && ($onlyFallback || $source->options()->isEmpty())
+        return $source->use()->value() === BuiltinTreeSource::PhpUnit->value && $onlyFallback
             ? sprintf(
                 'Source::phpunit(%s)',
                 PhpCalls::literals(...array_map(
-                    static fn(Node $path): string => $path->text(),
-                    $paths,
+                    static fn(Path $path): string => $path->value(),
+                    $fallback instanceof Paths ? [...$fallback] : [],
                 )),
             )
-            : PhpCalls::chosen($source, 'Source', 'composer');
+            : PhpCalls::chosen($source, 'Source', BuiltinTreeSource::Composer->value);
     }
 
     /**

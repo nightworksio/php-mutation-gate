@@ -11,11 +11,14 @@ use function implode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Registry\Entries;
 use NightWorksIO\MutationGate\Core\Registry\Entry;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
@@ -74,6 +77,9 @@ final readonly class Extensions
     /** @var Entries<MutatorSet> */
     private Entries $mutatorSets;
 
+    /** What the CI plans registered here declare no runner may see, whether or not a config lets them build. */
+    private Withheld $ciWithheld;
+
     /** An empty registry, whose additions come from this package. */
     public function __construct(private Origin $origin)
     {
@@ -89,6 +95,7 @@ final readonly class Extensions
         $this->staticCheckers = new Entries(ExtensionPoint::StaticChecker);
         $this->presets = new Entries(ExtensionPoint::Preset);
         $this->mutatorSets = new Entries(ExtensionPoint::MutatorSet);
+        $this->ciWithheld = Withheld::nothing();
     }
 
     /** @param Closure(Options): (Runner|Invalid) $build */
@@ -123,11 +130,17 @@ final readonly class Extensions
         ]);
     }
 
-    /** @param Closure(Options): (CiPlan|Invalid) $build */
-    public function withCiPlan(Name $name, Closure $build): self
+    /**
+     * A CI plan, with the credentials of its CI that no process running the project's code may see, declared
+     * apart from its options, so a config that stops it building never stops them being withheld (ADR-0004).
+     *
+     * @param Closure(Options): (CiPlan|Invalid) $build
+     */
+    public function withCiPlan(Name $name, Closure $build, Withheld $withheld): self
     {
         return clone($this, [
             'ciPlans' => $this->ciPlans->with(Entry::of($name, $this->origin, $build)),
+            'ciWithheld' => $this->ciWithheld->and($withheld),
         ]);
     }
 
@@ -232,7 +245,18 @@ final readonly class Extensions
             'staticCheckers' => $this->staticCheckers->merge($other->staticCheckers),
             'presets' => $this->presets->merge($other->presets),
             'mutatorSets' => $this->mutatorSets->merge($other->mutatorSets),
+            'ciWithheld' => $this->ciWithheld->and($other->ciWithheld),
         ]);
+    }
+
+    /**
+     * What every CI plan registered here declares withheld, whichever plan a run takes.
+     *
+     * @internal extensions register; only the command line looks up
+     */
+    public function ciWithheld(): Withheld
+    {
+        return $this->ciWithheld;
     }
 
     /**
@@ -243,7 +267,25 @@ final readonly class Extensions
      */
     public function registered(ExtensionPoint $point, Name $name): Closure|Layer|MutatorSet|CannotJudge
     {
-        $entries = match ($point) {
+        return $this->entries($point)->find($name);
+    }
+
+    /**
+     * The name of everything registered at this extension point, in the order it was registered.
+     *
+     * @internal extensions register; only the command line looks up
+     *
+     * @return Listed<Name>
+     */
+    public function names(ExtensionPoint $point): Listed
+    {
+        return $this->entries($point)->names();
+    }
+
+    /** @return Entries<Closure|Layer|MutatorSet> */
+    private function entries(ExtensionPoint $point): Entries
+    {
+        return match ($point) {
             ExtensionPoint::Runner => $this->runners,
             ExtensionPoint::TreeSource => $this->treeSources,
             ExtensionPoint::CostModel => $this->costModels,
@@ -257,7 +299,5 @@ final readonly class Extensions
             ExtensionPoint::Preset => $this->presets,
             ExtensionPoint::MutatorSet => $this->mutatorSets,
         };
-
-        return $entries->find($name);
     }
 }

@@ -46,7 +46,7 @@ final readonly class Root
     public function at(Path $path): DiskPath
     {
         return DiskPath::of(match (true) {
-            str_starts_with($path->value(), '/') => $path->value(),
+            $path->isAbsolute() => $path->value(),
             $path->equals(Path::root()) => $this->value,
             default => sprintf('%s/%s', $this->prefix(), $path->value()),
         });

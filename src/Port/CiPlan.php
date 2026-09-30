@@ -37,6 +37,9 @@ interface CiPlan
      */
     public function definitions(): Paths;
 
-    /** The CI's own credentials, which no runner hands the project's tests. */
-    public function withheld(): Withheld;
+    /**
+     * The CI's own credentials, which no runner hands the project's tests: a declaration of the plan's class,
+     * whatever its options, which its registration repeats.
+     */
+    public static function withheld(): Withheld;
 }

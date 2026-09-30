@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -15,17 +15,18 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 /**
  * A glob, a pattern of paths, named from where the layer that writes it is,
  * as a path is: `Gen/**` in `ci/gate.json` is `ci/Gen/**`, and `../src/**`
- * there is `src/**`.
+ * there is `src/**`. Every path a glob matches is a path from the project, so
+ * one that goes up out of it, or is absolute, is refused.
  *
  * @implements Shape<Glob>
  */
 final readonly class Pattern implements Shape
 {
-    private function __construct(private Origin $origin)
+    private function __construct(private PathOrigin $origin)
     {
     }
 
-    public static function glob(Origin $origin): self
+    public static function glob(PathOrigin $origin): self
     {
         return new self($origin);
     }
@@ -33,10 +34,13 @@ final readonly class Pattern implements Shape
     public function read(Node $at): Reading
     {
         $written = $at->kind() === Kind::Text ? $at->text() : '';
+        $glob = $this->origin->path(Path::of($written));
 
-        return $written !== ''
-            ? Reading::of(Glob::of($this->origin->path(Path::of($written))->value()))
-            : Reading::refused($at->mismatch($this->expected()));
+        return match (true) {
+            $written === '' => Reading::refused($at->mismatch($this->expected())),
+            $glob->escapes() => Reading::refused($at->mismatch(Location::INSIDE)),
+            default => Reading::of(Glob::of($glob->value())),
+        };
     }
 
     public function expected(): string

@@ -8,6 +8,7 @@ use function array_key_exists;
 use function dirname;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\NotWritten;
@@ -16,7 +17,6 @@ use NightWorksIO\MutationGate\Core\Report\StrykerPage;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Reporter;
 
 use function sprintf;
@@ -57,7 +57,7 @@ final readonly class HtmlReportDirectory implements Configurable, Reporter
 
     public static function fromOptions(Options $options): self|Invalid
     {
-        $path = ReportPath::from($options, '', self::UNNAMED);
+        $path = ReportPath::named($options, self::UNNAMED);
 
         return $path instanceof Invalid ? $path : new self(
             $path,

@@ -70,6 +70,21 @@ it('cannot judge a file that fails as it runs, saying why', function () use ($co
         ->and($loaded instanceof CannotJudge ? $loaded->why() : '')->toContain('must be of type string, int given');
 });
 
+it('cannot judge a file that throws, saying why', function () use ($configFile): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        throw new RuntimeException('no config today');
+        PHP);
+    $file = sprintf('%s/mutation-gate.php', $project);
+
+    expect(new PhpConfig()->load($configFile($file)))
+        ->toEqual(CannotJudge::because(sprintf('%s could not be read: no config today', $file)));
+});
+
 it('cannot judge a file that is not there', function () use ($configFile): void {
     expect(new PhpConfig()->load($configFile('/nowhere/mutation-gate.php')))
         ->toEqual(CannotJudge::because('/nowhere/mutation-gate.php could not be read.'));

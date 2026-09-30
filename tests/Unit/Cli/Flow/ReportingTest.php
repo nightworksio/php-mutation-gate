@@ -25,8 +25,9 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\Reporter;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\ConfigurableReporter;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -71,38 +72,40 @@ it('runs no reporter but the console where nothing asks for one', function (): v
 });
 
 it('runs a reporter for each entry of reports, writing where its path says', function (): void {
-    $file = sprintf('%s/build/report.json', Scratch::directory());
-    $settings = Flows::settings(Report::json($file));
-    $chosen = reportersOf($settings, Variables::of([]), reportingOnMain());
+    $project = Scratch::directory();
+    $here = (string) getcwd();
+    chdir($project);
+    $chosen = reportersOf(Flows::settings(Report::json('build/report.json')), Variables::of([]), reportingOnMain());
     $reporter = is_array($chosen) ? $chosen[0] : $chosen;
+    $written = $reporter instanceof JsonReportFile ? $reporter->report(Verdicts::passing()) : $reporter;
+    chdir($here);
 
     expect($reporter)->toBeInstanceOf(JsonReportFile::class)
-        ->and($reporter instanceof JsonReportFile ? $reporter->report(Verdicts::passing()) : $reporter)
-        ->toEqual(Written::to($file))
-        ->and(file_exists($file))->toBeTrue();
+        ->and($written)->toEqual(Written::to('build/report.json'))
+        ->and(file_exists(sprintf('%s/build/report.json', $project)))->toBeTrue();
 });
 
 it('hands a reporter its path beside the options its entry gives', function (): void {
-    $directory = sprintf('%s/publish', Scratch::directory());
-    $entry = Report::writing('badge', $directory, Option::nested('colors', Option::of('blue', 50), Option::of('red', 0)));
+    $project = Scratch::directory();
+    $here = (string) getcwd();
+    chdir($project);
+    $entry = Report::writing('badge', 'publish', Option::nested('colors', Option::of('blue', 50), Option::of('red', 0)));
     $chosen = reportersOf(Flows::settings($entry), Variables::of([]), reportingOnMain());
     $reporter = is_array($chosen) ? $chosen[0] : $chosen;
     $badge = $reporter instanceof BadgeDirectory ? $reporter->report(Verdicts::passing()) : $reporter;
+    chdir($here);
 
-    expect($badge)->toEqual(Written::to($directory))
-        ->and((string) file_get_contents(sprintf('%s/badge.json', $directory)))->toContain('"color": "blue"');
+    expect($badge)->toEqual(Written::to('publish'))
+        ->and((string) file_get_contents(sprintf('%s/publish/badge.json', $project)))->toContain('"color": "blue"');
 });
 
 it('says which entry of reports cannot be built', function (): void {
-    $settings = Flows::settings(
-        Report::uses('console'),
-        Report::writing('badge', 'publish', Option::nested('colors', Option::of('green', 'high'))),
-    );
+    $settings = Flows::settings(Report::uses('otlp'), Report::uses(sprintf('\\%s', ConfigurableReporter::class)));
 
-    expect(reportersOf($settings, Variables::of([]), reportingOnMain()))->toEqual(Invalid::because(Problem::at(
-        'reports[1].with.colors',
-        'Each badge colour maps to the lowest score that earns it.',
-    )));
+    expect(reportersOf($settings, Variables::of([]), reportingOnMain()))->toEqual(Invalid::because(
+        Problem::at('reports[1].with.channel', 'expected a channel name, got nothing'),
+        Problem::at('reports[1].with', 'needs a channel'),
+    ));
 });
 
 it('annotates and summarises under GitHub Actions, and comments on a pull request it can write to', function (
@@ -138,7 +141,7 @@ it('draws the badge in CI on the default branch, in the colours the config sets'
     $chosen = reportersOf($settings, Variables::of(['CI' => 'true']), reportingOnMain());
 
     expect($chosen)->toEqual([BadgeDirectory::configured(
-        Options::ofJson('{"colors": {"green": 90, "red": 0}}'),
+        Configs::options('{"colors": {"green": 90, "red": 0}}'),
         new SystemClock(),
     )]);
 });

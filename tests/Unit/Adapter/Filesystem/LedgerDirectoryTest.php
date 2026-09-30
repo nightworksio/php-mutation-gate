@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
+use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -19,7 +22,7 @@ use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -88,14 +91,17 @@ it('says why a ledger it cannot write was not written', function () use ($proved
 
 it('keeps its ledgers under .mutation-gate/ledger unless the options name another directory', function (): void {
     expect(Workspace::ledger()->value())->toBe('.mutation-gate/ledger')
-        ->and(LedgerDirectory::fromOptions(Options::none()))->toEqual(LedgerDirectory::at('.mutation-gate/ledger'))
-        ->and(LedgerDirectory::fromOptions(Options::ofJson('{"path": "build/ledgers"}')))
+        ->and(LedgerDirectory::fromOptions(Configs::builtin(Builtins::stores(ProjectRoot::origin()), 'directory')))
+        ->toEqual(LedgerDirectory::at('.mutation-gate/ledger'))
+        ->and(LedgerDirectory::fromOptions(Configs::options('{"path": "build/ledgers"}')))
         ->toEqual(LedgerDirectory::at('build/ledgers'));
 });
 
-it('refuses a directory that is not written as text', function (): void {
-    expect(LedgerDirectory::fromOptions(Options::ofJson('{"path": 7}')))
-        ->toEqual(Invalid::because(Problem::at('path', 'The directory the ledgers are kept in is a path, as text.')));
+it('refuses a directory that is not written as text, or not given', function (): void {
+    expect(LedgerDirectory::fromOptions(Configs::options('{"path": 7}')))
+        ->toEqual(Invalid::because(Problem::at('path', 'expected text, got 7')))
+        ->and(LedgerDirectory::fromOptions(Options::none()))
+        ->toEqual(Invalid::because(Problem::at('path', 'expected the directory the ledgers are kept in, got nothing')));
 });
 
 it('lists every ledger kept under the directory, in the order of its path, with its size compressed', function () use ($proved): void {
@@ -110,4 +116,20 @@ it('lists every ledger kept under the directory, in the order of its path, with 
         KeptLedger::of(Path::of(sprintf('%s/refs/heads/feature/money/ledger.json.gz', $root)), $size('refs/heads/feature/money')),
         KeptLedger::of(Path::of(sprintf('%s/refs/pull/12/ledger.json.gz', $root)), $size('refs/pull/12')),
     ))->and(LedgerDirectory::at(sprintf('%s/nowhere', $root))->kept())->toEqual(KeptLedgers::of());
+});
+
+it('keeps a directory from the project inside it, and writes no ledger that leads out of it', function () use ($proved): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'project/composer.json', '{}');
+    $directory = (string) getcwd();
+    chdir(sprintf('%s/project', $root));
+    $inside = LedgerDirectory::at('build/ledger')->write(Scope::branch('main'), $proved());
+    $up = LedgerDirectory::at('../ledger')->write(Scope::branch('main'), $proved());
+    chdir($directory);
+
+    expect($inside)->toEqual(Written::to('./build/ledger/refs/heads/main/ledger.json.gz'))
+        ->and($up)->toEqual(NotWritten::because(
+            '../ledger/refs/heads/main/ledger.json.gz leads out of ., so the gate does not read or write it.',
+        ))
+        ->and(glob(sprintf('%s/ledger', $root)))->toBe([]);
 });

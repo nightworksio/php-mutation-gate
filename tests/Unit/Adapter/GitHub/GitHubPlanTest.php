@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -23,7 +24,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
@@ -216,5 +216,5 @@ it('reads the output file from the environment', function (): void {
 });
 
 it('withholds the Actions runtime\'s credentials and the workflow\'s token', function (): void {
-    expect(GitHubPlan::in(Variables::of([]))->withheld())->toEqual(Withheld::of('ACTIONS_*', 'GITHUB_TOKEN'));
+    expect(GitHubPlan::withheld())->toEqual(Withheld::of('ACTIONS_*', 'GITHUB_TOKEN'));
 });

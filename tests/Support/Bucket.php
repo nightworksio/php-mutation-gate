@@ -13,7 +13,8 @@ use function is_array;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\S3\BucketOptions;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
@@ -42,7 +43,7 @@ final class Bucket
     /** A client of this bucket, configured as the store's options say. */
     public function client(string $options = '{"bucket": "ledgers", "region": "eu-west-1"}'): S3Client
     {
-        $bucket = BucketOptions::read(Options::ofJson($options));
+        $bucket = BucketOptions::read(Configs::builtin(Builtins::stores(ProjectRoot::origin()), 's3', $options));
 
         $configuration = $bucket instanceof BucketOptions ? $bucket->configuration() : [];
 

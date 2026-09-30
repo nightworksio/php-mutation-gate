@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function array_values;
-
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
@@ -13,16 +11,17 @@ use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
+use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
+use NightWorksIO\MutationGate\Core\Config\BuiltinVersionControl;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\CostModel;
@@ -38,25 +37,11 @@ use NightWorksIO\MutationGate\Port\TreeSource;
  * the CI plan the config names or the environment shows; the version
  * control source, GitHub's where GitHub Actions runs, and git's otherwise;
  * and what no process that runs the project's code may see: every run's
- * credentials, the CI's own tokens and `runner.withhold`.
+ * credentials, the tokens of every CI plan, since the job may run on any,
+ * and `runner.withhold`.
  */
 final readonly class Wiring
 {
-    /** Each CI the gate detects, by the variable its runners set to `true`. */
-    private const array DETECTED = [
-        Variables::GITLAB_CI => 'gitlab',
-        Variables::BUILDKITE => 'buildkite',
-        Variables::CIRCLECI => 'circleci',
-    ];
-
-    private const string PLAIN = 'json';
-
-    private const string GIT = 'git';
-
-    private const string GITHUB = 'github';
-
-    private const string COSTS = 'learned';
-
     public function __construct(private Extensions $extensions, private Variables $environment)
     {
     }
@@ -65,15 +50,15 @@ final readonly class Wiring
     {
         $chosen = new Chosen($this->extensions);
         $lookup = Lookup::in($this->extensions);
-        $source = $this->environment->onGitHubActions() ? self::GITHUB : self::GIT;
+        $source = BuiltinVersionControl::in($this->environment)->named();
         $runner = $chosen->runner($settings->runner()->choice());
         $trees = $chosen->treeSource($settings->treeSource());
         $proofs = $this->kept($settings, $chosen->proofStore($settings->proofs()->store()));
-        $costs = $lookup->costModel(Name::of(self::COSTS), $this->costOptions($settings));
+        $costs = $lookup->costModel(BuiltinCostModel::Learned->named(), $settings->shards()->costOptions());
         $ci = $chosen->ciPlan($this->ciOf($settings));
-        $withheld = $this->withheld($settings, $chosen, $ci);
-        $changes = $lookup->changeSource(Name::of($source), $this->sourceOptions($settings, $withheld));
-        $repository = $lookup->repository(Name::of($source), $this->sourceOptions($settings, $withheld));
+        $withheld = $chosen->withheld($settings->ci(), $settings->runner()->withhold());
+        $changes = $lookup->changeSource($source, $this->sourceOptions($settings, $withheld));
+        $repository = $lookup->repository($source, $this->sourceOptions($settings, $withheld));
 
         return match (true) {
             ! $runner instanceof Runner => $runner,
@@ -113,64 +98,17 @@ final readonly class Wiring
     }
 
     /**
-     * What no process the gate starts may see, git's and the project's: every run's
-     * credentials, `runner.withhold`, and the tokens of every CI the gate
-     * knows, whichever plan renders the run, since the job may run on any.
-     */
-    private function withheld(Settings $settings, Chosen $chosen, CiPlan|Invalid|CannotJudge $ci): Withheld
-    {
-        $withheld = $ci instanceof CiPlan ? Withheld::standard()->and($ci->withheld()) : Withheld::standard();
-        $withheld = $withheld->and($settings->runner()->withhold());
-
-        foreach ([self::GITHUB, self::PLAIN, ...array_values(self::DETECTED)] as $plan) {
-            $known = $chosen->ciPlan(Choice::of($plan, $this->ciOptions($plan, $settings)));
-            $withheld = $known instanceof CiPlan ? $withheld->and($known->withheld()) : $withheld;
-        }
-
-        return $withheld;
-    }
-
-    /**
-     * The CI plan the config names, or the one the environment shows, with
-     * the options its `ci.*` settings give, under those a named plan gives
-     * itself.
+     * The CI plan the config names, with the options its `ci.*` settings give laid under its own, or the one the
+     * environment shows, with those options.
      */
     private function ciOf(Settings $settings): Choice
     {
         $named = $settings->ci()->plan();
-        $plan = $named instanceof Choice ? $named->use() : $this->detected();
-        $options = $this->ciOptions($plan, $settings);
+        $detected = BuiltinCiPlan::detected($this->environment);
 
-        return Choice::of($plan, $named instanceof Choice ? $options->merged($named->options()) : $options);
-    }
-
-    /** The CI the environment shows: GitHub Actions, then the first other that sets its variable to `true`. */
-    private function detected(): string
-    {
-        $detected = $this->environment->onGitHubActions() ? self::GITHUB : self::PLAIN;
-
-        foreach (self::DETECTED as $variable => $plan) {
-            $detected = $detected === self::PLAIN && $this->environment->says($variable)
-                ? $plan
-                : $detected;
-        }
-
-        return $detected;
-    }
-
-    /** The options a CI plan takes from the `ci.*` settings: GitLab's template, and Buildkite's step and pipeline. */
-    private function ciOptions(string $plan, Settings $settings): Json
-    {
-        $ci = $settings->ci();
-
-        return match ($plan) {
-            'gitlab' => Json::object(Member::of('template', $ci->gitlabTemplate()->value())),
-            'buildkite' => Json::object(
-                Member::of('step', $ci->buildkiteStep()),
-                Member::of('definition', $ci->buildkiteDefinition()->value()),
-            ),
-            default => Json::object(),
-        };
+        return $named instanceof Choice
+            ? $named
+            : Choice::of($detected->value, $settings->ci()->planOptions($detected->named()));
     }
 
     /** GitHub's change source, reading each pull request's own ledger from the proof store; any other as it is. */
@@ -191,14 +129,9 @@ final readonly class Wiring
      */
     private function sourceOptions(Settings $settings, Withheld $withheld): Options
     {
-        return Options::ofJson(Json::object(
+        return Options::of(Json::object(
             Member::of('check', $settings->ci()->check()),
             Member::of('withhold', Json::items(...$withheld)),
-        )->line());
-    }
-
-    private function costOptions(Settings $settings): Options
-    {
-        return Options::ofJson(JsonText::compact(['secondsPerLine' => [...$settings->shards()->secondsPerLine()]]));
+        ));
     }
 }

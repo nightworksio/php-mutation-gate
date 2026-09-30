@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use NightWorksIO\MutationGate\Core\Config\Origin;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
@@ -13,17 +13,22 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
  * A path, named from where the layer that writes it is: a config file's own
- * directory, or the project.
+ * directory, or the project. One that goes up out of the project, or is
+ * absolute, is refused, but for a file the command line names by its
+ * absolute path.
  *
  * @implements Shape<Path>
  */
 final readonly class Location implements Shape
 {
-    private function __construct(private Origin $origin)
+    /** What a path that goes up out of the project is not. */
+    public const string INSIDE = 'a path inside the project';
+
+    private function __construct(private PathOrigin $origin)
     {
     }
 
-    public static function path(Origin $origin): self
+    public static function path(PathOrigin $origin): self
     {
         return new self($origin);
     }
@@ -31,10 +36,13 @@ final readonly class Location implements Shape
     public function read(Node $at): Reading
     {
         $written = $at->kind() === Kind::Text ? $at->text() : '';
+        $path = $this->origin->path(Path::of($written));
 
-        return $written !== ''
-            ? Reading::of($this->origin->path(Path::of($written)))
-            : Reading::refused($at->mismatch($this->expected()));
+        return match (true) {
+            $written === '' => Reading::refused($at->mismatch($this->expected())),
+            $path->escapes() && ! $this->reachable($path) => Reading::refused($at->mismatch(self::INSIDE)),
+            default => Reading::of($path),
+        };
     }
 
     public function expected(): string
@@ -50,5 +58,11 @@ final readonly class Location implements Shape
     public function effects(): array
     {
         return [];
+    }
+
+    /** Whether a path outside the project is one this layer may name: absolute, on the command line. */
+    private function reachable(Path $path): bool
+    {
+        return $path->isAbsolute() && $this->origin->reachesOutside();
     }
 }

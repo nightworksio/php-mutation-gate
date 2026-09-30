@@ -7,7 +7,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PlannedMarkdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -126,11 +126,11 @@ it('reads its run from the environment and the event file, and its identity from
     $run = ['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => null, 'GITHUB_REPOSITORY' => 'octo/gate'];
     $noToken = Environment::during(
         [...$run, 'GITHUB_EVENT_PATH' => sprintf('%s/event.json', $root)],
-        static fn(): PullRequestComment => PullRequestComment::fromOptions(Options::ofJson('{"identity": "gate-bot"}')),
+        static fn(): PullRequestComment => PullRequestComment::fromOptions(Configs::options('{"identity": "gate-bot"}')),
     );
     $noEvent = Environment::during(
         [...$run, 'GITHUB_EVENT_PATH' => sprintf('%s/none.json', $root)],
-        static fn(): PullRequestComment => PullRequestComment::fromOptions(Options::ofJson('{"identity": 3}')),
+        static fn(): PullRequestComment => PullRequestComment::fromOptions(Configs::options('{"identity": 3}')),
     );
 
     expect($noToken->report(Verdicts::passing()))

@@ -462,7 +462,6 @@ services:
                 - tests/Support/Commands.php
                 - tests/Support/PhpstanNeon.php
             allowIn:
-                - src/Adapter/Buildkite/BuildkitePlan.php
                 - src/Adapter/GitHub/Answer.php
                 - src/Adapter/GitLab/GitLabPlan.php
                 - tests/Support/Configs.php
@@ -526,10 +525,12 @@ services:
                 'NightWorksIO\MutationGate\Core\Config\StaticCheck':
                     - AUTO # the analyser zero-config finds, not a proof-writing mode
                     - NONE # no analyser, not a mutator family or a Pest status
-                'NightWorksIO\MutationGate\Core\Config\Setup':
-                    - TREE_SOURCE # the tree source, not a test framework
                 'NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize':
                     - PER_MEGABYTE # bytes in a megabyte
+                'NightWorksIO\MutationGate\Adapter\Infection\OwnConfig':
+                    - FRAMEWORK # Infection's name for PHPUnit
+                'NightWorksIO\MutationGate\Core\Test\TestsDirectory':
+                    - CONVENTIONAL # the tests' directory
                 'NightWorksIO\MutationGate\Core\Hold\HotPaths':
                     - SMALLEST_SUITE # tests
                 'NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan':
@@ -603,8 +604,6 @@ services:
                 'NightWorksIO\MutationGate\Cli\Command\FlowOptions':
                     - COVERAGE # an option of the gate's commands
                     - FULL # an option of the gate's commands
-                'NightWorksIO\MutationGate\Cli\Flow\Wiring':
-                    - PLAIN # the JSON CI plan's name
                 'NightWorksIO\MutationGate\Cli\Flow\Standing':
                     - MAIN # the project's default branch when none is configured or detected
                 'NightWorksIO\MutationGate\Core\Plan\PlanFile':

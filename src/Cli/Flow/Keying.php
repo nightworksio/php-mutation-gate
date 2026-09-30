@@ -6,14 +6,13 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
 use NightWorksIO\MutationGate\Core\Proof\Key\ContentKeys;
@@ -135,13 +134,9 @@ final readonly class Keying
     /** The directory store's `path`, where the config sets one. */
     private static function storePath(Settings $settings): Path|Absent
     {
-        $path = Node::decode($settings->proofs()->store()->options()->line())->field('path');
+        $path = $settings->proofs()->store()->options()->path(Key::of('path'));
 
-        try {
-            return $path->isPresent() ? Path::of($path->text()) : Absent::setting();
-        } catch (NotInShape) {
-            return Absent::setting();
-        }
+        return $path instanceof Path ? $path : Absent::setting();
     }
 
     /** The test files of the groups every key reads, as the runner says, since each shard opens on them. */

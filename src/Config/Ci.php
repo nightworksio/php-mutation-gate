@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
+use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
@@ -16,28 +17,28 @@ final readonly class Ci implements Setting
 
     public static function github(): self
     {
-        return new self(Json::at('ci.plan', 'github'));
+        return new self(Json::at('ci.plan', BuiltinCiPlan::GitHub->value));
     }
 
     public static function gitlab(): self
     {
-        return new self(Json::at('ci.plan', 'gitlab'));
+        return new self(Json::at('ci.plan', BuiltinCiPlan::GitLab->value));
     }
 
     public static function buildkite(): self
     {
-        return new self(Json::at('ci.plan', 'buildkite'));
+        return new self(Json::at('ci.plan', BuiltinCiPlan::Buildkite->value));
     }
 
     public static function circleci(): self
     {
-        return new self(Json::at('ci.plan', 'circleci'));
+        return new self(Json::at('ci.plan', BuiltinCiPlan::CircleCi->value));
     }
 
     /** The plan as JSON, for any other CI. */
     public static function json(): self
     {
-        return new self(Json::at('ci.plan', 'json'));
+        return new self(Json::at('ci.plan', BuiltinCiPlan::Json->value));
     }
 
     /** A CI plan another extension registers by name, or a class, with its options. */
