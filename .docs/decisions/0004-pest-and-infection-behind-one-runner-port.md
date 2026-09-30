@@ -120,6 +120,7 @@ its parser attributes. Both change when the checkout moves.
    | `judges(file, map)` | The test files that can judge a mutant of this file, by the runner's own selection rules (decision 5) |
    | `mutate(request)` | Every mutant's normalised result for some files, judged by the whole suite or by a group, under a deadline |
    | `retry(mutants, limit)` | The same, for a few mutants run again (ADR-0008) |
+   | `markers(files)` | The runner's own ignore markers in those files and in its config, each with the `ignores.entries` entry that replaces it (ADR-0008). Whether a run may go ahead with them is the verdict's to decide |
 
    A failed opening run, an unsupported version or a result that does not add up
    is returned as *cannot judge* with the runner's output (ADR-0001). The run
@@ -291,28 +292,60 @@ its parser attributes. Both change when the checkout moves.
    - **Invocation:**
 
      ```text
-     vendor/bin/infection --configuration=<generated> --threads=<n|max>
-         --no-progress --with-uncovered --logger-github=false
-         [--coverage=<dir> --skip-initial-tests]
-         [--test-framework-extra-args=<group or filter>]
+     vendor/bin/infection --configuration=<generated> --threads=<n>
+         --no-progress --no-interaction --with-uncovered --logger-github=false
+         --coverage=<dir> --skip-initial-tests
+         [--test-framework-extra-args=<the project's, and a group or filter>]
          [--only-covering-test-cases] <files>
      ```
 
-     `--log-verbosity` is left at its default, and never `none`.
-   - **Configuration.** The adapter writes a config per invocation. It starts
-     from the project's own `infection.json5` when there is one (mutators,
-     `bootstrap`, `phpUnit`, `initialTestsPhpOptions`, `testFrameworkExtraArgs`)
-     and overrides what the gate owns:
-     - every path is absolute, and `phpUnit.configDir` is set, because the
-       generated file lives under `.mutation-gate/`;
-     - `logs.json` and `logs.text` point into the results directory, and every
-       other log is off;
-     - `timeout` is `timeouts.seconds` (ADR-0008);
-     - `minMsi` and `minCoveredMsi` are removed;
+     - `--log-verbosity` is left at its default, and never `none`.
+     - Infection never runs an opening suite of its own. It always reads a
+       coverage directory the gate chose: the one the planning job wrote, for a
+       run judged by the whole suite, or one the adapter writes first by
+       running PHPUnit under coverage (the **Coverage** item below). The
+       adapter reads each mutant's limit from that directory's JUnit log, which
+       is what Infection sums, and Infection deletes its own opening run's log
+       when it finishes.
+     - Infection and PHPUnit run on the PHP that runs the gate, with that PHP's
+       directory first on the `PATH`, because Infection starts PHPUnit for each
+       mutant through the script's `#!` line. They inherit no variable of
+       another run (`INFECTION_*`, `MUTATION_GATE_*`, `PEST_MUTATION_*`,
+       `PARATEST`, `TEST_TOKEN`, `UNIQUE_TEST_TOKEN`) and no credential
+       (`AWS_*`, `GITHUB_TOKEN`, `SONAR_TOKEN`, `ACTIONS_*`), because the
+       project's tests and every mutant of its code run in them.
+     - A run stopped at its deadline is *cannot judge*: Infection writes its
+       logs only when it finishes, so no mutant of such a run has a result.
+       A stopped run is stopped with every process it started.
+   - **Configuration.** The adapter writes a config per invocation. It reads
+     the project's own config where there is one, the first of
+     `infection.json5`, `infection.json`, `infection.json5.dist` and
+     `infection.json.dist`, as Infection does.
+     - It keeps only these keys of it: `mutators`, `bootstrap`, `phpUnit`,
+       `initialTestsPhpOptions`, `testFramework`, `staticAnalysisTool`,
+       `staticAnalysisToolOptions`, `phpStan` and `mago`. The project's
+       `testFrameworkExtraArgs` go on the command line, before the gate's own
+       narrowing. Every other key either belongs to the gate or could change
+       which mutants Infection makes or how it stops (`source`, `minMsi`,
+       `minCoveredMsi`, `maxTimeouts`, `timeoutsAsEscaped`,
+       `ignoreMsiWithNoMutations`, `threads`, `logs` and any key a later
+       release adds), so the gate writes it itself or leaves it out.
+     - Every path is absolute, and `phpUnit.configDir` is set, because the
+       generated file lives under `.mutation-gate/`.
+     - `source.directories` are the directories of the files the run mutates.
+     - `logs.json` and `logs.text` point into `.mutation-gate/infection/logs/`,
+       and every other log is off.
+     - `timeout` is `timeouts.seconds` (ADR-0008), or the doubled cap of a
+       retry.
      - `tmpDir` is under `.mutation-gate/`.
+     - A run is judged by its logs and their counts, never by Infection's exit
+       code. The logs, the generated config and the coverage reports an
+       earlier run left are removed before a run, and a file that cannot be
+       removed is *cannot judge*.
    - **Held paths** (ADR-0005) always take coverage from their own opening run,
-     never from a whole-suite map, so `--skip-initial-tests` is never passed for
-     them. The narrowing goes through `--test-framework-extra-args`.
+     never from a whole-suite map. The adapter runs PHPUnit under coverage
+     narrowed to the holding tests, and Infection reads that run's directory.
+     The narrowing also goes through `--test-framework-extra-args`.
      - A group, `--group=holds:<path>`, narrows the opening run and every
        mutant run.
      - `#[Holds]` becomes a `--filter` naming the holding tests. It narrows the
@@ -338,9 +371,20 @@ its parser attributes. Both change when the checkout moves.
      Each count must equal the number of its mutants, and `totalMutantsCount`
      must equal the sum of the counts.
    - **Coverage** comes from `vendor/bin/phpunit --coverage-xml=<dir>/coverage-xml
-     --log-junit=<dir>/junit.xml`. That is the layout `--coverage` expects, and
-     the gate reads its per-line `covered by` entries as its own map, so one run
-     serves both. Groups come from `vendor/bin/phpunit --list-groups`.
+     --log-junit=<dir>/junit.xml`, or `phpUnit.customPath`, with
+     `initialTestsPhpOptions` as PHP options, the project's
+     `testFrameworkExtraArgs` and, for a held path, its group or filter. That
+     is the layout `--coverage` expects, and the gate reads its per-line
+     `covered by` entries as its own map, so one run serves both. Groups come
+     from `vendor/bin/phpunit --list-groups`.
+   - **Limits.** A timed-out or skipped mutant's limit is `min(5 s + 5 × T, timeout)`, where `T`
+     is the sum of the JUnit times of the test classes covering its first
+     line, each counted once, as Infection computes it.
+   - **Native markers** (ADR-0008) are `@infection-ignore-all` in a comment of
+     the files asked for, and each value of `ignore` or
+     `ignoreSourceCodeByRegex` under `mutators` in the project's config: under
+     a mutator, a profile, `global-ignore` or
+     `global-ignoreSourceCodeByRegex`.
    - **Scope.** The adapter refuses a `testFramework` other than `phpunit`, and
      a `phpUnit.customPath` that points at Pest. A Pest project uses the Pest
      adapter.

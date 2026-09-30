@@ -31,7 +31,11 @@ enum MutantJudgement: string
     /** The runner's own marker or config ignored it, where the config allows that. */
     case IgnoredByMarker = 'ignored-by-marker';
 
-    /** The judgement a status comes to before any triage: a timeout is a kill until triage says otherwise. */
+    /**
+     * The judgement a status comes to before any triage: a timeout is a kill
+     * until triage says otherwise, and a mutant skipped as too slow to run is
+     * too slow to judge until a retry runs it.
+     */
     public static function reported(MutantStatus $status): self
     {
         return match ($status) {
@@ -42,6 +46,7 @@ enum MutantJudgement: string
             MutantStatus::Errored => self::Errored,
             MutantStatus::Unjudged => self::Unjudged,
             MutantStatus::IgnoredByMarker => self::IgnoredByMarker,
+            MutantStatus::Skipped => self::TooSlowToJudge,
         };
     }
 

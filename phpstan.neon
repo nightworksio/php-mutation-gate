@@ -27,6 +27,7 @@ parameters:
     excludePaths:
         analyseAndScan:
             - tests/Contract/Runner/fixture
+            - tests/Contract/Runner/infection-fixture
 
     # Pest's own annotation, corrected. See the stub.
     stubFiles:

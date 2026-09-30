@@ -36,6 +36,7 @@ return RectorConfig::configure()
         ArrowFunctionDelegatingCallToFirstClassCallableRector::class => [__DIR__ . '/tests/Contract'],
         // The runner contract suite's fixture is a project of its own, written as a user's library is.
         __DIR__ . '/tests/Contract/Runner/fixture',
+        __DIR__ . '/tests/Contract/Runner/infection-fixture',
     ])
     ->withImportNames(importShortClasses: false)
     ->withCache(__DIR__ . '/.rector-cache');

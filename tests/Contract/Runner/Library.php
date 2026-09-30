@@ -6,9 +6,13 @@ namespace NightWorksIO\MutationGate\Tests\Contract\Runner;
 
 use function array_key_exists;
 use function array_map;
+use function getenv;
 use function is_dir;
 use function iterator_to_array;
 
+use NightWorksIO\MutationGate\Adapter\Infection\Infection;
+use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell as InfectionShell;
+use NightWorksIO\MutationGate\Adapter\Infection\Project as InfectionProject;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
@@ -26,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -49,7 +54,16 @@ final class Library
     /** The library, a project of its own, installed by the runner contracts job. */
     public const string DIRECTORY = 'tests/Contract/Runner/fixture';
 
+    /** The Infection library, the same code, tested by PHPUnit, installed by its own runner contracts job. */
+    public const string INFECTION_DIRECTORY = 'tests/Contract/Runner/infection-fixture';
+
     public const string CANARY = 'mutation-canary';
+
+    /** The file in each library that holds its runner's own ignore marker, outside what the suite mutates. */
+    public const string MARKED = 'marked/Marked.php';
+
+    /** Where that marker is. */
+    public const string MARKER = 'marked/Marked.php:9';
 
     /** @var array<string, Change> every change, by a name no runner uses */
     public const array CHANGES = [
@@ -108,20 +122,52 @@ final class Library
         'held' => [PlusToMinus::class, MutatorFamily::Arithmetic],
     ];
 
+    /** @var array<string, array{string, MutatorFamily}> Infection's mutator for each change, and its family */
+    private const array INFECTION = [
+        'adds' => ['Plus', MutatorFamily::Arithmetic],
+        'large' => ['GreaterThan', MutatorFamily::Boundary],
+        'unused' => ['Minus', MutatorFamily::Arithmetic],
+        'drains' => ['Decrement', MutatorFamily::Arithmetic],
+        'held' => ['Plus', MutatorFamily::Arithmetic],
+    ];
+
     /** @var array<string, MutationResult|CannotJudge> each real run's answer, by library and request */
     private static array $runs = [];
 
-    /** @param array<string, array{string, MutatorFamily}> $vocabulary */
+    /**
+     * @param array<string, array{string, MutatorFamily}> $vocabulary
+     * @param bool                                         $endsReported whether the runner reports the line a mutant ends on,
+     *                                                                   and how long each mutant it ran took
+     */
     private function __construct(
         private readonly string $name,
         private readonly Runner $runner,
         private readonly array $vocabulary,
+        private readonly bool $endsReported,
     ) {
     }
 
     public static function fake(): self
     {
-        return new self('fake', RunnerFake::ofTheFixture(), self::FAKE);
+        return new self('fake', RunnerFake::ofTheFixture(), self::FAKE, endsReported: true);
+    }
+
+    /**
+     * The Infection adapter over its installed library, allowing each mutant at
+     * most the cap, and refusing native markers.
+     */
+    public static function infection(Seconds $cap): self
+    {
+        $root = Tree::at(self::INFECTION_DIRECTORY);
+        $project = InfectionProject::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
+        $runner = new Infection($project, new InfectionShell($root, getenv()), $cap, nativeMarkersAllowed: false);
+
+        return new self(sprintf('infection %.1F', $cap->seconds()), $runner, self::INFECTION, endsReported: false);
+    }
+
+    public static function isInfectionInstalled(): bool
+    {
+        return is_dir(Tree::at(sprintf('%s/vendor', self::INFECTION_DIRECTORY)));
     }
 
     /** The Pest adapter over the installed library, with `pest:patch` off or on. */
@@ -132,7 +178,7 @@ final class Library
 
         $name = sprintf('pest %s', $patching->isOn() ? 'patched' : 'unpatched');
 
-        return new self($name, new Pest($project, new ProcessShell($root), $patching), self::PEST);
+        return new self($name, new Pest($project, new ProcessShell($root), $patching), self::PEST, endsReported: true);
     }
 
     public static function isInstalled(): bool
@@ -149,6 +195,12 @@ final class Library
     public function runner(): Runner
     {
         return $this->runner;
+    }
+
+    /** Whether the runner reports how long each mutant it ran took; Infection's logs do not. */
+    public function measures(): bool
+    {
+        return $this->endsReported;
     }
 
     /** The runner's mutators for these changes. */
@@ -187,7 +239,8 @@ final class Library
             $diff = sprintf("@@ @@\n-%s\n+%s", $change['removed'], $change['added']);
             $id = MutantId::hash(Path::of($change['file']), $mutator, $diff, 0)->value();
             $line = $change['line'];
-            $records[] = [$id, $change['status']->value, $change['file'], $line, $line, $mutator, $family->value];
+            $end = $this->endsReported ? $line : 0;
+            $records[] = [$id, $change['status']->value, $change['file'], $line, $end, $mutator, $family->value];
         }
 
         return $records;

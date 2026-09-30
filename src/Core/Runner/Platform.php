@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Pest;
+namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function array_keys;
 use function get_loaded_extensions;
@@ -19,7 +19,7 @@ use function phpversion;
 use function sprintf;
 
 /**
- * The PHP Pest runs on: its version, its extensions and their versions, its
+ * The PHP a runner runs on: its version, its extensions and their versions, its
  * ini settings, and the operating system family and architecture under it.
  */
 final readonly class Platform
@@ -49,7 +49,7 @@ final readonly class Platform
         return new self($php, $extensions, $ini, $system, $architecture);
     }
 
-    /** The PHP running this process, which is the PHP the adapter starts Pest on. */
+    /** The PHP running this process, which is the PHP an adapter starts its runner on. */
     public static function current(): self
     {
         $extensions = [];

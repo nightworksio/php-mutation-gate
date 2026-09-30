@@ -1,0 +1,11 @@
+{
+    // The project's own config: the adapter keeps its mutators and writes the rest.
+    "$schema": "vendor/infection/infection/resources/schema.json",
+    "source": {
+        "directories": ["src"]
+    },
+    "mutators": {
+        "@default": true
+    },
+    "minMsi": 100
+}

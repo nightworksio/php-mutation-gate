@@ -9,3 +9,7 @@
 /tests/Contract/Runner/fixture/vendor/
 /tests/Contract/Runner/fixture/composer.lock
 /tests/Contract/Runner/fixture/.mutation-gate/
+/tests/Contract/Runner/infection-fixture/vendor/
+/tests/Contract/Runner/infection-fixture/composer.lock
+/tests/Contract/Runner/infection-fixture/.mutation-gate/
+/tests/Contract/Runner/infection-fixture/.phpunit.result.cache

@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Marker;
+use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -128,6 +130,14 @@ final readonly class RunnerFake implements Runner
         }
 
         return $found;
+    }
+
+    /** The library's one marker, in `marked/Marked.php`, where the paths asked for name that file. */
+    public function markers(Paths $files): Markers
+    {
+        return $this->within(Path::of(Library::MARKED), $files)
+            ? Markers::of(Marker::of(Library::MARKER, 'fake-ignore', '{"mutant": "<id>", "reason": "<why>"}'))
+            : Markers::none();
     }
 
     /** @param array{file: string, line: int, removed: string, added: string, status: MutantStatus} $change */

@@ -67,3 +67,11 @@ it('reads an empty map as an empty list or no entries', function (): void {
     expect(Node::decode('{}')->entries())->toBe([])
         ->and(Node::decode('[]')->items())->toBe([]);
 });
+
+it('writes what a place holds back out as JSON, and refuses a place that holds nothing', function () use ($file): void {
+    expect($file()->field('map')->json())->toBe('{"k":"v","7":"w"}')
+        ->and($file()->field('list')->json())->toBe('["a","b"]')
+        ->and(Node::decode('{"path": "a/é", "share": 2.0, "empty": {}}')->json())->toBe('{"path":"a/é","share":2.0,"empty":[]}')
+        ->and(static fn(): string => $file()->field('absent')->json())
+        ->toThrow(NotInShape::class, 'the file.absent is missing.');
+});

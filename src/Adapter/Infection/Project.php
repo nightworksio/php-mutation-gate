@@ -1,0 +1,112 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Adapter\Infection;
+
+use function dirname;
+use function is_dir;
+use function is_file;
+use function is_string;
+use function is_writable;
+use function mb_strlen;
+use function mb_substr;
+use function mkdir;
+
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+
+use function realpath;
+use function rtrim;
+use function sprintf;
+use function str_starts_with;
+use function unlink;
+
+/**
+ * The project Infection runs in: its root, the directories its tests live in,
+ * and the directory the gate works in. Infection reports files by the paths
+ * its config names, which the adapter writes from the root's real path.
+ */
+final readonly class Project
+{
+    /** Where the adapter keeps its own files, inside the gate's directory. */
+    private const string OWN = 'infection';
+
+    private const string STALE
+        = 'The gate cannot remove %s, so it cannot tell what this run wrote from what an earlier one did.';
+
+    private function __construct(private string $root, private Paths $tests, private Path $workspace)
+    {
+    }
+
+    public static function at(string $root, Paths $tests, Path $workspace): self
+    {
+        $real = realpath($root);
+
+        return new self(is_string($real) ? $real : rtrim($root, '/'), $tests, $workspace);
+    }
+
+    public function root(): string
+    {
+        return $this->root;
+    }
+
+    /** @return Paths the directories the tests live in */
+    public function tests(): Paths
+    {
+        return $this->tests;
+    }
+
+    /** Where a path of the project is on disk; the root is the root, and an absolute path is where it says. */
+    public function absolute(Path $path): string
+    {
+        return match (true) {
+            $path->equals(Path::root()) => $this->root,
+            str_starts_with($path->value(), '/') => $path->value(),
+            default => sprintf('%s/%s', $this->root, $path->value()),
+        };
+    }
+
+    /** A file on disk as the project spells it, or as it is where it lies outside the project. */
+    public function relative(string $file): Path
+    {
+        $prefix = sprintf('%s/', $this->root);
+
+        return Path::of(str_starts_with($file, $prefix) ? mb_substr($file, mb_strlen($prefix)) : $file);
+    }
+
+    /** A directory of the project on disk, made where it is not there yet. */
+    public function directory(Path $path): string
+    {
+        $directory = $this->absolute($path);
+
+        if (! is_dir($directory)) {
+            mkdir($directory, recursive: true);
+        }
+
+        return $directory;
+    }
+
+    /**
+     * A file on disk with its directory made and no earlier run's copy of it
+     * left, or why an earlier copy is still there: a run that fails to write
+     * it must not be read from what the one before it wrote.
+     */
+    public function fresh(string $file): string|CannotJudge
+    {
+        $this->directory(Path::of(dirname($file)));
+
+        if (is_file($file) && is_writable(dirname($file))) {
+            unlink($file);
+        }
+
+        return is_file($file) ? CannotJudge::because(sprintf(self::STALE, $file)) : $file;
+    }
+
+    /** A path of the adapter's own, inside the gate's directory. */
+    public function own(string $name): string
+    {
+        return sprintf('%s/%s/%s', $this->absolute($this->workspace), self::OWN, $name);
+    }
+}

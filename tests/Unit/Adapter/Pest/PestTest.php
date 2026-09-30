@@ -9,7 +9,6 @@ use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
-use NightWorksIO\MutationGate\Adapter\Pest\Platform;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Ran;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -20,6 +19,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -455,4 +456,15 @@ it('cannot measure coverage where an earlier map cannot be removed', function ()
         . 'and the gate cannot remove them.',
         $at->root(),
     )))->and($shell->commands())->toBe([]);
+});
+
+it('finds every @pest-mutate-ignore in the files asked for, running nothing', function (): void {
+    $at = adapterProject();
+    Scratch::write($at->root(), 'src/Money.php', "<?php\n\n// @pest-mutate-ignore\n");
+    $shell = ShellFake::answering(Ran::stopped(''));
+    $markers = new Pest($at, $shell, Patching::off())->markers(Paths::of(Path::of('src')));
+
+    expect(array_map(static fn(Marker $marker): string => $marker->where(), iterator_to_array($markers, preserve_keys: false)))
+        ->toBe(['src/Money.php:3'])
+        ->and($shell->commands())->toBe([]);
 });

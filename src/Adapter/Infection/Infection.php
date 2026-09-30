@@ -1,0 +1,248 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Adapter\Infection;
+
+use function array_keys;
+use function explode;
+use function getenv;
+
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Markers;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
+use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Test\Filter;
+use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Extension\Options;
+use NightWorksIO\MutationGate\Port\Runner;
+
+use function sprintf;
+
+/**
+ * Infection, with PHPUnit, behind the Runner port (ADR-0004). It runs in the
+ * project's root on a config the gate writes for each run, and always reads
+ * a coverage directory the gate chose: one another job wrote for the whole
+ * suite, or one the adapter writes first by running PHPUnit under coverage,
+ * narrowed to the tests that judge a held path.
+ */
+final readonly class Infection implements Runner
+{
+    private const string RUNNER = 'infection';
+
+    private const string MANIFEST = 'vendor/composer/installed.json';
+
+    /** Where the gate works, as the flows spell it. */
+    private const string WORKSPACE = '.mutation-gate';
+
+    private const string HERE = '.';
+
+    private const string COVERAGE_FAILED = "PHPUnit's coverage run failed. PHPUnit said:\n%s";
+
+    public function __construct(
+        private Project $project,
+        private Shell $shell,
+        private Seconds $cap,
+        private bool $nativeMarkersAllowed,
+    ) {
+    }
+
+    /**
+     * The adapter in the project the gate runs in, from the options the flows
+     * write (see Setup).
+     */
+    public static function fromOptions(Options $options): self|Invalid
+    {
+        $setup = Setup::of($options);
+
+        return $setup instanceof Invalid ? $setup : new self(
+            Project::at(self::HERE, $setup->tests(), Path::of(self::WORKSPACE)),
+            new ProcessShell(self::HERE, getenv()),
+            $setup->cap(),
+            nativeMarkersAllowed: $setup->allowsNativeMarkers(),
+        );
+    }
+
+    /** Infection, PHPUnit and php-code-coverage, and the static analysis tool the project has kill mutants. */
+    public function identity(): Identity|CannotJudge
+    {
+        $config = OwnConfig::in($this->project);
+        $manifest = $this->project->absolute(Path::of(self::MANIFEST));
+        $versions = $config instanceof CannotJudge
+            ? $config
+            : Installed::versionsIn($manifest, ...$config->staticAnalysis());
+
+        return $versions instanceof CannotJudge
+            ? $versions
+            : Identity::of(self::RUNNER, $versions, Platform::current()->digest());
+    }
+
+    public function groups(): Groups|CannotJudge
+    {
+        $config = OwnConfig::in($this->project);
+
+        return $config instanceof CannotJudge
+            ? $config
+            : Listing::groupsIn($this->shell->run(Invocation::listingGroups($this->project, $config)));
+    }
+
+    public function coverage(CoverageRequest $request): CoverageMap|CannotJudge
+    {
+        $config = OwnConfig::in($this->project);
+        $directory = $this->project->directory($request->directory());
+        $covered = $config instanceof CannotJudge || ! $request->runs()
+            ? $config
+            : $this->covered($config, $request->tests(), $directory);
+
+        return $covered instanceof CannotJudge ? $covered : CoverageXml::read($this->project, $directory);
+    }
+
+    /** The files of the test classes whose tests cover the file: the classes Infection runs for its mutants. */
+    public function judges(Path $file, CoverageMap $map): Paths
+    {
+        $classes = [];
+
+        foreach ($map->testsCoveringFile($file) as $test) {
+            $classes[explode('::', $test->value(), 2)[0]] = true;
+        }
+
+        return $classes === [] ? Paths::none() : TestFiles::declaring($this->project, array_keys($classes));
+    }
+
+    public function mutate(MutationRequest $request): MutationResult|CannotJudge
+    {
+        $config = OwnConfig::in($this->project);
+
+        if ($config instanceof CannotJudge) {
+            return $config;
+        }
+
+        $coverage = $this->coverageFor($config, $request);
+
+        return $coverage instanceof CannotJudge
+            ? $coverage
+            : $this->run($config)->of($request, $coverage, $this->cap);
+    }
+
+    /**
+     * Each timed-out or skipped mutant the cap decided runs again with this
+     * limit as the cap, judged by the tests that judged its unit, and the rest
+     * are answered as they were.
+     */
+    public function retry(Mutants $mutants, Seconds $limit, WholeSuite|Group|Filter $judgedBy): Mutants|CannotJudge
+    {
+        $retrial = Retrial::under($this->cap);
+        $again = $this->again($retrial, $mutants, $limit, $judgedBy);
+
+        return $again instanceof CannotJudge ? $again : $retrial->matched($mutants, $again);
+    }
+
+    public function markers(Paths $files): Markers|CannotJudge
+    {
+        $config = OwnConfig::in($this->project);
+
+        return $config instanceof CannotJudge ? $config : NativeMarkers::in($this->project, $config, $files);
+    }
+
+    /**
+     * The coverage directory a run reads: the one the request names for a run
+     * judged by the whole suite, or one the adapter writes by running the
+     * tests that judge it. A held path never reads a map of the whole suite.
+     */
+    private function coverageFor(OwnConfig $config, MutationRequest $request): string|CannotJudge
+    {
+        $reused = $request->coverage();
+
+        return $reused instanceof Path && $request->judgedBy() instanceof WholeSuite
+            ? $this->project->absolute($reused)
+            : $this->covered($config, $request->judgedBy(), $this->ownCoverage());
+    }
+
+    /** The directory, once PHPUnit has run these tests under coverage into it, with no earlier run's reports left. */
+    private function covered(OwnConfig $config, WholeSuite|Group|Filter $tests, string $directory): string|CannotJudge
+    {
+        foreach ([sprintf('%s/index.xml', Invocation::XML), Invocation::JUNIT] as $report) {
+            $fresh = $this->project->fresh(sprintf('%s/%s', $directory, $report));
+
+            if ($fresh instanceof CannotJudge) {
+                return $fresh;
+            }
+        }
+
+        $ran = $this->shell->run(Invocation::coverage($this->project, $config, $tests, $directory));
+
+        return $ran->succeeded() ? $directory : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
+    }
+
+    private function again(
+        Retrial $retrial,
+        Mutants $mutants,
+        Seconds $limit,
+        WholeSuite|Group|Filter $judgedBy,
+    ): Mutants|CannotJudge {
+        $runs = $retrial->runs($mutants);
+        $config = $runs === [] ? Mutants::none() : OwnConfig::in($this->project);
+
+        if (! $config instanceof OwnConfig) {
+            return $config;
+        }
+
+        $coverage = $this->covered($config, $judgedBy, $this->ownCoverage());
+
+        return $coverage instanceof CannotJudge
+            ? $coverage
+            : $this->rerun($config, $coverage, $runs, $limit, $judgedBy);
+    }
+
+    /**
+     * Each file and mutator run again, as the retry asks: judged by its tests,
+     * and allowed its limit as the cap, which is no deadline for the run.
+     *
+     * @param list<array{Path, string}> $runs
+     */
+    private function rerun(
+        OwnConfig $config,
+        string $coverage,
+        array $runs,
+        Seconds $limit,
+        WholeSuite|Group|Filter $judgedBy,
+    ): Mutants|CannotJudge {
+        $again = Mutants::none();
+
+        foreach ($runs as [$file, $mutator]) {
+            $request = MutationRequest::of(Paths::of($file), $judgedBy)->onlyMutators(Mutators::named($mutator));
+            $result = $this->run($config)->of($request, $coverage, $limit);
+
+            if ($result instanceof CannotJudge) {
+                return $result;
+            }
+
+            $again = Mutants::of(...$again, ...$result->mutants());
+        }
+
+        return $again;
+    }
+
+    /** The directory the adapter runs PHPUnit under coverage into, for a run of its own. */
+    private function ownCoverage(): string
+    {
+        return $this->project->directory(Path::of($this->project->own(Invocation::COVERAGE)));
+    }
+
+    private function run(OwnConfig $config): MutationRun
+    {
+        return new MutationRun($this->project, $this->shell, $config, $this->nativeMarkersAllowed);
+    }
+}

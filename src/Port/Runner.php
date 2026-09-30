@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRequest;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -52,4 +53,11 @@ interface Runner
      * that judged their unit, matched back by the gate's id.
      */
     public function retry(Mutants $mutants, Seconds $limit, WholeSuite|Group|Filter $judgedBy): Mutants|CannotJudge;
+
+    /**
+     * The runner's own ignore markers in these files and in its config, each
+     * with the `ignores.entries` entry that replaces it. Whether a run may go
+     * ahead with them is the verdict's to decide (ADR-0008).
+     */
+    public function markers(Paths $files): Markers|CannotJudge;
 }

@@ -32,6 +32,7 @@ it('takes a reported status as it is, with a timeout a kill until triage says ot
     [MutantStatus::Errored, MutantJudgement::Errored],
     [MutantStatus::Unjudged, MutantJudgement::Unjudged],
     [MutantStatus::IgnoredByMarker, MutantJudgement::IgnoredByMarker],
+    [MutantStatus::Skipped, MutantJudgement::TooSlowToJudge],
 ]);
 
 it('counts each judgement in the score as the floors decide', function (MutantJudgement $judgement, Scoring $counted, Scoring $excluded): void {
