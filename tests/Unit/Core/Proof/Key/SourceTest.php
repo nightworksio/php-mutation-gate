@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
 use NightWorksIO\MutationGate\Core\Proof\Key\Exceptions;
 use NightWorksIO\MutationGate\Core\Proof\Key\Ignored;
 use NightWorksIO\MutationGate\Core\Proof\Key\Source;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 $fingerprint = static fn(string $path): Fingerprint => Fingerprint::of(Path::of($path), Digest::of('9c1e'));
 
@@ -38,17 +38,16 @@ it('reads every file outside the tests but the exceptions and the CI definitions
         ->and($source->ci())->toBe($ci);
 });
 
-it('reads tens of thousands of files in linear time', function (): void {
-    $each = array_map(static fn(int $at): Fingerprint => Fingerprint::of(Path::of(sprintf('src/F%d.php', $at)), Digest::of(sprintf('%d', $at))), range(1, 20_000));
-    $source = Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('gate.json'), Path::of('baseline.json'), Ignored::nothing(), Paths::none()));
+it('reads files in time linear in their number', function (): void {
+    $source = static function (int $size): Closure {
+        $each = array_map(static fn(int $at): Fingerprint => Fingerprint::of(Path::of(sprintf('src/F%d.php', $at)), Digest::of(sprintf('%d', $at))), range(1, $size));
 
-    $seconds = Stopwatch::seconds(static function () use ($each, &$source): void {
-        $source = Source::of(Fingerprints::of(...$each, ...$each), CiDefinitions::none(), Exceptions::of(Path::of('gate.json'), Path::of('baseline.json'), Ignored::nothing(), Paths::none()));
-    });
+        return static fn(): Source => Source::of(Fingerprints::of(...$each, ...$each), CiDefinitions::none(), Exceptions::of(Path::of('gate.json'), Path::of('baseline.json'), Ignored::nothing(), Paths::none()));
+    };
 
-    expect($source->files())->toHaveCount(20_000)
-        ->and($source->files()->digestOf(Path::of('src/F20000.php')))->toEqual(Digest::of('20000'))
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+    expect($source(10)()->files())->toHaveCount(10)
+        ->and($source(10)()->files()->digestOf(Path::of('src/F10.php')))->toEqual(Digest::of('10'))
+        ->and(Growth::of(5000, $source))->toBeLessThan(Growth::LINEAR);
 });
 
 it('reads the files that define the runner, though proofs.ignore matches them', function () use ($fingerprint): void {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Coverage\Judges;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 it('knows of no file a test runs to begin with', function (): void {
     expect(Judges::none()->filesRunBy(Path::of('tests/MoneyTest.php')))->toEqual(Paths::none());
@@ -31,24 +31,28 @@ it('replaces the test files of a covered file judged again, and leaves the judge
         ->and($judges->filesRunBy(Path::of('tests/MoneyTest.php')))->toEqual(Paths::of(Path::of('src/Money.php')));
 });
 
-it('answers the files a test file judges, among thousands, by lookup', function (): void {
-    $tests = array_map(static fn(int $at): Path => Path::of(sprintf('tests/T%dTest.php', $at)), range(0, 2999));
-    $judges = Judges::none();
+it('answers the files each test file judges in time linear in their number', function (): void {
+    $run = static function (int $size): Closure {
+        $tests = array_map(static fn(int $at): Path => Path::of(sprintf('tests/T%dTest.php', $at)), range(0, $size - 1));
+        $judges = Judges::none();
 
-    foreach (range(0, 2999) as $at) {
-        $judges = $judges->judging(Path::of(sprintf('src/F%d.php', $at)), Paths::of(...array_slice($tests, $at % 2990, 10)));
-    }
-
-    $run = 0;
-
-    $seconds = Stopwatch::seconds(static function () use ($judges, $tests, &$run): void {
-        foreach ($tests as $test) {
-            $run += count($judges->filesRunBy($test));
+        foreach (range(0, $size - 1) as $at) {
+            $judges = $judges->judging(Path::of(sprintf('src/F%d.php', $at)), Paths::of(...array_slice($tests, $at % ($size - 9), 10)));
         }
-    });
 
-    expect($run)->toBe(30_000)
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+        return static function () use ($judges, $tests): int {
+            $run = 0;
+
+            foreach ($tests as $test) {
+                $run += count($judges->filesRunBy($test));
+            }
+
+            return $run;
+        };
+    };
+
+    expect($run(20)())->toBe(200)
+        ->and(Growth::of(750, $run))->toBeLessThan(Growth::LINEAR);
 });
 
 it('keeps a covered file judged again where it was first judged', function (): void {

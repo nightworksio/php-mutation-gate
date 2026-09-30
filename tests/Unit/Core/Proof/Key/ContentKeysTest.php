@@ -31,7 +31,7 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Tests\Support\Configured;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 const CONTENT_KEY_SOURCE = [
     'src/B.php' => 'b1',
@@ -440,36 +440,36 @@ it('keys many units at once as it keys each alone, reading a set of judging file
         ->and($alone->keyOf(Path::of('src/D.php')))->not->toEqual($alone->keyOf(Path::of('src/E.php')));
 });
 
-it('keys hundreds of units every test file judges in linear time', function (): void {
-    $files = [TestFile::other(Fingerprint::of(Path::of('tests/Support/Helper.php'), Digest::of('h')), Contents::of("<?php\nfinal class Helper {}\n"))];
-    $judges = [];
+it('keys units in time linear in the test files that judge them', function (): void {
+    $keying = static function (int $size): array {
+        $files = [TestFile::other(Fingerprint::of(Path::of('tests/Support/Helper.php'), Digest::of('h')), Contents::of("<?php\nfinal class Helper {}\n"))];
+        $judges = [];
 
-    foreach (range(1, 2000) as $at) {
-        $judges[] = Path::of(sprintf('tests/Unit/T%dTest.php', $at));
-        $files[] = TestFile::testCase(Fingerprint::of(end($judges), Digest::of(sprintf('%d', $at))), Contents::of("<?php\nit('works', fn() => new Helper());\n"));
-    }
+        foreach (range(1, $size) as $at) {
+            $judges[] = Path::of(sprintf('tests/Unit/T%dTest.php', $at));
+            $files[] = TestFile::testCase(Fingerprint::of(end($judges), Digest::of(sprintf('%d', $at))), Contents::of("<?php\nit('works', fn() => new Helper());\n"));
+        }
 
-    $keys = ContentKeys::of(
-        Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
-        Configured::document('{}'),
-        Identity::of('pest', Versions::none(), Digest::of('platform')),
-        Digest::of('installed'),
-        Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing(), Paths::none())),
-        Tests::of(TestFiles::of(...$files), Paths::of(...$judges), Paths::none()),
-    );
-    $units = array_map(
-        static fn(int $at): Judging => Judging::of(Unit::file(Path::of(sprintf('src/F%d.php', $at))), Paths::of(...($at % 2 === 0 ? $judges : array_reverse($judges)))),
-        range(1, 200),
-    );
-    $keyed = Keys::none();
+        $keys = ContentKeys::of(
+            Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
+            Configured::document('{}'),
+            Identity::of('pest', Versions::none(), Digest::of('platform')),
+            Digest::of('installed'),
+            Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing(), Paths::none())),
+            Tests::of(TestFiles::of(...$files), Paths::of(...$judges), Paths::none()),
+        );
+        $units = array_map(
+            static fn(int $at): Judging => Judging::of(Unit::file(Path::of(sprintf('src/F%d.php', $at))), Paths::of(...($at % 2 === 0 ? $judges : array_reverse($judges)))),
+            range(1, 50),
+        );
 
-    $seconds = Stopwatch::seconds(static function () use ($keys, $units, &$keyed): void {
-        $keyed = $keys->keysOf(CoverageMap::empty(), ...$units);
-    });
+        return [$keys, $judges, static fn(): Keys => $keys->keysOf(CoverageMap::empty(), ...$units)];
+    };
+    [$keys, $judges, $keyed] = $keying(10);
 
-    expect($keyed)->toHaveCount(200)
-        ->and($keyed->keyOf(Path::of('src/F1.php')))->toEqual($keys->keyOf(Unit::file(Path::of('src/F1.php')), Paths::of(...$judges), CoverageMap::empty()))
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+    expect($keyed())->toHaveCount(50)
+        ->and($keyed()->keyOf(Path::of('src/F1.php')))->toEqual($keys->keyOf(Unit::file(Path::of('src/F1.php')), Paths::of(...$judges), CoverageMap::empty()))
+        ->and(Growth::of(500, static fn(int $size): Closure => $keying($size)[2]))->toBeLessThan(Growth::LINEAR);
 });
 
 it('names the base every key of a run is built on: the digest of what every key reads', function () use ($bare, $framed): void {

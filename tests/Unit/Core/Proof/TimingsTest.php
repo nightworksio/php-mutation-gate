@@ -8,8 +8,8 @@ use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
 
 $timing = static fn(string $unit, float $seconds, string $at = '2026-09-29T20:00:00Z'): Timing => Timing::of(
     Path::of($unit),
@@ -74,19 +74,17 @@ it('answers what a unit took, and says so where nothing measured it', function (
         ->and($timings->secondsFor(Path::of('src/B.php')))->toEqual(Unmeasured::duration());
 });
 
-it('builds, merges and trims thousands of timings in linear time', function () use ($timing): void {
-    $units = array_map(static fn(int $at): string => sprintf('src/F%d.php', $at), range(1, 5000));
-    $older = array_map(static fn(string $unit): Timing => $timing($unit, 1.0, '2026-09-29T20:00:00Z'), $units);
-    $newer = array_map(static fn(string $unit): Timing => $timing($unit, 2.0, '2026-09-29T21:00:00Z'), $units);
-    $kept = Timings::none();
+it('builds, merges and trims timings in time linear in their number', function () use ($timing): void {
+    $kept = static function (int $size) use ($timing): Closure {
+        $units = array_map(static fn(int $at): string => sprintf('src/F%d.php', $at), range(1, $size));
+        $older = array_map(static fn(string $unit): Timing => $timing($unit, 1.0, '2026-09-29T20:00:00Z'), $units);
+        $newer = array_map(static fn(string $unit): Timing => $timing($unit, 2.0, '2026-09-29T21:00:00Z'), $units);
+        $paths = Paths::of(...array_map(Path::of(...), $units));
 
-    $seconds = Stopwatch::seconds(static function () use ($older, $newer, $units, &$kept): void {
-        $kept = Timings::of(...$newer, ...$older)
-            ->and(Timings::of(...$older))
-            ->onlyFor(Paths::of(...array_map(Path::of(...), $units)));
-    });
+        return static fn(): Timings => Timings::of(...$newer, ...$older)->and(Timings::of(...$older))->onlyFor($paths);
+    };
 
-    expect($kept)->toHaveCount(5000)
-        ->and($kept->secondsFor(Path::of('src/F1.php')))->toEqual(Seconds::of(2.0))
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+    expect($kept(10)())->toHaveCount(10)
+        ->and($kept(10)()->secondsFor(Path::of('src/F1.php')))->toEqual(Seconds::of(2.0))
+        ->and(Growth::of(1250, $kept))->toBeLessThan(Growth::LINEAR);
 });

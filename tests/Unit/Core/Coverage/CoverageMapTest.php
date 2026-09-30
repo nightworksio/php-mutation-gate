@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 $ids = static fn(TestIds $tests): array => array_map(static fn(TestId $test): string => $test->value(), iterator_to_array($tests, preserve_keys: true));
 
@@ -99,28 +99,30 @@ it('knows a test whose id is only digits by that id', function (): void {
         ->and($map->durationOf(TestId::of('8')))->toEqual(Seconds::of(1.0));
 });
 
-it('builds and reads a map of hundreds of thousands of entries in linear time', function (): void {
-    $covered = [];
+it('builds and reads a map in time linear in its entries', function (): void {
+    $read = static function (int $size): Closure {
+        $covered = [];
 
-    foreach (range(1, 5000) as $file) {
-        foreach (range(1, 40) as $line) {
-            $covered[] = CoveredLine::of(Path::of(sprintf('src/F%d.php', $file)), $line, sprintf('T%d::t', ($file * 40 + $line) % 3000));
+        foreach (range(1, $size) as $file) {
+            foreach (range(1, 40) as $line) {
+                $covered[] = CoveredLine::of(Path::of(sprintf('src/F%d.php', $file)), $line, sprintf('T%d::t', ($file * 40 + $line) % 3000));
+            }
         }
-    }
 
-    $timed = array_map(static fn(int $test): TimedTest => TimedTest::of(sprintf('T%d::t', $test), 0.5), range(0, 2999));
-    $map = CoverageMap::empty();
-    $read = 0;
+        $timed = array_map(static fn(int $test): TimedTest => TimedTest::of(sprintf('T%d::t', $test), 0.5), range(0, $size - 1));
 
-    $seconds = Stopwatch::seconds(static function () use ($covered, $timed, &$map, &$read): void {
-        $map = CoverageMap::of(...$covered)->timedEach(...$timed);
+        return static function () use ($covered, $timed): int {
+            $map = CoverageMap::of(...$covered)->timedEach(...$timed);
+            $read = count($map->tests());
 
-        foreach ($map->files() as $file) {
-            $read += count($map->linesCovered($file)) + count($map->testsCoveringFile($file));
-        }
-    });
+            foreach ($map->files() as $file) {
+                $read += count($map->linesCovered($file)) + count($map->testsCoveringFile($file));
+            }
 
-    expect($map->tests())->toHaveCount(3000)
-        ->and($read)->toBe(5000 * 80)
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+            return $read;
+        };
+    };
+
+    expect($read(10)())->toBe(410 + 10 * 80)
+        ->and(Growth::of(1250, $read))->toBeLessThan(Growth::LINEAR);
 });

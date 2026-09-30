@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
-use NightWorksIO\MutationGate\Tests\Support\Stopwatch;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 $ids = static fn(TestIds $tests): array => array_map(static fn(TestId $test): string => $test->value(), iterator_to_array($tests, preserve_keys: true));
 
@@ -33,14 +33,13 @@ it('says whether it holds a test', function (): void {
         ->and($tests->has(TestId::of('A::b')))->toBeFalse();
 });
 
-it('collects tens of thousands of tests in linear time', function (): void {
-    $each = array_map(static fn(int $at): TestId => TestId::of(sprintf('T%d::t', $at)), range(1, 20_000));
-    $tests = TestIds::none();
+it('collects tests in time linear in their number', function (): void {
+    $tests = static function (int $size): Closure {
+        $each = array_map(static fn(int $at): TestId => TestId::of(sprintf('T%d::t', $at)), range(1, $size));
 
-    $seconds = Stopwatch::seconds(static function () use ($each, &$tests): void {
-        $tests = TestIds::of(...$each, ...$each);
-    });
+        return static fn(): TestIds => TestIds::of(...$each, ...$each);
+    };
 
-    expect($tests)->toHaveCount(20_000)
-        ->and($seconds)->toBeLessThan(Stopwatch::BOUND);
+    expect($tests(10)())->toHaveCount(10)
+        ->and(Growth::of(5000, $tests))->toBeLessThan(Growth::LINEAR);
 });
