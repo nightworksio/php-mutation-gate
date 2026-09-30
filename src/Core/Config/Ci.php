@@ -23,12 +23,14 @@ final readonly class Ci implements Part
 
     private const string BUILDKITE_DEFINITION = '.buildkite/pipeline.yml';
 
-    private const string GITLAB = 'gitlab';
-
-    private const string BUILDKITE = 'buildkite';
-
     /** The CI plans the builder has a method of its own for. */
-    private const array PLANS = ['github', 'gitlab', 'buildkite', 'circleci', 'json'];
+    private const array PLANS = [
+        BuiltinCiPlan::GitHub->value,
+        BuiltinCiPlan::GitLab->value,
+        BuiltinCiPlan::Buildkite->value,
+        BuiltinCiPlan::CircleCi->value,
+        BuiltinCiPlan::Json->value,
+    ];
 
     private function __construct(
         private Choice|Absent $plan,
@@ -186,8 +188,8 @@ final readonly class Ci implements Part
     public function planOptions(Name $plan): Options
     {
         return Options::of(match ($plan->value()) {
-            self::GITLAB => Json::object(Member::of('template', $this->gitlabTemplate()->value())),
-            self::BUILDKITE => Json::object(
+            BuiltinCiPlan::GitLab->value => Json::object(Member::of('template', $this->gitlabTemplate()->value())),
+            BuiltinCiPlan::Buildkite->value => Json::object(
                 Member::of('step', $this->buildkiteStep()->json()),
                 Member::of('definition', $this->buildkiteDefinition()->value()),
             ),

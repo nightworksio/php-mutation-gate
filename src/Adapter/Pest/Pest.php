@@ -9,6 +9,7 @@ use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Pest as ConfigPest;
@@ -105,7 +106,7 @@ final readonly class Pest implements Runner
         );
 
         return $platform instanceof Platform
-            ? Identity::of(self::RUNNER, $versions, $platform->digest())
+            ? Identity::of(BuiltinRunner::Pest->value, $versions, $platform->digest())
             : $platform;
     }
 

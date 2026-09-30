@@ -12,6 +12,7 @@ use function is_writable;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -28,9 +29,6 @@ use function unlink;
  */
 final readonly class Project
 {
-    /** Where the adapter keeps its own files, inside the gate's directory. */
-    private const string OWN = Infection::RUNNER;
-
     private const string STALE
         = 'The gate cannot remove %s, so it cannot tell what this run wrote from what an earlier one did.';
 
@@ -105,7 +103,9 @@ final readonly class Project
     /** A path of the adapter's own, inside the gate's directory. */
     public function own(string $name): string
     {
-        return $this->root->at($this->workspace->child(Path::of(self::OWN))->child(Path::of($name)))->value();
+        return $this->root->at(
+            $this->workspace->child(Path::of(BuiltinRunner::Infection->value))->child(Path::of($name)),
+        )->value();
     }
 
     /** A directory as its real path where it is there, so that it compares with the real paths the runner reports. */

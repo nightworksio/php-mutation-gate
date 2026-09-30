@@ -20,12 +20,6 @@ use function sprintf;
 /** Where proofs are kept, what they leave out, and whether the verdict writes them (ADR-0007): `proofs`. */
 final readonly class Proofs implements Part
 {
-    /** The store when no layer names one, and where it keeps its ledgers. */
-    private const string STORE = 'directory';
-
-
-    private const string S3 = 's3';
-
     /** Where the directory store keeps its ledgers. */
     private const string PATH = 'path';
 
@@ -84,7 +78,7 @@ final readonly class Proofs implements Part
     {
         return $this->store instanceof Choice
             ? $this->store
-            : Builtins::stores(ProjectRoot::origin())->standard(self::STORE);
+            : Builtins::stores(ProjectRoot::origin())->standard(BuiltinStore::Directory->value);
     }
 
     /** @return Listed<Glob> the globs of the files no test reads */
@@ -137,7 +131,9 @@ final readonly class Proofs implements Part
     {
         $store = $this->store();
 
-        return $store->use()->value() === self::STORE ? WrittenPaths::choice($store, $origin, self::PATH) : $store;
+        return $store->use()->value() === BuiltinStore::Directory->value
+            ? WrittenPaths::choice($store, $origin, self::PATH)
+            : $store;
     }
 
     /** The proof store, by `Proofs::directory()` or `Proofs::s3()` for the built-in ones. */
@@ -152,8 +148,11 @@ final readonly class Proofs implements Part
         }
 
         return match ($store->use()->value()) {
-            self::STORE => sprintf('Proofs::directory(%s)', PhpCalls::literals(...array_values($texts))),
-            self::S3 => sprintf(
+            BuiltinStore::Directory->value => sprintf(
+                'Proofs::directory(%s)',
+                PhpCalls::literals(...array_values($texts)),
+            ),
+            BuiltinStore::S3->value => sprintf(
                 'Proofs::s3(%s)',
                 implode(
                     ', ',

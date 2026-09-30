@@ -10,6 +10,7 @@ use function getenv;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -52,9 +53,6 @@ use function sprintf;
  */
 final readonly class Infection implements Runner
 {
-    /** The runner's name, which its identity and the directory it keeps its own files in carry. */
-    public const string RUNNER = 'infection';
-
     private const string NO_PROJECT = '%s holds no project Infection can run: Infection is not installed there.';
 
     private const string COVERAGE_FAILED = "PHPUnit's coverage run failed. PHPUnit said:\n%s";
@@ -107,7 +105,7 @@ final readonly class Infection implements Runner
         );
 
         return $platform instanceof Platform
-            ? Identity::of(self::RUNNER, $versions, $platform->digest())
+            ? Identity::of(BuiltinRunner::Infection->value, $versions, $platform->digest())
             : $platform;
     }
 

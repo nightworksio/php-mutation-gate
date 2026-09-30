@@ -16,7 +16,12 @@ use function sprintf;
 final readonly class Report
 {
     /** The built-in reporters the builder has a method of its own for. */
-    private const array NAMED = ['json', 'junit', 'sarif', 'html'];
+    private const array NAMED = [
+        BuiltinReporter::Json->value,
+        BuiltinReporter::JUnit->value,
+        BuiltinReporter::Sarif->value,
+        BuiltinReporter::Html->value,
+    ];
 
     private function __construct(private Choice $reporter, private Path|Absent $path)
     {

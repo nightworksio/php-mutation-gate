@@ -142,7 +142,7 @@ final readonly class Init
         }
 
         $existing = $destination->existing();
-        $given = $file instanceof Path ? $given->choosing(Choices::runner()->use()) : $given;
+        $given = $file instanceof Path ? $given->choosing(Choices::runner()->use()->value()) : $given;
         $settings = $existing instanceof NoConfigFile
             ? $setting->effective->settings($given->withoutConfig())
             : self::refused($existing);

@@ -39,6 +39,10 @@ use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
+use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -68,55 +72,55 @@ final readonly class FirstParty implements Extension
     public function extend(Extensions $extensions): Extensions
     {
         return Registered::config($extensions, class_exists(...))
-            ->withProofStore(Name::of('directory'), LedgerDirectory::fromOptions(...))
-            ->withProofStore(Name::of('s3'), BucketLedger::fromOptions(...))
+            ->withProofStore(BuiltinStore::Directory->named(), LedgerDirectory::fromOptions(...))
+            ->withProofStore(BuiltinStore::S3->named(), BucketLedger::fromOptions(...))
             ->withCostModel(Name::of('learned'), MeasuredCosts::fromOptions(...))
-            ->withCiPlan(Name::of('github'), GitHubPlan::fromOptions(...))
-            ->withCiPlan(Name::of('gitlab'), GitLabPlan::fromOptions(...))
-            ->withCiPlan(Name::of('buildkite'), BuildkitePlan::fromOptions(...))
-            ->withCiPlan(Name::of('circleci'), CircleCiPlan::fromOptions(...))
-            ->withCiPlan(Name::of('json'), JsonPlan::fromOptions(...))
+            ->withCiPlan(BuiltinCiPlan::GitHub->named(), GitHubPlan::fromOptions(...))
+            ->withCiPlan(BuiltinCiPlan::GitLab->named(), GitLabPlan::fromOptions(...))
+            ->withCiPlan(BuiltinCiPlan::Buildkite->named(), BuildkitePlan::fromOptions(...))
+            ->withCiPlan(BuiltinCiPlan::CircleCi->named(), CircleCiPlan::fromOptions(...))
+            ->withCiPlan(BuiltinCiPlan::Json->named(), JsonPlan::fromOptions(...))
             ->withRunner(
-                Name::of('pest'),
+                BuiltinRunner::Pest->named(),
                 static fn(Options $options): Pest|Invalid => Pest::fromOptions(
                     $options,
                     ComposerVendor::of(self::HERE),
                 ),
             )
-            ->withReporter(Name::of('console'), ConsoleReport::fromOptions(...))
-            ->withReporter(Name::of('json'), JsonReportFile::fromOptions(...))
-            ->withReporter(Name::of('junit'), JUnitReportFile::fromOptions(...))
-            ->withReporter(Name::of('sarif'), SarifReportFile::fromOptions(...))
-            ->withReporter(Name::of('html'), HtmlReportDirectory::fromOptions(...))
-            ->withReporter(Name::of('github-annotations'), Annotations::fromOptions(...))
+            ->withReporter(BuiltinReporter::Console->named(), ConsoleReport::fromOptions(...))
+            ->withReporter(BuiltinReporter::Json->named(), JsonReportFile::fromOptions(...))
+            ->withReporter(BuiltinReporter::JUnit->named(), JUnitReportFile::fromOptions(...))
+            ->withReporter(BuiltinReporter::Sarif->named(), SarifReportFile::fromOptions(...))
+            ->withReporter(BuiltinReporter::Html->named(), HtmlReportDirectory::fromOptions(...))
+            ->withReporter(BuiltinReporter::GitHubAnnotations->named(), Annotations::fromOptions(...))
             ->withReporter(
-                Name::of('github-summary'),
+                BuiltinReporter::GitHubSummary->named(),
                 static fn(Options $options): Reporter => StepSummary::configured($options, new SystemClock()),
             )
-            ->withReporter(Name::of('github-comment'), PullRequestComment::fromOptions(...))
+            ->withReporter(BuiltinReporter::GitHubComment->named(), PullRequestComment::fromOptions(...))
             ->withReporter(
-                Name::of('badge'),
+                BuiltinReporter::Badge->named(),
                 static fn(Options $options): Reporter|Invalid => BadgeDirectory::configured(
                     $options,
                     new SystemClock(),
                 ),
             )
-            ->withReporter(Name::of('gitlab'), CodeQualityReportFile::fromOptions(...))
-            ->withReporter(Name::of('kill-matrix'), KillMatrixFile::fromOptions(...))
-            ->withReporter(Name::of('tests'), TestsReportFile::fromOptions(...))
-            ->withReporter(Name::of('problems'), ProblemsReport::fromOptions(...))
-            ->withReporter(Name::of('slack'), $this->alerting(Channel::Slack))
-            ->withReporter(Name::of('discord'), $this->alerting(Channel::Discord))
-            ->withReporter(Name::of('webhook'), $this->alerting(Channel::Webhook))
+            ->withReporter(BuiltinReporter::GitLab->named(), CodeQualityReportFile::fromOptions(...))
+            ->withReporter(BuiltinReporter::KillMatrix->named(), KillMatrixFile::fromOptions(...))
+            ->withReporter(BuiltinReporter::Tests->named(), TestsReportFile::fromOptions(...))
+            ->withReporter(BuiltinReporter::Problems->named(), ProblemsReport::fromOptions(...))
+            ->withReporter(BuiltinReporter::Slack->named(), $this->alerting(Channel::Slack))
+            ->withReporter(BuiltinReporter::Discord->named(), $this->alerting(Channel::Discord))
+            ->withReporter(BuiltinReporter::Webhook->named(), $this->alerting(Channel::Webhook))
             ->withReporter(
-                Name::of('otlp'),
+                BuiltinReporter::Otlp->named(),
                 static fn(Options $options): Reporter|Invalid => OtlpReporter::configured($options, new SystemClock()),
             )
             ->withChangeSource(Name::of('git'), static fn(Options $options): ChangeSource => self::git($options))
             ->withRepository(Name::of('git'), static fn(Options $options): Repository => self::git($options))
             ->withChangeSource(Name::of('github'), static fn(Options $options): ChangeSource => self::github($options))
             ->withRepository(Name::of('github'), static fn(Options $options): Repository => self::github($options))
-            ->withRunner(Name::of('infection'), Infection::fromOptions(...));
+            ->withRunner(BuiltinRunner::Infection->named(), Infection::fromOptions(...));
     }
 
     /**

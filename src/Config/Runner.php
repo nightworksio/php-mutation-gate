@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -17,12 +18,12 @@ final readonly class Runner
 
     public static function pest(): self
     {
-        return self::uses('pest');
+        return self::uses(BuiltinRunner::Pest->value);
     }
 
     public static function infection(): self
     {
-        return self::uses('infection');
+        return self::uses(BuiltinRunner::Infection->value);
     }
 
     /** A runner another extension registers by name, or a class, with its options. */
