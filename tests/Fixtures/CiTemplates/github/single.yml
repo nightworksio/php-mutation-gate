@@ -1,0 +1,33 @@
+# Written by `mutation-gate init --ci=github`, for the gate dev-main.
+# Require the check `mutation testing` in the default branch's protection rule.
+# For an S3 proof store, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from
+# secrets in the env of the gate's step.
+name: mutation
+
+on:
+  pull_request:
+  push:
+    branches: ['trunk']
+  schedule:
+    - cron: '0 3 * * 1,4'
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    name: mutation testing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: nightworksio/php-mutation-gate@eea11e875234b32127cf23dde00d149b04c6ac4c
+        with:
+          php-version: '8.5'
+          runner: 'pest'

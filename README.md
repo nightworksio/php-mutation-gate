@@ -564,6 +564,11 @@ A CI run has three steps:
 
 A proof ledger lets each step skip what an earlier run already proved.
 
+`vendor/bin/mutation-gate init --ci` writes the definition for GitHub Actions,
+GitLab CI, Buildkite or CircleCI. The package's CI holds each one's syntax: it
+runs the GitHub definitions through `actionlint` and validates the others
+against their provider's published JSON Schema.
+
 Two things the setup relies on:
 
 - **The scheduled run.** A full run on the default branch, at least once a

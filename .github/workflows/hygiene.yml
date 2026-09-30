@@ -32,7 +32,9 @@ jobs:
             -o "${RUNNER_TEMP}/actionlint.tar.gz" "$url"
           sha256sum --check --strict <<<"${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/actionlint.tar.gz"
           tar xzf "${RUNNER_TEMP}/actionlint.tar.gz" -C "${RUNNER_TEMP}" actionlint
-          "${RUNNER_TEMP}/actionlint" -format '{{json .}}' > evidence/raw/actionlint.json
+          # The workflows, and the GitHub definitions init --ci writes, as their snapshots render them.
+          "${RUNNER_TEMP}/actionlint" -format '{{json .}}' .github/workflows/*.yml tests/Fixtures/CiTemplates/github/*.yml \
+            > evidence/raw/actionlint.json
       # The job's evidence, whatever the steps above did.
       - name: evidence
         if: ${{ !cancelled() }}
@@ -76,7 +78,7 @@ jobs:
             -o "${RUNNER_TEMP}/zizmor.tar.gz" "$url"
           sha256sum --check --strict <<<"${ZIZMOR_SHA256}  ${RUNNER_TEMP}/zizmor.tar.gz"
           tar xzf "${RUNNER_TEMP}/zizmor.tar.gz" -C "${RUNNER_TEMP}" zizmor
-          "${RUNNER_TEMP}/zizmor" --format=json . > evidence/raw/zizmor.json
+          "${RUNNER_TEMP}/zizmor" --format=json . tests/Fixtures/CiTemplates/github/*.yml > evidence/raw/zizmor.json
       - name: evidence
         if: ${{ !cancelled() }}
         env:

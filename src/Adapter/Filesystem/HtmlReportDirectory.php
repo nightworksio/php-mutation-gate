@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
 use function array_key_exists;
-use function dirname;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -38,9 +37,6 @@ final readonly class HtmlReportDirectory implements Configurable, Reporter
 
     private const string LICENCE = 'LICENSE';
 
-    /** How far above this file the package's root is. */
-    private const int PACKAGE_ROOT = 3;
-
     private const string MISSING = 'The HTML report was not written: %s is missing, so the page would have no viewer.';
 
     private const string UNNAMED = 'The HTML report is written to a directory, whose `path` the entry names.';
@@ -62,7 +58,7 @@ final readonly class HtmlReportDirectory implements Configurable, Reporter
         return $path instanceof Invalid ? $path : new self(
             $path,
             Directory::at('.'),
-            ReportPath::at(sprintf('%s/resources/mutation-testing-elements', dirname(__DIR__, self::PACKAGE_ROOT))),
+            ReportPath::at(Resources::at('mutation-testing-elements')),
         );
     }
 

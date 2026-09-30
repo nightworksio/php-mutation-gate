@@ -1,0 +1,26 @@
+# Written by `mutation-gate init --ci=github`, for the gate %%version%%.
+# Require the check `mutation / verdict` in the default branch's protection rule.
+# For an S3 proof store, pass AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as
+# secrets to the job below.
+name: mutation
+
+on:
+  pull_request:
+  push:
+    branches: ['%%branch%%']
+  schedule:
+    - cron: '0 3 * * 1,4'
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@%%pin%%
+    permissions:
+      contents: write # used only by the default-branch publish job
+      actions: read
+      pull-requests: write
+    with:
+      php-version: '%%php%%'
+      runner: '%%runner%%'

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\DefaultBranch;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -25,8 +26,6 @@ use function sprintf;
  */
 final readonly class Standing
 {
-    private const string MAIN = 'main';
-
     private const string FETCHED = 'refs/remotes/origin/%s';
 
     private const string NO_HEAD = 'The commit HEAD is at cannot be read, so the run cannot be tied to one. %s';
@@ -44,7 +43,7 @@ final readonly class Standing
         }
 
         $run = self::runOf($ci->runOn(), $repository);
-        $default = self::defaultBranchOf($defaultBranch, $run, $repository);
+        $default = DefaultBranch::of($defaultBranch, $run->defaultBranch(), $repository->defaultBranch());
 
         return new self($head, $run->withDefaultBranch($default)->atCheckout($head));
     }
@@ -70,9 +69,7 @@ final readonly class Standing
     /** The default branch's scope. */
     public function defaultBranch(): Scope
     {
-        $default = $this->runOn->defaultBranch();
-
-        return $default instanceof Scope ? $default : Scope::branch(self::MAIN);
+        return DefaultBranch::of(new Absent(), $this->runOn->defaultBranch());
     }
 
     /** The default branch as a checkout that fetched it holds it, which a pull request is read against. */
@@ -97,22 +94,5 @@ final readonly class Standing
         $unnamed = CannotTell::because('The CI does not name the default branch.');
 
         return $branch instanceof Scope ? RunOn::at($branch, $unnamed) : RunOn::detached($unnamed);
-    }
-
-    private static function defaultBranchOf(string|Absent $configured, RunOn $run, Repository $repository): Scope
-    {
-        $candidates = [
-            $configured instanceof Absent ? $configured : RunOn::branchNamed($configured),
-            $run->defaultBranch(),
-            $repository->defaultBranch(),
-        ];
-
-        foreach ($candidates as $candidate) {
-            if ($candidate instanceof Scope) {
-                return $candidate;
-            }
-        }
-
-        return Scope::branch(self::MAIN);
     }
 }

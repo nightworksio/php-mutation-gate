@@ -11,3 +11,16 @@ it('is a package, its exact version and its source reference', function (): void
         ->and($version->version())->toBe('5.0.2')
         ->and($version->reference())->toBe('7c2e1d4');
 });
+
+it('is a release where its version is a tag, and not where Composer installed a branch', function (
+    string $version,
+    bool $release,
+): void {
+    expect(Version::of('nightworksio/mutation-gate', $version, '0123abcd')->isRelease())->toBe($release);
+})->with([
+    'a tag' => ['v1.2.0', true],
+    'a tag without its v' => ['1.2.0', true],
+    'a branch' => ['dev-main', false],
+    'an aliased branch' => ['2.x-dev', false],
+    'no version' => ['', false],
+]);

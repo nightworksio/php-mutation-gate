@@ -25,14 +25,8 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 final readonly class ZeroConfig
 {
     /** The preset, the runner and the trees zero-config found, as a config, or why there is none to write. */
-    public static function layer(
-        Extensions $extensions,
-        Settings|Invalid|CannotJudge $settings,
-    ): Layer|Invalid|CannotJudge {
-        if (! $settings instanceof Settings) {
-            return $settings;
-        }
-
+    public static function layer(Extensions $extensions, Settings $settings): Layer|Invalid|CannotJudge
+    {
         $source = new Chosen($extensions)->treeSource($settings->treeSource());
         $trees = $source instanceof Invalid || $source instanceof CannotJudge ? $source : $source->trees();
 

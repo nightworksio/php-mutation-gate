@@ -74,7 +74,7 @@ it('takes the config file, the runner, the reports, the budget and the CI on any
         ->and($definition->getOption('report')->isArray())->toBeTrue()
         ->and($definition->getOption('report')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('budget')->isValueRequired())->toBeTrue()
-        ->and($definition->getOption('ci')->isValueRequired())->toBeTrue();
+        ->and($definition->getOption('ci')->isValueOptional())->toBeTrue();
 });
 
 it('builds the config commands', function () use ($console): void {

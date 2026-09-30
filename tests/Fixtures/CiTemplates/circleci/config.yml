@@ -1,0 +1,69 @@
+# For an S3 proof store, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in a
+# context the mutation jobs use.
+version: 2.1
+
+jobs:
+  mutation-plan:
+    docker:
+      - image: <an image with PHP 8.5 and pcov>
+    steps:
+      - checkout
+      - run: |
+          mkdir -p .mutation-gate
+          echo "$CIRCLE_BRANCH" > .mutation-gate/branch
+          echo 'trunk' > .mutation-gate/default-branch
+      - restore_cache:
+          keys:
+            - mutation-gate-ledger-{{ checksum ".mutation-gate/branch" }}-
+      - restore_cache:
+          keys:
+            - mutation-gate-ledger-{{ checksum ".mutation-gate/default-branch" }}-
+      - run: composer install --no-interaction --no-progress
+      - run: |
+          if [ "<< pipeline.trigger_source >>" = "scheduled_pipeline" ]; then base=""
+          elif [ -n "$CIRCLE_PULL_REQUEST" ]; then base="--changed-since=origin/trunk"
+          else base="--changed-since=last-passed"; fi
+          vendor/bin/mutation-gate plan --shards=4 $base
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .mutation-gate
+  mutation:
+    parallelism: 4
+    docker:
+      - image: <an image with PHP 8.5 and pcov>
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: composer install --no-interaction --no-progress
+      - run: vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .mutation-gate/results
+  mutation-verdict:
+    docker:
+      - image: <an image with PHP 8.5>
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: composer install --no-interaction --no-progress
+      - run: vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
+      - run: '[ "$CIRCLE_BRANCH" = "trunk" ] || rm -rf ".mutation-gate/ledger/refs/heads/trunk"'
+      - save_cache:
+          key: mutation-gate-ledger-{{ checksum ".mutation-gate/branch" }}-{{ .Revision }}
+          paths:
+            - .mutation-gate/ledger
+
+workflows:
+  mutation:
+    jobs:
+      - mutation-plan
+      - mutation:
+          requires:
+            - mutation-plan
+      - mutation-verdict:
+          requires:
+            - mutation: terminal
