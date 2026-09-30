@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistories;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
+use NightWorksIO\MutationGate\Core\Analysis\CheckTime;
+use NightWorksIO\MutationGate\Core\Analysis\RejectionRate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -35,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
+use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -82,7 +87,7 @@ $run = static fn(string $id, string $instant, string $at = ''): Run => Run::of($
 $ledgerOf = static fn(Proof $money): Ledger => Ledger::empty()
     ->withProof($money)
     ->withProof(Proof::of(Digest::of($keyB), Path::of('src/B.php'), Mutants::none(), $run('github:2/1', '2026-09-29T21:00:00Z')))
-    ->withTiming(Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'infection', $at('2026-09-29T20:48:17Z')))
+    ->withTimings(Timings::of(Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'infection', $at('2026-09-29T20:48:17Z'))))
     ->atBase(Digest::of($base))
     ->withPassed(Passed::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', 0))
     ->withKillers(KillHistory::none()
@@ -211,8 +216,8 @@ it('keeps only the proofs of the five bases its runs saw most recently', functio
     expect($read->bases())->toEqual(Bases::of(...array_map(Digest::of(...), [$bases[2], $bases[5], $bases[4], $bases[3], $bases[1]])))
         ->and($read->proofs())->toHaveCount(5)
         ->and($read->proofs()->has(Digest::of(hash('sha256', $bases[0]))))->toBeFalse()
-        ->and($read->provesAt(Digest::of($bases[1])))->toBeTrue()
-        ->and($read->provesAt(Digest::of($bases[0])))->toBeFalse();
+        ->and($read->proofs()->provesAt(Digest::of($bases[1])))->toBeTrue()
+        ->and($read->proofs()->provesAt(Digest::of($bases[0])))->toBeFalse();
 });
 
 it('keeps at most the newest twenty thousand proofs of its bases', function () use ($run, $base): void {
@@ -561,3 +566,23 @@ it('reads a key that reads as a number as text, dropping what is not well formed
     'a proof' => ['proofs', ['12' => ['unit' => 'src/Money.php']]],
     'a timing' => ['timings', ['7' => ['seconds' => 'long']]],
 ]);
+
+it('writes what it learned of each analyser in its own section, and reads it back', function () use ($ledger, $readBack): void {
+    $analysers = AnalyserHistories::none()->with(AnalyserHistory::of('mago')
+        ->withRate(RejectionRate::of('PlusToMinus', 50, 7))
+        ->withTime(CheckTime::of(50, Seconds::of(4.5))));
+    $file = Gzip::unpack(LedgerFile::encode($ledger->withAnalysers($analysers)), 'the ledger');
+    $data = is_string($file) ? json_decode($file, associative: true) : [];
+
+    expect(is_array($data) ? $data['analysers'] : [])->toBe([
+        'mago' => ['checks' => 50, 'seconds' => 4.5, 'mutators' => ['PlusToMinus' => [50, 7]]],
+    ])
+        ->and(LedgerFile::decode(LedgerFile::encode($ledger->withAnalysers($analysers))))->toEqual($readBack->withAnalysers($analysers));
+});
+
+it('reads a ledger whose analysers section is not well formed as having learned nothing of them, and keeps the rest', function () use ($data, $written, $readBack): void {
+    $file = $data();
+    $file['analysers'] = ['mago' => 'fast'];
+
+    expect(LedgerFile::decode($written($file)))->toEqual($readBack);
+});

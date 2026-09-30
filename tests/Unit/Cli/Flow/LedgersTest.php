@@ -59,7 +59,7 @@ $ledger = static function (string $unit, string $key, string $base, string $pass
 
     return Ledger::empty()
         ->withProof(Proof::of(Digest::of($key), Path::of($unit), Mutants::none(), $run))
-        ->withTiming(Timing::of(Path::of($unit), Seconds::of(2.0), 'fake', $at))
+        ->withTimings(Timings::of(Timing::of(Path::of($unit), Seconds::of(2.0), 'fake', $at)))
         ->withPassed(Passed::of(Revision::ref($passed), 'check', 0));
 };
 

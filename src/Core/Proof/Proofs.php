@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
+use function array_any;
 use function array_key_exists;
 use function array_values;
 
@@ -73,6 +74,16 @@ final readonly class Proofs implements Countable, IteratorAggregate
     public function proofFor(Digest $key): Proof|Unproved
     {
         return $this->has($key) ? $this->proofs[$key->value()] : Unproved::key($key);
+    }
+
+    /**
+     * Whether any of these proofs was established at this base. A key can
+     * only match a proof of the same base, so where none was, no key of a
+     * run at it can.
+     */
+    public function provesAt(Digest $base): bool
+    {
+        return array_any($this->proofs, fn(Proof $proof): bool => $proof->run()->base()->value() === $base->value());
     }
 
     /** The newest proof of each unit's path, whatever its key, read in one pass. */

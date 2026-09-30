@@ -126,3 +126,11 @@ it('answers the newest proof of every path in time linear in the proofs and the 
     expect($asked(10)())->toBe(10)
         ->and(Growth::of(1000, $asked))->toBeLessThan(Growth::LINEAR);
 });
+
+it('says whether any proof it holds was established at a base', function () use ($proof): void {
+    $proofs = Proofs::of($proof(str_repeat('a', 64), 'src/A.php'));
+
+    expect($proofs->provesAt(Digest::of(str_repeat('b', 64))))->toBeTrue()
+        ->and($proofs->provesAt(Digest::of(str_repeat('c', 64))))->toBeFalse()
+        ->and(Proofs::none()->provesAt(Digest::of(str_repeat('b', 64))))->toBeFalse();
+});

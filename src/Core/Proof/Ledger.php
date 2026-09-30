@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistories;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -12,8 +13,8 @@ use NightWorksIO\MutationGate\Core\Order\KillHistory;
 /**
  * What one scope has proved: its proofs, how long each unit took, the bases
  * the runs that wrote it keyed their units at, the most recent first, the
- * newest commit of the scope whose verdict passed, and which tests killed its
- * mutants first.
+ * newest commit of the scope whose verdict passed, which tests killed its
+ * mutants first, and what it learned of each static analyser.
  */
 final readonly class Ledger
 {
@@ -25,6 +26,7 @@ final readonly class Ledger
         private Bases $bases,
         private Passed|CannotTell $passed,
         private KillHistory $killers,
+        private AnalyserHistories $analysers,
     ) {
     }
 
@@ -36,6 +38,7 @@ final readonly class Ledger
             Bases::none(),
             CannotTell::because(self::NEVER_PASSED),
             KillHistory::none(),
+            AnalyserHistories::none(),
         );
     }
 
@@ -54,11 +57,6 @@ final readonly class Ledger
     public function withoutProof(Digest $key): self
     {
         return clone($this, ['proofs' => $this->proofs->without($key)]);
-    }
-
-    public function withTiming(Timing $timing): self
-    {
-        return clone($this, ['timings' => $this->timings->with($timing)]);
     }
 
     /** This ledger, with what a finished shard measured, each unit keeping its newest timing. */
@@ -95,7 +93,8 @@ final readonly class Ledger
      * This ledger and another scope's, read together: this one's proofs first,
      * so a key both prove keeps this one's, each unit's newest timing, this
      * one's bases before the other's, this one's passing commit, and where
-     * both know who killed a mutant or a function's mutants, this one's.
+     * both know who killed a mutant or a function's mutants, this one's, and
+     * where both learned of an analyser, this one's.
      */
     public function and(self $other): self
     {
@@ -105,7 +104,14 @@ final readonly class Ledger
             $this->bases->and($other->bases),
             $this->passed,
             $this->killers->and($other->killers),
+            $this->analysers->and($other->analysers),
         );
+    }
+
+    /** This ledger, with what a run learned of the static analysers, replacing what it held. */
+    public function withAnalysers(AnalyserHistories $analysers): self
+    {
+        return clone($this, ['analysers' => $analysers]);
     }
 
     /** This ledger with timings only for these units, which are the ones that still exist. */
@@ -136,21 +142,6 @@ final readonly class Ledger
         return $this->bases;
     }
 
-    /**
-     * Whether any proof was established at this base. A key can only match a
-     * proof of the same base, so where none was, no key of a run at it can.
-     */
-    public function provesAt(Digest $base): bool
-    {
-        foreach ($this->proofs as $proof) {
-            if ($proof->run()->base()->value() === $base->value()) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /** The newest commit of this scope whose verdict passed: the `last-passed` base. */
     public function lastPassed(): Passed|CannotTell
     {
@@ -161,5 +152,11 @@ final readonly class Ledger
     public function killers(): KillHistory
     {
         return $this->killers;
+    }
+
+    /** What this scope's runs learned of each static analyser: its rejection rates and how long its checks take. */
+    public function analysers(): AnalyserHistories
+    {
+        return $this->analysers;
     }
 }

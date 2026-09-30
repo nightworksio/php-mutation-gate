@@ -59,6 +59,7 @@ final readonly class LedgerJson
         $testIndex = array_flip($tests);
         $inputs = InputsTable::of(...$kept);
         $timings = self::timings($ledger->timings());
+        $analysers = AnalysersRecord::of($ledger->analysers());
         $passed = $ledger->lastPassed();
         $proofs = self::proofsWritten($kept, array_flip($mutators), $testIndex, $inputs);
 
@@ -73,6 +74,10 @@ final readonly class LedgerJson
         yield LedgerFile::PROOFS => JsonText::object($proofs);
         yield 'timings' => $timings === [] ? JsonText::object([]) : JsonText::compact($timings);
         yield KillersRecord::SECTION => JsonText::compact(KillersRecord::of($killers, $testIndex));
+
+        if ($analysers !== []) {
+            yield AnalysersRecord::SECTION => JsonText::compact($analysers);
+        }
 
         if ($passed instanceof Passed) {
             yield LedgerFile::PASSED => JsonText::compact([

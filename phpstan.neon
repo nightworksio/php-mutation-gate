@@ -603,6 +603,9 @@ services:
                     - PASSED # a field of the ledger
                 'NightWorksIO\MutationGate\Core\Analysis\RejectionLength':
                     - CODE # characters of a recorded rejection's code
+                'NightWorksIO\MutationGate\Core\Proof\AnalysersRecord':
+                    - SECONDS # a field of the ledger's analysers section
+                    - MUTATORS # a field of the ledger's analysers section
                 'NightWorksIO\MutationGate\Core\Mutant\MutantRecord':
                     - SECONDS # a field of a shard result
                     - MUTATOR # a field of a shard result
