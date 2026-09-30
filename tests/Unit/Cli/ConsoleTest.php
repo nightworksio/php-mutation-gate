@@ -48,8 +48,8 @@ it('says what would fail a run in a project, before a run does', function (): vo
         ->and($slugs)->toContain('two-runners');
 });
 
-it('runs the whole gate when no command is named, beginning with the config', function () use ($console): void {
-    $tester = new ApplicationTester($console());
+it('runs the whole gate when no command is named, beginning with the config', function (): void {
+    $tester = new ApplicationTester(Commands::console(Scratch::copy('tests/Fixtures/Projects/TwoRunners')));
 
     expect($tester->run([]))->toBe(2)
         ->and(Printed::by($tester->getOutput()))
