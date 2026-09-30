@@ -153,6 +153,7 @@ has to bring its result with it.
        "format": 2,
        "bases": ["5be0…64 hex…", "a7c2…64 hex…"],
        "mutators": ["Plus", "LessThan"],
+       "tests": ["Tests\\MoneyTest::testAdds"],
        "proofs": {
            "9c1e…64 hex…": {
                "unit": "src/Money.php",
@@ -161,7 +162,7 @@ has to bring its result with it.
                "run": "github:<run id>/<attempt>",
                "mutants": [
                    { "id": "3f9a1c2b7d04", "line": 42, "status": "survived", "mutator": "LessThan", "diff": "…" },
-                   ["81d0c9e2aa17", 44, 0]
+                   ["81d0c9e2aa17", 44, 0, [0]]
                ]
            }
        },
@@ -194,12 +195,14 @@ has to bring its result with it.
    - A mutant that was not killed keeps its full record, so reports can show a
      proved survivor. A timed-out or skipped mutant also keeps its limit
      (ADR-0004).
-   - A killed mutant is the tuple `[id, line, mutator]`, where `mutator` is its
-     index in the ledger's `mutators`, each name listed once. That is what
-     ignores and the stale-ignore check need (ADR-0008), in as few bytes as a
-     ledger of hundreds of thousands of killed mutants can take. `killedBy`,
-     the test that killed it first, or every test that failed under a full
-     kill matrix (ADR-0014), is kept with it.
+   - A killed mutant is the tuple `[id, line, mutator, killedBy]`. `mutator`
+     is its index in the ledger's `mutators`, and `killedBy` is the indices in
+     the ledger's `tests` of the test that killed it first, or of every test
+     that failed under a full kill matrix (ADR-0014), and is empty where no
+     test is known to have killed it. Each name and each test id is listed
+     once. That is what ignores, the stale-ignore check (ADR-0008) and the
+     tests report (ADR-0014) need, in as few bytes as a ledger of hundreds of
+     thousands of killed mutants can take.
    - Each proof records the `base` of the run that established it (decision
      2), and `bases` lists the bases of the runs that wrote the ledger, the
      most recent first. A run adds its own base when it writes.
@@ -218,8 +221,9 @@ has to bring its result with it.
    - Reading keeps each well-formed entry and drops anything else. An
      unreadable ledger costs a run and never a verdict. A ledger of format 1,
      or one that is not a whole gzip stream, reads as empty: a miss, never an
-     error. Where any mutator name is not a name, every proof with a killed
-     mutant is dropped, since an index past it would point at the wrong one.
+     error. Where any mutator name or test id in those lists is not text,
+     every proof whose killed mutants point into that list is dropped, since
+     an index past it would point at the wrong one.
    - When two results for one key agree, the first is kept. When they differ,
      the mutants that differ are flaky and neither result is used (ADR-0008).
      Results are compared by status. `killedBy` is never compared, because

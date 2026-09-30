@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -83,8 +85,20 @@ it('writes the reason a runner left a mutant unjudged in the full record', funct
     expect(MutantRecord::full($unjudged))->toMatchArray(['status' => 'unjudged', 'reason' => 'No test references the constant it changes.']);
 });
 
-it('writes a killed mutant as its id, line and the index of its mutator', function () use ($killed, $id): void {
-    expect(MutantRecord::killed($killed, 3))->toBe([$id->value(), 1, 3]);
+it('writes a killed mutant as its id, line, the index of its mutator and those of its killers', function () use ($killed, $id): void {
+    $killers = TestIds::of(TestId::of('CartTest::totals'), TestId::of('MoneyTest::adds'));
+
+    expect(MutantRecord::killed($killed->killedBy($killers), ['Plus' => 0, 'LessThan' => 3], ['MoneyTest::adds' => 0, 'CartTest::totals' => 5]))
+        ->toBe([$id->value(), 1, 3, [5, 0]])
+        ->and(MutantRecord::killed($killed, ['LessThan' => 0], []))->toBe([$id->value(), 1, 0, []]);
+});
+
+it('writes and reads back in full the tests that killed a mutant', function () use ($killed, $read): void {
+    $killers = TestIds::of(TestId::of('CartTest::totals'), TestId::of('MoneyTest::adds'));
+
+    expect(MutantRecord::full($killed->killedBy($killers)))->toMatchArray(['killedBy' => ['CartTest::totals', 'MoneyTest::adds']])
+        ->and(MutantRecord::full($killed))->not->toHaveKey('killedBy')
+        ->and(MutantRecord::readFull($read(MutantRecord::full($killed->killedBy($killers)))))->toEqual($killed->killedBy($killers));
 });
 
 it('reads back the mutant it wrote in full', function () use ($timedOut, $killed, $unjudged, $read): void {
@@ -103,13 +117,17 @@ it('reads a killed record as a mutant of the unit it was proved in', function ()
         Unmeasured::duration(),
     );
 
-    expect(MutantRecord::readKilled($read(MutantRecord::killed($killed, 1)), Path::of('src/Money.php'), ['Plus', 'LessThan']))
-        ->toEqual($expected);
+    $killers = TestIds::of(TestId::of('CartTest::totals'));
+
+    expect(MutantRecord::readKilled($read(MutantRecord::killed($killed, ['LessThan' => 1], [])), Path::of('src/Money.php'), ['Plus', 'LessThan'], ['CartTest::totals']))
+        ->toEqual($expected)
+        ->and(MutantRecord::readKilled($read(MutantRecord::killed($killed->killedBy($killers), ['LessThan' => 1], ['CartTest::totals' => 0])), Path::of('src/Money.php'), ['Plus', 'LessThan'], ['CartTest::totals']))
+        ->toEqual($expected->killedBy($killers));
 });
 
 it('tells a full record from a killed one', function () use ($killed, $read): void {
     expect(MutantRecord::isFull($read(MutantRecord::full($killed))))->toBeTrue()
-        ->and(MutantRecord::isFull($read(MutantRecord::killed($killed, 0))))->toBeFalse();
+        ->and(MutantRecord::isFull($read(MutantRecord::killed($killed, ['LessThan' => 0], []))))->toBeFalse();
 });
 
 it('refuses a record that does not hold a mutant, saying where', function (array $change, NotInShape $refusal) use ($timedOut, $read): void {
@@ -127,12 +145,19 @@ it('refuses a record that does not hold a mutant, saying where', function (array
 ]);
 
 it('refuses a killed record that does not hold a killed mutant, saying where', function (array $record, NotInShape $refusal) use ($read): void {
-    expect(fn(): Mutant => MutantRecord::readKilled($read($record), Path::of('src/Money.php'), ['Plus']))->toThrow($refusal);
+    expect(fn(): Mutant => MutantRecord::readKilled($read($record), Path::of('src/Money.php'), ['Plus'], ['MoneyTest::adds']))->toThrow($refusal);
 })->with([
-    'too few fields' => [['3f9a1c2b7d04', 44], NotInShape::at('the file', 'a killed mutant, as [id, line, mutator]')],
-    'too many fields' => [['3f9a1c2b7d04', 44, 0, 0], NotInShape::at('the file', 'a killed mutant, as [id, line, mutator]')],
-    'an id that is not one' => [['xyz', 44, 0], NotInShape::at('the file[0]', 'a mutant id')],
-    'a line before the first' => [['3f9a1c2b7d04', 0, 0], NotInShape::at('the file[1]', 'a line')],
-    'a mutator past the last' => [['3f9a1c2b7d04', 44, 1], NotInShape::at('the file[2]', 'a mutator')],
-    'a mutator that is not an index' => [['3f9a1c2b7d04', 44, 'Plus'], NotInShape::at('the file[2]', 'a whole number')],
+    'too few fields' => [['3f9a1c2b7d04', 44, 0], NotInShape::at('the file', 'a killed mutant, as [id, line, mutator, killers]')],
+    'too many fields' => [['3f9a1c2b7d04', 44, 0, [], 0], NotInShape::at('the file', 'a killed mutant, as [id, line, mutator, killers]')],
+    'an id that is not one' => [['xyz', 44, 0, []], NotInShape::at('the file[0]', 'a mutant id')],
+    'a line before the first' => [['3f9a1c2b7d04', 0, 0, []], NotInShape::at('the file[1]', 'a line')],
+    'a mutator past the last' => [['3f9a1c2b7d04', 44, 1, []], NotInShape::at('the file[2]', 'a mutator')],
+    'a mutator that is not an index' => [['3f9a1c2b7d04', 44, 'Plus', []], NotInShape::at('the file[2]', 'a whole number')],
+    'killers that are not a list' => [['3f9a1c2b7d04', 44, 0, 0], NotInShape::at('the file[3]', 'a list of whole numbers')],
+    'a killer past the last test' => [['3f9a1c2b7d04', 44, 0, [0, 1]], NotInShape::at('the file[3]', 'the index of a listed test, not 1')],
 ]);
+
+it('refuses killers of a full record that are not text, saying where', function () use ($killed, $read): void {
+    expect(fn(): Mutant => MutantRecord::readFull($read([...MutantRecord::full($killed), 'killedBy' => [7]])))->toThrow(NotInShape::at('the file.killedBy[0]', 'text'))
+        ->and(fn(): Mutant => MutantRecord::readFull($read([...MutantRecord::full($killed), 'killedBy' => 'MoneyTest::adds'])))->toThrow(NotInShape::at('the file.killedBy', 'a list'));
+});

@@ -83,3 +83,14 @@ it('reads true or false where it is, and refuses anything else', function (): vo
         ->and($node->field('off')->boolean())->toBeFalse()
         ->and(fn(): bool => $node->field('word')->boolean())->toThrow(NotInShape::at('the file.word', 'true or false'));
 });
+
+it('reads a list of whole numbers at once, and refuses anything else, saying where', function (): void {
+    $node = Node::decode('{"lines": [3, 1, 2], "mixed": [1, "2"], "map": {"a": 1}, "floats": [1.5]}');
+
+    expect($node->field('lines')->integers())->toBe([3, 1, 2])
+        ->and(Node::decode('[]')->integers())->toBe([])
+        ->and(fn(): array => $node->field('mixed')->integers())->toThrow(NotInShape::at('the file.mixed', 'a list of whole numbers'))
+        ->and(fn(): array => $node->field('map')->integers())->toThrow(NotInShape::at('the file.map', 'a list of whole numbers'))
+        ->and(fn(): array => $node->field('floats')->integers())->toThrow(NotInShape::at('the file.floats', 'a list of whole numbers'))
+        ->and(fn(): array => $node->field('none')->integers())->toThrow(NotInShape::missing('the file.none'));
+});

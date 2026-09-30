@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -12,7 +13,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * test caught it, how long it ran where the runner says, and, for a mutant
  * that timed out, the seconds the runner allowed it. The native id is the
  * runner's own, and means something only within the run that printed it. A
- * mutant the runner left unjudged can say why.
+ * mutant the runner left unjudged can say why, and a killed one names the
+ * tests that killed it where the runner does.
  */
 final readonly class Mutant
 {
@@ -25,6 +27,7 @@ final readonly class Mutant
         private Seconds|Unmeasured $duration,
         private Seconds|Unmeasured $limit,
         private Reason|Unreported $reason,
+        private TestIds $killers,
     ) {
     }
 
@@ -45,6 +48,7 @@ final readonly class Mutant
             $duration,
             Unmeasured::duration(),
             Unreported::reason(),
+            TestIds::none(),
         );
     }
 
@@ -58,6 +62,15 @@ final readonly class Mutant
     public function because(Reason $reason): self
     {
         return clone($this, ['reason' => $reason]);
+    }
+
+    /**
+     * This mutant, killed by these tests: the first that failed on it, or
+     * every one that failed under a full kill matrix.
+     */
+    public function killedBy(TestIds $tests): self
+    {
+        return clone($this, ['killers' => $tests]);
     }
 
     public function id(): MutantId
@@ -99,5 +112,11 @@ final readonly class Mutant
     public function reason(): Reason|Unreported
     {
         return $this->reason;
+    }
+
+    /** The tests that killed it; none where no test is known to have, as for a kill by a timeout. */
+    public function killers(): TestIds
+    {
+        return $this->killers;
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
 use function array_key_exists;
+use function array_map;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -12,15 +13,21 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
+use function sprintf;
+
 /**
  * A mutant as the gate's files write it. The full record holds everything a
- * runner reported of it, with the reason it left one unjudged. The killed
- * record, which a ledger keeps of a killed mutant, is `[id, line, mutator]`,
- * the mutator an index into the ledger's list of mutator names: what ignores
- * need of it, in as few bytes as a ledger of many thousands of them can take.
+ * runner reported of it, with the reason it left one unjudged and the tests
+ * that killed it. The killed record, which a ledger keeps of a killed mutant,
+ * is `[id, line, mutator, killers]`, the mutator an index into the ledger's
+ * list of mutator names and the killers indices into its list of tests: what
+ * ignores and the tests report need of it, in as few bytes as a ledger of
+ * many thousands of them can take.
  *
  * @internal the shape of the plan, shard result and ledger files
  */
@@ -44,10 +51,12 @@ final readonly class MutantRecord
 
     private const string REASON = 'reason';
 
-    /** How many fields a killed record holds: its id, its line and its mutator. */
-    private const int KILLED = 3;
+    /** How many fields a killed record holds: its id, its line, its mutator and its killers. */
+    private const int KILLED = 4;
 
-    /** @return array<string, int|float|string> */
+    private const string KILLED_BY = 'killedBy';
+
+    /** @return array<string, int|float|string|list<string>> */
     public static function full(Mutant $mutant): array
     {
         $end = $mutant->location()->end();
@@ -68,18 +77,26 @@ final readonly class MutantRecord
             ...$duration instanceof Seconds ? [self::SECONDS => $duration->seconds()] : [],
             ...$limit instanceof Seconds ? [self::LIMIT => $limit->seconds()] : [],
             ...$reason instanceof Reason ? [self::REASON => $reason->text()] : [],
+            ...count($mutant->killers()) > 0 ? [self::KILLED_BY => self::idsOf($mutant->killers())] : [],
         ];
     }
 
     /**
      * A killed mutant as a ledger keeps it, with its mutator's index among
-     * the ledger's mutator names.
+     * the ledger's mutator names and its killers' among its tests.
      *
-     * @return array{string, int, int}
+     * @param  array<string, int>                 $mutators each mutator's index in the ledger, by its name
+     * @param  array<string, int>                 $tests    each killing test's index in the ledger, by its id
+     * @return array{string, int, int, list<int>}
      */
-    public static function killed(Mutant $mutant, int $mutator): array
+    public static function killed(Mutant $mutant, array $mutators, array $tests): array
     {
-        return [$mutant->id()->value(), $mutant->location()->start()->number(), $mutator];
+        return [
+            $mutant->id()->value(),
+            $mutant->location()->start()->number(),
+            $mutators[$mutant->mutation()->mutator()],
+            array_map(static fn(string $test): int => $tests[$test], self::idsOf($mutant->killers())),
+        ];
     }
 
     /** @throws NotInShape */
@@ -103,9 +120,11 @@ final readonly class MutantRecord
         );
         $limit = self::secondsIn($record->field(self::LIMIT));
         $reason = $record->field(self::REASON);
+        $killers = $record->field(self::KILLED_BY);
         $limited = $limit instanceof Seconds ? $mutant->withLimit($limit) : $mutant;
+        $said = $reason->isPresent() ? $limited->because(Reason::that($reason->text())) : $limited;
 
-        return $reason->isPresent() ? $limited->because(Reason::that($reason->text())) : $limited;
+        return $killers->isPresent() ? $said->killedBy(self::testsIn($killers)) : $said;
     }
 
     /**
@@ -113,18 +132,19 @@ final readonly class MutantRecord
      * family, diff or duration.
      *
      * @param list<string> $mutators the ledger's mutator names, each at its index
+     * @param list<string> $tests    the ledger's test ids, each at its index
      *
      * @throws NotInShape
      */
-    public static function readKilled(Node $record, Path $unit, array $mutators): Mutant
+    public static function readKilled(Node $record, Path $unit, array $mutators, array $tests): Mutant
     {
         $fields = $record->items();
 
         if (count($fields) !== self::KILLED) {
-            throw NotInShape::at($record->at(), 'a killed mutant, as [id, line, mutator]');
+            throw NotInShape::at($record->at(), 'a killed mutant, as [id, line, mutator, killers]');
         }
 
-        [$id, $line, $mutator] = $fields;
+        [$id, $line, $mutator, $killers] = $fields;
 
         return Mutant::of(
             self::idOf($id),
@@ -133,7 +153,7 @@ final readonly class MutantRecord
             Mutation::of(self::mutatorOf($mutator, $mutators), MutatorFamily::None, ''),
             MutantStatus::Killed,
             Unmeasured::duration(),
-        );
+        )->killedBy(self::killersOf($killers, $tests));
     }
 
     /** Whether a record is a full one, rather than the killed one a ledger keeps of a killed mutant. */
@@ -146,6 +166,38 @@ final readonly class MutantRecord
     private static function idIn(Node $record): MutantId
     {
         return self::idOf($record->field(self::ID));
+    }
+
+    /**
+     * The tests a killed record's indices name.
+     *
+     * @param list<string> $tests
+     *
+     * @throws NotInShape
+     */
+    private static function killersOf(Node $killers, array $tests): TestIds
+    {
+        $named = [];
+
+        foreach ($killers->integers() as $index) {
+            $named[] = array_key_exists($index, $tests)
+                ? TestId::of($tests[$index])
+                : throw NotInShape::at($killers->at(), sprintf('the index of a listed test, not %d', $index));
+        }
+
+        return TestIds::of(...$named);
+    }
+
+    /** @throws NotInShape */
+    private static function testsIn(Node $tests): TestIds
+    {
+        return TestIds::of(...array_map(static fn(Node $test): TestId => TestId::of($test->text()), $tests->items()));
+    }
+
+    /** @return list<string> */
+    private static function idsOf(TestIds $tests): array
+    {
+        return array_map(static fn(TestId $test): string => $test->value(), [...$tests]);
     }
 
     /**
