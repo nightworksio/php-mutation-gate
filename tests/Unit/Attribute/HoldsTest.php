@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Attribute\Holds;
+use NightWorksIO\MutationGate\Tests\Support\Holding;
 
 it('holds the path a test spells', function (): void {
     expect(new Holds('src/Kernel.php')->path())->toBe('src/Kernel.php');
@@ -17,7 +18,7 @@ it('stands on a class, a method or a function, as often as a test needs', functi
 });
 
 it('is read from a test written with it', function (): void {
-    $test = new #[Holds('src/Kernel.php'), Holds('src/Http')] class {};
+    $test = Holding::kernelAndHttp();
     $paths = [];
 
     foreach (new ReflectionClass($test)->getAttributes(Holds::class) as $attribute) {

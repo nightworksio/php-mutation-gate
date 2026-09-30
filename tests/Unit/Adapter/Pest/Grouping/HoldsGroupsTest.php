@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Grouping\HoldsGroups;
-use NightWorksIO\MutationGate\Attribute\Holds;
+use NightWorksIO\MutationGate\Tests\Support\Holding;
 use Pest\Factories\Attribute;
 use Pest\Factories\TestCaseMethodFactory;
 use Pest\PendingCalls\DescribeCall;
@@ -31,25 +31,14 @@ function groupingGroups(TestCaseMethodFactory $factory): array
 }
 
 it('adds a holds group for each #[Holds] on a test\'s closure, and keeps the test', function (): void {
-    $factory = new TestCaseMethodFactory(
-        'tests/MoneyTest.php',
-        #[Holds('src/Money.php')]
-        #[Holds('src/Held.php')]
-        static fn(): bool => true,
-    );
+    $factory = new TestCaseMethodFactory('tests/MoneyTest.php', Holding::moneyAndHeld());
 
     expect(new HoldsGroups()->accept($factory))->toBeTrue()
         ->and(groupingGroups($factory))->toBe(['holds:src/Money.php', 'holds:src/Held.php']);
 });
 
 it('adds a group once, beside the groups the test is in already', function (): void {
-    $factory = new TestCaseMethodFactory(
-        'tests/MoneyTest.php',
-        #[Holds('src/Money.php')]
-        #[Holds('src/Money.php')]
-        static function (): void {
-        },
-    );
+    $factory = new TestCaseMethodFactory('tests/MoneyTest.php', Holding::moneyTwice());
     $factory->attributes[] = new Attribute(Group::class, ['slow']);
     $factory->attributes[] = new Attribute(Group::class, ['holds:src/Money.php']);
 
@@ -66,25 +55,23 @@ it('adds nothing to a test whose closure holds nothing', function (): void {
 });
 
 it('adds the group of every describe a test is registered inside, at any depth', function (): void {
-    $factory = new TestCaseMethodFactory('tests/MoneyTest.php', #[Holds('src/Money.php')] static fn(): bool => true);
+    $factory = new TestCaseMethodFactory('tests/MoneyTest.php', Holding::money());
     $suite = TestSuite::getInstance();
 
     new DescribeCall(
         $suite,
         'tests/MoneyTest.php',
         new Description('money'),
-        #[Holds('src/Held.php')]
-        static function () use ($suite, $factory): void {
+        Holding::held(static function () use ($suite, $factory): void {
             new DescribeCall(
                 $suite,
                 'tests/MoneyTest.php',
                 new Description('adding'),
-                #[Holds('src/Kernel.php')]
-                static function () use ($factory): void {
+                Holding::kernel(static function () use ($factory): void {
                     new HoldsGroups()->accept($factory);
-                },
+                }),
             );
-        },
+        }),
     );
 
     expect(groupingGroups($factory))->toBe(['holds:src/Money.php', 'holds:src/Kernel.php', 'holds:src/Held.php']);
@@ -98,10 +85,9 @@ it('reads only the describe around a test whose closure is unset', function (): 
         TestSuite::getInstance(),
         'tests/MoneyTest.php',
         new Description('money'),
-        #[Holds('src/Held.php')]
-        static function () use ($factory): void {
+        Holding::held(static function () use ($factory): void {
             new HoldsGroups()->accept($factory);
-        },
+        }),
     );
 
     expect(groupingGroups($factory))->toBe(['holds:src/Held.php']);
@@ -111,7 +97,7 @@ it('filters every test Pest registers from then on', function (): void {
     $tests = new TestRepository();
     HoldsGroups::register($tests);
     // Pest refuses a static closure for a test it builds.
-    $factory = new TestCaseMethodFactory('tests/MoneyTest.php', #[Holds('src/Money.php')] fn(): bool => true);
+    $factory = new TestCaseMethodFactory('tests/MoneyTest.php', Holding::moneyBound());
     $factory->description = 'adds';
 
     $tests->set($factory);
