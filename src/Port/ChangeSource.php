@@ -29,6 +29,12 @@ interface ChangeSource
     /** Every file in the working tree that is not ignored, with the digest of what it holds. */
     public function fingerprints(): Fingerprints|CannotTell;
 
+    /**
+     * Every file whose content on disk is not what is staged: changed since
+     * it was staged, or never added.
+     */
+    public function unstaged(): Paths|CannotTell;
+
     /** What a file held at a revision. */
     public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell;
 

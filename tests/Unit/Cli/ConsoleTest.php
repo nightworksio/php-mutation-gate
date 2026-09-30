@@ -29,6 +29,7 @@ it('offers every command the README lists', function (string $command) use ($con
     'triage',
     'watch',
     'pre-push',
+    'pre-commit',
     'hook',
     'init',
     'import',

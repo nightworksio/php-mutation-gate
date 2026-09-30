@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
 use NightWorksIO\MutationGate\Cli\Command\Doctor;
 use NightWorksIO\MutationGate\Cli\Command\Init;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
+use NightWorksIO\MutationGate\Cli\Command\PreCommitCommand;
 use NightWorksIO\MutationGate\Cli\Command\RunCommand;
 use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
@@ -99,6 +100,7 @@ final readonly class Console
         $application->addCommand(VerdictCommand::command($composition));
         $application->addCommand(BaselineCommand::command($composition));
         $application->addCommand(CoverageCommand::command($composition));
+        $application->addCommand(PreCommitCommand::command($composition));
         $formats = new Formats(class_exists(...));
         $application->addCommand(Init::command($project, $extensions, $effective, $formats, $now));
         $application->addCommand(Init::import($project, $extensions, $effective, $formats, $now));

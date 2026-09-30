@@ -55,6 +55,14 @@ it('says what changed since a base, on which lines', function (ChangeSource $sou
     ]);
 })->with($sources);
 
+it('names every file whose content on disk is not what is staged', function (ChangeSource $source): void {
+    $unstaged = $source->unstaged();
+    $said = array_map(static fn(Path $path): string => $path->value(), $unstaged instanceof Paths ? [...$unstaged] : []);
+    sort($said);
+
+    expect($said)->toBe(['src/Limit.php', 'src/Money.php']);
+})->with($sources);
+
 it('cannot tell what changed since a revision it does not have', function (ChangeSource $source): void {
     expect($source->changesSince(Revision::ref('no-such-revision')))->toBeInstanceOf(CannotTell::class);
 })->with($sources);

@@ -67,6 +67,18 @@ final readonly class ChangeSourceFake implements ChangeSource
         return $fingerprints;
     }
 
+    /** Every file the working tree changed, none of it staged. */
+    public function unstaged(): Paths
+    {
+        $unstaged = Paths::none();
+
+        foreach ($this->changes as $change) {
+            $unstaged = $unstaged->with($change->path());
+        }
+
+        return $unstaged;
+    }
+
     /** What a file held at a revision; git cannot tell for a revision the repository does not have. */
     public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell
     {

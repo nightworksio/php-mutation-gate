@@ -200,7 +200,18 @@ it('cannot tell anything outside a repository', function (): void {
     $directory = Scratch::directory();
 
     expect(Git::at($directory)->changesSince(Revision::ref('HEAD')))->toBeInstanceOf(CannotTell::class)
-        ->and(Git::at($directory)->fingerprints())->toBeInstanceOf(CannotTell::class);
+        ->and(Git::at($directory)->fingerprints())->toBeInstanceOf(CannotTell::class)
+        ->and(Git::at($directory)->unstaged())->toBeInstanceOf(CannotTell::class);
+});
+
+it('names a staged file as unstaged only once it changes again, and an ignored one never', function (): void {
+    $repository = Repository::empty()->write('.gitignore', "ignored.php\n")->write('src/A.php', "<?php\n")->commit('The base.');
+    $repository->write('src/A.php', "<?php\n// staged\n")->write('ignored.php', '')->git('add', 'src/A.php');
+    $staged = Git::at($repository->root)->unstaged();
+    $repository->write('src/A.php', "<?php\n// changed again\n");
+
+    expect($staged)->toEqual(Paths::none())
+        ->and(Git::at($repository->root)->unstaged())->toEqual(Paths::of(Path::of('src/A.php')));
 });
 
 it('fingerprints every file on disk that git does not ignore by the blob id of what it holds there', function (): void {

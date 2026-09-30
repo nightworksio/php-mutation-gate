@@ -40,6 +40,11 @@ final readonly class Checkout implements ChangeSource, Repository
         return $this->changes->fingerprints();
     }
 
+    public function unstaged(): Paths|CannotTell
+    {
+        return $this->changes->unstaged();
+    }
+
     public function fileAt(Path $path, Revision $revision): Contents|Missing|CannotTell
     {
         return $this->changes->fileAt($path, $revision);
