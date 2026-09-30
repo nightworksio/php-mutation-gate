@@ -15,7 +15,7 @@ it('suggests the known key a misspelt one most likely meant', function (
     'two edits away' => ['tress', 'trees', 'runner', 'trees'],
     'a third of a long key away' => ['prePshBdgt', 'prePushBudget', 'watchBudget', 'prePushBudget'],
     'the first of two equally near' => ['max', 'may', 'may', 'mix'],
-    'the nearer of two, whatever their order' => ['secnds', 'seconds', 'max', 'seconds'],
+    'the nearer of two, whatever their order' => ['maxx', 'max', 'mix', 'max'],
 ]);
 
 it('suggests nothing when no known key is close', function (string $key, string ...$known): void {

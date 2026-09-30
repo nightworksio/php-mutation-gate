@@ -497,8 +497,8 @@ it('refuses an ignore that does not expire within ignores.maxDays of today', fun
 });
 
 it('reads an adapter written as an object, checking a built-in one\'s options strictly', function (): void {
-    expect(Configs::problems(Configs::validated(['runner' => ['use' => 'pest', 'wth' => []]])))
-        ->toBe(['runner.wth: unknown key, did you mean with?'])
+    expect(Configs::problems(Configs::validated(['runner' => ['use' => 'pest', 'With' => []]])))
+        ->toBe(['runner.With: unknown key, did you mean with?'])
         ->and(Configs::problems(Configs::validated(['runner' => ['use' => 'pest', 'with' => ['workers' => 4]]])))
         ->toBe(['runner.with.workers: unknown key'])
         ->and(Configs::problems(Configs::validated(['runner' => ['with' => []]])))
