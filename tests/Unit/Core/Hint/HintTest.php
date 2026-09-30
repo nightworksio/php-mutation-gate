@@ -53,7 +53,7 @@ it('says so where there is no function around the mutant, or no file to read', f
     'visibility' => [MutatorFamily::Visibility, 'Nothing outside the class calls this. It can be narrower.'],
 ]);
 
-it('names up to three judging tests of a survivor or a flaky mutant, then how many more', function (int $tests, string $named) use ($source): void {
+it('names up to three judging tests of a mutant counted as not killed, then how many more', function (int $tests, string $named) use ($source): void {
     $ids = [];
 
     for ($test = 1; $test <= $tests; ++$test) {
@@ -65,7 +65,11 @@ it('names up to three judging tests of a survivor or a flaky mutant, then how ma
     expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::of(...$ids), $source())->text())
         ->toBe(sprintf('No test expects this exception. It is judged by %s.', $named))
         ->and(Hint::for($mutant, MutantJudgement::Flaky, TestIds::of(...$ids), $source())->text())
-        ->toBe(sprintf('Its tests killed it on one run and let it survive on another, so they are the suspects. It is judged by %s.', $named));
+        ->toBe(sprintf('Its tests killed it on one run and let it survive on another, so they are the suspects. It is judged by %s.', $named))
+        ->and(Hint::for($mutant, MutantJudgement::Unjudged, TestIds::of(...$ids), $source())->text())
+        ->toBe(sprintf('Nothing judged it before the run stopped, so it counts as not killed. It is judged by %s.', $named))
+        ->and(Hint::for($mutant, MutantJudgement::TooSlowToJudge, TestIds::of(...$ids), $source())->text())
+        ->toEndWith(sprintf('or raise `timeouts.seconds`. It is judged by %s.', $named));
 })->with([
     'one' => [1, '`T1`'],
     'two' => [2, '`T1` and `T2`'],
@@ -74,10 +78,10 @@ it('names up to three judging tests of a survivor or a flaky mutant, then how ma
     'six' => [6, '`T1`, `T2`, `T3` and 3 more'],
 ]);
 
-it('says what each other judgement means, naming no test', function (MutantJudgement $judgement, string $hint) use ($source): void {
+it('says what each other judgement means', function (MutantJudgement $judgement, string $hint) use ($source): void {
     $mutant = Verdicts::mutant('src/Order.php:8', 'Plus', MutatorFamily::Arithmetic, Verdicts::diff('return $a + $b;', 'return $a - $b;'));
 
-    expect(Hint::for($mutant, $judgement, TestIds::of(TestId::of('OrderTest::adds')), $source())->text())->toBe($hint);
+    expect(Hint::for($mutant, $judgement, TestIds::none(), $source())->text())->toBe($hint);
 })->with([
     'uncovered' => [MutantJudgement::Uncovered, 'No test runs line 8.'],
     'killed' => [MutantJudgement::Killed, 'A test fails with it in place.'],
@@ -92,3 +96,16 @@ it('says what each other judgement means, naming no test', function (MutantJudge
 it('keeps a hint as it was written', function (): void {
     expect(Hint::that('No test runs line 3.')->text())->toBe('No test runs line 3.');
 });
+
+it('names no test of a mutant that was killed, left out or never run', function (MutantJudgement $judgement) use ($source): void {
+    $mutant = Verdicts::mutant('src/Order.php:8', 'Plus', MutatorFamily::Arithmetic, Verdicts::diff('return $a + $b;', 'return $a - $b;'));
+
+    expect(Hint::for($mutant, $judgement, TestIds::of(TestId::of('OrderTest::adds')), $source())->text())->not->toContain('OrderTest');
+})->with([
+    MutantJudgement::Uncovered,
+    MutantJudgement::Killed,
+    MutantJudgement::Errored,
+    MutantJudgement::KilledByTimeout,
+    MutantJudgement::Ignored,
+    MutantJudgement::IgnoredByMarker,
+]);

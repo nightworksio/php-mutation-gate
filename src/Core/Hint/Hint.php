@@ -9,6 +9,7 @@ use function array_pop;
 use function array_slice;
 use function count;
 use function implode;
+use function in_array;
 use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -92,6 +93,14 @@ final readonly class Hint
 
     private const string JUDGED_BY = '%s It is judged by %s.';
 
+    /** The judgements whose hint names the judging tests: those a score counts as not killed that tests ran. */
+    private const array NAMING = [
+        MutantJudgement::Survived,
+        MutantJudgement::Flaky,
+        MutantJudgement::TooSlowToJudge,
+        MutantJudgement::Unjudged,
+    ];
+
     private function __construct(private string $text)
     {
     }
@@ -124,8 +133,7 @@ final readonly class Hint
             MutantJudgement::Ignored => self::IGNORED,
             MutantJudgement::IgnoredByMarker => self::MARKED,
         };
-        $suspects = $judgement === MutantJudgement::Survived || $judgement === MutantJudgement::Flaky;
-        $naming = $suspects && count($tests) > 0;
+        $naming = in_array($judgement, self::NAMING, strict: true) && count($tests) > 0;
 
         return new self($naming ? sprintf(self::JUDGED_BY, $sentence, self::named($tests)) : $sentence);
     }
