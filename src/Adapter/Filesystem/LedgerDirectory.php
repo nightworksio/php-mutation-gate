@@ -4,9 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
+use FilesystemIterator;
+
+use function is_dir;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
+use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
@@ -20,6 +26,11 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Options;
 use NightWorksIO\MutationGate\Port\ProofStore;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
+
+use function usort;
 
 /**
  * The proof store `directory`: one ledger file per scope,
@@ -29,13 +40,13 @@ use NightWorksIO\MutationGate\Port\ProofStore;
  */
 final readonly class LedgerDirectory implements Configurable, ProofStore
 {
-    private function __construct(private Directory $directory)
+    private function __construct(private Directory $directory, private string $path)
     {
     }
 
     public static function at(string $path): self
     {
-        return new self(Directory::at($path));
+        return new self(Directory::at($path), $path);
     }
 
     public static function fromOptions(Options $options): self|Invalid
@@ -65,6 +76,44 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
             : $file;
 
         return $written instanceof CannotJudge ? NotWritten::because($written->why()) : $written;
+    }
+
+    /** Every ledger kept here, one per scope, with its size as it is kept, compressed. */
+    public function kept(): KeptLedgers
+    {
+        if (! is_dir($this->path)) {
+            return KeptLedgers::of();
+        }
+
+        $kept = [];
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($this->path, FilesystemIterator::SKIP_DOTS),
+        );
+
+        foreach ($files as $file) {
+            $kept = $file instanceof SplFileInfo ? [...$kept, ...$this->ledgerIn($file)] : $kept;
+        }
+
+        usort(
+            $kept,
+            static fn(KeptLedger $one, KeptLedger $other): int => $one->file()->value() <=> $other->file()->value(),
+        );
+
+        return KeptLedgers::of(...$kept);
+    }
+
+    /**
+     * The ledger a file of the directory is, where it is one.
+     *
+     * @return list<KeptLedger>
+     */
+    private function ledgerIn(SplFileInfo $file): array
+    {
+        $size = $file->getFilename() === LedgerFile::NAME ? $file->getSize() : false;
+
+        return $size !== false
+            ? [KeptLedger::of(Path::of($file->getPathname()), $size)]
+            : [];
     }
 
     /** Where a scope's ledger is, for a scope that is a branch's or a pull request's ref and nothing else. */

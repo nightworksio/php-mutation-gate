@@ -29,7 +29,9 @@
                             "infection-config-to-import",
                             "native-markers-refused",
                             "mirrored-path-repository",
-                            "ignores-expiring"
+                            "ignores-expiring",
+                            "tree-without-floor",
+                            "ledger-slows-runs"
                         ]
                     },
                     "severity": {

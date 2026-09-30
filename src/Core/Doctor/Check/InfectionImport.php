@@ -32,7 +32,7 @@ final readonly class InfectionImport
 
     public static function in(Observations $observed): Findings
     {
-        $config = $observed->infection();
+        $config = $observed->files()->infection();
 
         if (! $config instanceof InfectionConfig || !$config->setsMinMsi() && !$config->ignores()) {
             return Findings::none();

@@ -23,4 +23,6 @@ enum Slug: string
     case NativeMarkersRefused = 'native-markers-refused';
     case MirroredPathRepository = 'mirrored-path-repository';
     case IgnoresExpiring = 'ignores-expiring';
+    case TreeWithoutFloor = 'tree-without-floor';
+    case LedgerSlowsRuns = 'ledger-slows-runs';
 }

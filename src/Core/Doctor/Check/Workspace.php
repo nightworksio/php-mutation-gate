@@ -26,7 +26,7 @@ final readonly class Workspace
 
     public static function in(Observations $observed): Findings
     {
-        $gitIgnore = $observed->gitIgnore();
+        $gitIgnore = $observed->files()->gitIgnore();
         $directory = Directory::root();
 
         return $gitIgnore instanceof GitIgnore && ! $gitIgnore->names($directory)

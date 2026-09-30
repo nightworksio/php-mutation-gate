@@ -114,3 +114,22 @@ an end, and its mutants count again once it passes.
 
 Check each entry's reason again. Where it still holds, move `expires` later.
 Where a test can now tell the mutants apart, remove the entry.
+
+## tree-without-floor
+
+A tree has no floor in the config, and the baseline records none for it.
+There is no default floor, so the first CI run measures such a tree, offers
+the baseline it measured, and fails (ADR-0017, decision 6). Where no CI
+definition runs the gate yet, this is advice.
+
+Declare a floor for the tree, as `trees: [{path: src, floor: 80}]`, or
+commit the `mutation-gate.baseline.json` the first CI run measures.
+
+## ledger-slows-runs
+
+A ledger the proof store keeps is over 25 MB compressed. Every run
+restores, decompresses and writes back its scope's ledger, so its size is
+time each run spends.
+
+Delete the ledger of a scope that no longer runs. The next run of a live
+scope starts its ledger afresh, and keeps it within the proof cap.

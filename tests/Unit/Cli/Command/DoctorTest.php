@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Command\Doctor;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\Doctored;
 use NightWorksIO\MutationGate\Tests\Support\FakePhp;
@@ -47,9 +48,11 @@ it('exits 1 where a finding would fail a run, and writes each as text', function
 
 it('exits 0 where nothing would fail a run, and writes the public JSON when asked', function (): void {
     [$code, $output] = doctored('tests/Fixtures/Projects/Library', ['--format' => 'json']);
+    $written = json_decode($output, associative: true);
 
     expect($code)->toBe(0)
-        ->and(json_decode($output, associative: true))->toBe(['format' => 1, 'failsARun' => false, 'findings' => []]);
+        ->and($written)->toMatchArray(['format' => 1, 'failsARun' => false])
+        ->and(Decoded::column($output, 'slug', 'findings'))->toBe(['tree-without-floor']);
 });
 
 it('cannot judge a format it does not write', function (): void {

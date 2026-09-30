@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use function array_any;
 
+use NightWorksIO\MutationGate\Core\Ci\Definitions;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -23,9 +24,6 @@ use function str_starts_with;
  */
 final readonly class Exceptions
 {
-    /** Where the CIs the gate knows keep their definitions: a file, or a directory ending in `/`. */
-    private const array CI_DEFINITIONS = ['.github/workflows/', '.gitlab-ci.yml', '.buildkite/', '.circleci/'];
-
     /** Where the gate keeps its own files wherever nothing else is configured. */
     private const string OWN = '.mutation-gate';
 
@@ -96,7 +94,7 @@ final readonly class Exceptions
     private function isCiDefinition(Path $path): bool
     {
         return array_any(
-            self::CI_DEFINITIONS,
+            Definitions::PLACES,
             static fn(string $where): bool => $path->value() === $where || str_starts_with($path->value(), $where),
         );
     }
