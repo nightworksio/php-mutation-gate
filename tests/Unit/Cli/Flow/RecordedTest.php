@@ -18,6 +18,9 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\CostBasis;
+use NightWorksIO\MutationGate\Core\Cost\Estimated;
+use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -219,9 +222,9 @@ it('learns what each shard cost of its units, timed by the map it was handed', f
             return $this->learned;
         }
 
-        public function cost(Unit $unit, Timings $learned): Seconds
+        public function cost(Unit $unit, Timings $learned, FirstRun $firstRun): Estimated
         {
-            return Seconds::of(1.0);
+            return Estimated::of(Seconds::of(1.0), CostBasis::Guessed);
         }
 
         public function learn(Units $units, Mutants $mutants, CoverageMap $coverage, Measurement $measured): Timings

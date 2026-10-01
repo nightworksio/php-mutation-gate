@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
+use NightWorksIO\MutationGate\Core\Config\BuiltinMutatorSet;
 use NightWorksIO\MutationGate\Core\Config\BuiltinVersionControl;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -26,8 +27,12 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Mutator\Engine\Engine;
+use NightWorksIO\MutationGate\Mutator\Engine\SetEngine;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\CostModel;
@@ -87,8 +92,17 @@ final readonly class Wiring
                 $this->environment,
                 $withheld,
                 Cores::counted(),
+                $this->counting($lookup),
             ),
         };
+    }
+
+    /** The engine that counts a plan's mutants with the default set, where that set is registered. */
+    private function counting(Lookup $lookup): Engine|NotGiven
+    {
+        $set = $lookup->mutatorSet(BuiltinMutatorSet::Default->named());
+
+        return $set instanceof MutatorSet ? SetEngine::of($set) : NotGiven::value();
     }
 
     /**

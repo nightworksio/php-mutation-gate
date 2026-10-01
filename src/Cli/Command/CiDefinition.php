@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -315,7 +316,8 @@ final readonly class CiDefinition
         $seconds = 0.0;
 
         foreach ($trees as $tree) {
-            $seconds += $costs->cost(Unit::file($tree->path()), Timings::none())->seconds();
+            $estimated = $costs->cost(Unit::file($tree->path()), Timings::none(), FirstRun::unmeasured());
+            $seconds += $estimated->seconds()->seconds();
         }
 
         return Seconds::of($seconds);

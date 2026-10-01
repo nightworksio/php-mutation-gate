@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Mutator\Engine;
 
 use function array_diff_key;
+use function array_filter;
+use function array_key_exists;
 use function array_values;
 use function count;
 
+use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Mutator\Mutator;
 use NightWorksIO\MutationGate\Mutator\Removal;
 use NightWorksIO\MutationGate\Mutator\Unchanged;
@@ -17,6 +21,7 @@ use PhpParser\Node;
 use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Nop;
+use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor;
 use PhpParser\NodeVisitor\CloningVisitor;
@@ -79,6 +84,38 @@ final readonly class Source
         }
 
         return Edits::of(...$edits);
+    }
+
+    /**
+     * Where the changes these mutators make to a file start, counted without
+     * making them: every node, anywhere in the code, is offered to each
+     * mutator that handles its class, which a mutator's contract allows since
+     * it never changes the node it is given. A change that would print the
+     * same code counts, where `edits()` makes no mutant of it.
+     */
+    public function sites(Path $file, Mutator ...$mutators): MutantSites
+    {
+        $handling = [];
+        $starts = [];
+
+        foreach (new NodeFinder()->findInstanceOf($this->fresh(), Node::class) as $node) {
+            $class = $node::class;
+
+            if (! array_key_exists($class, $handling)) {
+                $handling[$class] = array_values(array_filter(
+                    $mutators,
+                    static fn(Mutator $mutator): bool => $mutator->handles()->has($node),
+                ));
+            }
+
+            foreach ($handling[$class] as $mutator) {
+                if (! $mutator->mutate($node) instanceof Unchanged) {
+                    $starts[] = Line::of($node->getStartLine());
+                }
+            }
+        }
+
+        return MutantSites::inFile($file, ...$starts);
     }
 
     /**

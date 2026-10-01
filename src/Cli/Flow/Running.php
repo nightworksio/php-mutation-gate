@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -249,7 +250,8 @@ final readonly class Running
 
     /**
      * The shard's units in order, each weighed by what the cost model expects
-     * of it, with what the ledgers the plan reads learned.
+     * of it, with what the ledgers the plan reads learned; a shard measures
+     * no first run of its own.
      *
      * @return list<Weighed>
      */
@@ -259,7 +261,8 @@ final readonly class Running
         $weighed = [];
 
         foreach ($shard->units() as $unit) {
-            $weighed[] = Weighed::of($unit, $shard->package(), $ledgers->estimated($this->adapters->costs, $unit));
+            $estimated = $ledgers->estimated($this->adapters->costs, $unit, FirstRun::unmeasured());
+            $weighed[] = Weighed::of($unit, $shard->package(), $estimated);
         }
 
         return $weighed;

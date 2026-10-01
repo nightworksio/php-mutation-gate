@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
+use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -18,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
+use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -48,8 +52,18 @@ $mutantOf = static fn(string $file, int $line): Mutant => Mutant::of(
 it('costs any unit nothing or more, measured or not', function (CostModel $model) use ($at): void {
     $learned = Timings::of(Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'pest', $at()));
 
-    expect($model->cost(Unit::file(Path::of('src/Money.php')), $learned)->seconds())->toBeGreaterThanOrEqual(0.0)
-        ->and($model->cost(Unit::file(Path::of('src/Other.php')), $learned)->seconds())->toBeGreaterThanOrEqual(0.0);
+    $money = Path::of('src/Money.php');
+    $firstRun = FirstRun::of(
+        CoverageMap::empty()->covered($money, Line::of(3), TestId::of('MoneyTest::adds')),
+        MutantSites::inFile($money, Line::of(3)),
+        Seconds::of(1.5),
+        Processes::single(),
+    );
+
+    expect($model->cost(Unit::file($money), $learned, FirstRun::unmeasured())->seconds()->seconds())->toBeGreaterThanOrEqual(0.0)
+        ->and($model->cost(Unit::file(Path::of('src/Other.php')), $learned, $firstRun)->seconds()->seconds())
+        ->toBeGreaterThanOrEqual(0.0)
+        ->and($model->cost(Unit::file($money), Timings::none(), $firstRun)->seconds()->seconds())->toBeGreaterThanOrEqual(0.0);
 })->with($models);
 
 it('learns a timing for every unit of a shard, together no more than the shard spent', function (CostModel $model) use (

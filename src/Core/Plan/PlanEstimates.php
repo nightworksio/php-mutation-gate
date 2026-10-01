@@ -11,6 +11,7 @@ use function max;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
+use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -19,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use function sprintf;
 
 /**
- * What a plan expects its run to take (ADR-0006, decision 3): each shard's
+ * What a plan expects its run to take (ADR-0006, decision 4): each shard's
  * units, opening run and `shards.setup`, and what the estimate rests on,
  * learned from earlier shards, measured by the plan's own coverage run, or
  * guessed from `costs.secondsPerLine`. A shard of no units is no job.
@@ -30,6 +31,8 @@ final readonly class PlanEstimates
 
     private const string TOTAL
         = 'The plan expects about %s of wall time and %s of runner time: %d%% learned, %d%% measured, %d%% guessed.';
+
+    private const string ASSUMED = 'It takes each shard\'s runner to run %d mutants at once, as this machine does.';
 
     private const string UNMET = <<<'SAID'
         shards.target is %s, and at shards.max of %d shards the longest is expected to take %s.
@@ -122,6 +125,25 @@ final readonly class PlanEstimates
             $this->share(CostBasis::Measured)->wholePercent(),
             $this->share(CostBasis::Guessed)->wholePercent(),
         )];
+    }
+
+    /**
+     * Where any unit's estimate rests on what the plan measured of its first
+     * run, a line saying the runners the shards run on are taken to run as
+     * many mutants at once as the machine the plan ran on (ADR-0006,
+     * decision 4).
+     *
+     * @return list<string>
+     */
+    public function assumed(Processes $processes): array
+    {
+        $measured = 0;
+
+        foreach ($this->plan as $shard) {
+            $measured += $shard->estimate()->part(CostBasis::Measured)->microseconds();
+        }
+
+        return $measured > 0 ? [sprintf(self::ASSUMED, $processes->count())] : [];
     }
 
     /**

@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\ByPath;
@@ -104,10 +106,12 @@ final readonly class Planning
         $keys = $keying->keysOf($considering->considered());
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base());
         $opening = $map->suiteDuration();
-        $shards = $this->shardsOf(
+        $firstRun = new FirstRuns($this->adapters, StartUpSamples::standard())->measured($map, $proving->toRun());
+        $shards = $firstRun instanceof CannotJudge ? $firstRun : $this->shardsOf(
             $proving->toRun(),
             $inventory->trees,
             $ledgers,
+            $firstRun,
             $cut->opening($opening),
             $this->riskOrder($reached, $inventory->trees, $ledgers, $proving->toRun()),
         );
@@ -144,12 +148,13 @@ final readonly class Planning
         Units $toRun,
         Trees $trees,
         Ledgers $ledgers,
+        FirstRun $firstRun,
         Cut $cut,
         RiskOrder $order,
     ): Shards|CannotJudge {
         $unmarked = new RunnerMarkers($this->adapters, $this->settings)->refusing($toRun);
         $shards = $unmarked instanceof Units
-            ? $cut->cut($this->workload($unmarked, $trees, $ledgers), $trees)
+            ? $cut->cut($this->workload($unmarked, $trees, $ledgers, $firstRun), $trees)
             : $unmarked;
 
         return $shards instanceof Shards ? $this->rooted($shards, $order) : $shards;
@@ -275,7 +280,7 @@ final readonly class Planning
     }
 
     /** Each unit to run, in the package its tree is in, weighed by what the cost model expects of it. */
-    private function workload(Units $units, Trees $trees, Ledgers $ledgers): Workload
+    private function workload(Units $units, Trees $trees, Ledgers $ledgers, FirstRun $firstRun): Workload
     {
         $weighed = [];
 
@@ -283,7 +288,8 @@ final readonly class Planning
             $tree = $trees->holding($unit->path());
 
             if ($tree instanceof Tree) {
-                $weighed[] = Weighed::of($unit, $tree->package(), $ledgers->estimated($this->adapters->costs, $unit));
+                $estimated = $ledgers->estimated($this->adapters->costs, $unit, $firstRun);
+                $weighed[] = Weighed::of($unit, $tree->package(), $estimated);
             }
         }
 

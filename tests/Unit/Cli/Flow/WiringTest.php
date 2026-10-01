@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
+use NightWorksIO\MutationGate\Cli\Flow\Cores;
 use NightWorksIO\MutationGate\Cli\Flow\Wiring;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Option;
@@ -26,6 +27,7 @@ use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\BuiltinMutatorSet;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -33,18 +35,23 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Mutator\Engine\SetEngine;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGateDefault\DefaultExtension;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\Process\Process;
 
@@ -93,7 +100,18 @@ it('wires the runner, the store, the learned cost model, the JSON plan and git w
         ->and($adapters->changes)->toEqual(Git::withholding('.', $adapters->withheld))
         ->and($adapters->repository)->toEqual(Git::withholding('.', $adapters->withheld))
         ->and($adapters->environment)->toEqual(Variables::of([]))
-        ->and($adapters->withheld)->toEqual(Withheld::standard()->and(wiringEveryCi()));
+        ->and($adapters->withheld)->toEqual(Withheld::standard()->and(wiringEveryCi()))
+        ->and($adapters->cores)->toEqual(Cores::counted())
+        ->and($adapters->engine)->toEqual(NotGiven::value());
+});
+
+it('counts a plan\'s mutants with the default set, where the set is registered', function (): void {
+    $registry = new DefaultExtension()->extend(wiringRegistry());
+    $set = $registry->registered(ExtensionPoint::MutatorSet, BuiltinMutatorSet::Default->named());
+    $adapters = new Wiring($registry, Variables::of([]))->adapters(Flows::settings(), Directory::at(Flows::project()));
+
+    expect($adapters instanceof Adapters ? $adapters->engine : $adapters)
+        ->toEqual($set instanceof MutatorSet ? SetEngine::of($set) : $set);
 });
 
 it('keeps a local run\'s proofs on the machine, and a CI run\'s in the store the config names', function (): void {

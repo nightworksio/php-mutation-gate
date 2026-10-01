@@ -16,6 +16,9 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Cost\CostBasis;
+use NightWorksIO\MutationGate\Core\Cost\Estimated;
+use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Cost\LineRate;
 use NightWorksIO\MutationGate\Core\Cost\LinesOfCode;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
@@ -38,10 +41,12 @@ use function scandir;
 
 /**
  * The cost model `learned`: a unit costs what a shard last measured it to
- * take, the newest measurement winning. A unit no shard has measured is
- * estimated as its lines of code times `costs.secondsPerLine` for its path,
- * read from the files on disk; a held path that is a directory is the sum of
- * the PHP files under it.
+ * take, the newest measurement winning. A unit no shard has measured costs
+ * what the plan measured of its first run: each mutant's run starting and
+ * its covering tests, spread over the processes. A unit the plan measured
+ * nothing of is guessed as its lines of code times `costs.secondsPerLine`
+ * for its path, read from the files on disk; a held path that is a
+ * directory is the sum of the PHP files under it.
  */
 final readonly class MeasuredCosts implements Configurable, CostModel
 {
@@ -91,13 +96,19 @@ final readonly class MeasuredCosts implements Configurable, CostModel
             : Invalid::because(...$problems);
     }
 
-    public function cost(Unit $unit, Timings $learned): Seconds
+    public function cost(Unit $unit, Timings $learned, FirstRun $firstRun): Estimated
     {
-        $measured = $learned->secondsFor($unit->path());
+        $timed = $learned->secondsFor($unit->path());
+        $measured = $firstRun->seconds($unit);
 
-        $perLine = $this->perLine->forPath($unit->path())->seconds();
-
-        return $measured instanceof Seconds ? $measured : Seconds::of($this->linesIn($unit->path()) * $perLine);
+        return match (true) {
+            $timed instanceof Seconds => Estimated::of($timed, CostBasis::Learned),
+            $measured instanceof Seconds => Estimated::of($measured, CostBasis::Measured),
+            default => Estimated::of(
+                Seconds::of($this->linesIn($unit->path()) * $this->perLine->forPath($unit->path())->seconds()),
+                CostBasis::Guessed,
+            ),
+        };
     }
 
     public function learn(Units $units, Mutants $mutants, CoverageMap $coverage, Measurement $measured): Timings
