@@ -73,6 +73,7 @@ final readonly class Infection implements Runner
         private bool $nativeMarkersAllowed,
         private Clock $clock = new WallClock(),
         private HeldCoverage $held = new HeldCoverage(),
+        private StaticAnalysis $analysis = StaticAnalysis::Infection,
     ) {
     }
 
@@ -95,6 +96,7 @@ final readonly class Infection implements Runner
             new ProcessShell($project->root(), getenv()),
             $setup->cap(),
             nativeMarkersAllowed: $setup->allowsNativeMarkers(),
+            analysis: $setup->analysis(),
         );
     }
 
@@ -297,6 +299,7 @@ final readonly class Infection implements Runner
                 $this->cap,
                 $this->nativeMarkersAllowed,
                 $this->clock,
+                analysis: $this->analysis,
             )
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value()));
     }
@@ -307,7 +310,14 @@ final readonly class Infection implements Runner
         $covered = fn(OwnConfig $config, MutationRequest $request): DiskPath|CannotJudge
             => $this->covering()->of($config, $request);
 
-        return new Rerunning($this->project, $this->shell, $this->nativeMarkersAllowed, $covered, $this->clock);
+        return new Rerunning(
+            $this->project,
+            $this->shell,
+            $this->nativeMarkersAllowed,
+            $this->analysis,
+            $covered,
+            $this->clock,
+        );
     }
 
     /** The coverage each run reads, which the adapter writes. */
@@ -318,6 +328,6 @@ final readonly class Infection implements Runner
 
     private function run(OwnConfig $config): MutationRun
     {
-        return new MutationRun($this->project, $this->shell, $config, $this->nativeMarkersAllowed);
+        return new MutationRun($this->project, $this->shell, $config, $this->nativeMarkersAllowed, $this->analysis);
     }
 }

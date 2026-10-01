@@ -316,10 +316,12 @@ needs remain, and the runners' own behaviour shapes each answer.
 13. **Under Infection, the gate checks survivors itself.**
     - Infection offers no hook before a mutant's tests, so under it every
       check comes after them, and `plan` says so once.
-    - With `staticCheck.tool` other than `none`, the config the adapter
-      writes drops `staticAnalysisTool` and `staticAnalysisToolOptions`, and
-      the gate checks survivors by decision 9, from each mutant's diff put
-      back onto its file. With `none`, the project's own keys are kept.
+    - Where the gate wires an analyser, it builds the adapter with the
+      option `staticAnalysis: gate`. The config the adapter writes for every
+      run, a run again included, then drops `staticAnalysisTool` and
+      `staticAnalysisToolOptions`, and the gate checks survivors by decision
+      9, from each mutant's diff put back onto its file. With `none`, or
+      `auto` finding no analyser, the project's own keys are kept.
     - One rule and one status then hold under every runner, Psalm included.
     - `init --from` maps `staticAnalysisTool: phpstan` or `mago` to
       `staticCheck.tool`.

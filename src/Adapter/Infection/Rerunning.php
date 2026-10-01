@@ -42,6 +42,7 @@ final readonly class Rerunning
         private Project $project,
         private Shell $shell,
         private bool $nativeMarkersAllowed,
+        private StaticAnalysis $analysis,
         private Closure $covered,
         private Clock $clock = new WallClock(),
     ) {
@@ -136,7 +137,8 @@ final readonly class Rerunning
         Seconds $limit,
         Shell $shell,
     ): Mutants|CannotJudge {
-        $result = new MutationRun($this->project, $shell, $prepared->config, $this->nativeMarkersAllowed)
+        $run = new MutationRun($this->project, $shell, $prepared->config, $this->nativeMarkersAllowed, $this->analysis);
+        $result = $run
             ->of($request->narrowedTo(Paths::of($file), Mutators::named($mutator)), $prepared->coverage, $limit);
 
         return $result instanceof CannotJudge ? $result : $result->mutants();

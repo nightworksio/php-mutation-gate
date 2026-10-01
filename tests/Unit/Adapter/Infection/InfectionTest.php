@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\CoverageXml;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
+use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
@@ -824,4 +825,32 @@ it('gives a mutant as an analyser checks it: its diff put onto the file as writt
         ->toBe('Its diff does not apply to src/Money.php as it is now.')
         ->and($answer($infection->checkable($mutant('src/Gone.php', "@@ @@\n-a\n+b"))))
         ->toBe('The gate cannot read src/Gone.php, the file Infection mutated, to check its mutant.');
+});
+
+it('leaves static analysis to the gate where it checks the survivors itself, in every run and in a package', function (): void {
+    $at = infectionProject('{"staticAnalysisTool": "phpstan", "staticAnalysisToolOptions": "--level=9"}');
+    $money = sprintf('%s/src/Money.php', $at->root());
+    $shell = infectionShell($at, ['escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')]]);
+    $gate = new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false, analysis: StaticAnalysis::Gate);
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+    $generated = static fn(): string => (string) file_get_contents($at->own('infection.json5'));
+
+    $first = $gate->mutate($request);
+    $mutated = $generated();
+    $gate->retry($request, $first instanceof MutationResult ? $first->mutants() : Mutants::none(), Seconds::of(12.0));
+    $retried = $generated();
+    Scratch::write($at->root(), 'packages/billing/vendor/bin/infection', '<?php');
+
+    expect(infectionStatuses($first))->toBe([MutantStatus::Survived])
+        ->and($mutated)->not->toContain('staticAnalysisTool')
+        ->and($retried)->not->toContain('staticAnalysisTool')
+        ->and($gate->rootedAt(Path::of('packages/billing')))->toEqual(new Infection(
+            $at->in(Path::of('packages/billing')),
+            $shell->in(sprintf('%s/packages/billing', $at->root())),
+            Seconds::of(6.0),
+            nativeMarkersAllowed: false,
+            analysis: StaticAnalysis::Gate,
+        ))
+        ->and(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate"}')))
+        ->not->toEqual(Infection::fromOptions(Configs::options('{}')));
 });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Infection\OwnConfig;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
+use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -29,10 +30,11 @@ function ownConfig(string $text): OwnConfig
  *
  * @return array<mixed>
  */
-function ownGenerated(OwnConfig $config, Mutators $mutators): array
+function ownGenerated(OwnConfig $config, Mutators $mutators, StaticAnalysis $analysis = StaticAnalysis::Infection): array
 {
     $project = Project::at(Root::of('/project'), Paths::none(), Path::of('.gate'));
-    $decoded = json_decode($config->generated($project, ['/project/src'], Seconds::of(12.5), $mutators), associative: true);
+    $generated = $config->generated($project, ['/project/src'], Seconds::of(12.5), $mutators, $analysis);
+    $decoded = json_decode($generated, associative: true);
 
     return is_array($decoded) ? $decoded : [];
 }
@@ -67,6 +69,16 @@ it('refuses a test framework other than PHPUnit, and PHPUnit that is Pest', func
         'infection.json points phpUnit.customPath at vendor/bin/Pest. Infection cannot run Pest tests: use the Pest runner.',
     ))->and(OwnConfig::read('infection.json5', '{"testFramework": "phpunit", "phpUnit": {"customPath": "tools/phpunit"}}'))
         ->toBeInstanceOf(OwnConfig::class);
+});
+
+it('drops the project\'s static analysis keys where the gate checks the survivors itself', function (): void {
+    $config = ownConfig('{"staticAnalysisTool": "phpstan", "staticAnalysisToolOptions": "--level=9", "bootstrap": "b.php"}');
+    $kept = ownGenerated($config, Mutators::all());
+    $dropped = ownGenerated($config, Mutators::all(), StaticAnalysis::Gate);
+
+    expect([$kept['staticAnalysisTool'] ?? '', $kept['staticAnalysisToolOptions'] ?? ''])->toBe(['phpstan', '--level=9'])
+        ->and(array_key_exists('staticAnalysisTool', $dropped) || array_key_exists('staticAnalysisToolOptions', $dropped))->toBeFalse()
+        ->and($dropped['bootstrap'] ?? '')->toBe('b.php');
 });
 
 it('runs the project\'s PHPUnit from its config directory, or its own from the root', function (): void {

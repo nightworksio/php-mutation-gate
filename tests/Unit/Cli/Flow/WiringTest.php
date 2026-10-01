@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
+use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
@@ -369,6 +370,21 @@ it('wires the analyser chosen, handing it staticCheck.config as its config', fun
 
     expect($adapters instanceof Adapters ? $adapters->checker : $adapters)->toEqual(StaticCheckerFake::findingNothing())
         ->and($handed)->toEqual([Path::of('config/analyser.neon')]);
+});
+
+it('tells Infection the gate checks its survivors where an analyser is wired, and leaves it alone otherwise', function (): void {
+    $registry = wiringRegistry()->withStaticChecker(Name::of('fake'), static fn(): StaticCheckerFake => StaticCheckerFake::findingNothing());
+    $wired = static fn(Runner $runner, StaticCheck $static): Adapters|Invalid|CannotJudge => new Wiring($registry, Variables::of([]), wiringDetected())
+        ->adapters(Flows::settings($runner, $static), Directory::at(Flows::project()));
+    $checked = $wired(Runner::infection(), StaticCheck::uses('fake'));
+    $unchecked = $wired(Runner::infection(), StaticCheck::none());
+    $pest = $wired(Runner::pest(), StaticCheck::uses('fake'));
+
+    expect($checked instanceof Adapters ? $checked->runner : $checked)
+        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate"}')))
+        ->and($unchecked instanceof Adapters ? $unchecked->runner : $unchecked)
+        ->toEqual(Infection::fromOptions(Configs::options('{}')))
+        ->and($pest instanceof Adapters ? $pest->runner : $pest)->not->toBeInstanceOf(Infection::class);
 });
 
 it('cannot wire an analyser the registry does not have', function (): void {

@@ -27,6 +27,7 @@ final readonly class MutationRun
         private Shell $shell,
         private OwnConfig $config,
         private bool $nativeMarkersAllowed,
+        private StaticAnalysis $analysis,
     ) {
     }
 
@@ -98,7 +99,13 @@ final readonly class MutationRun
 
         file_put_contents(
             $this->project->own(Invocation::CONFIG),
-            $this->config->generated($this->project, $targets->directories(), $cap, $request->mutators()),
+            $this->config->generated(
+                $this->project,
+                $targets->directories(),
+                $cap,
+                $request->mutators(),
+                $this->analysis,
+            ),
         );
 
         return $targets;
