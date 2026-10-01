@@ -241,10 +241,20 @@ needs remain, and the runners' own behaviour shapes each answer.
       rejection rate × its judging tests' time is greater than the time of
       one check. The tests' time comes from the coverage map, and the check's
       from the analyser's measured times.
-    - A mutator's rejection rate is learned per analyser, in a ledger
-      section beside timings. Every mutator is checked until the ledger holds
-      50 checks of it. A mutator with no rejection in them is then checked only
-      after the tests. Losing the section costs speed, never a verdict.
+    - A mutator's rejection rate is learned per analyser, in the ledger's
+      `analysers` section: by the analyser's name, its checks and their
+      `seconds` together, and each mutator's `[checks, rejections]`. The
+      section is optional and the ledger's format does not count it: a
+      ledger without it, or with an entry that is not well formed, has
+      learned nothing of that analyser. Losing it costs speed, never a
+      verdict. Where two scopes' ledgers are read together, the run's own
+      scope's rates and time come first.
+    - `PreCheck`, a policy whose standard is 50 checks, places each check.
+      Every mutator is checked before the tests until the ledger holds 50
+      checks of it. A mutator with no rejection in them is then checked only
+      after the tests. Any other is checked before them where its rate ×
+      the judging tests' time is greater than one check's time, or while no
+      check has been timed.
     - A pre-check never moves a score: under decision 10 a mutant is killed
       whether the tests or the analyser caught it. So the placement, the
       rates and the timings **judge only**, and ADR-0007's agreement check

@@ -149,8 +149,8 @@ final readonly class Ledgers
         return Proving::of(
             $units,
             $keys,
-            $this->defaultBranch->provesAt($base) ? $this->defaultBranch->proofs() : Proofs::none(),
-            $this->own->provesAt($base) ? $this->own->proofs() : Proofs::none(),
+            $this->defaultBranch->proofs()->provesAt($base) ? $this->defaultBranch->proofs() : Proofs::none(),
+            $this->own->proofs()->provesAt($base) ? $this->own->proofs() : Proofs::none(),
         );
     }
 

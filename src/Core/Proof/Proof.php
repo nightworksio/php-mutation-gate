@@ -105,7 +105,8 @@ final readonly class Proof
     /**
      * The mutants whose status here differs from theirs in those, or that only
      * one of the two holds: the answers two runs of the same code do not agree
-     * on. A kill a ledger proved is killed.
+     * on. A kill a ledger proved is killed, and so is a kill by static
+     * analysis.
      */
     public function disagreeingWith(Mutants|self $those): MutantIds
     {
@@ -145,7 +146,7 @@ final readonly class Proof
         $answers = [];
 
         foreach ($mutants as $mutant) {
-            $answers[$mutant->id()->value()] = [$mutant->id(), $mutant->status()];
+            $answers[$mutant->id()->value()] = [$mutant->id(), $mutant->status()->answer()];
         }
 
         return $answers;

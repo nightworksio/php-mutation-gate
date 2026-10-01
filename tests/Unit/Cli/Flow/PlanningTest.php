@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
+use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
@@ -186,9 +187,9 @@ it('says of each shard what its estimate rests on, and that its runner opens on 
     $store = new ProofStoreFake();
     $store->write(
         Scope::branch('main'),
-        Ledger::empty()->withTiming(
+        Ledger::empty()->withTimings(Timings::of(
             Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', Moment::at('2026-09-30T10:00:00Z')),
-        ),
+        )),
     );
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $store, new CostModelFake(Seconds::of(8.0)));
     $estimates = array_map(
@@ -247,9 +248,9 @@ it('weighs each unit by what the cost model expects of it, with what the ledgers
     $store = new ProofStoreFake();
     $store->write(
         Scope::branch('main'),
-        Ledger::empty()->withTiming(
+        Ledger::empty()->withTimings(Timings::of(
             Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', Moment::at('2026-09-30T10:00:00Z')),
-        ),
+        )),
     );
 
     expect($shards($plan(Flows::project(), Mode::full(), Cut::bySize(10, 10), new CostModelFake(Seconds::of(1.0)))))
