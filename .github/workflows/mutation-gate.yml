@@ -358,6 +358,19 @@ jobs:
           pattern: mutation-gate-result-*
           path: .mutation-gate/results
           merge-multiple: true
+      # The kill matrix is built over the map the plan handed the verdict: the
+      # lines of every unit it considered. A plan that wrote none uploaded
+      # none, and the pattern then downloads nothing.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: mutation-gate-coverage
+          path: .mutation-gate/coverage
+          merge-multiple: true
+      - name: Keep only the verdict's coverage map
+        run: |
+          set -euo pipefail
+          mkdir -p .mutation-gate/coverage
+          find .mutation-gate/coverage -mindepth 1 -maxdepth 1 -type d ! -name verdict -exec rm -rf {} +
       # The trend appends to what was published last time (ADR-0009, decision 5).
       - name: Restore what was published last time
         env:
