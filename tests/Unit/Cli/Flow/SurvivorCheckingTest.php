@@ -303,6 +303,39 @@ it('starts a check only where the time left has room for it, as long as the run 
     ],
 ]);
 
+it('needs room for one check alone for a printed file\'s later survivors, whose print is analysed', function (): void {
+    $project = Scratch::directory();
+    $mutants = Flows::mutantsOf('src/Money.php');
+    $money = checkedSurvivor($mutants, 'src/Money.php');
+    $diff = "@@ @@\n-return \$amount > 100;\n+return \$amount > 101;";
+    $again = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Increment', $diff, 0),
+        'Increment-16',
+        $money->location(),
+        Mutation::of('Increment', MutatorFamily::Literal, $diff),
+        MutantStatus::Survived,
+        Seconds::of(0.1),
+    );
+    $checker = checkedBy($project, [
+        Workspace::checkedOriginal($money->id())->value() => checkedOriginals(),
+        checkedAt($money) => checkedOriginals(),
+        checkedAt($again) => checkedOriginals(),
+    ]);
+    $printed = ScriptedRunner::fixture()->checking(Checkable::printed(Contents::of('<?php // printed'), Contents::of('<?php // mutant')));
+    $deadline = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(10.0));
+    // before the warm-up, its start and end; before the first survivor, its print's and its mutant's
+    // checks; then before the second, with 1s left, room for one more check of 1s alone
+    $clock = new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 1, 1, 1, 2, 2, 3, 9, 9, 10);
+
+    checking($project, $checker, $printed, $deadline, $clock)->checked($mutants->with($again), MutantIds::none());
+
+    expect(array_map(static fn(array $check): string => $check[1], $checker->checks()))->toBe([
+        Workspace::checkedOriginal($money->id())->value(),
+        checkedAt($money),
+        checkedAt($again),
+    ]);
+});
+
 it('leaves a survivor unchecked where its code cannot be written for its check', function (): void {
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/staticcheck/mutants', 'a file where the directory goes');

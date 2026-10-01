@@ -173,9 +173,13 @@ needs remain, and the runners' own behaviour shapes each answer.
      `reportUnmatchedIgnoredErrors: false`. The gate keeps that config in
      `.mutation-gate/phpstan/check.neon`. The warm-up saves PHPStan's result
      cache, so each check reanalyses the mutant and the files whose view of
-     it changed, and saves nothing. PHPStan has no scope check of its own:
-     a mutant of a file outside its paths finds nothing its run over the
-     originals did not, so it stays a survivor, counted as checked.
+     it changed, and saves nothing. The warm-up also reads which files
+     PHPStan analyses, from `phpstan dump-parameters --json`: its `paths`,
+     less its `excludePaths`, and keeps them in
+     `.mutation-gate/phpstan/scope.json` for the checks. A mutant of a file
+     outside them is `OutOfScope`, left unchecked, and the run says so.
+     Where PHPStan cannot say which files it analyses, the warm-up fails,
+     and no survivor is checked.
    - **Psalm:** one `psalm --language-server` per worker. Each mutant is sent
      as the original file's changed content (`textDocument/didChange`), the
      findings are read from `publishDiagnostics`, and the original content is

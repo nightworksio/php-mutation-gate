@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\ShellPattern;
 use NightWorksIO\MutationGate\Core\Import\Carried;
 use NightWorksIO\MutationGate\Core\Import\Import;
 use NightWorksIO\MutationGate\Core\Time\Day;
@@ -60,9 +61,6 @@ final readonly class Ignores
 
     /** How a pattern covers every class of a namespace. */
     private const string NAMESPACE = '\\*';
-
-    /** What makes a pattern name more than one class. */
-    private const string WILDCARDS = '*?[';
 
     public static function of(
         MutatorSettings $mutators,
@@ -115,7 +113,7 @@ final readonly class Ignores
             ? mb_substr($class, 0, mb_strlen($class) - mb_strlen(self::NAMESPACE))
             : $class;
 
-        if (strpbrk($namespace, self::WILDCARDS) !== false) {
+        if (strpbrk($namespace, ShellPattern::WILDCARDS) !== false) {
             return Unmapped::Wildcard;
         }
 

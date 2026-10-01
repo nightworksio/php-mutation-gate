@@ -2,5 +2,7 @@ parameters:
     level: 9
     paths:
         - src
+    excludePaths:
+        - src/Excluded.php
     bootstrapFiles:
         - bootstrap.php
