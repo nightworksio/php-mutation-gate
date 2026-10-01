@@ -150,7 +150,7 @@ final readonly class Interpretation
     {
         $status = $records->statusOf($planned)->status();
 
-        return $status === MutantStatus::Killed && Exhaustion::isOf($records->exhaustionOf($planned), $this->cap)
+        return $status === MutantStatus::Killed && Exhaustion::isOf($records->runOf($planned)->exhaustion(), $this->cap)
             ? MutantStatus::OutOfMemory
             : $status;
     }

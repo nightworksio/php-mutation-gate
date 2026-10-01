@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 
 /**
@@ -54,7 +55,7 @@ final readonly class NarrowedKills
             }
 
             $recorded = array_key_exists($mutant->nativeId(), $runs);
-            $run = $recorded ? $runs[$mutant->nativeId()] : OwnRun::of([], [], []);
+            $run = $recorded ? $runs[$mutant->nativeId()] : OwnRun::of([], [], [], NotGiven::value());
 
             if (! $recorded || count($mutant->killers()) === 0 || $run->killedByErrorsOnly()) {
                 $doubtful[] = $mutant;

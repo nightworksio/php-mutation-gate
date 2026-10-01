@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Tests\Contract\Runner;
 
 use function array_key_exists;
 use function array_map;
+use function array_unique;
+use function array_values;
 use function basename;
 use function dirname;
 use function getenv;
@@ -43,6 +45,8 @@ use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use Pest\Mutate\Mutators\Arithmetic\PostDecrementToPostIncrement;
 use Pest\Mutate\Mutators\Equality\GreaterToGreaterOrEqual;
 
+use function realpath;
+use function sort;
 use function sprintf;
 
 /**
@@ -116,6 +120,9 @@ final class Library
         'drains' => ['Decrement', MutatorFamily::Arithmetic],
         'held' => ['Plus', MutatorFamily::Arithmetic],
     ];
+
+    /** The library's test files that run more at their top than Pest registrations kept to the file. */
+    private const array ACTING = ['tests/MoneySpec.php', 'tests/UnexecutableMoreSpec.php'];
 
     /** @var array<string, array{string, MutatorFamily}> Pest's mutator for each change, and its family */
     private const array PEST = [
@@ -383,6 +390,24 @@ final class Library
                 $mutant->mutation()->family()->value,
             ];
         }, iterator_to_array($mutants, preserve_keys: false));
+    }
+
+    /**
+     * These test files of the library, and those whose loading acts on what
+     * other files find, which every narrowed run loads, by their real paths
+     * in byte order, as a narrowed run is handed them.
+     *
+     * @return list<string>
+     */
+    public static function acting(string ...$files): array
+    {
+        $paths = array_map(
+            static fn(string $file): string => (string) realpath(Tree::at(sprintf('%s/%s', self::DIRECTORY, $file))),
+            [...$files, ...self::ACTING],
+        );
+        sort($paths);
+
+        return array_values(array_unique($paths));
     }
 
     /** The canary group a patched shard opens on. */

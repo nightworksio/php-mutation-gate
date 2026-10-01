@@ -35,8 +35,9 @@ $suite = static function (): array {
         'AssertsTest.php' => 'trait Asserts { public function testIt(): void {} }',
         'UsesTraitTest.php' => 'final class UsesTraitTest extends \PHPUnit\Framework\TestCase { use Asserts; }',
         'AloneTest.php' => 'final class AloneTest extends \PHPUnit\Framework\TestCase { public function testIt(): void {} }',
-        'ConstantsTest.php' => 'const LIMIT = 5; \define(\'%1$s\\\\DEFINED\', 6); final class ConstantsTest extends \PHPUnit\Framework\TestCase { public function testIt(): void {} }',
-        'UsesConstantTest.php' => 'final class UsesConstantTest extends \PHPUnit\Framework\TestCase { public function testIt(): void { $sum = LIMIT + DEFINED; } }',
+        'ConstantsTest.php' => 'const LIMIT = 5; final class ConstantsTest extends \PHPUnit\Framework\TestCase { public function testIt(): void {} }',
+        'UsesConstantTest.php' => 'final class UsesConstantTest extends \PHPUnit\Framework\TestCase { public function testIt(): void { $sum = LIMIT; } }',
+        'SharesTest.php' => '$GLOBALS[\'shared\'] = helper(); final class SharesTest extends \PHPUnit\Framework\TestCase { public function testIt(): void {} }',
     ];
     $files = [];
     $root = Scratch::directory();
@@ -55,17 +56,20 @@ $suite = static function (): array {
     return [$namespace, array_map(static fn(string $file): string => (string) realpath($file), $files), $root];
 };
 
-it('needs each loaded test file that declares a function, class, base, trait or constant a test file uses, and no other', function () use ($suite): void {
+it('needs each loaded test file that is not inert, and each that declares a function, class, base, trait or constant one of those uses', function () use ($suite): void {
     [$namespace, $files, $root] = $suite();
     $loaded = LoadedTests::inThisProcess($root);
     $needs = static fn(string $name): array => $loaded->needs($files[$name]);
 
-    expect($needs('UsesHelperTest.php'))->toBe([$files['UsesHelperTest.php'], $files['DeclaresTest.php']])
-        ->and($needs('NamesFakeTest.php'))->toBe([$files['NamesFakeTest.php'], $files['DeclaresTest.php']])
-        ->and($needs('ChildTest.php'))->toBe([$files['ChildTest.php'], $files['BaseTest.php']])
-        ->and($needs('UsesTraitTest.php'))->toBe([$files['UsesTraitTest.php'], $files['AssertsTest.php']])
-        ->and($needs('AloneTest.php'))->toBe([$files['AloneTest.php']])
-        ->and($needs('UsesConstantTest.php'))->toBe([$files['UsesConstantTest.php'], $files['ConstantsTest.php']])
+    $with = static fn(string ...$names): array => array_map(static fn(string $name): string => $files[$name], $names);
+
+    expect($needs('UsesHelperTest.php'))->toBe($with('UsesHelperTest.php', 'SharesTest.php', 'DeclaresTest.php'))
+        ->and($needs('NamesFakeTest.php'))->toBe($with('NamesFakeTest.php', 'SharesTest.php', 'DeclaresTest.php'))
+        ->and($needs('ChildTest.php'))->toBe($with('ChildTest.php', 'SharesTest.php', 'BaseTest.php', 'DeclaresTest.php'))
+        ->and($needs('UsesTraitTest.php'))->toBe($with('UsesTraitTest.php', 'SharesTest.php', 'AssertsTest.php', 'DeclaresTest.php'))
+        ->and($needs('AloneTest.php'))->toBe($with('AloneTest.php', 'SharesTest.php', 'DeclaresTest.php'))
+        ->and($needs('UsesConstantTest.php'))->toBe($with('UsesConstantTest.php', 'SharesTest.php', 'ConstantsTest.php', 'DeclaresTest.php'))
+        ->and($needs('SharesTest.php'))->toBe($with('SharesTest.php', 'DeclaresTest.php'))
         ->and($loaded->fileOf(mb_strtolower(sprintf('%s\ChildTest', $namespace))))->toBe($files['ChildTest.php'])
         ->and($loaded->fileOf('never\loaded'))->toBe('');
 });
@@ -77,11 +81,15 @@ it('narrows a mutant\'s run to what its covering tests need, only where the run 
     $narrowing = static function (int $longest, string ...$tests) use ($root): array {
         CoveringFiles::forget($root);
 
-        return CoveringFiles::of(array_values($tests), longest: $longest);
+        return CoveringFiles::of(array_values($tests), '/tmp/mutations/abc', $longest);
     };
+    putenv(sprintf('%s=%s/results.jsonl', GateVariable::Results->value, Scratch::directory()));
     $unnarrowed = $narrowing(100000, $child);
     putenv(sprintf('%s=1', GateVariable::Narrow->value));
-    $expected = [$files['AloneTest.php'], $files['BaseTest.php'], $files['ChildTest.php']];
+    $expected = array_map(
+        static fn(string $name): string => $files[$name],
+        ['AloneTest.php', 'BaseTest.php', 'ChildTest.php', 'DeclaresTest.php', 'SharesTest.php'],
+    );
     sort($expected);
 
     expect($unnarrowed)->toBe([])
@@ -91,38 +99,55 @@ it('narrows a mutant\'s run to what its covering tests need, only where the run 
         ->and($narrowing(Bytes::length(implode(' ', $expected)), $child, $alone))->toBe([]);
 });
 
-it('records the files a narrowed run loads by the mutant\'s mutated copy, only where a results file is named', function () use ($suite): void {
+it('narrows a run only once it records the files it loads by the mutant\'s mutated copy, in the results file the gate names', function () use ($suite): void {
     [$namespace, , $root] = $suite();
     $child = sprintf('%s\ChildTest::testIt', $namespace);
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     putenv(sprintf('%s=1', GateVariable::Narrow->value));
-    $unrecorded = CoveringFiles::of([$child], '/tmp/mutations/unrecorded');
+    $unnamed = CoveringFiles::of([$child], '/tmp/mutations/unnamed');
     putenv(sprintf('%s=', GateVariable::Results->value));
-    CoveringFiles::of([$child], '/tmp/mutations/unnamed');
+    $empty = CoveringFiles::of([$child], '/tmp/mutations/empty');
     putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
-    CoveringFiles::forget($root);
+    $uncopied = CoveringFiles::of([$child]);
+    putenv(sprintf('%s=%s/missing/results.jsonl', GateVariable::Results->value, Scratch::directory()));
+    // A write that fails warns, as PHP does, and narrows nothing.
+    set_error_handler(static fn(): bool => true);
+
+    try {
+        $unwritten = CoveringFiles::of([$child], '/tmp/mutations/unwritten');
+    } finally {
+        restore_error_handler();
+    }
+
+    putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
 
     $paths = CoveringFiles::of([$child], '/tmp/mutations/abc');
-    CoveringFiles::of([$child]);
     CoveringFiles::of(['Never\Loaded::test'], '/tmp/mutations/whole');
 
-    expect($paths)->toBe($unrecorded)
+    expect([$unnamed, $empty, $uncopied, $unwritten])->toBe([[], [], [], []])
+        ->and($paths)->toContain(sprintf('%s/%s/ChildTest.php', (string) realpath($root), $namespace))
         ->and(file_get_contents($results))->toBe(RecordLine::narrowed('/tmp/mutations/abc', $paths));
 });
 
 it('narrows a run of a test its class takes from a trait to the class\'s file and the trait\'s', function () use ($suite): void {
     [$namespace, $files] = $suite();
     putenv(sprintf('%s=1', GateVariable::Narrow->value));
+    putenv(sprintf('%s=%s/results.jsonl', GateVariable::Results->value, Scratch::directory()));
+    $expected = array_map(
+        static fn(string $name): string => $files[$name],
+        ['AssertsTest.php', 'DeclaresTest.php', 'SharesTest.php', 'UsesTraitTest.php'],
+    );
+    sort($expected);
 
-    expect(CoveringFiles::of([sprintf('%s\UsesTraitTest::testIt', $namespace)]))
-        ->toBe([$files['AssertsTest.php'], $files['UsesTraitTest.php']]);
+    expect(CoveringFiles::of([sprintf('%s\UsesTraitTest::testIt', $namespace)], '/tmp/mutations/abc'))->toBe($expected);
 });
 
 it('reads the suite from the test directory Pest runs, where none is named', function (): void {
     putenv(sprintf('%s=1', GateVariable::Narrow->value));
+    putenv(sprintf('%s=%s/results.jsonl', GateVariable::Results->value, Scratch::directory()));
     CoveringFiles::forget();
 
     // The class Pest builds for this file.
-    expect(CoveringFiles::of(['P\Tests\Unit\Adapter\Pest\CoveringFilesTest::__pest_evaluable_it_reads']))
+    expect(CoveringFiles::of(['P\Tests\Unit\Adapter\Pest\CoveringFilesTest::__pest_evaluable_it_reads'], '/tmp/mutations/abc'))
         ->toContain((string) realpath(__FILE__));
 });

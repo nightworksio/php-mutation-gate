@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_filter;
 use function array_key_exists;
 use function array_key_first;
+use function array_map;
 
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -46,6 +47,23 @@ final readonly class FoundAgain
         }
 
         return Mutants::of(...$matched);
+    }
+
+    /** The mutants, each one found again replaced by what that run reported of it. */
+    public static function replacing(Mutants $mutants, Mutants $again): Mutants
+    {
+        $by = [];
+
+        foreach ($again as $mutant) {
+            $by[$mutant->id()->value()] = $mutant;
+        }
+
+        return Mutants::of(...array_map(
+            static fn(Mutant $mutant): Mutant => array_key_exists($mutant->id()->value(), $by)
+                ? $by[$mutant->id()->value()]
+                : $mutant,
+            [...$mutants],
+        ));
     }
 
     /**

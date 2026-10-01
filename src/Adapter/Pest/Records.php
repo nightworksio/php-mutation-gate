@@ -35,9 +35,8 @@ use function sprintf;
 /**
  * What the plugin wrote of one Pest run: every mutant it planned, and whether
  * it wrote all of them, the status each ended with, how long each ran, what
- * each mutant's own process recorded (see OwnRun), the memory limit any such
- * process ran out of, how long the opening run took, and whether the run
- * reached its end. A line cut short, as a run
+ * each mutant's own process recorded (see OwnRun), how long the opening run
+ * took, and whether the run reached its end. A line cut short, as a run
  * stopped while it wrote leaves its last, is not a record; any other line
  * that is not one, and a whole record that lacks a field its event carries
  * or holds a line no file has, refuses the file.
@@ -149,19 +148,8 @@ final class Records
             array_key_exists($mutated, $this->killers) ? $this->killers[$mutated] : [],
             array_key_exists($mutated, $this->errored) ? $this->errored[$mutated] : [],
             array_key_exists($mutated, $this->narrowed) ? $this->narrowed[$mutated] : [],
+            array_key_exists($mutated, $this->exhausted) ? $this->exhausted[$mutated] : NotGiven::value(),
         );
-    }
-
-    /**
-     * The memory limit a mutant's own process ran out of, where it did. Any
-     * two mutants that leave the same source share their mutated copy, and
-     * so this.
-     */
-    public function exhaustionOf(PlannedMutant $mutant): MemoryCap|NotGiven
-    {
-        $mutated = $mutant->mutated()->value();
-
-        return array_key_exists($mutated, $this->exhausted) ? $this->exhausted[$mutated] : NotGiven::value();
     }
 
     /** The seconds Pest allowed each mutant, from the opening run's. */

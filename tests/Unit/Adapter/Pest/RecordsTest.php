@@ -304,9 +304,9 @@ it('keeps the memory limit each mutant\'s own process ran out of, by the mutated
 
     $refused = Records::in($results(['{"event": "exhausted", "mutated": "/tmp/a", "bytes": 0}', RecordLine::end()]));
 
-    expect($records instanceof Records ? $records->exhaustionOf($mutant('a', '/p/src/Money.php', 10)) : $records)
+    expect($records instanceof Records ? $records->runOf($mutant('a', '/p/src/Money.php', 10))->exhaustion() : $records)
         ->toEqual(MemoryCap::of(64, MemoryUnit::Megabytes))
-        ->and($records instanceof Records ? $records->exhaustionOf($mutant('b', '/p/src/Money.php', 20)) : $records)
+        ->and($records instanceof Records ? $records->runOf($mutant('b', '/p/src/Money.php', 20))->exhaustion() : $records)
         ->toEqual(NotGiven::value())
         ->and($refused instanceof CannotJudge ? $refused->why() : '')
         ->toEndWith('is not a record the gate reads: the record.bytes is not a number of bytes.');

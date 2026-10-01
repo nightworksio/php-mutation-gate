@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-use function array_all;
+use function array_filter;
 use function array_key_exists;
 use function array_slice;
+use function array_values;
 use function count;
 use function implode;
 
@@ -20,6 +21,12 @@ final readonly class TopLevel
 {
     /** What opens a block, at the top or inside a function alike. */
     public const array OPENS = ['{', T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES];
+
+    /**
+     * What opens a bracket a block can sit inside, as a closure passed to a
+     * call does, and which the block's end does not end the statement in.
+     */
+    private const array BRACKETS = ['(', '[', T_ATTRIBUTE];
 
     /** What ends a statement at the top. */
     private const array ENDS = [';', '}'];
@@ -59,6 +66,8 @@ final readonly class TopLevel
         $statement = [];
         $depth = 0;
 
+        $inside = 0;
+
         foreach ($tokens as $token) {
             $statement[] = $token;
             $depth += match (true) {
@@ -66,8 +75,13 @@ final readonly class TopLevel
                 $token->is('}') => -1,
                 default => 0,
             };
+            $inside += match (true) {
+                $token->is(self::BRACKETS) => 1,
+                $token->is([')', ']']) => -1,
+                default => 0,
+            };
 
-            if ($depth < 1 && $token->is(self::ENDS)) {
+            if ($depth < 1 && $inside < 1 && $token->is(self::ENDS)) {
                 $statements[] = $statement;
                 $statement = [];
             }
@@ -79,11 +93,22 @@ final readonly class TopLevel
     /** Whether loading the file only declares, and runs nothing. */
     public function onlyDeclares(): bool
     {
-        return array_all(
+        return $this->running() === [];
+    }
+
+    /**
+     * The statements that run when the file is loaded, each as its
+     * significant tokens: every one that declares nothing.
+     *
+     * @return list<non-empty-list<PhpToken>>
+     */
+    public function running(): array
+    {
+        return array_values(array_filter(
             $this->statements,
             /** @param non-empty-list<PhpToken> $statement */
-            static fn(array $statement): bool => self::opens($statement, self::DECLARING),
-        );
+            static fn(array $statement): bool => ! self::opens($statement, self::DECLARING),
+        ));
     }
 
     /**

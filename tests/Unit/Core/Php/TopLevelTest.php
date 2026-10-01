@@ -128,3 +128,18 @@ it('reads a namespace of one segment, and a file with none', function () use ($t
 it('spells tokens joined by spaces', function (): void {
     expect(TopLevel::spelt(...PhpToken::tokenize('<?php use A\B;')))->toBe('<?php  use   A\B ;');
 });
+
+it('runs each statement that declares nothing, whole, a block inside its brackets included', function () use ($top): void {
+    $running = $top(<<<'PHP'
+        <?php
+        use App\Money;
+        it('adds', function (): void { expect(1)->toBe(1); })->with([function () { return 1; }]);
+        #[Attribute] final class Held {}
+        $shared = 5;
+        PHP)->running();
+
+    expect(array_map(static fn(array $statement): string => TopLevel::spelt(...$statement), $running))->toBe([
+        "it ( 'adds' , function ( ) : void { expect ( 1 ) -> toBe ( 1 ) ; } ) -> with ( [ function ( ) { return 1 ; } ] ) ;",
+        '$shared = 5 ;',
+    ]);
+});

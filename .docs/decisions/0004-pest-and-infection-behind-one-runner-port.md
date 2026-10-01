@@ -337,15 +337,22 @@ its parser attributes. Both change when the checkout moves.
        loaded, or the paths would not fit in the bytes a filter may take, it
        loads every test file. The patched plugin records the files each
        narrowed run loads.
-     - The names are what the narrowing can see. A test file can also give
-       another what it needs by what loading it does, which no name shows: a
-       hook or a trait `pest()`/`uses()` registers with `->in()`, or state it
-       sets in `$_ENV`, the environment or `$GLOBALS`. A name a test builds at
-       run time is not read either. A test that lacks one of these fails or
-       errors on the unmutated code too. So a narrowed kill counts only where
-       its killers are known to fail on the mutant alone:
+     - A test file can also give another what it needs by what loading it
+       does, which no name shows. So every narrowed run also loads each test
+       file that is not inert, with what it needs. A test file is inert where
+       its top only declares, imports, and makes the Pest registrations whose
+       effects stay in the file: `test`, `it`, `todo`, `arch`, `describe`,
+       `beforeEach`, `afterEach`, `beforeAll`, `afterAll`, `dataset`,
+       `covers` and `uses`, none of them sent `->in()`. Anything else at the
+       top acts: a hook or a trait sent `->in()` a directory, `pest()` and
+       `mutates()`, which change Pest's configuration, a write to `$_ENV`, the
+       environment or `$GLOBALS`, an include, or any other statement. The
+       files Pest loads in every process, `tests/Pest.php` and its kind, are
+       loaded anyway.
+     - A narrowed kill counts only where the run can vouch for it:
        - a kill with no test named as its killer, or only tests that errored,
-         does not count;
+         does not count, as a helper a test calls by a name built at run time
+         leaves;
        - any other counts only where every test in the files its run loaded
          passes on the unmutated code, loaded alone as that run loaded them.
          That run is made once for each set of files, and kept while the gate
@@ -354,6 +361,11 @@ its parser attributes. Both change when the checkout moves.
        A kill that does not count runs again with every test file within the
        time left, or is unjudged. A kill whose records cannot be read does
        not count either.
+     - What a test's body leaves behind as it runs is not seen: a test that
+       writes a global, a static or a file while it runs, which a test in
+       another file reads, passes or fails by whether that other test ran
+       first. Where a test needs that, and its narrowed run leaves it out, a
+       kill can count that a run with every test file would not have made.
 
      Every anchor is checked before anything is written, and one that has moved
      fails the install: a patch that quietly matched nothing is worse than none.

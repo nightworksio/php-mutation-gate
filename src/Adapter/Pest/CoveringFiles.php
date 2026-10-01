@@ -22,10 +22,12 @@ use function sprintf;
 /**
  * The test files a mutant's own run loads where a patched run narrows it,
  * read in Pest's parent process, which has loaded the whole suite: the file
- * that declares each covering test's class, and every loaded test file that
- * declares a name those files use, in turn. None, so the run loads every test
- * file as Pest ships it, where the run is not narrowed, a covering test's
- * class is not loaded, or the paths would pass the length a filter may have.
+ * that declares each covering test's class, every loaded test file that is
+ * not inert (see Registration), and every loaded test file that declares a
+ * name those files use, in turn. None, so the run loads every test file as
+ * Pest ships it, where the run is not narrowed, a covering test's class is
+ * not loaded, the paths would pass the length a filter may have, or they
+ * cannot be recorded.
  *
  * Each narrowed run's files are recorded by the mutant's mutated copy, so
  * the gate can run them on the unmutated code (see NarrowedKills).
@@ -42,8 +44,9 @@ final class CoveringFiles
     private static string $directory = '';
 
     /**
-     * The files, each recorded, where a results file is named, as the files
-     * the mutant with this mutated copy loads.
+     * The files, only once they are recorded, in the results file the gate
+     * names, as the files the mutant with this mutated copy loads: a kill of
+     * a run narrowed with no record would stand unchecked (see NarrowedKills).
      *
      * @param  list<string> $tests   the ids of the tests that cover a mutant, as Pest's coverage map names them
      * @param  string       $mutated the mutated copy Pest serves in the mutant's own process
@@ -55,11 +58,10 @@ final class CoveringFiles
         $paths = getenv(GateVariable::Narrow->value) === '1' ? self::needed($tests, $longest) : [];
         $results = getenv(GateVariable::Results->value);
 
-        if ($paths !== [] && $mutated !== '' && is_string($results) && $results !== '') {
-            file_put_contents($results, RecordLine::narrowed($mutated, $paths), FILE_APPEND | LOCK_EX);
-        }
+        $recorded = $paths !== [] && $mutated !== '' && is_string($results) && $results !== ''
+            && file_put_contents($results, RecordLine::narrowed($mutated, $paths), FILE_APPEND | LOCK_EX) !== false;
 
-        return $paths;
+        return $recorded ? $paths : [];
     }
 
     /**

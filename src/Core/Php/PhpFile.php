@@ -33,12 +33,13 @@ final readonly class PhpFile
     /** A fully qualified name as a string spells it, once its doubled backslashes are single. */
     private const string QUALIFIED = '/\\\\?[A-Za-z_][A-Za-z0-9_]*(?:\\\\[A-Za-z_][A-Za-z0-9_]*)+/';
 
+    /** @param list<non-empty-list<PhpToken>> $running */
     private function __construct(
         private Names $declares,
         private Names $mentions,
         private Names $quoted,
         private Names $constants,
-        private bool $onlyDeclares,
+        private array $running,
         private HoldsAttributes $holds,
     ) {
     }
@@ -61,7 +62,7 @@ final readonly class PhpFile
             self::mentionedIn($tokens, $scope),
             self::quotedIn($tokens),
             self::constantsIn($tokens),
-            $top->onlyDeclares(),
+            $top->running(),
             HoldsReader::mayHold($contents) ? HoldsReader::in(Tokens::of($tokens), $scope) : HoldsAttributes::none(),
         );
     }
@@ -107,7 +108,18 @@ final readonly class PhpFile
     /** Whether loading the file only declares, so that it acts on nothing that does not name it. */
     public function onlyDeclares(): bool
     {
-        return $this->onlyDeclares;
+        return $this->running === [];
+    }
+
+    /**
+     * The statements at the file's top that run when it is loaded, each as
+     * its significant tokens.
+     *
+     * @return list<non-empty-list<PhpToken>>
+     */
+    public function running(): array
+    {
+        return $this->running;
     }
 
     /** The paths the file's `#[Holds]` declare held, each with the class or method that holds it. */

@@ -601,10 +601,12 @@ it('opens a patched shard on the canary group and reads the map the planning job
 // process. A mutant only such a test covers, which no test kills, survives.
 // Where the test needs the file for a name it spells, a helper function, a
 // constant, a base test case or a trait of tests, its own run loads the file
-// with the test's. Where it needs the file for what loading it does, a hook
-// or a trait `->in()` registers, state it sets, or a helper called by a name
-// built at run time, the run narrowed without it cannot vouch for the kill,
-// and the mutant is run again with every test file.
+// with the test's. Where the file acts on what other files find, a hook or a
+// trait `->in()` registers, state it sets, or a constant it defines by call,
+// every narrowed run loads it, even where the test falls back from what it
+// finds missing. Where the test calls a helper by a name built at run time,
+// the run narrowed without it cannot vouch for the kill, and the mutant is
+// run again with every test file.
 it('narrows a mutant\'s own run over a test that needs another test file, loaded first, and kills nothing by what it left out', function (bool $together, string ...$files): void {
     $into = Tree::at(sprintf('%s/tests/Reach', Library::DIRECTORY));
     $source = Tree::at(sprintf('%s/src/Reach.php', Library::DIRECTORY));
@@ -617,7 +619,7 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
 
     Patch::applyIn(Library::vendor());
     $runner = Library::pest(Patching::on(Library::canary()))->runner();
-    $expected = $together ? array_map(static fn(string $file): string => (string) realpath(sprintf('%s/%s', $into, $file)), $files) : [];
+    $expected = $together ? Library::acting(...array_map(static fn(string $file): string => sprintf('tests/Reach/%s', $file), $files)) : [];
 
     try {
         $map = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/reach')));
@@ -626,7 +628,7 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
             CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty()),
         );
         $result = $runner->mutate(MutationRequest::of(Paths::of(Path::of('src/Reach.php')), WholeSuite::tests())
-            ->onlyMutators(Mutators::named(PlusToMinus::class))
+            ->narrowedTo(Paths::of(Path::of('src/Reach.php')), Mutators::named(PlusToMinus::class))
             ->reusingCoverage(Path::of('.mutation-gate/reach')));
     } finally {
         array_map(static fn(string $file): bool => unlink(sprintf('%s/%s', $into, $file)), $files);
@@ -654,11 +656,12 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
     'a base test case' => [true, 'ReachABaseSpec.php', 'ReachZInheritedSpec.php'],
     'a trait of tests' => [true, 'ReachAAssertsSpec.php', 'ReachZTraitedSpec.php'],
     'a helper called by a name built at run time' => [false, 'ReachADynamicSpec.php', 'ReachZDynamicSpec.php'],
-    'a hook pest()->in() registers' => [false, 'ReachAHooksSpec.php', 'ReachZHookedSpec.php'],
-    'a trait uses()->in() adds' => [false, 'ReachAUsesSpec.php', 'ReachZUsingSpec.php'],
-    'a variable set in $_ENV' => [false, 'ReachAEnvSpec.php', 'ReachZEnvSpec.php'],
-    'a variable put in the environment' => [false, 'ReachAPutenvSpec.php', 'ReachZPutenvSpec.php'],
-    'a global set in $GLOBALS' => [false, 'ReachAGlobalsSpec.php', 'ReachZGlobalsSpec.php'],
+    'a hook pest()->in() registers' => [true, 'ReachAHooksSpec.php', 'ReachZHookedSpec.php'],
+    'a trait uses()->in() adds' => [true, 'ReachAUsesSpec.php', 'ReachZUsingSpec.php'],
+    'a variable set in $_ENV' => [true, 'ReachAEnvSpec.php', 'ReachZEnvSpec.php'],
+    'a variable put in the environment' => [true, 'ReachAPutenvSpec.php', 'ReachZPutenvSpec.php'],
+    'a global set in $GLOBALS' => [true, 'ReachAGlobalsSpec.php', 'ReachZGlobalsSpec.php'],
+    'a value a hook sets, which the test falls back from' => [true, 'ReachADefaultSpec.php', 'ReachZDefaultedSpec.php'],
 ])->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('hands each mutant\'s own run the test files its covering tests need as paths, and no other', function (): void {
@@ -674,7 +677,7 @@ it('hands each mutant\'s own run the test files its covering tests need as paths
 
     try {
         $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-            ->onlyMutators($library->mutators('large'))
+            ->narrowedTo(Paths::of(Path::of('src/Money.php')), $library->mutators('large'))
             ->reusingCoverage(Path::of('.mutation-gate/planned')));
     } finally {
         unset($_ENV['CONTRACT_ARGV']);
@@ -693,7 +696,7 @@ it('hands each mutant\'s own run the test files its covering tests need as paths
 
     expect($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
         ->toBe($library->expected('large'))
-        ->and($paths)->toBe([[(string) realpath(Tree::at(sprintf('%s/tests/MoneySpec.php', Library::DIRECTORY)))]]);
+        ->and($paths)->toBe([Library::acting('tests/MoneySpec.php')]);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('runs again, patched, only the mutants the file it hands over names, on the map the invocation read', function (): void {

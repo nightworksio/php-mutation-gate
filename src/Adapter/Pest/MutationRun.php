@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_key_exists;
 use function array_map;
 use function array_values;
 
@@ -21,7 +20,6 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
@@ -202,7 +200,7 @@ final readonly class MutationRun
             : $this->whole()->again($doubtful, $left instanceof Seconds ? $request->within($left) : $request);
 
         return $again instanceof CannotJudge ? $again : MutationResult::of(
-            $this->replaced($result->mutants(), $again),
+            FoundAgain::replacing($result->mutants(), $again),
             $result->skipped(),
         );
     }
@@ -261,23 +259,6 @@ final readonly class MutationRun
         return $result instanceof CannotJudge
             ? $result
             : FoundAgain::among($mutants, $result->mutants(), Reason::that(self::NOT_MADE_TO_CONFIRM));
-    }
-
-    /** The mutants, each one made again replaced by what that run reported of it. */
-    private function replaced(Mutants $mutants, Mutants $again): Mutants
-    {
-        $by = [];
-
-        foreach ($again as $mutant) {
-            $by[$mutant->id()->value()] = $mutant;
-        }
-
-        return Mutants::of(...array_map(
-            static fn(Mutant $mutant): Mutant => array_key_exists($mutant->id()->value(), $by)
-                ? $by[$mutant->id()->value()]
-                : $mutant,
-            [...$mutants],
-        ));
     }
 
     private function commandFor(
