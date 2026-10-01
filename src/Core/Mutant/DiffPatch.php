@@ -13,6 +13,7 @@ use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Path;
 
 use function sprintf;
 use function str_starts_with;
@@ -23,8 +24,11 @@ use function usort;
  * the mutant's own text (ADR-0020, decision 9). A runner's diff holds no
  * line numbers, so each hunk is placed where its context and removed lines
  * stand in the file: the first hunk at the place nearest the mutant's line,
- * each later one at the first place after the one before. A diff that does
- * not apply gives no mutant, so the mutant is left unchecked, never killed.
+ * each later one at the first place after the one before. Where the mutant's
+ * line is not a line of the text the diff goes onto, each hunk goes only
+ * where it stands in one place. A diff that does not apply, or could apply
+ * in more than one place, gives no mutant, so the mutant is left unchecked,
+ * never killed.
  */
 final readonly class DiffPatch
 {
@@ -38,6 +42,9 @@ final readonly class DiffPatch
     private const string NO_NEWLINE = '\\';
 
     private const string DOES_NOT_APPLY = 'Its diff does not apply to %s as it is now.';
+
+    private const string AMBIGUOUS
+        = 'Its diff stands in more than one place in %s, so the gate cannot tell which is the mutant.';
 
     /** @param list<array{list<string>, list<string>, int}> $hunks each hunk's lines before and after, and its lead */
     private function __construct(private array $hunks)
@@ -61,16 +68,34 @@ final readonly class DiffPatch
     /** The mutant's text: the diff put onto this original, the mutant's, nearest where the mutant starts. */
     public function onto(Contents $original, Location $at): Contents|CannotJudge
     {
+        return $this->applied($original, $at->file(), $at->start()->number() - 1, onlyPlace: false);
+    }
+
+    /**
+     * The mutant's text, where the mutant's line says nothing of where it
+     * stands in this original, as where the runner diffed another print of
+     * the file: each hunk where its lines stand, only where they stand in
+     * one place. Where they stand in more, the diff is not put back, since
+     * the wrong place makes another mutant.
+     */
+    public function ontoTheOnlyPlace(Contents $original, Path $file): Contents|CannotJudge
+    {
+        return $this->applied($original, $file, 0, onlyPlace: true);
+    }
+
+    private function applied(Contents $original, Path $file, int $want, bool $onlyPlace): Contents|CannotJudge
+    {
         $lines = explode("\n", $original->text());
         $patched = [];
         $cursor = 0;
-        $want = $at->start()->number() - 1;
 
         foreach ($this->hunks as [$before, $after, $lead]) {
             $places = $this->places($lines, $before, $cursor, $want - $lead);
 
-            if ($places === []) {
-                return CannotJudge::because(sprintf(self::DOES_NOT_APPLY, $at->file()->value()));
+            if ($places === [] || ($onlyPlace && count($places) > 1)) {
+                $why = $places === [] ? self::DOES_NOT_APPLY : self::AMBIGUOUS;
+
+                return CannotJudge::because(sprintf($why, $file->value()));
             }
 
             $patched = [...$patched, ...array_slice($lines, $cursor, $places[0] - $cursor), ...$after];
@@ -79,7 +104,7 @@ final readonly class DiffPatch
         }
 
         return $this->hunks === []
-            ? CannotJudge::because(sprintf(self::DOES_NOT_APPLY, $at->file()->value()))
+            ? CannotJudge::because(sprintf(self::DOES_NOT_APPLY, $file->value()))
             : Contents::of(implode("\n", [...$patched, ...array_slice($lines, $cursor)]));
     }
 

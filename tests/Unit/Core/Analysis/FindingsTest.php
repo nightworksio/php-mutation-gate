@@ -85,6 +85,8 @@ it('knows the same findings, as many of each and whatever their order, by code a
         ->and(Findings::none()->same(Findings::none()))->toBeTrue()
         ->and(Findings::of($a, $b)->same(Findings::of($a)))->toBeFalse()
         ->and(Findings::of($a, $a)->same(Findings::of($a, $b)))->toBeFalse()
+        ->and(Findings::of($a, $a, $b)->same(Findings::of($a, $b)))->toBeFalse()
+        ->and(Findings::of($a, $b)->same(Findings::of($b, $a, $a)))->toBeFalse()
         ->and(Findings::of($a)->same(Findings::of(Finding::error('a.b', 'Other.'))))->toBeFalse()
         ->and(Findings::of($a)->same(Findings::of(Finding::error('a.c', 'First.'))))->toBeFalse();
 });

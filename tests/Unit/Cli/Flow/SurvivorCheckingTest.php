@@ -34,8 +34,10 @@ use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedClock;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\TickingClock;
+use Psr\Clock\ClockInterface;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -89,10 +91,9 @@ function checking(
     RecordingChecker|NoAnalyser $checker,
     ScriptedRunner $runner,
     Deadline|Unlimited $deadline,
+    ClockInterface $clock = new TickingClock('2026-01-01T00:00:00Z', 1),
 ): SurvivorChecking {
     $ports = $checker instanceof RecordingChecker ? [$runner, $checker] : [$runner];
-
-    $clock = new TickingClock('2026-01-01T00:00:00Z', 1);
 
     return new SurvivorChecking(Flows::adapters($project, [], ...$ports), $clock, $deadline);
 }
@@ -239,28 +240,67 @@ it('judges a printed survivor against its original printed the same way, analyse
         ]);
 });
 
-it('leaves the survivors the time left has no room for unchecked, at the checks\' mean time so far', function (float $budget): void {
+it('runs nothing where the time budget has already run out, and leaves every survivor unchecked', function (): void {
     $project = Scratch::directory();
-    $mutants = checkedMutants();
     $checker = checkedBy($project, []);
     $spent = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(0.0));
-    $roomForOne = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of($budget));
-    $checkerForOne = checkedBy($project, [checkedAt(checkedSurvivor($mutants, 'src/Money.php')) => checkedOriginals()]);
 
-    $none = checking($project, $checker, ScriptedRunner::fixture(), $spent)->checked($mutants, MutantIds::none());
-    $one = checking($project, $checkerForOne, ScriptedRunner::fixture(), $roomForOne)->checked($mutants, MutantIds::none());
+    $checked = checking($project, $checker, ScriptedRunner::fixture(), $spent)->checked(checkedMutants(), MutantIds::none());
 
-    expect(checkedWarnings($none))->toBe([
+    expect(checkedWarnings($checked))->toBe([
         'Static analysis left 2 survivors unchecked, as the time budget ran out before their checks: src/Held.php, src/Money.php.',
     ])
-        ->and($checker->checks())->toBe([])
-        ->and(array_map(static fn(array $check): string => $check[0], $checkerForOne->checks()))->toBe(['src/Money.php'])
-        ->and(checkedWarnings($one))->toBe([
-            'Static analysis left 1 survivor unchecked, as the time budget ran out before their checks: src/Held.php.',
-        ]);
+        ->and($checker->warmUps())->toBe([])
+        ->and($checker->checks())->toBe([]);
+});
+
+it('starts a check only where the time left has room for it, as long as the run over the originals took before any check is timed, and the checks\' mean after', function (
+    ScriptedClock $clock,
+    bool $printed,
+    string $checked,
+): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $money = checkedSurvivor($mutants, 'src/Money.php');
+    $held = checkedSurvivor($mutants, 'src/Held.php');
+    $checker = checkedBy($project, [
+        checkedAt($money) => checkedOriginals(),
+        checkedAt($held) => checkedOriginals(),
+        Workspace::checkedOriginal($money->id())->value() => checkedOriginals(),
+        Workspace::checkedOriginal($held->id())->value() => checkedOriginals(),
+    ]);
+    $runner = $printed
+        ? ScriptedRunner::fixture()->checking(Checkable::printed(Contents::of('<?php // printed'), Contents::of('<?php // mutant')))
+        : ScriptedRunner::fixture();
+    $deadline = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(10.0));
+    checking($project, $checker, $runner, $deadline, $clock)->checked($mutants, MutantIds::none());
+
+    expect(array_map(static fn(array $check): string => $check[1], $checker->checks()))->toBe(array_map(
+        static fn(string $file): string => $file === 'money' ? checkedAt($money) : checkedAt($held),
+        $checked === '' ? [] : explode(' ', $checked),
+    ));
 })->with([
-    'half a second, before any check is timed' => [0.5],
-    'half a second once a check took one' => [3.5],
+    // read before the warm-up, its start and end, then before each check, its start and end
+    'a warm-up of 9s leaves 1s, too little for a first check' => [
+        new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 9, 9),
+        false,
+        '',
+    ],
+    'a warm-up of 1s leaves room for the first check, whose 6s leave too little for another' => [
+        new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 1, 1, 1, 7, 7),
+        false,
+        'money',
+    ],
+    'every check fits where each takes as long as the warm-up' => [
+        new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 1, 1, 1, 2, 2, 2, 3),
+        false,
+        'money held',
+    ],
+    'a printed file\'s first survivor needs room for its print and its mutant' => [
+        new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 1, 9),
+        true,
+        '',
+    ],
 ]);
 
 it('leaves a survivor unchecked where its code cannot be written for its check', function (): void {

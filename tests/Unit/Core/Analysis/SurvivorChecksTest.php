@@ -56,9 +56,17 @@ it('names all three files of a reason with three', function () use ($left, $text
     ]);
 });
 
-it('says why for every reason', function (Unchecked $why, string $because) use ($left, $texts): void {
-    expect($texts(SurvivorChecks::none()->leaving($left($why, 'src/Money.php'))))
-        ->toBe([sprintf('Static analysis left 1 survivor unchecked, as %s: src/Money.php.', $because)]);
+it('says why for every reason, counting one survivor or more', function (Unchecked $why, string $because) use ($left, $texts): void {
+    $one = SurvivorChecks::none()->leaving($left($why, 'src/Money.php'));
+    $five = $one;
+
+    foreach (['src/A.php', 'src/B.php', 'src/A.php', 'src/Money.php'] as $file) {
+        $five = $five->leaving($left($why, $file));
+    }
+
+    expect($texts($one))->toBe([sprintf('Static analysis left 1 survivor unchecked, as %s: src/Money.php.', $because)])
+        ->and($texts($five))
+        ->toBe([sprintf('Static analysis left 5 survivors unchecked, as %s: src/A.php, src/B.php, src/Money.php.', $because)]);
 })->with([
     'unidentified' => [Unchecked::Unidentified, 'the analyser could not say its version'],
     'no warm-up' => [Unchecked::NoWarmUp, 'the analyser\'s run over the original files failed'],

@@ -608,6 +608,8 @@ services:
                 'NightWorksIO\MutationGate\Core\Proof\AnalysersRecord':
                     - SECONDS # a field of the ledger's analysers section
                     - MUTATORS # a field of the ledger's analysers section
+                'NightWorksIO\MutationGate\Cli\Flow\SurvivorChecking':
+                    - WITH_ITS_PRINT # the checks a printed file's first survivor needs
                 'NightWorksIO\MutationGate\Core\Plan\SurvivorChecksRecord':
                     - FILE # a field of a shard result
                 'NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks':

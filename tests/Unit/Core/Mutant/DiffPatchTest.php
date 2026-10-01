@@ -67,3 +67,15 @@ it('gives no mutant for a diff that does not apply, or holds no hunk', function 
 it('adds lines where a hunk only adds', function () use ($patched, $text): void {
     expect($text($patched("@@ @@\n <?php\n+declare(strict_types=1);", 1)))->toStartWith("<?php\ndeclare(strict_types=1);\n\nfunction add(");
 });
+
+it('puts a diff back where the mutant\'s line says nothing only where its lines stand in one place', function () use ($original, $text): void {
+    $patch = static fn(string $diff): string => $text(DiffPatch::of(Mutation::of('Plus', MutatorFamily::Arithmetic, $diff))
+        ->ontoTheOnlyPlace($original, Path::of('src/Money.php')));
+    $twice = "@@ @@\n {\n-    return \$a + \$b;\n+    return \$a - \$b;\n }";
+    $once = "@@ @@\n function sum(int \$a, int \$b): int\n {\n-    return \$a + \$b;\n+    return \$a - \$b;\n }";
+
+    expect($patch($twice))->toBe('Its diff stands in more than one place in src/Money.php, so the gate cannot tell which is the mutant.')
+        ->and($patch($once))->toContain("function sum(int \$a, int \$b): int\n{\n    return \$a - \$b;\n}")
+        ->and($patch($once))->toContain("function add(int \$a, int \$b): int\n{\n    return \$a + \$b;\n}")
+        ->and($patch("@@ @@\n-    return \$a * \$b;\n+    return \$a / \$b;"))->toBe('Its diff does not apply to src/Money.php as it is now.');
+});

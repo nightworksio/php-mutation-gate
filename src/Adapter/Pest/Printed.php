@@ -23,7 +23,8 @@ use function sprintf;
  * parser knows and printed whole by php-parser's standard printer, as Pest's
  * own mutation does before it diffs the original against the mutant. Pest's
  * diff is between two such prints, so it goes onto this print, and not onto
- * the file as written.
+ * the file as written. The mutant's line is the file's, not the print's, so
+ * the diff goes back only where its lines stand in one place of the print.
  */
 final readonly class Printed
 {
@@ -40,7 +41,7 @@ final readonly class Printed
             ? CannotJudge::because(sprintf(self::UNREAD, $file->value()))
             : self::printed($written, $file->value());
         $patched = $printed instanceof Contents
-            ? DiffPatch::of($mutant->mutation())->onto($printed, $mutant->location())
+            ? DiffPatch::of($mutant->mutation())->ontoTheOnlyPlace($printed, $file)
             : $printed;
 
         return match (true) {

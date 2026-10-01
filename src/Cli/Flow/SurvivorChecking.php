@@ -46,6 +46,12 @@ use Psr\Clock\ClockInterface;
  */
 final readonly class SurvivorChecking
 {
+    /** The checks a survivor needs on its own. */
+    private const int ALONE = 1;
+
+    /** The checks the first survivor of a printed file needs: the print, then the mutant. */
+    private const int WITH_ITS_PRINT = self::ALONE + 1;
+
     public function __construct(
         private Adapters $adapters,
         private ClockInterface $clock,
@@ -70,22 +76,41 @@ final readonly class SurvivorChecking
             : $this->warmedUp($checker, $mutants, $survivors);
     }
 
-    /** The survivors checked, once the analyser has said who it is and run over the originals; or every one left. */
+    /**
+     * The survivors checked, where the analyser said who it is and the time
+     * left has room for its run over the originals; or every one left.
+     */
     private function warmedUp(StaticChecker $checker, Mutants $mutants, Mutants $survivors): Checked
     {
-        $identity = $checker->identity($this->adapters->withheld);
-        $warm = $identity instanceof AnalyserIdentity
-            ? $checker->findings(Paths::none(), $this->adapters->withheld)
-            : $identity;
+        $identity = $this->adapters->analyser;
 
         return match (true) {
-            $identity instanceof CannotJudge => new Checked(
+            ! $identity instanceof AnalyserIdentity => new Checked(
                 $mutants,
                 $this->leaving($survivors, Unchecked::Unidentified),
             ),
-            $warm instanceof CannotJudge => new Checked($mutants, $this->leaving($survivors, Unchecked::NoWarmUp)),
-            default => $this->each($checker, $identity, $warm, $mutants, $survivors),
+            $this->deadline instanceof Deadline && $this->deadline->hasPassed($this->clock->now()) => new Checked(
+                $mutants,
+                $this->leaving($survivors, Unchecked::OutOfTime),
+            ),
+            default => $this->warmed($checker, $identity, $mutants, $survivors),
         };
+    }
+
+    /** The analyser's one run over the originals, timed, then each survivor checked; or every one left. */
+    private function warmed(
+        StaticChecker $checker,
+        AnalyserIdentity $identity,
+        Mutants $mutants,
+        Mutants $survivors,
+    ): Checked {
+        $started = $this->clock->now();
+        $found = $checker->findings(Paths::none(), $this->adapters->withheld);
+        $took = Seconds::between($started, $this->clock->now());
+
+        return $found instanceof CannotJudge
+            ? new Checked($mutants, $this->leaving($survivors, Unchecked::NoWarmUp))
+            : $this->each(new WarmedUp($checker, $identity, $found, $took), $mutants, $survivors);
     }
 
     private function leaving(Mutants $survivors, Unchecked $why): SurvivorChecks
@@ -104,20 +129,15 @@ final readonly class SurvivorChecking
      * warm-up's for a file as written, and for one printed as the runner
      * prints, the print's, found once for each file.
      */
-    private function each(
-        StaticChecker $checker,
-        AnalyserIdentity $identity,
-        Findings $warm,
-        Mutants $mutants,
-        Mutants $survivors,
-    ): Checked {
-        $history = AnalyserHistory::of($identity->analyser());
+    private function each(WarmedUp $warm, Mutants $mutants, Mutants $survivors): Checked
+    {
+        $history = AnalyserHistory::of($warm->identity->analyser());
         $checks = SurvivorChecks::none();
         $baselines = [];
         $rejected = Mutants::none();
 
         foreach ($survivors as $survivor) {
-            [$answer, $history, $baselines] = $this->one($checker, $identity, $warm, $survivor, $history, $baselines);
+            [$answer, $history, $baselines] = $this->one($warm, $survivor, $history, $baselines);
             $checks = $answer instanceof Unchecked
                 ? $checks->leaving(UncheckedSurvivor::of($answer, $survivor->location()->file()))
                 : $checks;
@@ -128,44 +148,47 @@ final readonly class SurvivorChecking
     }
 
     /**
-     * One survivor checked, where the time left has room for it and its
-     * runner gives it: killed, as it was, or why it is left.
+     * One survivor checked, where its runner gives it and the time left has
+     * room for every check it needs: the print of its file too, where that
+     * is not yet analysed. It is killed, as it was, or left with why.
      *
      * @param  array<string, Findings|Unchecked> $baselines by file
      * @return array{Mutant|Findings|Unchecked, AnalyserHistory, array<string, Findings|Unchecked>}
      */
-    private function one(
-        StaticChecker $checker,
-        AnalyserIdentity $identity,
-        Findings $warm,
-        Mutant $survivor,
-        AnalyserHistory $history,
-        array $baselines,
-    ): array {
-        $checkable = $this->fits($history) ? $this->adapters->runner->checkable($survivor) : Unchecked::OutOfTime;
+    private function one(WarmedUp $warm, Mutant $survivor, AnalyserHistory $history, array $baselines): array
+    {
+        $checkable = $this->adapters->runner->checkable($survivor);
+        $file = $survivor->location()->file()->value();
+        $cached = array_key_exists($file, $baselines);
+        $printed = $checkable instanceof Checkable && $checkable->original() instanceof Contents && ! $cached;
+        $needed = $printed ? self::WITH_ITS_PRINT : self::ALONE;
 
-        if (! $checkable instanceof Checkable) {
-            return [$checkable instanceof Unchecked ? $checkable : Unchecked::NoMutant, $history, $baselines];
+        if (! $checkable instanceof Checkable || ! $this->fits($history, $needed, $warm->took)) {
+            return [$checkable instanceof Checkable ? Unchecked::OutOfTime : Unchecked::NoMutant, $history, $baselines];
         }
 
-        $file = $survivor->location()->file()->value();
-        [$baseline, $history] = array_key_exists($file, $baselines)
+        [$baseline, $history] = $cached
             ? [$baselines[$file], $history]
-            : $this->baseline($checker, $survivor, $checkable, $warm, $history);
+            : $this->baseline($warm, $survivor, $checkable, $history);
         $baselines = array_replace($baselines, [$file => $baseline]);
 
         return $baseline instanceof Findings
-            ? [...$this->answer($checker, $survivor, $checkable, $baseline, $history, $identity), $baselines]
+            ? [...$this->answer($warm, $survivor, $checkable, $baseline, $history), $baselines]
             : [$baseline, $history, $baselines];
     }
 
-    /** Whether the time left has room for one more check, as long as the checks so far took on average. */
-    private function fits(AnalyserHistory $history): bool
+    /**
+     * Whether the time left has room for this many checks, each as long as
+     * the checks so far took on average, or, before the first, as long as
+     * the run over the originals took.
+     */
+    private function fits(AnalyserHistory $history, int $checks, Seconds $warmUp): bool
     {
         $measured = $history->time()->each();
-        $each = $measured instanceof Seconds ? $measured : Seconds::of(0.0);
+        $each = $measured instanceof Seconds ? $measured : $warmUp;
 
-        return ! $this->deadline instanceof Deadline || $this->deadline->fitting(1, $each, $this->clock->now()) > 0;
+        return ! $this->deadline instanceof Deadline
+            || $this->deadline->fitting($checks, $each, $this->clock->now()) === $checks;
     }
 
     /**
@@ -175,23 +198,20 @@ final readonly class SurvivorChecking
      *
      * @return array{Findings|Unchecked, AnalyserHistory}
      */
-    private function baseline(
-        StaticChecker $checker,
-        Mutant $survivor,
-        Checkable $checkable,
-        Findings $warm,
-        AnalyserHistory $history,
-    ): array {
+    private function baseline(WarmedUp $warm, Mutant $survivor, Checkable $checkable, AnalyserHistory $history): array
+    {
         $original = $checkable->original();
 
         if (! $original instanceof Contents) {
-            return [$warm, $history];
+            return [$warm->findings, $history];
         }
 
         $at = Workspace::checkedOriginal($survivor->id());
-        [$print, $history] = $this->analysed($checker, $survivor->location()->file(), $at, $original, $history);
+        [$print, $history] = $this->analysed($warm->checker, $survivor->location()->file(), $at, $original, $history);
 
-        return [$print instanceof Findings && ! $print->same($warm) ? Unchecked::PrintDiffers : $print, $history];
+        $differs = $print instanceof Findings && ! $print->same($warm->findings);
+
+        return [$differs ? Unchecked::PrintDiffers : $print, $history];
     }
 
     /**
@@ -202,23 +222,22 @@ final readonly class SurvivorChecking
      * @return array{Mutant|Unchecked|Findings, AnalyserHistory}
      */
     private function answer(
-        StaticChecker $checker,
+        WarmedUp $warm,
         Mutant $survivor,
         Checkable $checkable,
         Findings $baseline,
         AnalyserHistory $history,
-        AnalyserIdentity $identity,
     ): array {
         $at = Workspace::checkedMutant($survivor->id());
         $file = $survivor->location()->file();
-        [$findings, $history] = $this->analysed($checker, $file, $at, $checkable->mutant(), $history);
+        [$findings, $history] = $this->analysed($warm->checker, $file, $at, $checkable->mutant(), $history);
 
         if (! $findings instanceof Findings) {
             return [$findings, $history];
         }
 
         foreach ($findings->newErrors($baseline) as $error) {
-            return [$survivor->rejected(Rejection::by($identity->analyser(), $error)), $history];
+            return [$survivor->rejected(Rejection::by($warm->identity->analyser(), $error)), $history];
         }
 
         return [$findings, $history];

@@ -157,10 +157,13 @@ final readonly class Flows
     public static function adapters(string $project, array $environment = [], object ...$ports): Adapters
     {
         $ci = self::given(CiPlan::class, self::ci(), $ports);
+        $checker = self::checker($ports);
+        $withheld = Withheld::standard()->and(CiPlanFake::withheld());
 
         return new Adapters(
             self::given(Runner::class, RunnerFake::ofTheFixture(), $ports),
-            self::checker($ports),
+            $checker,
+            $checker instanceof StaticChecker ? $checker->identity($withheld) : $checker,
             self::given(TreeSource::class, new TreeSourceFake(self::trees()), $ports),
             self::given(ProofStore::class, new ProofStoreFake(), $ports),
             self::given(CostModel::class, new CostModelFake(Seconds::of(1.0)), $ports),
@@ -169,7 +172,7 @@ final readonly class Flows
             self::given(Repository::class, RepositoryFake::onMain(Revision::ref(self::HEAD)), $ports),
             Directory::at($project),
             Variables::of($environment),
-            Withheld::standard()->and(CiPlanFake::withheld()),
+            $withheld,
             Processes::of(2),
             self::given(Engine::class, NotGiven::value(), $ports),
         );

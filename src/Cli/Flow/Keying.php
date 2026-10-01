@@ -27,7 +27,6 @@ use NightWorksIO\MutationGate\Core\Proof\Key\Tests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Port\StaticChecker;
 
 /**
  * The content key of every unit a run considers: what the gate, its config,
@@ -129,11 +128,7 @@ final readonly class Keying
      */
     private static function analyser(Adapters $adapters): AnalyserIdentity|NoAnalyser
     {
-        $identity = $adapters->checker instanceof StaticChecker
-            ? $adapters->checker->identity($adapters->withheld)
-            : NoAnalyser::configured();
-
-        return $identity instanceof CannotJudge ? NoAnalyser::configured() : $identity;
+        return $adapters->analyser instanceof CannotJudge ? NoAnalyser::configured() : $adapters->analyser;
     }
 
     /** Each CI definition that runs the gate, as it runs. */

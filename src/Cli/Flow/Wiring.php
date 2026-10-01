@@ -96,6 +96,7 @@ final readonly class Wiring
             default => new Adapters(
                 $runner,
                 $checker,
+                $checker instanceof StaticChecker ? $checker->identity($withheld) : $checker,
                 $trees,
                 $proofs,
                 $costs,

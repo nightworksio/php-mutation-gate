@@ -173,8 +173,9 @@ needs remain, and the runners' own behaviour shapes each answer.
      `reportUnmatchedIgnoredErrors: false`. The gate keeps that config in
      `.mutation-gate/phpstan/check.neon`. The warm-up saves PHPStan's result
      cache, so each check reanalyses the mutant and the files whose view of
-     it changed, and saves nothing. A mutant of a file outside PHPStan's
-     paths cannot be judged.
+     it changed, and saves nothing. PHPStan has no scope check of its own:
+     a mutant of a file outside its paths finds nothing its run over the
+     originals did not, so it stays a survivor, counted as checked.
    - **Psalm:** one `psalm --language-server` per worker. Each mutant is sent
      as the original file's changed content (`textDocument/didChange`), the
      findings are read from `publishDiagnostics`, and the original content is
@@ -220,11 +221,13 @@ needs remain, and the runners' own behaviour shapes each answer.
      findings.
    - Pest diffs two prints of the file by php-parser's standard printer, so
      its adapter prints the original the same way and puts the diff onto
-     the print. The print is checked once per file, and stands for the
+     the print. The mutant's line is the file's, not the print's, so each
+     hunk goes back only where its lines stand in one place of the print. The print is checked once per file, and stands for the
      original only where its findings are the warm-up's, each as many
      times. Otherwise every survivor of that file is left unchecked.
-   - A diff that does not apply, or a file gone or no longer parsed, leaves
-     the mutant unchecked. It is never killed.
+   - A diff that does not apply, or could apply in more than one place, or
+     a file gone or no longer parsed, leaves the mutant unchecked. It is
+     never killed.
    - The texts a check reads go under `.mutation-gate/staticcheck/mutants/`
      and `.mutation-gate/staticcheck/originals/`, one file per check, named
      by the mutant's id and removed after it.
@@ -258,8 +261,13 @@ needs remain, and the runners' own behaviour shapes each answer.
     both.**
     - Every survivor that is not flaky is checked after its tests, in its
       shard, once the shard's invocations are done. The checks count
-      against the time budget (ADR-0008): a survivor the time left has no
-      room for, at the checks' mean time so far, stays a survivor.
+      against the time budget (ADR-0008). The run over the originals starts
+      only while time is left, and each check only where the time left has
+      room for it: as long as the checks so far took on average, or, before
+      the first, as long as the run over the originals took. A printed
+      file's first survivor needs room for both its checks, the print's and
+      the mutant's. A survivor the time left has no room for stays a
+      survivor.
     - A survivor left unchecked stays a survivor. The verdict warns once for
       each reason, with how many survivors it left and the first three of
       their files, sorted: the analyser could not say its version, its run
@@ -329,7 +337,9 @@ needs remain, and the runners' own behaviour shapes each answer.
 
 14. **The analyser is keyed as the runner is.**
     - The checker's `identity()` joins key item 4 beside the runner's,
-      whenever `staticCheck.tool` is not `none`. For Mago the version comes
+      whenever `staticCheck.tool` is not `none`. The gate asks it once per
+      process, when it wires the analyser, so the keys and the checks of a
+      process read one answer. For Mago the version comes
       from `mago --version`, since its Composer package fetches the binary
       that analyses.
     - The analyser's config and baseline files are in item 6. Its bootstrap

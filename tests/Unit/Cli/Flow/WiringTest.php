@@ -352,7 +352,8 @@ it('hands the Pest runner pest.patch and its canary, so it says every key reads 
 });
 
 it('wires no static analyser where none is chosen, or where auto finds none installed', function (StaticCheck $static): void {
-    expect(wiredOf(Flows::settings($static), Variables::of([]))->checker)->toEqual(NoAnalyser::configured());
+    expect(wiredOf(Flows::settings($static), Variables::of([]))->checker)->toEqual(NoAnalyser::configured())
+        ->and(wiredOf(Flows::settings($static), Variables::of([]))->analyser)->toEqual(NoAnalyser::configured());
 })->with([
     'none' => [StaticCheck::none()],
     'auto, in a project that installs none' => [StaticCheck::auto()],
@@ -369,6 +370,8 @@ it('wires the analyser chosen, handing it staticCheck.config as its config', fun
     $adapters = new Wiring($registry, Variables::of([]), wiringDetected())->adapters($settings, Directory::at(Flows::project()));
 
     expect($adapters instanceof Adapters ? $adapters->checker : $adapters)->toEqual(StaticCheckerFake::findingNothing())
+        ->and($adapters instanceof Adapters ? $adapters->analyser : $adapters)
+        ->toEqual(StaticCheckerFake::findingNothing()->identity(Withheld::standard()))
         ->and($handed)->toEqual([Path::of('config/analyser.neon')]);
 });
 
