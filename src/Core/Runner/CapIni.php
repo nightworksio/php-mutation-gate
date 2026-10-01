@@ -14,9 +14,6 @@ use function sprintf;
  */
 final readonly class CapIni
 {
-    /** Where `display_errors` prints each error, for a runner that reads only a mutant's standard output. */
-    private const string STDOUT = 'stdout';
-
     private function __construct(private MemoryCap $cap, private bool $showsErrors)
     {
     }
@@ -36,7 +33,7 @@ final readonly class CapIni
     public function text(): string
     {
         return $this->showsErrors
-            ? sprintf("%s%s=%s\n", $this->cap->ini(), InertSetting::DisplayErrors->value, self::STDOUT)
+            ? sprintf("%s%s=%s\n", $this->cap->ini(), InertSetting::DisplayErrors->value, DisplayWord::Stdout->value)
             : $this->cap->ini();
     }
 }

@@ -78,6 +78,7 @@ final readonly class MutationRun
                 TextLog::at($this->project->own(Invocation::TEXT)),
                 $limits,
                 $request->memory(),
+                ProjectPhpUnit::display($this->project, $this->config),
                 $this->nativeMarkersAllowed,
             );
     }

@@ -704,12 +704,17 @@ its parser attributes. Both change when the checkout moves.
      nothing a test computes: PHPUnit's own handler still takes every error a
      test raises, and only one raised outside it, such as in a bootstrap
      file, now also prints on standard output. A project that shows errors
-     nowhere again, in its PHPUnit config's `<ini>` or a bootstrap file,
-     leaves only PHPUnit's word that its process ended early; under a cap,
-     such a mutant is out of memory with no limit known, so too heavy to
-     judge. A limit the project set itself, any other fatal error PHP
-     shows, the system's own out-of-memory killer and a crash keep the
-     status the runner gave them.
+     nowhere again leaves only PHPUnit's word that its process ended
+     mid-test, which PHPUnit also prints after `exit` or `die`. So, under a
+     cap, such a mutant is out of memory with no limit known, so too heavy
+     to judge, only where the hiding is visible: the project's PHPUnit
+     config sets `display_errors` in its `<ini>` to print nowhere or on
+     standard error, or PHPUnit 12.5 says it hid the error. Errors hidden at
+     runtime, such as by `ini_set` in a bootstrap file, are not seen, so a
+     mutant out of the cap there is a false kill. A limit the project set
+     itself, any other fatal error PHP shows, `exit` and `die`, the system's
+     own out-of-memory killer and a crash keep the status the runner gave
+     them.
    - Memory triage judges a mutant out of memory the way timeout triage
      judges a timeout (ADR-0008). Where the plan's peak is at most half the
      cap, the cap holds at least twice what the suite needs, so the mutant

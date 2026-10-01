@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -33,7 +34,6 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 use function preg_match;
-use function preg_quote;
 use function sprintf;
 use function str_contains;
 use function usort;
@@ -49,10 +49,10 @@ use function usort;
  * carries the tests that killed it; one killed by static analysis, a
  * timeout or an error carries none. A mutant killed or errored whose output
  * holds PHP's fatal error for exactly the gate's memory cap is out of memory
- * (ADR-0004, decision 9). Under a cap, one whose output holds PHPUnit's word
- * that its process ended early but no fatal error PHP printed, as where the
- * project shows PHP's errors nowhere again, is out of memory with no limit
- * known, which memory triage never counts as a kill.
+ * (ADR-0004, decision 9). Under a cap, one whose process PHPUnit says ended
+ * mid-test where PHP's errors were visibly hidden, as the project's PHPUnit
+ * config sets `display_errors` or as PHPUnit's own word says, is out of memory
+ * with no limit known, which memory triage never counts as a kill.
  *
  * @phpstan-type Found array{
  *     status: MutantStatus,
@@ -66,11 +66,12 @@ use function usort;
  */
 final readonly class Results
 {
-    /** What PHPUnit prints where its process ended on a fatal error: PHPUnit 12 only where it shows none. */
-    private const string ENDED_EARLY = 'Premature end of ';
+    /** What PHPUnit prints after any end of its process mid-test: a fatal error, shown or hidden, or `exit`. */
+    private const string ENDED = '/Fatal error: Premature end of PHP process when running [^\n]+\.$/m';
 
-    /** A fatal error PHP itself printed, rather than PHPUnit's word, filled in, that its process ended early. */
-    private const string SHOWN = '/Fatal error: +(?!%s)/';
+    /** What PHPUnit 12.5 prints instead where `display_errors` was off as the test started. */
+    private const string HIDDEN
+        = "Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message.";
 
     /** The field of a log entry that holds what the mutant's process printed. */
     private const string OUTPUT = 'processOutput';
@@ -106,11 +107,12 @@ final readonly class Results
         TextLog $text,
         Limits $limits,
         MemoryCap $cap,
+        ErrorDisplay|NotGiven $display,
         bool $nativeMarkersAllowed,
     ): MutationResult|CannotJudge {
         $log = $project->own(Invocation::JSON);
         $found = is_file($log)
-            ? self::parsed(sprintf('%s', file_get_contents($log)), $text, $cap, $nativeMarkersAllowed)
+            ? self::parsed(sprintf('%s', file_get_contents($log)), $text, $cap, $display, $nativeMarkersAllowed)
             : self::unlogged($ran, $cap);
 
         return $found instanceof CannotJudge
@@ -131,6 +133,7 @@ final readonly class Results
         string $json,
         TextLog $text,
         MemoryCap $cap,
+        ErrorDisplay|NotGiven $display,
         bool $nativeMarkersAllowed,
     ): array|CannotJudge {
         try {
@@ -138,7 +141,7 @@ final readonly class Results
             $problem = self::problemIn($log, $text, $nativeMarkersAllowed);
 
             return $problem === ''
-                ? self::found($log, $text, $cap)
+                ? self::found($log, $text, $cap, $display)
                 : CannotJudge::because(sprintf(self::DOES_NOT_ADD_UP, $problem));
         } catch (NotInShape $shape) {
             return CannotJudge::because(sprintf(self::NOT_IN_SHAPE, $shape->getMessage()));
@@ -181,22 +184,13 @@ final readonly class Results
      *
      * @throws NotInShape
      */
-    private static function found(Node $log, TextLog $text, MemoryCap $cap): array
+    private static function found(Node $log, TextLog $text, MemoryCap $cap, ErrorDisplay|NotGiven $display): array
     {
         $found = [];
 
         foreach (LogList::cases() as $list) {
             foreach ($log->field($list->value)->items() as $entry) {
-                $mutator = $entry->field(self::MUTATOR);
-                $found[] = [
-                    'status' => self::outOfMemory($list, $entry, $cap) ? MutantStatus::OutOfMemory : $list->status(),
-                    'file' => $mutator->field('originalFilePath')->text(),
-                    'line' => $mutator->field('originalStartLine')->integer(),
-                    'mutator' => $mutator->field('mutatorName')->text(),
-                    'diff' => $entry->field('diff')->text(),
-                    'killers' => self::killersOf($list, $entry, $cap),
-                    'limit' => self::limitOf($list, $entry, $cap),
-                ];
+                $found[] = self::entry($list, $entry, $cap, $display);
             }
         }
 
@@ -213,48 +207,43 @@ final readonly class Results
     }
 
     /**
-     * The tests that killed an entry's mutant, as its output names them: only
-     * a mutant tests killed has any, and one out of memory has none.
+     * A mutant of a list, out of memory where its output says so, and then
+     * with no tests that killed it and with the cap where PHP's fatal error
+     * names it.
+     *
+     * @return Found
      *
      * @throws NotInShape
      */
-    private static function killersOf(LogList $list, Node $entry, MemoryCap $cap): TestIds
+    private static function entry(LogList $list, Node $entry, MemoryCap $cap, ErrorDisplay|NotGiven $display): array
     {
-        return $list->namesKillers() && ! self::outOfMemory($list, $entry, $cap)
-            ? KillingTests::in(Lenient::text($entry->field(self::OUTPUT)))
-            : TestIds::none();
-    }
-
-    /**
-     * Whether an entry of this list is a mutant whose own process ran out of
-     * the memory cap: exactly the cap, as its output says, or, under a cap,
-     * a process PHPUnit says ended early with no fatal error PHP printed.
-     *
-     * @throws NotInShape
-     */
-    private static function outOfMemory(LogList $list, Node $entry, MemoryCap $cap): bool
-    {
+        $mutator = $entry->field(self::MUTATOR);
         $output = Lenient::text($entry->field(self::OUTPUT));
+        $outOfMemory = $list->mayRunOutOfMemory() && self::outOfMemory($output, $cap, $display);
+        $named = $outOfMemory && Exhaustion::isOf(Exhaustion::in($output), $cap);
 
-        $shown = sprintf(self::SHOWN, preg_quote(self::ENDED_EARLY, '/'));
-        $hidden = $cap->caps() && str_contains($output, self::ENDED_EARLY) && preg_match($shown, $output) !== 1;
-
-        return $list->mayRunOutOfMemory() && (Exhaustion::isOf(Exhaustion::in($output), $cap) || $hidden);
+        return [
+            'status' => $outOfMemory ? MutantStatus::OutOfMemory : $list->status(),
+            'file' => $mutator->field('originalFilePath')->text(),
+            'line' => $mutator->field('originalStartLine')->integer(),
+            'mutator' => $mutator->field('mutatorName')->text(),
+            'diff' => $entry->field('diff')->text(),
+            'killers' => $list->namesKillers() && ! $outOfMemory ? KillingTests::in($output) : TestIds::none(),
+            'limit' => $named ? $cap : NotGiven::value(),
+        ];
     }
 
     /**
-     * The memory cap an entry's mutant ran out of, where it is of a list
-     * whose mutants may and its output says so; none otherwise, as where
-     * PHPUnit hid the error.
-     *
-     * @throws NotInShape
+     * Whether a mutant whose process printed this ran out of the memory cap:
+     * exactly the cap, as PHP's fatal error says, or, under a cap, a process
+     * PHPUnit says ended mid-test where PHP's errors were visibly hidden.
      */
-    private static function limitOf(LogList $list, Node $entry, MemoryCap $cap): MemoryCap|NotGiven
+    private static function outOfMemory(string $output, MemoryCap $cap, ErrorDisplay|NotGiven $display): bool
     {
-        return $list->mayRunOutOfMemory()
-            && Exhaustion::isOf(Exhaustion::in(Lenient::text($entry->field(self::OUTPUT))), $cap)
-            ? $cap
-            : NotGiven::value();
+        $configured = $display instanceof ErrorDisplay && $display !== ErrorDisplay::Stdout;
+        $hidden = str_contains($output, self::HIDDEN) || ($configured && preg_match(self::ENDED, $output) === 1);
+
+        return Exhaustion::isOf(Exhaustion::in($output), $cap) || ($cap->caps() && $hidden);
     }
 
     /**
