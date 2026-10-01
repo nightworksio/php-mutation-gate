@@ -26,6 +26,9 @@ use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\Uncovered;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
@@ -112,12 +115,14 @@ use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
+use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -727,6 +732,47 @@ it('warns of what a shard warned of, and judges as it would without it', functio
         ->and($said[0] ?? '')->toStartWith('Shard 1 ran its tests without the kill history the plan handed it.')
         ->and($verdict->failures())->toHaveCount(0)
         ->and($verdict->judgement())->toBe(Judgement::Passed);
+});
+
+it('kills a survivor static analysis rejects, and warns once for each reason it left the shards\' survivors unchecked', function () use (
+    $tree,
+    $reporting,
+): void {
+    $project = Flows::project();
+    $plan = Planned::twoShards();
+    $identity = AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('{}'));
+    $survivor = Mutants::none();
+
+    foreach (Flows::mutantsOf('src/Money.php') as $mutant) {
+        $survivor = $mutant->status() === MutantStatus::Survived ? $survivor->with($mutant) : $survivor;
+    }
+
+    $answers = new StaticCheckerFake($identity, Findings::none(), array_merge(...array_map(
+        static fn(Mutant $mutant): array => [
+            Workspace::checkedMutant($mutant->id())->value() => Findings::of(Finding::error('new', 'New.')),
+        ],
+        [...$survivor],
+    )));
+    $adapters = Flows::adapters($project, [], $tree(Floor::of(0)), new RecordingChecker($answers, $project));
+    new Handoff($adapters->project)->write($plan, Flows::map(), KillHistory::none());
+    new Running($adapters, judgingSettings(), Flows::setup())->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), $adapters->project);
+    $judging = new Judging($adapters, judgingSettings(), Flows::setup(), $reporting(new ReporterFake()));
+    $statuses = [];
+
+    foreach ($results instanceof Results ? $results->shards() : [] as [, , $mutated]) {
+        foreach ($mutated->mutants() as $mutant) {
+            $statuses[] = $mutant->status()->value;
+        }
+    }
+
+    $verdict = judgingVerdictOf($results instanceof Results ? $judging->verdict($plan, $results) : $results);
+
+    expect(count($survivor))->toBe(1)
+        ->and($statuses)->toContain('killed-by-static-analysis')
+        ->and(judgingTexts($verdict->warnings()))->toBe([
+            'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/Held.php.',
+        ]);
 });
 
 it('names the tests as the plan names them, and warns once where it names none', function () use (

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Key;
@@ -59,6 +61,7 @@ final readonly class Keying
                     $setup->gate,
                     $settings->canonical(),
                     $identity,
+                    self::analyser($adapters),
                     $setup->installed,
                     Source::of($suite->outside(), $definitions, self::exceptions($adapters, $settings, $setup)),
                     Tests::of(
@@ -116,6 +119,16 @@ final readonly class Keying
         }
 
         return $exceptions;
+    }
+
+    /**
+     * The analyser that checks the run's mutants, which joins key item 4
+     * (ADR-0020, decision 14); none where none is chosen, or where the one
+     * chosen cannot say what it is, since it then checks nothing.
+     */
+    private static function analyser(Adapters $adapters): AnalyserIdentity|NoAnalyser
+    {
+        return $adapters->analyser instanceof CannotJudge ? NoAnalyser::configured() : $adapters->analyser;
     }
 
     /** Each CI definition that runs the gate, as it runs. */

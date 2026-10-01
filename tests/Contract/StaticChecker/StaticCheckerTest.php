@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -22,9 +23,10 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 // What every static analyser answers over the fixture in this directory: who
 // it is, what it reports of the original, that a mutant which is no valid
 // program has an error the original does not, that one which is has none,
-// that a mutant it cannot analyse leaves the mutant to its tests rather than
-// killing it, and that no process it starts sees what the runner withholds.
-// One line per implementation. The analysers run where the contract job has
+// that a mutant it cannot analyse is left to its tests rather than killed,
+// that one of a file outside the paths it analyses, or excluded from them,
+// is out of its scope, and that no process it starts sees what the runner
+// withholds. One line per implementation. The analysers run where the contract job has
 // installed them into the fixture, which ANALYSER_CONTRACTS says.
 
 $fixture = static fn(string $path): Path => Path::of(Tree::at(sprintf('tests/Contract/StaticChecker/fixture/%s', $path)));
@@ -51,6 +53,8 @@ $loading = [
                 Finding::error('return.type', 'Method StaticCheckFixture\Money::add() should return int but returns string.'),
             ),
             $fixture('mutants/Money.valid.php')->value() => Findings::none(),
+            $fixture('mutants/Other.invalid.php')->value() => OutOfScope::of($fixture('outside/Other.php')),
+            $fixture('mutants/Excluded.invalid.php')->value() => OutOfScope::of($fixture('src/Excluded.php')),
         ],
     ),
     ...getenv('ANALYSER_CONTRACTS') === '1' ? [
@@ -88,6 +92,18 @@ it('leaves a mutant that is a valid program to its tests', function (StaticCheck
 
     expect($mutant instanceof Findings && $original instanceof Findings && $mutant->rejects($original))->toBeFalse()
         ->and($mutant)->toBeInstanceOf(Findings::class);
+})->with($checkers);
+
+it('leaves a mutant of a file outside the paths it analyses, or one its config excludes, out of its scope', function (
+    StaticChecker $checker,
+) use ($fixture): void {
+    $original = $checker->findings(Paths::of($fixture('src/Money.php')), Withheld::standard());
+    $outside = $checker->check(MutantCheck::of($fixture('outside/Other.php'), $fixture('mutants/Other.invalid.php')));
+    $excluded = $checker->check(MutantCheck::of($fixture('src/Excluded.php'), $fixture('mutants/Excluded.invalid.php')));
+
+    expect($original)->toBeInstanceOf(Findings::class)
+        ->and($outside)->toEqual(OutOfScope::of($fixture('outside/Other.php')))
+        ->and($excluded)->toEqual(OutOfScope::of($fixture('src/Excluded.php')));
 })->with($checkers);
 
 it('cannot judge a mutant it cannot analyse, so the mutant goes to its tests', function (StaticChecker $checker) use ($fixture): void {

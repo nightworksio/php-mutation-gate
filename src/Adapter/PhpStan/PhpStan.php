@@ -12,11 +12,13 @@ use function getenv;
 use function is_dir;
 use function is_file;
 use function is_string;
+use function is_writable;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
@@ -43,6 +45,8 @@ use function sprintf;
 use Symfony\Component\Process\Exception\RuntimeException;
 use Symfony\Component\Process\Process;
 
+use function unlink;
+
 /**
  * PHPStan, asked about a mutant in the mode its authors built for editors
  * (ADR-0020, decisions 6 and 7): `--tmp-file` stands the mutant in for its
@@ -50,7 +54,9 @@ use Symfony\Component\Process\Process;
  * project's, analyses in one process, and does not report an ignore that
  * matched nothing. The warm-up analyses every file the config names and
  * saves PHPStan's result cache, so each check analyses the mutant and the
- * files that depend on it alone, and saves nothing.
+ * files that depend on it alone, and saves nothing. The warm-up also keeps
+ * which files PHPStan analyses, and a mutant of any other is out of its
+ * scope.
  */
 final readonly class PhpStan implements StaticChecker
 {
@@ -79,6 +85,13 @@ final readonly class PhpStan implements StaticChecker
     private const string UNREAD = 'PHPStan\'s config %s cannot be read.';
 
     private const string UNWRITTEN = 'The gate cannot write PHPStan\'s config for its checks to %s.';
+
+    /** Where the warm-up keeps PHPStan's parameters, which say which files it analyses. */
+    private const string SCOPE = '%s/phpstan/scope.json';
+
+    private const string UNDUMPED = 'PHPStan could not say which files it analyses (%s).';
+
+    private const string NO_SCOPE = 'PHPStan\'s run over the originals has not said which files it analyses.';
 
     private function __construct(private Root $root, private Path|Absent $config)
     {
@@ -112,18 +125,70 @@ final readonly class PhpStan implements StaticChecker
         };
     }
 
-    /** Every file the config names, analysed once, which saves the result cache each check starts from. */
+    /**
+     * Every file the config names, analysed once, which saves the result
+     * cache each check starts from, with the files PHPStan analyses kept for
+     * the checks to read; or why it cannot say which those are.
+     */
     public function findings(Paths $files, Withheld $withheld): Findings|CannotJudge
     {
-        return $this->analysed($withheld, []);
+        $scope = $this->keptScope($withheld);
+
+        return $scope instanceof CannotJudge ? $scope : $this->analysed($withheld, []);
     }
 
-    public function check(MutantCheck $check): Findings|CannotJudge
+    /** A mutant, where PHPStan analyses its original, as its warm-up said; out of scope where it does not. */
+    public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge
     {
-        return $this->analysed($check->withheld(), [
-            sprintf('--tmp-file=%s', $this->absolute($check->mutant())),
-            sprintf('--instead-of=%s', $this->absolute($check->original())),
+        $kept = is_file($this->scopeFile()) ? file_get_contents($this->scopeFile()) : false;
+        $scope = is_string($kept) ? Scope::dumped($kept) : CannotJudge::because(self::NO_SCOPE);
+        $original = $this->absolute($check->original());
+
+        return match (true) {
+            $scope instanceof CannotJudge => $scope,
+            ! $scope->holds($original) => OutOfScope::of($check->original()),
+            default => $this->analysed($check->withheld(), [
+                sprintf('--tmp-file=%s', $this->absolute($check->mutant())),
+                sprintf('--instead-of=%s', $original),
+            ]),
+        };
+    }
+
+    /** The files PHPStan analyses, as its parameters say them, kept where each check reads them. */
+    private function keptScope(Withheld $withheld): Scope|CannotJudge
+    {
+        $check = $this->checkConfig();
+
+        if ($check instanceof CannotJudge) {
+            return $check;
+        }
+
+        $file = $this->scopeFile();
+
+        if (is_file($file) && (! is_writable(dirname($file)) || ! unlink($file))) {
+            return CannotJudge::because(sprintf(self::UNWRITTEN, $file));
+        }
+
+        $dumped = $this->ran($withheld, [
+            PHP_BINARY,
+            self::SCRIPT,
+            'dump-parameters',
+            '--json',
+            sprintf('--configuration=%s', $check),
         ]);
+        $scope = $dumped->succeeded()
+            ? Scope::dumped($dumped->output())
+            : CannotJudge::because(sprintf(self::UNDUMPED, $dumped->said()));
+
+        $unkept = $scope instanceof Scope && (is_dir($file) || file_put_contents($file, $dumped->output()) === false);
+
+        return $unkept ? CannotJudge::because(sprintf(self::UNWRITTEN, $file)) : $scope;
+    }
+
+    /** Where the warm-up keeps the files PHPStan analyses, for each check. */
+    private function scopeFile(): string
+    {
+        return $this->absolute(Path::of(sprintf(self::SCOPE, Workspace::root()->value())));
     }
 
     /** @param list<string> $editing */

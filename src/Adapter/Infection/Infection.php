@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function array_keys;
+use function file_get_contents;
 use function getenv;
+use function is_file;
 
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
@@ -14,13 +17,16 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
+use NightWorksIO\MutationGate\Core\Mutant\DiffPatch;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -56,6 +62,8 @@ final readonly class Infection implements Runner
 {
     private const string NO_PROJECT = '%s holds no project Infection can run: Infection is not installed there.';
 
+    private const string UNREAD = 'The gate cannot read %s, the file Infection mutated, to check its mutant.';
+
     private const string NOT_STARTED = "PHPUnit's run of no test, timing a mutant's start-up, failed. It said:\n%s";
 
     public function __construct(
@@ -65,6 +73,7 @@ final readonly class Infection implements Runner
         private bool $nativeMarkersAllowed,
         private Clock $clock = new WallClock(),
         private HeldCoverage $held = new HeldCoverage(),
+        private StaticAnalysis $analysis = StaticAnalysis::Infection,
     ) {
     }
 
@@ -87,6 +96,7 @@ final readonly class Infection implements Runner
             new ProcessShell($project->root(), getenv()),
             $setup->cap(),
             nativeMarkersAllowed: $setup->allowsNativeMarkers(),
+            analysis: $setup->analysis(),
         );
     }
 
@@ -227,6 +237,25 @@ final readonly class Infection implements Runner
         return $this->rerunning()->reproduce($mutant, $judgedBy, $limit, $withheld);
     }
 
+    /**
+     * The mutant as Infection made it: its diff put back onto the file as the
+     * project holds it, where Infection changed only what the mutation changed.
+     */
+    public function checkable(Mutant $mutant): Checkable|CannotJudge
+    {
+        $file = $mutant->location()->file();
+        $absolute = $this->project->absolute($file);
+        $written = is_file($absolute) ? file_get_contents($absolute) : false;
+
+        if ($written === false) {
+            return CannotJudge::because(sprintf(self::UNREAD, $file->value()));
+        }
+
+        $patched = DiffPatch::of($mutant->mutation())->onto(Contents::of($written), $mutant->location());
+
+        return $patched instanceof Contents ? Checkable::inPlace($patched) : $patched;
+    }
+
     public function markers(Paths $files): Markers|CannotJudge
     {
         $config = OwnConfig::in($this->project);
@@ -270,6 +299,7 @@ final readonly class Infection implements Runner
                 $this->cap,
                 $this->nativeMarkersAllowed,
                 $this->clock,
+                analysis: $this->analysis,
             )
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value()));
     }
@@ -280,7 +310,14 @@ final readonly class Infection implements Runner
         $covered = fn(OwnConfig $config, MutationRequest $request): DiskPath|CannotJudge
             => $this->covering()->of($config, $request);
 
-        return new Rerunning($this->project, $this->shell, $this->nativeMarkersAllowed, $covered, $this->clock);
+        return new Rerunning(
+            $this->project,
+            $this->shell,
+            $this->nativeMarkersAllowed,
+            $this->analysis,
+            $covered,
+            $this->clock,
+        );
     }
 
     /** The coverage each run reads, which the adapter writes. */
@@ -291,6 +328,6 @@ final readonly class Infection implements Runner
 
     private function run(OwnConfig $config): MutationRun
     {
-        return new MutationRun($this->project, $this->shell, $config, $this->nativeMarkersAllowed);
+        return new MutationRun($this->project, $this->shell, $config, $this->nativeMarkersAllowed, $this->analysis);
     }
 }

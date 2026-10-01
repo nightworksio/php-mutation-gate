@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Config\Baseline;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Report;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -33,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -273,4 +276,29 @@ it('asks the runner who it is withholding what the project\'s code may not see',
     Keying::of($adapters, Flows::settings(), Flows::setup(), keyingSuite('1'), keyingMap());
 
     expect($runner->identified())->toEqual([$adapters->withheld]);
+});
+
+/** The key of src/Money.php, with these ports wired beside the fake runner. */
+function keyedWith(object ...$ports): Digest|Unkeyed
+{
+    $keying = Keying::of(
+        Flows::adapters(Flows::project(), [], keyingRunner('fake'), ...$ports),
+        Flows::settings(),
+        Flows::setup(),
+        keyingSuite('1'),
+        keyingMap(),
+    );
+
+    return $keying instanceof Keying
+        ? $keying->keysOf(Units::of(Unit::file(Path::of('src/Money.php'))))->keyOf(Path::of('src/Money.php'))
+        : throw new RuntimeException($keying->why());
+}
+
+it('keys the analyser that checks the mutants, and none where it cannot say what it is', function (): void {
+    $named = new StaticCheckerFake(AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('{}')), Findings::none(), []);
+    $unnamed = new StaticCheckerFake(CannotJudge::because('No version.'), Findings::none(), []);
+
+    expect(keyedWith($named))->toBeInstanceOf(Digest::class)
+        ->and(keyedWith($named))->not->toEqual(keyedWith())
+        ->and(keyedWith($unnamed))->toEqual(keyedWith());
 });

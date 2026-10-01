@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Core\Analysis\AsWritten;
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -221,6 +225,48 @@ it('runs a survivor again alone and matches it back by the gate\'s id', function
 
     expect(count($survivors))->toBe(1)
         ->and($retried instanceof Mutants ? Library::records($retried) : [])->toBe(Library::records($survivors));
+})->with($libraries);
+
+it('gives a survivor as a static analyser checks it: its original with only its change made', function (Library $library) use ($money): void {
+    $result = $money($library);
+    $survivor = [];
+
+    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
+        $survivor = $mutant->status() === MutantStatus::Survived ? [$mutant] : $survivor;
+    }
+
+    $checkable = $survivor === [] ? CannotJudge::because('No survivor.') : $library->runner()->checkable($survivor[0]);
+    $original = $checkable instanceof Checkable ? $checkable->original() : Contents::of('');
+    $originalText = $original instanceof AsWritten
+        ? sprintf('%s', file_get_contents(Tree::at(sprintf('%s/src/Money.php', Library::DIRECTORY))))
+        : $original->text();
+    $mutantText = $checkable instanceof Checkable ? $checkable->mutant()->text() : '';
+    $change = Library::CHANGES['large'];
+
+    expect($checkable)->toBeInstanceOf(Checkable::class)
+        ->and($mutantText)->toContain($change['added'])
+        ->and($mutantText)->not->toContain($change['removed'])
+        ->and(str_replace($change['added'], $change['removed'], $mutantText))->toBe($originalText);
+})->with($libraries);
+
+it('cannot give a mutant as an analyser checks it where its file is gone', function (Library $library) use ($money): void {
+    $result = $money($library);
+    $gone = [];
+
+    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
+        $gone = [Mutant::of(
+            $mutant->id(),
+            $mutant->nativeId(),
+            Location::of(Path::of('src/Gone.php'), $mutant->location()->start(), $mutant->location()->end()),
+            $mutant->mutation(),
+            $mutant->status(),
+            $mutant->duration(),
+        )];
+    }
+
+    $answers = array_map(static fn(Mutant $mutant): string => $library->runner()->checkable($mutant)::class, $gone);
+
+    expect($answers)->toBe([CannotJudge::class]);
 })->with($libraries);
 
 it('reproduces a survivor on its own, matched back by the gate\'s id, with what the runner printed', function (Library $library) use ($money): void {

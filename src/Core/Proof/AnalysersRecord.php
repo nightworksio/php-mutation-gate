@@ -23,7 +23,8 @@ use stdClass;
  * holds it (ADR-0020, decision 11): by the analyser's name, how many checks
  * it made and their `seconds` together, and each mutator's `[checks,
  * rejections]` pair by the mutator's name. The time's checks and the
- * mutators' are counted apart and read apart, and never reconciled.
+ * mutators' are counted apart and read apart, and never reconciled: a
+ * check after the tests adds to the time alone.
  *
  * Reading keeps each well-formed analyser and pair and drops anything else,
  * never repairing it; a ledger without the section learned nothing. Losing

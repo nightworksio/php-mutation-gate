@@ -8,9 +8,12 @@ use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\CoverageXml;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
+use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Core\Analysis\AsWritten;
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -798,4 +801,56 @@ it('behaves as the port expects of a runner, but stops each mutant at its first 
 
     expect(new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false)->behaviour())
         ->toEqual(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->runningPerCore());
+});
+
+it('gives a mutant as an analyser checks it: its diff put onto the file as written, or no mutant where it does not apply or the file is gone', function (): void {
+    $at = infectionProject();
+    Scratch::write($at->root(), 'src/Money.php', "<?php\nfunction add(){return 1+1;}\n");
+    $mutant = static fn(string $file, string $diff): Mutant => Mutant::of(
+        MutantId::hash(Path::of($file), 'Plus', $diff, 0),
+        'Plus',
+        Location::of(Path::of($file), Line::of(2), Line::of(2)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, $diff),
+        MutantStatus::Survived,
+        Seconds::of(0.1),
+    );
+    $infection = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false);
+    $answer = static fn(Checkable|CannotJudge $checkable): string => $checkable instanceof Checkable
+        ? sprintf('%s|%s', $checkable->original()::class, $checkable->mutant()->text())
+        : $checkable->why();
+
+    expect($answer($infection->checkable($mutant('src/Money.php', "@@ @@\n-function add(){return 1+1;}\n+function add(){return 1-1;}"))))
+        ->toBe(sprintf("%s|<?php\nfunction add(){return 1-1;}\n", AsWritten::class))
+        ->and($answer($infection->checkable($mutant('src/Money.php', "@@ @@\n-    return 1 + 1;\n+    return 1 - 1;"))))
+        ->toBe('Its diff does not apply to src/Money.php as it is now.')
+        ->and($answer($infection->checkable($mutant('src/Gone.php', "@@ @@\n-a\n+b"))))
+        ->toBe('The gate cannot read src/Gone.php, the file Infection mutated, to check its mutant.');
+});
+
+it('leaves static analysis to the gate where it checks the survivors itself, in every run and in a package', function (): void {
+    $at = infectionProject('{"staticAnalysisTool": "phpstan", "staticAnalysisToolOptions": "--level=9"}');
+    $money = sprintf('%s/src/Money.php', $at->root());
+    $shell = infectionShell($at, ['escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')]]);
+    $gate = new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false, analysis: StaticAnalysis::Gate);
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+    $generated = static fn(): string => (string) file_get_contents($at->own('infection.json5'));
+
+    $first = $gate->mutate($request);
+    $mutated = $generated();
+    $gate->retry($request, $first instanceof MutationResult ? $first->mutants() : Mutants::none(), Seconds::of(12.0));
+    $retried = $generated();
+    Scratch::write($at->root(), 'packages/billing/vendor/bin/infection', '<?php');
+
+    expect(infectionStatuses($first))->toBe([MutantStatus::Survived])
+        ->and($mutated)->not->toContain('staticAnalysisTool')
+        ->and($retried)->not->toContain('staticAnalysisTool')
+        ->and($gate->rootedAt(Path::of('packages/billing')))->toEqual(new Infection(
+            $at->in(Path::of('packages/billing')),
+            $shell->in(sprintf('%s/packages/billing', $at->root())),
+            Seconds::of(6.0),
+            nativeMarkersAllowed: false,
+            analysis: StaticAnalysis::Gate,
+        ))
+        ->and(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate"}')))
+        ->not->toEqual(Infection::fromOptions(Configs::options('{}')));
 });

@@ -19,3 +19,8 @@ it('has measured no check before its first', function (): void {
     expect(CheckTime::none()->each())->toEqual(Unmeasured::duration())
         ->and(CheckTime::none()->checks())->toBe(0);
 });
+
+it('adds another time to it: every check of both, and their seconds together', function (): void {
+    expect(CheckTime::of(2, Seconds::of(1.5))->plus(CheckTime::of(3, Seconds::of(2.0))))->toEqual(CheckTime::of(5, Seconds::of(3.5)))
+        ->and(CheckTime::none()->plus(CheckTime::none()))->toEqual(CheckTime::none());
+});

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Time;
 
+use DateTimeImmutable;
+
 use function intdiv;
 use function intval;
 
@@ -36,6 +38,12 @@ final readonly class Seconds
     public static function of(float $seconds): self
     {
         return new self($seconds);
+    }
+
+    /** The time from one moment to a later one. */
+    public static function between(DateTimeImmutable $start, DateTimeImmutable $end): self
+    {
+        return new self((float) $end->format('U.u') - (float) $start->format('U.u'));
     }
 
     public static function minutes(int $minutes): self

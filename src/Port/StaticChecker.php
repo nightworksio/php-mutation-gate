@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Port;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -30,7 +31,8 @@ interface StaticChecker
      * What the analyser reports about a mutant, analysed in place of its
      * original file, and about the dependents the check lists, analysed
      * unchanged against it. Every finding belongs to the mutant or to one of
-     * those dependents.
+     * those dependents. An original outside the paths the analyser analyses
+     * is out of its scope, and the mutant is left unchecked.
      */
-    public function check(MutantCheck $check): Findings|CannotJudge;
+    public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge;
 }

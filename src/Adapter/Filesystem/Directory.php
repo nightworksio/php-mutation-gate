@@ -14,6 +14,7 @@ use function fopen;
 use function fwrite;
 use function is_dir;
 use function is_file;
+use function is_writable;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -27,6 +28,7 @@ use function realpath;
 use function rtrim;
 use function sprintf;
 use function str_starts_with;
+use function unlink;
 
 /**
  * A directory on disk, read and written by paths relative to it: the plain
@@ -85,6 +87,20 @@ final readonly class Directory
     public function stream(Path $path, iterable $pieces): Written|CannotJudge
     {
         return $this->leadsOut($path) ? $this->refused($path) : $this->streamInside($path, $pieces);
+    }
+
+    /** Remove a file under the directory, where it is there; never outside the directory. */
+    public function remove(Path $path): Missing|CannotJudge
+    {
+        $file = $this->pathTo($path);
+
+        return match (true) {
+            $this->leadsOut($path) => $this->refused($path),
+            is_file($file) && (! is_writable(dirname($file)) || ! unlink($file)) => CannotJudge::because(
+                sprintf('%s could not be removed.', $file),
+            ),
+            default => Missing::at($path),
+        };
     }
 
     private function readInside(Path $path): Contents|Missing|CannotJudge

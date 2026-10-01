@@ -1,2 +1,3 @@
 [source]
 paths = ["src"]
+excludes = ["src/Excluded.php"]

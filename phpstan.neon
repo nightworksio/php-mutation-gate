@@ -608,6 +608,14 @@ services:
                 'NightWorksIO\MutationGate\Core\Proof\AnalysersRecord':
                     - SECONDS # a field of the ledger's analysers section
                     - MUTATORS # a field of the ledger's analysers section
+                'NightWorksIO\MutationGate\Cli\Flow\SurvivorChecking':
+                    - WITH_ITS_PRINT # the checks a printed file's first survivor needs
+                'NightWorksIO\MutationGate\Core\Plan\SurvivorChecksRecord':
+                    - FILE # a field of a shard result
+                'NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks':
+                    - NAMED # how many files a warning of unchecked survivors names
+                'NightWorksIO\MutationGate\Core\Mutant\DiffPatch':
+                    - NO_NEWLINE # a unified diff's note on a missing line break
                 'NightWorksIO\MutationGate\Core\Mutant\MutantRecord':
                     - SECONDS # a field of a shard result
                     - MUTATOR # a field of a shard result

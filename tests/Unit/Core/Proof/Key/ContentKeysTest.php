@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -75,6 +77,8 @@ const CONTENT_KEY_VERSIONS = [['pestphp/pest-plugin-mutate', '5.0.1', 'r2'], ['p
  * @param list<string>                         $canaries the canary group's test files
  * @param list<string>|CannotJudge             $judges   the test files the runner says can judge the unit
  * @param list<array{int, string}>             $covered  each covered line of the unit with a test covering it
+ * @param list<string>                         $analyser the analyser that checks the mutants, its version and its
+ *                                                       config's digest; none where empty
  */
 function contentKeyOf(
     string $gateVersion = '1.0.0',
@@ -96,6 +100,7 @@ function contentKeyOf(
     string $unit = 'src/A.php',
     string $group = '',
     string $filter = '',
+    array $analyser = [],
 ): Digest|Unkeyed {
     $files = [];
 
@@ -129,6 +134,7 @@ function contentKeyOf(
         Version::of('nightworksio/mutation-gate', $gateVersion, $gateReference),
         $config,
         Identity::of($runner, $drives, Digest::of($platform)),
+        $analyser === [] ? NoAnalyser::configured() : AnalyserIdentity::of($analyser[0], $analyser[1], Digest::of($analyser[2])),
         Digest::of($installed),
         Source::of(
             $outside,
@@ -172,9 +178,9 @@ $framed = static fn(string ...$fields): Digest => Digest::of(hash('sha256', impl
 ))));
 
 it('hashes everything a result could depend on, in order', function () use ($keyOf, $framed): void {
-    expect(ContentKeys::FORMAT)->toBe('mutation-gate proof 2')
+    expect(ContentKeys::FORMAT)->toBe('mutation-gate proof 3')
         ->and($keyOf())->toEqual($framed(
-            'mutation-gate proof 2',
+            'mutation-gate proof 3',
             'gate',
             'nightworksio/mutation-gate',
             '1.0.0',
@@ -191,6 +197,8 @@ it('hashes everything a result could depend on, in order', function () use ($key
             '5.0.1',
             'r2',
             'platform',
+            'analyser',
+            'none',
             'installed',
             'installed',
             'files',
@@ -237,6 +245,14 @@ it('hashes everything a result could depend on, in order', function () use ($key
         ));
 });
 
+it('changes with the analyser that checks the mutants, its version and its config', function (string $analyser, string $version, string $config) use ($keyOf): void {
+    expect($keyOf(analyser: [$analyser, $version, $config]))->not->toEqual($keyOf(analyser: ['phpstan', '2.1.30', 'config']));
+})->with([
+    'another analyser' => ['mago', '2.1.30', 'config'],
+    'another version' => ['phpstan', '2.1.31', 'config'],
+    'another config' => ['phpstan', '2.1.30', 'config changed'],
+]);
+
 it('changes with every input a result could depend on', function (Closure $changed) use ($keyOf): void {
     expect($changed())->not->toEqual($keyOf());
 })->with([
@@ -246,6 +262,7 @@ it('changes with every input a result could depend on', function (Closure $chang
     'the runner' => [fn(): Digest|Unkeyed => $keyOf(runner: 'infection')],
     'a version the runner drives' => [fn(): Digest|Unkeyed => $keyOf(versions: [['pestphp/pest-plugin-mutate', '5.0.1', 'r2'], ['pestphp/pest', '5.2.1', 'r1']])],
     'the platform' => [fn(): Digest|Unkeyed => $keyOf(platform: 'another platform')],
+    'a static analyser that checks the mutants' => [fn(): Digest|Unkeyed => $keyOf(analyser: ['phpstan', '2.1.30', 'config'])],
     'what is installed' => [fn(): Digest|Unkeyed => $keyOf(installed: 'installed differently')],
     'a source file' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, 'src/A.php' => 'a2'])],
     'the CI definition' => [fn(): Digest|Unkeyed => $keyOf(ci: "name: mutation\n  - run: vendor/bin/pest\n")],
@@ -307,6 +324,7 @@ $bare = static fn(): ContentKeys => ContentKeys::of(
     Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
     '{}',
     Identity::of('pest', Versions::none(), Digest::of('platform')),
+    NoAnalyser::configured(),
     Digest::of('installed'),
     Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing(), Paths::none())),
     Tests::of(TestFiles::of(), Paths::none(), Paths::none()),
@@ -314,7 +332,7 @@ $bare = static fn(): ContentKeys => ContentKeys::of(
 
 it('writes what holds a unit, by its name', function (Unit $unit, string $heldBy) use ($bare, $framed): void {
     expect($bare()->keyOf($unit, Paths::none(), CoverageMap::empty()))->toEqual($framed(
-        'mutation-gate proof 2',
+        'mutation-gate proof 3',
         'gate',
         'nightworksio/mutation-gate',
         '1.0.0',
@@ -325,6 +343,8 @@ it('writes what holds a unit, by its name', function (Unit $unit, string $heldBy
         'pest',
         '0',
         'platform',
+        'analyser',
+        'none',
         'installed',
         'installed',
         'files',
@@ -364,6 +384,7 @@ function contentKeysPinned(): ContentKeys
         Version::of('nightworksio/mutation-gate', '1.2.3', 'abc'),
         '{"runner":"pest","floor":80}',
         Identity::of('pest', Versions::of(Version::of('pestphp/pest', '4.1.0', 'r1'), Version::of('pestphp/pest-plugin-mutate', '4.0.1', 'r2')), Digest::of('platform')),
+        NoAnalyser::configured(),
         Digest::of('installed'),
         Source::of(
             Fingerprints::of($fingerprint('src/B.php', 'b'), $fingerprint('src/A.php', 'a'), $fingerprint('10', 'ten'), $fingerprint('9', 'nine'), $fingerprint('composer.json', 'c')),
@@ -408,12 +429,12 @@ it('keys each unit of a fixture with the bytes its format gives it, whatever ord
     expect($keys->keyOf($unit, $judges, $coverage))->toEqual(Digest::of($key))
         ->and($keys->keyOf($unit, Paths::of(...array_reverse([...$judges])), $coverage))->toEqual(Digest::of($key));
 })->with([
-    'a unit judged by one test file' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), '9e832eb55e852f4f9d3a640fc872b81784fc6a3dcaaabfacc2aade3af2d9188b'],
-    'a unit judged by test files named by digits' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), '8665a972cfd1c28184a4f1868af2474ecaffef223dce4bb4bb4593dc38b3377e'],
-    'a unit judged by a test file the key does not hold' => [Unit::file(Path::of('src/B.php')), Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), '3034314310c1bbde73a89dc21fe58bbcaebfbff6a0d51fdc6035d97b3af03ac4'],
-    'a unit nothing judges' => [Unit::file(Path::of('src/C.php')), Paths::none(), 'e5b67db1b9d952efda9c2f9846d5b19040add9d7cd29f08adf889dd4c1697816'],
-    'a unit a group holds' => [Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), Paths::none(), '478314d39aa58f4f2e1d285a150619a53bd6a11862972741c2604d7139e73458'],
-    'a unit a filter holds' => [Unit::held(Path::of('src/B.php'), Filter::matching('Money')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), 'fca4aa890bcd0a3ea8cb7d0b32d7a5e2054039bd32d68f65333ffeb297976150'],
+    'a unit judged by one test file' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), '3385f90a249d312187accf9b52ac7905f3d7ecc57b4c1f41b742c10c90cb690f'],
+    'a unit judged by test files named by digits' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), '0d15d27859f93e19e6964ca88cae47031257f9a90eb9a75ea76c2b606c0b6739'],
+    'a unit judged by a test file the key does not hold' => [Unit::file(Path::of('src/B.php')), Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), '3089d711dad7ce9a15cbd50824683516f3bc8546eeacba4d0e833d8a8d6a7d39'],
+    'a unit nothing judges' => [Unit::file(Path::of('src/C.php')), Paths::none(), '3b72522f14ac0a0afaedc5903a4f90017e4d6989eeac11ba95720d84d2623cb0'],
+    'a unit a group holds' => [Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), Paths::none(), 'd73620fca9f0052b4a3f7dc59a66de8e57a8679971c3b7f2b095b266c04801b4'],
+    'a unit a filter holds' => [Unit::held(Path::of('src/B.php'), Filter::matching('Money')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), '15c1164b087a5da6e3a0aefbcc1f7c6bb3a4683984628f3234a9bd3d067bfa75'],
 ]);
 
 it('keys many units at once as it keys each alone, reading a set of judging files once', function (): void {
@@ -455,6 +476,7 @@ it('keys units in time linear in the test files that judge them', function (): v
             Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
             '{}',
             Identity::of('pest', Versions::none(), Digest::of('platform')),
+            NoAnalyser::configured(),
             Digest::of('installed'),
             Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing(), Paths::none())),
             Tests::of(TestFiles::of(...$files), Paths::of(...$judges), Paths::none()),
@@ -477,7 +499,7 @@ it('names the base every key of a run is built on: the digest of what every key 
     $keys = $bare();
 
     expect($keys->base())->toEqual($framed(
-        'mutation-gate proof 2',
+        'mutation-gate proof 3',
         'gate',
         'nightworksio/mutation-gate',
         '1.0.0',
@@ -488,6 +510,8 @@ it('names the base every key of a run is built on: the digest of what every key 
         'pest',
         '0',
         'platform',
+        'analyser',
+        'none',
         'installed',
         'installed',
         'files',
@@ -532,6 +556,7 @@ function contentDigestsOf(
         Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
         $config,
         Identity::of('pest', Versions::none(), Digest::of('platform')),
+        NoAnalyser::configured(),
         Digest::of('installed'),
         Source::of(
             $outside,
@@ -551,7 +576,7 @@ it('digests what decides a mutant set, each unit\'s source, and each test file w
     $digests = contentDigestsOf(Units::of(Unit::file(Path::of('src/A.php')), Unit::held(Path::of('src'), Group::named('holds:src'))));
 
     expect($digests->mutation())->toEqual($framed(
-        'mutation-gate proof 2',
+        'mutation-gate proof 3',
         'gate',
         'nightworksio/mutation-gate',
         '1.0.0',
@@ -562,6 +587,8 @@ it('digests what decides a mutant set, each unit\'s source, and each test file w
         'pest',
         '0',
         'platform',
+        'analyser',
+        'none',
         'installed',
         'installed',
         'definitions',

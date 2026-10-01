@@ -66,3 +66,27 @@ it('asks about a mutant alone, without what every run withholds, unless told mor
             Withheld::of('DEPLOY_*'),
         ]);
 });
+
+it('names the new errors a mutant has, in its order, and none that its original has or that are lesser', function (): void {
+    $known = Finding::error('return.type', 'Method add() should return int but returns string.');
+    $first = Finding::error('binaryOp.invalid', 'Binary operation "." between int and int.');
+    $second = Finding::error('argument.type', 'Parameter #1 expects int, string given.');
+    $mutant = Findings::of($known, $first, Finding::lesser('deadCode.unreachable', 'Unreachable statement.'), $second);
+
+    expect([...$mutant->newErrors(Findings::of($known))])->toBe([$first, $second])
+        ->and([...Findings::of($known)->newErrors(Findings::of($known))])->toBe([]);
+});
+
+it('knows the same findings, as many of each and whatever their order, by code and message', function (): void {
+    $a = Finding::error('a.b', 'First.');
+    $b = Finding::lesser('c.d', 'Second.');
+
+    expect(Findings::of($a, $b)->same(Findings::of($b, Finding::lesser('a.b', 'First.'))))->toBeTrue()
+        ->and(Findings::none()->same(Findings::none()))->toBeTrue()
+        ->and(Findings::of($a, $b)->same(Findings::of($a)))->toBeFalse()
+        ->and(Findings::of($a, $a)->same(Findings::of($a, $b)))->toBeFalse()
+        ->and(Findings::of($a, $a, $b)->same(Findings::of($a, $b)))->toBeFalse()
+        ->and(Findings::of($a, $b)->same(Findings::of($b, $a, $a)))->toBeFalse()
+        ->and(Findings::of($a)->same(Findings::of(Finding::error('a.b', 'Other.'))))->toBeFalse()
+        ->and(Findings::of($a)->same(Findings::of(Finding::error('a.c', 'First.'))))->toBeFalse();
+});

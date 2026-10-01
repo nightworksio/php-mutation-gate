@@ -167,7 +167,7 @@ final readonly class Judging
                 ->and($refused ? $this->unfloored($baseline, $verdicts) : Failures::none()),
             $judge,
             $verdicts,
-            $ledgers->unread()->and($results->warnings()),
+            $ledgers->unread()->and($results->warnings())->and($results->checks()->warnings()),
             $map,
             $matrix,
         );

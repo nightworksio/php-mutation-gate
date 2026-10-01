@@ -52,3 +52,16 @@ it('keeps one history of an analyser whose name reads as a number, the newest', 
         ->and($histories->of($seven))->toBe($newest)
         ->and([...$histories->and(AnalyserHistories::none()->with(AnalyserHistory::of('7')))])->toEqual([$newest]);
 });
+
+it('adds what a run learned of each analyser to what it holds, and takes one it held nothing of whole', function () use ($phpstan): void {
+    $held = AnalyserHistories::none()->with(AnalyserHistory::of('phpstan')->withTime(CheckTime::of(4, Seconds::of(2.0))));
+    $run = AnalyserHistories::none()
+        ->with(AnalyserHistory::of('phpstan')->withTime(CheckTime::of(1, Seconds::of(1.0))))
+        ->with(AnalyserHistory::of('7')->withTime(CheckTime::of(2, Seconds::of(1.0))));
+    $added = $held->plus($run);
+    $seven = AnalyserIdentity::of('7', '1.0.0', Digest::of(str_repeat('c', 64)));
+
+    expect($added->of($phpstan)->time())->toEqual(CheckTime::of(5, Seconds::of(3.0)))
+        ->and($added->of($seven)->time())->toEqual(CheckTime::of(2, Seconds::of(1.0)))
+        ->and(array_map(static fn(AnalyserHistory $history): string => $history->analyser(), [...$added]))->toBe(['phpstan', '7']);
+});

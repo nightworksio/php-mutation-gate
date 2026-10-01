@@ -53,3 +53,8 @@ it('says its length in whole nanoseconds, rounded, and in minutes', function ():
         ->and(Seconds::of(840.0)->inMinutes())->toBe(14.0)
         ->and(Seconds::of(90.0)->inMinutes())->toBe(1.5);
 });
+
+it('measures the time from one moment to a later one, to the microsecond', function (): void {
+    expect(Seconds::between(new DateTimeImmutable('2026-01-01T00:00:00.250000Z'), new DateTimeImmutable('2026-01-01T00:00:02.500000Z')))
+        ->toEqual(Seconds::of(2.25));
+});

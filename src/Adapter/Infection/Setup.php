@@ -23,19 +23,26 @@ use function sprintf;
  * The options the flows build the Infection adapter with: `timeout`, the
  * seconds each mutant is allowed at most, `timeouts.seconds`, 10 by default as
  * Infection's own; `nativeMarkers`, `refuse` or `allow`, `ignores.native`,
- * `refuse` by default; and `tests`, the directories the tests live in,
- * `tests` by default.
+ * `refuse` by default; `tests`, the directories the tests live in, `tests`
+ * by default; and `staticAnalysis`, `infection` or `gate`, who runs static
+ * analysis over the mutants, `infection` by default.
  */
 final readonly class Setup
 {
+    /** The option that says who runs static analysis over the mutants, which the flows write. */
+    public const string STATIC_ANALYSIS = 'staticAnalysis';
     private const float TIMEOUT = 10.0;
 
     private const string TESTS = 'tests';
 
     private const string MARKERS = 'nativeMarkers';
 
-    private function __construct(private Paths $tests, private Seconds $cap, private bool $nativeMarkersAllowed)
-    {
+    private function __construct(
+        private Paths $tests,
+        private Seconds $cap,
+        private bool $nativeMarkersAllowed,
+        private StaticAnalysis $analysis,
+    ) {
     }
 
     public static function of(Options $options): self|Invalid
@@ -43,15 +50,18 @@ final readonly class Setup
         $tests = $options->paths(Key::of(self::TESTS));
         $timeout = $options->number(Key::of('timeout'));
         $allowed = self::allowedIn($options->text(Key::of(self::MARKERS)));
+        $analysis = self::analysisIn($options->text(Key::of(self::STATIC_ANALYSIS)));
 
         return match (true) {
             $tests instanceof Problem => Invalid::because($tests),
             $timeout instanceof Problem => Invalid::because($timeout),
             $allowed instanceof Problem => Invalid::because($allowed),
+            $analysis instanceof Problem => Invalid::because($analysis),
             default => new self(
                 $tests instanceof Paths && count($tests) > 0 ? $tests : Paths::of(TestsDirectory::conventional()),
                 Seconds::of($timeout instanceof NotGiven ? self::TIMEOUT : $timeout),
                 $allowed,
+                $analysis,
             ),
         };
     }
@@ -69,6 +79,24 @@ final readonly class Setup
     public function allowsNativeMarkers(): bool
     {
         return $this->nativeMarkersAllowed;
+    }
+
+    /** Who runs static analysis over the mutants: Infection, unless the flows say the gate does. */
+    public function analysis(): StaticAnalysis
+    {
+        return $this->analysis;
+    }
+
+    private static function analysisIn(string|NotGiven|Problem $analysis): StaticAnalysis|Problem
+    {
+        if (! is_string($analysis)) {
+            return $analysis instanceof Problem ? $analysis : StaticAnalysis::Infection;
+        }
+
+        return StaticAnalysis::tryFrom($analysis) ?? Problem::at(
+            self::STATIC_ANALYSIS,
+            sprintf('expected "infection" or "gate", got "%s"', $analysis),
+        );
     }
 
     private static function allowedIn(string|NotGiven|Problem $markers): bool|Problem

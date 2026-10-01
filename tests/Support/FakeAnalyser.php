@@ -14,7 +14,8 @@ use function sprintf;
 /**
  * A project with a stand-in for an analyser's command: a PHP script that
  * says the version it is given for `--version`, lists the files it is given
- * for `list-files`, and otherwise writes the answer it is given and exits as
+ * for `list-files`, dumps the parameters it is given for `dump-parameters`,
+ * or else `src` under the project as PHPStan's one path, and otherwise writes the answer it is given and exits as
  * told, keeping the arguments it was run with in `argv.txt` beside it.
  */
 final readonly class FakeAnalyser
@@ -29,6 +30,12 @@ final readonly class FakeAnalyser
         if (in_array('--version', $arguments, true)) {
             echo $said('version.txt');
             exit(0);
+        }
+        if (in_array('dump-parameters', $arguments, true)) {
+            $project = dirname($here, 2);
+            $default = sprintf('{"paths": ["%s/src"], "excludePaths": {"analyseAndScan": [], "analyse": []}}', $project);
+            echo is_file(sprintf('%s/params.json', $here)) ? $said('params.json') : $default;
+            exit((int) $said('params.exit'));
         }
         if (in_array('list-files', $arguments, true)) {
             echo $said('files.txt');

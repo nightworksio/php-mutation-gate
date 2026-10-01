@@ -10,6 +10,7 @@ use function getenv;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -20,7 +21,7 @@ use function preg_match;
 use function sprintf;
 
 /**
- * A static analyser that reports what it was told: about the originals, and
+ * A static analyser that answers what it was told: about the originals, and
  * about each mutant it knows by its file. It cannot judge any other mutant.
  * Each answer stands for a process started in this process's environment
  * without what is withheld, which stops, as the contract fixture's bootstrap
@@ -31,7 +32,7 @@ final readonly class StaticCheckerFake implements StaticChecker
     /** The variable the contract suite sets and withholds, which the fixture's bootstrap refuses to see. */
     public const string LEAK = 'MUTATION_GATE_CONTRACT_TOKEN';
 
-    /** @param array<string, Findings> $mutants what it reports of each mutant, by the mutant's file */
+    /** @param array<string, Findings|OutOfScope|CannotJudge> $mutants what it answers of each mutant, by the mutant's file */
     public function __construct(
         private AnalyserIdentity|CannotJudge $identity,
         private Findings|CannotJudge $originals,
@@ -55,7 +56,7 @@ final readonly class StaticCheckerFake implements StaticChecker
         return $this->unlessLeaked($withheld, $this->originals);
     }
 
-    public function check(MutantCheck $check): Findings|CannotJudge
+    public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge
     {
         $mutant = $check->mutant()->value();
 

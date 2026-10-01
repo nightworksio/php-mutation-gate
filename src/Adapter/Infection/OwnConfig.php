@@ -52,9 +52,10 @@ final readonly class OwnConfig
         'bootstrap',
         'initialTestsPhpOptions',
         'testFramework',
-        'staticAnalysisTool',
-        'staticAnalysisToolOptions',
     ];
+
+    /** The keys that have Infection run a static analysis tool, kept only where Infection runs it. */
+    private const array ANALYSIS = ['staticAnalysisTool', 'staticAnalysisToolOptions'];
 
     /** The sections whose paths Infection resolves against the config file's directory. */
     private const array TOOLS = ['phpUnit', 'phpStan', 'mago'];
@@ -186,16 +187,22 @@ final readonly class OwnConfig
 
     /**
      * The config the gate runs Infection with: the project's own, with every
-     * path absolute, and what the gate owns written over it.
+     * path absolute, and what the gate owns written over it. Its static
+     * analysis keys are kept only where Infection runs static analysis.
      *
      * @param list<string> $directories the source directories, by their paths on disk
      */
-    public function generated(Project $project, array $directories, Seconds $cap, Mutators $mutators): string
-    {
+    public function generated(
+        Project $project,
+        array $directories,
+        Seconds $cap,
+        Mutators $mutators,
+        StaticAnalysis $analysis,
+    ): string {
         $members = [];
 
         foreach ($this->entriesOf($this->settings) as $key => $value) {
-            $members = [...$members, ...$this->kept($project, sprintf('%s', $key), $value, $mutators)];
+            $members = [...$members, ...$this->kept($project, sprintf('%s', $key), $value, $mutators, $analysis)];
         }
 
         $members[self::PHPUNIT_SECTION] = $this->section($project, self::PHPUNIT_SECTION, [
@@ -222,11 +229,18 @@ final readonly class OwnConfig
      *
      * @return array<string, string>
      */
-    private function kept(Project $project, string $key, Node $value, Mutators $mutators): array
-    {
+    private function kept(
+        Project $project,
+        string $key,
+        Node $value,
+        Mutators $mutators,
+        StaticAnalysis $analysis,
+    ): array {
         return match (true) {
             $key === 'mutators' => $this->mutators()->narrowedTo($mutators),
-            in_array($key, self::KEPT, strict: true) => [$key => $value->json()],
+            in_array($key, self::KEPT, strict: true),
+            in_array($key, self::ANALYSIS, strict: true) && $analysis === StaticAnalysis::Infection
+                => [$key => $value->json()],
             in_array($key, self::TOOLS, strict: true) => [$key => $this->section($project, $key, [])],
             default => [],
         };

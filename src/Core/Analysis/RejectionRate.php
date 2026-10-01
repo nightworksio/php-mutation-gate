@@ -54,6 +54,12 @@ final readonly class RejectionRate
         return new self($this->mutator, $this->checks + 1, $this->rejections + 1);
     }
 
+    /** This rate and another's of the same mutator, added: every check of both, and every rejection. */
+    public function plus(self $other): self
+    {
+        return new self($this->mutator, $this->checks + $other->checks, $this->rejections + $other->rejections);
+    }
+
     /**
      * The test time a check before the tests saves on average: the tests'
      * time for the share of mutants the analyser rejects, which then never

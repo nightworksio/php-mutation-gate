@@ -15,6 +15,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
@@ -97,10 +98,15 @@ final readonly class Mago implements StaticChecker
     {
         $outside = $this->withinScope($files, $withheld);
 
-        return $outside instanceof Paths ? $this->analysed($withheld, []) : $outside;
+        return match (true) {
+            $outside instanceof OutOfScope => CannotJudge::because(sprintf(self::OUTSIDE, $outside->file()->value())),
+            $outside instanceof CannotJudge => $outside,
+            default => $this->analysed($withheld, []),
+        };
     }
 
-    public function check(MutantCheck $check): Findings|CannotJudge
+    /** A mutant, where Mago analyses its original; out of scope where it does not. */
+    public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge
     {
         $outside = $this->withinScope(Paths::of($check->original()), $check->withheld());
 
@@ -111,9 +117,10 @@ final readonly class Mago implements StaticChecker
     }
 
     /**
-     * These files, where Mago analyses every one of them; or why one is left unchecked.
+     * These files, where Mago analyses every one of them; the first it does
+     * not, or why it cannot say.
      */
-    private function withinScope(Paths $files, Withheld $withheld): Paths|CannotJudge
+    private function withinScope(Paths $files, Withheld $withheld): Paths|OutOfScope|CannotJudge
     {
         $listed = $this->mago($withheld, ['list-files', '-0']);
 
@@ -129,7 +136,7 @@ final readonly class Mago implements StaticChecker
 
         foreach ($files as $file) {
             if (! $analysed->has($this->root->relative($this->absolute($file)))) {
-                return CannotJudge::because(sprintf(self::OUTSIDE, $file->value()));
+                return OutOfScope::of($file);
             }
         }
 

@@ -40,6 +40,15 @@ final readonly class CheckTime
         return new self($this->checks + 1, Seconds::of($this->seconds->seconds() + $took->seconds()));
     }
 
+    /** This time and another's, added: every check of both, and their seconds together. */
+    public function plus(self $other): self
+    {
+        return new self(
+            $this->checks + $other->checks,
+            Seconds::of($this->seconds->seconds() + $other->seconds->seconds()),
+        );
+    }
+
     /** The time of one check, on average; unmeasured before the first. */
     public function each(): Seconds|Unmeasured
     {

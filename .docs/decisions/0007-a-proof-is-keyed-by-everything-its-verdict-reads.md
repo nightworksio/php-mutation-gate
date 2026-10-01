@@ -57,11 +57,11 @@ has to bring its result with it.
    adding an ignore re-runs nothing.
 
 2. **The content key is a SHA-256 over all of the following, in this order.**
-   1. **The key's format**, `mutation-gate proof 2`. It changes whenever what
+   1. **The key's format**, `mutation-gate proof 3`. It changes whenever what
       the key means changes, so an older proof is never read as a newer one.
       Format 2 moved the test files every key reads into the base (items 7
       and 8), in the same change as ledger format 2 (decision 3), so the one
-      bump covers both.
+      bump covers both. Format 3 added the static analyser to item 4.
    2. **The gate**: its installed version and source reference.
    3. **The configuration** as it affects results: the effective config after
       presets, serialised canonically, with the settings that only judge or
@@ -100,7 +100,10 @@ has to bring its result with it.
         `docref_ext`, `cli.pager`, `cli.prompt`). Each is named with its reason,
         and a test pins the list. Any other setting, including one PHP or an
         extension adds later, is in the digest, so a setting nobody has judged
-        re-runs a unit rather than reuses its proof.
+        re-runs a unit rather than reuses its proof;
+      - the static analyser that checks the mutants (ADR-0020, decision 14):
+        its name, exact version and a digest of its config, or `none` where
+        `staticCheck.tool` is `none` or the analyser cannot say who it is.
    5. **What is installed**: the digest of `vendor/composer/installed.json`. It
       catches a dependency installed differently from the lock. The lock itself
       is in the next item.

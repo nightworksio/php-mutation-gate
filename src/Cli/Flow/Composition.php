@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\ConfigLocation;
+use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
 use NightWorksIO\MutationGate\Cli\FirstParty;
@@ -91,7 +92,8 @@ final readonly class Composition
         Path|NoConfigFile $configFile,
     ): Composed|Invalid|CannotJudge {
         $project = Directory::at($this->project);
-        $adapters = new Wiring($registry, $this->environment)->adapters($settings, $project);
+        $detected = new Detected($project, Directory::at($this->vendor));
+        $adapters = new Wiring($registry, $this->environment, $detected)->adapters($settings, $project);
         $reporting = new Reporting(new Chosen($registry), $this->environment);
         $reporters = $reporting->reporters($settings, RunOn::detached(CannotTell::because(self::UNPLANNED)));
 

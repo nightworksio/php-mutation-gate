@@ -15,7 +15,7 @@ use function str_starts_with;
 final readonly class Hunks
 {
     /** The line a unified diff's first hunk starts with; what comes before it is the header. */
-    private const string HUNK = '@@';
+    public const string HUNK = '@@';
 
     /** The line a hunk the gate makes starts with: it holds no line numbers, which the mutant's location has. */
     private const string HEADER = '@@ @@';

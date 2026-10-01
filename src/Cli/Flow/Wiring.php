@@ -8,9 +8,13 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
+use NightWorksIO\MutationGate\Adapter\Infection\Setup;
+use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
+use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
+use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\CiEnvironment;
 use NightWorksIO\MutationGate\Core\Ci\DefaultBranch;
@@ -18,12 +22,16 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\BuiltinVersionControl;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Config\StaticCheck;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -38,6 +46,7 @@ use NightWorksIO\MutationGate\Port\CostModel;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Port\Runner;
+use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
 
 /**
@@ -52,8 +61,11 @@ use NightWorksIO\MutationGate\Port\TreeSource;
  */
 final readonly class Wiring
 {
-    public function __construct(private Extensions $extensions, private Variables $environment)
-    {
+    public function __construct(
+        private Extensions $extensions,
+        private Variables $environment,
+        private Detected $detected,
+    ) {
     }
 
     public function adapters(Settings $settings, Directory $project): Adapters|Invalid|CannotJudge
@@ -61,7 +73,8 @@ final readonly class Wiring
         $chosen = new Chosen($this->extensions);
         $lookup = Lookup::in($this->extensions);
         $source = BuiltinVersionControl::in($this->environment)->named();
-        $runner = $chosen->runner($settings->runner()->choice());
+        $checker = $this->checker($settings->staticCheck(), $chosen);
+        $runner = $chosen->runner($this->runnerChoice($settings->runner()->choice(), $checker));
         $found = $chosen->treeSource($settings->treeSource());
         $trees = $found instanceof TreeSource ? new DeclaredTrees($found, $settings->floors()->trees()) : $found;
         $costs = $lookup->costModel(BuiltinCostModel::Learned->named(), $settings->shards()->costOptions());
@@ -73,6 +86,7 @@ final readonly class Wiring
 
         return match (true) {
             ! $runner instanceof Runner => $runner,
+            $checker instanceof Invalid, $checker instanceof CannotJudge => $checker,
             ! $trees instanceof TreeSource => $trees,
             ! $proofs instanceof ProofStore => $proofs,
             ! $costs instanceof CostModel => $costs,
@@ -81,6 +95,8 @@ final readonly class Wiring
             ! $repository instanceof Repository => $repository,
             default => new Adapters(
                 $runner,
+                $checker,
+                $checker instanceof StaticChecker ? $checker->identity($withheld) : $checker,
                 $trees,
                 $proofs,
                 $costs,
@@ -102,6 +118,38 @@ final readonly class Wiring
         $set = $lookup->mutatorSet(MutatorSet::defaultName());
 
         return $set instanceof MutatorSet ? SetEngine::of($set) : NotGiven::value();
+    }
+
+    /**
+     * The runner the config chooses: Infection told that the gate checks its
+     * survivors, where an analyser does, so it runs no static analysis of its
+     * own (ADR-0020, decision 13).
+     */
+    private function runnerChoice(Choice $runner, StaticChecker|NoAnalyser|Invalid|CannotJudge $checker): Choice
+    {
+        $gate = Json::object(Member::of(Setup::STATIC_ANALYSIS, StaticAnalysis::Gate->value));
+
+        return $checker instanceof StaticChecker && $runner->use()->value() === BuiltinRunner::Infection->value
+            ? Choice::of($runner->use()->value(), $runner->options()->over($gate))
+            : $runner;
+    }
+
+    /**
+     * The static analyser `staticCheck.tool` names, reading `staticCheck.config`
+     * where the config names one (ADR-0020, decision 8): the one zero-config
+     * finds for `auto`, and none for `none`.
+     */
+    private function checker(StaticCheck $static, Chosen $chosen): StaticChecker|NoAnalyser|Invalid|CannotJudge
+    {
+        $tool = $static->tool();
+        $use = $tool->use();
+        $named = $use instanceof Name && $use->value() === StaticCheck::AUTO ? $this->detected->staticChecker() : $use;
+        $config = $static->config();
+        $options = $config instanceof Path ? $tool->options()->overPath(Key::of('config'), $config) : $tool->options();
+
+        return $named instanceof Name && $named->value() === StaticCheck::NONE
+            ? NoAnalyser::configured()
+            : $chosen->staticChecker(Choice::of($named->value(), $options));
     }
 
     /**

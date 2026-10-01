@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -893,4 +894,22 @@ it('reads holds as it loads them and raises no limit, and patched, has every key
 
     expect($patched->behaviour())->toEqual($pest->readingInEveryKey($canary))
         ->and($unpatched->behaviour())->toEqual($pest->openingEachShard());
+});
+
+it('gives a mutant as an analyser checks it: its diff put onto the file as Pest prints it', function (): void {
+    $at = adapterProject();
+    Scratch::write($at->root(), 'src/Money.php', "<?php\nfunction add(){return 1+1;}\n");
+    $diff = "@@ @@\n-    return 1 + 1;\n+    return 1 - 1;";
+    $mutant = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'PlusToMinus', $diff, 0),
+        'PlusToMinus',
+        Location::of(Path::of('src/Money.php'), Line::of(2), Line::of(2)),
+        Mutation::of('PlusToMinus', MutatorFamily::Arithmetic, $diff),
+        MutantStatus::Survived,
+        Seconds::of(0.1),
+    );
+    $checkable = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off())->checkable($mutant);
+
+    expect($checkable instanceof Checkable ? $checkable->mutant()->text() : '')
+        ->toBe("<?php\n\nfunction add()\n{\n    return 1 - 1;\n}");
 });

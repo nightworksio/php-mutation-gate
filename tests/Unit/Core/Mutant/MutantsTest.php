@@ -37,3 +37,18 @@ it('adds a mutant without changing the mutants it came from', function () use ($
     expect($natives($mutants->with($mutant('b'))))->toBe(['a', 'b'])
         ->and($mutants)->toHaveCount(1);
 });
+
+it('replaces each mutant another list holds by its id, and keeps the rest and their order', function () use ($natives): void {
+    $of = static fn(string $changed, string $native): Mutant => Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'LessThan', sprintf("-a < b\n+%s", $changed), 0),
+        $native,
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('LessThan', MutatorFamily::Boundary, ''),
+        MutantStatus::Killed,
+        Unmeasured::duration(),
+    );
+
+    expect($natives(Mutants::of($of('a', 'a'), $of('b', 'b'))->replacing(Mutants::of($of('a', 'a again'), $of('c', 'c')))))
+        ->toBe(['a again', 'b'])
+        ->and($natives(Mutants::of($of('a', 'a'))->replacing(Mutants::none())))->toBe(['a']);
+});
