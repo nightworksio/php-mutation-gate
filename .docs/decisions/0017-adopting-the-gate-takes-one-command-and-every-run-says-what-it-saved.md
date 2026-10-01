@@ -129,11 +129,14 @@ would have cost without them.
      works. A failure is reported then, with its fix, rather than as a first
      *cannot judge*.
    - `--no-measure` skips the run and estimates from lines of code.
-   - The same estimator is the cost model's cold start wherever a coverage
-     map exists. Lines of code × `costs.secondsPerLine` remains the cold
-     start without one. This amends ADR-0006 decision 4. Costs decide
-     placement only, so a wrong estimate costs time, never a verdict.
-     ADR-0015 decision 15 picks the GitHub shape from this estimate.
+   - The cost model's cold start is ADR-0006 decision 4's measured first
+     run: the mutants the gate's own engine counts on each covered line,
+     each costing a mutant's run starting and its covering tests' time,
+     spread over the processes the runner runs at once. Lines of code ×
+     `costs.secondsPerLine` remains the cold start where nothing was
+     measured. Costs decide placement only, so a wrong estimate costs time,
+     never a verdict. ADR-0015 decision 15 picks the GitHub shape from the
+     lines-of-code estimate.
 
 5. **A run shows its progress and an ETA.**
    - Progress is counted by batch and shard (ADR-0008 decision 1). Inside

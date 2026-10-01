@@ -6,8 +6,8 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
-use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
+use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
@@ -128,15 +128,29 @@ final readonly class Ledgers
         return $this->defaultBranch->timings()->and($this->own->timings());
     }
 
-    /** What the cost model expects of this unit, learned where a ledger timed it, guessed where none did. */
-    public function estimated(CostModel $costs, Unit $unit): Estimated
+    /** Of these units, those no ledger read timed, which only a first run can measure. */
+    public function untimed(Units $units): Units
     {
         $timings = $this->timings();
+        $untimed = [];
 
-        return Estimated::of(
-            $costs->cost($unit, $timings),
-            $timings->secondsFor($unit->path()) instanceof Seconds ? CostBasis::Learned : CostBasis::Guessed,
-        );
+        foreach ($units as $unit) {
+            if (! $timings->secondsFor($unit->path()) instanceof Seconds) {
+                $untimed[] = $unit;
+            }
+        }
+
+        return Units::of(...$untimed);
+    }
+
+    /**
+     * What the cost model expects of this unit, from what every ledger read
+     * learned, or, where none timed it, what the plan measured of its first
+     * run.
+     */
+    public function estimated(CostModel $costs, Unit $unit, FirstRun $firstRun): Estimated
+    {
+        return $costs->cost($unit, $this->timings(), $firstRun);
     }
 
     /**

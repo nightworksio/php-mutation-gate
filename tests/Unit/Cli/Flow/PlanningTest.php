@@ -57,6 +57,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
@@ -68,6 +69,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\NamesAsked;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
@@ -202,6 +204,62 @@ it('says of each shard what its estimate rests on, and that its runner opens on 
     );
 
     expect($estimates)->toEqual([[Seconds::of(50.0), Seconds::of(8.0), Seconds::of(0.2)]]);
+});
+
+it('estimates a unit no shard timed by what it measured of the first run, counting with the engine', function () use (
+    $plan,
+): void {
+    $project = Flows::project();
+    // Line 11, which MoneyTest::adds covers in 0.2 s, holds one addition.
+    Scratch::write($project, 'src/Money.php', sprintf("<?php\n%sfunction add(\$a, \$b) { return \$a + \$b; }\n", str_repeat("\n", 9)));
+    $planned = $plan($project, Mode::full(), Cut::exactly(1), new CostModelFake(Seconds::of(8.0)), Engine::with(new PlusToMinus()));
+    $estimates = array_map(
+        static fn(Shard $shard): array => [
+            $shard->estimate()->part(CostBasis::Learned),
+            $shard->estimate()->part(CostBasis::Measured),
+            $shard->estimate()->part(CostBasis::Guessed),
+        ],
+        $planned instanceof Plan ? [...$planned] : [],
+    );
+
+    // The fake runner starts a run of no test in 1.5 s and runs one mutant at a time.
+    expect($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(1.7), Seconds::of(0.0)]]);
+});
+
+it('counts nothing and starts no run of no test where every unit to run is timed', function () use ($plan): void {
+    $store = new ProofStoreFake();
+    $at = Moment::at('2026-09-30T10:00:00Z');
+    $store->write(
+        Scope::branch('main'),
+        Ledger::empty()->withTimings(Timings::of(
+            Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', $at),
+            Timing::of(Path::of('src/Money.php'), Seconds::of(30.0), 'fake', $at),
+        )),
+    );
+    $runner = ScriptedRunner::fixture();
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner, $store, Engine::with(new PlusToMinus()));
+
+    expect($planned)->toBeInstanceOf(Plan::class)
+        ->and($runner->startedUp())->toBe([])
+        ->and($planned instanceof Plan ? [...$planned][0]->estimate()->part(CostBasis::Learned) : $planned)
+        ->toEqual(Seconds::of(80.0));
+});
+
+it('plans, guessing every unit, where its runs of no test cannot run', function () use ($plan): void {
+    $project = Flows::project();
+    Scratch::write($project, 'src/Money.php', sprintf("<?php\n%sfunction add(\$a, \$b) { return \$a + \$b; }\n", str_repeat("\n", 9)));
+    $runner = ScriptedRunner::fixture()->startingUpIn(CannotJudge::because('Pest could not start'));
+    $planned = $plan($project, Mode::full(), Cut::exactly(1), $runner, new CostModelFake(Seconds::of(8.0)), Engine::with(new PlusToMinus()));
+    $estimates = array_map(
+        static fn(Shard $shard): array => [
+            $shard->estimate()->part(CostBasis::Measured),
+            $shard->estimate()->part(CostBasis::Guessed),
+        ],
+        $planned instanceof Plan ? [...$planned] : [],
+    );
+
+    expect($planned)->toBeInstanceOf(Plan::class)
+        ->and($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(16.0)]]);
 });
 
 it('leaves the whole map outside CI, where a later local command reads it, and not in CI', function () use ($plan): void {

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function array_values;
+use function count;
+use function min;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -63,8 +67,8 @@ final class ScriptedRunner implements Runner
     /** @var list<array{Path, Withheld}> */
     private array $startedUp = [];
 
-    /** How long its run of no test takes, or why it cannot start. */
-    private Seconds|CannotJudge $startingUp;
+    /** @var non-empty-list<Seconds|CannotJudge> how long each run of no test takes, or why it cannot start; the last again for every run after */
+    private array $startingUp;
 
     private function __construct(
         private readonly RunnerFake $fake,
@@ -75,7 +79,7 @@ final class ScriptedRunner implements Runner
         private readonly CannotJudge|RunnerFake $covering,
         private readonly CannotJudge|Markers|RunnerFake $marking,
     ) {
-        $this->startingUp = $fake->startUp(Path::of('src/Money.php'), Withheld::nothing());
+        $this->startingUp = [$fake->startUp(Path::of('src/Money.php'), Withheld::nothing())];
     }
 
     /** The fake runner over the fixture library, whose survivors survive again. */
@@ -175,11 +179,11 @@ final class ScriptedRunner implements Runner
         );
     }
 
-    /** This runner, whose run of no test takes this long, or cannot start. */
-    public function startingUpIn(Seconds|CannotJudge $startUp): self
+    /** This runner, whose runs of no test take this long, or cannot start, one after another, the last again after. */
+    public function startingUpIn(Seconds|CannotJudge $first, Seconds|CannotJudge ...$then): self
     {
         $scripted = clone $this;
-        $scripted->startingUp = $startUp;
+        $scripted->startingUp = [$first, ...array_values($then)];
 
         return $scripted;
     }
@@ -309,7 +313,7 @@ final class ScriptedRunner implements Runner
     {
         $this->startedUp[] = [$file, $withheld];
 
-        return $this->startingUp;
+        return $this->startingUp[min(count($this->startedUp), count($this->startingUp)) - 1];
     }
 
     /**

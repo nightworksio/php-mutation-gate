@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Cost;
 
-/** What a unit's expected cost rests on (ADR-0006, decision 3). */
+/** What a unit's expected cost rests on (ADR-0006, decision 4). */
 enum CostBasis: string
 {
     /** What a shard last measured the unit to take. */

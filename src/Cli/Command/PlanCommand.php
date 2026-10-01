@@ -89,16 +89,17 @@ final readonly class PlanCommand
     }
 
     /**
-     * What each shard and the run are expected to take, and what that rests
-     * on; and where `shards.target` cannot be met under `shards.max`, a line
-     * that says so.
+     * What each shard and the run are expected to take, what that rests on,
+     * and, where it rests on a measured first run, how many mutants each
+     * shard's runner is taken to run at once; and where `shards.target`
+     * cannot be met under `shards.max`, a line that says so.
      */
     private static function estimated(Composed $composed, Plan $plan, OutputInterface $aside): void
     {
         $shards = $composed->settings->shards();
         $estimates = PlanEstimates::of($plan, $shards->setup());
 
-        foreach ($estimates->lines() as $line) {
+        foreach ([...$estimates->lines(), ...$estimates->assumed($composed->adapters->processes())] as $line) {
             $aside->writeln($line, OutputInterface::OUTPUT_RAW);
         }
 

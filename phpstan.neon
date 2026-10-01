@@ -519,6 +519,8 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
+                    - STANDARD # runs of no test the plan times
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
                     - UNRELEASED # the package's own branch, in a link to its guide
                 'NightWorksIO\MutationGate\Core\Php\OwnMember':
@@ -743,6 +745,7 @@ services:
             classNamedAtRuntimeIn:
                 - src/Cli/Discovery/Discovery.php
                 - src/Cli/Config/Chosen.php
+                - src/Mutator/Engine/SetEngine.php
         tags:
             - phpstan.rules.rule
     # Q3

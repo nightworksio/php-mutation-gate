@@ -7,6 +7,9 @@ namespace NightWorksIO\MutationGate\Tests\Fakes;
 use function array_sum;
 use function max;
 
+use NightWorksIO\MutationGate\Core\Cost\CostBasis;
+use NightWorksIO\MutationGate\Core\Cost\Estimated;
+use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
@@ -18,8 +21,9 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Port\CostModel;
 
 /**
- * A cost model that trusts what a shard measured and guesses one flat figure
- * otherwise, and shares a shard's time among its units by their mutants.
+ * A cost model that trusts what a shard measured, then what the plan
+ * measured of the first run, and guesses one flat figure otherwise, and
+ * shares a shard's time among its units by their mutants.
  */
 final readonly class CostModelFake implements CostModel
 {
@@ -27,11 +31,16 @@ final readonly class CostModelFake implements CostModel
     {
     }
 
-    public function cost(Unit $unit, Timings $learned): Seconds
+    public function cost(Unit $unit, Timings $learned, FirstRun $firstRun): Estimated
     {
-        $measured = $learned->secondsFor($unit->path());
+        $timed = $learned->secondsFor($unit->path());
+        $measured = $firstRun->seconds($unit);
 
-        return $measured instanceof Seconds ? $measured : $this->guess;
+        return match (true) {
+            $timed instanceof Seconds => Estimated::of($timed, CostBasis::Learned),
+            $measured instanceof Seconds => Estimated::of($measured, CostBasis::Measured),
+            default => Estimated::of($this->guess, CostBasis::Guessed),
+        };
     }
 
     public function learn(Units $units, Mutants $mutants, CoverageMap $coverage, Measurement $measured): Timings

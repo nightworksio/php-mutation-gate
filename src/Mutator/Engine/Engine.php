@@ -8,6 +8,7 @@ use function array_key_exists;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Hunks;
@@ -50,15 +51,24 @@ final readonly class Engine
     {
         $source = Source::parse($code->text());
 
-        if ($source instanceof Unparsable) {
-            return CannotJudge::because(sprintf(
-                '%s does not parse, so no mutant of it can be made: %s',
-                $file->value(),
-                $source->reason(),
-            ));
-        }
+        return $source instanceof Unparsable
+            ? $this->unparsable($file, $source)
+            : $this->identified($file, $this->changes($source, $code));
+    }
 
-        return $this->identified($file, $this->changes($source, $code));
+    /**
+     * Where the file's mutants start, counted without making them: fast
+     * enough to count every file a plan runs. A change that would print the
+     * same code counts here, where `mutantsOf()` makes no mutant of it. A
+     * file that does not parse cannot be judged.
+     */
+    public function sitesOf(Path $file, Contents $code): MutantSites|CannotJudge
+    {
+        $source = Source::parse($code->text());
+
+        return $source instanceof Unparsable
+            ? $this->unparsable($file, $source)
+            : $source->sites($file, ...$this->mutators);
     }
 
     /**
@@ -82,6 +92,15 @@ final readonly class Engine
         usort($changes, static fn(array $a, array $b): int => $a[1]->start()->number() <=> $b[1]->start()->number());
 
         return $changes;
+    }
+
+    private function unparsable(Path $file, Unparsable $source): CannotJudge
+    {
+        return CannotJudge::because(sprintf(
+            '%s does not parse, so no mutant of it can be made: %s',
+            $file->value(),
+            $source->reason(),
+        ));
     }
 
     /**

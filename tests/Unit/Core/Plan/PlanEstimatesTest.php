@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -86,4 +87,15 @@ it('warns where shards.max stops the plan meeting shards.target, and only then',
         ->and($estimates->unmet(Seconds::of(900.0), 2))->toHaveCount(0)
         ->and($estimates->unmet(Seconds::of(600.0), 3))->toHaveCount(0)
         ->and($estimates->unmet(Absent::setting(), 2))->toHaveCount(0);
+});
+
+it('says each shard\'s runner is taken to run as many mutants at once as this machine, where a unit\'s estimate is measured', function (): void {
+    $measured = estimatedShard(1, 0.0, 10.0, 0.0)->estimated(
+        ShardEstimate::none()->with(Estimated::of(Seconds::of(5.0), CostBasis::Measured)),
+    );
+
+    expect(PlanEstimates::of(estimatedPlan($measured), Seconds::of(0.0))->assumed(Processes::of(4)))
+        ->toBe(['It takes each shard\'s runner to run 4 mutants at once, as this machine does.'])
+        ->and(PlanEstimates::of(estimatedPlan(estimatedShard(1, 10.0, 10.0, 0.0)), Seconds::of(0.0))->assumed(Processes::of(4)))
+        ->toBe([]);
 });

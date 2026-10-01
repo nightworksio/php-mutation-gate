@@ -3,16 +3,24 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutants;
+use NightWorksIO\MutationGate\Mutator\Engine\SetEngine;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToPlus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
+use NightWorksIO\MutationGateDefault\DefaultExtension;
 
 function ledger(): string
 {
@@ -95,4 +103,90 @@ it('cannot judge a file that does not parse, saying which and why', function ():
     expect($outcome)->toBeInstanceOf(CannotJudge::class)
         ->and($outcome instanceof CannotJudge ? $outcome->why() : '')
         ->toBe("src/Broken.php does not parse, so no mutant of it can be made: Syntax error, unexpected ';' on line 1");
+});
+
+it('counts where each mutant starts, line by line, without making it', function (): void {
+    $file = Path::of('src/Ledger.php');
+    $sites = Engine::with(new PlusToMinus(), new RemoveEcho())->sitesOf($file, Contents::of(ledger()));
+
+    expect($sites instanceof MutantSites ? [...$sites->linesOf($file)] : [])
+        ->toEqual([Line::of(5), Line::of(12), Line::of(14)])
+        ->and($sites instanceof MutantSites ? $sites->count() : 0)->toBe(3);
+});
+
+it('counts a change that prints the same code, of which it makes no mutant', function (): void {
+    $file = Path::of('src/Ledger.php');
+
+    expect(Engine::with(new PlusToPlus())->sitesOf($file, Contents::of(ledger())))
+        ->toEqual(MutantSites::inFile($file, Line::of(5), Line::of(14)))
+        ->and(made(Engine::with(new PlusToPlus())->mutantsOf($file, Contents::of(ledger()))))->toBe([]);
+});
+
+it('cannot count the mutants of a file that does not parse, saying which and why', function (): void {
+    expect(Engine::with(new PlusToMinus())->sitesOf(Path::of('src/Broken.php'), Contents::of('<?php function (')))
+        ->toBeInstanceOf(CannotJudge::class);
+});
+
+/** The engine over the default set, as the plan counts with it. */
+function defaultEngine(): Engine
+{
+    $set = new DefaultExtension()->extend(new Extensions(Origin::of('nightworksio/mutation-gate')))
+        ->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
+    return SetEngine::of($set instanceof MutatorSet ? $set : MutatorSet::of());
+}
+
+/**
+ * The runner contracts' libraries: code written to be mutated, by both runners.
+ *
+ * @return list<string>
+ */
+function corpus(): array
+{
+    $files = [];
+
+    foreach (['fixture', 'infection-fixture'] as $library) {
+        $found = glob(sprintf('%s/Contract/Runner/%s/src/{,*/}*.php', dirname(__DIR__, 3), $library), GLOB_BRACE);
+        $files = [...$files, ...($found === false ? [] : $found)];
+    }
+
+    sort($files);
+
+    return $files;
+}
+
+/**
+ * How many mutants start on each line, by line number.
+ *
+ * @return array<int, int>
+ */
+function perLine(MutantSites $sites, Path $file): array
+{
+    $counts = [];
+
+    foreach ($sites->linesOf($file) as $line) {
+        $counts[$line->number()] = $sites->countAt($file, $line);
+    }
+
+    return $counts;
+}
+
+it('counts, line by line, the mutants the engine makes of every file of the corpus', function (string $file): void {
+    $path = Path::of(basename($file));
+    $code = Contents::of((string) file_get_contents($file));
+    $engine = defaultEngine();
+    $sites = $engine->sitesOf($path, $code);
+    $made = $engine->mutantsOf($path, $code);
+    $starts = array_map(
+        static fn(MadeMutant $mutant): Line => $mutant->location()->start(),
+        $made instanceof MadeMutants ? iterator_to_array($made, preserve_keys: false) : [],
+    );
+
+    // No mutator of the default set prints the same code anywhere in the corpus, so the two agree exactly.
+    expect($made)->toBeInstanceOf(MadeMutants::class)
+        ->and($sites instanceof MutantSites ? perLine($sites, $path) : [])
+        ->toBe(perLine(MutantSites::inFile($path, ...$starts), $path));
+})->with(corpus());
+
+it('has a corpus to agree over', function (): void {
+    expect(count(corpus()))->toBeGreaterThan(20);
 });
