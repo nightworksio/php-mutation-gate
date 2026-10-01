@@ -11,6 +11,7 @@ use function getmypid;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\CapIni;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Uncapped;
 
@@ -51,7 +52,7 @@ final readonly class MemoryScan
 
         $directory = DiskPath::of(self::directoryBeside($results));
 
-        return $files->written(DiskPath::of($project->workspace()), $directory, $memory)
+        return $files->written(DiskPath::of($project->workspace()), $directory, CapIni::of($memory))
             ? new self($directory, $files)
             : CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, $directory->child(MemoryCap::FILE)->value()));
     }

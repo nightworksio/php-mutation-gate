@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -28,7 +30,8 @@ use function sprintf;
 /**
  * A Pest mutation run read as the gate's records, failing closed: a run that
  * failed, records that do not add up to Pest's own summary, or a filter too
- * long to start a mutant with while `pest:patch` is off is cannot judge. A run
+ * long to start a mutant with while `pest:patch` is off is cannot judge, and
+ * one whose own process ran out of the memory cap says to raise it. A run
  * stopped at its deadline keeps every result it had, and leaves the rest
  * unjudged. So does a covering test Pest's filter cannot select, because Pest
  * would have called that mutant killed or uncovered without running the test.
@@ -45,7 +48,10 @@ final readonly class Interpretation
 
     private const string UNSELECTED = "Pest's --filter cannot select %s, so Pest cannot run it against this mutant.";
 
-    public function __construct(private Project $project, private Patching $patching)
+    private const string OUT_OF_MEMORY
+        = "Pest ran out of the %s memory cap in its own process, so the run did not finish. %s Pest said:\n%s";
+
+    public function __construct(private Project $project, private Patching $patching, private MemoryCap $cap)
     {
     }
 
@@ -84,13 +90,21 @@ final readonly class Interpretation
         $records = Records::in($results);
 
         return match (true) {
-            $records instanceof CannotJudge => $ran->succeeded() || $ran->wasStopped()
-                ? $records
-                : CannotJudge::because(sprintf(self::FAILED, $ran->output())),
+            $records instanceof CannotJudge => $ran->succeeded() || $ran->wasStopped() ? $records : $this->failed($ran),
             $ran->wasStopped() => $records->allMade() ? $records : CannotJudge::because(self::STOPPED_EARLY),
             $ran->succeeded() || $records->ended() => $this->counted($records, $ran),
-            default => CannotJudge::because(sprintf(self::FAILED, $ran->output())),
+            default => $this->failed($ran),
         };
+    }
+
+    /** Why a run that failed cannot be judged: Pest's own process out of the memory cap, or what Pest said. */
+    private function failed(Ran $ran): CannotJudge
+    {
+        $output = $ran->output();
+
+        return Exhaustion::isOf(Exhaustion::in($output), $this->cap)
+            ? CannotJudge::because(sprintf(self::OUT_OF_MEMORY, $this->cap->written(), Exhaustion::ADVICE, $output))
+            : CannotJudge::because(sprintf(self::FAILED, $output));
     }
 
     private function counted(Records $records, Ran $ran): Records|CannotJudge
@@ -128,6 +142,19 @@ final readonly class Interpretation
         return MutationResult::of(Mutants::of(...$mutants), 0);
     }
 
+    /**
+     * A mutant's status as Pest ended it; a kill whose process ran out of
+     * exactly the gate's memory cap is out of memory (ADR-0004, decision 9).
+     */
+    private function statusOf(PlannedMutant $planned, Records $records): MutantStatus
+    {
+        $status = $records->statusOf($planned)->status();
+
+        return $status === MutantStatus::Killed && Exhaustion::isOf($records->exhaustionOf($planned), $this->cap)
+            ? MutantStatus::OutOfMemory
+            : $status;
+    }
+
     /** The one place a Pest mutant becomes the gate's. */
     private function mutant(MutantId $gate, PlannedMutant $planned, Records $records, Selection $selection): Mutant
     {
@@ -138,13 +165,14 @@ final readonly class Interpretation
             $planned->id(),
             Location::of($this->project->relative($planned->file()->value()), $planned->start(), $planned->end()),
             Mutation::of($planned->mutator(), Families::of($planned->mutator()), Diff::fromPest($planned->diff())),
-            $judged ? $records->statusOf($planned)->status() : MutantStatus::Unjudged,
+            $judged ? $this->statusOf($planned, $records) : MutantStatus::Unjudged,
             $records->durationOf($planned),
         );
 
         $limit = $records->limit();
         $status = $mutant->status();
         $limited = match (true) {
+            $status === MutantStatus::OutOfMemory => $mutant->withLimit($this->cap),
             $status === MutantStatus::TimedOut && $limit instanceof Seconds => $mutant->withLimit($limit),
             $status === MutantStatus::Killed => $mutant->killedBy($records->killersOf($planned)),
             default => $mutant,

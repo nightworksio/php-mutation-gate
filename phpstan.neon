@@ -285,7 +285,6 @@ parameters:
         # --- Q1: nothing reconfigures the runtime -------------------------------
         -
             function:
-                - 'ini_set()'
                 - 'ini_alter()'
                 - 'ini_restore()'
                 - 'error_reporting()'
@@ -302,11 +301,35 @@ parameters:
             message: "Q1 — the gate runs inside somebody else's process when a test boots it, and a setting changed here stays changed for them. Pass the value where it is needed (Q1)."
             allowIn:
                 - tests/*
-                # The command, and no library code, gives its own process the memory its ledgers may need.
-                - bin/mutation-gate
                 # zlib raises a broken stream as a warning as well as answering false; the handler that keeps the
                 # warning from the run's output is restored before inflate_add's answer is returned.
                 - src/Core/Format/Gzip.php
+
+        # --- Q1, for ini_set: only the command, and the mutant's own error log ----------------------------
+        -
+            function: 'ini_set()'
+            message: "Q1 — the gate runs inside somebody else's process when a test boots it, and a setting changed here stays changed for them. Pass the value where it is needed (Q1)."
+            allowIn:
+                - tests/*
+                # The command, and no library code, gives its own process the memory its ledgers may need.
+                - bin/mutation-gate
+                # In a mutant's own process, which Pest starts for the gate, errors are logged to the mutant's own
+                # file, so a fatal error Pest's handling loses is still read; the entry below keeps it to the two
+                # inert settings that do so (ADR-0004).
+                - src/Adapter/Pest/Recording/Killers.php
+
+        # The extension keys each entry by its call, so a second 'ini_set()' would replace the one above; the
+        # pattern 'ini_set*()' matches ini_set() alone and keeps both.
+        -
+            function: 'ini_set*()'
+            message: "Q1 — in a mutant's own process the plugin sets only log_errors and error_log, which decide where an error is written and nothing a test computes (Q1)."
+            allowExceptIn:
+                - src/Adapter/Pest/Recording/Killers.php
+            allowParamsInAllowed:
+                -
+                    position: 1
+                    name: 'option'
+                    typeString: "'log_errors'|'error_log'"
 
         # --- L3: bytes are not characters -----------------------------------------
         -
@@ -523,6 +546,11 @@ services:
                     - STANDARD # runs of no test the plan times
                 'NightWorksIO\MutationGate\Core\Runner\MemoryUnit':
                     - KILO # bytes in a kilobyte, as PHP counts one
+                'NightWorksIO\MutationGate\Core\Runner\DisplayWord':
+                    - Stdout # PHP's display_errors value, not init's --stdout option
+                    - 'True' # a word PHP reads in display_errors, not a JSON value
+                'NightWorksIO\MutationGate\Core\Runner\ErrorDisplay':
+                    - STDERR # PHP's number for display_errors=stderr
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
                     - UNRELEASED # the package's own branch, in a link to its guide
                 'NightWorksIO\MutationGate\Core\Php\OwnMember':
@@ -626,7 +654,6 @@ services:
                     - END # a field of a shard result
                     - DIFF # a field of a shard result
                 'NightWorksIO\MutationGate\Adapter\Infection\Results':
-                    - KILLED_BY_TESTS # a list of Infection's log
                     - MUTATOR # a field of Infection's log
                 'NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming':
                     - PREFIX # PHPUnit's prefix of a test method
@@ -676,8 +703,8 @@ services:
                     - PRE_PUSH_MINUTES # a budget, in minutes
                 'NightWorksIO\MutationGate\Cli\Flow\Invoking':
                     - DOUBLED # a retried timeout's cap, doubled
-                'NightWorksIO\MutationGate\Core\Runner\MemoryCap':
-                    - ROOM # times a suite's peak memory a cap holds
+                'NightWorksIO\MutationGate\Core\Runner\Headroom':
+                    - TIMES # times a suite's peak memory a cap holds
             # Constants still to refer to their value's one home, by the builder whose area holds them.
             awaiting:
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':

@@ -213,6 +213,12 @@ final class Library
      */
     public static function infection(Seconds $cap): self
     {
+        return self::infectionAt(Tree::at(self::INFECTION_DIRECTORY), $cap);
+    }
+
+    /** The Infection adapter over the installed library at a root, such as a copy of it. */
+    public static function infectionAt(string $root, Seconds $cap): self
+    {
         $infection = static function (string $root) use ($cap): Infection {
             $project = InfectionProject::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
 
@@ -221,14 +227,14 @@ final class Library
 
         return new self(
             sprintf('infection %.1F', $cap->seconds()),
-            $infection(Tree::at(self::INFECTION_DIRECTORY)),
+            $infection($root),
             self::INFECTION,
             endsReported: false,
             defining: Paths::of(Path::of('infection.json5'), Path::of('phpunit.xml')),
             naming: self::INFECTION_NAMES,
-            outside: $infection(dirname(Tree::at(self::INFECTION_DIRECTORY))),
-            package: Path::of(basename(self::INFECTION_DIRECTORY)),
-            root: Tree::at(self::INFECTION_DIRECTORY),
+            outside: $infection(dirname($root)),
+            package: Path::of(basename($root)),
+            root: $root,
         );
     }
 

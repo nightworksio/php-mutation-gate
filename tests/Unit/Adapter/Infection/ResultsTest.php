@@ -23,9 +23,14 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\InfectionRun;
@@ -65,6 +70,8 @@ function resultsRead(Project $project, array $lists, bool $allowed = false, arra
         Ran::finished(succeeded: false, output: 'exit 1'),
         TextLog::at($project->own(Invocation::TEXT)),
         resultsLimits($project),
+        MemoryCap::standard(),
+        NotGiven::value(),
         $allowed,
     );
 }
@@ -153,6 +160,83 @@ it('names the tests that killed a mutant, and none for one static analysis, an e
     ]);
 });
 
+it('reads a kill or an error whose output ran out of exactly the gate\'s cap as out of memory, with the cap and no killer', function (): void {
+    $at = resultsProject();
+    $cap = MemoryCap::of(64, MemoryUnit::Megabytes);
+    $fatal = static fn(int $bytes): string => sprintf(
+        "There was 1 error:\n\n1) Tests\\MoneySpec::addsTwoAmounts\nPHP Fatal error:  Allowed memory size of %d bytes exhausted",
+        $bytes,
+    );
+    InfectionRun::log($at->own(Invocation::JSON), [
+        'killed' => [
+            [...resultsMutant($at, 'Plus', 'src/Money.php', 11, 'return $a + $b;', 'return $a - $b;'), 'processOutput' => $fatal(67108864)],
+            [...resultsMutant($at, 'Plus', 'src/Money.php', 12, 'return $c + $d;', 'return $c - $d;'), 'processOutput' => $fatal(134217728)],
+        ],
+        'errored' => [[...resultsMutant($at, 'Throw_', 'src/Money.php', 31, 'throw $e;', '$e;'), 'processOutput' => $fatal(67108864)]],
+        'escaped' => [[...resultsMutant($at, 'Minus', 'src/Money.php', 40, 'return $a - $b;', 'return $a + $b;'), 'processOutput' => $fatal(67108864)]],
+    ]);
+    InfectionRun::text($at->own(Invocation::TEXT), []);
+    $ran = Ran::finished(succeeded: false, output: 'exit 1');
+    $result = Results::read($at, $ran, TextLog::at($at->own(Invocation::TEXT)), resultsLimits($at), $cap, NotGiven::value(), nativeMarkersAllowed: false);
+    $read = $result instanceof MutationResult ? array_map(
+        static fn(Mutant $mutant): array => [
+            $mutant->location()->start()->number(),
+            $mutant->status(),
+            $mutant->limit() instanceof MemoryCap ? $mutant->limit()->written() : 'none',
+            count($mutant->killers()),
+        ],
+        iterator_to_array($result->mutants(), preserve_keys: false),
+    ) : [];
+
+    expect($read)->toBe([
+        [11, MutantStatus::OutOfMemory, '64M', 0],
+        [12, MutantStatus::Killed, 'none', 1],
+        [31, MutantStatus::OutOfMemory, '64M', 0],
+        [40, MutantStatus::Survived, 'none', 0],
+    ]);
+});
+
+it('reads a mutant as out of memory with no limit where PHPUnit says its process ended mid-test with errors visibly hidden, and as it was otherwise', function (
+    string $end,
+    ErrorDisplay|NotGiven $display,
+    MemoryCap $cap,
+    MutantStatus $status,
+    int $killers,
+): void {
+    $at = resultsProject();
+    InfectionRun::log($at->own(Invocation::JSON), ['killed' => [
+        [...resultsMutant($at, 'Plus', 'src/Money.php', 11, 'return $a + $b;', 'return $a - $b;'), 'processOutput' => $end],
+    ]]);
+    InfectionRun::text($at->own(Invocation::TEXT), []);
+    $ran = Ran::finished(succeeded: false, output: 'exit 1');
+    $result = Results::read($at, $ran, TextLog::at($at->own(Invocation::TEXT)), resultsLimits($at), $cap, $display, nativeMarkersAllowed: false);
+    $mutant = $result instanceof MutationResult ? [...$result->mutants()][0] : null;
+
+    expect($mutant?->status())->toBe($status)
+        ->and($mutant?->limit())->toEqual(Unmeasured::duration())
+        ->and(count($mutant?->killers() ?? TestIds::none()))->toBe($killers);
+})->with(static function (): iterable {
+    $capped = MemoryCap::of(64, MemoryUnit::Megabytes);
+    $ended = "....Fatal error: Premature end of PHP process when running Tests\\MoneySpec::addsTwoAmounts.\n";
+    $hint = "....Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message.\n";
+    $failed = "There was 1 failure:\n\n1) Tests\\MoneySpec::addsTwoAmounts\nFailed.\n";
+
+    yield 'ended where the config hides errors' => [$ended, ErrorDisplay::Nowhere, $capped, MutantStatus::OutOfMemory, 0];
+    yield 'ended where the config prints errors on standard error' => [$ended, ErrorDisplay::Stderr, $capped, MutantStatus::OutOfMemory, 0];
+    yield 'PHPUnit 12.5\'s hint, the config silent' => [$hint, NotGiven::value(), $capped, MutantStatus::OutOfMemory, 0];
+    yield 'ended by exit, the config silent' => [$ended, NotGiven::value(), $capped, MutantStatus::Killed, 0];
+    yield 'ended by exit, the config showing errors' => [$ended, ErrorDisplay::Stdout, $capped, MutantStatus::Killed, 0];
+    yield 'a test that prints the words, then fails, where the config hides errors' => [
+        sprintf("Premature end of the world\n%s", $failed),
+        ErrorDisplay::Nowhere,
+        $capped,
+        MutantStatus::Killed,
+        1,
+    ];
+    yield 'ended where the config hides errors, with no cap' => [$ended, ErrorDisplay::Nowhere, MemoryCap::none(), MutantStatus::Killed, 0];
+    yield 'PHPUnit 12.5\'s hint, with no cap' => [$hint, NotGiven::value(), MemoryCap::none(), MutantStatus::Killed, 0];
+});
+
 it('counts mutants that share a file, a mutator and a change, so each has an id of its own', function (): void {
     $at = resultsProject();
     $diff = InfectionRun::diff('$a + 1', '$a - 1');
@@ -230,14 +314,27 @@ it('cannot judge logs whose counts do not match what they list', function (): vo
 it('cannot judge a run that wrote no log, with what Infection said', function (): void {
     $at = resultsProject();
 
-    expect(Results::read($at, Ran::finished(succeeded: false, output: 'Fatal'), TextLog::read(''), resultsLimits($at), nativeMarkersAllowed: false))
+    expect(Results::read($at, Ran::finished(succeeded: false, output: 'Fatal'), TextLog::read(''), resultsLimits($at), MemoryCap::standard(), NotGiven::value(), nativeMarkersAllowed: false))
         ->toEqual(CannotJudge::because("Infection wrote no log, so no mutant it ran has a result. Infection said:\nFatal"));
+});
+
+it('cannot judge a run whose own process ran out of the gate\'s cap, and says to raise it', function (): void {
+    $at = resultsProject();
+    $said = 'PHP Fatal error:  Allowed memory size of 67108864 bytes exhausted (tried to allocate 4096 bytes)';
+    $ran = Ran::finished(succeeded: false, output: $said);
+
+    expect(Results::read($at, $ran, TextLog::read(''), resultsLimits($at), MemoryCap::of(64, MemoryUnit::Megabytes), NotGiven::value(), nativeMarkersAllowed: false))
+        ->toEqual(CannotJudge::because(sprintf(
+            "Infection ran out of the 64M memory cap in its own process, so it wrote no log. %s Infection said:\n%s",
+            'Raise runner.memory; doctor --measure says what the suite needs.',
+            $said,
+        )));
 });
 
 it('cannot judge a log that is not in the shape Infection writes', function (): void {
     $at = resultsProject();
     Scratch::write($at->root(), '.gate/infection/logs/infection.json', '{"stats": {"killedCount": "one"}}');
 
-    expect(Results::read($at, Ran::finished(succeeded: true, output: ''), TextLog::read(''), resultsLimits($at), nativeMarkersAllowed: false))
+    expect(Results::read($at, Ran::finished(succeeded: true, output: ''), TextLog::read(''), resultsLimits($at), MemoryCap::standard(), NotGiven::value(), nativeMarkersAllowed: false))
         ->toEqual(CannotJudge::because("Infection's log is not in the shape the gate reads: the file.stats.killedCount is not a whole number."));
 });

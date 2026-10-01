@@ -211,12 +211,14 @@ final readonly class Removals
             MutantJudgement::Killed,
             MutantJudgement::Errored,
             MutantJudgement::KilledByTimeout,
+            MutantJudgement::KilledByMemoryCap,
             MutantJudgement::KilledByStaticAnalysis,
             MutantJudgement::Survived,
             MutantJudgement::Uncovered,
             MutantJudgement::Unjudged,
             MutantJudgement::Flaky,
-            MutantJudgement::TooSlowToJudge => false,
+            MutantJudgement::TooSlowToJudge,
+            MutantJudgement::TooHeavyToJudge => false,
         };
     }
 

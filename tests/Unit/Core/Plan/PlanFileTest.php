@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
@@ -26,6 +27,8 @@ use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestName;
@@ -404,4 +407,36 @@ it('reads back a change to a file whose path reads as a number', function (): vo
     );
 
     expect(PlanFile::decode(PlanFile::encode($plan)))->toEqual($plan);
+});
+
+it('writes the suite\'s measured peak within its digest, in bytes, and reads it back', function (): void {
+    $plan = planFileEmpty()->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))
+        ->weighing(MemoryCap::of(300, MemoryUnit::Megabytes));
+    $written = PlanFile::encode($plan);
+    $read = PlanFile::decode($written);
+
+    expect($read)->toEqual($plan)
+        ->and($read instanceof Plan ? $read->peak() : $read)->toEqual(MemoryCap::of(300, MemoryUnit::Megabytes))
+        ->and($written)->toContain('"peak": 314572800')
+        ->and($plan->digest())->not->toEqual($plan->weighing(NotGiven::value())->digest());
+});
+
+it('reads a plan that holds no peak, as one made before the plan measured it, as having measured none', function (): void {
+    $plan = planFileEmpty()->on(RunOn::at(Scope::branch('main'), Scope::branch('main')));
+    $read = PlanFile::decode(PlanFile::encode($plan));
+
+    expect(PlanFile::encode($plan))->not->toContain('"peak"')
+        ->and($read instanceof Plan ? $read->peak() : $read)->toEqual(NotGiven::value());
+});
+
+it('refuses a plan whose peak was changed after it was made, or is no number of bytes', function (): void {
+    $plan = planFileEmpty()->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))
+        ->weighing(MemoryCap::of(300, MemoryUnit::Megabytes));
+    $written = PlanFile::encode($plan);
+
+    expect(PlanFile::decode(str_replace('"peak": 314572800', '"peak": 1048576', $written)))->toEqual(CannotJudge::because(
+        'The plan does not match its digest, so it was changed after it was made. Plan again.',
+    ))->and(PlanFile::decode(str_replace('"peak": 314572800', '"peak": 0', $written)))->toEqual(CannotJudge::because(
+        'The plan cannot be read, so no shard can follow it: the file.peak is not a number of bytes.',
+    ));
 });

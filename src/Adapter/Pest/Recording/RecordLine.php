@@ -8,6 +8,7 @@ use function json_encode;
 
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -77,6 +78,16 @@ final readonly class RecordLine
             RecordField::Event->value => RecordEvent::Killed->value,
             RecordField::Mutated->value => $mutated,
             RecordField::Test->value => $test,
+        ]);
+    }
+
+    /** The memory limit the own process of the mutant Pest serves this mutated copy for ran out of. */
+    public static function exhausted(string $mutated, MemoryCap $limit): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Exhausted->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::Bytes->value => $limit->bytes(),
         ]);
     }
 

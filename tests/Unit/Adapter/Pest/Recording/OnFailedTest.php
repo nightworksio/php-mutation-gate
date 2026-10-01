@@ -8,6 +8,9 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use PHPUnit\Event\Facade;
 
 afterEach(function (): void {
+    // Killers logs this process's errors to the mutant's own file, as it does in a mutant's own process.
+    ini_restore('error_log');
+    ini_restore('log_errors');
     Scratch::sweep();
 });
 

@@ -8,7 +8,8 @@ use Pest\Mutate\Event\Events\Test\Outcome\Tested;
 use Pest\Mutate\Event\Events\Test\Outcome\TestedSubscriber;
 
 /**
- * Records a mutant a test caught.
+ * Records a mutant a test caught, and the memory limit its own process ran
+ * out of, where it did.
  * Pest's facade files a subscriber under the first interface it implements,
  * so this implements that one alone.
  */
@@ -21,5 +22,6 @@ final readonly class OnTested implements TestedSubscriber
     public function notify(Tested $event): void
     {
         $this->recorder->outcome($event->test);
+        $this->recorder->exhausted($event->test);
     }
 }

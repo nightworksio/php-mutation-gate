@@ -32,7 +32,7 @@ function triagedMutant(MutantStatus $status, float $limit, float $tests): Mutant
     );
     $limited = $limit > 0 ? $mutant->withLimit(Seconds::of($limit)) : $mutant;
 
-    return $tests > 0 ? $limited->withJudgingTime(Seconds::of($tests)) : $limited;
+    return $tests > 0 ? $limited->withUnmutatedNeed(Seconds::of($tests)) : $limited;
 }
 
 it('kills a timeout whose judging tests take under half its limit, and no other', function (
@@ -68,7 +68,7 @@ it('times each mutant whose time ran out by the tests covering its line, where t
     ), $map)];
 
     expect(array_map(static fn(Mutant $mutant): string => match (true) {
-        $mutant->judgingTime() instanceof Seconds => sprintf('%.1f', $mutant->judgingTime()->seconds()),
+        $mutant->unmutatedNeed() instanceof Seconds => sprintf('%.1f', $mutant->unmutatedNeed()->seconds()),
         default => 'unmeasured',
     }, $timed))->toBe([$time, 'unmeasured']);
 })->with([

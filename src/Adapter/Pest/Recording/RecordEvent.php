@@ -22,6 +22,9 @@ enum RecordEvent: string
     /** A test that failed in a mutant's own process. */
     case Killed = 'killed';
 
+    /** A mutant's own process ran out of its memory limit. */
+    case Exhausted = 'exhausted';
+
     /** The run reached its end. */
     case End = 'end';
 }

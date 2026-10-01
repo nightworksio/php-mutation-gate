@@ -6,17 +6,22 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
 use function copy;
 use function dirname;
+use function file_get_contents;
 use function file_put_contents;
 use function getenv;
 use function is_dir;
+use function is_file;
 use function is_string;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use Pest\Mutate\Event\Facade;
@@ -27,6 +32,7 @@ use Pest\Support\Container;
 use Pest\Support\Coverage;
 
 use function sprintf;
+use function unlink;
 
 /**
  * What the Pest plugin writes for the adapter, one JSON line at a time as each
@@ -36,7 +42,9 @@ use function sprintf;
  * - `planned`, every mutant with its file, lines, mutator class, diff and the
  *   mutated copy Pest serves in a mutant's own process, once they are all
  *   made, and `made`, how many there are and the opening run's seconds;
- * - `outcome`, each mutant's status as Pest decides it;
+ * - `outcome`, each mutant's status as Pest decides it, and `exhausted`, the
+ *   memory limit a caught mutant's own process ran out of, where its output
+ *   says it did;
  * - `finished`, every mutant's final status and duration, which Pest sets only
  *   after the outcome is announced, and `end`.
  */
@@ -47,6 +55,9 @@ final readonly class Recorder
 
     /** The variable Pest sets beside it, naming the mutated copy it serves in the original's place. */
     public const string MUTATED = 'PEST_MUTATION_FILE';
+
+    /** A mutant's error log beside a results file: the results file's name, then the digest of the mutated copy. */
+    private const string ERRORS = '%s.%s.log';
 
     /**
      * @param string        $results   the file the lines are written to
@@ -117,6 +128,29 @@ final readonly class Recorder
     }
 
     /**
+     * Where a mutant's own process logs PHP's errors, beside a results file,
+     * by the mutated copy it runs on: PHP logs a fatal error as it happens,
+     * before any shutdown function, so the log keeps one that Pest's and
+     * PHPUnit's own handling of it would lose.
+     *
+     * @return non-empty-string
+     */
+    public static function errorsBeside(string $results, string $mutated): string
+    {
+        return sprintf(self::ERRORS, $results, Digest::sha256Of($mutated)->value());
+    }
+
+    /**
+     * Every mutant's error log beside a results file, as a pattern `glob()` matches.
+     *
+     * @return non-empty-string
+     */
+    public static function everyErrorLogBeside(string $results): string
+    {
+        return sprintf(self::ERRORS, $results, '*');
+    }
+
+    /**
      * Where the mutated copy of a mutant Pest ran no test on is kept, in the
      * directory of a results file.
      *
@@ -183,6 +217,27 @@ final readonly class Recorder
     public function outcome(MutationTest $test): void
     {
         $this->write(RecordLine::outcome($test->getId(), $this->statusOf($test)));
+    }
+
+    /**
+     * The memory limit a mutant's own process ran out of, where the errors
+     * it logged say so; the log is removed once read.
+     */
+    public function exhausted(MutationTest $test): void
+    {
+        $mutated = $test->mutation->modifiedSourcePath;
+        $log = self::errorsBeside($this->results, $mutated);
+
+        if (! is_file($log)) {
+            return;
+        }
+
+        $limit = Exhaustion::in((string) file_get_contents($log));
+        unlink($log);
+
+        if ($limit instanceof MemoryCap) {
+            $this->write(RecordLine::exhausted($mutated, $limit));
+        }
     }
 
     public function finished(MutationSuite $suite): void

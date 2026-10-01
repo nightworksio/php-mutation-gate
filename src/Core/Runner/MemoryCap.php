@@ -39,11 +39,6 @@ final readonly class MemoryCap
     /** PHP's shorthand for an amount of memory, its unit in either case. */
     private const string SHORTHAND = '/\A(?<number>[1-9]\d*)(?<unit>[KMG]?)\z/i';
 
-    /**
-     * How many times what the suite needed a cap should hold: a mutant rarely
-     * needs twice what its whole suite does, unless it runs away.
-     */
-    private const int ROOM = 2;
 
     private const string UNREADABLE
         = '"%s" is not an amount of memory. Write it as PHP\'s memory_limit does, such as 512M or 1G, or -1 for none.';
@@ -140,17 +135,6 @@ final readonly class MemoryCap
         return $this->caps() && (! $limit->caps() || $limit->bytes() > $this->bytes());
     }
 
-    /** Whether this cap holds what a suite needed, as `peak`, with room to spare: none always does. */
-    public function leavesRoomFor(self $peak): bool
-    {
-        return ! $this->caps() || $this->bytes() >= $peak->withRoom()->bytes();
-    }
-
-    /** The cap that holds this much with room to spare. */
-    public function withRoom(): self
-    {
-        return self::atLeast($this->bytes() * self::ROOM);
-    }
 
 
     /** The ini file that sets this cap, where it caps anything. */
@@ -179,7 +163,8 @@ final readonly class MemoryCap
         };
     }
 
-    private function bytes(): int
+    /** How many bytes it holds: none where it caps nothing. */
+    public function bytes(): int
     {
         return $this->unit instanceof MemoryUnit ? $this->number * $this->unit->bytes() : 0;
     }

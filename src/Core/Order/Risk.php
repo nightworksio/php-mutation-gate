@@ -13,7 +13,7 @@ enum Risk
     /** It has changed lines, whose mutants the new-code floor judges. */
     case ChangedLines;
 
-    /** Its last recorded result has a survivor, or a mutant too slow to judge. */
+    /** Its last recorded result has a survivor, or a mutant too slow or too heavy to judge. */
     case Unsettled;
 
     /** It has never been mutated. */

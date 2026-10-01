@@ -17,7 +17,7 @@ enum ResultRule: string
 {
     case Survived = 'survived';
     case Uncovered = 'uncovered';
-    /** Unjudged mutants, and those too slow to judge. */
+    /** Unjudged mutants, and those too slow or too heavy to judge. */
     case Unjudged = 'unjudged';
     case Flaky = 'flaky';
 
@@ -26,13 +26,16 @@ enum ResultRule: string
     {
         return match ($judgement) {
             MutantJudgement::Uncovered => self::Uncovered,
-            MutantJudgement::Unjudged, MutantJudgement::TooSlowToJudge => self::Unjudged,
+            MutantJudgement::Unjudged,
+            MutantJudgement::TooSlowToJudge,
+            MutantJudgement::TooHeavyToJudge => self::Unjudged,
             MutantJudgement::Flaky => self::Flaky,
             MutantJudgement::Survived,
             MutantJudgement::Killed,
             MutantJudgement::KilledByStaticAnalysis,
             MutantJudgement::Errored,
             MutantJudgement::KilledByTimeout,
+            MutantJudgement::KilledByMemoryCap,
             MutantJudgement::Ignored,
             MutantJudgement::IgnoredByMarker,
             MutantJudgement::Equivalent => self::Survived,
@@ -45,7 +48,7 @@ enum ResultRule: string
         return match ($this) {
             self::Survived => 'A mutant no test fails on.',
             self::Uncovered => 'A mutant on a line no test runs.',
-            self::Unjudged => 'A mutant the run did not judge, or could not judge in its time limit.',
+            self::Unjudged => 'A mutant the run did not judge, or could not judge in its time or memory limit.',
             self::Flaky => 'A mutant its tests killed on one run and not on another.',
         };
     }

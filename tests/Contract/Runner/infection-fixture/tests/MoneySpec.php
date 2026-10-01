@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use function getenv;
+
 use Library\Money;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+
+use function touch;
 
 // The runner contract's marks, each left only where its variable names a
 // file: CONTRACT_LOADED when this file loads, and CONTRACT_RAN when a test of
@@ -23,6 +27,7 @@ final class MoneySpec extends TestCase
     public function addsTwoAmounts(): void
     {
         Probe::memory();
+        Probe::hog();
 
         if (getenv('CONTRACT_RAN') !== false) {
             touch((string) getenv('CONTRACT_RAN'));

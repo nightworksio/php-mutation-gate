@@ -15,6 +15,8 @@ final readonly class Label
             MutantJudgement::KilledByTimeout => 'killed by timeout',
             MutantJudgement::KilledByStaticAnalysis => 'killed by static analysis',
             MutantJudgement::TooSlowToJudge => 'too slow to judge',
+            MutantJudgement::KilledByMemoryCap => 'killed by the memory cap',
+            MutantJudgement::TooHeavyToJudge => 'too heavy to judge',
             MutantJudgement::IgnoredByMarker => 'ignored by a native marker',
             MutantJudgement::Equivalent => 'equivalent, proven',
             MutantJudgement::Killed,

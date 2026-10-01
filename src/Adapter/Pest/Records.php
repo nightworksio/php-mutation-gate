@@ -24,6 +24,9 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\WrittenBytes;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -34,8 +37,9 @@ use function sprintf;
 /**
  * What the plugin wrote of one Pest run: every mutant it planned, and whether
  * it wrote all of them, the status each ended with, how long each ran, the
- * tests that failed in each mutant's own process, how long the opening run
- * took, and whether the run reached its end. A line cut short, as a run
+ * tests that failed in each mutant's own process, the memory limit any
+ * such process ran out of, how long the opening run took, and whether the
+ * run reached its end. A line cut short, as a run
  * stopped while it wrote leaves its last, is not a record; any other line
  * that is not one, and a whole record that lacks a field its event carries
  * or holds a line no file has, refuses the file.
@@ -69,6 +73,9 @@ final class Records
 
     /** @var array<string, list<string>> the tests that failed, in order, by the mutated copy they ran on */
     private array $killers = [];
+
+    /** @var array<string, MemoryCap> the memory limit a mutant's own process ran out of, by the copy it ran on */
+    private array $exhausted = [];
 
     private Seconds|Unmeasured $opening;
 
@@ -143,6 +150,18 @@ final class Records
         return TestIds::of(...array_map(TestId::of(...), $named));
     }
 
+    /**
+     * The memory limit a mutant's own process ran out of, where it did. Any
+     * two mutants that leave the same source share their mutated copy, and
+     * so this.
+     */
+    public function exhaustionOf(PlannedMutant $mutant): MemoryCap|NotGiven
+    {
+        $mutated = $mutant->mutated()->value();
+
+        return array_key_exists($mutated, $this->exhausted) ? $this->exhausted[$mutated] : NotGiven::value();
+    }
+
     /** The seconds Pest allowed each mutant, from the opening run's. */
     public function limit(): Seconds|Unmeasured
     {
@@ -203,6 +222,8 @@ final class Records
             RecordEvent::Outcome => $this->withOutcome($record),
             RecordEvent::Finished => $this->withFinished($record),
             RecordEvent::Killed => $this->withKiller($record),
+            RecordEvent::Exhausted => $this->exhausted[$record->field(RecordField::Mutated->value)->text()]
+                = WrittenBytes::read($record->field(RecordField::Bytes->value)),
             RecordEvent::End => $this->ended = true,
             null => throw NotInShape::at($event->at(), 'an event the plugin writes'),
         };

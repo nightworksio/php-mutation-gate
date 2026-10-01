@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use function class_exists;
+use function file_put_contents;
+use function getenv;
+use function ini_get;
+use function ini_set;
+use function sprintf;
+use function str_repeat;
+
 /** What the contract suite asks a test's own process, where it asks. */
 final class Probe
 {
@@ -19,6 +27,31 @@ final class Probe
 
         if ($memory !== false) {
             file_put_contents($memory, sprintf("%s %s\n", $where, ini_get('memory_limit')), FILE_APPEND | LOCK_EX);
+        }
+    }
+
+    /**
+     * Where LIBRARY_HOG is set, has a mutant's own process hold memory until
+     * PHP stops it: under the memory_limit LIBRARY_HOG names, or, where it is
+     * `cap`, under the one the process runs under. PHP's error shows where
+     * the process's display_errors says.
+     */
+    public static function hog(): void
+    {
+        $hog = getenv('LIBRARY_HOG');
+
+        if ($hog === false || ! class_exists('Infection\\StreamWrapper\\IncludeInterceptor', autoload: false)) {
+            return;
+        }
+
+        if ($hog !== 'cap') {
+            ini_set('memory_limit', $hog);
+        }
+
+        $held = [];
+
+        while (true) {
+            $held[] = str_repeat('x', 1024);
         }
     }
 }

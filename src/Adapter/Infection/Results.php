@@ -24,12 +24,18 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
+use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
+use function preg_match;
 use function sprintf;
+use function str_contains;
 use function usort;
 
 /**
@@ -41,7 +47,12 @@ use function usort;
  * allows such markers. Whether Infection exited with success decides
  * nothing: a finished run is judged by its logs. A mutant its tests killed
  * carries the tests that killed it; one killed by static analysis, a
- * timeout or an error carries none.
+ * timeout or an error carries none. A mutant killed or errored whose output
+ * holds PHP's fatal error for exactly the gate's memory cap is out of memory
+ * (ADR-0004, decision 9). Under a cap, one whose process PHPUnit says ended
+ * mid-test where PHP's errors were visibly hidden, as the project's PHPUnit
+ * config sets `display_errors` or as PHPUnit's own word says, is out of memory
+ * with no limit known, which memory triage never counts as a kill.
  *
  * @phpstan-type Found array{
  *     status: MutantStatus,
@@ -50,24 +61,20 @@ use function usort;
  *     mutator: string,
  *     diff: string,
  *     killers: TestIds,
+ *     limit: MemoryCap|NotGiven,
  * }
  */
 final readonly class Results
 {
-    /** The list of the mutants tests killed, whose output names the tests that did. */
-    private const string KILLED_BY_TESTS = 'killed';
+    /** What PHPUnit prints after any end of its process mid-test: a fatal error, shown or hidden, or `exit`. */
+    private const string ENDED = '/Fatal error: Premature end of PHP process when running [^\n]+\.$/m';
 
-    /** Each list in the JSON log, with the count in `stats` that it must match and the status of its mutants. */
-    private const array LISTS = [
-        self::KILLED_BY_TESTS => ['killedCount', MutantStatus::Killed],
-        'killedByStaticAnalysis' => ['killedByStaticAnalysisCount', MutantStatus::KilledByStaticAnalysis],
-        'escaped' => ['escapedCount', MutantStatus::Survived],
-        'errored' => ['errorCount', MutantStatus::Errored],
-        'syntaxErrors' => ['syntaxErrorCount', MutantStatus::Errored],
-        'timeouted' => ['timeOutCount', MutantStatus::TimedOut],
-        'uncovered' => ['notCoveredCount', MutantStatus::Uncovered],
-        'ignored' => ['ignoredCount', MutantStatus::IgnoredByMarker],
-    ];
+    /** What PHPUnit 12.5 prints instead where `display_errors` was off as the test started. */
+    private const string HIDDEN
+        = "Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message.";
+
+    /** The field of a log entry that holds what the mutant's process printed. */
+    private const string OUTPUT = 'processOutput';
 
     /** The statuses of a mutant its limit decided, which are the ones that carry it. */
     private const array TIMED = [MutantStatus::TimedOut, MutantStatus::Skipped];
@@ -77,6 +84,9 @@ final readonly class Results
     private const string MUTATOR = 'mutator';
 
     private const string NO_LOG = "Infection wrote no log, so no mutant it ran has a result. Infection said:\n%s";
+
+    private const string OUT_OF_MEMORY
+        = "Infection ran out of the %s memory cap in its own process, so it wrote no log. %s Infection said:\n%s";
 
     private const string NOT_IN_SHAPE = "Infection's log is not in the shape the gate reads: %s";
 
@@ -96,27 +106,42 @@ final readonly class Results
         Ran $ran,
         TextLog $text,
         Limits $limits,
+        MemoryCap $cap,
+        ErrorDisplay|NotGiven $display,
         bool $nativeMarkersAllowed,
     ): MutationResult|CannotJudge {
         $log = $project->own(Invocation::JSON);
         $found = is_file($log)
-            ? self::parsed(sprintf('%s', file_get_contents($log)), $text, $nativeMarkersAllowed)
-            : CannotJudge::because(sprintf(self::NO_LOG, $ran->output()));
+            ? self::parsed(sprintf('%s', file_get_contents($log)), $text, $cap, $display, $nativeMarkersAllowed)
+            : self::unlogged($ran, $cap);
 
         return $found instanceof CannotJudge
             ? $found
             : MutationResult::of(self::mutants($project, $found, $text, $limits), 0);
     }
 
-    /** @return list<Found>|CannotJudge */
-    private static function parsed(string $json, TextLog $text, bool $nativeMarkersAllowed): array|CannotJudge
+    /** Why a run that wrote no log cannot be judged: Infection's own process out of the memory cap, or what it said. */
+    private static function unlogged(Ran $ran, MemoryCap $cap): CannotJudge
     {
+        return Exhaustion::isOf(Exhaustion::in($ran->output()), $cap)
+            ? CannotJudge::because(sprintf(self::OUT_OF_MEMORY, $cap->written(), Exhaustion::ADVICE, $ran->output()))
+            : CannotJudge::because(sprintf(self::NO_LOG, $ran->output()));
+    }
+
+    /** @return list<Found>|CannotJudge */
+    private static function parsed(
+        string $json,
+        TextLog $text,
+        MemoryCap $cap,
+        ErrorDisplay|NotGiven $display,
+        bool $nativeMarkersAllowed,
+    ): array|CannotJudge {
         try {
             $log = Node::decode($json);
             $problem = self::problemIn($log, $text, $nativeMarkersAllowed);
 
             return $problem === ''
-                ? self::found($log, $text)
+                ? self::found($log, $text, $cap, $display)
                 : CannotJudge::because(sprintf(self::DOES_NOT_ADD_UP, $problem));
         } catch (NotInShape $shape) {
             return CannotJudge::because(sprintf(self::NOT_IN_SHAPE, $shape->getMessage()));
@@ -135,17 +160,17 @@ final readonly class Results
         $problems = [];
         $sum = 0;
 
-        foreach (self::LISTS as $list => [$count]) {
-            $counted = $stats->field($count)->integer();
-            $listed = count($log->field($list)->items());
+        foreach (LogList::cases() as $list) {
+            $counted = $stats->field($list->count())->integer();
+            $listed = count($log->field($list->value)->items());
             $sum += $counted;
-            $problems[] = $counted === $listed ? '' : sprintf(self::UNEVEN, $counted, $count, $listed);
+            $problems[] = $counted === $listed ? '' : sprintf(self::UNEVEN, $counted, $list->count(), $listed);
         }
 
         $skipped = $stats->field('skippedCount')->integer();
         $named = $text->count(TextLog::SKIPPED);
         $total = $stats->field('totalMutantsCount')->integer();
-        $ignored = $stats->field('ignoredCount')->integer();
+        $ignored = $stats->field(LogList::Ignored->count())->integer();
 
         $problems[] = $skipped === $named ? '' : sprintf(self::UNEVEN_SKIPPED, $skipped, $named);
         $problems[] = $total === $sum + $skipped ? '' : sprintf(self::UNEVEN_TOTAL, $total, $sum + $skipped);
@@ -159,42 +184,82 @@ final readonly class Results
      *
      * @throws NotInShape
      */
-    private static function found(Node $log, TextLog $text): array
+    private static function found(Node $log, TextLog $text, MemoryCap $cap, ErrorDisplay|NotGiven $display): array
     {
         $found = [];
 
-        foreach (self::LISTS as $list => [, $status]) {
-            foreach ($log->field($list)->items() as $entry) {
-                $mutator = $entry->field(self::MUTATOR);
-                $found[] = [
-                    'status' => $status,
-                    'file' => $mutator->field('originalFilePath')->text(),
-                    'line' => $mutator->field('originalStartLine')->integer(),
-                    'mutator' => $mutator->field('mutatorName')->text(),
-                    'diff' => $entry->field('diff')->text(),
-                    'killers' => $list === self::KILLED_BY_TESTS
-                        ? KillingTests::in(Lenient::text($entry->field('processOutput')))
-                        : TestIds::none(),
-                ];
+        foreach (LogList::cases() as $list) {
+            foreach ($log->field($list->value)->items() as $entry) {
+                $found[] = self::entry($list, $entry, $cap, $display);
             }
         }
 
         foreach ($text->under(TextLog::SKIPPED) as $skipped) {
-            $found[] = [...$skipped, 'status' => MutantStatus::Skipped, 'killers' => TestIds::none()];
+            $found[] = [
+                ...$skipped,
+                'status' => MutantStatus::Skipped,
+                'killers' => TestIds::none(),
+                'limit' => NotGiven::value(),
+            ];
         }
 
         return $found;
     }
 
     /**
+     * A mutant of a list, out of memory where its output says so, and then
+     * with no tests that killed it and with the cap where PHP's fatal error
+     * names it.
+     *
+     * @return Found
+     *
+     * @throws NotInShape
+     */
+    private static function entry(LogList $list, Node $entry, MemoryCap $cap, ErrorDisplay|NotGiven $display): array
+    {
+        $mutator = $entry->field(self::MUTATOR);
+        $output = Lenient::text($entry->field(self::OUTPUT));
+        $outOfMemory = $list->mayRunOutOfMemory() && self::outOfMemory($output, $cap, $display);
+        $named = $outOfMemory && Exhaustion::isOf(Exhaustion::in($output), $cap);
+
+        return [
+            'status' => $outOfMemory ? MutantStatus::OutOfMemory : $list->status(),
+            'file' => $mutator->field('originalFilePath')->text(),
+            'line' => $mutator->field('originalStartLine')->integer(),
+            'mutator' => $mutator->field('mutatorName')->text(),
+            'diff' => $entry->field('diff')->text(),
+            'killers' => $list->namesKillers() && ! $outOfMemory ? KillingTests::in($output) : TestIds::none(),
+            'limit' => $named ? $cap : NotGiven::value(),
+        ];
+    }
+
+    /**
+     * Whether a mutant whose process printed this ran out of the memory cap:
+     * exactly the cap, as PHP's fatal error says, or, under a cap, a process
+     * PHPUnit says ended mid-test where PHP's errors were visibly hidden.
+     */
+    private static function outOfMemory(string $output, MemoryCap $cap, ErrorDisplay|NotGiven $display): bool
+    {
+        $configured = $display instanceof ErrorDisplay && $display !== ErrorDisplay::Stdout;
+        $hidden = str_contains($output, self::HIDDEN) || ($configured && preg_match(self::ENDED, $output) === 1);
+
+        return Exhaustion::isOf(Exhaustion::in($output), $cap) || ($cap->caps() && $hidden);
+    }
+
+    /**
      * The mutants, by file and then by line, each with the gate's id, the
      * native id the text log gives it, its family and, for one that timed out
-     * or was skipped, its limit.
+     * or was skipped, its limit, and for one out of memory, the cap where
+     * its output named it.
      *
      * @param list<Found> $found
      */
-    private static function mutants(Project $project, array $found, TextLog $text, Limits $limits): Mutants
-    {
+    private static function mutants(
+        Project $project,
+        array $found,
+        TextLog $text,
+        Limits $limits,
+    ): Mutants {
         usort(
             $found,
             static fn(array $one, array $other): int
@@ -218,8 +283,12 @@ final readonly class Results
                 $mutant['status'],
                 Unmeasured::duration(),
             )->killedBy($mutant['killers']);
-            $timed = in_array($mutant['status'], self::TIMED, strict: true);
-            $mutants = $mutants->with($timed ? $recorded->withLimit($limits->at($file, $line)) : $recorded);
+            $mutants = $mutants->with(match (true) {
+                in_array($mutant['status'], self::TIMED, strict: true)
+                    => $recorded->withLimit($limits->at($file, $line)),
+                $mutant['limit'] instanceof MemoryCap => $recorded->withLimit($mutant['limit']),
+                default => $recorded,
+            });
         }
 
         return $mutants;

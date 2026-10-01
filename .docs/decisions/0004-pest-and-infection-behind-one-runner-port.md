@@ -681,6 +681,58 @@ its parser attributes. Both change when the checkout moves.
      suite near the cap can be refused though its mutants would fit. Where
      the system counts no such peak, or the plan reads a map another job
      wrote, it plans.
+   - The plan owns the peak. It records the peak of the coverage run it
+     planned from as `peak`, in bytes, within its digest, and every shard
+     reads it from there, so a shard that reads the map the plan job handed
+     over triages by the plan job's measurement. A plan without `peak`,
+     made from a map another job wrote, or before plans recorded it,
+     measured none.
+   - A mutant whose own process ran out of exactly `runner.memory`, to the
+     byte, is *out of memory*. PHP's fatal error names the limit it ran out
+     of, and PHP logs it as it happens, before any shutdown function: Pest
+     and PHPUnit end the process, or run out of memory themselves, before
+     anything registered later could write it. So Pest's plugin logs PHP's
+     errors in each mutant's own process to a file of that mutant's own
+     (`log_errors` and `error_log`, which decide nothing a test computes),
+     and reads it in the process that started the mutant; a test or config
+     that sets `error_log` itself logs elsewhere. The Infection adapter reads
+     the error from the output Infection logs for a mutant it counts killed
+     or errored, which is the mutant's standard output alone, and the
+     PHPUnit it runs sends `error_log` to a file of its own around each
+     test, lost with the process. So the cap's ini file for an Infection run also sets
+     `display_errors=stdout`. That decides where an error is shown and
+     nothing a test computes: PHPUnit's own handler still takes every error a
+     test raises, and only one raised outside it, such as in a bootstrap
+     file, now also prints on standard output. A project that shows errors
+     nowhere again leaves only PHPUnit's word that its process ended
+     mid-test, which PHPUnit also prints after `exit` or `die`. So, under a
+     cap, such a mutant is out of memory with no limit known, so too heavy
+     to judge, only where the hiding is visible: the project's PHPUnit
+     config sets `display_errors` in its `<ini>` to print nowhere or on
+     standard error, or PHPUnit 12.5 says it hid the error. Errors hidden at
+     runtime, such as by `ini_set` in a bootstrap file, are not seen, so a
+     mutant out of the cap there is a false kill. Where the hiding is
+     visible, an `exit` or `die` mid-test prints the same sentence, so it
+     reads as too heavy to judge too. A limit the project set itself, any
+     other fatal error PHP shows, `exit` and `die` where errors are not
+     visibly hidden, the system's own out-of-memory killer and a crash keep
+     the status the runner gave them.
+   - Memory triage judges a mutant out of memory the way timeout triage
+     judges a timeout (ADR-0008). Where the plan's peak is at most half the
+     cap, the cap holds at least twice what the suite needs, so the mutant
+     needed far more than its suite and ran away:
+     it is *killed by the memory cap*, and counts as killed, with no killer
+     named. Otherwise, or where the plan measured no peak, it is *too heavy
+     to judge*, and counts as not killed, under the `unjudged` rule. Twice
+     is one policy with doctor's `memory-cap-near`, which advises a cap of
+     twice the peak.
+   - A result records a mutant out of memory with its cap and the plan's
+     peak, in bytes. A carried one is unjudged, as a timeout is, since
+     triage can count it as a kill; a proved one is judged again under the
+     peak it recorded.
+   - Where the runner's own process runs out of the cap, the opening run
+     of the suite included, the run is *cannot judge*, and says to raise
+     `runner.memory`.
    - The cap's ini file is written, whole, into a directory of the runner's
      workspace for each process of the gate, which it empties first and
      removes when the run is done. A link at any level from the gate's own

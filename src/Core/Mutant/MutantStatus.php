@@ -23,6 +23,9 @@ enum MutantStatus: string
     case IgnoredByMarker = 'ignored-by-marker';
     case Skipped = 'skipped';
 
+    /** Its process ran out of the memory `runner.memory` caps it at (ADR-0004, decision 9). */
+    case OutOfMemory = 'out-of-memory';
+
     /**
      * The status as a run's answer about the mutant: a kill by static
      * analysis and a kill by a test as one, since whether the analyser

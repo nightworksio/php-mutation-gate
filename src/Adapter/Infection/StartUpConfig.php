@@ -14,7 +14,6 @@ use DOMNode;
 use DOMXPath;
 
 use function file_put_contents;
-use function is_file;
 use function is_string;
 use function iterator_to_array;
 use function ltrim;
@@ -22,6 +21,7 @@ use function ltrim;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function preg_match;
 use function realpath;
@@ -118,13 +118,11 @@ final readonly class StartUpConfig
     /** The project's PHPUnit config, by the first of its names PHPUnit finds in its directory. */
     private static function original(Project $project, OwnConfig $config): string|CannotJudge
     {
-        foreach ($config->phpUnitConfigs($project) as $candidate) {
-            if (is_file($project->absolute($candidate))) {
-                return $project->absolute($candidate);
-            }
-        }
+        $file = ProjectPhpUnit::file($project, $config);
 
-        return CannotJudge::because(sprintf(self::NONE, $config->configDirectory($project)));
+        return $file instanceof NotGiven
+            ? CannotJudge::because(sprintf(self::NONE, $config->configDirectory($project)))
+            : $file;
     }
 
     /**

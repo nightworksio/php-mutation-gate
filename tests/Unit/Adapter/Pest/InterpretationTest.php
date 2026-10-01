@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -141,7 +143,7 @@ $six = static fn(string $root): array => [
 
 /** The interpretation of a run in a project, with pest:patch off. */
 $read = static fn(Project $project, Ran $ran, string $results): MutationResult|CannotJudge
-    => new Interpretation($project, Patching::off())->of($ran, $results, CoverageFile::at(Recorder::coverageBeside($results)));
+    => new Interpretation($project, Patching::off(), MemoryCap::standard())->of($ran, $results, CoverageFile::at(Recorder::coverageBeside($results)));
 
 it('reads a finished run by file and line, with a killer and a timeout\'s limit', function () use ($mutant, $six, $read): void {
     [$project, $results, $root] = interpretedRun([11 => [0], 21 => [], 40 => [0]], [11 => [1]]);
@@ -202,6 +204,52 @@ it('cannot judge a run that failed, with what Pest said', function () use ($read
 
     expect($read($project, Ran::finished(succeeded: false, output: 'Tests: 1 failed'), $results))
         ->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nTests: 1 failed"));
+});
+
+it('reads a kill whose own process ran out of exactly the gate\'s cap as out of memory, with the cap, and no other', function () use (
+    $mutant,
+    $plan,
+): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 12 => [0], 13 => [0]], []);
+    $cap = MemoryCap::of(64, MemoryUnit::Megabytes);
+    PestRun::write($results, [
+        $plan($root, 'n1', 'src/Money.php:11', 'ab'),
+        $plan($root, 'n2', 'src/Money.php:12', 'cd'),
+        $plan($root, 'n3', 'src/Money.php:13', 'ef'),
+        PestRun::made(3),
+        PestRun::exhausted('n1', MemoryCap::of(67108864, MemoryUnit::Bytes)),
+        PestRun::exhausted('n2', MemoryCap::of(128, MemoryUnit::Megabytes)),
+        PestRun::exhausted('n3', MemoryCap::of(64, MemoryUnit::Megabytes)),
+        PestRun::finished('n1', PestStatus::Tested, 0.25),
+        PestRun::finished('n2', PestStatus::Tested, 0.25),
+        PestRun::finished('n3', PestStatus::Untested, 0.25),
+        PestRun::end(),
+    ]);
+    $ran = Ran::finished(succeeded: true, output: "\n  Mutations: 1 untested, 2 tested\n");
+
+    expect(new Interpretation($project, Patching::off(), $cap)->of($ran, $results, CoverageFile::at(Recorder::coverageBeside($results))))
+        ->toEqual(MutationResult::of(Mutants::of(
+            $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::OutOfMemory, 0.25)->withLimit($cap),
+            $mutant('n2', 'src/Money.php:12', 'cd', MutantStatus::Killed, 0.25),
+            $mutant('n3', 'src/Money.php:13', 'ef', MutantStatus::Survived, 0.25),
+        ), 0));
+});
+
+it('cannot judge a run whose own process ran out of the gate\'s cap, and says to raise it', function (): void {
+    [$project, $results] = interpretedRun([], []);
+    PestRun::write($results, []);
+    $said = 'PHP Fatal error:  Allowed memory size of 67108864 bytes exhausted (tried to allocate 4096 bytes)';
+    $ran = Ran::finished(succeeded: false, output: $said);
+    $coverage = CoverageFile::at(Recorder::coverageBeside($results));
+
+    expect(new Interpretation($project, Patching::off(), MemoryCap::of(64, MemoryUnit::Megabytes))->of($ran, $results, $coverage))
+        ->toEqual(CannotJudge::because(sprintf(
+            "Pest ran out of the 64M memory cap in its own process, so the run did not finish. %s Pest said:\n%s",
+            'Raise runner.memory; doctor --measure says what the suite needs.',
+            $said,
+        )))
+        ->and(new Interpretation($project, Patching::off(), MemoryCap::of(128, MemoryUnit::Megabytes))->of($ran, $results, $coverage))
+        ->toEqual(CannotJudge::because(sprintf("Pest's mutation run failed. Pest said:\n%s", $said)));
 });
 
 it('judges a run that reached its end though a minimum score failed it', function () use ($six, $read): void {
@@ -286,9 +334,9 @@ it('cannot judge a filter too long for Pest unpatched', function () use ($mutant
         PestRun::end(),
     ]);
     $ran = Ran::finished(succeeded: true, output: 'Mutations: 1 tested');
-    $patched = new Interpretation($project, Patching::on(Group::named('mutation-canary')));
+    $patched = new Interpretation($project, Patching::on(Group::named('mutation-canary')), MemoryCap::standard());
 
-    expect(new Interpretation($project, Patching::off())->of($ran, $results, CoverageFile::at(Recorder::coverageBeside($results))))->toEqual(CannotJudge::because(
+    expect(new Interpretation($project, Patching::off(), MemoryCap::standard())->of($ran, $results, CoverageFile::at(Recorder::coverageBeside($results))))->toEqual(CannotJudge::because(
         'Pest cannot pass the filter of the 2 tests covering src/Money.php:11. Turn on pest.patch.',
     ))->and($patched->of($ran, $results, CoverageFile::at(Recorder::coverageBeside($results))))->toEqual(MutationResult::of(Mutants::of(
         $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Killed, 0.25),

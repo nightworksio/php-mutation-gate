@@ -49,7 +49,7 @@ it('writes the cap whole, clearing what an earlier process of the same id left, 
 
     expect($scanned)->toBe(MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $directory))
         ->and($held)->toBe([sprintf('%s/%s', $directory, MemoryCap::FILE)])
-        ->and($written)->toBe("memory_limit=64M\n")
+        ->and($written)->toBe("memory_limit=64M\ndisplay_errors=stdout\n")
         ->and(is_dir($directory))->toBeFalse();
 });
 

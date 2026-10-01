@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Headroom;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
@@ -83,12 +84,12 @@ final readonly class Memory
     {
         $peak = $measured instanceof Measurement ? $measured->peak() : NotGiven::value();
 
-        return $peak instanceof MemoryCap && ! $cap->leavesRoomFor($peak)
+        return $peak instanceof MemoryCap && ! Headroom::standard()->isLeftBy($cap, $peak)
             ? self::advice(
                 Slug::MemoryCapNear,
                 sprintf(self::NEAR, $peak->written(), $cap->written()),
                 self::NEAR_WHY,
-                sprintf(self::NEAR_FIX, $peak->withRoom()->written()),
+                sprintf(self::NEAR_FIX, Headroom::standard()->neededFor($peak)->written()),
             )
             : Findings::none();
     }

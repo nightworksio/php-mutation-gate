@@ -137,8 +137,8 @@ sees the same verdict.
        the repository. A local run (`CI` unset) also gives the absolute root
        as `originalUriBaseIds.SRCROOT`, for editors (ADR-0015, decision 9).
      - Four rules: `survived`, `uncovered`, `unjudged` and `flaky`. The
-       `unjudged` rule reports both unjudged mutants and those too slow to
-       judge. A mutant proven equivalent is not a result (ADR-0013).
+       `unjudged` rule reports unjudged mutants and those too slow or too
+       heavy to judge. A mutant proven equivalent is not a result (ADR-0013).
      - Each result is at the mutant's file and lines. Its level is `error` when
        the mutant is in a set that failed (new code, or a tree below its floor)
        and `warning` otherwise.
@@ -239,9 +239,9 @@ sees the same verdict.
 
    | Gate status | Viewer status |
    |-------------|---------------|
-   | killed, errored, and killed by static analysis (ADR-0020) | `Killed` |
+   | killed, errored, killed by static analysis (ADR-0020), and killed by the memory cap (ADR-0004) | `Killed` |
    | killed by timeout | `Timeout` |
-   | survived, unjudged, flaky, and too slow to judge | `Survived` |
+   | survived, unjudged, flaky, too slow to judge, and too heavy to judge | `Survived` |
    | uncovered | `NoCoverage`, or `Ignored` under `uncovered: exclude` |
    | ignored, and ignored by a native marker | `Ignored` |
    | equivalent, proven (ADR-0013) | `Ignored` |
@@ -361,13 +361,14 @@ sees the same verdict.
 
    A mutant the gate judged otherwise than survived gets the sentence of its
    judgement. The sentence of every mutant counted as not killed names its
-   judging tests: a survivor's, and a flaky, unjudged or too slow mutant's,
-   whose tests are the suspects.
+   judging tests: a survivor's, and a flaky, unjudged, too slow or too heavy
+   mutant's, whose tests are the suspects.
 
    | Judgement | What the hint says |
    |-----------|--------------------|
    | Flaky | Its tests killed it on one run and let it survive on another, so they are the suspects. |
    | Too slow to judge | Its tests take half its time limit or more, so a timeout says nothing about it. Hold `<file>` with a group of the tests that assert on it, or raise `timeouts.seconds`. |
+   | Too heavy to judge | The unmutated suite holds more than half the memory cap, or was not measured, so the cap says nothing. Raise runner.memory; doctor --measure says what the suite needs. |
    | Unjudged | Nothing judged it before the run stopped, so it counts as not killed. |
    | Ignored | An ignore in the config leaves it out of the score. |
    | Ignored by a native marker | A native ignore marker leaves it out of the score. |
@@ -375,6 +376,7 @@ sees the same verdict.
    | Killed by static analysis | The static analyser the project runs rejects it, so it could not pass CI, which counts as killed. |
    | Errored | It crashes its tests, which counts as killed. |
    | Killed by timeout | Its tests ran far past their usual time with it in place, so the timeout counts as a kill. |
+   | Killed by the memory cap | It ran out of the memory cap, at least twice what the unmutated suite holds, so the cap counts as a kill. |
 
    The judging tests are named as *It is judged by `A`, `B`, `C` and n more.*
 

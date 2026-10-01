@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -35,7 +37,7 @@ $timedOut = Mutant::of(
     Mutation::of('LessThan', MutatorFamily::Boundary, "-<\n+<="),
     MutantStatus::TimedOut,
     Seconds::of(0.4),
-)->withLimit(Seconds::of(5.0))->withJudgingTime(Seconds::of(1.5));
+)->withLimit(Seconds::of(5.0))->withUnmutatedNeed(Seconds::of(1.5));
 
 $killed = Mutant::of(
     $id,
@@ -218,3 +220,20 @@ it('refuses a record that gives a rejection a reason or a time budget beside it,
     'a reason' => [['reason' => 'The runner said so.']],
     'a time budget' => [['outOfTime' => 'before-mutating']],
 ]);
+
+it('writes and reads back, in bytes, the memory cap a mutant ran out of and the suite\'s peak', function () use ($id, $read): void {
+    $outOfMemory = Mutant::of(
+        $id,
+        '19',
+        Location::of(Path::of('src/Money.php'), Line::of(9), Unreported::line()),
+        Mutation::of('LessThan', MutatorFamily::Boundary, "-<\n+<="),
+        MutantStatus::OutOfMemory,
+        Unmeasured::duration(),
+    )->withLimit(MemoryCap::of(64, MemoryUnit::Megabytes))->withUnmutatedNeed(MemoryCap::of(20, MemoryUnit::Megabytes));
+    $full = MutantRecord::full($outOfMemory);
+
+    expect(array_slice($full, -3))->toBe(['status' => 'out-of-memory', 'limitBytes' => 67108864, 'suiteBytes' => 20971520])
+        ->and(MutantRecord::readFull($read($full)))->toEqual($outOfMemory)
+        ->and(fn(): Mutant => MutantRecord::readFull($read([...$full, 'limitBytes' => 0])))
+        ->toThrow(NotInShape::class, 'is not a number of bytes');
+});

@@ -119,6 +119,24 @@ it('ignores an uncovered mutant the score leaves out', function (): void {
     expect(Decoded::at(Stryker::json(Verdict::of(TreeVerdicts::of($tree)), []), 'files', 'src/Money.php', 'mutants', 0, 'status'))->toBe('Ignored');
 });
 
+it('shows a kill by the memory cap as killed, and a mutant too heavy to judge as survived', function (
+    MutantJudgement $judgement,
+    string $status,
+): void {
+    $tree = TreeVerdict::judged(
+        Tree::at(Path::of('src'), Floor::of(80), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        Judged::mutants($judgement),
+        Uncovered::Count,
+    );
+    expect(Decoded::at(Stryker::json(Verdict::of(TreeVerdicts::of($tree)), []), 'files', 'src/Money.php', 'mutants', 0, 'status'))
+        ->toBe($status);
+})->with([
+    'killed by the memory cap' => [MutantJudgement::KilledByMemoryCap, 'Killed'],
+    'too heavy to judge' => [MutantJudgement::TooHeavyToJudge, 'Survived'],
+]);
+
 it('writes a report with no mutant as an object of no files', function (): void {
     expect(Stryker::json(Verdicts::empty(), []))->toContain('"files": {}');
 });

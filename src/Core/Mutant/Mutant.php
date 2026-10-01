@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -12,12 +13,15 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 /**
  * One mutant as a runner reported it: where it is, what it changed, whether a
  * test caught it, how long it ran where the runner says, and, for a mutant
- * that timed out, the seconds the runner allowed it and the seconds its
- * judging tests take on their own, which timeout triage compares. The native id is the
- * runner's own, and means something only within the run that printed it. A
- * mutant the runner left unjudged can say why, and a killed one names the
- * tests that killed it where the runner does. One a static analyser killed
- * has the rejection that killed it as its reason.
+ * a limit stopped, the limit and what the unmutated code needs of it: for
+ * one that timed out, the seconds the runner allowed it and the seconds its
+ * judging tests take on their own, which timeout triage compares; for one
+ * that ran out of the memory cap, the cap and the most memory the unmutated
+ * suite's largest process held, which memory triage compares. The native id
+ * is the runner's own, and means something only within the run that printed
+ * it. A mutant the runner left unjudged can say why, and a killed one names
+ * the tests that killed it where the runner does. One a static analyser
+ * killed has the rejection that killed it as its reason.
  */
 final readonly class Mutant
 {
@@ -28,8 +32,8 @@ final readonly class Mutant
         private Mutation $mutation,
         private MutantStatus $status,
         private Seconds|Unmeasured $duration,
-        private Seconds|Unmeasured $limit,
-        private Seconds|Unmeasured $judgingTime,
+        private Seconds|MemoryCap|Unmeasured $limit,
+        private Seconds|MemoryCap|Unmeasured $unmutatedNeed,
         private Reason|Rejection|Unreported $reason,
         private TestIds $killers,
     ) {
@@ -66,16 +70,20 @@ final readonly class Mutant
         return clone($this, ['id' => $id]);
     }
 
-    /** This mutant, with the seconds its runner allowed it. */
-    public function withLimit(Seconds $limit): self
+    /** This mutant, with the limit that stopped it: the seconds its runner allowed it, or the memory cap. */
+    public function withLimit(Seconds|MemoryCap $limit): self
     {
         return clone($this, ['limit' => $limit]);
     }
 
-    /** This mutant, whose judging tests take these seconds on their own, as the coverage run measured them. */
-    public function withJudgingTime(Seconds $time): self
+    /**
+     * This mutant, whose unmutated code needs this much of its limit: the
+     * seconds its judging tests take on their own, as the coverage run
+     * measured them, or the most memory the suite's largest process held.
+     */
+    public function withUnmutatedNeed(Seconds|MemoryCap $need): self
     {
-        return clone($this, ['judgingTime' => $time]);
+        return clone($this, ['unmutatedNeed' => $need]);
     }
 
     /** This mutant, saying why it has the status it has. */
@@ -151,16 +159,16 @@ final readonly class Mutant
         return $this->duration;
     }
 
-    /** The seconds the runner allowed it, where it says. */
-    public function limit(): Seconds|Unmeasured
+    /** The limit that stopped it, where it says: the seconds the runner allowed it, or the memory cap. */
+    public function limit(): Seconds|MemoryCap|Unmeasured
     {
         return $this->limit;
     }
 
-    /** The seconds its judging tests take on their own, where the coverage run measured them. */
-    public function judgingTime(): Seconds|Unmeasured
+    /** What its unmutated code needs of its limit, where that was measured. */
+    public function unmutatedNeed(): Seconds|MemoryCap|Unmeasured
     {
-        return $this->judgingTime;
+        return $this->unmutatedNeed;
     }
 
     /** Why it stands as it does: the runner's reason, or the rejection of the analyser that killed it. */

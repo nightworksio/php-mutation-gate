@@ -10,6 +10,9 @@ use NightWorksIO\MutationGate\Adapter\Pest\Summary;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -249,6 +252,23 @@ it('names the tests that failed in each mutant\'s own process, in order, by the 
     expect($named('a'))->toBe(['P\\Tests\\MoneySpec::__pest_evaluable_it_adds', 'Tests\\LegacySpec::testAdds#(1)'])
         ->and($named('b'))->toBe([])
         ->and($named('unplanned'))->toBe([]);
+});
+
+it('keeps the memory limit each mutant\'s own process ran out of, by the mutated copy it ran on', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        $planned('b', '/p/src/Money.php', 20),
+        RecordLine::exhausted('/tmp/a', MemoryCap::of(64, MemoryUnit::Megabytes)),
+    ]));
+
+    $refused = Records::in($results(['{"event": "exhausted", "mutated": "/tmp/a", "bytes": 0}', RecordLine::end()]));
+
+    expect($records instanceof Records ? $records->exhaustionOf($mutant('a', '/p/src/Money.php', 10)) : $records)
+        ->toEqual(MemoryCap::of(64, MemoryUnit::Megabytes))
+        ->and($records instanceof Records ? $records->exhaustionOf($mutant('b', '/p/src/Money.php', 20)) : $records)
+        ->toEqual(NotGiven::value())
+        ->and($refused instanceof CannotJudge ? $refused->why() : '')
+        ->toEndWith('is not a record the gate reads: the record.bytes is not a number of bytes.');
 });
 
 it('keeps apart the mutants Pest gives one id, as two changes that leave the same source share it', function () use ($results, $planned, $mutant): void {

@@ -8,8 +8,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 
 /**
- * What the gate made of one mutant: its runner's status, after timeout and
- * flaky triage and the ignore list.
+ * What the gate made of one mutant: its runner's status, after timeout,
+ * memory and flaky triage and the ignore list.
  */
 enum MutantJudgement: string
 {
@@ -20,6 +20,8 @@ enum MutantJudgement: string
     case Errored = 'errored';
     /** It timed out, and timeout triage judged that a kill. */
     case KilledByTimeout = 'killed-by-timeout';
+    /** It ran out of a memory cap of at least twice what the unmutated suite held, so triage judged it a kill. */
+    case KilledByMemoryCap = 'killed-by-memory-cap';
     case Survived = 'survived';
     case Uncovered = 'uncovered';
     /** It was never run to an answer, for the reason its record gives. */
@@ -28,6 +30,8 @@ enum MutantJudgement: string
     case Flaky = 'flaky';
     /** It timed out or was skipped, and triage could not tell a kill from a hang. */
     case TooSlowToJudge = 'too-slow-to-judge';
+    /** Its process ran out of the memory cap, and triage could not tell a runaway from a suite that needs it. */
+    case TooHeavyToJudge = 'too-heavy-to-judge';
     /** An entry in the ignore list matched it. */
     case Ignored = 'ignored';
     /** The runner's own marker or config ignored it, where the config allows that. */
@@ -38,7 +42,8 @@ enum MutantJudgement: string
     /**
      * The judgement a status comes to before any triage: a timeout, or a
      * mutant skipped as too slow to run, is too slow to judge until timeout
-     * triage confirms it a kill.
+     * triage confirms it a kill, and a mutant out of memory is too heavy to
+     * judge until memory triage does.
      */
     public static function reported(MutantStatus $status): self
     {
@@ -52,6 +57,7 @@ enum MutantJudgement: string
             MutantStatus::Unjudged => self::Unjudged,
             MutantStatus::IgnoredByMarker => self::IgnoredByMarker,
             MutantStatus::Skipped => self::TooSlowToJudge,
+            MutantStatus::OutOfMemory => self::TooHeavyToJudge,
         };
     }
 
@@ -71,6 +77,8 @@ enum MutantJudgement: string
             self::Unjudged,
             self::Flaky,
             self::TooSlowToJudge,
+            self::KilledByMemoryCap,
+            self::TooHeavyToJudge,
             self::Ignored,
             self::IgnoredByMarker,
             self::Equivalent => false,
@@ -81,10 +89,18 @@ enum MutantJudgement: string
     public function scoring(Uncovered $uncovered): Scoring
     {
         return match ($this) {
-            self::Killed, self::KilledByStaticAnalysis, self::Errored, self::KilledByTimeout => Scoring::Killed,
+            self::Killed,
+            self::KilledByStaticAnalysis,
+            self::Errored,
+            self::KilledByTimeout,
+            self::KilledByMemoryCap => Scoring::Killed,
             self::Ignored, self::IgnoredByMarker, self::Equivalent => Scoring::LeftOut,
             self::Uncovered => $uncovered === Uncovered::Exclude ? Scoring::LeftOut : Scoring::NotKilled,
-            self::Survived, self::Unjudged, self::Flaky, self::TooSlowToJudge => Scoring::NotKilled,
+            self::Survived,
+            self::Unjudged,
+            self::Flaky,
+            self::TooSlowToJudge,
+            self::TooHeavyToJudge => Scoring::NotKilled,
         };
     }
 }

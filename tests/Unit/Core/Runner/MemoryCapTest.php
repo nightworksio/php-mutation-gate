@@ -96,15 +96,6 @@ it('holds a number of bytes in the fewest whole megabytes, one at the least', fu
         ->and(MemoryCap::atLeast(0)->written())->toBe('1M');
 });
 
-it('leaves room for what a suite needed where it holds twice that, as no cap always does', function (): void {
-    $cap = MemoryCap::standard();
-
-    expect($cap->leavesRoomFor(MemoryCap::of(512, MemoryUnit::Megabytes)))->toBeTrue()
-        ->and($cap->leavesRoomFor(MemoryCap::of(513, MemoryUnit::Megabytes)))->toBeFalse()
-        ->and(MemoryCap::none()->leavesRoomFor(MemoryCap::of(8, MemoryUnit::Gigabytes)))->toBeTrue()
-        ->and(MemoryCap::of(600, MemoryUnit::Megabytes)->withRoom()->written())->toBe('1200M');
-});
-
 it('keeps every ini file and extension PHP loads from its own scan directory, or the one the gate inherited', function (): void {
     $capDirectory = Scratch::directory();
     $capFile = sprintf('%s/%s', $capDirectory, MemoryCap::FILE);

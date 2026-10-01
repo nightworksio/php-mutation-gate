@@ -59,9 +59,10 @@ running it: why is this mutant here, and has it always been?
      the first or leaves the list.
 
 3. **A test is judged only over mutants with a known result.** Killed and
-   survived mutants count. A mutant killed by a timeout counts as neither for
-   nor against any test, because its killer is unknown. Unjudged, flaky and
-   too-slow-to-judge mutants are left out. A test that covers only left-out
+   survived mutants count. A mutant killed by a timeout or by the memory cap
+   counts as neither for nor against any test, because its killer is unknown.
+   Unjudged, flaky, too-slow-to-judge and too-heavy-to-judge mutants are left
+   out. A test that covers only left-out
    mutants is *not assessed*. A held unit is judged only over its holding
    group (ADR-0005 decision 9). A covering test outside the group never ran with
    the unit's mutants, so its cells are `not-run` and it is not judged over

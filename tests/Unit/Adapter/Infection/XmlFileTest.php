@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Infection\XmlFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -27,4 +28,14 @@ it('answers with the refusal it is given where the file is not there or not XML'
 
     expect(XmlFile::read(sprintf('%s/missing.xml', $directory), $refusal))->toBe($refusal)
         ->and(XmlFile::read(sprintf('%s/broken.xml', $directory), $refusal))->toBe($refusal);
+});
+
+it('reads a file into its document, and none where it is not there or not XML', function (): void {
+    $directory = Scratch::directory();
+    Scratch::write($directory, 'junit.xml', '<testsuites/>');
+    Scratch::write($directory, 'broken.xml', '<testsuites>');
+
+    expect(XmlFile::document(sprintf('%s/junit.xml', $directory)))->toBeInstanceOf(DOMDocument::class)
+        ->and(XmlFile::document(sprintf('%s/missing.xml', $directory)))->toEqual(NotGiven::value())
+        ->and(XmlFile::document(sprintf('%s/broken.xml', $directory)))->toEqual(NotGiven::value());
 });
