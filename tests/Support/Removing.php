@@ -104,8 +104,9 @@ final class Removing
 
     /**
      * The survivors of each callee's body but `checked()`'s: `record()`,
-     * `Log::write()`, the namespace's `tally()` and the global `total()`,
-     * and a kill of the global `tally()`.
+     * `Log::write()`, the namespace's `tally()`, the global `total()`, the
+     * anonymous class's `note()` and the trait's `bump()`, and a kill of the
+     * global `tally()`.
      *
      * @return list<JudgedMutant>
      */
@@ -118,6 +119,7 @@ final class Removing
             self::mutantOf(self::FUNCTIONS, 'return $amount - 1;', Judged::Killed),
             self::mutantOf(self::FUNCTIONS, 'return $amount * 2;', Judged::Survived),
             self::mutantOf(self::CART, 'echo 1;', Judged::Survived),
+            self::mutantOf(self::CART, 'echo 2;', Judged::Survived),
         ];
     }
 

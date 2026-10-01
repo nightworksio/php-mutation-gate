@@ -250,17 +250,22 @@ decision 3). The kill matrix knows which tests cover and which kill
       removes suggest nothing.
     - **The callee.** It is looked for among the survivors' own files:
       - `$this`, `self` and `static` lead to a method of the named class
-        around the statement, never an anonymous class;
+        around the statement, never an anonymous class or a trait, whose
+        methods a class using it may override;
       - `Name::m()` leads to a method of the class `Name` resolves to
         through the file's imports;
-      - `f()` leads to the function `f` resolves to, the namespace's first
-        and then the global one, as PHP tries them.
+      - `f()` leads to the function `f` resolves to first: the namespace's
+        own where the call is in a namespace. PHP calls the global one
+        only where the namespace's is declared nowhere, which the
+        survivors' files cannot show, so a global function suggests
+        nothing from inside a namespace unless the name is fully
+        qualified.
     - **The evidence.** The callee's body, from its opening brace to its
       closing one, holds at least one other mutant, and each other one is
       *survived*. One proven *equivalent* or left out by an ignore says
-      nothing either way. Any other judgement, a kill, *uncovered*,
-      *flaky*, *unjudged* or *too slow to judge* among them, suggests
-      nothing.
+      nothing either way. Any other judgement, a kill, a rejection by
+      static analysis, *uncovered*, *flaky*, *unjudged* or *too slow to
+      judge* among them, suggests nothing.
     - **The tests.** A test not assessed does not count as weak, since it
       makes an assertion or calls a helper the table does not hold.
 
@@ -279,9 +284,7 @@ decision 3). The kill matrix knows which tests cover and which kill
         other entry leaves the key out. `resources/report.schema.json`
         describes it, and the format stays 1.
       - Its text block, which the console and the JUnit report print,
-        holds a line `Removable: save()` after the hint. `explain` shows
-        the block once the command exists, and `stub` offers the test and
-        the ignore once it exists.
+        holds a line `Removable: save()` after the hint.
 
 ## Alternatives considered
 

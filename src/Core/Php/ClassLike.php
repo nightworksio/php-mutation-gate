@@ -21,8 +21,12 @@ final readonly class ClassLike
     private const array STARTS = [T_CONST, T_CASE, T_VARIABLE, ';', '{'];
 
     /** @param list<string> $constants */
-    private function __construct(private string|Nameless $name, private Names $parents, private array $constants)
-    {
+    private function __construct(
+        private string|Nameless $name,
+        private Names $parents,
+        private array $constants,
+        private bool $trait,
+    ) {
     }
 
     /**
@@ -51,13 +55,13 @@ final readonly class ClassLike
                 : $constants;
         }
 
-        return new self($name, $parents, $constants);
+        return new self($name, $parents, $constants, trait: $tokens->is($keyword, T_TRAIT));
     }
 
     /** A place no class-like encloses, which names nothing and extends nothing. */
     public static function none(): self
     {
-        return new self(Nameless::code(), Names::of(), []);
+        return new self(Nameless::code(), Names::of(), [], trait: false);
     }
 
     /** Its fully qualified name as declared; an anonymous class has none. */
@@ -84,6 +88,15 @@ final readonly class ClassLike
     public function parents(): Names
     {
         return $this->parents;
+    }
+
+    /**
+     * Whether it is a trait, whose methods a class that uses it may override:
+     * `$this`, `self` and `static` in its body stand for that class.
+     */
+    public function isTrait(): bool
+    {
+        return $this->trait;
     }
 
     public function declares(string $constant): bool

@@ -44,23 +44,29 @@ final readonly class CallStatement
      * The function or method the call leads to among the declarations, from
      * the source that makes it and a token of the statement there: a method
      * of the class around it, a method of the class a name resolves to
-     * through the file's imports, or the function a name resolves to, the
-     * namespace's first and then the global one.
+     * through the file's imports, or the function a name resolves to first.
+     * A method a trait calls on itself leads nowhere, since a class that uses
+     * the trait may override it. An unqualified function leads to the
+     * namespace's own only: PHP calls the global one where the namespace's is
+     * declared nowhere, which declarations of some files cannot show.
      */
     public function calleeIn(Declarations $declarations, Source $source, int $at): Declared|Undeclared
     {
         return match ($this->receiver) {
             Receiver::TheCase => $this->onTheCase($declarations, $source, $at),
             Receiver::AClass => $this->onAClass($declarations, $source),
-            Receiver::Nothing => $declarations->function($source->scope()->resolve($this->name)),
+            Receiver::Nothing => $declarations->function($source->scope()->resolve($this->name)->first()),
         };
     }
 
     private function onTheCase(Declarations $declarations, Source $source, int $at): Declared|Undeclared
     {
-        $class = $source->classAround($at)->name();
+        $around = $source->classAround($at);
+        $class = $around->name();
 
-        return $class instanceof Nameless ? Undeclared::callee() : $declarations->method($class, $this->name);
+        return $class instanceof Nameless || $around->isTrait()
+            ? Undeclared::callee()
+            : $declarations->method($class, $this->name);
     }
 
     private function onAClass(Declarations $declarations, Source $source): Declared|Undeclared

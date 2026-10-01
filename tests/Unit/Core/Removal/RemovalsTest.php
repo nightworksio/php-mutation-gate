@@ -27,7 +27,7 @@ it('suggests deleting the callee of a whole-statement call its class, imports or
     'a method on static' => ['static::record($amount);', 'record'],
     'a static method of an imported class' => ['Log::write($amount);', 'write'],
     'a function of the namespace, before a global one of the name' => ['tally($amount);', 'tally'],
-    'a global function, where the namespace declares none' => ['total($amount);', 'total'],
+    'a global function, named fully qualified' => ['\\total($amount);', 'total'],
 ]);
 
 it('suggests nothing of a call no name leads to a callee the project declares', function (string $statement): void {
@@ -38,6 +38,9 @@ it('suggests nothing of a call no name leads to a callee the project declares', 
     'a method of an anonymous class' => ['$this->note();'],
     'a function no file declares' => ['nowhere($amount);'],
     'a method of a class no file declares' => ['Unknown::write($amount);'],
+    'a method a trait calls on $this' => ['$this->bump();'],
+    'a method a trait calls on static' => ['static::bump();'],
+    'a global function, unqualified inside a namespace' => ['total($amount);'],
 ]);
 
 it('suggests nothing of a removal that is not of one whole call statement', function (JudgedMutant $removal): void {
@@ -89,6 +92,7 @@ it('suggests nothing of a callee any other mutant of whose body its tests did no
     MutantJudgement::Killed,
     MutantJudgement::Errored,
     MutantJudgement::KilledByTimeout,
+    MutantJudgement::KilledByStaticAnalysis,
     MutantJudgement::Uncovered,
     MutantJudgement::Unjudged,
     MutantJudgement::Flaky,

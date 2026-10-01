@@ -318,5 +318,5 @@ it('marks the removal whose callee may be deleted, and no other mutant, as the s
     }
 
     expect(Schema::errors($json, Schema::at('resources/report.schema.json')))->toBe([])
-        ->and($removable)->toBe([true, 'absent', 'absent', 'absent', 'absent', 'absent', 'absent']);
+        ->and($removable)->toBe([true, 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent']);
 });

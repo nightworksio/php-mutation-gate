@@ -16,6 +16,7 @@ final class Cart extends Basket
         Log::write($amount);
         tally($amount);
         total($amount);
+        \total($amount);
         $other->record($amount);
         $this->record($amount)->done();
         $total = $this->record($amount);
@@ -58,5 +59,19 @@ final class Cart extends Basket
     private function repeat(): void
     {
         $this->repeat();
+    }
+}
+
+trait Counts
+{
+    public function count(): void
+    {
+        $this->bump();
+        static::bump();
+    }
+
+    private function bump(): void
+    {
+        echo 2;
     }
 }
