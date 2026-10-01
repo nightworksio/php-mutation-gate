@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Tests\Support\WorkflowFile;
@@ -86,6 +87,24 @@ it('alerts and traces from the verdict step alone', function (): void {
     }
 
     expect(array_values(array_unique($holding)))->toBe(['verdict/verdict']);
+});
+
+it('hands the verdict the coverage map the plan made for it, and no shard\'s, before it judges', function (): void {
+    $steps = WorkflowFile::at(REUSABLE)->field('jobs')->field('verdict')->field('steps');
+    $verdict = Workspace::verdictCoverage()->value();
+    $downloads = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/download-artifact@'));
+    $coverage = array_values(array_filter(
+        $downloads,
+        static fn(int $at): bool => Lenient::text(Lenient::items($steps)[$at]->field('with')->field('pattern')) === 'mutation-gate-coverage',
+    ));
+    $kept = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, sprintf('! -name %s ', basename($verdict))));
+    $judged = WorkflowFile::stepsWhere($steps, 'id', static fn(string $id): bool => $id === 'verdict');
+
+    expect($coverage)->toHaveCount(1)
+        ->and(Lenient::text(Lenient::items($steps)[$coverage[0]]->field('with')->field('path')))->toBe(dirname($verdict))
+        ->and($kept)->toHaveCount(1)
+        ->and($coverage[0])->toBeLessThan($kept[0])
+        ->and($kept[0])->toBeLessThan($judged[0]);
 });
 
 it('checks the workflow out under .mutation-gate, which the gate leaves out of every change and key', function (): void {
