@@ -150,13 +150,16 @@ it('classifies every assertion and expectation of every supported PHPUnit releas
     expect($unclassified)->toBe([]);
 })->with(PINNED_PHPUNIT);
 
-it('reads the installed PHPUnit as its pinned release declares, and as declaring every method held as its own', function (): void {
-    $installed = installedPhpUnitNames();
-    $pinned = in_array(Version::id(), PINNED_PHPUNIT, strict: true) ? phpUnitNames(Version::id()) : $installed;
-
-    expect($installed)->toBe($pinned)
-        ->and(array_values(array_diff(heldAsOwn(), ownNames($installed))))->toBe([]);
+it('finds every method held as PHPUnit\'s own in the installed release', function (): void {
+    expect(array_values(array_diff(heldAsOwn(), ownNames(installedPhpUnitNames()))))->toBe([]);
 });
+
+it('reads the installed PHPUnit as the file pinned for its release reads it', function (): void {
+    expect(installedPhpUnitNames())->toBe(phpUnitNames(Version::id()));
+})->skip(
+    ! in_array(Version::id(), PINNED_PHPUNIT, strict: true),
+    'No file is pinned for the installed PHPUnit, such as the lowest a dependency range resolves to.',
+);
 
 it('classifies every expectation the installed Pest declares', function (): void {
     $unclassified = array_values(array_filter(

@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
+use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
@@ -34,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -91,6 +93,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     seconds?: float,
  *     limit?: float,
  *     cluster?: string,
+ *     removable?: true,
  * }
  * @phpstan-type ClusterEntry array{id: string, kind: string, members: list<string>, representative: string}
  */
@@ -185,9 +188,6 @@ final readonly class JsonReport
     {
         $mutant = $judged->mutant();
         $end = $mutant->location()->end();
-        $duration = $mutant->duration();
-        $limit = $mutant->limit();
-        $cluster = $judged instanceof JudgedMutant ? $judged->cluster() : Unclustered::mutant();
         $tests = [];
 
         foreach ($judged->tests() as $test) {
@@ -213,9 +213,29 @@ final readonly class JsonReport
             'hint' => $judged->hint()->text(),
             'reproduce' => $judged->reproduce(),
             'explain' => $judged->explain(),
+            ...self::optional($judged),
+        ];
+    }
+
+    /**
+     * What a mutant's entry holds only where it applies: how long it ran,
+     * the limit it ran under, its cluster, and whether its callee may be
+     * deleted.
+     *
+     * @return array{seconds?: float, limit?: float, cluster?: string, removable?: true}
+     */
+    private static function optional(JudgedMutant|JudgedKill $judged): array
+    {
+        $duration = $judged->mutant()->duration();
+        $limit = $judged->mutant()->limit();
+        $cluster = $judged instanceof JudgedMutant ? $judged->cluster() : Unclustered::mutant();
+        $finding = $judged instanceof JudgedMutant ? $judged->finding() : NoFinding::survivor();
+
+        return [
             ...$duration instanceof Seconds ? ['seconds' => $duration->seconds()] : [],
             ...$limit instanceof Seconds ? ['limit' => $limit->seconds()] : [],
             ...$cluster instanceof Membership ? ['cluster' => $cluster->id()->value()] : [],
+            ...$finding instanceof Removable ? ['removable' => true] : [],
         ];
     }
 

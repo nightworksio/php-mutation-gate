@@ -12,6 +12,7 @@ use function implode;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -32,6 +33,9 @@ final readonly class MutantText
 
     /** How far the lines under a heading are indented. */
     public const string INDENT = '    ';
+
+    /** The line that names the callee a surviving removal may be deleted with (ADR-0025, decision 12). */
+    private const string REMOVABLE = 'Removable: %s()';
 
     private const string CHANGED = ', on a changed line';
 
@@ -70,13 +74,14 @@ final readonly class MutantText
 
     /**
      * The whole block: its heading, then its diff, reason, the rejection
-     * that killed it where a static analyser did, judging tests by
-     * the names their runner gave them, hint, and reproduce and explain
-     * commands, indented.
+     * that killed it where a static analyser did, judging tests by the
+     * names their runner gave them, hint, the callee it may be deleted
+     * with, and reproduce and explain commands, indented.
      */
     public static function block(JudgedMutant $judged, TestNames $names): string
     {
         $reason = $judged->mutant()->reason();
+        $finding = $judged->finding();
 
         $lines = [
             ...self::diffOf($judged),
@@ -84,6 +89,7 @@ final readonly class MutantText
             ...$reason instanceof Rejection ? [self::rejected($reason)] : [],
             ...count($judged->tests()) === 0 ? [] : [sprintf(self::JUDGED_BY, $names->listed($judged->tests()))],
             $judged->hint()->text(),
+            ...$finding instanceof Removable ? [sprintf(self::REMOVABLE, $finding->name())] : [],
             sprintf('Reproduce: %s', $judged->reproduce()),
             sprintf('Explain: %s', $judged->explain()),
         ];

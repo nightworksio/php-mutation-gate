@@ -1,0 +1,77 @@
+<?php
+
+namespace App;
+
+use App\Audit\Log;
+
+final class Cart extends Basket
+{
+    private int $total = 0;
+
+    public function add(int $amount, Cart $other): void
+    {
+        $this->record($amount);
+        self::record($amount);
+        static::record($amount);
+        Log::write($amount);
+        tally($amount);
+        total($amount);
+        \total($amount);
+        $other->record($amount);
+        $this->record($amount)->done();
+        $total = $this->record($amount);
+        parent::record($amount);
+        $this->idle();
+        $this->checked();
+        nowhere($amount);
+        Unknown::write($amount);
+        $noop = function (): void {
+        };
+        $spy = new class {
+            public function add(): void
+            {
+                $this->note();
+            }
+
+            public function note(): void
+            {
+                echo 1;
+            }
+        };
+    }
+
+    private function record(int $amount): self
+    {
+        $this->total += $amount;
+
+        return $this;
+    }
+
+    private function idle(): void
+    {
+    }
+
+    private function checked(): void
+    {
+        $this->total = 1;
+    }
+
+    private function repeat(): void
+    {
+        $this->repeat();
+    }
+}
+
+trait Counts
+{
+    public function count(): void
+    {
+        $this->bump();
+        static::bump();
+    }
+
+    private function bump(): void
+    {
+        echo 2;
+    }
+}

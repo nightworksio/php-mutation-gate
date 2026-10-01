@@ -31,8 +31,20 @@ it('reads a class\'s name, what it extends and implements, and the constants it 
         ->and($class->declares('LIST'))->toBeTrue()
         ->and($class->declares('Paid'))->toBeFalse()
         ->and($class->declares('cents'))->toBeFalse()
-        ->and($class->declares('rate'))->toBeFalse();
+        ->and($class->declares('rate'))->toBeFalse()
+        ->and($class->isTrait())->toBeFalse();
 });
+
+it('tells a trait from the other class-likes', function (string $keyword, bool $trait): void {
+    $source = Php::source(sprintf('<?php namespace App; %s Counts { }', $keyword));
+
+    expect($source->shape()->classes()[0]->isTrait())->toBe($trait);
+})->with([
+    'a trait' => ['trait', true],
+    'a class' => ['class', false],
+    'an interface' => ['interface', false],
+    'an enum' => ['enum', false],
+]);
 
 it('names nothing for an anonymous class, or where no class stands', function (): void {
     $source = Php::source('<?php $a = new class extends Base { const X = 1; };');
@@ -43,5 +55,6 @@ it('names nothing for an anonymous class, or where no class stands', function ()
         ->and($anonymous->parents())->toEqual(Names::of('Base'))
         ->and($anonymous->declares('X'))->toBeTrue()
         ->and(ClassLike::none()->key())->toEqual(Nameless::code())
+        ->and(ClassLike::none()->isTrait())->toBeFalse()
         ->and(ClassLike::none()->parents())->toEqual(Names::of());
 });

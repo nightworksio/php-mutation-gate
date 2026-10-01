@@ -8,10 +8,13 @@ use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\Assertion\WeakTest;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Php\Declared;
+use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
@@ -151,4 +154,15 @@ it('names a weak test on one plain line, whatever its description holds', functi
     ));
 
     expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding)->text())->not->toContain("\n");
+});
+
+it('suggests deleting the callee of a surviving removal by its name, after the family\'s own sentence', function () use ($source): void {
+    $mutant = Verdicts::mutant('src/Money.php:9', 'RemoveMethodCall', MutatorFamily::RemovedCall, Verdicts::diff('$this->save($order);', ''));
+    $finding = Removable::callee(Declared::in(Path::of('src/Money.php'), 'save', Line::of(12), Line::of(14)));
+
+    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding)->text())->toBe(
+        'Every test passes without the call to `save()`, so nothing asserts on its effect. '
+        . 'No test depends on this call, and nothing `save()` does is checked either: '
+        . 'if nothing outside the tests needs `save()`, it can be deleted.',
+    );
 });

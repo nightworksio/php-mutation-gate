@@ -1,0 +1,7 @@
+<?php
+
+it('records', function () { expect($cart->total())->toBe(3); });
+it('only runs', function () { expect($cart)->not->toBeNull(); });
+it('asks a helper', function () { expect($cart)->not->toBeNull(); checkCart($cart); });
+
+function checkCart($cart): void { expect($cart->total())->toBe(3); }

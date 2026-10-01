@@ -37,7 +37,7 @@ use function sprintf;
  *     minimum?: int,
  *     maximum?: int,
  *     pattern?: string,
- *     const?: int,
+ *     const?: int|true,
  *     enum?: list<int|string>,
  * }
  * @phpstan-type Flat array{
@@ -79,6 +79,9 @@ final readonly class ReportSchema
     private const array PERCENT = ['type' => 'number', 'minimum' => 0, 'maximum' => 100];
 
     private const array FLAG = ['type' => 'boolean'];
+
+    /** A flag a report writes only where it holds, and then as `true`. */
+    private const array PRESENT = ['const' => true];
 
     private const array INSTANT = ['type' => 'string', 'pattern' => '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$'];
 
@@ -174,7 +177,7 @@ final readonly class ReportSchema
                             [],
                         ),
                     ], ['sharding']),
-                    self::object(['noHistory' => ['const' => true]], []),
+                    self::object(['noHistory' => self::PRESENT], []),
                 ]],
             ], ['score', 'run', 'cost', 'savings']),
         ]);
@@ -332,7 +335,8 @@ final readonly class ReportSchema
             'seconds' => self::SECONDS,
             'limit' => self::SECONDS,
             'cluster' => self::CLUSTER_ID,
-        ], ['end', 'family', 'diff', 'reason', MutantRecord::REJECTION, 'seconds', 'limit', 'cluster']);
+            'removable' => self::PRESENT,
+        ], ['end', 'family', 'diff', 'reason', MutantRecord::REJECTION, 'seconds', 'limit', 'cluster', 'removable']);
     }
 
     /** @return Flat */

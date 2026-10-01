@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
+use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function sprintf;
@@ -35,7 +36,7 @@ final readonly class JudgedMutant
         private TestIds $tests,
         private Hint|Missing $hint,
         private Membership|Unclustered $cluster,
-        private WeaklyAsserted|NoFinding $finding,
+        private WeaklyAsserted|Removable|NoFinding $finding,
     ) {
     }
 
@@ -79,7 +80,7 @@ final readonly class JudgedMutant
     }
 
     /** This mutant, with what the gate found beyond its hint's first sentence (ADR-0025, decision 7). */
-    public function found(WeaklyAsserted $finding): self
+    public function found(WeaklyAsserted|Removable $finding): self
     {
         return clone($this, ['finding' => $finding]);
     }
@@ -132,7 +133,7 @@ final readonly class JudgedMutant
     }
 
     /** What the gate found beyond its hint's first sentence; nothing where it found nothing. */
-    public function finding(): WeaklyAsserted|NoFinding
+    public function finding(): WeaklyAsserted|Removable|NoFinding
     {
         return $this->finding;
     }

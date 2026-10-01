@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Php\Functions;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -24,17 +25,17 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
  * family, and each of its judging tests whose every assertion checks only
  * existence or shape, as the kill matrix names the tests that judge it. A
  * test the runner named no file for is not assessed (ADR-0025, decisions 5
- * and 6).
+ * and 6). A surviving removal reads its judging tests too (decision 11).
  */
 final readonly class Weakness
 {
-    /** The files the judging tests of those survivors are in, which `findings()` reads. */
+    /** The files the judging tests of those survivors, and of each surviving removal, are in. */
     public static function testFiles(TreeVerdicts $verdicts, KillMatrix $matrix): Paths
     {
         $files = [];
 
-        foreach (self::seenByValue($verdicts) as $survivor) {
-            foreach (self::judging($survivor, $matrix) as $test) {
+        foreach (self::readingTheirTests($verdicts) as $survivor) {
+            foreach (self::judgedBy($survivor, $matrix) as $test) {
                 $named = $matrix->names()->testOf($test);
 
                 if ($named instanceof TestName) {
@@ -61,7 +62,7 @@ final readonly class Weakness
         $findings = Findings::none();
 
         foreach (self::seenByValue($verdicts) as $survivor) {
-            $weak = self::weakAmong(self::judging($survivor, $matrix), $matrix, $tests);
+            $weak = self::weakList(self::judgedBy($survivor, $matrix), $matrix, $tests);
 
             if ($weak !== []) {
                 $finding = WeaklyAsserted::by(self::functionOf($survivor, $sources), ...$weak);
@@ -72,8 +73,14 @@ final readonly class Weakness
         return $findings;
     }
 
+    /** Those of these tests that are weak, in their order. */
+    public static function weakAmong(TestIds $tests, KillMatrix $matrix, TestFiles $files): WeakTests
+    {
+        return WeakTests::of(...self::weakList($tests, $matrix, $files));
+    }
+
     /** The tests that cover a survivor and judge it: every one, or its held unit's group. */
-    private static function judging(JudgedMutant $survivor, KillMatrix $matrix): TestIds
+    public static function judgedBy(JudgedMutant $survivor, KillMatrix $matrix): TestIds
     {
         $judging = TestIds::none();
 
@@ -89,22 +96,38 @@ final readonly class Weakness
     {
         $seen = [];
 
-        foreach ($verdicts as $tree) {
-            foreach ($tree->survivors() as $survivor) {
-                if (
-                    $survivor->judgement() === MutantJudgement::Survived
-                    && $survivor->mutant()->mutation()->family()->isSeenByValue()
-                ) {
-                    $seen[] = $survivor;
-                }
+        foreach (self::readingTheirTests($verdicts) as $survivor) {
+            if ($survivor->mutant()->mutation()->family()->isSeenByValue()) {
+                $seen[] = $survivor;
             }
         }
 
         return $seen;
     }
 
+    /** @return list<JudgedMutant> the survivors whose judging tests are read: those a value would kill, and removals */
+    private static function readingTheirTests(TreeVerdicts $verdicts): array
+    {
+        $reading = [];
+
+        foreach ($verdicts as $tree) {
+            foreach ($tree->survivors() as $survivor) {
+                $family = $survivor->mutant()->mutation()->family();
+
+                if (
+                    $survivor->judgement() === MutantJudgement::Survived
+                    && ($family->isSeenByValue() || $family === MutatorFamily::RemovedCall)
+                ) {
+                    $reading[] = $survivor;
+                }
+            }
+        }
+
+        return $reading;
+    }
+
     /** @return list<WeakTest> those of these tests that are weak, in their order */
-    private static function weakAmong(TestIds $tests, KillMatrix $matrix, TestFiles $files): array
+    private static function weakList(TestIds $tests, KillMatrix $matrix, TestFiles $files): array
     {
         $weak = [];
 

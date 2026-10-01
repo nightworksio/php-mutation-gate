@@ -32,3 +32,9 @@ it('merges any number of sets of names at once, each name once', function (): vo
     expect($merged->all())->toBe(['app\money', 'app\clock', 'app\ledger'])
         ->and(Names::of('App\Money')->merge()->all())->toBe(['app\money']);
 });
+
+it('keeps only the first name, the one PHP tries before the others', function (): void {
+    expect(Names::of('App\tally', 'tally')->first()->all())->toBe(['app\tally'])
+        ->and(Names::of('tally')->first()->all())->toBe(['tally'])
+        ->and(Names::of()->first()->all())->toBe([]);
+});

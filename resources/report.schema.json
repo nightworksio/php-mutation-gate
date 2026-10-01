@@ -550,6 +550,9 @@
                     "cluster": {
                         "type": "string",
                         "pattern": "^c[0-9a-f]{11}$"
+                    },
+                    "removable": {
+                        "const": true
                     }
                 },
                 "required": [

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Php;
 use function array_combine;
 use function array_intersect_key;
 use function array_map;
+use function array_slice;
 use function array_values;
 use function mb_strtolower;
 
@@ -49,6 +50,12 @@ final readonly class Names
     public function all(): array
     {
         return array_values($this->names);
+    }
+
+    /** The first of these names alone, which PHP tries before the others; none where there are none. */
+    public function first(): self
+    {
+        return new self(array_slice($this->names, 0, 1));
     }
 
     /** Whether these and the others share a name. */

@@ -85,6 +85,7 @@ use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
@@ -1228,4 +1229,42 @@ it('reads the helpers the files that define the runner declare, and names no tes
     $survivors = array_values(array_filter([...$verdict->trees()->mutants()], static fn(JudgedMutant|JudgedKill $judged): bool => $judged instanceof JudgedMutant));
 
     expect($survivors[0]->finding())->toEqual(NoFinding::survivor());
+});
+
+it('suggests deleting the callee of a surviving removal whose body the tests leave unchecked, before it reports', function () use ($tree, $reporting, $judged): void {
+    $project = Flows::project();
+    $lines = array_fill(0, 30, '');
+    $lines[0] = '<?php';
+    $lines[4] = 'final class Money';
+    $lines[5] = '{';
+    $lines[8] = '    public function add(int $amount): void';
+    $lines[9] = '    {';
+    $lines[10] = '        $this->record($amount);';
+    $lines[11] = '    }';
+    $lines[13] = '    private function record(int $amount): void';
+    $lines[14] = '    {';
+    $lines[26] = '        $this->total += $amount;';
+    $lines[27] = '    }';
+    $lines[28] = '}';
+    Scratch::write($project, 'src/Money.php', implode("\n", $lines));
+    Scratch::write($project, 'tests/MoneyTest.php', implode("\n", ['<?php', "it('adds', function () { expect(total())->toBe(3); });", '']));
+    $removal = Verdicts::mutant('src/Money.php:11', 'RemoveMethodCall', MutatorFamily::RemovedCall, Verdicts::diff('$this->record($amount);', ''));
+    $body = Verdicts::mutant('src/Money.php:27', 'PlusEqualToMinusEqual', MutatorFamily::Arithmetic, Verdicts::diff('$this->total += $amount;', '$this->total -= $amount;'));
+    $verdict = judgingVerdictOf($judged(
+        Planned::of(Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(1.0), 'money'))
+            ->naming(TestNames::none()->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'it adds'))),
+        Flows::adapters($project, [], $tree(Floor::of(0)), ScriptedRunner::fixture()->answering(Mutants::of($removal, $body), 0)),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+    $found = [];
+
+    foreach ($verdict->trees()->mutants() as $mutant) {
+        $finding = $mutant instanceof JudgedMutant ? $mutant->finding() : NoFinding::survivor();
+        $found[$mutant->mutant()->location()->start()->number()] = [$finding instanceof Removable ? $finding->name() : '', $mutant->hint()->text()];
+    }
+
+    expect($found[11][0])->toBe('record')
+        ->and($found[11][1])->toContain('if nothing outside the tests needs `record()`, it can be deleted.')
+        ->and($found[27][0])->toBe('');
 });

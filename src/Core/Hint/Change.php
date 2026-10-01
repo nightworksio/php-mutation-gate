@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Mutant\Hunks;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Php\Names;
+use NightWorksIO\MutationGate\Core\Php\Tokens;
 use PhpToken;
 
 use function sprintf;
@@ -88,6 +89,12 @@ final readonly class Change
     public function removed(): string
     {
         return $this->removed;
+    }
+
+    /** The significant tokens of the lines the mutant removed. */
+    public function removedTokens(): Tokens
+    {
+        return Tokens::of($this->before);
     }
 
     /** The lines it put in their place, joined and trimmed; nothing where it only removed. */

@@ -230,18 +230,44 @@ decision 3). The kill matrix knows which tests cover and which kill
 
 11. **A surviving removal suggests deletion only when four facts hold
     together:**
-    - a Removed-call mutant survived and is covered, not uncovered;
-    - the call's result is unused: it is a statement, not an expression;
+    - a Removed-call mutant survived, so it is covered;
+    - it removed a whole statement that is one call and nothing else, whose
+      result is therefore unused;
     - every other mutant inside the called function's body, where that
       function is in the project, also survived, so the callee is
       pseudo-tested;
-    - none of the judging tests is weak (decision 5), so the tests do assert
-      things, only not this.
+    - at least one test judges it, and none of those is weak (decision 5),
+      so the tests do assert things, only not this.
 
     The family's hint then adds: *No test depends on this call, and nothing
-    its body does is checked either: if nothing outside the tests needs it,
-    it can be deleted.* The gate suggests, and never edits or counts
-    anything by it.
+    `save()` does is checked either: if nothing outside the tests needs
+    `save()`, it can be deleted.* The gate suggests, and never edits or
+    counts anything by it.
+    - **The call.** The statement is `$this->m(…);`, `self::m(…);`,
+      `static::m(…);`, `Name::m(…);` or `f(…);`, and the diff removes it
+      whole, adding nothing. A chain, an assignment, a call on another
+      object, `parent::m(…)` and a call a mutator replaces rather than
+      removes suggest nothing.
+    - **The callee.** It is looked for among the survivors' own files:
+      - `$this`, `self` and `static` lead to a method of the named class
+        around the statement, never an anonymous class or a trait, whose
+        methods a class using it may override;
+      - `Name::m()` leads to a method of the class `Name` resolves to
+        through the file's imports;
+      - `f()` leads to the function `f` resolves to first: the namespace's
+        own where the call is in a namespace. PHP calls the global one
+        only where the namespace's is declared nowhere, which the
+        survivors' files cannot show, so a global function suggests
+        nothing from inside a namespace unless the name is fully
+        qualified.
+    - **The evidence.** The callee's body, from its opening brace to its
+      closing one, holds at least one other mutant, and each other one is
+      *survived*. One proven *equivalent* or left out by an ignore says
+      nothing either way. Any other judgement, a kill, a rejection by
+      static analysis, *uncovered*, *flaky*, *unjudged* or *too slow to
+      judge* among them, suggests nothing.
+    - **The tests.** A test not assessed does not count as weak, since it
+      makes an assertion or calls a helper the table does not hold.
 
 12. **The suggestion shows where hints show.** It is the hint's second
     sentence in every report that shows hints, and a *removable* marker in
@@ -250,6 +276,15 @@ decision 3). The kill matrix knows which tests cover and which kill
     over the verdict's mutants, the enclosing and called functions with
     names resolved through imports (`Core\Php`), and decision 5's table.
     This amends ADR-0009 decision 7 and ADR-0014 decision 12.
+    - **As built.**
+      - `Core\Removal\Removals` decides it, `CallStatement` reads the
+        statement, and `Core\Php\Declarations` holds each named function
+        and method with its body.
+      - A removable mutant's JSON entry holds `"removable": true`; every
+        other entry leaves the key out. `resources/report.schema.json`
+        describes it, and the format stays 1.
+      - Its text block, which the console and the JUnit report print,
+        holds a line `Removable: save()` after the hint.
 
 ## Alternatives considered
 
