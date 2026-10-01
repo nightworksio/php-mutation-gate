@@ -95,8 +95,8 @@ final readonly class Infection implements Runner
             new ProcessShell($project->root(), getenv()),
             $setup->cap(),
             nativeMarkersAllowed: $setup->allowsNativeMarkers(),
-            analysis: $setup->analysis(),
             files: $files,
+            analysis: $setup->analysis(),
         );
     }
 
