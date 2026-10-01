@@ -20,8 +20,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 final readonly class MutationRun
 {
-    /** The directory of the ini file that caps each mutant's memory. */
-
     private const string STOPPED
         = 'Infection was stopped at its deadline, before it wrote its log, so no mutant of this run has a result.';
 
