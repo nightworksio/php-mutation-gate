@@ -711,10 +711,12 @@ its parser attributes. Both change when the checkout moves.
      config sets `display_errors` in its `<ini>` to print nowhere or on
      standard error, or PHPUnit 12.5 says it hid the error. Errors hidden at
      runtime, such as by `ini_set` in a bootstrap file, are not seen, so a
-     mutant out of the cap there is a false kill. A limit the project set
-     itself, any other fatal error PHP shows, `exit` and `die`, the system's
-     own out-of-memory killer and a crash keep the status the runner gave
-     them.
+     mutant out of the cap there is a false kill. Where the hiding is
+     visible, an `exit` or `die` mid-test prints the same sentence, so it
+     reads as too heavy to judge too. A limit the project set itself, any
+     other fatal error PHP shows, `exit` and `die` where errors are not
+     visibly hidden, the system's own out-of-memory killer and a crash keep
+     the status the runner gave them.
    - Memory triage judges a mutant out of memory the way timeout triage
      judges a timeout (ADR-0008). Where the plan's peak is at most half the
      cap, the cap holds at least twice what the suite needs, so the mutant

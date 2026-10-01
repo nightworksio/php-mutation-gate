@@ -15,7 +15,6 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
-use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -161,16 +160,11 @@ it('reads an Infection mutant out of the cap as out of memory where PHP\'s own i
 it('reads an Infection mutant as out of memory with no limit, and so too heavy to judge, where its PHPUnit config hides errors again', function () use (
     $hogged,
 ): void {
-    $config = Tree::at(sprintf('%s/phpunit.xml', Library::INFECTION_DIRECTORY));
-    $original = (string) file_get_contents($config);
+    $copy = Scratch::copy(Library::INFECTION_DIRECTORY);
+    $config = sprintf('%s/phpunit.xml', $copy);
     $hiding = '<php><ini name="display_errors" value="0"/></php></phpunit>';
-    file_put_contents($config, str_replace('</phpunit>', $hiding, $original));
+    file_put_contents($config, str_replace('</phpunit>', $hiding, (string) file_get_contents($config)));
 
-    try {
-        $read = $hogged(Library::infection(Seconds::of(10.0)), 'cap');
-    } finally {
-        file_put_contents($config, $original);
-    }
-
-    expect(array_unique($read))->toBe(['out-of-memory unlimited']);
+    expect(array_unique($hogged(Library::infectionAt($copy, Seconds::of(10.0)), 'cap')))
+        ->toBe(['out-of-memory unlimited']);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');
