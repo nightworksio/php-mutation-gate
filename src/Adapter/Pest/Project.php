@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Runner\Leftover;
 
 use function realpath;
 use function sprintf;
@@ -34,9 +35,6 @@ use function unlink;
 final readonly class Project
 {
     private const string RESULTS = 'pest/results.jsonl';
-
-    /** Why a file of the adapter's own cannot be told from the one an earlier run wrote. */
-    private const string LEFT = 'An earlier run left %s, and the gate cannot remove it.';
 
     /** Where the plugin keeps each mutant's order, under the workspace. */
     private const string ORDER = 'order';
@@ -146,7 +144,7 @@ final readonly class Project
         $file = sprintf('%s/%s', $this->absolute($this->workspace), $name);
         $this->directory(Path::of(dirname($file)));
 
-        return $this->without($file) ? $file : CannotJudge::because(sprintf(self::LEFT, $file));
+        return $this->without($file) ? $file : Leftover::at($file);
     }
 
     /**

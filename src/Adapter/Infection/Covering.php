@@ -7,13 +7,12 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
-
-use function sprintf;
 
 /**
  * The coverage directories Infection reads: the map another job handed on, in
@@ -22,8 +21,6 @@ use function sprintf;
  */
 final readonly class Covering
 {
-    private const string COVERAGE_FAILED = "PHPUnit's coverage run failed. PHPUnit said:\n%s";
-
     public function __construct(private Project $project, private Shell $shell, private HeldCoverage $held)
     {
     }
@@ -82,7 +79,7 @@ final readonly class Covering
 
         $ran = $this->shell->run($run);
 
-        return $ran->succeeded() ? $directory : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
+        return $ran->succeeded() ? $directory : CoverageFailure::said('PHPUnit', $ran->output());
     }
 
     /** The map another job handed on in a directory, written into Infection's layout. */

@@ -8,6 +8,7 @@ use function array_map;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
@@ -16,15 +17,13 @@ use function sprintf;
 
 /**
  * What PHPUnit reads and writes for one mutant, in its own directory of the
- * adapter's: the ids of the tests it runs, one to a line; the results the
- * extension records and the guard the wrapper and the extension write, each
- * empty to begin with; the file the override serves, and the mutated file it
- * serves in its place.
+ * adapter's: the tests it runs, by their ids or by their files, one to a
+ * line; the results the extension records and the guard the wrapper and the
+ * extension write, each empty to begin with; the file the override serves,
+ * and the mutated file it serves in its place.
  */
 final readonly class MutantFiles
 {
-    private const string IDS = 'ids.txt';
-
     private const string RESULTS = 'results.txt';
 
     private const string GUARD = 'guard.txt';
@@ -32,7 +31,7 @@ final readonly class MutantFiles
     private const string MUTATED = 'mutant.php';
 
     private function __construct(
-        private string $ids,
+        private string $selection,
         private string $results,
         private string $guard,
         private string $original,
@@ -40,27 +39,26 @@ final readonly class MutantFiles
     ) {
     }
 
-    public static function writtenFor(Project $project, MadeMutant $mutant, TestIds $tests): self|CannotJudge
+    /** The files for a run of these tests, selected by their ids. */
+    public static function selectingTests(Project $project, MadeMutant $mutant, TestIds $tests): self|CannotJudge
     {
-        $id = $mutant->id()->value();
-        $lines = implode("\n", array_map(static fn(TestId $test): string => $test->value(), [...$tests]));
-        $ids = $project->written(sprintf('%s/%s', $id, self::IDS), sprintf("%s\n", $lines));
-        $results = $project->written(sprintf('%s/%s', $id, self::RESULTS), '');
-        $guard = $project->written(sprintf('%s/%s', $id, self::GUARD), '');
-        $mutated = $project->written(sprintf('%s/%s', $id, self::MUTATED), $mutant->mutated()->text());
+        $ids = array_map(static fn(TestId $test): string => $test->value(), [...$tests]);
 
-        return match (true) {
-            $ids instanceof CannotJudge => $ids,
-            $results instanceof CannotJudge => $results,
-            $guard instanceof CannotJudge => $guard,
-            $mutated instanceof CannotJudge => $mutated,
-            default => new self($ids, $results, $guard, $project->absolute($mutant->location()->file()), $mutated),
-        };
+        return self::written($project, $mutant, Selection::Ids, $ids);
     }
 
-    public function ids(): string
+    /** The files for a run of every test in these test files. */
+    public static function selectingFiles(Project $project, MadeMutant $mutant, Paths $files): self|CannotJudge
     {
-        return $this->ids;
+        $onDisk = array_map($project->absolute(...), [...$files]);
+
+        return self::written($project, $mutant, Selection::Files, $onDisk);
+    }
+
+    /** The option that has PHPUnit select the tests from their file. */
+    public function selection(): string
+    {
+        return $this->selection;
     }
 
     public function results(): string
@@ -81,5 +79,34 @@ final readonly class MutantFiles
     public function mutated(): string
     {
         return $this->mutated;
+    }
+
+    /** @param list<string> $lines what the selection's file lists */
+    private static function written(
+        Project $project,
+        MadeMutant $mutant,
+        Selection $selection,
+        array $lines,
+    ): self|CannotJudge {
+        $id = $mutant->id()->value();
+        $listed = sprintf('%s%s', implode(Selection::LINE_END, $lines), Selection::LINE_END);
+        $selected = $project->written(sprintf('%s/%s', $id, $selection->value), $listed);
+        $results = $project->written(sprintf('%s/%s', $id, self::RESULTS), '');
+        $guard = $project->written(sprintf('%s/%s', $id, self::GUARD), '');
+        $mutated = $project->written(sprintf('%s/%s', $id, self::MUTATED), $mutant->mutated()->text());
+
+        return match (true) {
+            $selected instanceof CannotJudge => $selected,
+            $results instanceof CannotJudge => $results,
+            $guard instanceof CannotJudge => $guard,
+            $mutated instanceof CannotJudge => $mutated,
+            default => new self(
+                $selection->option($selected),
+                $results,
+                $guard,
+                $project->absolute($mutant->location()->file()),
+                $mutated,
+            ),
+        };
     }
 }

@@ -228,8 +228,19 @@ manual.
 
 10. **The PHPUnit runner has everything Pest's has.**
     - **Coverage:** `--coverage-php`, read as the Pest adapter reads it, with
-      each test's duration from `--log-junit`, and partial runs through
-      `--test-id-filter-file` (decision 3).
+      each test's duration from the map's own test results, and partial runs
+      through `--group` or `--filter`. The project's PHPUnit loads the gate's
+      extension, so the gate is installed in the project's vendor directory,
+      and the map is written and read by one php-code-coverage. That matters:
+      a map one php-code-coverage release writes can be one another refuses.
+    - **Selection:** a mutant's covering tests by their ids, or, where PHPUnit
+      cannot read an id back from a line, such as a data set's name with a
+      line break, by the test files that declare their classes, found by
+      their tokens, through `--test-files-file`. The same files are the
+      tests that judge a file, and name each test. A test such a run did not
+      select, run as it shares a file with one it did, kills where it fails,
+      with the kill credited only to the tests that cover the mutant, and
+      says nothing where it passes.
     - **Groups:** `--list-groups`. `#[Holds]` is read from tokens, and a held
       unit is narrowed by `--group=holds:<path>` or by the holding tests' ids.
     - **Kills:** the first killer from events, and `--kill-matrix=full` by

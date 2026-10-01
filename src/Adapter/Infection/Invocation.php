@@ -10,6 +10,7 @@ use function is_file;
 
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -83,7 +84,7 @@ final readonly class Invocation
             '--colors=never',
             ...$config->extraArguments(),
             ...self::narrowedTo(Filter::nothing()),
-            ...['--do-not-fail-on-empty-test-suite'],
+            ...[PhpUnitOption::DoNotFailOnEmptyTestSuite->value],
         );
     }
 
@@ -146,8 +147,8 @@ final readonly class Invocation
     private static function narrowedTo(WholeSuite|Group|Filter $tests): array
     {
         return match (true) {
-            $tests instanceof Group => [sprintf('--group=%s', $tests->name())],
-            $tests instanceof Filter => [sprintf('--filter=%s', $tests->pattern())],
+            $tests instanceof Group => [sprintf('%s=%s', PhpUnitOption::Group->value, $tests->name())],
+            $tests instanceof Filter => [sprintf('%s=%s', PhpUnitOption::Filter->value, $tests->pattern())],
             default => [],
         };
     }

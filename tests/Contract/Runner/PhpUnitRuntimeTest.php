@@ -2,22 +2,30 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Coverage;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Installed;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Invocation;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Override;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\TestFiles;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
@@ -28,11 +36,12 @@ use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
-// What the PHPUnit runner's pieces do with a real PHPUnit (ADR-0023 decision
-// 9), over the library in phpunit-fixture/, which the runner contracts job
-// installs at the lowest and the highest PHPUnit the runner supports: PHPUnit
-// started with the override, the extension and the covering tests' ids, and
-// the extension's records read back into each mutant's verdict.
+// What the PHPUnit runner's pieces do with a real PHPUnit (ADR-0023 decisions
+// 9 and 10), over the library in phpunit-fixture/, which the runner contracts
+// job installs at the lowest and the highest PHPUnit the runner supports:
+// PHPUnit started with the override, the extension and the covering tests'
+// ids or files, the extension's records read back into each mutant's
+// verdict, and the suite run under coverage into a map.
 
 /** The library the PHPUnit runner mutates. */
 const PHPUNIT_LIBRARY = 'tests/Contract/Runner/phpunit-fixture';
@@ -58,7 +67,7 @@ function judgedByPhpUnit(
     float $limit = 30.0,
     array $inherited = [],
 ): Mutant|CannotJudge {
-    $project = Project::at(Tree::at(PHPUNIT_LIBRARY), Path::of('vendor'), Path::of('.mutation-gate'));
+    $project = Project::at(Tree::at(PHPUNIT_LIBRARY), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
     $override = Override::writtenFor($project);
     $made = Engine::with($mutator)->mutantsOf(
         Path::of($file),
@@ -71,7 +80,7 @@ function judgedByPhpUnit(
 
     $shell = new ProcessShell($project->root(), [...getenv(), ...$inherited]);
 
-    return new MutantRun($project, $shell, new Invocation($project, $override))->judged(
+    return new MutantRun($project, $shell, new Invocation($project, $override), new TestFiles($project))->judged(
         [...$made][$nth],
         TestIds::of(...array_map(static fn(string $test): TestId => TestId::of(sprintf('Tests\%s', $test)), $covering)),
         MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests()),
@@ -124,7 +133,7 @@ it('stops a mutant that never ends at its limit', function (): void {
 
 it('leaves unjudged a mutant whose tests\' ids match no test', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Money.php', 0, ['MoneySpec::noSuchTest'])))
-        ->toBe(['unjudged', 'PHPUnit ran none of the 1 tests that cover it: no id matched a test.']);
+        ->toBe(['unjudged', 'PHPUnit ran none of the 1 tests that cover it: the selection matched no test.']);
 })->skip(! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
 
 it('judges a mutant by the test that fails, however many risky tests run before it', function (): void {
@@ -204,6 +213,30 @@ it('serves each mutant, and no later run a mutant, where the project keeps an op
     expect(extension_loaded('Zend OPcache'))->toBeTrue('a PHP without opcache proves nothing of it')
         ->and($killed)->toBe(['killed', 'Tests\MoneySpec::addsTwoAmounts'])
         ->and($after)->toBe(['survived']);
+})->skip(! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+
+it('selects a test by its file where its data set\'s name has a line break, and credits no kill to another test of the file', function (): void {
+    expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Money.php', 0, ["MoneySpec::addsEachPair#one\nplus one"])))
+        ->toBe(['killed']);
+})->skip(! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+
+it('measures which tests run each line and how long each took, and places and names each test by its file', function (): void {
+    $project = Project::at(Tree::at(PHPUNIT_LIBRARY), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
+    $shell = new ProcessShell($project->root(), getenv());
+    $map = new Coverage($project, $shell, new Invocation($project, 'unused'))
+        ->of(CoverageRun::of(Filter::matching('MoneySpec'), Path::of('.mutation-gate/coverage')));
+    $lines = file($project->absolute(Path::of('src/Money.php')));
+    $sum = Line::of((int) array_search("        return \$a + \$b;\n", is_array($lines) ? $lines : [], strict: true) + 1);
+    $adding = $map instanceof CoverageMap ? $map->testsCovering(Path::of('src/Money.php'), $sum) : TestIds::none();
+    $files = new TestFiles($project)->declaring($adding);
+    $row = TestId::of("Tests\\MoneySpec::addsEachPair#one\nplus one");
+
+    expect(array_map(static fn(TestId $test): string => $test->value(), [...$adding]))
+        ->toEqualCanonicalizing(['Tests\MoneySpec::addsTwoAmounts', $row->value()])
+        ->and($map instanceof CoverageMap ? $map->durationOf($row) : null)->toBeInstanceOf(Seconds::class)
+        ->and($files->files())->toEqual(Paths::of(Path::of('tests/MoneySpec.php')))
+        ->and($files->names($adding)->nameOf($row))
+        ->toEqual(TestRow::of(TestName::in(Path::of('tests/MoneySpec.php'), 'addsEachPair'), "\"one\nplus one\""));
 })->skip(! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
 
 it('has the PHPUnit library installed wherever the PHPUnit runner contracts run', function (): void {

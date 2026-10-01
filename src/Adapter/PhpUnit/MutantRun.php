@@ -18,13 +18,16 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 
 use function sprintf;
-use function str_contains;
 use function trim;
 
 /**
  * One mutant, judged by PHPUnit: the tests that cover it run against it, in
  * one process stopped at its limit, and the extension's records and the
- * guard say how.
+ * guard say how. They are selected by their ids, or by their test files
+ * where PHPUnit cannot read an id back, which runs the other tests of those
+ * files too: one of those kills where it fails, though the kill is credited
+ * only to tests that cover it, and says nothing where it passes. Where a
+ * test is in no file found, the mutant is unjudged without a run.
  *
  * - Where opcache could have served a cached original, or the wrapper never
  *   served the mutated file in any of the run's processes, it is unjudged:
@@ -39,14 +42,14 @@ use function trim;
  * - A run that fails with no test failing is unjudged, with what PHPUnit
  *   said: PHPUnit failed it for something else, such as a warning the project
  *   fails on.
- * - A run that passes with no test run is unjudged, and so is a run with
- *   every test skipped or marked incomplete, with what PHPUnit said where it
- *   failed the run, and a run that fails before any test started or the
- *   mutated file ran, with what PHPUnit said.
+ * - A run that passes with no test run, as the selection matched none, is
+ *   unjudged, and so is a run with every test skipped or marked incomplete,
+ *   with what PHPUnit said where it failed the run, and a run that fails
+ *   before any test started or the mutated file ran, with what PHPUnit said.
  */
 final readonly class MutantRun
 {
-    private const string NO_TEST_RAN = 'PHPUnit ran none of the %d tests that cover it: no id matched a test.';
+    private const string NO_TEST_RAN = 'PHPUnit ran none of the %d tests that cover it: the selection matched no test.';
 
     private const string SKIPPED = 'PHPUnit skipped, or marked incomplete, every test that covers it.';
 
@@ -56,8 +59,8 @@ final readonly class MutantRun
     private const string STOPPED_UNSERVED
         = 'PHPUnit was stopped at the limit, and the mutated file never ran in its place.';
 
-    private const string UNLISTABLE
-        = 'Every test that covers it has a line break in its name, which PHPUnit cannot select by id.';
+    private const string UNPLACED
+        = 'A test that covers it has a line break in its name, and no test file found holds every test that covers it.';
 
     private const string NEVER_SERVED
         = 'The mutated file never ran in its place: PHPUnit loaded the file some other way, such as another wrapper.';
@@ -70,11 +73,12 @@ final readonly class MutantRun
 
     private const string SAID_NOTHING = '%s PHPUnit said nothing.';
 
-    /** What a line of the id file cannot hold. */
-    private const string LINE_BREAK = "\n";
-
-    public function __construct(private Project $project, private Shell $shell, private Invocation $invocation)
-    {
+    public function __construct(
+        private Project $project,
+        private Shell $shell,
+        private Invocation $invocation,
+        private TestFiles $tests,
+    ) {
     }
 
     public function judged(
@@ -83,35 +87,43 @@ final readonly class MutantRun
         MutationRequest $request,
         Seconds $limit,
     ): Mutant|CannotJudge {
-        $listable = TestIds::none();
+        $files = $this->written($made, $covering);
 
-        foreach ($covering as $test) {
-            $listable = str_contains($test->value(), self::LINE_BREAK) ? $listable : $listable->with($test);
-        }
-
-        if (count($listable) === 0) {
-            return $this->mutant($made, MutantStatus::Unjudged, Unmeasured::duration())
-                ->because(Reason::that(self::UNLISTABLE));
-        }
-
-        $files = MutantFiles::writtenFor($this->project, $made, $listable);
-
-        if ($files instanceof CannotJudge) {
+        if (! $files instanceof MutantFiles) {
             return $files;
         }
 
         $ran = $this->shell->run($this->invocation->of($files, $request->judgedBy(), $limit, $request->withheld()));
-        $recorded = Recorded::in($files->results(), $listable);
-        $verdict = $this->verdict($ran, $recorded, Guard::in($files->guard()), count($listable));
+        $recorded = Recorded::in($files->results(), $covering);
+        $verdict = $this->verdict($ran, $recorded, Guard::in($files->guard()), count($covering));
         $status = $verdict instanceof Reason ? MutantStatus::Unjudged : $verdict;
         $mutant = $this->mutant($made, $status, $ran->duration());
 
         return match (true) {
             $verdict instanceof Reason => $mutant->because($verdict),
             $verdict === MutantStatus::TimedOut => $mutant->withLimit($limit),
-            $verdict === MutantStatus::Killed => $mutant->killedBy($recorded->killers()),
+            $verdict === MutantStatus::Killed => $mutant->killedBy($recorded->credited()),
             default => $mutant,
         };
+    }
+
+    /**
+     * What PHPUnit reads for the mutant, selecting its tests by their ids, or
+     * by their files where an id cannot be read back; or the mutant unjudged,
+     * where a test to be selected by its file is in none found.
+     */
+    private function written(MadeMutant $made, TestIds $covering): MutantFiles|Mutant|CannotJudge
+    {
+        if (Selection::of($covering) === Selection::Ids) {
+            return MutantFiles::selectingTests($this->project, $made, $covering);
+        }
+
+        $classes = $this->tests->declaring($covering);
+        $unplaced = Reason::that(self::UNPLACED);
+
+        return $classes->placeEach($covering)
+            ? MutantFiles::selectingFiles($this->project, $made, $classes->files())
+            : $this->mutant($made, MutantStatus::Unjudged, Unmeasured::duration())->because($unplaced);
     }
 
     /** How the run judged the mutant, or why it judged nothing. */

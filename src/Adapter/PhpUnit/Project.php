@@ -12,12 +12,16 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 
 use function realpath;
 use function sprintf;
 
-/** The project PHPUnit runs in: its root, the vendor directory PHPUnit is installed in, and the gate's directory. */
+/**
+ * The project PHPUnit runs in: its root, its test directories, the vendor
+ * directory PHPUnit is installed in, and the gate's directory.
+ */
 final readonly class Project
 {
     /** The adapter's own directory in the gate's. */
@@ -28,19 +32,29 @@ final readonly class Project
 
     private const string UNWRITTEN = 'The gate cannot write %s, which the PHPUnit it starts reads.';
 
-    private function __construct(private Root $root, private Path $vendor, private Path $workspace)
-    {
+    private function __construct(
+        private Root $root,
+        private Paths $tests,
+        private Path $vendor,
+        private Path $workspace,
+    ) {
     }
 
     /** The project at a directory, held as its real path. */
-    public static function at(string $root, Path $vendor, Path $workspace): self
+    public static function at(string $root, Paths $tests, Path $vendor, Path $workspace): self
     {
-        return new self(Root::of((string) realpath($root)), $vendor, $workspace);
+        return new self(Root::of((string) realpath($root)), $tests, $vendor, $workspace);
     }
 
     public function root(): string
     {
         return $this->root->value();
+    }
+
+    /** The directories the project's tests are in. */
+    public function tests(): Paths
+    {
+        return $this->tests;
     }
 
     /** Where a path of the project is on disk. */

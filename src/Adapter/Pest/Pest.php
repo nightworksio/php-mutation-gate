@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -59,8 +60,6 @@ final readonly class Pest implements Runner
 
     /** The file Pest loads before any test, in the test directory it runs with, which the gate leaves at `tests`. */
     private const string BOOT_FILE = 'tests/Pest.php';
-
-    private const string COVERAGE_FAILED = "Pest's coverage run failed. Pest said:\n%s";
 
     private const string STALE_MAP = 'An earlier run left %s or its JUnit log, and the gate cannot remove them.';
 
@@ -335,7 +334,7 @@ final readonly class Pest implements Runner
 
         $ran = $this->shell->run(Invocation::installedIn($this->project->vendor())->coverage($request, $directory));
 
-        return $ran->succeeded() ? $ran : CannotJudge::because(sprintf(self::COVERAGE_FAILED, $ran->output()));
+        return $ran->succeeded() ? $ran : CoverageFailure::said('Pest', $ran->output());
     }
 
     /** A mutation run of this project, through this shell. */

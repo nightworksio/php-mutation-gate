@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -10,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -65,7 +65,7 @@ function shapesRun(string ...$arguments): array
 {
     $trace = sprintf('%s/trace', Scratch::directory());
     $process = new Process(
-        [PHP_BINARY, 'vendor/bin/pest', ...$arguments, Invocation::EMPTY_PASSES],
+        [PHP_BINARY, 'vendor/bin/pest', ...$arguments, PhpUnitOption::DoNotFailOnEmptyTestSuite->value],
         Tree::at(Library::DIRECTORY),
         ['LIBRARY_TRACE' => $trace, 'PARATEST' => false, 'TEST_TOKEN' => false, 'UNIQUE_TEST_TOKEN' => false],
     );

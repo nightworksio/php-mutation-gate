@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Order;
 
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
+
 use function sprintf;
 use function str_starts_with;
 
@@ -19,7 +21,7 @@ enum Option: string
     case Record = '--record-test-run-history';
     case DoNotRecord = '--do-not-record-test-run-history';
     case CacheResult = '--cache-result';
-    case DoNotCacheResult = '--do-not-cache-result';
+    case DoNotCacheResult = PhpUnitOption::DoNotCacheResult->value;
 
     /** The option an argument is, written alone or with its value after `=`, where it is one. */
     public static function in(string $argument): self|NotAnOption
