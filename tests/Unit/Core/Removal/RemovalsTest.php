@@ -92,11 +92,13 @@ it('suggests nothing of a callee any other mutant of whose body its tests did no
     MutantJudgement::Killed,
     MutantJudgement::Errored,
     MutantJudgement::KilledByTimeout,
+    MutantJudgement::KilledByMemoryCap,
     MutantJudgement::KilledByStaticAnalysis,
     MutantJudgement::Uncovered,
     MutantJudgement::Unjudged,
     MutantJudgement::Flaky,
     MutantJudgement::TooSlowToJudge,
+    MutantJudgement::TooHeavyToJudge,
 ]);
 
 it('suggests deleting only where a test judges the removal and none of those is weak', function (bool $removable, TestId ...$tests): void {
