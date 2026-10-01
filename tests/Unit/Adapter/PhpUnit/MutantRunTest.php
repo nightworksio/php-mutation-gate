@@ -135,13 +135,21 @@ it('starts PHPUnit with opcache off, the override, the extension and the coverin
 });
 
 it('judges a mutant by what its run recorded, ended as and served', function (string $lines, Ran $ran, string $guard, array $verdict) use ($adds, $judged): void {
-    expect(judgedAs($judged(recording($lines, $ran, $guard), TestIds::of($adds))))->toBe($verdict);
+    $selected = TestIds::of($adds, TestId::of('T::fails'), TestId::of('T::errs'), TestId::of('T::dies'));
+
+    expect(judgedAs($judged(recording($lines, $ran, $guard), $selected)))->toBe($verdict);
 })->with([
     'killed by the tests that failed or errored' => [
         records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails'), Outcome::Started->line('T::errs'), Outcome::Errored->line('T::errs')),
         Ran::finished(succeeded: false, output: ''),
         "served\n",
         [MutantStatus::Killed, ['T::fails', 'T::errs'], ''],
+    ],
+    'killed by a test the run did not select, credited to none' => [
+        records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('U::beside'), Outcome::Failed->line('U::beside')),
+        Ran::finished(succeeded: false, output: ''),
+        "served\n",
+        [MutantStatus::Killed, [], ''],
     ],
     'killed by a test whose process died as it ran' => [
         records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('T::dies')),
@@ -177,7 +185,7 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
         '',
         Ran::finished(succeeded: true, output: ''),
         '',
-        [MutantStatus::Unjudged, [], 'PHPUnit ran none of the 1 tests that cover it: the selection matched no test.'],
+        [MutantStatus::Unjudged, [], 'PHPUnit ran none of the 4 tests that cover it: the selection matched no test.'],
     ],
     'unjudged where every test was skipped' => [
         records(Outcome::Started->line('T::skips'), Outcome::Neither->line('T::skips')),

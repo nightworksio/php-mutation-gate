@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function sprintf;
@@ -47,8 +48,8 @@ enum Selection: string
     public function option(string $file): string
     {
         return match ($this) {
-            self::Ids => sprintf('--test-id-filter-file=%s', $file),
-            self::Files => sprintf('--test-files-file=%s', $file),
+            self::Ids => sprintf('%s=%s', PhpUnitOption::TestIdFilterFile->value, $file),
+            self::Files => sprintf('%s=%s', PhpUnitOption::TestFilesFile->value, $file),
         };
     }
 }

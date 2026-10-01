@@ -30,12 +30,6 @@ use function sprintf;
  */
 final readonly class Invocation
 {
-    /** Leaves out the logs the project's config writes. */
-    private const string NO_LOGGING = '--no-logging';
-
-    /** Shows no progress, so what PHPUnit prints is what went wrong. */
-    private const string NO_PROGRESS = '--no-progress';
-
     public function __construct(private Project $project, private string $override)
     {
     }
@@ -52,15 +46,15 @@ final readonly class Invocation
             '-d',
             sprintf('auto_prepend_file=%s', $this->override),
             $this->project->phpunit(),
-            '--extension',
+            PhpUnitOption::Extension->value,
             Extension::class,
             $files->selection(),
-            '--stop-on-error',
-            '--stop-on-failure',
-            '--no-coverage',
-            self::NO_LOGGING,
+            PhpUnitOption::StopOnError->value,
+            PhpUnitOption::StopOnFailure->value,
+            PhpUnitOption::NoCoverage->value,
+            PhpUnitOption::NoLogging->value,
             PhpUnitOption::DoNotCacheResult->value,
-            self::NO_PROGRESS,
+            PhpUnitOption::NoProgress->value,
             ...$this->judgedBy($judgedBy),
         )
             ->telling(Variable::Results, $files->results())
@@ -77,9 +71,9 @@ final readonly class Invocation
         return Command::php(
             $this->project->phpunit(),
             sprintf('%s=%s', PhpUnitOption::CoveragePhp->value, $map),
-            self::NO_LOGGING,
+            PhpUnitOption::NoLogging->value,
             PhpUnitOption::DoNotCacheResult->value,
-            self::NO_PROGRESS,
+            PhpUnitOption::NoProgress->value,
             ...$this->judgedBy($request->tests()),
         )
             ->withholding($request->withheld());
@@ -89,8 +83,8 @@ final readonly class Invocation
     private function judgedBy(WholeSuite|Group|Filter $judgedBy): array
     {
         return match (true) {
-            $judgedBy instanceof Group => ['--group', $judgedBy->name()],
-            $judgedBy instanceof Filter => ['--filter', $judgedBy->pattern()],
+            $judgedBy instanceof Group => [PhpUnitOption::Group->value, $judgedBy->name()],
+            $judgedBy instanceof Filter => [PhpUnitOption::Filter->value, $judgedBy->pattern()],
             default => [],
         };
     }

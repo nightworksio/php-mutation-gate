@@ -469,6 +469,10 @@ jobs:
       # and at the highest (ADR-0023). The filter runs its contracts alone. It
       # gets the php-code-coverage this package is locked at, as the Pest
       # library does: the adapter reads the maps the library's PHPUnit writes.
+      # In a user's project the gate and PHPUnit share one vendor directory,
+      # as PHPUnit loads the gate's extension, so one php-code-coverage writes
+      # and reads each map; here there are two, and a map one release writes
+      # can be one another refuses.
       - name: install the lowest supported PHPUnit into the PHPUnit runner's library
         working-directory: tests/Contract/Runner/phpunit-fixture
         run: |

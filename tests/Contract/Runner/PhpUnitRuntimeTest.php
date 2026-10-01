@@ -215,9 +215,9 @@ it('serves each mutant, and no later run a mutant, where the project keeps an op
         ->and($after)->toBe(['survived']);
 })->skip(! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
 
-it('selects a test by its file where its data set\'s name has a line break, and runs its file\'s tests', function (): void {
+it('selects a test by its file where its data set\'s name has a line break, and credits no kill to another test of the file', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Money.php', 0, ["MoneySpec::addsEachPair#one\nplus one"])))
-        ->toBe(['killed', 'Tests\MoneySpec::addsTwoAmounts']);
+        ->toBe(['killed']);
 })->skip(! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
 
 it('measures which tests run each line and how long each took, and places and names each test by its file', function (): void {

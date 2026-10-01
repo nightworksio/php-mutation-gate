@@ -39,13 +39,6 @@ final readonly class Invocation
     /** JUnit's log of a coverage run, in the same directory. */
     public const string JUNIT = JUnitLog::NAME;
 
-    /**
-     * Where a run is narrowed to a group: a run with none of the group's
-     * tests passes. Under `--parallel`, Pest can sum a run that ran every
-     * test of the group as one with no tests, and fail it.
-     */
-    public const string EMPTY_PASSES = '--do-not-fail-on-empty-test-suite';
-
     /** Pest's script, in the directory Composer installed the project's packages in. */
     private const string SCRIPT = '%s/pestphp/pest/bin/pest';
 
@@ -176,12 +169,20 @@ final readonly class Invocation
         );
     }
 
-    /** @return list<string> */
+    /**
+     * The options that narrow a run to a group or a filter, where a run with
+     * none of their tests passes: under `--parallel`, Pest can sum a run that
+     * ran every test of the group as one with no tests, and fail it.
+     *
+     * @return list<string>
+     */
     private function narrowedTo(WholeSuite|Group|Filter $tests): array
     {
+        $empty = PhpUnitOption::DoNotFailOnEmptyTestSuite->value;
+
         return match (true) {
-            $tests instanceof Group => [sprintf('--group=%s', $tests->name()), self::EMPTY_PASSES],
-            $tests instanceof Filter => [sprintf('--filter=%s', $tests->pattern()), self::EMPTY_PASSES],
+            $tests instanceof Group => [sprintf('%s=%s', PhpUnitOption::Group->value, $tests->name()), $empty],
+            $tests instanceof Filter => [sprintf('%s=%s', PhpUnitOption::Filter->value, $tests->pattern()), $empty],
             default => [],
         };
     }

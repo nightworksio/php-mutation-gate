@@ -25,9 +25,9 @@ use function trim;
  * one process stopped at its limit, and the extension's records and the
  * guard say how. They are selected by their ids, or by their test files
  * where PHPUnit cannot read an id back, which runs the other tests of those
- * files too: one of those kills where it fails, and says nothing where it
- * passes. Where a test is in no file found, the mutant is unjudged without a
- * run.
+ * files too: one of those kills where it fails, though the kill is credited
+ * only to tests that cover it, and says nothing where it passes. Where a
+ * test is in no file found, the mutant is unjudged without a run.
  *
  * - Where opcache could have served a cached original, or the wrapper never
  *   served the mutated file in any of the run's processes, it is unjudged:
@@ -102,7 +102,7 @@ final readonly class MutantRun
         return match (true) {
             $verdict instanceof Reason => $mutant->because($verdict),
             $verdict === MutantStatus::TimedOut => $mutant->withLimit($limit),
-            $verdict === MutantStatus::Killed => $mutant->killedBy($recorded->killers()),
+            $verdict === MutantStatus::Killed => $mutant->killedBy($recorded->credited()),
             default => $mutant,
         };
     }
