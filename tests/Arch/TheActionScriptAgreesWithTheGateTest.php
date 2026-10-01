@@ -8,7 +8,13 @@ use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Tests\Support\Privileged;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use Symfony\Component\Process\Process;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
 
 // The action's script is Python, so it cannot read the gate's constants; each
 // value it shares with the gate is held here to the gate's own.
@@ -79,4 +85,15 @@ it('reads each exit code as the verdict the gate means by it', function (): void
         ExitCode::Failed->value => Judgement::Failed->value,
         ExitCode::CannotJudge->value => Judgement::CannotJudge->value,
     ]);
+});
+
+it('reads this package\'s effective config as the gate prints it: the ledger in the cached directory, and Pest patched', function (): void {
+    $shown = new Process([PHP_BINARY, 'bin/mutation-gate', 'config:show', '--format=json'], Tree::root());
+    $shown->mustRun();
+    $output = sprintf('%s/output', Scratch::directory());
+    touch($output);
+    $variables = ['GITHUB_OUTPUT' => $output, 'CACHE' => 'true'];
+    new Process(['python3', '.github/scripts/gate_action.py', 'config'], Tree::root(), $variables, $shown->getOutput())->mustRun();
+
+    expect((string) file_get_contents($output))->toBe("default_store=true\npest_patch=true\n");
 });
