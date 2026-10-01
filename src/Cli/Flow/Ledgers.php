@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -125,6 +126,21 @@ final readonly class Ledgers
     public function timings(): Timings
     {
         return $this->defaultBranch->timings()->and($this->own->timings());
+    }
+
+    /** Of these units, those no ledger read timed, which only a first run can measure. */
+    public function untimed(Units $units): Units
+    {
+        $timings = $this->timings();
+        $untimed = [];
+
+        foreach ($units as $unit) {
+            if (! $timings->secondsFor($unit->path()) instanceof Seconds) {
+                $untimed[] = $unit;
+            }
+        }
+
+        return Units::of(...$untimed);
     }
 
     /**

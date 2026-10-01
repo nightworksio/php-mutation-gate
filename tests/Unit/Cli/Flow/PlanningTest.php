@@ -226,6 +226,25 @@ it('estimates a unit no shard timed by what it measured of the first run, counti
     expect($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(1.7), Seconds::of(0.0)]]);
 });
 
+it('counts nothing and starts no run of no test where every unit to run is timed', function () use ($plan): void {
+    $store = new ProofStoreFake();
+    $at = Moment::at('2026-09-30T10:00:00Z');
+    $store->write(
+        Scope::branch('main'),
+        Ledger::empty()->withTimings(Timings::of(
+            Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', $at),
+            Timing::of(Path::of('src/Money.php'), Seconds::of(30.0), 'fake', $at),
+        )),
+    );
+    $runner = ScriptedRunner::fixture();
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner, $store, Engine::with(new PlusToMinus()));
+
+    expect($planned)->toBeInstanceOf(Plan::class)
+        ->and($runner->startedUp())->toBe([])
+        ->and($planned instanceof Plan ? [...$planned][0]->estimate()->part(CostBasis::Learned) : $planned)
+        ->toEqual(Seconds::of(80.0));
+});
+
 it('plans, guessing every unit, where its runs of no test cannot run', function () use ($plan): void {
     $project = Flows::project();
     Scratch::write($project, 'src/Money.php', sprintf("<?php\n%sfunction add(\$a, \$b) { return \$a + \$b; }\n", str_repeat("\n", 9)));

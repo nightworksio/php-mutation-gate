@@ -140,29 +140,30 @@ Two parts of that do not carry over to a public package.
    - **Cold start.** A unit with no timing is estimated from what the plan
      measured of its first run. The gate's own engine (ADR-0023, decision 8)
      counts, with the `default` set, the mutants that start on each line of
-     each of the unit's files. It counts them without making them, one for
-     each mutator that changes a node, so a change that would print the same
-     code counts, where a run makes no mutant of it.
-     A mutant on a line some test covers costs a mutant's run starting and the
-     time of every test covering that line; one no test covers costs nothing.
-     The unit's cost is the sum, spread over the processes the runner runs at
-     once. A mutant's run starting is the fastest of three runs of no test,
-     each started as the runner starts a mutant's own run (ADR-0004,
-     decision 1), serving the first file the engine counted unchanged. The
-     processes are the runner's parallelism on the plan's machine: each
-     shard's runner is taken to be like the plan's, and `plan` says how many
-     mutants at once it took them to run.
+     each of the unit's files; a plan whose every unit is timed counts nothing
+     and runs nothing. It counts them without making them, one for each mutator
+     that changes a node, so a change that would print the same code counts,
+     where a run makes no mutant of it. A mutant on a line some test covers
+     costs a mutant's run starting and the time of every test covering that
+     line; one no test covers costs nothing. The unit's cost is the sum, spread
+     over the processes the runner runs at once. A mutant's run starting is the
+     fastest of three runs of no test, each started as the runner starts a
+     mutant's own run (ADR-0004, decision 1), serving the first file the engine
+     counted unchanged. The processes are the runner's parallelism on the
+     plan's machine: each shard's runner is taken to be like the plan's, and
+     `plan` says how many mutants at once it took them to run.
    - **Where nothing was measured, a unit's cost is guessed.** A unit whose
      files the engine counted none of, or any unit where the `default` set is
-     not registered or a run of no test cannot run, is estimated as its
-     lines of code times seconds per line. The plan is made either way: an
-     estimate decides where a unit runs, never whether the gate can plan. Lines of code counts lines holding a token that is not
-     whitespace, a comment or the opening tag. `costs.secondsPerLine` maps
-     path prefixes to seconds per line, the longest matching prefix winning.
-     The empty prefix matches every path, and the default is `{"": 0.2}`, so a
-     project adds prefixes of its own beside it. After one full CI run every
-     unit has been measured, and only new units are estimated. A budgeted
-     run's shard weighs its units by what was learned, or guessed.
+     not registered or a run of no test cannot run, is estimated as its lines
+     of code times seconds per line. The plan is made either way: an estimate
+     decides where a unit runs, never whether the gate can plan. Lines of code
+     counts lines holding a token that is not whitespace, a comment or the
+     opening tag. `costs.secondsPerLine` maps path prefixes to seconds per
+     line, the longest matching prefix winning. The empty prefix matches every
+     path, and the default is `{"": 0.2}`, so a project adds prefixes of its
+     own beside it. After one full CI run every unit has been measured, and
+     only new units are estimated. A budgeted run's shard weighs its units by
+     what was learned, or guessed.
    - **The plan says what it expects.** Each unit's cost says what it rests
      on: learned from an earlier shard, measured from the plan's first run,
      or guessed from `costs.secondsPerLine`. `plan` prints, on standard

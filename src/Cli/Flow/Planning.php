@@ -106,7 +106,8 @@ final readonly class Planning
         $keys = $keying->keysOf($considering->considered());
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base());
         $opening = $map->suiteDuration();
-        $firstRun = new FirstRuns($this->adapters, StartUpSamples::standard())->measured($map, $proving->toRun());
+        $firstRun = new FirstRuns($this->adapters, StartUpSamples::standard())
+            ->measured($map, $ledgers->untimed($proving->toRun()));
         $shards = $this->shardsOf(
             $proving->toRun(),
             $inventory->trees,
