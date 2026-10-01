@@ -53,7 +53,7 @@ it('prints the effective config as JSON, every setting with its value', function
     $shown = $show('Configured');
     $settings = Configs::settings([
         'preset' => 'symfony',
-        'runner' => 'infection',
+        'runner' => ['use' => 'infection', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['src']]],
         'trees' => [['path' => 'src/Domain', 'floor' => 100]],
         'budget' => '15m',
@@ -69,7 +69,7 @@ it('lays the command line over the config file', function () use ($show, $decode
     $shown = $show('Configured', ['--runner' => 'pest', '--report' => ['json:build/mutation.json']]);
 
     expect($decoded($shown->output))->toMatchArray([
-        'runner' => 'pest',
+        'runner' => ['use' => 'pest', 'memory' => '1G'],
         'reports' => [
             ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
             ['use' => 'json', 'path' => 'build/mutation.json'],
@@ -80,7 +80,7 @@ it('lays the command line over the config file', function () use ($show, $decode
 it('shows zero-config where there is no config file', function () use ($show, $decoded): void {
     expect($decoded($show('Laravel')->output))->toMatchArray([
         'preset' => 'laravel',
-        'runner' => 'pest',
+        'runner' => ['use' => 'pest', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
     ]);
 });
@@ -94,7 +94,14 @@ it('prints the effective config in the format --format names', function () use (
     expect($read('yaml', $yaml, new YamlConfig()))->toBe($decoded($json))
         ->and($read('neon', $neon, new NeonConfig()))->toBe($decoded($json))
         ->and($php)->toStartWith("<?php\n\ndeclare(strict_types=1);\n")
-        ->and($php)->toContain("    ->preset(Preset::symfony())\n    ->runner(Runner::infection())\n");
+        ->and($php)->toContain(
+            "use NightWorksIO\\MutationGate\\Core\\Runner\\MemoryCap;\n"
+            . "use NightWorksIO\\MutationGate\\Core\\Runner\\MemoryUnit;\n",
+        )
+        ->and($php)->toContain(
+            "    ->preset(Preset::symfony())\n"
+            . "    ->runner(Runner::infection()->cappedAt(MemoryCap::of(1, MemoryUnit::Gigabytes)))\n",
+        );
 });
 
 it('prints every problem of an invalid config, each on a line of its own, and exits 2', function () use ($show): void {

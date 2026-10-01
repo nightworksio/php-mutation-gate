@@ -6,8 +6,10 @@ use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
+use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Judging;
+use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -15,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -73,7 +77,7 @@ it('judges each uncovered mutant on a line that is not executable by the tests t
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate', 'unread', 'internal', 'other']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php', 'tests/MoneySpec.php']));
-    $judged = new Judging($at, $shell)->of(judgingResult('rate', 'unread', 'internal', 'other'), $money, $results, judgingCoverage($results));
+    $judged = new Judging($at, $shell, new CapDirectory())->of(judgingResult('rate', 'unread', 'internal', 'other'), $money, $results, judgingCoverage($results));
 
     expect(judgingOutcomes($judged))->toBe([
         'rate' => 'killed',
@@ -81,6 +85,46 @@ it('judges each uncovered mutant on a line that is not executable by the tests t
         'internal' => 'killed',
         'other' => 'uncovered',
     ])->and($judged instanceof MutationResult ? $judged->skipped() : -1)->toBe(2);
+});
+
+it('runs every judging of a mutant by reference under the run\'s memory cap, and removes it once done', function () use (
+    $money,
+): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, ['internal']);
+    $read = [];
+    $shell = new ShellFake(static function (Command $command) use ($results, &$read): Ran {
+        $read[] = (string) file_get_contents(sprintf('%s/%s', MemoryScan::directoryBeside($results), MemoryCap::FILE));
+
+        return Unexecutables::answering($command, ['tests/OtherSpec.php']);
+    });
+    $scan = MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), MemoryScan::directoryBeside($results));
+
+    new Judging($at, $shell, new CapDirectory())->of(
+        judgingResult('internal'),
+        $money->cappedAt(MemoryCap::of(256, MemoryUnit::Megabytes)),
+        $results,
+        judgingCoverage($results),
+    );
+
+    expect($shell->commands())->not->toBeEmpty()
+        ->and(array_map(static fn(Command $command): mixed => $command->environment()[MemoryCap::SCAN_DIR] ?? null, $shell->commands()))
+        ->each->toBe($scan)
+        ->and(array_unique($read))->toBe(["memory_limit=256M\n"])
+        ->and(is_dir(MemoryScan::directoryBeside($results)))->toBeFalse();
+});
+
+it('cannot judge a mutant by reference where the memory cap cannot be written', function () use ($money): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, ['internal']);
+    mkdir(sprintf('%s/%s', MemoryScan::directoryBeside($results), MemoryCap::FILE), recursive: true);
+
+    expect(new Judging($at, new ShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: '')), new CapDirectory())->of(
+        judgingResult('internal'),
+        $money->cappedAt(MemoryCap::standard()),
+        $results,
+        judgingCoverage($results),
+    ))->toBeInstanceOf(CannotJudge::class);
 });
 
 it('runs the tests that read the value, then the fallback\'s others where the mutant came through', function () use (
@@ -100,7 +144,7 @@ it('runs the tests that read the value, then the fallback\'s others where the mu
             'MUTATION_GATE_GUARD' => sprintf('%s/.mutation-gate/pest/guard.json', $at->root()),
         ]);
 
-    new Judging($at, $shell)->of(judgingResult('internal'), $money, $results, judgingCoverage($results));
+    new Judging($at, $shell, new CapDirectory())->of(judgingResult('internal'), $money, $results, judgingCoverage($results));
 
     expect($shell->commands())->toEqual([
         $judging->judging(Paths::of(Path::of('tests/InternalSpec.php')), WholeSuite::tests(), Withheld::standard())->within(Seconds::of(6.0)),
@@ -116,7 +160,7 @@ it('gives a mutant that timed out the limit Pest allows each mutant', function (
     $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
         ? Ran::finished(succeeded: true, output: '')
         : Ran::stopped(''));
-    $judged = new Judging($at, $shell)->of(judgingResult('rate'), $money, $results, judgingCoverage($results));
+    $judged = new Judging($at, $shell, new CapDirectory())->of(judgingResult('rate'), $money, $results, judgingCoverage($results));
     $mutants = $judged instanceof MutationResult ? iterator_to_array($judged->mutants(), preserve_keys: false) : [];
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
@@ -130,10 +174,10 @@ it('judges nothing without the mutated copy, and leaves the rest of a run as it 
     $killed = judgingResult('rate');
     $settled = MutationResult::of(Mutants::none(), 0);
 
-    expect(judgingOutcomes(new Judging($at, $shell)->of($killed, $money, $results, judgingCoverage($results))))
+    expect(judgingOutcomes(new Judging($at, $shell, new CapDirectory())->of($killed, $money, $results, judgingCoverage($results))))
         ->toBe(['rate' => 'unjudged mutated file missing'])
-        ->and(new Judging($at, $shell)->of($settled, $money, $results, judgingCoverage($results)))->toBe($settled)
-        ->and(new Judging($at, $shell)->of($killed, MutationRequest::of(Paths::none(), Filter::matching('A')), $results, judgingCoverage($results)))
+        ->and(new Judging($at, $shell, new CapDirectory())->of($settled, $money, $results, judgingCoverage($results)))->toBe($settled)
+        ->and(new Judging($at, $shell, new CapDirectory())->of($killed, MutationRequest::of(Paths::none(), Filter::matching('A')), $results, judgingCoverage($results)))
         ->toBe($killed)
         ->and($shell->commands())->toBe([]);
 });
@@ -145,7 +189,7 @@ it('cannot judge where the run left no records to read', function () use ($money
     $coverage = judgingCoverage($recordless);
     unlink($recordless);
 
-    expect(new Judging($unrecorded, $shell)->of(judgingResult('rate'), $money, $recordless, $coverage))
+    expect(new Judging($unrecorded, $shell, new CapDirectory())->of(judgingResult('rate'), $money, $recordless, $coverage))
         ->toBeInstanceOf(CannotJudge::class)
         ->and($shell->commands())->toBe([]);
 });

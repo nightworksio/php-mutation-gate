@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -28,17 +29,19 @@ it('asks for some files judged by some tests, and by default nothing more', func
         ->and($request->deadline())->toEqual(Unlimited::time())
         ->and($request->processes())->toEqual(Processes::of(1))
         ->and($request->coverage())->toEqual(Fresh::coverage())
-        ->and($request->ordering())->toEqual(Ordering::runner());
+        ->and($request->ordering())->toEqual(Ordering::runner())
+        ->and($request->memory())->toEqual(MemoryCap::none());
 });
 
 it('takes each setting on its own, leaving the rest as they were', function (): void {
     $request = MutationRequest::of(Paths::of(Path::of('src')), Group::named('slow'))
+        ->narrowedTo(Paths::of(Path::of('src')), Mutators::named('LessThan'))
         ->leavingOut(Paths::of(Path::of('src/Kernel.php')))
-        ->onlyMutators(Mutators::named('LessThan'))
         ->within(Seconds::of(600.0))
         ->across(Processes::of(8))
         ->reusingCoverage(Path::of('.mutation-gate/coverage'))
-        ->orderedBy(Ordering::of(TestOrder::KillersFirst, KillHistory::none()));
+        ->orderedBy(Ordering::of(TestOrder::KillersFirst, KillHistory::none()))
+        ->cappedAt(MemoryCap::standard());
 
     expect($request->files())->toEqual(Paths::of(Path::of('src')))
         ->and($request->judgedBy())->toEqual(Group::named('slow'))
@@ -47,16 +50,18 @@ it('takes each setting on its own, leaving the rest as they were', function (): 
         ->and($request->deadline())->toEqual(Seconds::of(600.0))
         ->and($request->processes())->toEqual(Processes::of(8))
         ->and($request->coverage())->toEqual(Path::of('.mutation-gate/coverage'))
-        ->and($request->ordering())->toEqual(Ordering::of(TestOrder::KillersFirst, KillHistory::none()));
+        ->and($request->ordering())->toEqual(Ordering::of(TestOrder::KillersFirst, KillHistory::none()))
+        ->and($request->memory())->toEqual(MemoryCap::standard());
 });
 
 it('leaves the request it came from as it was', function (): void {
     $request = MutationRequest::of(Paths::none(), Filter::matching('KernelTest'));
     $request->leavingOut(Paths::of(Path::of('a')));
-    $request->onlyMutators(Mutators::named('LessThan'));
+    $request->narrowedTo(Paths::none(), Mutators::named('LessThan'));
     $request->within(Seconds::of(1.0));
     $request->across(Processes::of(2));
     $request->reusingCoverage(Path::of('c'));
+    $request->cappedAt(MemoryCap::standard());
 
     expect($request)->toEqual(MutationRequest::of(Paths::none(), Filter::matching('KernelTest')));
 });
@@ -82,4 +87,21 @@ it('never tells a runner how uncovered mutants score, which the gate applies whe
     );
 
     expect(array_filter($typed, static fn(string $types): bool => str_contains($types, 'Uncovered')))->toBe([]);
+});
+
+it('narrows to some files and mutators with nothing left out, keeping how it runs, the cap included', function (): void {
+    $request = MutationRequest::of(Paths::of(Path::of('src')), Group::named('slow'))
+        ->leavingOut(Paths::of(Path::of('src/Kernel.php')))
+        ->withholding(Withheld::of('DEPLOY_*'))
+        ->cappedAt(MemoryCap::standard())
+        ->within(Seconds::of(600.0));
+    $narrowed = $request->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('LessThan'));
+
+    expect([...$narrowed->files()])->toEqual([Path::of('src/Money.php')])
+        ->and($narrowed->mutators())->toEqual(Mutators::named('LessThan'))
+        ->and($narrowed->leftOut())->toEqual(Paths::none())
+        ->and($narrowed->judgedBy())->toEqual(Group::named('slow'))
+        ->and($narrowed->withheld())->toEqual($request->withheld())
+        ->and($narrowed->memory())->toEqual(MemoryCap::standard())
+        ->and($narrowed->deadline())->toEqual(Seconds::of(600.0));
 });

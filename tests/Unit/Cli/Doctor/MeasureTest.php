@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Doctor\Measurement;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
@@ -25,7 +26,7 @@ $measuring = static fn(string $project, Runner $runner): Observations => new Mea
     FlowCommands::composition($project, $runner, new ProofStoreFake(), Flows::ci()),
 )->into(Observations::none(), new ArrayInput([]));
 
-it('runs the whole suite once under coverage, withholding every CI\'s tokens, and writes no map', function () use (
+it('runs the whole suite once under coverage, withholding every CI\'s tokens, writes no map, and reads its peak memory', function () use (
     $measuring,
 ): void {
     $project = FlowCommands::project();
@@ -36,6 +37,7 @@ it('runs the whole suite once under coverage, withholding every CI\'s tokens, an
     expect($measured)->toBeInstanceOf(Measurement::class)
         ->and($measured instanceof Measurement ? $measured->coverage() : null)->toEqual(Flows::map())
         ->and($measured instanceof Measurement ? count($measured->held()) : 0)->toBeGreaterThan(0)
+        ->and($measured instanceof Measurement ? $measured->peak() : null)->toBeInstanceOf(MemoryCap::class)
         ->and($runner->asked())->toHaveCount(1)
         ->and(preg_match($withheld->pattern(), 'CI_JOB_TOKEN'))->toBe(1)
         ->and(file_exists(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)))->toBeFalse();

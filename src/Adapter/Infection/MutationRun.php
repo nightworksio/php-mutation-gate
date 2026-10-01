@@ -8,6 +8,7 @@ use function file_put_contents;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -25,6 +26,7 @@ final readonly class MutationRun
     public function __construct(
         private Project $project,
         private Shell $shell,
+        private CapFiles $files,
         private OwnConfig $config,
         private bool $nativeMarkersAllowed,
         private StaticAnalysis $analysis,
@@ -51,14 +53,22 @@ final readonly class MutationRun
         Targets $targets,
         Limits $limits,
     ): MutationResult|CannotJudge {
-        $ran = $this->shell->run(Invocation::mutation(
+        $invoked = Invocation::mutation(
             $this->project,
             $this->config,
             $request->judgedBy(),
             $coverage,
             $request->processes(),
             $targets->paths(),
-        )->withholding($request->withheld())->within($request->deadline()));
+        )->withholding($request->withheld())->within($request->deadline());
+        $scan = MemoryScan::in($this->project, $request->memory(), $this->files);
+
+        if ($scan instanceof CannotJudge) {
+            return $scan;
+        }
+
+        $ran = $this->shell->run($scan->onto($invoked));
+        $scan->remove();
 
         return $ran->wasStopped()
             ? CannotJudge::because(self::STOPPED)

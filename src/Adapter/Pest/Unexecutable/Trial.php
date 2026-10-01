@@ -14,6 +14,7 @@ use function microtime;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
+use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Shell;
@@ -59,6 +60,7 @@ final class Trial
         private readonly Withheld $withheld,
         private readonly Seconds|Unmeasured $limit,
         private readonly string $guard,
+        private readonly MemoryScan $scan,
     ) {
     }
 
@@ -100,8 +102,8 @@ final class Trial
 
     private function judging(Paths $tests): Command
     {
-        return $this->invocation->judging($tests, $this->judgedBy, $this->withheld)
-            ->within($this->limit instanceof Seconds ? $this->limit : Unlimited::time());
+        return $this->scan->onto($this->invocation->judging($tests, $this->judgedBy, $this->withheld)
+            ->within($this->limit instanceof Seconds ? $this->limit : Unlimited::time()));
     }
 
     /** What a run that finished found, where its guard says the mutated copy is what ran. */

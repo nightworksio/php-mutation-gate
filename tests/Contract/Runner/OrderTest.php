@@ -62,7 +62,7 @@ function orderRun(Ordering $ordering): MutationResult|CannotJudge
 {
     $library = Library::pest(Patching::off());
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-        ->onlyMutators($library->mutators('adds', 'large'))
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), $library->mutators('adds', 'large'))
         ->orderedBy($ordering);
 
     return $library->runner()->mutate($request);

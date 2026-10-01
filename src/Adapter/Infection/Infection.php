@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Mutant\DiffPatch;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -39,13 +40,10 @@ use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Test\Filter;
-use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\Runner;
 
@@ -71,6 +69,7 @@ final readonly class Infection implements Runner
         private Shell $shell,
         private Seconds $cap,
         private bool $nativeMarkersAllowed,
+        private CapFiles $files,
         private Clock $clock = new WallClock(),
         private HeldCoverage $held = new HeldCoverage(),
         private StaticAnalysis $analysis = StaticAnalysis::Infection,
@@ -79,9 +78,9 @@ final readonly class Infection implements Runner
 
     /**
      * The adapter in the project the gate runs in, from the options the flows
-     * write (see Setup).
+     * write (see Setup), writing its memory cap with these files.
      */
-    public static function fromOptions(Options $options): self|Invalid
+    public static function fromOptions(Options $options, CapFiles $files): self|Invalid
     {
         $setup = Setup::of($options);
 
@@ -96,6 +95,7 @@ final readonly class Infection implements Runner
             new ProcessShell($project->root(), getenv()),
             $setup->cap(),
             nativeMarkersAllowed: $setup->allowsNativeMarkers(),
+            files: $files,
             analysis: $setup->analysis(),
         );
     }
@@ -230,11 +230,10 @@ final readonly class Infection implements Runner
     /** One mutant run again on its own, with what Infection printed (see Rerunning). */
     public function reproduce(
         Reproducible $mutant,
-        WholeSuite|Group|Filter $judgedBy,
+        MutationRequest $request,
         Seconds $limit,
-        Withheld $withheld,
     ): Reproduction|CannotJudge {
-        return $this->rerunning()->reproduce($mutant, $judgedBy, $limit, $withheld);
+        return $this->rerunning()->reproduce($mutant, $request, $limit);
     }
 
     /**
@@ -298,6 +297,7 @@ final readonly class Infection implements Runner
                 $this->shell->in($project->root()),
                 $this->cap,
                 $this->nativeMarkersAllowed,
+                $this->files,
                 $this->clock,
                 analysis: $this->analysis,
             )
@@ -313,6 +313,7 @@ final readonly class Infection implements Runner
         return new Rerunning(
             $this->project,
             $this->shell,
+            $this->files,
             $this->nativeMarkersAllowed,
             $this->analysis,
             $covered,
@@ -328,6 +329,13 @@ final readonly class Infection implements Runner
 
     private function run(OwnConfig $config): MutationRun
     {
-        return new MutationRun($this->project, $this->shell, $config, $this->nativeMarkersAllowed, $this->analysis);
+        return new MutationRun(
+            $this->project,
+            $this->shell,
+            $this->files,
+            $config,
+            $this->nativeMarkersAllowed,
+            $this->analysis,
+        );
     }
 }

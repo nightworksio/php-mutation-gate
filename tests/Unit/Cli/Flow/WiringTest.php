@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
+use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\FirstParty;
@@ -384,9 +385,9 @@ it('tells Infection the gate checks its survivors where an analyser is wired, an
     $pest = $wired(Runner::pest(), StaticCheck::uses('fake'));
 
     expect($checked instanceof Adapters ? $checked->runner : $checked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate"}')))
+        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate"}'), new CapDirectory()))
         ->and($unchecked instanceof Adapters ? $unchecked->runner : $unchecked)
-        ->toEqual(Infection::fromOptions(Configs::options('{}')))
+        ->toEqual(Infection::fromOptions(Configs::options('{}'), new CapDirectory()))
         ->and($pest instanceof Adapters ? $pest->runner : $pest)->not->toBeInstanceOf(Infection::class);
 });
 

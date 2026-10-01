@@ -22,6 +22,8 @@ final class MoneySpec extends TestCase
     #[Group('mutation-canary')]
     public function addsTwoAmounts(): void
     {
+        Probe::memory();
+
         if (getenv('CONTRACT_RAN') !== false) {
             touch((string) getenv('CONTRACT_RAN'));
         }

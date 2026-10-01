@@ -37,7 +37,14 @@ final readonly class Settings
         $settled = Layer::standard()->over($layer);
 
         return $runner instanceof Choice && $problems === []
-            ? new self($settled, ChosenRunner::of($settled->pest()->beneath($runner), $layer->setup()->withhold()))
+            ? new self(
+                $settled,
+                ChosenRunner::of(
+                    $settled->pest()->beneath($runner),
+                    $layer->setup()->withhold(),
+                    $settled->setup()->memory(),
+                ),
+            )
             : Invalid::because(...$problems);
     }
 

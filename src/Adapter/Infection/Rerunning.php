@@ -15,13 +15,10 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
-use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Test\Filter;
-use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
@@ -41,6 +38,7 @@ final readonly class Rerunning
     public function __construct(
         private Project $project,
         private Shell $shell,
+        private CapFiles $files,
         private bool $nativeMarkersAllowed,
         private StaticAnalysis $analysis,
         private Closure $covered,
@@ -83,11 +81,10 @@ final readonly class Rerunning
 
     public function reproduce(
         Reproducible $mutant,
-        WholeSuite|Group|Filter $judgedBy,
+        MutationRequest $request,
         Seconds $limit,
-        Withheld $withheld,
     ): Reproduction|CannotJudge {
-        $request = MutationRequest::of(Paths::of($mutant->file()), $judgedBy)->withholding($withheld);
+        $request = $request->narrowedTo(Paths::of($mutant->file()), Mutators::named($mutant->mutator()));
         $prepared = $this->prepared($request);
         $shell = Transcribing::over($this->shell);
         $result = $prepared instanceof Prepared
@@ -137,7 +134,14 @@ final readonly class Rerunning
         Seconds $limit,
         Shell $shell,
     ): Mutants|CannotJudge {
-        $run = new MutationRun($this->project, $shell, $prepared->config, $this->nativeMarkersAllowed, $this->analysis);
+        $run = new MutationRun(
+            $this->project,
+            $shell,
+            $this->files,
+            $prepared->config,
+            $this->nativeMarkersAllowed,
+            $this->analysis,
+        );
         $result = $run
             ->of($request->narrowedTo(Paths::of($file), Mutators::named($mutator)), $prepared->coverage, $limit);
 

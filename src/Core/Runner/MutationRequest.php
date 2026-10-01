@@ -18,8 +18,8 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 /**
  * What a runner is asked to mutate: some files, judged by the whole suite, a
  * group or a filter. By default it leaves nothing out, applies every mutator,
- * has no deadline, runs one process, collects its own coverage and runs each
- * mutant's tests in the runner's own order. It never says how uncovered
+ * has no deadline, runs one process, collects its own coverage, runs each
+ * mutant's tests in the runner's own order and caps no process's memory. It never says how uncovered
  * mutants score: a runner reports every one, and the gate applies `uncovered`
  * when it judges (ADR-0003, ADR-0004).
  */
@@ -35,6 +35,7 @@ final readonly class MutationRequest
         private Path|Fresh $coverage,
         private Withheld $withheld,
         private Ordering $ordering,
+        private MemoryCap $memory,
     ) {
     }
 
@@ -50,6 +51,7 @@ final readonly class MutationRequest
             Fresh::coverage(),
             Withheld::standard(),
             Ordering::runner(),
+            MemoryCap::none(),
         );
     }
 
@@ -61,17 +63,13 @@ final readonly class MutationRequest
 
     /**
      * This request over these files alone, with only these mutators, and
-     * nothing left out: how a run again makes some of its mutants once more,
-     * judged, covered, withheld, timed and ordered as this request is.
+     * nothing left out: how a request asks for some mutators only, and how a
+     * run again makes some of its mutants once more, judged, covered,
+     * withheld, capped, timed and ordered as this request is.
      */
     public function narrowedTo(Paths $files, Mutators $mutators): self
     {
         return clone($this, ['files' => $files, 'mutators' => $mutators, 'leftOut' => Paths::none()]);
-    }
-
-    public function onlyMutators(Mutators $mutators): self
-    {
-        return clone($this, ['mutators' => $mutators]);
     }
 
     /** This request, stopped when this much time has passed. */
@@ -101,6 +99,17 @@ final readonly class MutationRequest
     public function reusingCoverage(Path $directory): self
     {
         return clone($this, ['coverage' => $directory]);
+    }
+
+    /** This request, each process that runs a mutant using no more memory than this (`runner.memory`). */
+    public function cappedAt(MemoryCap $memory): self
+    {
+        return clone($this, ['memory' => $memory]);
+    }
+
+    public function memory(): MemoryCap
+    {
+        return $this->memory;
     }
 
     /** This request, running each mutant's covering tests in this order where the runner can. */

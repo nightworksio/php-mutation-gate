@@ -67,7 +67,7 @@ it('finds the preset and the runner of a project with no config', function () us
 
     expect($shown($settings))->toMatchArray([
         'preset' => 'laravel',
-        'runner' => 'pest',
+        'runner' => ['use' => 'pest', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
         'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing']],
         'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'retries' => 20],
@@ -83,7 +83,7 @@ it('lays the config file over its presets, and the command line over both', func
 
     expect($shown($settings))->toMatchArray([
         'preset' => 'symfony',
-        'runner' => 'pest',
+        'runner' => ['use' => 'pest', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['src']]],
         'trees' => [['path' => 'src/Domain', 'floor' => 100]],
         'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**']],
@@ -178,7 +178,7 @@ it('chooses the library preset for a project without composer.json', function ()
 
     expect($shown($effective($project)->settings($nothing())))->toMatchArray([
         'preset' => 'library',
-        'runner' => 'infection',
+        'runner' => ['use' => 'infection', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => []]],
         'timeouts' => ['mode' => 'confirm', 'seconds' => 10, 'retries' => 20],
     ]);
@@ -313,7 +313,7 @@ it('reads the config file --config names', function () use ($effective, $shown):
     Scratch::write($project, 'ci/gate.neon', "runner: pest\nbudget: 90s\n");
 
     expect($shown($effective($project)->settings(CommandLine::nothing()->withConfig('ci/gate.neon'))))
-        ->toMatchArray(['runner' => 'pest', 'budget' => '1m30s']);
+        ->toMatchArray(['runner' => ['use' => 'pest', 'memory' => '1G'], 'budget' => '1m30s']);
 });
 
 it('cannot judge a project whose composer.json it cannot read, where it must choose the preset', function () use (

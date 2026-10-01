@@ -95,7 +95,7 @@ it('makes every mutant of every PHP file a directory holds, judging each by its 
 it('makes only the mutators asked for, of the files not left out', function () use ($covered): void {
     [$run] = killingRun(library());
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
-        ->onlyMutators(Mutators::named('acme/PlusToMinus'))
+        ->narrowedTo(Paths::of(Path::of('src')), Mutators::named('acme/PlusToMinus'))
         ->leavingOut(Paths::of(Path::of('src/Tax.php')));
 
     expect(judgedMutants($run->of($request, $covered, Seconds::of(5.0))))->toBe([['src/Money.php', 'acme/PlusToMinus', 'killed']]);

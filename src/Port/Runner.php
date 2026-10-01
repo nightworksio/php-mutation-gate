@@ -21,12 +21,9 @@ use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Test\Filter;
-use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
@@ -99,16 +96,17 @@ interface Runner
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge;
 
     /**
-     * One mutant run again on its own: its file with only its mutator, judged
-     * by these tests, allowed this long where the runner lays a limit, and
-     * matched back by the gate's id, with what the runner printed. The tests
-     * never see the variables withheld (ADR-0004 decision 6).
+     * One mutant run again on its own, under the same conditions as the run
+     * it came from: the request narrowed to the mutant's file and its
+     * mutator, judged, withheld and capped as the request says, allowed this
+     * long where the runner lays a limit, and matched back by the gate's id,
+     * with what the runner printed. The tests never see the variables
+     * withheld (ADR-0004 decision 6).
      */
     public function reproduce(
         Reproducible $mutant,
-        WholeSuite|Group|Filter $judgedBy,
+        MutationRequest $request,
         Seconds $limit,
-        Withheld $withheld,
     ): Reproduction|CannotJudge;
 
     /**

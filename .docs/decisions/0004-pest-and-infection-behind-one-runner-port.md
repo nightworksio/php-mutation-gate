@@ -121,7 +121,8 @@ its parser attributes. Both change when the checkout moves.
    | `judges(file, map)` | The test files that can judge a mutant of this file, by the runner's own selection rules (decision 5) |
    | `startUp(file, withheld)` | How long one run of no test takes, started as the runner starts a mutant's own run of the file, whose mutant is an unchanged copy of it, and narrowed by a filter that matches no test (`(?!)`): what every mutant's run pays before its first test (ADR-0006, decision 4). The runner serves the file through the wrapper it serves a mutant through, so the run pays for that too. Pest runs itself with `--no-tia --bail --filter=(?!) --do-not-fail-on-empty-test-suite` in the environment pest-plugin-mutate gives a mutant's run under `--parallel`: `PEST_MUTATION_TESTING` naming the file, `PEST_MUTATION_FILE` naming the copy, `PARATEST`, `TEST_TOKEN`, `UNIQUE_TEST_TOKEN` and `LARAVEL_PARALLEL_TESTING`. It loads every test file, as a mutant's run does. Infection's is the project's PHPUnit with no PHP options, as Infection starts a mutant's, with its extra arguments and the same filter, on a config shaped by the steps of Infection's `MutationConfigBuilder` that change what a run loads. Those steps are: every path absolute from the config's directory, no loggers, coverage reports, colours, printer or default suite, the suites replaced by one holding the covering test files, here none, and the bootstrap replaced by Infection's, which lowers the process's priority, serves the copy through Infection's include interceptor and then loads the config's own bootstrap. So it loads no test file. The steps that only order, stop or report a run (the result cache, the fail-on attributes, stop-on-defect, stderr) are left out. The gate takes those steps itself, since Infection's builder is in the project's vendor, which the gate's process never loads. The run withholds what every child process withholds |
    | `mutate(request)` | Every mutant's normalised result for some files, judged by the whole suite or by a group, under a deadline |
-   | `retry(mutants, limit)` | The same, for a few mutants run again (ADR-0008) |
+   | `retry(request, mutants, limit)` | The same, for a few mutants run again, the invocation's request narrowed to them (ADR-0008) |
+   | `reproduce(mutant, request, limit)` | One mutant run again on its own, the request narrowed to its file and its mutator, with what the runner printed (decision 6) |
    | `markers(files)` | The runner's own ignore markers in those files and in its config, each with the `ignores.entries` entry that replaces it (ADR-0008). Whether a run may go ahead with them is the verdict's to decide |
    | `definitions()` | The files that define how the runner runs, as paths from the project's root. Pest names `tests/Pest.php` and the PHPUnit config in the root; Infection names its config under each of its four names and the PHPUnit config in `phpUnit.configDir`, or in the root where the config sets none. Each PHPUnit config is named by each of the names PHPUnit looks for: `phpunit.xml`, `phpunit.dist.xml` and `phpunit.xml.dist`. A change to one reaches everything (ADR-0005), and every content key reads them (ADR-0007) |
    | `names(tests, withheld)` | Each test by its file and the description the runner gives it, or the data set row that folds into it (ADR-0014, decision 6). Infection names a test from the file that declares its class and its method. Pest lists the suite's tests, running none, and its plugin names each one. That listing withholds what every child process withholds |
@@ -494,9 +495,11 @@ its parser attributes. Both change when the checkout moves.
    with `--mutator=<class name>`, or Infection's positional path with the
    narrowed config of decision 4. It finds the mutant by the gate's id, or a
    unique prefix of six or more, in the newest record the readable ledgers
-   hold, runs it by the tests that judge its unit and allowed the configured
-   cap, and prints the diff, what was recorded, what the run found, the
-   judging tests and the runner's own output for it. It exits 0 where the run
+   hold, and runs it under the conditions of the run it came from: by the
+   tests that judge its unit, allowed the configured time limit, withholding
+   what a run withholds, and under the memory cap of decision 9. It prints
+   the diff, what was recorded, what the run found, the judging tests and the
+   runner's own output for it. It exits 0 where the run
    finds what was recorded, 1 where it finds something else, and 2 where no
    ledger read holds the mutant, the run no longer makes it, or the runner
    cannot judge. A mutant decision 8 judged is re-run through decision 8's
@@ -646,6 +649,55 @@ its parser attributes. Both change when the checkout moves.
      - Infection, which emits no mutant on a constant, an enum case, a
        property or an attribute argument, and one on a parameter default.
 
+9. **Every PHP process a mutation run starts has a memory cap.**
+   - `runner.memory` is the `memory_limit` of each PHP process a mutation
+     run starts: the runner's own, its opening run of the suite, and each
+     mutant's process, and so of each reproduction (decision 6). It is written as PHP writes it, a whole number of
+     bytes, `K`, `M` or `G`, such as `512M`. It is `1G` by default, and `-1`
+     for none. A mutant that runs away with memory then stops alone, rather
+     than taking the machine and every mutant still to run on it with it.
+   - The adapter writes `memory_limit` to an ini file in a directory of its
+     own in the run's workspace, and adds that directory to
+     `PHP_INI_SCAN_DIR`, after the directories PHP scans already. A runner
+     starts each mutant as a PHP process of its own, which takes none of the
+     options of the command that started the runner but inherits its
+     environment. A cap the adapter cannot write makes the run *cannot
+     judge*.
+   - A project that sets `memory_limit` itself sets it after PHP reads the
+     cap, and so wins over it: with `<ini name="memory_limit">` under `<php>`
+     in its PHPUnit config, or with `ini_set()` in a bootstrap file. doctor
+     finds the first; the second shows only when the tests run.
+   - Coverage runs, listing the tests, and the gate's own process run
+     without the cap; the gate's own process takes the `memory_limit` its
+     ledgers need (ADR-0013, decision 13).
+   - The plan weighs the suite against the cap in force: `runner.memory`,
+     or the `memory_limit` of the PHPUnit config the runner reads (the
+     project root's for Pest; for Infection, the one in `phpUnit.configDir`,
+     or the root's where its config sets none) where that is higher or none.
+     Where the largest process of the coverage run it has just run held
+     more, the plan is *cannot judge*, and says to raise `runner.memory`. The
+     peak is the most resident memory `getrusage` counts for the processes
+     the gate waited for, an upper bound on what `memory_limit` counts, so a
+     suite near the cap can be refused though its mutants would fit. Where
+     the system counts no such peak, or the plan reads a map another job
+     wrote, it plans.
+   - The cap's ini file is written, whole, into a directory of the runner's
+     workspace for each process of the gate, which it empties first and
+     removes when the run is done. A link at any level from the gate's own
+     directory down to that one is refused; the levels above it are the
+     project's, which the gate reads through as it reads the project. An
+     entry other than a file in that directory is refused before a run;
+     after one, the files are removed and the directory is left, so the next
+     run refuses it.
+   - The cap can change a mutant's result, so it is part of a proof's key
+     (ADR-0007).
+   - doctor's findings on it are advice (ADR-0017, decision 10):
+     `memory-uncapped` where it is `-1`; `memory-cap-lifted` where the
+     project's PHPUnit config sets a higher `memory_limit`, or none; and,
+     under `--measure`, `memory-cap-near` where the suite's processes held
+     over half the cap, by the most resident memory `getrusage` counts for
+     the processes the gate waited for.
+
 ## Alternatives considered
 
 | Option | Why it lost |
@@ -662,6 +714,8 @@ its parser attributes. Both change when the checkout moves.
 | **Counting such mutants as uncovered, or leaving them out** | A constant or an enum value a test depends on would then be either always against the project or never judged, whatever the tests assert. Judging it against the tests that reference it gives the real answer. |
 | **Patching Pest by default** | Edits another package's vendor code on every install without being asked. Opt-in keeps that a visible decision in the project's own `composer.json`. |
 | **Waiting for Pest to offer a report or a shared map** | Not in this package's control. The adapter works with what the supported versions ship, and the contract suite finds out when that changes. |
+| **The cap as `-d memory_limit` on the runner's command** | Only the process the gate starts takes it. Each mutant's process is started by the runner, and inherits the environment, not the options. |
+| **An address-space limit (`ulimit -v`) on the runner's processes** | It counts reserved address space, which PHP's JIT and OPcache reserve far beyond what they use, it does not exist on Windows, and a process over it dies with no message that names the cause. |
 | **Codeception and phpspec through Infection** | Their coverage and group listing are not PHPUnit's, and nothing in the gate's reach, holds or proof key has been checked against them. An extension can add them through the same port. |
 
 ## Consequences

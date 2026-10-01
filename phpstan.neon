@@ -521,6 +521,8 @@ services:
             coincidences:
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
                     - STANDARD # runs of no test the plan times
+                'NightWorksIO\MutationGate\Core\Runner\MemoryUnit':
+                    - KILO # bytes in a kilobyte, as PHP counts one
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
                     - UNRELEASED # the package's own branch, in a link to its guide
                 'NightWorksIO\MutationGate\Core\Php\OwnMember':
@@ -674,6 +676,8 @@ services:
                     - PRE_PUSH_MINUTES # a budget, in minutes
                 'NightWorksIO\MutationGate\Cli\Flow\Invoking':
                     - DOUBLED # a retried timeout's cap, doubled
+                'NightWorksIO\MutationGate\Core\Runner\MemoryCap':
+                    - ROOM # times a suite's peak memory a cap holds
             # Constants still to refer to their value's one home, by the builder whose area holds them.
             awaiting:
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':

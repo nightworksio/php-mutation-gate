@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use function array_flip;
 use function array_key_exists;
 use function array_map;
-use function array_unique;
 use function array_values;
 use function count;
 
@@ -16,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 use function sprintf;
@@ -23,16 +23,15 @@ use function sprintf;
 /**
  * What a config builds on (ADR-0002, ADR-0008): the extensions it loads, the
  * presets it applies, the runner, what the runner withholds from the
- * project's tests, and where the trees come from.
+ * project's tests and the memory each mutant's process may use, and where
+ * the trees come from.
  */
 final readonly class Setup implements Part
 {
     /** The `phpunit` tree source's paths, where `phpunit.xml` has no `<source>`. */
     private const string FALLBACK = 'fallback';
 
-    /** The runners and presets the builder has a method of its own for. */
-    private const array RUNNERS = [BuiltinRunner::Pest->value, BuiltinRunner::Infection->value];
-
+    /** The presets the builder has a method of its own for. */
     private const array PRESETS = [
         BuiltinPreset::Library->value,
         BuiltinPreset::Laravel->value,
@@ -42,13 +41,11 @@ final readonly class Setup implements Part
     /**
      * @param Listed<string>|Absent $extensions
      * @param Listed<string>|Absent $presets
-     * @param list<string>          $withhold
      */
     private function __construct(
         private Listed|Absent $extensions,
         private Listed|Absent $presets,
-        private Choice|Absent $runner,
-        private array $withhold,
+        private RunnerLayer $runner,
         private Choice|Absent $treeSource,
     ) {
     }
@@ -63,12 +60,12 @@ final readonly class Setup implements Part
         Choice|Absent $runner = new Absent(),
         Withheld|Absent $withhold = new Absent(),
         Choice|Absent $treeSource = new Absent(),
+        MemoryCap|Absent $memory = new Absent(),
     ): self {
         return new self(
             $extensions,
             $presets,
-            $runner,
-            $withhold instanceof Withheld ? [...$withhold] : [],
+            RunnerLayer::of($runner, $withhold, $memory),
             $treeSource,
         );
     }
@@ -82,18 +79,17 @@ final readonly class Setup implements Part
     {
         $none = self::none();
 
-        return self::of(extensions: $none->extensions(), treeSource: $none->treeSource());
+        return self::of(extensions: $none->extensions(), treeSource: $none->treeSource(), memory: $none->memory());
     }
 
-    /** Presets and extensions add to an earlier layer's; a runner or a tree source is chosen whole. */
+    /** Presets and extensions add to an earlier layer's; a runner, a memory cap or a tree source is chosen whole. */
     public function over(Part $later): self
     {
         return $later instanceof self
             ? new self(
                 $this->joined($this->extensions, $later->extensions),
                 $this->joined($this->presets, $later->presets),
-                Absent::laid($this->runner, $later->runner),
-                array_values(array_unique([...$this->withhold, ...$later->withhold])),
+                $this->runner->over($later->runner),
                 Absent::laid($this->treeSource, $later->treeSource),
             )
             : $this;
@@ -114,13 +110,19 @@ final readonly class Setup implements Part
     /** The runner a layer chooses, or none, for a later layer or zero-config to choose. */
     public function runner(): Choice|Absent
     {
-        return $this->runner;
+        return $this->runner->runner();
     }
 
     /** `runner.withhold`: what the runner withholds from the project's tests, beside what every run does. */
     public function withhold(): Withheld
     {
-        return Withheld::of(...$this->withhold);
+        return $this->runner->withhold();
+    }
+
+    /** `runner.memory`: the memory each process that runs a mutant may use, 1G where no layer says. */
+    public function memory(): MemoryCap
+    {
+        return $this->runner->memory();
     }
 
     public function treeSource(): Choice
@@ -147,7 +149,7 @@ final readonly class Setup implements Part
         $written = $this->presets instanceof Listed
             ? $written->with(Member::of('preset', $this->presetsWritten($this->presets)))
             : $written;
-        $written = $this->runnerWritten($written);
+        $written = $this->runner->written($written);
 
         return $this->treeSource instanceof Choice
             ? $written->with(Member::of('treeSource', $this->sourceFrom($origin)->written()))
@@ -168,46 +170,11 @@ final readonly class Setup implements Part
         $calls = $this->presets instanceof Listed && [...$this->presets] !== []
             ? $calls->and(PhpCalls::onGate('preset', ...array_map($this->preset(...), [...$this->presets])))
             : $calls;
-        $calls = $calls->and($this->runnerPhp());
+        $calls = $calls->and($this->runner->php());
 
         return $this->treeSource instanceof Choice
             ? $calls->and(PhpCalls::onGate('treeSource', $this->source($this->sourceFrom($origin))))
             : $calls;
-    }
-
-    /** The runner, by itself as the adapter it chooses, or as an object with what it withholds. */
-    private function runnerWritten(Json $written): Json
-    {
-        $chosen = $this->runner instanceof Choice ? $this->runner->written() : Json::object();
-
-        if ($this->withhold === []) {
-            return $this->runner instanceof Choice ? $written->with(Member::of('runner', $chosen)) : $written;
-        }
-
-        $runner = $chosen instanceof Json ? $chosen : Json::object(Member::of('use', $chosen));
-
-        return $written->with(
-            Member::of('runner', $runner->with(Member::of('withhold', Json::items(...$this->withhold)))),
-        );
-    }
-
-    /** The runner as the builder chooses it, with `->withholding()` where it withholds anything. */
-    private function runnerPhp(): PhpCalls
-    {
-        $withheld = sprintf('Withheld::of(%s)', PhpCalls::literals(...$this->withhold));
-
-        return match (true) {
-            $this->runner instanceof Choice && $this->withhold === [] => PhpCalls::onGate(
-                'runner',
-                PhpCalls::chosen($this->runner, 'Runner', ...self::RUNNERS),
-            ),
-            $this->runner instanceof Choice => PhpCalls::onGate(
-                'runner',
-                sprintf('%s->withholding(%s)', PhpCalls::chosen($this->runner, 'Runner', ...self::RUNNERS), $withheld),
-            ),
-            $this->withhold === [] => PhpCalls::none(),
-            default => PhpCalls::onGate('withholding', $withheld),
-        };
     }
 
     /** @param Listed<string> $presets */

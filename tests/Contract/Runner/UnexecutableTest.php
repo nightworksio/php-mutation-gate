@@ -56,7 +56,7 @@ const UNEXECUTABLE_JUDGED = [
  */
 function unexecutableJudged(Library $library, Paths $files, WholeSuite|Group $tests, string $mutator): array
 {
-    $request = MutationRequest::of($files, $tests)->onlyMutators(Mutators::named($mutator));
+    $request = MutationRequest::of($files, $tests)->narrowedTo($files, Mutators::named($mutator));
     $result = $library->runner()->mutate($request);
     $judged = [];
 

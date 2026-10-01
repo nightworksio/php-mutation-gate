@@ -5,8 +5,10 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
+use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Ignores;
+use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -24,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
@@ -43,7 +46,10 @@ use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -71,6 +77,7 @@ use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\NamesAsked;
+use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
@@ -122,6 +129,80 @@ it('plans every unit of a full run into shards, on the commit HEAD is at', funct
         ->toEqual(Reasons::of(Reason::that('A full run considers every unit.')))
         ->and($planned instanceof Plan ? $planned->considered()->proved() : $planned)->toEqual(Units::none())
         ->and($planned instanceof Plan ? $planned->considered()->carried() : $planned)->toEqual(Units::none());
+});
+
+/** A plan under a 512M cap, where the suite's coverage run held this much and the runner reads this config. */
+$cappedPlan = static function (
+    MemoryCap|NotGiven $peak,
+    string $phpUnit = '',
+    bool $handedOver = false,
+    string $config = 'phpunit.xml',
+    string $reads = 'phpunit.xml',
+) use ($coverage): Plan|CannotJudge {
+    $setup = Flows::setup();
+    $project = Flows::project();
+
+    if ($phpUnit !== '') {
+        Scratch::write($project, $config, $phpUnit);
+    }
+
+    return new Planning(
+        Flows::adapters($project, [], RunnerFake::ofTheFixture()->definedBy(Paths::of(Path::of($reads)))),
+        Flows::settings(ConfiguredRunner::uses('fake')->cappedAt(MemoryCap::of(512, MemoryUnit::Megabytes))),
+        new Setup($setup->configFile, $setup->gate, $setup->installed, $setup->clock, new PeakMemoryFake($peak)),
+    )->plan(Mode::full(), $handedOver ? CoverageRead::from(Path::of('.mutation-gate/planned')) : $coverage(), Cut::exactly(2));
+};
+
+it('refuses to plan where the suite held more memory in its coverage run than the cap', function () use (
+    $cappedPlan,
+): void {
+    expect($cappedPlan(MemoryCap::of(600, MemoryUnit::Megabytes)))->toEqual(CannotJudge::because(implode("\n", [
+        'The largest process of the suite\'s coverage run held 600M resident, more than the 512M each mutant\'s',
+        'process may hold, so its mutants cannot be judged under that cap. Resident memory counts more than',
+        'memory_limit does. Raise runner.memory; doctor --measure says what the suite needs.',
+    ])));
+});
+
+it('plans where the suite held no more than the cap, or the system did not count it', function (
+    MemoryCap|NotGiven $peak,
+) use ($cappedPlan): void {
+    expect($cappedPlan($peak))->toBeInstanceOf(Plan::class);
+})->with([
+    'at the cap' => [MemoryCap::of(512, MemoryUnit::Megabytes)],
+    'not counted' => [NotGiven::value()],
+]);
+
+it('plans where the project\'s own memory_limit lifts the cap over the suite, or none binds it', function (
+    string $limit,
+) use ($cappedPlan): void {
+    $phpUnit = sprintf('<phpunit><php><ini name="memory_limit" value="%s"/></php></phpunit>', $limit);
+
+    expect($cappedPlan(MemoryCap::of(600, MemoryUnit::Megabytes), $phpUnit))->toBeInstanceOf(Plan::class);
+})->with(['none' => ['-1'], 'higher' => ['1G']]);
+
+it('refuses where the project\'s own memory_limit is lower than the suite, weighing it against the cap', function () use (
+    $cappedPlan,
+): void {
+    $phpUnit = '<phpunit><php><ini name="memory_limit" value="256M"/></php></phpunit>';
+
+    expect($cappedPlan(MemoryCap::of(600, MemoryUnit::Megabytes), $phpUnit))->toBeInstanceOf(CannotJudge::class);
+});
+
+it('weighs the memory_limit of the PHPUnit config the runner reads, not one it does not', function () use (
+    $cappedPlan,
+): void {
+    $phpUnit = '<phpunit><php><ini name="memory_limit" value="1G"/></php></phpunit>';
+
+    $peak = MemoryCap::of(600, MemoryUnit::Megabytes);
+
+    expect($cappedPlan($peak, $phpUnit, config: 'config/phpunit.xml', reads: 'config/phpunit.xml'))
+        ->toBeInstanceOf(Plan::class)
+        ->and($cappedPlan($peak, $phpUnit, config: 'phpunit.xml', reads: 'config/phpunit.xml'))
+        ->toBeInstanceOf(CannotJudge::class);
+});
+
+it('plans a map another job wrote, whatever this job\'s processes held', function () use ($cappedPlan): void {
+    expect($cappedPlan(MemoryCap::of(600, MemoryUnit::Megabytes), handedOver: true))->toBeInstanceOf(Plan::class);
 });
 
 it('hands each shard the map of its own files', function () use ($plan): void {

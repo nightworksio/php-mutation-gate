@@ -24,6 +24,7 @@ final readonly class ProjectFiles
         private ComposerSetup|NotGiven $composer,
         private Paths|NotGiven $runningTheGate,
         private Baseline|CannotJudge|NotGiven $baseline,
+        private PhpUnitMemory|NotGiven $phpUnitMemory,
     ) {
     }
 
@@ -31,7 +32,7 @@ final readonly class ProjectFiles
     {
         $none = NotGiven::value();
 
-        return new self($none, $none, $none, $none, $none);
+        return new self($none, $none, $none, $none, $none, $none);
     }
 
     /** These, with the project's `.gitignore`, empty where it has none. */
@@ -64,6 +65,12 @@ final readonly class ProjectFiles
         return clone($this, ['baseline' => $baseline]);
     }
 
+    /** These, with the `memory_limit` the project's PHPUnit config sets, where it sets one. */
+    public function withPhpUnitMemory(PhpUnitMemory $memory): self
+    {
+        return clone($this, ['phpUnitMemory' => $memory]);
+    }
+
     public function gitIgnore(): GitIgnore|NotGiven
     {
         return $this->gitIgnore;
@@ -87,5 +94,10 @@ final readonly class ProjectFiles
     public function baseline(): Baseline|CannotJudge|NotGiven
     {
         return $this->baseline;
+    }
+
+    public function phpUnitMemory(): PhpUnitMemory|NotGiven
+    {
+        return $this->phpUnitMemory;
     }
 }

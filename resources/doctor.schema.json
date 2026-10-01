@@ -40,7 +40,10 @@
                             "fork-approval-weak",
                             "schedule-not-running",
                             "online-unread",
-                            "no-github-repository"
+                            "no-github-repository",
+                            "memory-uncapped",
+                            "memory-cap-lifted",
+                            "memory-cap-near"
                         ]
                     },
                     "severity": {

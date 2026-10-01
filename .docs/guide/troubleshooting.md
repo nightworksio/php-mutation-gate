@@ -228,3 +228,37 @@ check still ran.
 Run `doctor --online` where `GITHUB_REPOSITORY` names the repository, as
 `owner/name`, or where the `origin` remote is on GitHub. On an Enterprise
 server, set `GITHUB_SERVER_URL` and `GITHUB_API_URL`.
+
+## memory-uncapped
+
+`runner.memory` is `-1`, so no PHP process of a mutation run has a memory
+cap. A mutant that runs away with memory then takes the machine down, with
+every mutant still to run on it (ADR-0004, decision 9).
+
+Set `runner.memory` above what the suite needs, such as `1G`.
+`doctor --measure` says what the suite needs.
+
+## memory-cap-lifted
+
+The project's PHPUnit config sets `memory_limit` higher than
+`runner.memory`, or to `-1`, with `<ini name="memory_limit">` under `<php>`.
+PHPUnit sets it as it starts, after PHP has read the cap, so each mutant runs
+under the config's limit in place of the cap.
+
+Take the `<ini name="memory_limit">` out of the PHPUnit config, or set it no
+higher than `runner.memory`, and raise `runner.memory` where the suite needs
+more. An `ini_set('memory_limit', ...)` in a bootstrap file wins over the cap
+the same way; doctor cannot see one.
+
+## memory-cap-near
+
+Under `doctor --measure`, the suite's processes held over half the memory
+`runner.memory` allows, by the most resident memory the system counts for
+them. Each mutant runs under the cap, so a mutant that needs more than it is
+stopped by the cap rather than by a test, and a plan refuses a suite whose
+coverage run held more than the cap. Resident memory is an upper bound on
+what `memory_limit` counts, so a suite near the cap may be refused though
+its mutants would fit.
+
+Set `runner.memory` to at least what the finding names: twice what the suite
+held.

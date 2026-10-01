@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -58,6 +59,7 @@ final readonly class MutationRun
     public function __construct(
         private Project $project,
         private Shell $shell,
+        private CapFiles $files,
         private Patching $patching,
         private Remembered $remembered,
         private Closure $groups,
@@ -98,14 +100,17 @@ final readonly class MutationRun
         CoverageMap|Unshared $shared,
     ): MutationResult|CannotJudge {
         $command = Plan::handedOver($this->project, $request, $this->commandFor($request, $results, $shared));
+        $scan = MemoryScan::beside($this->project, $results, $request->memory(), $this->files);
 
-        if ($command instanceof CannotJudge) {
-            return $command;
+        if ($command instanceof CannotJudge || $scan instanceof CannotJudge) {
+            return $command instanceof CannotJudge ? $command : $scan;
         }
 
+        $command = $scan->onto($command);
         $ran = $this->shell->run($this->only === [] ? $command : $command->with([
             GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only),
         ]));
+        $scan->remove();
         $coverage = $shared instanceof CoverageMap
             ? new HandedOver($shared, $this->project)
             : CoverageFile::at(Recorder::coverageBeside($results));
@@ -113,7 +118,7 @@ final readonly class MutationRun
 
         return $result instanceof CannotJudge || $coverage instanceof CannotJudge
             ? $result
-            : new Judging($this->project, $this->shell)->of($result, $request, $results, $coverage);
+            : new Judging($this->project, $this->shell, $this->files)->of($result, $request, $results, $coverage);
     }
 
     private function commandFor(

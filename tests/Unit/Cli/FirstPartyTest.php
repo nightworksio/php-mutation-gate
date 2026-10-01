@@ -35,6 +35,7 @@ use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\Project\AutoloadTrees;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
+use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
@@ -169,7 +170,7 @@ it('registers Pest as a runner, in the vendor directory Composer installed the p
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('pest'), Options::none()))
-        ->toEqual(Pest::fromOptions(Options::none(), ComposerVendor::of('.')));
+        ->toEqual(Pest::fromOptions(Options::none(), ComposerVendor::of('.'), new CapDirectory()));
 });
 
 it('registers the console, every file report, GitHub\'s three and the badge by name', function () use ($registry): void {

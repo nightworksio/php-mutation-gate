@@ -320,7 +320,7 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
 
 20. **`run --only=security` audits the defences alone.**
     - It runs only the security-tagged mutators, through
-      `MutationRequest::onlyMutators`, and judges only the security set. It
+      `MutationRequest::narrowedTo`, and judges only the security set. It
       says the trees were not judged.
     - Its results are keyed by the narrowed mutator list (decision 7), so
       they never stand in for a whole unit's proof.

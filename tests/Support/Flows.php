@@ -88,6 +88,7 @@ final readonly class Flows
             Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
             Digest::sha256Of('installed'),
             new StoppedClock(Configs::NOW),
+            new PeakMemoryFake(NotGiven::value()),
         );
     }
 

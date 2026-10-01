@@ -266,6 +266,7 @@ would have cost without them.
     | Ignores expired or expiring within 14 days (ADR-0008 decision 4) | advice |
     | `.mutation-gate/` not in `.gitignore` | advice |
     | An `infection.json5` with `minMsi` or native ignores | advice: `init --from` (ADR-0016) |
+    | `runner.memory` at `-1`, a PHPUnit config whose `memory_limit` lifts the cap, or, under `--measure`, a suite that held over half the cap (ADR-0004 decision 9) | advice |
 
     The size threshold is the limit ADR-0013 decision 13 sets, twice what a
     ledger at the retention cap measures, so a ledger past it is one no run
