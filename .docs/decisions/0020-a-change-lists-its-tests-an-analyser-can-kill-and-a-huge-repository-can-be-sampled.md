@@ -176,8 +176,10 @@ needs remain, and the runners' own behaviour shapes each answer.
      it changed, and saves nothing. The warm-up also reads which files
      PHPStan analyses, from `phpstan dump-parameters --json`: its `paths`,
      less its `excludePaths`, and keeps them in
-     `.mutation-gate/phpstan/scope.json` for the checks. A mutant of a file
-     outside them is `OutOfScope`, left unchecked, and the run says so.
+     `.mutation-gate/phpstan/scope.json` for the checks, removing what an
+     earlier warm-up kept first. Each original is matched as PHPStan walks
+     to it, through any link, never resolved. A mutant of a file outside
+     them is `OutOfScope`, left unchecked, and the run says so.
      Where PHPStan cannot say which files it analyses, the warm-up fails,
      and no survivor is checked.
    - **Psalm:** one `psalm --language-server` per worker. Each mutant is sent

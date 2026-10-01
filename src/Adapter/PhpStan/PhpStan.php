@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpStan;
 
-use function basename;
 use function dirname;
 use function file_exists;
 use function file_get_contents;
@@ -13,6 +12,7 @@ use function getenv;
 use function is_dir;
 use function is_file;
 use function is_string;
+use function is_writable;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
@@ -40,11 +40,12 @@ use NightWorksIO\MutationGate\Port\StaticChecker;
 use const PHP_BINARY;
 
 use function preg_match;
-use function realpath;
 use function sprintf;
 
 use Symfony\Component\Process\Exception\RuntimeException;
 use Symfony\Component\Process\Process;
+
+use function unlink;
 
 /**
  * PHPStan, asked about a mutant in the mode its authors built for editors
@@ -142,12 +143,10 @@ final readonly class PhpStan implements StaticChecker
         $kept = is_file($this->scopeFile()) ? file_get_contents($this->scopeFile()) : false;
         $scope = is_string($kept) ? Scope::dumped($kept) : CannotJudge::because(self::NO_SCOPE);
         $original = $this->absolute($check->original());
-        $directory = realpath(dirname($original));
 
         return match (true) {
             $scope instanceof CannotJudge => $scope,
-            ! $scope->holds(is_string($directory) ? sprintf('%s/%s', $directory, basename($original)) : $original)
-                => OutOfScope::of($check->original()),
+            ! $scope->holds($original) => OutOfScope::of($check->original()),
             default => $this->analysed($check->withheld(), [
                 sprintf('--tmp-file=%s', $this->absolute($check->mutant())),
                 sprintf('--instead-of=%s', $original),
@@ -164,6 +163,12 @@ final readonly class PhpStan implements StaticChecker
             return $check;
         }
 
+        $file = $this->scopeFile();
+
+        if (is_file($file) && (! is_writable(dirname($file)) || ! unlink($file))) {
+            return CannotJudge::because(sprintf(self::UNWRITTEN, $file));
+        }
+
         $dumped = $this->ran($withheld, [
             PHP_BINARY,
             self::SCRIPT,
@@ -175,7 +180,6 @@ final readonly class PhpStan implements StaticChecker
             ? Scope::dumped($dumped->output())
             : CannotJudge::because(sprintf(self::UNDUMPED, $dumped->said()));
 
-        $file = $this->scopeFile();
         $unkept = $scope instanceof Scope && (is_dir($file) || file_put_contents($file, $dumped->output()) === false);
 
         return $unkept ? CannotJudge::because(sprintf(self::UNWRITTEN, $file)) : $scope;

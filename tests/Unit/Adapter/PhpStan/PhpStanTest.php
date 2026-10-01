@@ -79,6 +79,7 @@ it('analyses every file the config names for the originals, and a mutant in its 
     Scratch::write($project, 'vendor/bin/answer.json', '{"totals": {}, "files": {"/p/src/Money.php": {"messages": [{"message": "Method add() should return int but returns string.", "identifier": "return.type"}]}}, "errors": []}');
     Scratch::write($project, 'vendor/bin/answer.exit', '1');
     Scratch::write($project, 'src/Money.php', '<?php');
+    Scratch::write($project, 'vendor/bin/params.json', sprintf('{"paths": ["%s/src"]}', $project));
     $phpstan = phpstanIn($project);
     $check = MutantCheck::of(Path::of('src/Money.php'), Path::of('/tmp/mutant.php'))->withholding(Withheld::of('MUTATION_GATE_CONTRACT_TOKEN'));
     $argv = static fn(): string => (string) file_get_contents(sprintf('%s/vendor/bin/argv.txt', $project));
@@ -101,11 +102,11 @@ it('analyses every file the config names for the originals, and a mutant in its 
         ->and($warm)->toBeInstanceOf(Findings::class)
         ->and($warmedWith)->toEndWith("--no-progress\nleaked")
         ->and(file_get_contents(sprintf('%s/.mutation-gate/phpstan/scope.json', $project)))
-        ->toBe(sprintf('{"paths": ["%s/src"], "excludePaths": {"analyseAndScan": [], "analyse": []}}', realpath($project)));
+        ->toBe(sprintf('{"paths": ["%s/src"]}', $project));
 });
 
 it('leaves a mutant out of its scope where its original is outside the paths it analyses, or excluded', function (): void {
-    $project = (string) realpath(FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16'));
+    $project = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
     Scratch::write($project, 'vendor/bin/params.json', sprintf(
         '{"paths": ["%1$s/src"], "excludePaths": {"analyseAndScan": ["%1$s/src/Legacy"], "analyse": ["%1$s/src/*.gen.php"]}}',
         $project,
@@ -120,6 +121,51 @@ it('leaves a mutant out of its scope where its original is outside the paths it 
         ->and($checked('src/Legacy/Old.php'))->toEqual(OutOfScope::of(Path::of('src/Legacy/Old.php')))
         ->and($checked('src/Money.gen.php'))->toEqual(OutOfScope::of(Path::of('src/Money.gen.php')))
         ->and($checked('src/Money.php'))->toEqual(Findings::none());
+});
+
+it('reads a file as PHPStan walks to it, through a linked directory or a root that is a link, and not as it really is', function (): void {
+    $real = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
+    Scratch::write($real, 'shared/B.php', '<?php');
+    Scratch::write($real, 'vendor/bin/answer.json', '{"totals": {}, "files": {}, "errors": []}');
+    mkdir(sprintf('%s/src', $real));
+    symlink('../shared', sprintf('%s/src/Linked', $real));
+    $linked = sprintf('%s-link', $real);
+    symlink($real, $linked);
+    Scratch::write($real, 'vendor/bin/params.json', sprintf('{"paths": ["%s/src"]}', $linked));
+    $phpstan = phpstanIn($linked);
+    $phpstan->findings(Paths::none(), Withheld::standard());
+    $checked = $phpstan->check(MutantCheck::of(Path::of('src/Linked/B.php'), Path::of('/tmp/mutant.php')));
+    $shared = $phpstan->check(MutantCheck::of(Path::of('shared/B.php'), Path::of('/tmp/mutant.php')));
+    unlink($linked);
+
+    expect($checked)->toEqual(Findings::none())
+        ->and($shared)->toEqual(OutOfScope::of(Path::of('shared/B.php')));
+});
+
+it('never reads a scope an earlier warm-up kept once a later one cannot say its own', function (): void {
+    $project = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
+    Scratch::write($project, '.mutation-gate/phpstan/scope.json', sprintf('{"paths": ["%s/src"]}', $project));
+    Scratch::write($project, 'vendor/bin/params.exit', '1');
+    $phpstan = phpstanIn($project);
+
+    expect($phpstan->findings(Paths::none(), Withheld::standard()))->toBeInstanceOf(CannotJudge::class)
+        ->and(is_file(sprintf('%s/.mutation-gate/phpstan/scope.json', $project)))->toBeFalse()
+        ->and($phpstan->check(MutantCheck::of(Path::of('src/Money.php'), Path::of('/tmp/mutant.php'))))
+        ->toEqual(CannotJudge::because('PHPStan\'s run over the originals has not said which files it analyses.'));
+});
+
+it('cannot warm up where it cannot remove the scope an earlier warm-up kept', function (): void {
+    $project = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
+    $phpstan = phpstanIn($project);
+    $phpstan->findings(Paths::none(), Withheld::standard());
+    $directory = sprintf('%s/.mutation-gate/phpstan', $project);
+    chmod($directory, 0o555);
+    $warmed = $phpstan->findings(Paths::none(), Withheld::standard());
+    chmod($directory, 0o755);
+
+    expect($warmed)->toEqual(CannotJudge::because(
+        sprintf('The gate cannot write PHPStan\'s config for its checks to %s/scope.json.', $directory),
+    ));
 });
 
 it('cannot check where its warm-up never said which files it analyses, or could not', function (): void {
