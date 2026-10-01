@@ -23,7 +23,9 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
  * where the default set's mutants of each of their files start, the
  * fastest of a few runs of no test, and how many mutants the runner runs
  * at once on this machine. Shard runners are taken to be like the plan's.
- * Where the default set is not registered, nothing is measured.
+ * Where the default set is not registered, or a run of no test cannot run,
+ * nothing is measured, and every unit is guessed: an estimate decides where
+ * a unit runs, never whether a plan can be made.
  */
 final readonly class FirstRuns
 {
@@ -31,7 +33,7 @@ final readonly class FirstRuns
     {
     }
 
-    public function measured(CoverageMap $map, Units $units): FirstRun|CannotJudge
+    public function measured(CoverageMap $map, Units $units): FirstRun
     {
         $engine = $this->adapters->engine;
         $sites = $engine instanceof NotGiven
@@ -42,16 +44,13 @@ final readonly class FirstRuns
         return $first instanceof Path ? $this->measuredWith($map, $sites, $first) : FirstRun::unmeasured();
     }
 
-    private function measuredWith(CoverageMap $map, MutantSites $sites, Path $file): FirstRun|CannotJudge
+    private function measuredWith(CoverageMap $map, MutantSites $sites, Path $file): FirstRun
     {
         $startUp = $this->startUp($file);
 
-        return $startUp instanceof CannotJudge ? $startUp : FirstRun::of(
-            $map,
-            $sites,
-            $startUp,
-            $this->adapters->runner->behaviour()->parallelism()->processes($this->adapters->cores),
-        );
+        return $startUp instanceof CannotJudge
+            ? FirstRun::unmeasured()
+            : FirstRun::of($map, $sites, $startUp, $this->adapters->processes());
     }
 
     /** The fastest of the runs of no test, each serving this file unchanged, or why one could not run. */

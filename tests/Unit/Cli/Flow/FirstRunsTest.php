@@ -78,7 +78,7 @@ it('measures nothing where no engine counts, or no file of the units is there to
         ->and($runner->startedUp())->toBe([]);
 });
 
-it('cannot measure where a run of no test cannot run, the first or a later one', function (): void {
+it('measures nothing where a run of no test cannot run, the first or a later one, so every unit is guessed', function (): void {
     $refused = CannotJudge::because('Pest could not start');
     $units = Units::of(Unit::file(Path::of('src/Money.php')));
     $first = ScriptedRunner::fixture()->startingUpIn($refused);
@@ -88,8 +88,8 @@ it('cannot measure where a run of no test cannot run, the first or a later one',
         StartUpSamples::standard(),
     );
 
-    expect($firstRuns($first)->measured(measuredMap(), $units))->toEqual($refused)
+    expect($firstRuns($first)->measured(measuredMap(), $units))->toEqual(FirstRun::unmeasured())
         ->and(count($first->startedUp()))->toBe(1)
-        ->and($firstRuns($later)->measured(measuredMap(), $units))->toEqual($refused)
+        ->and($firstRuns($later)->measured(measuredMap(), $units))->toEqual(FirstRun::unmeasured())
         ->and(count($later->startedUp()))->toBe(2);
 });

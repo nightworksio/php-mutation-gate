@@ -521,8 +521,6 @@ services:
             coincidences:
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
                     - STANDARD # runs of no test the plan times
-                'NightWorksIO\MutationGateDefault\DefaultSet':
-                    - NAME # the plugin's own name for its set; A7 keeps it from naming the gate's Config
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
                     - UNRELEASED # the package's own branch, in a link to its guide
                 'NightWorksIO\MutationGate\Core\Php\OwnMember':

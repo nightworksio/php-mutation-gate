@@ -140,8 +140,9 @@ Two parts of that do not carry over to a public package.
    - **Cold start.** A unit with no timing is estimated from what the plan
      measured of its first run. The gate's own engine (ADR-0023, decision 8)
      counts, with the `default` set, the mutants that start on each line of
-     each of the unit's files. It counts them without making them, so a change
-     that would print the same code counts, where a run makes no mutant of it.
+     each of the unit's files. It counts them without making them, one for
+     each mutator that changes a node, so a change that would print the same
+     code counts, where a run makes no mutant of it.
      A mutant on a line some test covers costs a mutant's run starting and the
      time of every test covering that line; one no test covers costs nothing.
      The unit's cost is the sum, spread over the processes the runner runs at
@@ -153,8 +154,9 @@ Two parts of that do not carry over to a public package.
      mutants at once it took them to run.
    - **Where nothing was measured, a unit's cost is guessed.** A unit whose
      files the engine counted none of, or any unit where the `default` set is
-     not registered, is estimated as its lines of code times seconds per
-     line. Lines of code counts lines holding a token that is not
+     not registered or a run of no test cannot run, is estimated as its
+     lines of code times seconds per line. The plan is made either way: an
+     estimate decides where a unit runs, never whether the gate can plan. Lines of code counts lines holding a token that is not
      whitespace, a comment or the opening tag. `costs.secondsPerLine` maps
      path prefixes to seconds per line, the longest matching prefix winning.
      The empty prefix matches every path, and the default is `{"": 0.2}`, so a
@@ -265,4 +267,4 @@ all proved plans zero shards and costs one planning job.
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): the ledger that holds proofs and timings
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the composite action and the reusable workflow
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the shard count from a target wall time, and the opening-run timings
-- [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the coverage-weighted cold start, and what a run saved
+- [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the first-run estimate `init` prints, and what a run saved

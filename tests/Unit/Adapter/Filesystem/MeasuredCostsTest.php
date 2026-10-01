@@ -93,6 +93,14 @@ it('costs a unit what a shard last measured it to take', function () use ($at): 
         ->toEqual(Estimated::of(Seconds::of(12.4), CostBasis::Learned));
 });
 
+it('costs a unit a shard timed by what it learned, whatever the plan measured of its first run', function () use ($at): void {
+    $learned = Timings::of(Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'pest', $at()));
+    $model = MeasuredCosts::at(Root::of(Scratch::directory()), SecondsPerLine::standard());
+
+    expect($model->cost(Unit::file(Path::of('src/Money.php')), $learned, measuredMoneyRun()))
+        ->toEqual(Estimated::of(Seconds::of(12.4), CostBasis::Learned));
+});
+
 it('costs a unit no shard measured what the plan measured of its first run', function (): void {
     $model = MeasuredCosts::at(Root::of(Scratch::directory()), SecondsPerLine::standard());
 

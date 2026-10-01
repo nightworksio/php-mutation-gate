@@ -135,8 +135,8 @@ would have cost without them.
      spread over the processes the runner runs at once. Lines of code ×
      `costs.secondsPerLine` remains the cold start where nothing was
      measured. Costs decide placement only, so a wrong estimate costs time,
-     never a verdict. ADR-0015 decision 15 picks the GitHub shape from this
-     estimate.
+     never a verdict. ADR-0015 decision 15 picks the GitHub shape from the
+     lines-of-code estimate.
 
 5. **A run shows its progress and an ETA.**
    - Progress is counted by batch and shard (ADR-0008 decision 1). Inside

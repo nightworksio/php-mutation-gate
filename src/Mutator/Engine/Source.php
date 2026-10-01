@@ -90,8 +90,9 @@ final readonly class Source
      * Where the changes these mutators make to a file start, counted without
      * making them: every node, anywhere in the code, is offered to each
      * mutator that handles its class, which a mutator's contract allows since
-     * it never changes the node it is given. A change that would print the
-     * same code counts, where `edits()` makes no mutant of it.
+     * it never changes the node it is given. Each mutator that changes a node
+     * counts once, as it makes at most one change per node. A change that
+     * would print the same code counts, where `edits()` makes no mutant of it.
      */
     public function sites(Path $file, Mutator ...$mutators): MutantSites
     {

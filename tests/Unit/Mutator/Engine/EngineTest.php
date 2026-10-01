@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\BuiltinMutatorSet;
 use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -132,7 +131,7 @@ it('cannot count the mutants of a file that does not parse, saying which and why
 function defaultEngine(): Engine
 {
     $set = new DefaultExtension()->extend(new Extensions(Origin::of('nightworksio/mutation-gate')))
-        ->registered(ExtensionPoint::MutatorSet, BuiltinMutatorSet::Default->named());
+        ->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
     return SetEngine::of($set instanceof MutatorSet ? $set : MutatorSet::of());
 }
 

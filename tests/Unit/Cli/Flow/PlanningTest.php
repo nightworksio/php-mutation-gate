@@ -226,6 +226,23 @@ it('estimates a unit no shard timed by what it measured of the first run, counti
     expect($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(1.7), Seconds::of(0.0)]]);
 });
 
+it('plans, guessing every unit, where its runs of no test cannot run', function () use ($plan): void {
+    $project = Flows::project();
+    Scratch::write($project, 'src/Money.php', sprintf("<?php\n%sfunction add(\$a, \$b) { return \$a + \$b; }\n", str_repeat("\n", 9)));
+    $runner = ScriptedRunner::fixture()->startingUpIn(CannotJudge::because('Pest could not start'));
+    $planned = $plan($project, Mode::full(), Cut::exactly(1), $runner, new CostModelFake(Seconds::of(8.0)), Engine::with(new PlusToMinus()));
+    $estimates = array_map(
+        static fn(Shard $shard): array => [
+            $shard->estimate()->part(CostBasis::Measured),
+            $shard->estimate()->part(CostBasis::Guessed),
+        ],
+        $planned instanceof Plan ? [...$planned] : [],
+    );
+
+    expect($planned)->toBeInstanceOf(Plan::class)
+        ->and($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(16.0)]]);
+});
+
 it('leaves the whole map outside CI, where a later local command reads it, and not in CI', function () use ($plan): void {
     $local = Flows::project();
     $ci = Flows::project();

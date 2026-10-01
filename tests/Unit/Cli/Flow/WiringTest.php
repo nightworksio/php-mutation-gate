@@ -27,7 +27,6 @@ use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
-use NightWorksIO\MutationGate\Core\Config\BuiltinMutatorSet;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -107,7 +106,7 @@ it('wires the runner, the store, the learned cost model, the JSON plan and git w
 
 it('counts a plan\'s mutants with the default set, where the set is registered', function (): void {
     $registry = new DefaultExtension()->extend(wiringRegistry());
-    $set = $registry->registered(ExtensionPoint::MutatorSet, BuiltinMutatorSet::Default->named());
+    $set = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
     $adapters = new Wiring($registry, Variables::of([]))->adapters(Flows::settings(), Directory::at(Flows::project()));
 
     expect($adapters instanceof Adapters ? $adapters->engine : $adapters)

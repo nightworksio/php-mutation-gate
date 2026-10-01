@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 /** Two mutants on line 3, which tests a and b cover; one on line 7, which a covers; one on line 9, which none covers. */
 function measuredMoney(): FirstRun
@@ -66,4 +67,32 @@ it('keeps what it measured for a cost model of an extension\'s to read', functio
         ->and(count($run->map()->tests()))->toBe(2)
         ->and(FirstRun::unmeasured()->startUp())->toEqual(Seconds::of(0.0))
         ->and(FirstRun::unmeasured()->processes())->toEqual(Processes::single());
+});
+
+it('costs every file unit of a plan in time that grows with the plan, not with its square', function (): void {
+    $costing = static function (int $files): Closure {
+        $sites = MutantSites::none();
+        $units = [];
+
+        for ($at = 0; $at < $files; $at++) {
+            $file = Path::of(sprintf('src/F%d.php', $at));
+            $sites = $sites->and(MutantSites::inFile($file, Line::of(1), Line::of(2)));
+            $units[] = Unit::file($file);
+        }
+
+        $run = FirstRun::of(CoverageMap::empty(), $sites, Seconds::of(1.0), Processes::single());
+
+        return static function () use ($run, $units): int {
+            $measured = 0;
+
+            foreach ($units as $unit) {
+                $measured += $run->seconds($unit) instanceof Seconds ? 1 : 0;
+            }
+
+            return $measured;
+        };
+    };
+
+    expect($costing(10)())->toBe(10)
+        ->and(Growth::of(250, $costing))->toBeLessThan(Growth::LINEAR);
 });

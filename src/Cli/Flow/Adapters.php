@@ -42,4 +42,10 @@ final readonly class Adapters
         public Engine|NotGiven $engine,
     ) {
     }
+
+    /** How many mutants the runner runs at once on this machine, as its parallelism makes of the cores. */
+    public function processes(): Processes
+    {
+        return $this->runner->behaviour()->parallelism()->processes($this->cores);
+    }
 }

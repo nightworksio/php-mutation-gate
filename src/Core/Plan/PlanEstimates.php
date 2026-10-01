@@ -22,7 +22,7 @@ use function sprintf;
 /**
  * What a plan expects its run to take (ADR-0006, decision 4): each shard's
  * units, opening run and `shards.setup`, and what the estimate rests on,
- * learned from earlier shards, measured by the plan's own coverage run, or
+ * learned from earlier shards, measured from the plan's first run, or
  * guessed from `costs.secondsPerLine`. A shard of no units is no job.
  */
 final readonly class PlanEstimates

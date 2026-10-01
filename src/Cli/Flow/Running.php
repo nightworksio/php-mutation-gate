@@ -284,7 +284,7 @@ final readonly class Running
         }
 
         return MutationRequest::of($files, $judgedBy)
-            ->across($this->adapters->runner->behaviour()->parallelism()->processes($this->adapters->cores))
+            ->across($this->adapters->processes())
             ->reusingCoverage(Workspace::shardCoverage($shard))
             ->withholding($this->adapters->withheld)
             ->orderedBy($ordering);

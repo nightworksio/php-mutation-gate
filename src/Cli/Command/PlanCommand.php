@@ -99,10 +99,7 @@ final readonly class PlanCommand
         $shards = $composed->settings->shards();
         $estimates = PlanEstimates::of($plan, $shards->setup());
 
-        $adapters = $composed->adapters;
-        $processes = $adapters->runner->behaviour()->parallelism()->processes($adapters->cores);
-
-        foreach ([...$estimates->lines(), ...$estimates->assumed($processes)] as $line) {
+        foreach ([...$estimates->lines(), ...$estimates->assumed($composed->adapters->processes())] as $line) {
             $aside->writeln($line, OutputInterface::OUTPUT_RAW);
         }
 

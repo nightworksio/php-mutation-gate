@@ -107,7 +107,7 @@ final readonly class Planning
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base());
         $opening = $map->suiteDuration();
         $firstRun = new FirstRuns($this->adapters, StartUpSamples::standard())->measured($map, $proving->toRun());
-        $shards = $firstRun instanceof CannotJudge ? $firstRun : $this->shardsOf(
+        $shards = $this->shardsOf(
             $proving->toRun(),
             $inventory->trees,
             $ledgers,

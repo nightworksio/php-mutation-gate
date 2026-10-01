@@ -99,21 +99,26 @@ final readonly class MeasuredCosts implements Configurable, CostModel
     public function cost(Unit $unit, Timings $learned, FirstRun $firstRun): Estimated
     {
         $timed = $learned->secondsFor($unit->path());
-        $measured = $firstRun->seconds($unit);
 
-        return match (true) {
-            $timed instanceof Seconds => Estimated::of($timed, CostBasis::Learned),
-            $measured instanceof Seconds => Estimated::of($measured, CostBasis::Measured),
-            default => Estimated::of(
-                Seconds::of($this->linesIn($unit->path()) * $this->perLine->forPath($unit->path())->seconds()),
-                CostBasis::Guessed,
-            ),
-        };
+        return $timed instanceof Seconds ? Estimated::of($timed, CostBasis::Learned) : $this->untimed($unit, $firstRun);
     }
 
     public function learn(Units $units, Mutants $mutants, CoverageMap $coverage, Measurement $measured): Timings
     {
         return Shares::of($units, $mutants, $coverage, $measured);
+    }
+
+    /** A unit no shard timed: what the plan measured of its first run, or its lines guessed where it measured none. */
+    private function untimed(Unit $unit, FirstRun $firstRun): Estimated
+    {
+        $measured = $firstRun->seconds($unit);
+
+        return $measured instanceof Seconds
+            ? Estimated::of($measured, CostBasis::Measured)
+            : Estimated::of(
+                Seconds::of($this->linesIn($unit->path()) * $this->perLine->forPath($unit->path())->seconds()),
+                CostBasis::Guessed,
+            );
     }
 
     private function linesIn(Path $path): int

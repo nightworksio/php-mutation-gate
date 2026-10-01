@@ -13,6 +13,7 @@ use function count;
 
 use Countable;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Config\Name;
 use Traversable;
 
 /**
@@ -23,6 +24,9 @@ use Traversable;
  */
 final readonly class MutatorSet implements Countable, IteratorAggregate
 {
+    /** The name of the set this repository ships, which counts a plan's mutants (ADR-0023, decision 8). */
+    private const string DEFAULT = 'default';
+
     /** @param list<class-string<Mutator>> $mutators */
     private function __construct(private array $mutators)
     {
@@ -32,6 +36,12 @@ final readonly class MutatorSet implements Countable, IteratorAggregate
     public static function of(string ...$mutators): self
     {
         return new self(array_values(array_unique($mutators)));
+    }
+
+    /** The name the registry holds the shipped `default` set by. */
+    public static function defaultName(): Name
+    {
+        return Name::of(self::DEFAULT);
     }
 
     public function count(): int
