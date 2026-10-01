@@ -18,10 +18,11 @@ use function sprintf;
 
 /**
  * Which shard a job is, where no `--shard` names it: the first of `SHARD`,
- * `CI_NODE_INDEX`, `BUILDKITE_PARALLEL_JOB` and `CIRCLE_NODE_INDEX` the CI
- * set, with 1 added to the two that count from 0. Where the CI also says how
- * many jobs it started, that must be the plan's count of shards, or the jobs
- * and the plan were not made for each other.
+ * `CI_NODE_INDEX`, `BUILDKITE_PARALLEL_JOB`, `CIRCLE_NODE_INDEX` and
+ * `BITBUCKET_PARALLEL_STEP` the CI set, with 1 added to the three that count
+ * from 0. Where the CI also says how many jobs it started, that must be the
+ * plan's count of shards, or the jobs and the plan were not made for each
+ * other.
  */
 final readonly class WhichShard
 {
@@ -34,6 +35,7 @@ final readonly class WhichShard
         'CI_NODE_INDEX' => ['CI_NODE_TOTAL', 1],
         'BUILDKITE_PARALLEL_JOB' => ['BUILDKITE_PARALLEL_JOB_COUNT', 0],
         'CIRCLE_NODE_INDEX' => ['CIRCLE_NODE_TOTAL', 0],
+        'BITBUCKET_PARALLEL_STEP' => ['BITBUCKET_PARALLEL_STEP_COUNT', 0],
     ];
 
     private const string NUMBER = '/^\d+$/D';

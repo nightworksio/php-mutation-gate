@@ -85,6 +85,7 @@ function wiringEveryCi(): Withheld
         'CIRCLE_OIDC_TOKEN*',
         'SYSTEM_ACCESSTOKEN',
         'AZURE_DEVOPS_EXT_PAT',
+        'BITBUCKET_STEP_OIDC_TOKEN',
     );
 }
 

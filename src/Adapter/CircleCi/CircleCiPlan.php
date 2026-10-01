@@ -85,13 +85,13 @@ final readonly class CircleCiPlan implements CiPlan, Configurable
         return Paths::of(Path::of(Definitions::CIRCLECI));
     }
 
-    /** The job's OpenID Connect tokens. */
     /** CircleCI sets `CIRCLECI` to `true` in every job. */
     public static function marker(): CiMarker
     {
         return CiMarker::saying(Variables::CIRCLECI);
     }
 
+    /** The job's OpenID Connect tokens. */
     public static function withheld(): Withheld
     {
         return Withheld::of('CIRCLE_OIDC_TOKEN*');

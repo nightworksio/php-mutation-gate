@@ -17,6 +17,8 @@ enum BuiltinCiPlan: string
 
     case Azure = 'azure';
 
+    case Bitbucket = 'bitbucket';
+
     case Json = 'json';
 
     public function named(): Name

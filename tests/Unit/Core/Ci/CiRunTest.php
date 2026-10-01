@@ -54,6 +54,14 @@ it('reads the run from the environment of each CI the gate knows', function (Var
         Variables::of(['TF_BUILD' => 'True', 'BUILD_REPOSITORY_NAME' => 'octo/gate', 'BUILD_SOURCEBRANCH' => 'refs/heads/main', 'BUILD_SOURCEVERSION' => 'abc', 'SYSTEM_COLLECTIONURI' => 'https://dev.azure.com/octo/', 'SYSTEM_TEAMPROJECT' => 'Gate Project', 'BUILD_BUILDID' => '42']),
         CiRun::of('octo/gate', 'refs/heads/main', 'abc', 'https://dev.azure.com/octo/Gate%20Project/_build/results?buildId=42'),
     ],
+    'Bitbucket Pipelines on a branch' => [
+        Variables::of(['BITBUCKET_BUILD_NUMBER' => '12', 'BITBUCKET_REPO_FULL_NAME' => 'octo/gate', 'BITBUCKET_BRANCH' => 'main', 'BITBUCKET_COMMIT' => 'abc']),
+        CiRun::of('octo/gate', 'refs/heads/main', 'abc', 'https://bitbucket.org/octo/gate/pipelines/results/12'),
+    ],
+    'Bitbucket Pipelines on a tag' => [
+        Variables::of(['BITBUCKET_BUILD_NUMBER' => '12', 'BITBUCKET_REPO_FULL_NAME' => 'octo/gate', 'BITBUCKET_TAG' => 'v1.0.0', 'BITBUCKET_COMMIT' => 'abc']),
+        CiRun::of('octo/gate', 'refs/tags/v1.0.0', 'abc', 'https://bitbucket.org/octo/gate/pipelines/results/12'),
+    ],
 ]);
 
 it('names the run as a proof names it, as each CI numbers it, and none where it numbers none', function (
@@ -69,6 +77,7 @@ it('names the run as a proof names it, as each CI numbers it, and none where it 
     'Buildkite' => [Variables::of(['BUILDKITE' => 'true', 'BUILDKITE_BUILD_ID' => 'b-1']), 'buildkite:b-1'],
     'CircleCI' => [Variables::of(['CIRCLECI' => 'true', 'CIRCLE_WORKFLOW_ID' => 'c-1']), 'circleci:c-1'],
     'Azure DevOps' => [Variables::of(['TF_BUILD' => 'True', 'BUILD_BUILDID' => '42']), 'azure:42'],
+    'Bitbucket Pipelines' => [Variables::of(['BITBUCKET_BUILD_NUMBER' => '12']), 'bitbucket:12'],
     'GitHub Actions with no run' => [Variables::of(['GITHUB_ACTIONS' => 'true']), ''],
     'GitLab CI with no pipeline' => [Variables::of(['GITLAB_CI' => 'true']), ''],
     'Azure DevOps with no build' => [Variables::of(['TF_BUILD' => 'True']), ''],
@@ -76,7 +85,7 @@ it('names the run as a proof names it, as each CI numbers it, and none where it 
 
 it('cannot name the run of any other CI', function (): void {
     expect(CiRun::read(Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'false'])))
-        ->toEqual(CannotTell::because('This CI is not GitHub Actions, GitLab, Buildkite, CircleCI or Azure DevOps: the gate cannot name its run.'));
+        ->toEqual(CannotTell::because('The gate names a run on GitHub, GitLab, Buildkite, CircleCI, Azure DevOps or Bitbucket, and not on this CI.'));
 });
 
 it('names the pipeline or workflow each CI names, and none where it names none', function (Variables $environment, string $pipeline): void {
@@ -89,6 +98,7 @@ it('names the pipeline or workflow each CI names, and none where it names none',
     'Buildkite' => [Variables::of(['BUILDKITE' => 'true', 'BUILDKITE_PIPELINE_NAME' => 'Gate']), 'Gate'],
     'CircleCI' => [Variables::of(['CIRCLECI' => 'true', 'CIRCLE_JOB' => 'mutate']), 'mutate'],
     'Azure DevOps' => [Variables::of(['TF_BUILD' => 'True', 'BUILD_DEFINITIONNAME' => 'gate-ci']), 'gate-ci'],
+    'Bitbucket Pipelines, which names none' => [Variables::of(['BITBUCKET_BUILD_NUMBER' => '12']), ''],
     'none' => [Variables::of(['GITHUB_ACTIONS' => 'true']), ''],
 ]);
 

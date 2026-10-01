@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Series;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
 
@@ -40,6 +41,8 @@ enum CiTemplate: string
 
     case AzureInclude = 'azure/include.yml';
 
+    case BitbucketPipelines = 'bitbucket/pipelines.yml';
+
     /** The file of the workflow GitHub runs the gate in, among GitHub's workflows. */
     private const string GITHUB_WORKFLOW = 'mutation.yml';
 
@@ -48,6 +51,9 @@ enum CiTemplate: string
 
     /** The directory the gate's GitLab template is in by default: the gate's choice, beside `.gitlab-ci.yml`. */
     private const string GITLAB_TEMPLATES = '.gitlab/';
+
+    /** The deployment environment whose variables hold the store's keys on Bitbucket: named for the gate. */
+    private const string BITBUCKET_DEPLOYMENT = ThisPackage::NAME;
 
     /** The directory `init --ci=azure` writes the gate's template to: the gate's choice, not Azure's convention. */
     private const string AZURE_TEMPLATES = '.azure/';
@@ -69,6 +75,7 @@ enum CiTemplate: string
             BuiltinCiPlan::Buildkite => Listed::of(self::BuildkitePipeline, self::BuildkiteUpload),
             BuiltinCiPlan::CircleCi => Listed::of(self::CircleCi),
             BuiltinCiPlan::Azure => Listed::of(self::AzureJobs, self::AzureInclude),
+            BuiltinCiPlan::Bitbucket => Listed::of(self::BitbucketPipelines),
             BuiltinCiPlan::Json => Listed::of(),
         };
     }
@@ -83,7 +90,8 @@ enum CiTemplate: string
             BuiltinCiPlan::GitLab => $ci->gitlabTemplate(),
             BuiltinCiPlan::Buildkite => self::buildkitePipeline(),
             BuiltinCiPlan::Azure => self::azureJobs(),
-            BuiltinCiPlan::GitHub, BuiltinCiPlan::CircleCi, BuiltinCiPlan::Json => NotGiven::value(),
+            BuiltinCiPlan::GitHub, BuiltinCiPlan::CircleCi, BuiltinCiPlan::Bitbucket, BuiltinCiPlan::Json
+                => NotGiven::value(),
         };
     }
 
@@ -117,6 +125,15 @@ enum CiTemplate: string
         return Path::of(self::AZURE_TEMPLATES)->child(Path::of(self::GATE_JOBS));
     }
 
+    /**
+     * The deployment environment the Bitbucket definition's verdicts that write the ledger deploy to, whose
+     * variables hold the proof store's keys (ADR-0024 decision 4).
+     */
+    public static function bitbucketDeployment(): string
+    {
+        return self::BITBUCKET_DEPLOYMENT;
+    }
+
     /** Where it goes: a file, from the project, or printed for a file the CI already reads. */
     public function destination(Ci $ci): Path|Printed
     {
@@ -131,6 +148,7 @@ enum CiTemplate: string
             self::CircleCi => Printed::into(Definitions::CIRCLECI),
             self::AzureJobs => self::azureJobs(),
             self::AzureInclude => Printed::into(Definitions::AZURE),
+            self::BitbucketPipelines => Printed::into(Definitions::BITBUCKET),
         };
     }
 }

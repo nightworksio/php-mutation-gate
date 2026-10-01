@@ -253,6 +253,11 @@ it('names each built-in adapter by a method of its own', function (Closure $gate
         fn(): Gate => Gate::configure()->with(Ci::azureDefinition('.azure/gate.yml')),
         ['ci' => ['azure' => ['definition' => '.azure/gate.yml']]],
     ],
+    'bitbucket' => [fn(): Gate => Gate::configure()->with(Ci::bitbucket()), ['ci' => ['plan' => 'bitbucket']]],
+    'the Bitbucket Pipelines definition' => [
+        fn(): Gate => Gate::configure()->with(Ci::bitbucketDefinition('ci/bitbucket.yml')),
+        ['ci' => ['bitbucket' => ['definition' => 'ci/bitbucket.yml']]],
+    ],
     'the JSON plan' => [fn(): Gate => Gate::configure()->with(Ci::json()), ['ci' => ['plan' => 'json']]],
     'a CI plan by name' => [
         fn(): Gate => Gate::configure()->with(Ci::uses('acme', Option::of('x', 'y'))),

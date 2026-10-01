@@ -36,6 +36,13 @@ final readonly class CiKeys
                 static fn(Path|Absent $path): Ci => Ci::of(azureDefinition: $path),
             ),
         );
+        $bitbucket = Field::section(
+            'bitbucket',
+            Section::single(
+                Field::optional('definition', Location::path($origin), $results),
+                static fn(Path|Absent $path): Ci => Ci::of(bitbucketDefinition: $path),
+            ),
+        );
         $gitlab = Field::section(
             'gitlab',
             Section::single(
@@ -67,16 +74,27 @@ final readonly class CiKeys
         return [Field::section(
             'ci',
             Section::of(
-                static function (Node $ci) use ($plan, $branch, $check, $gitlab, $buildkite, $azure): Layer|Invalid {
+                static function (Node $ci) use (
+                    $plan,
+                    $branch,
+                    $check,
+                    $gitlab,
+                    $buildkite,
+                    $azure,
+                    $bitbucket,
+                ): Layer|Invalid {
                     $readings = [$plan->read($ci), $branch->read($ci), $check->read($ci)];
-                    $inner = [$gitlab->read($ci), $buildkite->read($ci), $azure->read($ci)];
+                    $inner = [$gitlab->read($ci), $buildkite->read($ci), $azure->read($ci), $bitbucket->read($ci)];
 
                     return Reading::built(
-                        static fn(): Layer => Layer::of(Ci::of(
-                            plan: $readings[0]->value(),
-                            defaultBranch: $readings[1]->value(),
-                            check: $readings[2]->value(),
-                        )->over($inner[0]->must())->over($inner[1]->must())->over($inner[2]->must())),
+                        static fn(): Layer => Layer::of(self::laid(
+                            Ci::of(
+                                plan: $readings[0]->value(),
+                                defaultBranch: $readings[1]->value(),
+                                check: $readings[2]->value(),
+                            ),
+                            ...$inner,
+                        )),
                         ...$readings,
                         ...$inner,
                     );
@@ -87,6 +105,7 @@ final readonly class CiKeys
                 $gitlab,
                 $buildkite,
                 $azure,
+                $bitbucket,
             ),
         )];
     }
@@ -94,5 +113,19 @@ final readonly class CiKeys
     private static function step(Json|Absent $keys): BuildkiteStep|Absent
     {
         return $keys instanceof Json ? BuildkiteStep::of($keys) : $keys;
+    }
+
+    /**
+     * The section's own keys, with each CI's section laid over them in turn.
+     *
+     * @param Reading<Ci> ...$sections
+     */
+    private static function laid(Ci $ci, Reading ...$sections): Ci
+    {
+        foreach ($sections as $section) {
+            $ci = $ci->over($section->must());
+        }
+
+        return $ci;
     }
 }

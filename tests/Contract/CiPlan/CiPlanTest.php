@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
+use NightWorksIO\MutationGate\Adapter\Bitbucket\BitbucketPlan;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
@@ -51,6 +52,11 @@ $plans = [
         $job(),
         Path::of('azure-pipelines.yml'),
     ),
+    'Bitbucket Pipelines' => fn(): CiPlan => BitbucketPlan::printing(
+        sprintf('%s/plan.json', Scratch::directory()),
+        $job(),
+        Path::of('bitbucket-pipelines.yml'),
+    ),
     'plain JSON' => fn(): CiPlan => JsonPlan::printing(sprintf('%s/plan.json', Scratch::directory()), $job()),
 ];
 
@@ -94,5 +100,6 @@ it('declares the credentials of its CI that no runner hands the tests, over and 
     'Buildkite' => fn(): Withheld => BuildkitePlan::withheld(),
     'CircleCI' => fn(): Withheld => CircleCiPlan::withheld(),
     'Azure DevOps' => fn(): Withheld => AzurePlan::withheld(),
+    'Bitbucket Pipelines' => fn(): Withheld => BitbucketPlan::withheld(),
     'plain JSON' => fn(): Withheld => JsonPlan::withheld(),
 ]);

@@ -184,8 +184,8 @@ final readonly class CiDefinition
 
     /**
      * What `init` adds to a config it writes for this CI (ADR-0024 decision 2): for Buildkite and Azure DevOps,
-     * the file of the gate's jobs it writes, as the definition; for Azure DevOps, which names no default branch,
-     * the one the project has.
+     * the file of the gate's jobs it writes, as the definition; for Azure DevOps and Bitbucket, which name no
+     * default branch, the one the project has.
      */
     private function config(BuiltinCiPlan $plan, Settings $settings): Layer
     {
@@ -195,6 +195,7 @@ final readonly class CiDefinition
                 defaultBranch: $this->defaultBranch($settings),
                 azureDefinition: CiTemplate::azureJobs(),
             )),
+            BuiltinCiPlan::Bitbucket => Layer::of(Ci::of(defaultBranch: $this->defaultBranch($settings))),
             BuiltinCiPlan::GitHub, BuiltinCiPlan::GitLab, BuiltinCiPlan::CircleCi, BuiltinCiPlan::Json => Layer::none(),
         };
     }
@@ -244,7 +245,11 @@ final readonly class CiDefinition
                 $ci->azureDefinition(),
                 CiTemplate::azureJobs(),
             ),
-            BuiltinCiPlan::GitHub, BuiltinCiPlan::GitLab, BuiltinCiPlan::CircleCi, BuiltinCiPlan::Json => [],
+            BuiltinCiPlan::GitHub,
+            BuiltinCiPlan::GitLab,
+            BuiltinCiPlan::CircleCi,
+            BuiltinCiPlan::Bitbucket,
+            BuiltinCiPlan::Json => [],
         };
 
         return match (true) {
