@@ -167,8 +167,12 @@ def keeps_default_store(config: dict) -> bool:
 
 
 def patches_pest(config: dict) -> bool:
-    """Whether the effective config runs Pest with the optional patches on (ADR-0004)."""
-    return config.get("runner") == "pest" and (config.get("pest") or {}).get("patch") is True
+    """Whether the effective config runs Pest with the optional patches on (ADR-0004).
+
+    The effective config names its runner under `runner.use`.
+    """
+    runner = (config.get("runner") or {}).get("use")
+    return runner == "pest" and (config.get("pest") or {}).get("patch") is True
 
 
 def scores(report: dict) -> dict:
