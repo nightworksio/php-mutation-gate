@@ -13,7 +13,7 @@ The gate needs four things from whatever mutates the code:
 - every mutant's result: where it is, what changed, and whether a test caught
   it.
 
-v1 supports two runners: Pest's own mutation testing
+This decision covers two runners: Pest's own mutation testing
 (`pestphp/pest-plugin-mutate`) and Infection. What follows comes from their
 source and from scratch projects: pest-plugin-mutate 5.0.2 with Pest 5.2.1, and
 Infection 0.35.5, with every option named here checked against 0.35.0 as well.
