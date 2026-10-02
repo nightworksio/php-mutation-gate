@@ -192,6 +192,10 @@ jobs:
           node-version: 24
       - name: install the locked markdownlint
         run: npm ci --ignore-scripts --no-audit --no-fund --prefix .github/bot/markdownlint
+      # The vendored braces micromatch resolves refuses a pattern nested past
+      # its depth cap (.github/bot/markdownlint/vendor/braces/README.md).
+      - id: braces
+        run: node --test .github/bot/markdownlint/braces.test.mjs
       - id: markdownlint
         run: |
           mkdir -p evidence/raw
