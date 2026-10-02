@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Cli\ExitCode;
+use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\Definition;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
@@ -63,6 +66,10 @@ function sortedCopy(array $values): array
 
 it('keeps the ledger where the directory store keeps it by default', function (): void {
     expect(scriptText('LEDGERS'))->toBe(Workspace::ledger()->value());
+});
+
+it('reads the installed gate\'s version where the gate reads what Composer installed', function (): void {
+    expect(scriptText('INSTALLED'))->toBe(Installed::fileIn(Path::of(Manifest::VENDOR))->value());
 });
 
 it('names the package as Composer does', function (): void {

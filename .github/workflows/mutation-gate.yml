@@ -135,8 +135,6 @@ jobs:
             DEFAULT_BRANCH="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
             export DEFAULT_BRANCH
           fi
-          INSTALLED="$(composer show nightworksio/mutation-gate --format=json 2>/dev/null | jq -r '.versions[0] // ""' || true)"
-          export INSTALLED
           python3 "${GATE_ACTION}/.github/scripts/gate_action.py" resolve
       - name: Read the effective config
         id: config
@@ -321,8 +319,6 @@ jobs:
             DEFAULT_BRANCH="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
             export DEFAULT_BRANCH
           fi
-          INSTALLED="$(composer show nightworksio/mutation-gate --format=json 2>/dev/null | jq -r '.versions[0] // ""' || true)"
-          export INSTALLED
           python3 "${GATE_ACTION}/.github/scripts/gate_action.py" resolve
       - name: Read the effective config
         id: config
