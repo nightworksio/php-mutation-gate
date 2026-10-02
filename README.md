@@ -9,7 +9,7 @@
 > **In development, not yet released.** This README describes what the
 > decisions in [`.docs/decisions`](.docs/decisions/README.md) settle, and
 > nothing more. Nothing is tagged until every feature below is built, tested
-> and gated at 100%, and the first release is 1.0.0.
+> and gated at 100%, and the first release is 0.1.0.
 
 mutation-gate turns mutation testing into a CI gate for PHP projects. It
 decides:
@@ -723,8 +723,9 @@ require approval before outside contributors' workflows run
 ### Use it in GitHub Actions
 
 The repository is also a GitHub Action. Pin it to a full commit SHA, with its
-tag in a comment. A release workflow moves the major tag (`v1`) to each new
-release.
+tag in a comment. Each release has its own tag, such as `v0.1.0`, and a
+release workflow moves the tag of its line, `v0.1`, to each new release of
+0.1.
 
 **One step, for most projects.** The action sets up PHP, installs your
 dependencies, keeps the proof ledger in the Actions cache and runs the whole
@@ -757,7 +758,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: nightworksio/php-mutation-gate@<sha> # v1.0.0
+      - uses: nightworksio/php-mutation-gate@<sha> # v0.1.0
         with:
           php-version: '8.5'
 ```
@@ -799,7 +800,7 @@ permissions:
 
 jobs:
   mutation:
-    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@<sha> # v1.0.0
+    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@<sha> # v0.1.0
     permissions:
       contents: write        # used only by the default-branch publish job
       actions: read

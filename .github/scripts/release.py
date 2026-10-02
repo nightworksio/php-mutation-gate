@@ -3,12 +3,13 @@
 
 Usage:
   release.py next       the version the commits since the last tag make, or
-                        VERSION where given; writes version= and major= lines
-                        to $GITHUB_OUTPUT, and moves gate_action.py's MAJOR at
-                        a new major
+                        VERSION where given; writes version= and line= lines
+                        to $GITHUB_OUTPUT, and moves gate_action.py's LINE at
+                        a new release line
   release.py prepend    puts the section on stdin at the top of CHANGELOG.md
   release.py notes      prints TAG's section of CHANGELOG.md
-  release.py check-tag  refuses TAG where its major is not gate_action.py's
+  release.py check-tag  refuses TAG where its release line is not
+                        gate_action.py's, and writes line= to $GITHUB_OUTPUT
 
 Each refuses with exit code 2 and says why (ADR-0019, decision 15).
 
@@ -30,7 +31,7 @@ SUBJECT = re.compile(r"^(?P<type>[a-z]+)(\([^)]*\))?(?P<breaking>!)?: ")
 
 BREAKING_FOOTER = re.compile(r"^BREAKING[ -]CHANGE: ", re.MULTILINE)
 
-MAJOR_LINE = re.compile(r'^MAJOR = "\d+"$', re.MULTILINE)
+LINE_ASSIGNMENT = re.compile(r'^LINE = "\d+(\.\d+)?"$', re.MULTILINE)
 
 CHANGELOG = "CHANGELOG.md"
 
@@ -107,22 +108,27 @@ def notes(changelog: str, version: str) -> str:
     return body + "\n"
 
 
-def major_refusal(tag: str, major: str) -> str | None:
-    """Why a tag is not a release of the action's major, or nothing where it is."""
-    found = str(parse(tag)[0])
-    if found != major:
+def line(version: str) -> str:
+    """A version's release line, whose tag (`v0.1`) each release of the line moves."""
+    return gate_action.line_of("{}.{}.{}".format(*parse(version)))
+
+
+def line_refusal(tag: str, current: str) -> str | None:
+    """Why a tag is not a release of the action's line, or nothing where it is."""
+    found = line(tag)
+    if found != current:
         return (
-            f"{tag} is major {found}, and gate_action.py's MAJOR is {major}. "
-            "Release the major change through the release pull request, which moves MAJOR."
+            f"{tag} is of line {found}, and gate_action.py's LINE is {current}. "
+            "Release a new line through the release pull request, which moves LINE."
         )
     return None
 
 
-def with_major(source: str, major: str) -> str:
-    """gate_action.py with its MAJOR set."""
-    moved, count = MAJOR_LINE.subn(f'MAJOR = "{major}"', source)
+def with_line(source: str, moved_to: str) -> str:
+    """gate_action.py with its LINE set."""
+    moved, count = LINE_ASSIGNMENT.subn(f'LINE = "{moved_to}"', source)
     if count != 1:
-        raise Refused("gate_action.py has no single MAJOR line to move.")
+        raise Refused("gate_action.py has no single LINE to move.")
     return moved
 
 
@@ -143,11 +149,10 @@ def _next() -> None:
     last = _last_tag()
     messages = _messages(last)
     version = next_version(last, messages, os.environ.get("VERSION", ""))
-    major = str(parse(version)[0])
-    if major != gate_action.MAJOR:
-        _write_file(GATE_ACTION, with_major(_read_file(GATE_ACTION), major))
-    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as file:
-        file.write(gate_action.output_lines({"version": version, "major": major}))
+    released = line(version)
+    if released != gate_action.LINE:
+        _write_file(GATE_ACTION, with_line(_read_file(GATE_ACTION), released))
+    _write_outputs({"version": version, "line": released})
 
 
 def _prepend() -> None:
@@ -159,9 +164,15 @@ def _notes() -> None:
 
 
 def _check_tag() -> None:
-    why = major_refusal(os.environ["TAG"], gate_action.MAJOR)
+    why = line_refusal(os.environ["TAG"], gate_action.LINE)
     if why is not None:
         raise Refused(why)
+    _write_outputs({"line": gate_action.LINE})
+
+
+def _write_outputs(outputs: dict[str, str]) -> None:
+    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as file:
+        file.write(gate_action.output_lines(outputs))
 
 
 def _last_tag() -> str | None:

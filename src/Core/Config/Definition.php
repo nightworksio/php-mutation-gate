@@ -37,7 +37,7 @@ final readonly class Definition
     private const string SCHEMA = 'https://json-schema.org/draft/2020-12/schema';
 
     private const string PUBLISHED
-        = 'https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v1/resources/mutation-gate.schema.json';
+        = 'https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v0.1/resources/mutation-gate.schema.json';
 
     private const string DESCRIPTION
         = 'The config of nightworksio/mutation-gate: mutation-gate.json, .yaml, .yml or .neon.';

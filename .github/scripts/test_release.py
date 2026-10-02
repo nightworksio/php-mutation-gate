@@ -77,15 +77,25 @@ class Changelog(unittest.TestCase):
             release.notes("## [2.0.0] - 2026-10-03\n\n## [1.0.0]\n", "v2.0.0")
 
 
-class Major(unittest.TestCase):
-    def test_a_tag_of_the_actions_major_passes_and_another_is_refused(self):
-        self.assertIsNone(release.major_refusal("v1.4.0", "1"))
-        self.assertIn("MAJOR is 1", release.major_refusal("v2.0.0", "1"))
-
-    def test_moves_the_one_major_line(self):
-        self.assertEqual(release.with_major('A = 1\nMAJOR = "1"\n', "2"), 'A = 1\nMAJOR = "2"\n')
+class Line(unittest.TestCase):
+    def test_a_release_line_is_the_major_and_minor_while_the_major_is_0(self):
+        self.assertEqual(release.line("v0.1.0"), "0.1")
+        self.assertEqual(release.line("0.1.4"), "0.1")
+        self.assertEqual(release.line("v1.4.0"), "1")
         with self.assertRaises(release.Refused):
-            release.with_major("A = 1\n", "2")
+            release.line("v0.1")
+
+    def test_a_tag_of_the_actions_line_passes_and_another_is_refused(self):
+        self.assertIsNone(release.line_refusal("v0.1.0", "0.1"))
+        self.assertIsNone(release.line_refusal("v0.1.3", "0.1"))
+        self.assertIn("LINE is 0.1", release.line_refusal("v0.2.0", "0.1"))
+        self.assertIn("LINE is 0.1", release.line_refusal("v1.0.0", "0.1"))
+
+    def test_moves_the_one_line(self):
+        self.assertEqual(release.with_line('A = 1\nLINE = "0.1"\n', "0.2"), 'A = 1\nLINE = "0.2"\n')
+        self.assertEqual(release.with_line('LINE = "0.9"\n', "1"), 'LINE = "1"\n')
+        with self.assertRaises(release.Refused):
+            release.with_line("A = 1\n", "0.2")
 
 
 if __name__ == "__main__":

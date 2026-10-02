@@ -19,7 +19,7 @@ it('writes JSON Schema draft 2020-12, published where the README says', function
 
     expect(is_array($schema) ? [$schema['$schema'], $schema['$id'], $schema['type']] : [])->toBe([
         'https://json-schema.org/draft/2020-12/schema',
-        'https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v1/resources/mutation-gate.schema.json',
+        'https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v0.1/resources/mutation-gate.schema.json',
         'object',
     ]);
 });

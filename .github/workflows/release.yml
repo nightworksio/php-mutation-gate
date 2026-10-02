@@ -12,7 +12,8 @@ name: release
 # - Publishing, on that tag: the tag's signature is checked against
 #   `.github/allowed_signers` on main, and fails closed without it; the gate
 #   runs in full; the GitHub release takes the version's section as its notes;
-#   and the major tag moves to it.
+#   and the tag of its release line moves to it: vMAJOR.MINOR while the major
+#   is 0 (v0.1), vMAJOR from 1.0.0.
 #
 # This workflow never creates a version tag.
 
@@ -20,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: The version to release, such as 1.0.0; computed from the commits since the last tag where empty.
+        description: The version to release, such as 0.1.0; computed from the commits since the last tag where empty.
         type: string
         default: ''
   push:
@@ -92,7 +93,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           VERSION: ${{ steps.version.outputs.version }}
-          MAJOR: ${{ steps.version.outputs.major }}
+          LINE: ${{ steps.version.outputs.line }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
@@ -131,7 +132,7 @@ jobs:
           - Edit the section: it becomes the release's notes.
           - Merge, then tag the squash commit on ${DEFAULT_BRANCH} and push the tag:
             \`git tag -s v${VERSION} -m v${VERSION} <commit> && git push origin v${VERSION}\`.
-          - The tag's push runs the gate in full, publishes the release and moves \`v${MAJOR}\`.
+          - The tag's push runs the gate in full, publishes the release and moves \`v${LINE}\`.
 
           Spec: 0019
           EOF
@@ -146,12 +147,15 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+    outputs:
+      line: ${{ steps.line.outputs.line }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Check the tag's major
+      - name: Check the tag's release line
+        id: line
         env:
           TAG: ${{ github.ref_name }}
         run: python3 .github/scripts/release.py check-tag
@@ -223,18 +227,22 @@ jobs:
           python3 .github/scripts/release.py notes > "${RUNNER_TEMP}/notes.md"
           gh release create "${TAG}" --repo "${GITHUB_REPOSITORY}" --verify-tag \
             --title "${TAG}" --notes-file "${RUNNER_TEMP}/notes.md"
-      - name: Move the major tag
+      - name: Move the release line's tag
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          LINE: ${{ needs.verify.outputs.line }}
           COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
           repository="repos/${GITHUB_REPOSITORY}"
-          major="${TAG%%.*}"
+          if [ -z "${LINE}" ]; then
+            echo "::error::verify named no release line, so no tag is moved."
+            exit 1
+          fi
+          moving="v${LINE}"
           commit="${COMMIT}"
-          if gh api "${repository}/git/ref/tags/${major}" --silent 2>/dev/null; then
-            gh api --method PATCH "${repository}/git/refs/tags/${major}" -f sha="${commit}" -F force=true --silent
+          if gh api "${repository}/git/ref/tags/${moving}" --silent 2>/dev/null; then
+            gh api --method PATCH "${repository}/git/refs/tags/${moving}" -f sha="${commit}" -F force=true --silent
           else
-            gh api "${repository}/git/refs" -f ref="refs/tags/${major}" -f sha="${commit}" --silent
+            gh api "${repository}/git/refs" -f ref="refs/tags/${moving}" -f sha="${commit}" --silent
           fi
