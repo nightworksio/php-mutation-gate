@@ -202,6 +202,11 @@ jobs:
       - id: table
         if: ${{ !cancelled() }}
         run: node .github/bot/markdownlint/rules.mjs | diff .github/bot/rules/markdownlint.json -
+      # The vendored braces micromatch resolves refuses a pattern nested past
+      # its depth cap (.github/bot/markdownlint/vendor/braces/README.md).
+      - id: braces
+        if: ${{ !cancelled() }}
+        run: node --test .github/bot/markdownlint/braces.test.mjs
       # The fix is mechanical, so it is computed here and offered to the pull
       # request as a patch, never pushed (ADR-0019, decision 8).
       - name: compute the mechanical fixes

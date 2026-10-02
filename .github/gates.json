@@ -317,15 +317,17 @@
     },
     "hygiene/markdown": {
       "check": "hygiene / markdown",
-      "checks": "The Markdown, by markdownlint with .markdownlint.jsonc.",
-      "reproduce": "npm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \"**/*.md\"",
+      "checks": "The Markdown, by markdownlint with .markdownlint.jsonc, and the depth cap of the vendored braces its globs go through.",
+      "reproduce": "npm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \"**/*.md\" && node --test .github/bot/markdownlint/braces.test.mjs",
       "fix": "npm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --fix \"**/*.md\"",
       "evidence": [
         {"step": "markdownlint", "tool": "markdownlint", "raw": "evidence/raw/markdownlint.json"},
-        {"step": "table", "tool": "markdownlint-table"}
+        {"step": "table", "tool": "markdownlint-table"},
+        {"step": "braces", "tool": "braces-cap"}
       ],
       "rules": {
         "markdownlint": "markdownlint did not run to the end.",
+        "braces-cap": "The vendored braces in .github/bot/markdownlint/vendor/braces does not refuse a pattern nested past its depth cap, micromatch does not resolve it, or it expands a pattern differently from braces 3.0.3. Run npm ci --prefix .github/bot/markdownlint && node --test .github/bot/markdownlint/braces.test.mjs.",
         "markdownlint-table": ".github/bot/rules/markdownlint.json is not what the locked markdownlint says of its rules. Run node .github/bot/markdownlint/rules.mjs > .github/bot/rules/markdownlint.json and commit it."
       }
     },
