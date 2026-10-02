@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -79,7 +80,7 @@ final readonly class Covering
 
         $ran = $this->shell->run($run);
 
-        return $ran->succeeded() ? $directory : CoverageFailure::said('PHPUnit', $ran->output());
+        return $ran->succeeded() ? $directory : CoverageFailure::said(Program::PhpUnit, $ran->output());
     }
 
     /** The map another job handed on in a directory, written into Infection's layout. */

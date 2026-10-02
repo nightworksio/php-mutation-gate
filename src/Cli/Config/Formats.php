@@ -47,7 +47,7 @@ final readonly class Formats
     public static function chosen(string $given): Format|CannotJudge
     {
         return Format::tryFrom($given)
-            ?? CannotJudge::because(sprintf('--format is php, json, yaml or neon, not "%s".', $given));
+            ?? CannotJudge::because(sprintf('--format is %s, not "%s".', Format::words(), $given));
     }
 
     /** The loader that reads a config file, or what to install to read it. */

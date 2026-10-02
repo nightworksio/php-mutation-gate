@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Composer\Names;
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
+use NightWorksIO\MutationGate\Core\Config\BuiltinPreset;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -37,14 +39,17 @@ final readonly class Detected
     private const string BIN = 'bin';
 
     /** The package that says each preset fits, in the order they are asked about (ADR-0008). */
-    private const array PRESETS = ['laravel' => 'laravel/framework', 'symfony' => 'symfony/framework-bundle'];
+    private const array PRESETS = [
+        'laravel/framework' => BuiltinPreset::Laravel,
+        'symfony/framework-bundle' => BuiltinPreset::Symfony,
+    ];
 
     public function __construct(private Directory $project, private Directory $vendor)
     {
     }
 
-    /** `laravel` when `composer.json` requires `laravel/framework`, `symfony` for the bundle, else `library`. */
-    public function preset(): string|CannotJudge
+    /** Laravel when `composer.json` requires `laravel/framework`, Symfony for the bundle, else a library. */
+    public function preset(): BuiltinPreset|CannotJudge
     {
         $contents = $this->project->read(Manifest::fileIn(Path::root()));
         $manifest = $contents instanceof Contents ? Manifest::decode($contents, Path::root()) : $contents;
@@ -55,17 +60,17 @@ final readonly class Detected
 
         $required = $manifest instanceof Manifest ? $manifest->requiresToRun() : Names::of();
 
-        foreach (self::PRESETS as $preset => $package) {
+        foreach (self::PRESETS as $package => $preset) {
             if ($required->has($package)) {
                 return $preset;
             }
         }
 
-        return 'library';
+        return BuiltinPreset::Library;
     }
 
-    /** `pest` when Pest's mutation plugin is installed, `infection` when Infection is; both is a choice to make. */
-    public function runner(): string|CannotJudge
+    /** Pest when its mutation plugin is installed, Infection when Infection is; both is a choice to make. */
+    public function runner(): BuiltinRunner|CannotJudge
     {
         $installed = $this->installed();
 
@@ -101,7 +106,7 @@ final readonly class Detected
         };
     }
 
-    private function runnerIn(Installed $installed): string|CannotJudge
+    private function runnerIn(Installed $installed): BuiltinRunner|CannotJudge
     {
         $pest = $installed->has(self::PEST);
         $infection = $installed->has(self::INFECTION);
@@ -112,8 +117,8 @@ final readonly class Detected
                 self::PEST,
                 self::INFECTION,
             )),
-            $pest => 'pest',
-            $infection => 'infection',
+            $pest => BuiltinRunner::Pest,
+            $infection => BuiltinRunner::Infection,
             default => CannotJudge::because(sprintf(
                 'Neither %s nor %s is installed, so nothing can mutate. Install one of them.',
                 self::PEST,

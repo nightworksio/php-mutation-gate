@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 
@@ -47,12 +48,12 @@ it('holds the manifest of every entry that is a map, named or not, in its order'
 });
 
 it('answers the versions of every package a runner drives, or why it cannot say which runner judges', function (): void {
-    expect(installedFixture()->drivenBy('Fake', 'a/one', 'b/two'))->toEqual(Versions::of(
+    expect(installedFixture()->drivenBy(Program::Infection, 'a/one', 'b/two'))->toEqual(Versions::of(
         Version::of('a/one', '1.0.0', 's1'),
         Version::of('b/two', '2.0.0', 'd2'),
     ))
-        ->and(installedFixture()->drivenBy('Fake', 'a/one', 'z/none', 'y/none'))->toEqual(CannotJudge::because(
-            'vendor/composer/installed.json does not list z/none, y/none, so the gate cannot say which Fake judges the mutants. '
+        ->and(installedFixture()->drivenBy(Program::Infection, 'a/one', 'z/none', 'y/none'))->toEqual(CannotJudge::because(
+            'vendor/composer/installed.json does not list z/none, y/none, so the gate cannot say which Infection judges the mutants. '
             . 'Run composer install.',
         ));
 });

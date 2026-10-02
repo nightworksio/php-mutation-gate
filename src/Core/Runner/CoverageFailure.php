@@ -14,8 +14,8 @@ final readonly class CoverageFailure
     private const string FAILED = "%s's coverage run failed. %s said:\n%s";
 
     /** A coverage run a program failed, with what the program printed. */
-    public static function said(string $program, string $output): CannotJudge
+    public static function said(Program $program, string $output): CannotJudge
     {
-        return CannotJudge::because(sprintf(self::FAILED, $program, $program, $output));
+        return CannotJudge::because(sprintf(self::FAILED, $program->title(), $program->title(), $output));
     }
 }

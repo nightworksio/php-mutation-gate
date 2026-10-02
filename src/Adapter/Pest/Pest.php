@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
@@ -337,7 +338,7 @@ final readonly class Pest implements Runner
 
         $ran = $this->shell->run(Invocation::installedIn($this->project->vendor())->coverage($request, $directory));
 
-        return $ran->succeeded() ? $ran : CoverageFailure::said('Pest', $ran->output());
+        return $ran->succeeded() ? $ran : CoverageFailure::said(Program::Pest, $ran->output());
     }
 
     /** A mutation run of this project, through this shell. */

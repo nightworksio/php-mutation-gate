@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\BuiltinPreset;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Definition;
@@ -95,14 +97,15 @@ final readonly class Effective
     private function layered(Layer $written, Extensions $registry): Settings|Invalid|CannotJudge
     {
         $named = $written->setup()->presets();
-        $detected = $named instanceof Absent ? $this->detected->preset() : '';
+        $detected = $named instanceof Absent ? $this->detected->preset() : Absent::setting();
 
         if ($detected instanceof CannotJudge) {
             return $detected;
         }
 
-        $presets = $detected === '' ? $this->named($named) : ['preset' => $detected];
-        [$layers, $problems] = $this->presetLayers($presets, $registry);
+        $found = $detected instanceof BuiltinPreset ? Listed::of($detected->value) : $detected;
+        $presets = $found instanceof Listed ? $found : $named;
+        [$layers, $problems] = $this->presetLayers($this->named($presets), $registry);
         $laid = Layer::none();
 
         foreach ($layers as $layer) {
@@ -110,7 +113,7 @@ final readonly class Effective
         }
 
         $merged = $laid->over($written);
-        $base = $this->base($merged, $detected);
+        $base = $this->base($merged, $found);
         $settings = $base instanceof Layer ? Settings::settled($base->over($merged), $this->now) : $base;
 
         return $problems === [] ? $settings : $this->joined($problems, $settings);
@@ -190,18 +193,23 @@ final readonly class Effective
         return Invalid::because(...$problems, ...$rest);
     }
 
-    /** What zero-config finds, beneath every layer: the preset it chose, and the runner when nothing chooses one. */
-    private function base(Layer $merged, string $preset): Layer|CannotJudge
+    /**
+     * What zero-config finds, beneath every layer: the preset it found where no layer names one, and the runner
+     * where no layer chooses one.
+     *
+     * @param Listed<string>|Absent $presets the preset zero-config found, or absent where a layer names its own
+     */
+    private function base(Layer $merged, Listed|Absent $presets): Layer|CannotJudge
     {
-        $runner = $merged->setup()->runner() instanceof Choice ? '' : $this->detected->runner();
+        $runner = $merged->setup()->runner() instanceof Choice ? Absent::setting() : $this->detected->runner();
 
         if ($runner instanceof CannotJudge) {
             return $runner;
         }
 
         return Layer::of(Setup::of(
-            presets: $preset === '' ? Absent::setting() : Listed::of($preset),
-            runner: $runner === '' ? Absent::setting() : Choice::of($runner, Options::none()),
+            presets: $presets,
+            runner: $runner instanceof BuiltinRunner ? Choice::of($runner->value, Options::none()) : $runner,
         ));
     }
 }

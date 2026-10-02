@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 
@@ -128,13 +129,15 @@ final readonly class Installed implements IteratorAggregate
      * The versions of the packages a runner drives, or why the gate cannot
      * say which of that runner judges the mutants: Composer lists not all of them.
      */
-    public function drivenBy(string $runner, string ...$packages): Versions|CannotJudge
+    public function drivenBy(Program $runner, string ...$packages): Versions|CannotJudge
     {
         $missing = $this->missing(...$packages);
 
         return $missing === []
             ? $this->versionsOf(...$packages)
-            : CannotJudge::because(sprintf(self::UNLISTED, $this->file->value(), implode(', ', $missing), $runner));
+            : CannotJudge::because(
+                sprintf(self::UNLISTED, $this->file->value(), implode(', ', $missing), $runner->title()),
+            );
     }
 
     /** @return Traversable<int, Manifest> */

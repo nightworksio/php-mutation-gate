@@ -126,7 +126,7 @@ final readonly class Init
         return $command->addOption(
             'format',
             mode: InputOption::VALUE_REQUIRED,
-            description: 'php, json, yaml or neon',
+            description: Format::words(),
             default: Format::Php->value,
         );
     }

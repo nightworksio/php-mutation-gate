@@ -34,7 +34,7 @@ final readonly class ConfigShow
             ->addOption(
                 'format',
                 mode: InputOption::VALUE_REQUIRED,
-                description: 'php, json, yaml or neon',
+                description: Format::words(),
                 default: Format::Json->value,
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($effective, $formats): int {
