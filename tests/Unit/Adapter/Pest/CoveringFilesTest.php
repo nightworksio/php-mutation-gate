@@ -74,6 +74,19 @@ it('needs each loaded test file that is not inert, and each that declares a func
         ->and($loaded->fileOf('never\loaded'))->toBe('');
 });
 
+it('leaves out of what a file needs the files Pest loads in every process, whatever their top runs', function () use ($suite): void {
+    [, $files, $root] = $suite();
+    $booted = ['Pest.php', 'Helpers.php', 'Helpers/Shared.php', 'Expectations/Money.php', 'Datasets.php'];
+
+    foreach ($booted as $name) {
+        Scratch::write($root, $name, sprintf("<?php\n\$GLOBALS['%s'] = 1;\n", $name));
+        require_once sprintf('%s/%s', $root, $name);
+    }
+
+    expect(LoadedTests::inThisProcess($root)->needs($files['AloneTest.php']))
+        ->toBe([$files['AloneTest.php'], $files['SharesTest.php'], $files['DeclaresTest.php']]);
+});
+
 it('narrows a mutant\'s run to what its covering tests need, only where the run narrows and it fits', function () use ($suite): void {
     [$namespace, $files, $root] = $suite();
     $child = sprintf('%s\ChildTest::testIt', $namespace);
