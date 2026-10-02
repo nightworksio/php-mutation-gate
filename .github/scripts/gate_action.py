@@ -45,6 +45,9 @@ KEY = "mutation-gate-ledger-"
 
 GATE = "nightworksio/mutation-gate"
 
+# What Composer installed into a project, where the gate reads its own version.
+INSTALLED = "vendor/composer/installed.json"
+
 # The action's own release line, which the installed gate must share: its
 # major, or its major and minor while the major is 0, as Composer's caret
 # reads a version. The release pull request of a new line moves it
@@ -154,8 +157,19 @@ def line_of(version: str) -> str:
     return parts[0] if parts[0] != "0" else ".".join(parts[:2])
 
 
+def installed_version(installed: dict) -> str:
+    """The gate's version as Composer installed it, from installed.json; nothing where it is not installed."""
+    packages = installed.get("packages")
+    for package in packages if isinstance(packages, list) else []:
+        if isinstance(package, dict) and package.get("name") == GATE and isinstance(package.get("version"), str):
+            return package["version"]
+    return ""
+
+
 def version_refusal(installed: str, line: str) -> str | None:
     """Why the installed gate is not of the action's release line, or nothing where it is."""
+    if not installed:
+        return f"The project does not install {GATE}: require {GATE} ^{line}."
     if installed.startswith("dev-") or installed.endswith("-dev"):
         return None
     if line_of(installed) != line:
@@ -255,8 +269,7 @@ def _resolve() -> dict[str, str]:
     payload = _payload()
     manifest = _json_file("composer.json")
     gate = binary(manifest)
-    installed = os.environ.get("INSTALLED", "")
-    why = None if gate.startswith("bin/") else version_refusal(installed, LINE)
+    why = None if gate.startswith("bin/") else version_refusal(installed_version(_installed()), LINE)
     if why is not None:
         raise Refused(why)
     default_branch = os.environ.get("DEFAULT_BRANCH", "")
@@ -306,6 +319,10 @@ def _options() -> list[str]:
 def _payload() -> dict:
     path = os.environ.get("GITHUB_EVENT_PATH", "")
     return _json_file(path) if path and os.path.isfile(path) else {}
+
+
+def _installed() -> dict:
+    return _json_file(INSTALLED) if os.path.isfile(INSTALLED) else {}
 
 
 def _json_file(path: str) -> dict:
