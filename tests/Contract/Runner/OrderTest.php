@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
@@ -101,7 +102,7 @@ it('judges every mutant as the runner\'s own order does, with no history at all'
  * Runs the fixture's MoneySpec as a mutant's own process does, on a mutated
  * copy of src/Money.php, with an order that runs the second killer of
  * Money::add first, and these arguments before Pest's own. Answers its exit
- * code and the tests the plugin named as killers.
+ * code and the tests the plugin named as killers in the mutant's killer file.
  *
  * @return array{int, list<string>}
  */
@@ -138,20 +139,20 @@ function orderChild(string $from, string $to, string ...$arguments): array
     );
     $exit = $child->run();
 
-    return [$exit, orderKilled($results)];
+    return [$exit, orderKilled($results, $mutated)];
 }
 
 /**
- * The tests the plugin named as killers in a results file, in order.
+ * The tests a mutant's own process named as killers in its killer file, in
+ * the order it named them.
  *
  * @return list<string>
  */
-function orderKilled(string $results): array
+function orderKilled(string $results, string $mutated): array
 {
     $killed = [];
-    $lines = is_file($results) ? explode("\n", trim((string) file_get_contents($results))) : [];
 
-    foreach (array_filter($lines, static fn(string $line): bool => $line !== '') as $line) {
+    foreach (KillerFile::taken(KillerFile::beside($results, $mutated), $mutated) as $line) {
         $record = json_decode($line, associative: true);
         $test = is_array($record) && array_key_exists('test', $record) ? $record['test'] : '';
         $killed[] = is_string($test) ? $test : '';
