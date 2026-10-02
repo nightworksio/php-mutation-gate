@@ -10,6 +10,7 @@ use function array_slice;
 use function array_values;
 use function count;
 use function implode;
+use function max;
 
 use PhpToken;
 
@@ -34,9 +35,13 @@ final readonly class TopLevel
     /** What a statement begins with before what it is: the end of an attribute, and a modifier. */
     private const array PREAMBLE = [']', T_ABSTRACT, T_FINAL, T_READONLY];
 
-    /** What a statement that runs nothing begins with: an empty one ends as it begins. */
+    /**
+     * What a statement that runs nothing begins with: an empty one ends as it
+     * begins, and a namespace's block ends with a `}` of its own.
+     */
     private const array DECLARING = [
         ';',
+        '}',
         T_NAMESPACE,
         T_USE,
         T_DECLARE,
@@ -59,29 +64,26 @@ final readonly class TopLevel
     {
     }
 
-    /** @param array<PhpToken> $tokens a file's significant tokens, in order */
+    /**
+     * The statements of a file, each in a namespace's block read as one at
+     * the top, as PHP runs it, past the namespace that opens the block.
+     *
+     * @param array<PhpToken> $tokens a file's significant tokens, in order
+     */
     public static function of(array $tokens): self
     {
         $statements = [];
         $statement = [];
         $depth = 0;
-
         $inside = 0;
 
         foreach ($tokens as $token) {
             $statement[] = $token;
-            $depth += match (true) {
-                $token->is(self::OPENS) => 1,
-                $token->is('}') => -1,
-                default => 0,
-            };
-            $inside += match (true) {
-                $token->is(self::BRACKETS) => 1,
-                $token->is([')', ']']) => -1,
-                default => 0,
-            };
+            $block = self::opensNamespace($statement, $depth + $inside);
+            $depth = max(0, $depth + ($block ? 0 : self::deepens($token, self::OPENS, ['}'])));
+            $inside += self::deepens($token, self::BRACKETS, [')', ']']);
 
-            if ($depth < 1 && $inside < 1 && $token->is(self::ENDS)) {
+            if ($block || ($depth < 1 && $inside < 1 && $token->is(self::ENDS))) {
                 $statements[] = $statement;
                 $statement = [];
             }
@@ -150,6 +152,32 @@ final readonly class TopLevel
     public static function spelt(PhpToken ...$tokens): string
     {
         return implode(' ', $tokens);
+    }
+
+    /**
+     * How far a token takes the depth: one in where it opens, one out where it closes.
+     *
+     * @param list<int|string> $opens
+     * @param list<string>     $closes
+     */
+    private static function deepens(PhpToken $token, array $opens, array $closes): int
+    {
+        return match (true) {
+            $token->is($opens) => 1,
+            $token->is($closes) => -1,
+            default => 0,
+        };
+    }
+
+    /**
+     * Whether the statement read so far, at no depth, is a namespace whose
+     * block its last token opens.
+     *
+     * @param non-empty-list<PhpToken> $statement
+     */
+    private static function opensNamespace(array $statement, int $depth): bool
+    {
+        return $depth === 0 && $statement[0]->is(T_NAMESPACE) && $statement[count($statement) - 1]->is('{');
     }
 
     /**

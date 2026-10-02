@@ -602,11 +602,12 @@ it('opens a patched shard on the canary group and reads the map the planning job
 // Where the test needs the file for a name it spells, a helper function, a
 // constant, a base test case or a trait of tests, its own run loads the file
 // with the test's. Where the file acts on what other files find, a hook or a
-// trait `->in()` registers, state it sets, or a constant it defines by call,
-// every narrowed run loads it, even where the test falls back from what it
-// finds missing. Where the test calls a helper by a name built at run time,
-// the run narrowed without it cannot vouch for the kill, and the mutant is
-// run again with every test file.
+// trait `->in()` registers, state it sets, at its top, in a describe body or
+// in a dataset closure, or a constant it defines by call, every narrowed run
+// loads it, even where the test falls back from what it finds missing. Where
+// the test calls a helper by a name built at run time, the run narrowed
+// without it cannot vouch for the kill, and the mutant is run again with
+// every test file.
 it('narrows a mutant\'s own run over a test that needs another test file, loaded first, and kills nothing by what it left out', function (bool $together, string ...$files): void {
     $into = Tree::at(sprintf('%s/tests/Reach', Library::DIRECTORY));
     $source = Tree::at(sprintf('%s/src/Reach.php', Library::DIRECTORY));
@@ -662,6 +663,8 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
     'a variable put in the environment' => [true, 'ReachAPutenvSpec.php', 'ReachZPutenvSpec.php'],
     'a global set in $GLOBALS' => [true, 'ReachAGlobalsSpec.php', 'ReachZGlobalsSpec.php'],
     'a value a hook sets, which the test falls back from' => [true, 'ReachADefaultSpec.php', 'ReachZDefaultedSpec.php'],
+    'a global a describe body sets, which the test falls back from' => [true, 'ReachADescribeSpec.php', 'ReachZDescribedSpec.php'],
+    'a global a dataset closure sets, which the test falls back from' => [true, 'ReachADatasetSpec.php', 'ReachZDatasetSpec.php'],
 ])->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('hands each mutant\'s own run the test files its covering tests need as paths, and no other', function (): void {

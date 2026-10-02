@@ -69,6 +69,17 @@ it('runs code when any statement at the top does', function (string $code) use (
     'an array' => "<?php\n\n[1, 2];\n",
 ]);
 
+it('reads each statement in a namespace\'s block as one at the top', function () use ($top): void {
+    $declaring = $top("<?php\n\nnamespace App {\n    use Lib\\Clock;\n    final class Money {}\n}\n\nnamespace {\n    function format(): string { return ''; }\n}\n");
+    $running = $top("<?php\n\nnamespace Tests {\n    putenv('SHARED=5');\n}\n");
+
+    expect($declaring->onlyDeclares())->toBeTrue()
+        ->and($declaring->declared())->toBe(['Money', 'format'])
+        ->and($running->onlyDeclares())->toBeFalse()
+        ->and(array_map(static fn(array $statement): string => TopLevel::spelt(...$statement), $running->running()))
+        ->toBe(["putenv ( 'SHARED=5' ) ;"]);
+});
+
 it('only declares when the file ends by closing its tag', function () use ($top): void {
     expect($top("<?php\n\nclass Money {}\n?>\n")->onlyDeclares())->toBeTrue();
 });

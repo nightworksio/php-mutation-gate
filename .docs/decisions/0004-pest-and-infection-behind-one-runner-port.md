@@ -343,12 +343,19 @@ its parser attributes. Both change when the checkout moves.
        its top only declares, imports, and makes the Pest registrations whose
        effects stay in the file: `test`, `it`, `todo`, `arch`, `describe`,
        `beforeEach`, `afterEach`, `beforeAll`, `afterAll`, `dataset`,
-       `covers` and `uses`, none of them sent `->in()`. Anything else at the
-       top acts: a hook or a trait sent `->in()` a directory, `pest()` and
-       `mutates()`, which change Pest's configuration, a write to `$_ENV`, the
-       environment or `$GLOBALS`, an include, or any other statement. The
-       files Pest loads in every process, `tests/Pest.php` and its kind, are
-       loaded anyway.
+       `covers` and `uses`. Each is one call with methods chained on it, none
+       of them `->in()`, whose arguments run nothing as the file loads:
+       literals, constants, class names, arrays of these, and closures. Pest
+       runs two closures as the file loads, so each is held to more: a
+       `describe` body, whose statements must each be such a registration in
+       turn, and a dataset handed to `dataset` or `->with()` as a closure,
+       which may only return or yield what runs nothing. Anything else acts,
+       at the top, in a `describe` body or in a dataset closure: a hook or a
+       trait sent `->in()` a directory, `pest()` and `mutates()`, which change
+       Pest's configuration, a write to `$_ENV`, the environment or
+       `$GLOBALS`, an include, a call, or any other statement. The files Pest
+       loads in every process, `tests/Pest.php` and its kind, are loaded
+       anyway.
      - A narrowed kill counts only where the run can vouch for it:
        - a kill with no test named as its killer, or only tests that errored,
          does not count, as a helper a test calls by a name built at run time
