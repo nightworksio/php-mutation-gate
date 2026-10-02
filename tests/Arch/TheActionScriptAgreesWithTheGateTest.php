@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Cli\ExitCode;
+use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Privileged;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -65,6 +67,15 @@ it('keeps the ledger where the directory store keeps it by default', function ()
 
 it('names the package as Composer does', function (): void {
     expect(scriptText('GATE'))->toBe(ThisPackage::COMPOSER);
+});
+
+it('publishes the config schema under its release line\'s tag, which the default set requires', function (): void {
+    $line = scriptText('LINE');
+    $manifest = (string) file_get_contents(Tree::at('plugins/default/composer.json'));
+
+    expect($line)->not->toBe('')
+        ->and(Decoded::at(Definition::schema(), '$id'))->toContain(sprintf('/php-mutation-gate/v%s/', $line))
+        ->and(Decoded::at($manifest, 'require', ThisPackage::COMPOSER))->toBe(sprintf('^%s', $line));
 });
 
 it('trusts the events the GitHub plan trusts to write a branch\'s ledger', function (): void {

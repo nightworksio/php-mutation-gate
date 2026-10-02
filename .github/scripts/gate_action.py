@@ -45,9 +45,11 @@ KEY = "mutation-gate-ledger-"
 
 GATE = "nightworksio/mutation-gate"
 
-# The action's own major version, which the installed gate must share. The
-# release pull request of a new major moves it (release.py).
-MAJOR = "1"
+# The action's own release line, which the installed gate must share: its
+# major, or its major and minor while the major is 0, as Composer's caret
+# reads a version. The release pull request of a new line moves it
+# (release.py).
+LINE = "0.1"
 
 EXIT_CODES = {0: "passed", 1: "failed", 2: "cannot-judge"}
 
@@ -146,15 +148,20 @@ def binary(root_manifest: dict) -> str:
     return "bin/mutation-gate" if root_manifest.get("name") == GATE else "vendor/bin/mutation-gate"
 
 
-def version_refusal(installed: str, major: str) -> str | None:
-    """Why the installed gate is not the action's major version, or nothing where it is."""
+def line_of(version: str) -> str:
+    """A version's release line: its major, or its major and minor while the major is 0."""
+    parts = version.lstrip("v").split(".")
+    return parts[0] if parts[0] != "0" else ".".join(parts[:2])
+
+
+def version_refusal(installed: str, line: str) -> str | None:
+    """Why the installed gate is not of the action's release line, or nothing where it is."""
     if installed.startswith("dev-") or installed.endswith("-dev"):
         return None
-    found = installed.lstrip("v").split(".")[0]
-    if found != major:
+    if line_of(installed) != line:
         return (
-            f"This action is mutation-gate {major}.x, and the project installs {installed}. "
-            f"Pin the action to the tag of the installed version's major, or require {GATE} ^{major}."
+            f"This action is mutation-gate {line}.x, and the project installs {installed}. "
+            f"Pin the action to the tag of the installed version's line, or require {GATE} ^{line}."
         )
     return None
 
@@ -249,7 +256,7 @@ def _resolve() -> dict[str, str]:
     manifest = _json_file("composer.json")
     gate = binary(manifest)
     installed = os.environ.get("INSTALLED", "")
-    why = None if gate.startswith("bin/") else version_refusal(installed, MAJOR)
+    why = None if gate.startswith("bin/") else version_refusal(installed, LINE)
     if why is not None:
         raise Refused(why)
     default_branch = os.environ.get("DEFAULT_BRANCH", "")

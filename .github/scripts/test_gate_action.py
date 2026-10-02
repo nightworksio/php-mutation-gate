@@ -126,11 +126,20 @@ class Installed(unittest.TestCase):
         self.assertEqual(action.binary({"name": "nightworksio/mutation-gate"}), "bin/mutation-gate")
         self.assertEqual(action.binary({"name": "acme/shop"}), "vendor/bin/mutation-gate")
 
-    def test_accepts_the_same_major_and_a_development_version(self):
-        for installed in ("1.4.0", "v1.0.0", "dev-main", "1.x-dev"):
-            self.assertIsNone(action.version_refusal(installed, "1"))
+    def test_a_line_is_the_major_or_while_it_is_0_the_major_and_minor(self):
+        self.assertEqual(action.line_of("v0.1.0"), "0.1")
+        self.assertEqual(action.line_of("0.12.3"), "0.12")
+        self.assertEqual(action.line_of("v1.4.0"), "1")
+        self.assertEqual(action.line_of("2.0.0"), "2")
 
-    def test_refuses_another_major(self):
+    def test_accepts_the_same_line_and_a_development_version(self):
+        for installed in ("0.1.0", "v0.1.7", "dev-main", "0.1.x-dev"):
+            self.assertIsNone(action.version_refusal(installed, "0.1"))
+        self.assertIsNone(action.version_refusal("1.4.0", "1"))
+
+    def test_refuses_another_line(self):
+        self.assertIn("^0.1", action.version_refusal("0.2.0", "0.1"))
+        self.assertIn("1.0.0", action.version_refusal("1.0.0", "0.1"))
         self.assertIn("2.0.0", action.version_refusal("2.0.0", "1"))
 
     def test_the_default_store_is_the_directory_at_its_default_path(self):

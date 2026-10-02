@@ -316,10 +316,11 @@ by probes on 2026-09-30:
 15. **A release is drafted by the bot and signed by the maintainer.**
     - **Drafting.** On `workflow_dispatch` by the maintainer, a job computes
       the next version from the commits since the last tag: `feat` is a
-      minor, `fix` and `perf` a patch, `!` a major, and 1.0.0 is given by
-      hand (ADR-0018). It writes that version's `CHANGELOG.md` section with
-      git-cliff, pinned by version and checksum, and opens or updates
-      `release/vX.Y.Z` as the App.
+      minor, `fix` and `perf` a patch, and `!` a major, or a minor while the
+      major is 0; the first version is given by hand (ADR-0018). It writes
+      that version's `CHANGELOG.md` section with git-cliff, pinned by
+      version and checksum, and opens or updates `release/vX.Y.Z` as the
+      App.
     - **Signing.** The maintainer edits and merges that pull request, runs
       `git tag -s vX.Y.Z` on the squash commit, and pushes the tag.
     - **Publishing.** `release.yml`, on the tag push:
@@ -327,7 +328,8 @@ by probes on 2026-09-30:
         that the tag points at a commit on `main`;
       - runs the gate in `mode: full` (ADR-0011);
       - publishes the GitHub release with that section as its notes;
-      - moves `v1`.
+      - moves the tag of the release's line: `vMAJOR.MINOR` while the major
+        is 0 (`v0.1`), and `vMAJOR` from 1.0.0 (ADR-0011).
     - **A tag ruleset** lets only the maintainer create `v*` tags.
 
 ### The ledger's OIDC roles
