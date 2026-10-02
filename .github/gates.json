@@ -318,12 +318,12 @@
     "hygiene/markdown": {
       "check": "hygiene / markdown",
       "checks": "The Markdown, by markdownlint with .markdownlint.jsonc, and the depth cap of the vendored braces its globs go through.",
-      "reproduce": "npm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \"**/*.md\"",
+      "reproduce": "npm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \"**/*.md\" && node --test .github/bot/markdownlint/braces.test.mjs",
       "fix": "npm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --fix \"**/*.md\"",
       "evidence": [
         {"step": "markdownlint", "tool": "markdownlint", "raw": "evidence/raw/markdownlint.json"},
-        {"step": "braces", "tool": "braces-cap"},
-        {"step": "table", "tool": "markdownlint-table"}
+        {"step": "table", "tool": "markdownlint-table"},
+        {"step": "braces", "tool": "braces-cap"}
       ],
       "rules": {
         "markdownlint": "markdownlint did not run to the end.",

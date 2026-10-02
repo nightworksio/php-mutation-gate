@@ -14,6 +14,8 @@ const braces = require('braces');
 const { MAX_DEPTH } = require('braces/lib/constants');
 const vendored = fileURLToPath(new URL('./vendor/braces/', import.meta.url));
 const nested = depth => `${'{'.repeat(depth)}a,b${'}'.repeat(depth)}`;
+// The deepest pattern braces' 10,000-character limit lets through.
+const deepest = 4998;
 const walkers = { compile: braces.compile, expand: braces.expand };
 
 test('the braces micromatch requires is the vendored copy', () => {
@@ -22,9 +24,13 @@ test('the braces micromatch requires is the vendored copy', () => {
   assert.ok(realpathSync(micromatch.resolve('braces')).startsWith(realpathSync(vendored) + sep));
 });
 
+test('the cap is 256 levels', () => {
+  assert.equal(MAX_DEPTH, 256);
+});
+
 test('a pattern nested past the cap is refused with a SyntaxError, not a stack overflow', () => {
   for (const [name, walk] of Object.entries(walkers)) {
-    assert.throws(() => walk(nested(4000)), SyntaxError, name);
+    assert.throws(() => walk(nested(deepest)), SyntaxError, name);
     assert.throws(() => walk(nested(MAX_DEPTH + 1)), SyntaxError, name);
   }
 });
@@ -44,6 +50,8 @@ test('a pattern nested to the cap expands', () => {
 test('maxDepth lowers the cap and never raises it', () => {
   assert.throws(() => braces.expand(nested(3), { maxDepth: 2 }), SyntaxError);
   assert.throws(() => braces.expand(nested(MAX_DEPTH + 1), { maxDepth: MAX_DEPTH * 2 }), SyntaxError);
+  assert.throws(() => braces.expand(nested(MAX_DEPTH + 1), { maxDepth: Number.NaN }), SyntaxError);
+  assert.throws(() => braces.expand(nested(MAX_DEPTH + 1), { maxDepth: Number.POSITIVE_INFINITY }), SyntaxError);
 });
 
 test('it expands and compiles as braces 3.0.3 does', () => {
