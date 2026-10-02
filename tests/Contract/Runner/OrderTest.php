@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -120,7 +121,7 @@ it('records every test that kills a mutant under a full kill matrix, whatever or
  * Runs the fixture's MoneySpec as a mutant's own process does, on a mutated
  * copy of src/Money.php, with an order that runs the second killer of
  * Money::add first, and these arguments before Pest's own. Answers its exit
- * code and the tests the plugin named as killers.
+ * code and the tests the plugin named as killers in the mutant's killer file.
  *
  * @return array{int, list<string>}
  */
@@ -157,21 +158,21 @@ function orderChild(string $from, string $to, string ...$arguments): array
     );
     $exit = $child->run();
 
-    return [$exit, orderKilled($results)];
+    return [$exit, orderKilled($results, $mutated)];
 }
 
 /**
- * The tests the plugin named as killers in a results file, in order: its
- * other lines, such as how many tests the run ran, name none.
+ * The tests a mutant's own process named as killers in its killer file, in
+ * the order it named them: its other lines, such as how many tests the run
+ * ran, name none.
  *
  * @return list<string>
  */
-function orderKilled(string $results): array
+function orderKilled(string $results, string $mutated): array
 {
-    $lines = is_file($results) ? explode("\n", trim((string) file_get_contents($results))) : [];
     $records = array_map(
         static fn(string $line): Node => Node::decode($line),
-        array_values(array_filter($lines, static fn(string $line): bool => $line !== '')),
+        KillerFile::taken(KillerFile::beside($results, $mutated), $mutated),
     );
     $killers = array_filter($records, static fn(Node $record): bool => in_array(
         Lenient::text($record->field('event')),
