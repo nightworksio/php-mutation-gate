@@ -137,6 +137,17 @@ class Installed(unittest.TestCase):
             self.assertIsNone(action.version_refusal(installed, "0.1"))
         self.assertIsNone(action.version_refusal("1.4.0", "1"))
 
+    def test_reads_the_gates_version_from_what_composer_installed(self):
+        installed = {"packages": [{"name": "acme/other", "version": "2.0.0"}, {"name": action.GATE, "version": "v0.1.3"}]}
+        self.assertEqual(action.installed_version(installed), "v0.1.3")
+        self.assertEqual(action.installed_version({"packages": [{"name": "acme/other", "version": "2.0.0"}]}), "")
+        self.assertEqual(action.installed_version({}), "")
+        self.assertEqual(action.installed_version({"packages": {"name": action.GATE}}), "")
+        self.assertEqual(action.installed_version({"packages": [{"name": action.GATE, "version": 1}]}), "")
+
+    def test_refuses_a_project_that_does_not_install_the_gate(self):
+        self.assertIn("does not install", action.version_refusal("", "0.1"))
+
     def test_refuses_another_line(self):
         self.assertIn("^0.1", action.version_refusal("0.2.0", "0.1"))
         self.assertIn("1.0.0", action.version_refusal("1.0.0", "0.1"))

@@ -97,8 +97,6 @@ runs:
           DEFAULT_BRANCH="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
           export DEFAULT_BRANCH
         fi
-        INSTALLED="$(composer show nightworksio/mutation-gate --format=json 2>/dev/null | jq -r '.versions[0] // ""' || true)"
-        export INSTALLED
         python3 "${GITHUB_ACTION_PATH}/.github/scripts/gate_action.py" resolve
 
     # ADR-0007: the Actions cache holds the directory store at its default path
