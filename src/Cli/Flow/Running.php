@@ -161,7 +161,8 @@ final readonly class Running
     {
         return $outcome instanceof CannotJudge ? $result : $result
             ->withFlaky($outcome->flaky)
-            ->withMisses($outcome->misses)
+            ->withMisses($outcome->held->misses())
+            ->withCovered($outcome->held->covered())
             ->withUnjudged($outcome->unjudged)
             ->withChecks($outcome->checks);
     }
@@ -183,13 +184,13 @@ final readonly class Running
         Ordering $ordering,
         Deadline|Unlimited $deadline,
     ): Mutated|CannotJudge {
-        $misses = new HeldCoverage($this->adapters)->misses($shard, $map);
+        $held = new HeldCoverage($this->adapters)->checked($shard, $map);
 
-        if ($misses instanceof CannotJudge) {
-            return $misses;
+        if ($held instanceof CannotJudge) {
+            return $held;
         }
 
-        $kept = HeldCoverage::kept($shard, $misses);
+        $kept = HeldCoverage::kept($shard, $held->misses());
         $invoking = new Invoking($this->adapters, $this->settings, $this->setup->clock, $deadline);
         $spent = $deadline instanceof Deadline
             ? $this->spentWithin($invoking, $deadline, $plan, $kept, $map, $ordering)
@@ -208,7 +209,7 @@ final readonly class Running
                 $spent->skipped,
             ),
             $spent->flaky,
-            $misses,
+            $held,
             $spent->unjudged,
             $checked->checks,
         );

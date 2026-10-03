@@ -114,7 +114,7 @@ it('explains a mutant of the last run as its verdict judged it: its covering tes
             SAID);
 });
 
-it('names the group that judges a held unit\'s mutant where it is not the tests that cover it', function () use ($store, $composed): void {
+it('takes a held unit\'s mutant as judged by the holding tests that run it, which here are the tests that cover it', function () use ($store, $composed): void {
     $composition = $composed(ScriptedRunner::fixture(), $store());
     FlowCommands::run(RunCommand::command($composition), '--full');
 
@@ -123,7 +123,6 @@ it('names the group that judges a held unit\'s mutant where it is not the tests 
     expect($explained->output)->toContain(<<<'SAID'
             Covered by:
                 tests/HeldTest.php::it doubles  passed
-            Judged by: the tests in the group holds:src/Held.php
             Unit: src/Held.php, run by the last run. Reach:
         SAID);
 });

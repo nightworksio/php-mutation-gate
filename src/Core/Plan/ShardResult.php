@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
@@ -33,6 +34,7 @@ final readonly class ShardResult
         private Measurement $measured,
         private MutantIds $flaky,
         private HeldMisses $misses,
+        private HeldCovered $covered,
         private Warnings $warnings,
         private Units $unjudged,
         private SurvivorChecks $checks,
@@ -54,6 +56,7 @@ final readonly class ShardResult
             $measured,
             MutantIds::none(),
             HeldMisses::none(),
+            HeldCovered::none(),
             Warnings::none(),
             Units::none(),
             SurvivorChecks::none(),
@@ -70,6 +73,12 @@ final readonly class ShardResult
     public function withMisses(HeldMisses $misses): self
     {
         return clone($this, ['misses' => $misses]);
+    }
+
+    /** This result, with the held units whose holding tests cover them, each with the tests that run it. */
+    public function withCovered(HeldCovered $covered): self
+    {
+        return clone($this, ['covered' => $covered]);
     }
 
     /** This result, with what the shard warns of, which judges nothing. */
@@ -128,6 +137,12 @@ final readonly class ShardResult
     public function misses(): HeldMisses
     {
         return $this->misses;
+    }
+
+    /** The held units whose holding tests cover them, each with the tests of theirs that run it. */
+    public function covered(): HeldCovered
+    {
+        return $this->covered;
     }
 
     /** What the shard warns of. */

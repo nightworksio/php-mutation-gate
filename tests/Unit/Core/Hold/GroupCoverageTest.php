@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
@@ -30,7 +31,19 @@ $kernel = static fn(): Unit => Unit::held(Path::of('src/Kernel.php'), Group::nam
 
 it('lets the group judge what it holds when it covers every line the suite covers', function () use ($map, $kernel): void {
     expect(GroupCoverage::of($kernel(), $map('src/Kernel.php:10', 'src/Kernel.php:12'), $map('src/Kernel.php:10', 'src/Kernel.php:12', 'src/Kernel.php:14')))
-        ->toEqual(Covered::by($kernel()));
+        ->toEqual(Covered::by($kernel(), TestIds::of(TestId::of('KernelTest::boots'))));
+});
+
+it('keeps the tests of the group that run any file inside what it holds, and no other', function (): void {
+    $http = Unit::held(Path::of('src/Http'), Group::named('holds:src/Http'));
+    $suite = CoverageMap::empty()->covered(Path::of('src/Http/Controller.php'), Line::of(3), TestId::of('HttpTest::serves'));
+    $group = $suite
+        ->covered(Path::of('src/Http/Middleware.php'), Line::of(5), TestId::of('MiddlewareTest::guards'))
+        ->covered(Path::of('src/Kernel.php'), Line::of(10), TestId::of('KernelTest::boots'));
+    $covered = GroupCoverage::of($http, $suite, $group);
+
+    expect($covered instanceof Covered ? array_map(static fn(TestId $test): string => $test->value(), [...$covered->tests()]) : [])
+        ->toEqualCanonicalizing(['HttpTest::serves', 'MiddlewareTest::guards']);
 });
 
 it('names every line the suite covers and the group misses', function () use ($map, $kernel): void {

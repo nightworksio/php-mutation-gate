@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Hold\GroupCoverage;
+use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -22,7 +23,8 @@ use function sprintf;
  * alone under coverage, and every line of it the whole suite covers, as the
  * map the plan handed the shard says, must be among theirs. A held unit they
  * miss lines of is not mutated, and fails the verdict; tests that do not pass
- * on their own cannot judge.
+ * on their own cannot judge. Of a held unit they cover, the tests of theirs
+ * that run it are kept: they are the tests that judge its mutants.
  */
 final readonly class HeldCoverage
 {
@@ -33,10 +35,14 @@ final readonly class HeldCoverage
     {
     }
 
-    /** The shard's held units whose holding tests miss lines of them, by the map the plan handed the shard. */
-    public function misses(Shard $shard, CoverageMap $suite): HeldMisses|CannotJudge
+    /**
+     * The shard's held units whose holding tests miss lines of them, by the
+     * map the plan handed the shard, and those they cover, with the tests of
+     * theirs that run each.
+     */
+    public function checked(Shard $shard, CoverageMap $suite): HeldChecks|CannotJudge
     {
-        $misses = HeldMisses::none();
+        $checks = HeldChecks::none();
 
         foreach ($shard->units() as $unit) {
             $judgedBy = $unit->judgedBy();
@@ -49,11 +55,11 @@ final readonly class HeldCoverage
                 return CannotJudge::because(sprintf(self::FAILED, $unit->path()->value(), $group->why()));
             }
 
-            $covered = GroupCoverage::of($unit, $suite, $group);
-            $misses = $covered instanceof NotCovered ? $misses->with($covered) : $misses;
+            $checked = GroupCoverage::of($unit, $suite, $group);
+            $checks = $unit->isHeld() || $checked instanceof NotCovered ? $checks->with($checked) : $checks;
         }
 
-        return $misses;
+        return $checks;
     }
 
     /** The shard, less the held units whose holding tests miss lines of them. */

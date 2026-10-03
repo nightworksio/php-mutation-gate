@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
  * A unit's result, stored under the content key of everything its verdict
@@ -21,7 +22,8 @@ use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
  * the kills a ledger proved, which it keeps no more of than a kill needs.
  * Beside its key it records the digests of its inputs, which say whether its
  * result can stand for other code (ADR-0008, decision 1); a proof of an
- * earlier ledger format records none.
+ * earlier ledger format records none. A proof of a held unit also records the
+ * holding tests that run it, which judge its mutants.
  */
 final readonly class Proof
 {
@@ -32,25 +34,38 @@ final readonly class Proof
         private ProvedKills $kills,
         private Run $run,
         private Inputs|Undigested $inputs,
+        private TestIds $judging,
     ) {
     }
 
     /** The proof of a run: every mutant of the unit, as its runner reported them. */
     public static function of(Digest $key, Path $unit, Mutants $reported, Run $run): self
     {
-        return new self($key, $unit, $reported, ProvedKills::none(), $run, Undigested::proof());
+        return new self($key, $unit, $reported, ProvedKills::none(), $run, Undigested::proof(), TestIds::none());
     }
 
     /** A proof as a ledger holds it: its killed mutants as kills, and every other in full. */
     public static function held(Digest $key, Path $unit, Mutants $reported, ProvedKills $kills, Run $run): self
     {
-        return new self($key, $unit, $reported, $kills, $run, Undigested::proof());
+        return new self($key, $unit, $reported, $kills, $run, Undigested::proof(), TestIds::none());
     }
 
     /** This proof, recording these digests of its inputs. */
     public function withInputs(Inputs|Undigested $inputs): self
     {
         return clone($this, ['inputs' => $inputs]);
+    }
+
+    /** This proof, of a held unit these of whose holding tests run it. */
+    public function judgedBy(TestIds $judging): self
+    {
+        return clone($this, ['judging' => $judging]);
+    }
+
+    /** The holding tests that run a held unit; none for a unit the whole suite judges, or a proof that names none. */
+    public function judging(): TestIds
+    {
+        return $this->judging;
     }
 
     /** The digests of its inputs; none for a proof of an earlier ledger format. */

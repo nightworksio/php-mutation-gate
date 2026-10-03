@@ -96,7 +96,7 @@ final readonly class Recorded
             $inputs = $this->inputsOf($plan, $result);
             $proof = Recording::of($key, $path, $result->mutants(), $result->flaky(), $run, $inputs);
             $ledger = match (true) {
-                $proof instanceof Proof => $ledger->withProof($proof),
+                $proof instanceof Proof => $ledger->withProof($proof->judgedBy($result->judging())),
                 $key instanceof Digest => $ledger->withoutProof($key),
                 default => $ledger,
             };

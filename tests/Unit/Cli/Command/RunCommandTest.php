@@ -323,3 +323,15 @@ it('names the tests that judged each survivor by their names, and marks each res
     ))
         ->and($proved->output)->toContain(' (proved in run local:2026-09-30T12:00:00Z) [survived] ');
 });
+
+it('names the holding tests that judged a held unit\'s survivor, in the run that mutated it and in one its proof answers for', function (): void {
+    $composition = FlowCommands::composition(FlowCommands::project(), ScriptedRunner::fixture(), new ProofStoreFake(), Flows::ci());
+
+    $ran = FlowCommands::run(RunCommand::command($composition), '--full');
+    $proved = FlowCommands::run(RunCommand::command($composition), '--full');
+    $judged = "\n      Judged by: tests/HeldTest.php::it doubles\n";
+
+    expect($ran->output)->toContain($judged)
+        ->and($proved->output)->toContain($judged)
+        ->and($proved->output)->toContain('2: 0 run, 2 proved, 0 carried.');
+});

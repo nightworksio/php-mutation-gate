@@ -68,7 +68,10 @@ Two parts of that do not carry over to a public package.
      judge, because the jobs were not handed what the plan wrote.
    - **`mutation-gate run --plan=<file>`** mutates one shard's units and writes
      `.mutation-gate/results/<id>.json`. That file holds every mutant's record,
-     each unit's content key and what the shard measured.
+     each unit's content key and what the shard measured; and, under
+     `covered`, each held unit its group covers, with the group's tests that
+     run it as `judging` (ADR-0005, decision 10). A result without `covered`
+     reads as naming no such tests.
      - The shard is `--shard=<id>` or, without it, the one the CI's
        environment names (decision 5).
      - It exits 0 once its result file is written, whatever its mutants did,

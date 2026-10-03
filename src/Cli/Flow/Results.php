@@ -93,7 +93,8 @@ final readonly class Results
 
                 $results = $results->with(
                     UnitResult::of($unit, Origin::Run, $this->mutantsOf($unit, $mutated->mutants()))
-                        ->withFlaky($result->flaky()),
+                        ->withFlaky($result->flaky())
+                        ->judgedBy($result->covered()->testsOf($unit->path())),
                 );
             }
         }

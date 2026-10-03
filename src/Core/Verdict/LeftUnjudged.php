@@ -45,7 +45,7 @@ final readonly class LeftUnjudged
                     $this->reported($counted),
                     $this->kills($counted),
                     $counted->run(),
-                )
+                )->judgedBy($counted->judging())
                 : $counted;
             $results = $carried instanceof UnitResult ? $results->with($carried) : $results;
         }

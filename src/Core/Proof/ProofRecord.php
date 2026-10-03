@@ -16,13 +16,15 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 
 /**
  * A proof as a ledger holds it, under its key: its unit, the base, the time
  * and the id of the run that established it, its mutants, each one a test
- * killed as a killed record and every other in full, and the digests of its
- * inputs, where it records them.
+ * killed as a killed record and every other in full, the digests of its
+ * inputs, where it records them, and, for a held unit, the holding tests that
+ * run it, as indices into the ledger's tests, where it names any.
  *
  * @internal the shape of a proof in the ledger file
  *
@@ -35,12 +37,19 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  *     run: string,
  *     mutants: list<array{string, int, int, list<int>}|array<string, int|float|string|list<string>>>,
  *     digests?: ProofDigests,
+ *     judging?: list<int>,
  * }
  */
 final readonly class ProofRecord
 {
     /** When a run was, in the ledger's proofs and its timings alike. */
     public const string AT = 'at';
+
+    /**
+     * The holding tests that run a held unit: in a proof, as indices into the
+     * ledger's tests; in a shard result, by id.
+     */
+    public const string JUDGING = 'judging';
     private const string BASE = 'base';
 
     /**
@@ -69,6 +78,7 @@ final readonly class ProofRecord
                 ),
             ],
             ...self::digests($proof->inputs(), $inputs),
+            ...self::judging($proof->judging(), $tests),
         ];
     }
 
@@ -102,7 +112,28 @@ final readonly class ProofRecord
             Mutants::of(...$reported),
             ProvedKills::of(...$kills),
             $read->run($entry->field('run')->text(), self::instantIn($entry), self::baseIn($entry)),
-        )->withInputs($inputs);
+        )->withInputs($inputs)->judgedBy(self::judgingIn($entry->field(self::JUDGING), $read));
+    }
+
+    /**
+     * @param  array<string, int>          $tests each listed test's index in the ledger, by its id
+     * @return array{judging?: list<int>} the holding tests that run a held unit, where the proof names any
+     */
+    private static function judging(TestIds $judging, array $tests): array
+    {
+        $indices = [];
+
+        foreach ($judging as $test) {
+            $indices[] = $tests[$test->value()];
+        }
+
+        return $indices === [] ? [] : [self::JUDGING => $indices];
+    }
+
+    /** @throws NotInShape */
+    private static function judgingIn(Node $judging, ProofsRead $read): TestIds
+    {
+        return $judging->isPresent() ? $read->killed()->killers($judging) : TestIds::none();
     }
 
     /** @return array{digests?: ProofDigests} the digests of the proof's inputs, where it records them */

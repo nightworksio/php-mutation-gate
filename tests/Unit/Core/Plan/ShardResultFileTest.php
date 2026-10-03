@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Hold\Covered;
+use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -29,6 +31,8 @@ use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -156,6 +160,26 @@ it('lists each held unit its holding tests miss lines of, with why, and reads th
     expect($written)->toContain('"missed": [')
         ->and(ShardResultFile::decode($written))->toEqual($result)
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"missed"');
+});
+
+it('lists each held unit its holding tests cover, with those of them that run it, and reads them back', function () use (
+    $finished,
+    $survivor,
+    $measured,
+): void {
+    $covered = HeldCovered::of(
+        Covered::by(
+            Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')),
+            TestIds::of(TestId::of('KernelTest::boots'), TestId::of('KernelTest::stops')),
+        ),
+        Covered::by(Unit::held(Path::of('src/Http'), Filter::matching('HttpTest')), TestIds::of(TestId::of('HttpTest::serves'))),
+    );
+    $result = $finished($survivor, $measured)->withCovered($covered);
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toContain("\"judging\": [\n                \"KernelTest::boots\",\n                \"KernelTest::stops\"\n            ]")
+        ->and(ShardResultFile::decode($written))->toEqual($result)
+        ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"covered"');
 });
 
 it('lists what the shard warns of, and reads it back', function () use ($finished, $survivor, $measured): void {
