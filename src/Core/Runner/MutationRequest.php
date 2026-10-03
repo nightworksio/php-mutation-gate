@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 use NightWorksIO\MutationGate\Core\Coverage\Fresh;
-use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
@@ -32,7 +32,7 @@ final readonly class MutationRequest
         private Mutators $mutators,
         private Seconds|Unlimited $deadline,
         private Processes $processes,
-        private Path|Fresh $coverage,
+        private Handed|Fresh $coverage,
         private Withheld $withheld,
         private Ordering $ordering,
         private MemoryCap $memory,
@@ -95,10 +95,10 @@ final readonly class MutationRequest
         return $this->withheld;
     }
 
-    /** This request, reading the coverage map left in a directory instead of running the suite for one. */
-    public function reusingCoverage(Path $directory): self
+    /** This request, reading the coverage maps a plan handed over instead of running the suite for one. */
+    public function reusingCoverage(Handed $maps): self
     {
-        return clone($this, ['coverage' => $directory]);
+        return clone($this, ['coverage' => $maps]);
     }
 
     /** This request, each process that runs a mutant using no more memory than this (`runner.memory`). */
@@ -153,7 +153,7 @@ final readonly class MutationRequest
         return $this->processes;
     }
 
-    public function coverage(): Path|Fresh
+    public function coverage(): Handed|Fresh
     {
         return $this->coverage;
     }

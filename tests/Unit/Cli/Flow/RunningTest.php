@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -253,8 +254,8 @@ it('runs the held path by its group, the rest by the suite, on the shard\'s map,
         ->and($held->judgedBy())->toEqual(Group::named('holds:src/Held.php'))
         ->and([...$rest->files()])->toEqual([Path::of('src/Money.php')])
         ->and($rest->judgedBy())->toEqual(WholeSuite::tests())
-        ->and($held->coverage())->toEqual(Workspace::shardCoverage(ShardId::of(1)))
-        ->and($rest->coverage())->toEqual(Workspace::shardCoverage(ShardId::of(1)))
+        ->and($held->coverage())->toEqual(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage()))
+        ->and($rest->coverage())->toEqual(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage()))
         ->and($held->processes())->toEqual(Processes::single())
         ->and($held->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($rest->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))

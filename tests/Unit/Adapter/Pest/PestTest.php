@@ -30,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -84,6 +85,7 @@ use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\PestRun;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
+use NightWorksIO\MutationGate\Tests\Support\Unexecutables;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 
 afterEach(function (): void {
@@ -448,7 +450,7 @@ it('mutates against a group without reading a shared map', function (): void {
     $at = adapterProject();
     $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
     $held = Group::named('holds:src/Money.php');
-    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $held)->reusingCoverage(Path::of('planned'));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $held)->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
     new Pest($at, $shell, adapterCanary(), new CapDirectory())->mutate($request);
 
@@ -466,7 +468,7 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
 
         return $before === 0 ? Ran::finished(succeeded: true, output: RUN_LISTING) : adapterKilled($command, $at);
     });
-    $request = adapterMoney()->reusingCoverage(Path::of('planned'));
+    $request = adapterMoney()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
     $result = new Pest($at, $shell, adapterCanary(), new CapDirectory())->mutate($request);
 
     expect($result)->toBeInstanceOf(MutationResult::class)
@@ -485,10 +487,48 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
         ]);
 });
 
+it('judges a patched shard\'s mutant on a line that is not executable by the tests the plan\'s whole map says read its value', function (): void {
+    $at = Unexecutables::project();
+    MutatePlugin::pristine()->into(sprintf('%s/vendor', $at->root()));
+    Patch::applyIn(sprintf('%s/vendor', $at->root()));
+    $other = CoveredLine::of(Path::of('src/Money.php'), 14, 'P\\Tests\\OtherSpec::__pest_evaluable_it_runs_the_other');
+    $internal = CoveredLine::of(Path::of('src/Money.php'), 10, 'P\\Tests\\InternalSpec::__pest_evaluable_it_runs');
+    adapterHandedOver($at, 'own', CoverageMap::of($other));
+    adapterHandedOver($at, 'whole', CoverageMap::of($other, $internal));
+    $shell = new ShellFake(static fn(Command $command, int $before): Ran => match (true) {
+        $before === 0 => Ran::finished(succeeded: true, output: RUN_LISTING),
+        in_array('--mutate', $command->arguments(), strict: true) => Ran::finished(
+            succeeded: Unexecutables::run($at, ['internal']) !== '',
+            output: '  Mutations: 1 uncovered',
+        ),
+        default => Unexecutables::answering($command, ['tests/InternalSpec.php']),
+    });
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->reusingCoverage(Handed::maps(Path::of('own'), Path::of('whole')));
+
+    $result = new Pest($at, $shell, adapterCanary(), new CapDirectory())->mutate($request);
+
+    expect($result instanceof MutationResult ? array_map(
+        static fn(Mutant $mutant): MutantStatus => $mutant->status(),
+        [...$result->mutants()],
+    ) : $result)->toBe([MutantStatus::Killed]);
+});
+
+it('cannot judge a patched shard\'s run without the plan\'s whole map', function (): void {
+    $at = adapterPatched();
+    $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
+        ? Ran::finished(succeeded: true, output: RUN_LISTING)
+        : adapterKilled($command, $at));
+    $request = adapterMoney()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('whole')));
+
+    expect(new Pest($at, $shell, adapterCanary(), new CapDirectory())->mutate($request))
+        ->toEqual(CoverageMapFile::missingAt($at->absolute(CoverageMapFile::in(Path::of('whole')))));
+});
+
 it('opens a shard on its own suite unpatched, or when it collects its own map', function (): void {
     $at = adapterPatched();
     $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
-    $reusing = adapterMoney()->reusingCoverage(Path::of('planned'));
+    $reusing = adapterMoney()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
     new Pest($at, $shell, Patching::off(), new CapDirectory())->mutate($reusing);
     new Pest($at, $shell, adapterCanary(), new CapDirectory())->mutate(adapterMoney());
@@ -502,7 +542,7 @@ it('opens a shard on its own suite unpatched, or when it collects its own map', 
 
 it('cannot open a shard on the canary group without the patch applied', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: RUN_LISTING));
-    $request = adapterMoney()->reusingCoverage(Path::of('planned'));
+    $request = adapterMoney()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
     expect(new Pest(adapterProject(), $shell, adapterCanary(), new CapDirectory())->mutate($request))->toEqual(CannotJudge::because(
         'pest.patch is on, but pest-plugin-mutate in vendor is not patched. Run mutation-gate pest:patch.',
@@ -524,13 +564,13 @@ it('finds Pest, what Composer installed and the patch in the vendor directory th
 
     expect($pest->groups(Withheld::standard()))->toBeInstanceOf(Groups::class)
         ->and($pest->identity(Withheld::standard()))->toBeInstanceOf(Identity::class)
-        ->and($pest->mutate(adapterMoney()->reusingCoverage(Path::of('planned'))))->toBeInstanceOf(MutationResult::class)
+        ->and($pest->mutate(adapterMoney()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')))))->toBeInstanceOf(MutationResult::class)
         ->and($shell->commands()[0])->toEqual($invocation->listingGroups(Withheld::standard()));
 });
 
 it('cannot open a shard on a canary group with no test, or one it cannot list', function (): void {
     $at = adapterPatched();
-    $request = adapterMoney()->reusingCoverage(Path::of('planned'));
+    $request = adapterMoney()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
     $empty = ShellFake::answering(Ran::finished(succeeded: true, output: RUN_LISTING));
     $unlisted = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
     $other = Patching::on(Group::named('canary'));
@@ -545,7 +585,7 @@ it('cannot open a shard on a canary group with no test, or one it cannot list', 
 
 it('cannot open a shard on the canary group without the planning job\'s map', function (): void {
     $at = adapterPatched();
-    $request = adapterMoney()->reusingCoverage(Path::of('absent'));
+    $request = adapterMoney()->reusingCoverage(Handed::maps(Path::of('absent'), Path::of('absent')));
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: RUN_LISTING));
 
     expect(new Pest($at, $shell, adapterCanary(), new CapDirectory())->mutate($request))->toEqual(CannotJudge::because(sprintf(
@@ -596,7 +636,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
     $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
         ? Ran::finished(succeeded: true, output: RUN_LISTING)
         : adapterKilled($command, $at));
-    $invocation = adapterMoney()->reusingCoverage(Path::of('planned'));
+    $invocation = adapterMoney()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
     $retried = new Pest($at, $shell, adapterCanary(), new CapDirectory())->retry($invocation, Mutants::of(adapterMutant()), Seconds::of(20.0));
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Coverage\Fresh;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
@@ -39,7 +40,7 @@ it('takes each setting on its own, leaving the rest as they were', function (): 
         ->leavingOut(Paths::of(Path::of('src/Kernel.php')))
         ->within(Seconds::of(600.0))
         ->across(Processes::of(8))
-        ->reusingCoverage(Path::of('.mutation-gate/coverage'))
+        ->reusingCoverage(Handed::maps(Path::of('.mutation-gate/coverage/shard-1'), Path::of('.mutation-gate/coverage')))
         ->orderedBy(Ordering::of(TestOrder::KillersFirst, KillHistory::none()))
         ->cappedAt(MemoryCap::standard());
 
@@ -49,7 +50,7 @@ it('takes each setting on its own, leaving the rest as they were', function (): 
         ->and($request->mutators())->toEqual(Mutators::named('LessThan'))
         ->and($request->deadline())->toEqual(Seconds::of(600.0))
         ->and($request->processes())->toEqual(Processes::of(8))
-        ->and($request->coverage())->toEqual(Path::of('.mutation-gate/coverage'))
+        ->and($request->coverage())->toEqual(Handed::maps(Path::of('.mutation-gate/coverage/shard-1'), Path::of('.mutation-gate/coverage')))
         ->and($request->ordering())->toEqual(Ordering::of(TestOrder::KillersFirst, KillHistory::none()))
         ->and($request->memory())->toEqual(MemoryCap::standard());
 });
@@ -60,7 +61,7 @@ it('leaves the request it came from as it was', function (): void {
     $request->narrowedTo(Paths::none(), Mutators::named('LessThan'));
     $request->within(Seconds::of(1.0));
     $request->across(Processes::of(2));
-    $request->reusingCoverage(Path::of('c'));
+    $request->reusingCoverage(Handed::maps(Path::of('c'), Path::of('c')));
     $request->cappedAt(MemoryCap::standard());
 
     expect($request)->toEqual(MutationRequest::of(Paths::none(), Filter::matching('KernelTest')));

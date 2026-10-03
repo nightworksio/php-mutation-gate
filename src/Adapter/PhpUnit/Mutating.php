@@ -11,7 +11,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -138,20 +138,23 @@ final readonly class Mutating
     }
 
     /**
-     * The map a request reads: the one another job handed on, for a request
-     * judged by the whole suite that reuses it; otherwise PHPUnit's run of
-     * the tests that judge it under coverage, never seeing a variable it
-     * withholds. Each is read once for every run again that reads the same.
+     * The map a request reads: the shard's own a plan handed on, for a
+     * request judged by the whole suite that reuses the plan's maps;
+     * otherwise PHPUnit's run of the tests that judge it under coverage, never
+     * seeing a variable it withholds. Each is read once for every run again
+     * that reads the same.
      */
     private function mapOf(MutationRequest $request, Invocation $invocation): CoverageMap|CannotJudge
     {
         $coverage = new Coverage($this->project, $this->shell, $invocation);
-        $reused = $request->coverage();
+        $handed = $request->coverage();
 
-        if ($reused instanceof Path && $request->judgedBy() instanceof WholeSuite) {
+        if ($handed instanceof Handed && $request->judgedBy() instanceof WholeSuite) {
+            $own = $handed->own();
+
             return $this->held->readFrom(
-                sprintf(self::HANDED, $reused->value()),
-                static fn(): CoverageMap|CannotJudge => $coverage->of(CoverageRead::from($reused)),
+                sprintf(self::HANDED, $own->value()),
+                static fn(): CoverageMap|CannotJudge => $coverage->of(CoverageRead::from($own)),
             );
         }
 

@@ -606,7 +606,9 @@ its parser attributes. Both change when the checkout moves.
        names a test of theirs: another file under the test directories, such
        as a helper or a fixture, is no test file Pest runs;
      - in source files, the test files that cover the line of each reference,
-       read from the coverage map. So a constant read through `self::RATE`
+       read from a coverage map that holds every file: the run's own opening
+       map, or, in a shard that opened on the map of its own files, the plan's
+       whole map (ADR-0006). So a constant read through `self::RATE`
        inside a covered method is judged by that method's tests. References
        are followed through constant expressions and defaults, at most three
        steps deep, and a longer chain counts as ambiguous.

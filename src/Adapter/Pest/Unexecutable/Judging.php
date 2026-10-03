@@ -52,7 +52,12 @@ final readonly class Judging
     {
     }
 
-    /** A run's result, with each uncovered mutant on a line that is not executable judged. */
+    /**
+     * A run's result, with each uncovered mutant on a line that is not
+     * executable judged.
+     *
+     * @param Covering $coverage the map of every file a line that reads a mutant's value may be in
+     */
     public function of(
         MutationResult $result,
         MutationRequest $request,

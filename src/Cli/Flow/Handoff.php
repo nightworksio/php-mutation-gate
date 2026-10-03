@@ -28,7 +28,9 @@ use function sprintf;
  * What a plan hands each shard: its coverage, as the gate's own map of every
  * test and its duration and the lines of the files that shard mutates alone,
  * and beside it the kill history of those files' functions (ADR-0013,
- * decision 2); and the verdict the lines of every unit the plan considered,
+ * decision 2); every shard the plan's whole map, which its runner reads only
+ * to find the tests that run a line reading a value a mutant changes (ADR-0006,
+ * decision 1); and the verdict the lines of every unit the plan considered,
  * for the kill matrix (ADR-0014, decision 11). A runner's own map, which may
  * be code, never leaves the job that read it.
  */
@@ -43,13 +45,21 @@ final readonly class Handoff
     }
 
     /**
-     * Each shard's map, and the history of its files' functions, in the
-     * directory `run` reads them from; and the verdict's map.
+     * The whole map, each shard's map and the history of its files'
+     * functions, in the directory `run` reads them from; and the verdict's map.
      */
     public function write(Plan $plan, CoverageMap $map, KillHistory $history): Written|CannotJudge
     {
         $written = Written::to(Workspace::coverage()->value());
         $considered = Units::none();
+        $whole = $this->project->write(
+            CoverageMapFile::in(Workspace::coverage()),
+            Contents::of(CoverageMapFile::encode($map)),
+        );
+
+        if ($whole instanceof CannotJudge) {
+            return $whole;
+        }
 
         foreach ($plan as $shard) {
             $considered = Units::of(...$considered, ...$shard->units());

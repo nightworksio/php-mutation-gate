@@ -24,8 +24,8 @@ use NightWorksIO\MutationGate\Core\Php\Unnamed;
 
 /**
  * The test files that judge a mutant of a line that is not executable: each
- * test file that reads its value, and the test files the run's own coverage
- * map says cover each line of source that does, by Pest's own selection
+ * test file that reads its value, and the test files a coverage map of every
+ * file says cover each line of source that does, by Pest's own selection
  * rules; and the fallback of those that cover the mutant's file. The scan
  * reads every file under the test directories and every file the map covers
  * or the run mutates, but chooses only the files that hold a test the map

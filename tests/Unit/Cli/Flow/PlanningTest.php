@@ -355,7 +355,9 @@ it('plans, guessing every unit, where its runs of no test cannot run', function 
         ->and($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(16.0)]]);
 });
 
-it('leaves the whole map outside CI, where a later local command reads it, and not in CI', function () use ($plan): void {
+it('leaves the whole map, in CI and out, where every shard and a later local command read it', function () use (
+    $plan,
+): void {
     $local = Flows::project();
     $ci = Flows::project();
     $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
@@ -367,7 +369,7 @@ it('leaves the whole map outside CI, where a later local command reads it, and n
     )->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1));
 
     expect(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $local)))->toBe(CoverageMapFile::encode($map))
-        ->and(is_file(sprintf('%s/.mutation-gate/coverage/map.json.gz', $ci)))->toBeFalse();
+        ->and(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $ci)))->toBe(CoverageMapFile::encode($map));
 });
 
 it('cannot plan where it cannot leave the whole map', function () use ($plan): void {
