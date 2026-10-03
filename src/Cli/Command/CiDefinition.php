@@ -75,7 +75,7 @@ final readonly class CiDefinition
         = 'Set ci.defaultBranch to %s in the config, the branch the definition is written for: this CI names none.';
 
     /** The CIs whose plan names no default branch, so `init` names the one it writes for (ADR-0024 decision 2). */
-    private const array BRANCHED_BY_CONFIG = [BuiltinCiPlan::Azure, BuiltinCiPlan::Bitbucket];
+    private const array BRANCHED_BY_CONFIG = [BuiltinCiPlan::Azure, BuiltinCiPlan::Bitbucket, BuiltinCiPlan::Jenkins];
 
     /** @param Directory $templates where each template is, by its file under it */
     public function __construct(
@@ -205,7 +205,7 @@ final readonly class CiDefinition
         return match ($plan) {
             BuiltinCiPlan::Buildkite => Layer::of(Ci::of(buildkiteDefinition: CiTemplate::buildkitePipeline())),
             BuiltinCiPlan::Azure => Layer::of(Ci::of(defaultBranch: $branch, azureDefinition: CiTemplate::azureJobs())),
-            BuiltinCiPlan::Bitbucket => Layer::of(Ci::of(defaultBranch: $branch)),
+            BuiltinCiPlan::Bitbucket, BuiltinCiPlan::Jenkins => Layer::of(Ci::of(defaultBranch: $branch)),
             BuiltinCiPlan::GitHub, BuiltinCiPlan::GitLab, BuiltinCiPlan::CircleCi, BuiltinCiPlan::Json => Layer::none(),
         };
     }
@@ -261,6 +261,7 @@ final readonly class CiDefinition
             BuiltinCiPlan::GitLab,
             BuiltinCiPlan::CircleCi,
             BuiltinCiPlan::Bitbucket,
+            BuiltinCiPlan::Jenkins,
             BuiltinCiPlan::Json => [],
         };
 

@@ -20,10 +20,10 @@ use function strtr;
  * 16), each where the template writes `%%<name>%%`: the PHP version, the
  * default branch, the gate's pin and version, the runner, the check to
  * require, the file of the gate's jobs the CI's own definition pulls in,
- * where it has one, the variables the S3 store reads, and the deployment
- * environment that holds the proof store's keys on Bitbucket. A template
- * lands in YAML and in shell lines, so each value that comes from the project
- * holds no character either would read as more than text.
+ * where it has one, the variables the S3 store reads, and what holds the
+ * proof store's keys on Bitbucket and Jenkins. A template lands in YAML,
+ * Groovy and shell lines, so each value that comes from the project holds no
+ * character any of them would read as more than text.
  */
 final readonly class TemplateValues
 {
@@ -76,7 +76,7 @@ final readonly class TemplateValues
             '%%runner%%' => $runner,
             '%%check%%' => $check,
             '%%s3%%' => implode(' ', [...BuiltinStore::S3->variables()]),
-            '%%deployment%%' => CiTemplate::bitbucketDeployment(),
+            '%%keys%%' => CiTemplate::keyHolder(),
             ...$included instanceof Path ? ['%%included%%' => $included->value()] : [],
         ]);
     }

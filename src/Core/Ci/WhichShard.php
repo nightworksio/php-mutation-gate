@@ -26,7 +26,7 @@ use function sprintf;
  */
 final readonly class WhichShard
 {
-    /** The variable a job the gate's own plan starts is named by, as a matrix sets it. */
+    /** The variable a job the gate's own plan starts is named by, as Azure's matrix and Jenkins' closures set it. */
     public const string VARIABLE = 'SHARD';
 
     /** Each variable that names a job, with what it counts from. */

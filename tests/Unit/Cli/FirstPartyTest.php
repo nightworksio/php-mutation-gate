@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
+use NightWorksIO\MutationGate\Adapter\Jenkins\JenkinsPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
@@ -132,6 +133,7 @@ it('registers a CI plan for each CI it knows, and plain JSON', function () use (
         ->and($plan('circleci'))->toBeInstanceOf(CircleCiPlan::class)
         ->and($plan('azure'))->toBeInstanceOf(AzurePlan::class)
         ->and($plan('bitbucket'))->toBeInstanceOf(BitbucketPlan::class)
+        ->and($plan('jenkins'))->toBeInstanceOf(JenkinsPlan::class)
         ->and($plan('json'))->toBeInstanceOf(JsonPlan::class);
 });
 
@@ -257,6 +259,7 @@ it('detects the plan of the CI a job runs in, GitHub Actions first, and none any
     'CircleCI' => [Variables::of(['CIRCLECI' => 'true']), BuiltinCiPlan::CircleCi->named()],
     'Azure DevOps' => [Variables::of(['TF_BUILD' => 'True']), BuiltinCiPlan::Azure->named()],
     'Bitbucket Pipelines' => [Variables::of(['CI' => 'true', 'BITBUCKET_BUILD_NUMBER' => '12']), BuiltinCiPlan::Bitbucket->named()],
+    'Jenkins' => [Variables::of(['CI' => 'true', 'BUILD_TAG' => 'jenkins-gate-main-4']), BuiltinCiPlan::Jenkins->named()],
     'GitHub Actions before any other' => [
         Variables::of(['GITLAB_CI' => 'true', 'GITHUB_ACTIONS' => 'true']),
         BuiltinCiPlan::GitHub->named(),
@@ -276,6 +279,10 @@ it('detects the plan of the CI a job runs in, GitHub Actions first, and none any
     'Azure DevOps before Bitbucket Pipelines' => [
         Variables::of(['BITBUCKET_BUILD_NUMBER' => '12', 'TF_BUILD' => 'True']),
         BuiltinCiPlan::Azure->named(),
+    ],
+    'Bitbucket Pipelines before Jenkins' => [
+        Variables::of(['BUILD_TAG' => 'jenkins-gate-main-4', 'BITBUCKET_BUILD_NUMBER' => '12']),
+        BuiltinCiPlan::Bitbucket->named(),
     ],
     'a variable not set to true' => [Variables::of(['GITLAB_CI' => '1']), NotGiven::value()],
     'no CI' => [Variables::of([]), NotGiven::value()],

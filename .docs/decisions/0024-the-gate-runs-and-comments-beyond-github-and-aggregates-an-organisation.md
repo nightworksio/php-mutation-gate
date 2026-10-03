@@ -103,8 +103,12 @@ documentation, are these.
      `condition: succeededOrFailed()`.
    - **Jenkins.** `plan --ci=jenkins` prints the JSON plan. The documented
      Jenkinsfile reads it with the Pipeline Utility Steps plugin's `readJSON`
-     and builds the map it hands to `parallel`, and runs the verdict in
-     `post { always { … } }`.
+     and builds the map it hands to `parallel`, one closure per shard, each
+     on an agent of its own and naming its shard in `SHARD`, with the plan
+     and each shard's results passed by `stash` and `unstash`. It runs the
+     verdict in `post { always { … } }`. A pull request is read from
+     `CHANGE_ID`, and a tag, `TAG_NAME`, has no scope, as on Bitbucket. Only
+     a multibranch project sets these, so the Jenkinsfile runs from one.
    - **Bitbucket Pipelines.** Parallelism is fixed in the pipeline, as on
      CircleCI (ADR-0006 decision 5): `plan --shards=<N>`, and each step's
      shard is `BITBUCKET_PARALLEL_STEP` plus 1. The verdicts of the default
@@ -165,6 +169,15 @@ documentation, are these.
      gets the keys, and the template and README say so. Every other step,
      the default branch's plan included, holds no keys and reads the default
      branch's ledger through `proofs.store.with.publicUrl` (ADR-0013).
+   - **Jenkins' credentials** are the username-and-password credentials
+     `mutation-gate`, which only the default branch's verdict binds. A
+     credential reaches every build of the folder that holds it, and a
+     branch's author writes its Jenkinsfile, so held in a folder whose
+     multibranch pipeline builds the default branch alone it is the
+     boundary; held beside every branch, any branch whose Jenkinsfile Jenkins
+     runs gets the keys, and the template and README say so. Every other
+     step holds no keys and reads the default branch's ledger through
+     `proofs.store.with.publicUrl`.
 
    This amends ADR-0007 decision 5.
 
@@ -173,7 +186,8 @@ documentation, are these.
    and Bitbucket's `BITBUCKET_STEP_OIDC_TOKEN` join what every run withholds
    from the runner
    (`CiPlan::withheld`, ADR-0004 decision 3), as do the comment tokens of
-   decision 7. A project adds any other Bitbucket or Jenkins credential it
+   decision 7. Jenkins hands a build no credential of its own, so its plan
+   adds none. A project adds any other Bitbucket or Jenkins credential it
    passes to `runner.withhold`.
 
 6. **`init --ci=bitbucket|azure|jenkins` writes a pinned template**, by the
@@ -199,6 +213,11 @@ documentation, are these.
      four parallel shard steps and the verdict of decision 1, each step
      cloning the full history. A config `init` writes sets
      `ci.defaultBranch` (decision 2).
+   - **Jenkins.** `init --ci=jenkins` prints the declarative pipeline to add
+     to the Jenkinsfile `ci.jenkins.definition` names, which it never edits:
+     a plan stage, the shards of decision 1 and the verdict, with a `cron`
+     trigger for the full run on the default branch. A config `init` writes
+     sets `ci.defaultBranch` (decision 2).
 
 ### Comments beyond GitHub
 

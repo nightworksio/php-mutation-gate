@@ -101,7 +101,7 @@ it('writes a config that reads back into the same effective config', function (a
     'adapters another extension registers' => [[
         'runner' => ['use' => 'acme', 'with' => ['workers' => 4]],
         'treeSource' => ['use' => 'Acme\\Trees', 'with' => ['depth' => 2]],
-        'ci' => ['plan' => ['use' => 'jenkins', 'with' => ['label' => 'php']]],
+        'ci' => ['plan' => ['use' => 'teamcity', 'with' => ['label' => 'php']]],
         'proofs' => ['store' => ['use' => 'redis', 'with' => ['dsn' => 'redis://cache']]],
     ]],
     'the settings ADR-0013 to ADR-0016 declare' => [[

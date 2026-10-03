@@ -62,6 +62,18 @@ it('reads the run from the environment of each CI the gate knows', function (Var
         Variables::of(['BITBUCKET_BUILD_NUMBER' => '12', 'BITBUCKET_REPO_FULL_NAME' => 'octo/gate', 'BITBUCKET_TAG' => 'v1.0.0', 'BITBUCKET_COMMIT' => 'abc']),
         CiRun::of('octo/gate', 'refs/tags/v1.0.0', 'abc', 'https://bitbucket.org/octo/gate/pipelines/results/12'),
     ],
+    'Jenkins on a branch, cloned over HTTPS' => [
+        Variables::of(['BUILD_TAG' => 'jenkins-octo-gate-main-4', 'GIT_URL' => 'https://github.com/octo/gate.git', 'BRANCH_NAME' => 'main', 'GIT_COMMIT' => 'abc', 'BUILD_URL' => 'https://jenkins.example/job/octo/job/gate/job/main/4/']),
+        CiRun::of('octo/gate', 'refs/heads/main', 'abc', 'https://jenkins.example/job/octo/job/gate/job/main/4/'),
+    ],
+    'Jenkins on a pull request, cloned over SSH' => [
+        Variables::of(['BUILD_TAG' => 'jenkins-octo-gate-PR-7-1', 'GIT_URL' => 'git@github.com:octo/gate.git', 'BRANCH_NAME' => 'PR-7', 'CHANGE_ID' => '7', 'CHANGE_BRANCH' => 'feature/x', 'GIT_COMMIT' => 'abc', 'BUILD_URL' => 'u']),
+        CiRun::of('octo/gate', 'refs/heads/feature/x', 'abc', 'u'),
+    ],
+    'Jenkins on a tag, from a remote of one part' => [
+        Variables::of(['BUILD_TAG' => 'jenkins-gate-v1.0.0-1', 'GIT_URL' => 'gate', 'BRANCH_NAME' => 'v1.0.0', 'TAG_NAME' => 'v1.0.0', 'GIT_COMMIT' => 'abc', 'BUILD_URL' => 'u']),
+        CiRun::of('gate', 'refs/tags/v1.0.0', 'abc', 'u'),
+    ],
 ]);
 
 it('names the run as a proof names it, as each CI numbers it, and none where it numbers none', function (
@@ -78,6 +90,7 @@ it('names the run as a proof names it, as each CI numbers it, and none where it 
     'CircleCI' => [Variables::of(['CIRCLECI' => 'true', 'CIRCLE_WORKFLOW_ID' => 'c-1']), 'circleci:c-1'],
     'Azure DevOps' => [Variables::of(['TF_BUILD' => 'True', 'BUILD_BUILDID' => '42']), 'azure:42'],
     'Bitbucket Pipelines' => [Variables::of(['BITBUCKET_BUILD_NUMBER' => '12']), 'bitbucket:12'],
+    'Jenkins' => [Variables::of(['BUILD_TAG' => 'jenkins-octo-gate-main-4']), 'jenkins:jenkins-octo-gate-main-4'],
     'GitHub Actions with no run' => [Variables::of(['GITHUB_ACTIONS' => 'true']), ''],
     'GitLab CI with no pipeline' => [Variables::of(['GITLAB_CI' => 'true']), ''],
     'Azure DevOps with no build' => [Variables::of(['TF_BUILD' => 'True']), ''],
@@ -85,7 +98,7 @@ it('names the run as a proof names it, as each CI numbers it, and none where it 
 
 it('cannot name the run of any other CI', function (): void {
     expect(CiRun::read(Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'false'])))
-        ->toEqual(CannotTell::because('The gate names a run on GitHub, GitLab, Buildkite, CircleCI, Azure DevOps or Bitbucket, and not on this CI.'));
+        ->toEqual(CannotTell::because('The gate names a run on GitHub, GitLab, Buildkite, CircleCI, Azure DevOps, Bitbucket or Jenkins, and not on this CI.'));
 });
 
 it('names the pipeline or workflow each CI names, and none where it names none', function (Variables $environment, string $pipeline): void {
@@ -99,6 +112,7 @@ it('names the pipeline or workflow each CI names, and none where it names none',
     'CircleCI' => [Variables::of(['CIRCLECI' => 'true', 'CIRCLE_JOB' => 'mutate']), 'mutate'],
     'Azure DevOps' => [Variables::of(['TF_BUILD' => 'True', 'BUILD_DEFINITIONNAME' => 'gate-ci']), 'gate-ci'],
     'Bitbucket Pipelines, which names none' => [Variables::of(['BITBUCKET_BUILD_NUMBER' => '12']), ''],
+    'Jenkins, by the job' => [Variables::of(['BUILD_TAG' => 'jenkins-octo-gate-main-4', 'JOB_NAME' => 'octo/gate/main']), 'octo/gate/main'],
     'none' => [Variables::of(['GITHUB_ACTIONS' => 'true']), ''],
 ]);
 

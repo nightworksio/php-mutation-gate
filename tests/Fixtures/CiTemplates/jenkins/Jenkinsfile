@@ -1,0 +1,109 @@
+// Written by `mutation-gate init --ci=jenkins`, for the gate dev-main.
+// Run it from a multibranch pipeline, which names the branch, the pull request
+// and its target. It takes the Pipeline Utility Steps plugin, for readJSON,
+// and the Credentials Binding plugin. Label agents with PHP 8.5 and pcov,
+// and name that label in both places below: no official image is known to
+// include pcov, and without it the first run cannot judge. Leave the clone
+// whole, never shallow, and let the agents fetch from origin: the plan
+// fetches the branch it compares against. The cron trigger starts the full
+// run on trunk twice a week.
+// Keep the ledger in S3 (proofs.store: s3): Jenkins has no cache, so only the
+// keys can keep a branch from planting proofs. Hold AWS_ACCESS_KEY_ID and
+// AWS_SECRET_ACCESS_KEY as the username and password of the credentials
+// mutation-gate, which only trunk's verdict binds to write the ledger. A
+// credential reaches every build of the folder that holds it, and a branch's
+// author writes its Jenkinsfile, so any branch whose Jenkinsfile Jenkins runs
+// can bind it: hold it in a folder whose multibranch pipeline builds
+// trunk alone, apart from the one that builds every other branch and
+// pull request, or trust only authors who may push to trunk. Every other
+// step runs with no keys and reads trunk's ledger through
+// proofs.store.with.publicUrl, so set it, and give the bucket a public
+// GetObject on that branch's prefix alone. The verdict runs whatever the
+// shards did.
+pipeline {
+  agent { label '<agents with PHP 8.5 and pcov>' }
+  triggers {
+    cron(env.BRANCH_NAME == 'trunk' ? 'H 3 * * 1,4' : '')
+  }
+  environment {
+    MUTATION_GATE_DEFAULT_BRANCH = 'trunk'
+  }
+  stages {
+    stage('mutation: plan') {
+      steps {
+        sh 'rm -rf .mutation-gate && composer install --no-interaction --no-progress'
+        script {
+          def scheduled = currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause') ? 'true' : ''
+          withEnv(["MUTATION_GATE_SCHEDULED=${scheduled}"]) {
+            sh '''
+              set -eu
+              base=""
+              if [ -n "${CHANGE_ID:-}" ]; then target="$CHANGE_TARGET"
+              elif [ -n "$MUTATION_GATE_SCHEDULED" ]; then target=""
+              elif [ "${BRANCH_NAME:-}" = "$MUTATION_GATE_DEFAULT_BRANCH" ]; then target=""; base="--changed-since=last-passed"
+              else target="$MUTATION_GATE_DEFAULT_BRANCH"; fi
+              if [ -n "$target" ]; then
+                git fetch --no-tags origin "+refs/heads/$target:refs/remotes/origin/$target"
+                base="--changed-since=origin/$target"
+              fi
+              mkdir -p .mutation-gate
+              vendor/bin/mutation-gate plan --ci=jenkins $base > .mutation-gate/shards.json
+            '''
+          }
+        }
+        stash name: 'mutation-plan', includes: '.mutation-gate/**'
+      }
+    }
+    stage('mutation') {
+      steps {
+        script {
+          def shards = [:]
+          for (shard in readJSON(file: '.mutation-gate/shards.json').shards) {
+            def number = shard.id
+            shards["mutation: shard ${number}" as String] = {
+              node('<agents with PHP 8.5 and pcov>') {
+                checkout scm
+                sh 'rm -rf .mutation-gate'
+                unstash 'mutation-plan'
+                try {
+                  sh 'composer install --no-interaction --no-progress'
+                  withEnv(["SHARD=${number}"]) {
+                    sh 'vendor/bin/mutation-gate run --ci=jenkins --plan=.mutation-gate/plan.json'
+                  }
+                } finally {
+                  stash name: "mutation-results-${number}", includes: '.mutation-gate/results/**', allowEmpty: true
+                }
+              }
+            }
+          }
+          if (shards) {
+            parallel shards
+          }
+        }
+      }
+    }
+  }
+  post {
+    always {
+      script {
+        def planned = fileExists('.mutation-gate/shards.json') ? readJSON(file: '.mutation-gate/shards.json').shards : []
+        for (shard in planned) {
+          try {
+            unstash "mutation-results-${shard.id}"
+          } catch (missing) {
+            echo "Shard ${shard.id} kept no results."
+          }
+        }
+        sh 'mkdir -p .mutation-gate/results'
+        def verdict = 'vendor/bin/mutation-gate verdict --ci=jenkins --plan=.mutation-gate/plan.json --results=.mutation-gate/results'
+        if (env.BRANCH_NAME == env.MUTATION_GATE_DEFAULT_BRANCH && env.CHANGE_ID == null) {
+          withCredentials([usernamePassword(credentialsId: 'mutation-gate', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+            sh verdict
+          }
+        } else {
+          sh verdict
+        }
+      }
+    }
+  }
+}

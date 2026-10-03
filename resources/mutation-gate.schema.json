@@ -532,6 +532,22 @@
                             "type": "object",
                             "properties": {
                                 "use": {
+                                    "const": "jenkins"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
                                     "const": "json"
                                 },
                                 "with": {
@@ -558,6 +574,7 @@
                                             "circleci",
                                             "azure",
                                             "bitbucket",
+                                            "jenkins",
                                             "json"
                                         ]
                                     }
@@ -643,6 +660,17 @@
                             "type": "string",
                             "minLength": 1,
                             "default": "bitbucket-pipelines.yml"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "jenkins": {
+                    "type": "object",
+                    "properties": {
+                        "definition": {
+                            "type": "string",
+                            "minLength": 1,
+                            "default": "Jenkinsfile"
                         }
                     },
                     "additionalProperties": false
