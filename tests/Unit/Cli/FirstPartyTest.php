@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Composer\InstalledVersions;
 use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
 use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\BitbucketPlan;
@@ -18,6 +19,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\KillMatrixFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\SonarReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\Gcs\BucketLedger as GcsBucket;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
@@ -67,6 +69,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\ThisPackage;
+use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
@@ -200,6 +203,12 @@ it('registers the console, every file report, GitHub\'s three and the badge by n
         ->and($reporter('junit', '{"path": "build/junit.xml"}'))->toEqual(JUnitReportFile::at('build/junit.xml'))
         ->and($sarif)->toEqual(SarifReportFile::at('build/mutation.sarif'))
         ->and($reporter('gitlab', '{"path": "build/gl-code-quality.json"}'))->toEqual(CodeQualityReportFile::at('build/gl-code-quality.json'))
+        ->and($reporter('sonar', '{"path": "build/mutation-sonar.json"}'))->toEqual(SonarReportFile::at(
+            'build/mutation-sonar.json',
+            '.',
+            Guide::ofInstalled(InstalledVersions::getPrettyVersion(ThisPackage::COMPOSER) ?? ''),
+        ))
+        ->and($reporter('sonar'))->toBeInstanceOf(Invalid::class)
         ->and($reporter('kill-matrix', '{"path": "build/kill-matrix.csv"}'))->toEqual(KillMatrixFile::at('build/kill-matrix.csv'))
         ->and($reporter('tests', '{"path": "build/tests.json"}'))->toEqual(TestsReportFile::at('build/tests.json'))
         ->and($reporter('html', '{"path": "build/html"}'))->toBeInstanceOf(HtmlReportDirectory::class)

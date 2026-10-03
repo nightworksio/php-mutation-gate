@@ -25,6 +25,8 @@ enum BuiltinReporter: string
 
     case GitLab = 'gitlab';
 
+    case Sonar = 'sonar';
+
     case Slack = 'slack';
 
     case Discord = 'discord';
@@ -50,8 +52,8 @@ enum BuiltinReporter: string
     public function entryPath(): EntryPath
     {
         return match ($this) {
-            self::Json, self::JUnit, self::Sarif, self::Html, self::Tests, self::KillMatrix, self::GitLab
-                => EntryPath::Required,
+            self::Json, self::JUnit, self::Sarif, self::Html, self::Tests, self::KillMatrix, self::GitLab,
+            self::Sonar => EntryPath::Required,
             self::Badge => EntryPath::Optional,
             self::Console, self::Problems, self::Slack, self::Discord, self::Webhook, self::Otlp,
             self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment => EntryPath::Refused,

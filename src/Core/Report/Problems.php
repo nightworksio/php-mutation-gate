@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Report;
 use function array_key_exists;
 use function implode;
 
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -46,24 +45,20 @@ final readonly class Problems
     /** How a result not run this time is marked: how it came, and the run its proof names, where it names one. */
     private const string MARK = ' (%s%s)';
 
-    /**
-     * Each result, one to a line, each ending in a line break.
-     *
-     * @param array<string, Contents> $sources each mutated file the gate could read, by its path
-     */
-    public static function text(Verdict $verdict, array $sources, ProblemsShown $shown): string
+    /** Each result, one to a line, each ending in a line break. */
+    public static function text(Verdict $verdict, Sources $sources, ProblemsShown $shown): string
     {
         $overview = Overview::of($verdict);
         $marks = self::marks($verdict);
-        $columns = self::columns($overview, $sources);
+        $columns = FileColumns::of($overview->survivors(), $sources);
         $lines = [];
 
         foreach ($overview->survivors() as $judged) {
-            $path = $judged->mutant()->location()->file()->value();
+            $file = $judged->mutant()->location()->file();
 
             if ($shown === ProblemsShown::All || $judged->isOnChangedLine()) {
-                $mark = array_key_exists($path, $marks) ? $marks[$path] : '';
-                $lines[] = self::line($judged, $columns[$path], $overview->isFailing($judged), $mark);
+                $mark = array_key_exists($file->value(), $marks) ? $marks[$file->value()] : '';
+                $lines[] = self::line($judged, $columns->in($file), $overview->isFailing($judged), $mark);
             }
         }
 
@@ -84,26 +79,6 @@ final readonly class Problems
         }
 
         return $marks;
-    }
-
-    /**
-     * Where on its lines each mutant of each file with a result is, read from its tokens once per file.
-     *
-     * @param  array<string, Contents> $sources
-     * @return array<string, Columns>
-     */
-    private static function columns(Overview $overview, array $sources): array
-    {
-        $columns = [];
-
-        foreach ($overview->survivors() as $judged) {
-            $path = $judged->mutant()->location()->file()->value();
-            $columns[$path] = array_key_exists($path, $columns)
-                ? $columns[$path]
-                : Columns::in(array_key_exists($path, $sources) ? $sources[$path] : Contents::of(''));
-        }
-
-        return $columns;
     }
 
     private static function line(JudgedMutant $judged, Columns $columns, bool $failing, string $mark): string

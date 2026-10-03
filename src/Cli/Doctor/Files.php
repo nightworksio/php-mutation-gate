@@ -23,11 +23,13 @@ use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
 use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
 use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
 use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
+use NightWorksIO\MutationGate\Core\Doctor\SonarSources;
 use NightWorksIO\MutationGate\Core\File\GitIgnore;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Format\Properties;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\ThisPackage;
@@ -65,6 +67,8 @@ final readonly class Files
         $memory = ProjectMemoryLimit::in($this->project, PhpUnitConfig::candidatesIn(Path::root()));
         $files = $memory instanceof PhpUnitMemory ? $files->withPhpUnitMemory($memory) : $files;
         $files = $this->git->isShallow() === true ? $files->shallow() : $files;
+        $sonar = SonarSources::in(Properties::decode($this->text(Path::of(SonarSources::FILE))));
+        $files = $sonar instanceof SonarSources ? $files->withSonarSources($sonar) : $files;
 
         return $settings instanceof Settings
             ? $files->withBaseline($this->baseline($settings->floors()->baseline()))

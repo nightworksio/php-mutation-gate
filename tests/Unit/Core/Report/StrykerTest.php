@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Report\Sources;
 use NightWorksIO\MutationGate\Core\Report\Stryker;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -20,7 +21,7 @@ use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
-$sources = static fn(): array => ['src/Money.php' => Contents::of(Verdicts::MONEY)];
+$sources = static fn(): Sources => Sources::none()->with(Path::of('src/Money.php'), Contents::of(Verdicts::MONEY));
 
 it('writes a report the mutation-testing-report-schema accepts', function (string $verdict) use ($sources): void {
     expect(Schema::errors(Stryker::json(Verdicts::named($verdict), $sources()), Schema::at('tests/Fixtures/mutation-testing-report-schema.json')))->toBe([]);
@@ -91,7 +92,7 @@ it('writes a mutant at its columns, with its judgement, and its tests, hint and 
 });
 
 it('gives each judgement the viewer status the gate\'s score treats the same way', function (): void {
-    $report = Stryker::json(Verdicts::failing(), []);
+    $report = Stryker::json(Verdicts::failing(), Sources::none());
     $of = static fn(string $file, string $key): array => Decoded::column($report, $key, 'files', $file, 'mutants');
 
     expect($of('src/Money.php', 'status'))->toBe(['Survived', 'Killed', 'NoCoverage'])
@@ -116,7 +117,7 @@ it('ignores an uncovered mutant the score leaves out', function (): void {
         Judged::mutants(MutantJudgement::Uncovered),
         Uncovered::Exclude,
     );
-    expect(Decoded::at(Stryker::json(Verdict::of(TreeVerdicts::of($tree)), []), 'files', 'src/Money.php', 'mutants', 0, 'status'))->toBe('Ignored');
+    expect(Decoded::at(Stryker::json(Verdict::of(TreeVerdicts::of($tree)), Sources::none()), 'files', 'src/Money.php', 'mutants', 0, 'status'))->toBe('Ignored');
 });
 
 it('shows a kill by the memory cap as killed, and a mutant too heavy to judge as survived', function (
@@ -130,7 +131,7 @@ it('shows a kill by the memory cap as killed, and a mutant too heavy to judge as
         Judged::mutants($judgement),
         Uncovered::Count,
     );
-    expect(Decoded::at(Stryker::json(Verdict::of(TreeVerdicts::of($tree)), []), 'files', 'src/Money.php', 'mutants', 0, 'status'))
+    expect(Decoded::at(Stryker::json(Verdict::of(TreeVerdicts::of($tree)), Sources::none()), 'files', 'src/Money.php', 'mutants', 0, 'status'))
         ->toBe($status);
 })->with([
     'killed by the memory cap' => [MutantJudgement::KilledByMemoryCap, 'Killed'],
@@ -138,7 +139,7 @@ it('shows a kill by the memory cap as killed, and a mutant too heavy to judge as
 ]);
 
 it('writes a report with no mutant as an object of no files', function (): void {
-    expect(Stryker::json(Verdicts::empty(), []))->toContain('"files": {}');
+    expect(Stryker::json(Verdicts::empty(), Sources::none()))->toContain('"files": {}');
 });
 
 it('names the judging tests in a mutant\'s description as the runner named them', function () use ($sources): void {

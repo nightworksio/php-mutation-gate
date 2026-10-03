@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Console;
 
-use function array_key_exists;
 use function file_get_contents;
 use function is_file;
 use function is_string;
@@ -16,8 +15,10 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Report\Sources;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -80,19 +81,16 @@ final readonly class ProblemsReport implements Configurable, Reporter
         return Written::toTheConsole();
     }
 
-    /** @return array<string, Contents> each mutated file that can be read, by its path */
-    private function sources(Verdict $verdict): array
+    /** Each file a result is in that can be read. */
+    private function sources(Verdict $verdict): Sources
     {
-        $sources = [];
+        $sources = Sources::none();
 
-        foreach ($verdict->trees()->mutants() as $judged) {
-            $path = $judged->mutant()->location()->file()->value();
-            $file = $this->project->at($judged->mutant()->location()->file())->value();
-            $text = array_key_exists($path, $sources) || ! is_file($file) ? false : file_get_contents($file);
-
-            if ($text !== false) {
-                $sources[$path] = Contents::of($text);
-            }
+        foreach (Overview::of($verdict)->survivors() as $judged) {
+            $path = $judged->mutant()->location()->file();
+            $file = $this->project->at($path)->value();
+            $text = $sources->has($path) || ! is_file($file) ? false : file_get_contents($file);
+            $sources = $text === false ? $sources : $sources->with($path, Contents::of($text));
         }
 
         return $sources;

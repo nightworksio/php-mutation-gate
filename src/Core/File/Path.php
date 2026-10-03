@@ -91,6 +91,14 @@ final readonly class Path
         return str_starts_with($this->value, $prefix) ? self::of(mb_substr($this->value, mb_strlen($prefix))) : $this;
     }
 
+    /** The directory at the root this path lies in, such as `src` for `src/Money.php`; the root for a file in it. */
+    public function top(): self
+    {
+        $segments = $this->segments();
+
+        return count($segments) > 1 ? self::of($segments[0]) : self::root();
+    }
+
     /** Whether this is the path of a PHP file. */
     public function isPhp(): bool
     {

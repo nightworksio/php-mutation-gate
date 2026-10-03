@@ -1154,6 +1154,27 @@
                         "type": "object",
                         "properties": {
                             "use": {
+                                "const": "sonar"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
                                 "const": "slack"
                             },
                             "with": {
@@ -1356,6 +1377,7 @@
                                         "tests",
                                         "kill-matrix",
                                         "gitlab",
+                                        "sonar",
                                         "slack",
                                         "discord",
                                         "webhook",

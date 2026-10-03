@@ -39,4 +39,9 @@ enum Slug: string
     case MemoryCapNear = 'memory-cap-near';
     case ShallowClone = 'shallow-clone';
     case AnonymousReadsRefused = 'anonymous-reads-refused';
+    case OutsideSonarSources = 'outside-sonar-sources';
+    case Survived = 'survived';
+    case Uncovered = 'uncovered';
+    case Unjudged = 'unjudged';
+    case Flaky = 'flaky';
 }

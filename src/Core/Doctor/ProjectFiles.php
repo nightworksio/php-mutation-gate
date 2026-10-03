@@ -26,6 +26,7 @@ final readonly class ProjectFiles
         private Baseline|CannotJudge|NotGiven $baseline,
         private PhpUnitMemory|NotGiven $phpUnitMemory,
         private bool $shallow,
+        private SonarSources|NotGiven $sonarSources,
     ) {
     }
 
@@ -33,7 +34,7 @@ final readonly class ProjectFiles
     {
         $none = NotGiven::value();
 
-        return new self($none, $none, $none, $none, $none, $none, shallow: false);
+        return new self($none, $none, $none, $none, $none, $none, shallow: false, sonarSources: $none);
     }
 
     /** These, with the project's `.gitignore`, empty where it has none. */
@@ -84,6 +85,12 @@ final readonly class ProjectFiles
         return $this->shallow;
     }
 
+    /** These, with the paths `sonar.sources` names, where `sonar-project.properties` sets it. */
+    public function withSonarSources(SonarSources $sources): self
+    {
+        return clone($this, ['sonarSources' => $sources]);
+    }
+
     public function gitIgnore(): GitIgnore|NotGiven
     {
         return $this->gitIgnore;
@@ -112,5 +119,10 @@ final readonly class ProjectFiles
     public function phpUnitMemory(): PhpUnitMemory|NotGiven
     {
         return $this->phpUnitMemory;
+    }
+
+    public function sonarSources(): SonarSources|NotGiven
+    {
+        return $this->sonarSources;
     }
 }

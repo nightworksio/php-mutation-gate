@@ -6,8 +6,10 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Command\Printing;
 use NightWorksIO\MutationGate\Cli\Command\VerdictOutput;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Report\Sources;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -37,7 +39,7 @@ it('prints problems for an editor, framed by the lines a background matcher wait
 
     expect(explode("\n", rtrim($output->fetch(), "\n")))->toBe([
         Problems::JUDGING,
-        rtrim(Problems::text(Verdicts::failing(), ['src/Money.php' => Contents::of(Verdicts::MONEY)], ProblemsShown::Changed), "\n"),
+        rtrim(Problems::text(Verdicts::failing(), Sources::none()->with(Path::of('src/Money.php'), Contents::of(Verdicts::MONEY)), ProblemsShown::Changed), "\n"),
         Problems::JUDGED,
     ]);
 });

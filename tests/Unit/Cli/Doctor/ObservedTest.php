@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
 use NightWorksIO\MutationGate\Core\Doctor\RunnerPhp;
+use NightWorksIO\MutationGate\Core\Doctor\SonarSources;
 use NightWorksIO\MutationGate\Core\File\GitIgnore;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -113,6 +114,20 @@ it('observes the memory_limit the first PHPUnit config sets, and none it cannot 
     expect(Doctored::observed($setting, $php)->of(CommandLine::nothing())->files()->phpUnitMemory())
         ->toEqual(PhpUnitMemory::of(Path::of('phpunit.dist.xml'), MemoryCap::of(2, MemoryUnit::Gigabytes)))
         ->and(Doctored::observed($unreadable, $php)->of(CommandLine::nothing())->files()->phpUnitMemory())
+        ->toEqual(NotGiven::value());
+});
+
+it('observes the paths sonar.sources names, and none where sonar-project.properties names none', function (): void {
+    $naming = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($naming, 'sonar-project.properties', "sonar.projectKey=library\nsonar.sources=src,lib\n");
+    $silent = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($silent, 'sonar-project.properties', "sonar.projectKey=library\n");
+    $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
+
+    expect(Doctored::observed($naming, $php)->of(CommandLine::nothing())->files()->sonarSources())
+        ->toEqual(SonarSources::of(Path::of('src'), Path::of('lib')))
+        ->and(Doctored::observed($silent, $php)->of(CommandLine::nothing())->files()->sonarSources())->toEqual(NotGiven::value())
+        ->and(Doctored::observed(Scratch::copy('tests/Fixtures/Projects/Library'), $php)->of(CommandLine::nothing())->files()->sonarSources())
         ->toEqual(NotGiven::value());
 });
 

@@ -4,12 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
-use function array_key_exists;
-
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
-use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Stryker;
 use NightWorksIO\MutationGate\Core\Report\StrykerPage;
@@ -71,28 +67,11 @@ final readonly class HtmlReportDirectory implements Configurable, Reporter
             return NotWritten::because(sprintf(self::MISSING, $this->viewer->value()));
         }
 
-        $report = Stryker::json($verdict, $this->sources($verdict));
+        $report = Stryker::json($verdict, MutatedFiles::in($this->project)->of($verdict->trees()->mutants()));
         $written = $this->path->file(self::REPORT)->write($report);
 
         return $written instanceof NotWritten
             ? $written
             : $this->path->file(self::PAGE)->write(StrykerPage::html($report, $script, $licence));
-    }
-
-    /** @return array<string, Contents> each mutated file that can be read, by its path */
-    private function sources(Verdict $verdict): array
-    {
-        $sources = [];
-
-        foreach ($verdict->trees()->mutants() as $judged) {
-            $file = $judged->mutant()->location()->file();
-            $contents = array_key_exists($file->value(), $sources) ? Missing::at($file) : $this->project->read($file);
-
-            if ($contents instanceof Contents) {
-                $sources[$file->value()] = $contents;
-            }
-        }
-
-        return $sources;
     }
 }

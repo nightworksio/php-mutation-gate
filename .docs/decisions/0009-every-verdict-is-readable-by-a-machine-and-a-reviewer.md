@@ -63,8 +63,9 @@ sees the same verdict.
    - **File reports**, listed in `reports` (ADR-0002): each entry is
      `{"use": <name or class>, "path": <file or directory>, "with": <options>}`.
      The built-in names are `json`, `junit`, `sarif`, `html`, `tests` and
-     `kill-matrix` (ADR-0014), and `gitlab`, GitLab's Code Quality JSON
-     (ADR-0016), each needing a `path`. `reports` is empty by default, and `--report=<name>:<path>` adds
+     `kill-matrix` (ADR-0014), `gitlab`, GitLab's Code Quality JSON
+     (ADR-0016), and `sonar`, SonarQube's generic external-issues format
+     (ADR-0028), each needing a `path`. `reports` is empty by default, and `--report=<name>:<path>` adds
      one for a single command.
    - **GitHub annotations** (`github-annotations`) and **the step summary**
      (`github-summary`, written to `GITHUB_STEP_SUMMARY`) whenever
@@ -425,3 +426,4 @@ but data.
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the savings line, the JSON report's `savings`, `trend.json`'s times and `savings.json`
 - [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the viewer's notice in every HTML report
 - [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): the comment's planned state
+- [ADR-0028](0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md): the `sonar` reporter

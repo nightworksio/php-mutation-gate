@@ -210,6 +210,15 @@ What SonarQube documents:
    - The names and descriptions are fixed text in this package, and each
      description links the gate's troubleshooting page for that judgement
      (ADR-0018 decision 8).
+   - **As built.** `Core\Report\SonarRule` holds the five rules, their
+     names (*Surviving mutant*, *Uncovered mutant*, *Unjudged mutant*,
+     *Flaky mutant* and *Surviving security mutant*), their descriptions and
+     the quality each affects. A description is SARIF's text for the rule,
+     then the section of the guide of the release that wrote it:
+     `survived`, `uncovered`, `unjudged` or `flaky`, and `survived` for
+     `survived-security`. The verdict does not record which mutants a
+     security-tagged mutator made, so no issue is raised under
+     `survived-security` yet.
 
 9. **Each issue is a mutant the score counts as not killed.**
    - The mutants are exactly those SARIF reports (ADR-0009 decision 2). A
@@ -219,8 +228,17 @@ What SonarQube documents:
      with columns from the file's tokens (ADR-0009 decision 4).
    - Its message is the hint, the mutator, the gate's id and the reproduce
      command.
-   - Its severity is `HIGH` in a set that failed and `LOW` otherwise.
+   - Its severity is its rule's, and every rule's impact is `MEDIUM`,
+     whatever the mutant's set did. SonarQube reads a severity for each
+     rule, in its `impacts`, and never for each issue: its scanner refuses
+     an issue that carries a `severity` of its own beside the rules. One
+     severity for every rule keeps an issue on its rule, with what SonarQube
+     has accepted of it, when its set crosses its floor.
    - `effortMinutes` is left out, so Sonar's default of 0 applies.
+   - **As built.** SonarQube counts columns from 0 and ends a range before
+     the column it names. A mutant whose change its tokens do not show on its
+     lines is placed on its lines alone, which SonarQube marks from the start
+     of its first line to the end.
 
 10. **Files Sonar would silently drop are named first.** `doctor` compares the
     trees with `sonar.sources` in `sonar-project.properties`, where there is
@@ -228,14 +246,28 @@ What SonarQube documents:
     survivors in `app/Legacy`, which is outside `sonar.sources`*. The reporter writes, beside its file, how many
     issues it wrote under each top directory. This amends ADR-0017 decision
     10's table.
+    - **As built.** The check's slug is `outside-sonar-sources`. It runs
+      where a `sonar` report is listed and `sonar-project.properties` sets
+      `sonar.sources`, which is read as a Java properties file. The count
+      is said on the line that says where the report was written, as
+      *Wrote build/mutation-sonar.json. Issues by top directory: 12 under
+      src, 3 under app.*, with `.` for files at the root.
 
 11. **The package imports its own.** The package's SonarCloud analysis reads
     its own `sonar` report, so its gate of no open issue (ADR-0011
     decision 3) also holds its survivors.
+    - **As built.** The package's CI does not run its own gate, so its
+      SonarCloud analysis has no `sonar` report to read.
 
 12. **Where it lives in the code.** `Core\Report` renders the report and
     `Adapter\Filesystem` writes it, as every file report is written. A test
     checks the output against the fields Sonar's documentation lists.
+    - **As built.** `Adapter\Filesystem\SonarReportFile` writes it, with
+      the mutated files read through `Adapter\Filesystem\MutatedFiles`, as
+      the HTML report reads them.
+      `tests/Fixtures/sonar-generic-issues.schema.json` is a JSON Schema of
+      the fields the documentation lists, and every verdict's report is
+      checked against it.
 
 ## Alternatives considered
 
@@ -250,6 +282,7 @@ What SonarQube documents:
 | **Pointing SonarQube at the SARIF report** | Nothing to build. Sonar would turn every survivor into a security vulnerability. |
 | **The deprecated external-issues format beside the current one** | Serves SonarQube Server before 10.3, with a deprecated format to keep. |
 | **One Sonar rule per mutator family** | Richer filtering in Sonar. Eleven rules to keep in step with ADR-0009's families, where the gate's own four judgements already say what matters. |
+| **A rule for each severity: `HIGH` in a set that failed, `LOW` otherwise** | Severity that follows the floor. An issue would move to another rule each time its set crossed its floor, and lose what SonarQube had accepted of it. |
 | **A fixed effort per survivor** | Survivors would show as technical debt, measured in minutes nobody measured. |
 
 ## Consequences

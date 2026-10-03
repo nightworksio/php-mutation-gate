@@ -45,7 +45,12 @@
                             "memory-cap-lifted",
                             "memory-cap-near",
                             "shallow-clone",
-                            "anonymous-reads-refused"
+                            "anonymous-reads-refused",
+                            "outside-sonar-sources",
+                            "survived",
+                            "uncovered",
+                            "unjudged",
+                            "flaky"
                         ]
                     },
                     "severity": {
