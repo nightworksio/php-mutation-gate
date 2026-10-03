@@ -20,10 +20,13 @@ use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
+use NightWorksIO\MutationGate\Core\Php\HoldsReader;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Report\Label;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 
 use function rtrim;
@@ -36,8 +39,12 @@ use function str_replace;
  * call to the function around it, one assertion scaffold for each family, an
  * assertion of value a weak test could make (ADR-0025, decision 6); then the
  * line that fails until the test is filled in; then the `ignores.entries`
- * item that is the other way out (decision 5). A test for a held unit joins
- * the group that holds it, so the group still covers what it holds.
+ * item that is the other way out (decision 5). A test for a held unit holds
+ * it too, so the tests that hold it still cover it (ADR-0005, decision 9): a
+ * Pest test joins its holding group, and a PHPUnit test carries `#[Holds]`,
+ * with PHPUnit's `#[Group]` beside it where the runner reads each `#[Holds]`
+ * as its test files load, since that runner cannot add a group to a class it
+ * did not build.
  */
 final readonly class StubText
 {
@@ -54,8 +61,11 @@ final readonly class StubText
 
     private const string OPEN_CLOSE_TAG = '? >';
 
-    /** The test, in a style, its ignore written as a config in this format writes one. */
-    public static function of(Subject $subject, AssertionStyle $style, Format $config): string
+    /** An attribute on a test method, by its class's name and its one argument. */
+    private const string ATTRIBUTE = "#[\\%s(%s)]\n";
+
+    /** The test, in a style, its ignore written as a config in this format writes one, for this runner to run. */
+    public static function of(Subject $subject, AssertionStyle $style, Format $config, RunnerBehaviour $runner): string
     {
         $body = [
             ...self::comments(self::described($subject, $style)),
@@ -63,7 +73,9 @@ final readonly class StubText
             ...self::comments([self::IGNORE, ...self::ignores($subject, $config)]),
         ];
 
-        return $style === AssertionStyle::Pest ? self::pest($subject, $body) : self::phpUnit($subject, $body);
+        return $style === AssertionStyle::Pest
+            ? self::pest($subject, $body)
+            : self::phpUnit($subject, $body, $runner);
     }
 
     /** What the test kills: `mutant 49e02fb39669`, or `cluster c1de8298b6e2`. */
@@ -179,29 +191,40 @@ final readonly class StubText
     /** @param list<string> $body */
     private static function pest(Subject $subject, array $body): string
     {
-        $judgedBy = $subject->judgedBy();
+        $unit = $subject->unit();
 
         return sprintf(
             "it(%s, function (): void {\n%s\n})%s;",
             PhpCalls::literal(sprintf('kills %s', self::named($subject))),
             self::indented($body, MutantText::INDENT),
-            $judgedBy instanceof Group ? sprintf('->group(%s)', PhpCalls::literal($judgedBy->name())) : '',
+            $unit->isHeld() ? sprintf('->group(%s)', PhpCalls::literal(self::holding($unit))) : '',
         );
     }
 
     /** @param list<string> $body */
-    private static function phpUnit(Subject $subject, array $body): string
+    private static function phpUnit(Subject $subject, array $body, RunnerBehaviour $runner): string
     {
-        $judgedBy = $subject->judgedBy();
+        $unit = $subject->unit();
+        $holds = $unit->isHeld()
+            ? sprintf(self::ATTRIBUTE, HoldsReader::HOLDS, PhpCalls::literal($unit->path()->value()))
+            : '';
+        $group = $unit->isHeld() && $runner->holdsAsLoaded()
+            ? sprintf(self::ATTRIBUTE, HoldsReader::GROUP, PhpCalls::literal(self::holding($unit)))
+            : '';
 
         return sprintf(
-            "%spublic function testKills%s(): void\n{\n%s\n}",
-            $judgedBy instanceof Group
-                ? sprintf("#[\\PHPUnit\\Framework\\Attributes\\Group(%s)]\n", PhpCalls::literal($judgedBy->name()))
-                : '',
+            "%s%spublic function testKills%s(): void\n{\n%s\n}",
+            $holds,
+            $group,
             str_replace(' ', '', mb_ucfirst(self::named($subject))),
             self::indented($body, MutantText::INDENT),
         );
+    }
+
+    /** The name of the group of the tests that hold a unit. */
+    private static function holding(Unit $unit): string
+    {
+        return Group::holding($unit->path()->value())->name();
     }
 
     /** @param list<string> $lines */

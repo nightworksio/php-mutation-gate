@@ -124,8 +124,9 @@ one of those values the gate can know or check.
      - Each scaffold is a comment, so the file parses, and the one failing
        line is code. The comments drop control characters, and write `?>`
        as `? >`, so no line ends a comment early.
-     - A held unit's stub joins its group: `->group('holds:…')` in Pest, and
-       `#[Group('holds:…')]` on a PHPUnit method.
+     - A held unit's stub holds it: `->group('holds:…')` on a Pest test, and
+       `#[Holds('…')]` on a PHPUnit method, with `#[Group('holds:…')]`
+       beside it where Pest runs the class (ADR-0005, decision 9).
      - A weak test that let the mutant through gets its assertion of value,
        in that test's own style (ADR-0025, decision 6).
      - The ignore is written as the project's config writes one:

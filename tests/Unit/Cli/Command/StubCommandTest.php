@@ -64,7 +64,7 @@ it('adds the test to that file with --write, and says so', function () use ($ran
         ->and($written)->toEndWith("\n});\n");
 });
 
-it('writes a new file in the runner\'s style where no test file is there, joining the group that holds the unit, and adds to it after', function () use ($ran): void {
+it('writes a new file in the runner\'s style where no test file is there, holding the unit with #[Holds], and adds to it after', function () use ($ran): void {
     $project = FlowCommands::project();
     $composition = $ran($project);
     $created = FlowCommands::run(StubCommand::command($composition), 'id=8705b7 --write');
@@ -72,7 +72,7 @@ it('writes a new file in the runner\'s style where no test file is there, joinin
     $added = FlowCommands::run(StubCommand::command($composition), 'id=8705b7 --write');
 
     expect([$created->code, $created->output])->toBe([0, "Wrote tests/HeldTest.php, with a test for mutant 8705b7dc7d27.\n"])
-        ->and($first)->toStartWith("<?php\n\ndeclare(strict_types=1);\n\nuse PHPUnit\\Framework\\TestCase;\n\nfinal class HeldTest extends TestCase\n{\n    #[\\PHPUnit\\Framework\\Attributes\\Group('holds:src/Held.php')]\n    public function testKillsMutant8705b7dc7d27(): void\n")
+        ->and($first)->toStartWith("<?php\n\ndeclare(strict_types=1);\n\nuse PHPUnit\\Framework\\TestCase;\n\nfinal class HeldTest extends TestCase\n{\n    #[\\NightWorksIO\\MutationGate\\Attribute\\Holds('src/Held.php')]\n    public function testKillsMutant8705b7dc7d27(): void\n")
         ->and([$added->code, $added->output])->toBe([0, "Added a test for mutant 8705b7dc7d27 to tests/HeldTest.php.\n"])
         ->and(substr_count((string) file_get_contents(sprintf('%s/tests/HeldTest.php', $project)), 'public function testKillsMutant8705b7dc7d27'))->toBe(2);
 });

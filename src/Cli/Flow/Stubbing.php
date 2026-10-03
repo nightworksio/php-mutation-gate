@@ -25,8 +25,8 @@ use NightWorksIO\MutationGate\Core\Stub\StubText;
 use NightWorksIO\MutationGate\Core\Stub\Subject;
 use NightWorksIO\MutationGate\Core\Stub\TestFile;
 use NightWorksIO\MutationGate\Core\Stub\Unstubbable;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 
@@ -90,7 +90,7 @@ final readonly class Stubbing
             return CannotJudge::because(sprintf(self::MIXED, $file, $followed->value, $style->value));
         }
 
-        $test = StubText::of($subject, $style, $this->configFormat());
+        $test = StubText::of($subject, $style, $this->configFormat(), $this->composed->adapters->runner->behaviour());
         $for = StubText::named($subject);
 
         return $target instanceof TestFile
@@ -107,7 +107,7 @@ final readonly class Stubbing
         $subject = Subject::of(
             $first,
             $source instanceof Contents ? Enclosing::in($source, $location->start()) : Nameless::code(),
-            $unit instanceof JudgedUnit ? $unit->unit()->judgedBy() : WholeSuite::tests(),
+            $unit instanceof JudgedUnit ? $unit->unit() : Unit::file($location->file()),
         );
         $cluster = $explained->cluster();
 

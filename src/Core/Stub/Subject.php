@@ -8,16 +8,14 @@ use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
-use NightWorksIO\MutationGate\Core\Test\Filter;
-use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 
 /**
  * What a stub is written for: a survivor or an uncovered mutant, or the first
  * survivor of a cluster with every member (ADR-0022, decision 16); the
- * function its code is in; and the tests that judge its unit.
+ * function its code is in; and its unit, which says what judges it.
  */
 final readonly class Subject
 {
@@ -26,17 +24,14 @@ final readonly class Subject
         private Survivors $members,
         private Cluster|Unclustered $cluster,
         private Enclosing|Nameless $function,
-        private WholeSuite|Group|Filter $judgedBy,
+        private Unit $unit,
     ) {
     }
 
-    /** One mutant, in the function around it, its unit judged by these tests. */
-    public static function of(
-        JudgedMutant $mutant,
-        Enclosing|Nameless $function,
-        WholeSuite|Group|Filter $judgedBy,
-    ): self {
-        return new self($mutant, Survivors::of($mutant), Unclustered::mutant(), $function, $judgedBy);
+    /** One mutant, in the function around it, in its unit. */
+    public static function of(JudgedMutant $mutant, Enclosing|Nameless $function, Unit $unit): self
+    {
+        return new self($mutant, Survivors::of($mutant), Unclustered::mutant(), $function, $unit);
     }
 
     /** This subject, standing for the whole of a cluster whose first survivor it is. */
@@ -68,9 +63,9 @@ final readonly class Subject
         return $this->function;
     }
 
-    /** The tests that judge the unit: a group holds it, a filter, or every test that covers it. */
-    public function judgedBy(): WholeSuite|Group|Filter
+    /** The unit the first mutant is in: one the whole suite judges, or one a group of tests holds. */
+    public function unit(): Unit
     {
-        return $this->judgedBy;
+        return $this->unit;
     }
 }
