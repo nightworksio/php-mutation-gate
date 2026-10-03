@@ -184,9 +184,11 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
-      # One artifact of every shard's coverage map: each shard keeps its own,
-      # which holds only the lines of that shard's files (ADR-0006). The
-      # runner's own files beside them are this job's, and stay here.
+      # One artifact of the plan's whole coverage map and every shard's: each
+      # shard keeps its own, which holds only the lines of that shard's files,
+      # and the whole map, which its runner reads only to find the tests that
+      # run a line reading a mutated value (ADR-0006). The runner's own files
+      # beside them are this job's, and stay here.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mutation-gate-coverage
@@ -229,7 +231,7 @@ jobs:
         with:
           name: mutation-gate-coverage
           path: .mutation-gate/coverage
-      - name: Keep only this shard's coverage map
+      - name: Keep only this shard's coverage map and the whole map
         env:
           SHARD: ${{ matrix.shard.id }}
         run: |
