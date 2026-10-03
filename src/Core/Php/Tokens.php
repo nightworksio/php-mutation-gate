@@ -32,6 +32,9 @@ final readonly class Tokens implements Countable
     /** Where a call's first argument stands, from the name it calls: past the name and its `(`. */
     public const int ARGUMENT = 2;
 
+    /** What ends or opens a statement. */
+    public const array STATEMENT_BOUNDS = [';', '{', '}'];
+
     /** At no token's index: where a token that no bracket encloses stands, or what is not found. */
     public const int NONE = -1;
 

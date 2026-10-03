@@ -24,7 +24,6 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
-use NightWorksIO\MutationGate\Core\Php\Executable;
 use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -38,8 +37,10 @@ use function sprintf;
 /**
  * Judges each mutant Pest left uncovered on a line that is not executable,
  * which php-code-coverage leaves out of its map, by the tests that read the
- * value it changes (ADR-0004, decision 8). A mutant on an executable line
- * stays uncovered.
+ * value it changes; and on the first line of a statement that spans more,
+ * which coverage may not mark run, by the tests that run its other lines
+ * (ADR-0004, decision 8). A mutant on any other executable line stays
+ * uncovered.
  */
 final readonly class Judging
 {
@@ -125,13 +126,12 @@ final readonly class Judging
         }
 
         $source = Source::read($file, $original, test: false);
-        $symbol = $source->symbolAt($source->changedAt($mutated));
+        $choice = $selector->judging($source, $source->changedAt($mutated));
 
-        if ($symbol instanceof Executable) {
+        if (! $choice instanceof Choice) {
             return $mutant;
         }
 
-        $choice = $selector->choose($symbol, $file);
         $first = $choice->first($file);
         $outcome = $first instanceof Outcome ? $first : $trial->of($first, $file, $copy);
         $then = $outcome->leftAlive() ? $choice->then($file) : Paths::none();

@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
+use NightWorksIO\MutationGate\Tests\Support\MatchHeads;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Unexecutables;
@@ -185,6 +186,25 @@ it('lets the tests that read an ambiguous value kill it whatever the fallback ho
     expect(judgingOutcomes($judged('tests/MoneySpec.php')))->toBe(['rate' => 'killed'])
         ->and(judgingOutcomes($judged()))
         ->toBe(['rate' => 'unjudged ambiguous reference; src/Money.php is covered by 11 test files']);
+});
+
+it('judges a mutant of a statement\'s first line by the tests that run its other lines, and leaves an arm and a statement of one line uncovered', function (): void {
+    $at = MatchHeads::project();
+    $results = MatchHeads::run($at);
+    $band = MutationRequest::of(Paths::of(Path::of('src/Band.php')), WholeSuite::tests());
+    $judged = static fn(string ...$killing): MutationResult|CannotJudge => new Judging(
+        $at,
+        new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, array_values($killing))),
+        new CapDirectory(),
+    )->of(
+        MutationResult::of(Mutants::of(...array_map(MatchHeads::mutant(...), ['head', 'arm', 'flat'])), 0),
+        $band,
+        $results,
+        judgingCoverage($results),
+    );
+
+    expect(judgingOutcomes($judged('tests/BandSpec.php')))->toBe(['head' => 'killed', 'arm' => 'uncovered', 'flat' => 'uncovered'])
+        ->and(judgingOutcomes($judged()))->toBe(['head' => 'survived', 'arm' => 'uncovered', 'flat' => 'uncovered']);
 });
 
 it('gives a mutant that timed out the limit Pest allows each mutant', function () use ($money): void {
