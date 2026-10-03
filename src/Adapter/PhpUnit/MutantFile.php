@@ -40,7 +40,6 @@ use function rewinddir;
 use function rmdir;
 use function sprintf;
 use function stat;
-use function stream_resolve_include_path;
 use function stream_set_blocking;
 use function stream_wrapper_register;
 use function stream_wrapper_restore;
@@ -144,17 +143,16 @@ final class MutantFile
     /**
      * Opens a file, or the mutated file where PHP includes the file served.
      * A file that is not there is not opened to read it, so that the only
-     * warning is PHP's own.
+     * warning is PHP's own. PHP resolves the include path before it calls a
+     * wrapper, handing it the file's full path, so a path it hands over is
+     * opened as it is written.
      */
     public function stream_open(string $path, string $mode, int $options): bool
     {
         $serving = ($options & self::FOR_INCLUDE) !== 0 && $this->isServed($path);
         $opened = $serving ? self::$mutated : $path;
-        $usePath = ($options & STREAM_USE_PATH) !== 0;
-        $there = strpbrk($mode, self::WRITING) !== false || $this->natively(
-            static fn(): bool => file_exists($opened) || stream_resolve_include_path($opened) !== false,
-        );
-        $handle = $there ? $this->natively(static fn(): mixed => fopen($opened, $mode, $usePath)) : false;
+        $there = strpbrk($mode, self::WRITING) !== false || $this->natively(static fn(): bool => file_exists($opened));
+        $handle = $there ? $this->natively(static fn(): mixed => fopen($opened, $mode)) : false;
 
         return is_resource($handle) && $this->opened($handle, $serving);
     }
