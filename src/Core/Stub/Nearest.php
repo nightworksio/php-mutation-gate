@@ -27,9 +27,6 @@ final readonly class Nearest
     /** What a covering test file is named for. */
     private const string FOR = '%sTest';
 
-    /** Where no file covers the mutant: after every file that does. */
-    private const array NONE = [2, 0, ''];
-
     public static function file(KillMatrix $matrix, JudgedMutant $mutant): Path|Nameless
     {
         $named = sprintf(self::FOR, $mutant->mutant()->location()->file()->stem());
@@ -43,8 +40,7 @@ final readonly class Nearest
         }
 
         unset($ranked['']);
-        $nearest = min([self::NONE, ...array_values($ranked)])[2];
 
-        return $nearest === '' ? Nameless::code() : Path::of($nearest);
+        return $ranked === [] ? Nameless::code() : Path::of(min(array_values($ranked))[2]);
     }
 }

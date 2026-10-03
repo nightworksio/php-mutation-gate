@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Stub\Stub;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
@@ -51,7 +52,7 @@ function stubbingOf(string $project, object ...$ports): Stub|CannotJudge
         Flows::settings(),
         Flows::adapters($project, [], $store, ...$ports),
         Flows::setup(),
-        new Reporting(new Chosen(new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)))), Variables::of([])),
+        new Reporting(new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))), Variables::of([])),
     ))->stub($sought, Absent::setting()) : $sought;
 
     return $stub instanceof Stub || $stub instanceof CannotJudge ? $stub : CannotJudge::because($stub->why());
