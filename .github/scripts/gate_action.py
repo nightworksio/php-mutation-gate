@@ -45,6 +45,10 @@ KEY = "mutation-gate-ledger-"
 
 GATE = "nightworksio/mutation-gate"
 
+# The word the config names the Pest runner by, under `runner.use`; its
+# options sit under the same word.
+PEST = "pest"
+
 # What Composer installed into a project, where the gate reads its own version.
 INSTALLED = "vendor/composer/installed.json"
 
@@ -193,7 +197,7 @@ def patches_pest(config: dict) -> bool:
     The effective config names its runner under `runner.use`.
     """
     runner = (config.get("runner") or {}).get("use")
-    return runner == "pest" and (config.get("pest") or {}).get("patch") is True
+    return runner == PEST and (config.get(PEST) or {}).get("patch") is True
 
 
 def scores(report: dict) -> dict:
