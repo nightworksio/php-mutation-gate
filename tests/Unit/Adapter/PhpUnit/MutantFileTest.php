@@ -364,6 +364,61 @@ it('opens a bare relative path from the working directory, whatever the include 
     'without it' => ['/nowhere-the-gate-looks'],
 ]);
 
+it('is handed the full path of what PHP finds on the include path, and never asked to search it', function (): void {
+    $directory = (string) realpath(Scratch::directory());
+    Scratch::write($directory, 'on/path.txt', 'found');
+    Scratch::write($directory, 'on/included.php', "<?php\n\nreturn 'included';\n");
+    $included = basename(sprintf('%s/on/included.php', $directory));
+    $recorder = new class {
+        /** @var list<array{string, bool}> each path PHP handed a wrapper to open, and whether it asked it to search the include path */
+        public static array $handed = [];
+
+        /** Records what PHP hands over, and opens nothing. */
+        public function stream_open(string $path, string $mode, int $options): bool
+        {
+            self::$handed[] = [$path, ($options & STREAM_USE_PATH) !== 0];
+
+            return false;
+        }
+    };
+    $before = set_include_path(sprintf('%s/on', $directory));
+    stream_wrapper_unregister('file');
+    stream_wrapper_register('file', $recorder::class);
+
+    try {
+        warnedBy(static fn(): string|false => file_get_contents('path.txt', use_include_path: true));
+        warnedBy(static fn(): mixed => include $included);
+    } finally {
+        stream_wrapper_restore('file');
+        set_include_path(is_string($before) ? $before : '.');
+    }
+
+    expect($recorder::$handed)->toBe([
+        [sprintf('%s/on/path.txt', $directory), false],
+        [sprintf('%s/on/included.php', $directory), false],
+    ]);
+});
+
+it('opens no file the include path holds where the open does not ask for it, raising only PHP\'s own warning', function (): void {
+    [$native, $served] = nativeThenServed(static function (string $directory): bool {
+        mkdir(sprintf('%s/on', $directory));
+        file_put_contents(sprintf('%s/on/elsewhere.txt', $directory), 'there');
+        $before = [getcwd(), set_include_path(sprintf('%s/on', $directory))];
+        chdir($directory);
+        $opened = is_resource(fopen('elsewhere.txt', 'rb'));
+        chdir(is_string($before[0]) ? $before[0] : '/');
+        set_include_path(is_string($before[1]) ? $before[1] : '.');
+        unlink(sprintf('%s/on/elsewhere.txt', $directory));
+        rmdir(sprintf('%s/on', $directory));
+
+        return $opened;
+    });
+
+    expect($served[0])->toBe($native[0])
+        ->and($native[0])->toBeFalse()
+        ->and($served[1])->toHaveCount(count($native[1]));
+});
+
 it('opens a file by the include path', function (): void {
     $directory = servedIn();
     Scratch::write($directory, 'on/path.txt', 'found');
