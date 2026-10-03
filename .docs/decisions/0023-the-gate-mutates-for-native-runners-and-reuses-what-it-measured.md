@@ -98,12 +98,16 @@ manual.
 3. **Only some tests are measured, through the existing coverage method.**
    - The Runner port's `coverage(CoverageRun|CoverageRead)` takes a subset
      of tests in its `CoverageRun`.
-   - **Pest:** `--coverage-php` with the test files as paths, and `--filter`
-     for single tests where a file's entries are mixed.
-   - **Infection:** PHPUnit with `--test-id-filter-file`, or `--filter` on a
-     PHPUnit release without it, and `--coverage-xml`.
+   - **A subset of test files** runs those files: Pest takes them as paths,
+     and Infection's PHPUnit and the PHPUnit runner take them as file
+     arguments.
+   - **A subset of single tests** narrows by test id: `--test-id-filter-file`
+     for Infection, or `--filter` on a PHPUnit release without it, and
+     `--filter` for Pest where a file's entries are mixed.
    - The gate merges the partial map into the kept one: re-measured entries
-     are replaced, and each untouched test keeps its recorded duration.
+     are replaced, and each untouched test keeps its recorded duration. For a
+     subset of test files, the re-measured entries are those of the tests the
+     port's `testsIn` names for those files.
    - The Runner contract suite asserts that the merged map equals a full
      run's on its fixture library (ADR-0004 decision 7).
 

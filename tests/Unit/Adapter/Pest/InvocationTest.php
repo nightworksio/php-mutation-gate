@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -62,6 +63,16 @@ it('runs one group under coverage', function (): void {
         '--coverage-php=/p/held/coverage.php',
         '--log-junit=/p/held/junit.xml',
         '--group=holds:src/Held.php',
+        '--do-not-fail-on-empty-test-suite',
+    ]);
+});
+
+it('runs some test files under coverage, in place of the suite', function (): void {
+    $request = CoverageRun::of(TestPaths::of(Paths::of(Path::of('tests/MoneySpec.php'), Path::of('tests/Unit/HeldSpec.php'))), Path::of('held'));
+
+    expect(array_slice(invocation()->coverage($request, '/p/held')->arguments(), -3))->toBe([
+        'tests/MoneySpec.php',
+        'tests/Unit/HeldSpec.php',
         '--do-not-fail-on-empty-test-suite',
     ]);
 });

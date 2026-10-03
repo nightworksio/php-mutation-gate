@@ -163,6 +163,12 @@ final readonly class Infection implements Runner
         return $covered instanceof CannotJudge ? $covered : CoverageXml::read($this->project, $directory);
     }
 
+    /** The map's tests whose classes these test files declare, or whose files are gone. */
+    public function testsIn(Paths $files, CoverageMap $map): TestIds
+    {
+        return TestFiles::holding($this->project, $files, $map->tests());
+    }
+
     /** The files of the test classes whose tests cover the file: the classes Infection runs for its mutants. */
     public function judges(Path $file, CoverageMap $map): Paths
     {

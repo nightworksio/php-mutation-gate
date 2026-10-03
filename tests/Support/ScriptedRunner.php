@@ -318,6 +318,11 @@ final class ScriptedRunner implements Runner
         return $this->covering instanceof CannotJudge ? $this->covering : $this->covering->coverage($request);
     }
 
+    public function testsIn(Paths $files, CoverageMap $map): TestIds
+    {
+        return $this->fake->testsIn($files, $map);
+    }
+
     public function judges(Path $file, CoverageMap $map): Paths
     {
         return $this->fake->judges($file, $map);

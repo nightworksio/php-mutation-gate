@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 it('runs a group under coverage and leaves its map in a directory, in one process', function (): void {
@@ -21,6 +23,13 @@ it('runs a group under coverage and leaves its map in a directory, in one proces
 it('runs the tests a filter names under coverage', function (): void {
     expect(CoverageRun::of(Filter::matching('KernelTest'), Path::of('held'))->tests())
         ->toEqual(Filter::matching('KernelTest'));
+});
+
+it('runs some test files under coverage', function (): void {
+    $files = TestPaths::of(Paths::of(Path::of('tests/MoneyTest.php')));
+
+    expect(CoverageRun::of($files, Path::of('.mutation-gate/coverage'))->tests())->toBe($files)
+        ->and($files->files())->toEqual(Paths::of(Path::of('tests/MoneyTest.php')));
 });
 
 it('runs across as many processes as it is given, leaving the rest as it was', function (): void {

@@ -56,9 +56,18 @@ interface Runner
 
     /**
      * Which tests run which line, with each test's duration, by running the
-     * suite or a group, or by reading a map another job wrote.
+     * suite, a group or the tests of some files, or by reading a map another
+     * job wrote.
      */
     public function coverage(CoverageRun|CoverageRead $request): CoverageMap|CannotJudge;
+
+    /**
+     * The tests of a map that these test files hold, by the runner's own rules
+     * for naming a test after its file: the entries a run of those files
+     * measures again (ADR-0023, decision 3). A test the runner cannot place
+     * in a file is not among them.
+     */
+    public function testsIn(Paths $files, CoverageMap $map): TestIds|CannotJudge;
 
     /** The test files that can judge a mutant of this file, by the runner's own rules for selecting them. */
     public function judges(Path $file, CoverageMap $map): Paths|CannotJudge;

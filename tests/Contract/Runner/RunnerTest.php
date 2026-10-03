@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\Coverage\Remeasured;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -40,7 +41,9 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -380,6 +383,44 @@ it('names the test files that judge a covered file, and none for an uncovered on
 
     expect($covered)->toEqual(Paths::of(Path::of('tests/DrainSpec.php'), Path::of('tests/MoneySpec.php')))
         ->and($uncovered)->toEqual(Paths::none());
+})->with($libraries);
+
+/** @return array<string, list<string>> each covered line of a map, by its file and line, with its tests sorted */
+function contractLines(CoverageMap $map): array
+{
+    $lines = [];
+
+    foreach ($map->lines() as $line) {
+        $tests = [...$line];
+        sort($tests);
+        $lines[sprintf('%s:%d', $line->file()->value(), $line->line())] = $tests;
+    }
+
+    ksort($lines);
+
+    return $lines;
+}
+
+it('measures a test file again, names the tests it holds, and the merged map is a full run\'s', function (Library $library): void {
+    $runner = $library->runner();
+    $full = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+    $covering = $full instanceof CoverageMap
+        ? $full->testsCoveringFile(Path::of('src/Money.php'))
+        : TestIds::none();
+    $first = [...$covering][0] ?? TestId::of('none');
+    $names = $runner->names(TestIds::of($first), Withheld::standard());
+    $name = $names instanceof TestNames ? $names->testOf($first) : $first;
+    $files = Paths::of($name instanceof TestName ? $name->file() : Path::of('none'));
+    $held = $full instanceof CoverageMap ? $runner->testsIn($files, $full) : $full;
+    $again = $runner->coverage(CoverageRun::of(TestPaths::of($files), Path::of('.mutation-gate/again')));
+    $merged = $full instanceof CoverageMap && $held instanceof TestIds && $again instanceof CoverageMap
+        ? Remeasured::over($full, $held, $again)
+        : $again;
+
+    expect($held instanceof TestIds && $held->has($first))->toBeTrue()
+        ->and($again instanceof CoverageMap ? count($again->tests()) : $again)->toBeGreaterThan(0)
+        ->and($merged instanceof CoverageMap ? contractLines($merged) : $merged)
+        ->toBe($full instanceof CoverageMap ? contractLines($full) : $full);
 })->with($libraries);
 
 it('finds its runner\'s own ignore marker, and none in code without one', function (Library $library): void {

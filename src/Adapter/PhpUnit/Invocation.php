@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
+use function array_map;
+
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
@@ -11,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -93,7 +97,7 @@ final readonly class Invocation
             PhpUnitOption::NoLogging->value,
             $this->history->value,
             PhpUnitOption::NoProgress->value,
-            ...$this->judgedBy($request->tests()),
+            ...$this->covering($request->tests()),
         )
             ->withholding($request->withheld());
     }
@@ -122,6 +126,14 @@ final readonly class Invocation
             ->telling(Variable::Guard, $files->guard())
             ->telling(Variable::Mutant, $files->original())
             ->telling(Variable::Mutated, $files->mutated());
+    }
+
+    /** @return list<string> what narrows a coverage run: a group, a filter, or the test files run in place of suites */
+    private function covering(WholeSuite|Group|Filter|TestPaths $tests): array
+    {
+        return $tests instanceof TestPaths
+            ? array_map(static fn(Path $file): string => $file->value(), [...$tests->files()])
+            : $this->judgedBy($tests);
     }
 
     /** @return list<string> the options that keep a run to the tests that judge the unit */

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function file_get_contents;
+use function is_file;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestClassFiles;
@@ -38,6 +40,21 @@ final class TestFiles
         }
 
         return $classes;
+    }
+
+    /**
+     * Those of these tests that these test files hold: the tests of each class
+     * a file declares, and of each class named after a file that is gone.
+     */
+    public function holding(Paths $files, TestIds $tests): TestIds
+    {
+        return TestClassFiles::held($tests, $files, $this->held(...));
+    }
+
+    /** What a test file holds, or that it is gone. */
+    private function held(Path $file): Contents|Missing
+    {
+        return is_file($this->project->absolute($file)) ? $this->contentsOf($file) : Missing::at($file);
     }
 
     private function contentsOf(Path $file): Contents

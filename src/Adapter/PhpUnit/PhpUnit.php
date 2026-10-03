@@ -143,6 +143,12 @@ final readonly class PhpUnit implements Runner
         return new Coverage($this->project, $this->shell, $this->invocation())->of($request);
     }
 
+    /** The map's tests whose classes these test files declare, or whose files are gone. */
+    public function testsIn(Paths $files, CoverageMap $map): TestIds
+    {
+        return $this->tests->holding($files, $map->tests());
+    }
+
     /**
      * The files that declare the classes of the tests that cover the file:
      * the files a mutant's run selects where it cannot select a test by its

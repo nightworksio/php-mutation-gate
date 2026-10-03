@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 function invoked(string $text): OwnConfig
@@ -59,6 +60,13 @@ it('runs only the tests that judge a held path under coverage', function (): voi
 
     expect(array_slice($group->arguments(), -1))->toBe(['--group=holds:src/Kernel.php'])
         ->and(array_slice($filter->arguments(), -1))->toBe(['--filter=KernelTest']);
+});
+
+it('runs some test files under coverage, by their paths on disk, in place of the config\'s suites', function (): void {
+    $files = TestPaths::of(Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/Unit/HeldTest.php')));
+
+    expect(array_slice(Invocation::coverage(invokedIn(), invoked('{}'), $files, DiskPath::of('/c'))->arguments(), -2))
+        ->toBe(['/project/tests/MoneyTest.php', '/project/tests/Unit/HeldTest.php']);
 });
 
 it('starts a run of no test on the config that loads none, with the project\'s arguments and none of its opening run\'s PHP options', function (): void {

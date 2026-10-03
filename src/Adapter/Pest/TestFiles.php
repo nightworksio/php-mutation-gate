@@ -10,19 +10,32 @@ use function array_keys;
 use function array_map;
 use function array_push;
 use function array_unique;
+use function basename;
+use function dirname;
+use function explode;
+use function file_get_contents;
 use function implode;
 use function is_array;
 use function is_dir;
+use function is_file;
 use function is_link;
+use function mb_strtoupper;
 
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Test\TestClassFiles;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
 
 use function preg_replace;
+use function preg_replace_callback;
 use function scandir;
 use function sort;
 use function sprintf;
 use function str_ends_with;
+use function str_replace;
 
 /**
  * The test files of a project, and which of them hold a class a filter's
@@ -38,6 +51,12 @@ final class TestFiles
 {
     /** What Pest removes from a file's name to make its class name. */
     private const array NOT_IN_A_CLASS_NAME = ['/%[a-fA-F0-9]{2}/', '/[^\p{L}\p{N}]/u'];
+
+    /** The first letter of a path where `ucfirst` raises it: an ASCII lower-case one. */
+    private const string LOWER_FIRST = '/^[a-z]/';
+
+    /** What Pest removes from a file's path to make its class's full name. */
+    private const array NOT_IN_A_CLASS_PATH = ['/%[a-fA-F0-9]{2}/', '/\\\\[\'"]/', '/[^\p{L}\p{N}\\\\]/u'];
 
     /** @var list<array<string, string>> each test file's class name, by its path, once listed */
     private array $listed = [];
@@ -79,6 +98,60 @@ final class TestFiles
         }
 
         return $this->named[$key];
+    }
+
+    /**
+     * Those of these tests that these test files hold: the tests of the class
+     * Pest declares for each file, named after its path, and of each class a
+     * file declares itself, or is named after where the file is gone.
+     */
+    public function holding(Paths $files, TestIds $tests): TestIds
+    {
+        $placed = TestClassFiles::held($tests, $files, $this->contentsOf(...));
+        $pest = [];
+
+        foreach ($files as $file) {
+            $pest[$this->pestClassOf($file)] = true;
+        }
+
+        foreach ($tests as $test) {
+            $placed = array_key_exists(TestMethod::classOf($test), $pest) ? $placed->with($test) : $placed;
+        }
+
+        return $placed;
+    }
+
+    /** What a test file holds, or that it is gone. */
+    private function contentsOf(Path $file): Contents|Missing
+    {
+        $disk = $this->project->absolute($file);
+
+        return is_file($disk) ? Contents::of(sprintf('%s', file_get_contents($disk))) : Missing::at($file);
+    }
+
+    /**
+     * The class Pest declares for a test file, from its path from the
+     * project's root, as Pest's test case factory spells it: the directory
+     * with its first letter raised and the name up to its first dot, with
+     * only letters, digits and namespace separators kept, under `P`.
+     */
+    private function pestClassOf(Path $file): string
+    {
+        $name = explode('.', basename($file->value()))[0];
+        $directory = dirname($this->raised($file->value()));
+        $spelt = str_replace('/', '\\', sprintf('%s/%s', $directory, $name));
+
+        return sprintf('P\\%s', preg_replace(self::NOT_IN_A_CLASS_PATH, '', $spelt) ?? $spelt);
+    }
+
+    /** A path with its first letter raised where it is an ASCII one, as PHP's `ucfirst` raises it. */
+    private function raised(string $path): string
+    {
+        return preg_replace_callback(
+            self::LOWER_FIRST,
+            static fn(array $first): string => mb_strtoupper($first[0]),
+            $path,
+        ) ?? $path;
     }
 
     /** @return array<string, string> each test file's class name, by its path as the project spells it */

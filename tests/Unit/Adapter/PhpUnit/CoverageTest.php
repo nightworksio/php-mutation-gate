@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -80,7 +81,7 @@ it('runs PHPUnit under coverage and reads the map it wrote', function (): void {
         ->and($command->deadline())->toEqual(Unlimited::time());
 });
 
-it('keeps a coverage run to a group, or to the tests a filter names', function (Group|Filter $tests, array $options): void {
+it('keeps a coverage run to a group, the tests a filter names, or some test files', function (Group|Filter|TestPaths $tests, array $options): void {
     $project = coverageProject();
     $shell = mapping($project, succeeded: true);
     new Coverage($project, $shell, new Invocation($project, '/gate/override.php'))
@@ -90,6 +91,10 @@ it('keeps a coverage run to a group, or to the tests a filter names', function (
 })->with([
     'a group' => [Group::named('holds:src/Money.php'), ['--group', 'holds:src/Money.php']],
     'a filter' => [Filter::matching('Money'), ['--filter', 'Money']],
+    'some test files' => [
+        TestPaths::of(Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/HeldTest.php'))),
+        ['tests/MoneyTest.php', 'tests/HeldTest.php'],
+    ],
 ]);
 
 it('removes an earlier run\'s map before it runs, so a failed run never reads one', function (): void {

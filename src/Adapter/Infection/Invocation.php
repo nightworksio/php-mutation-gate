@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function addcslashes;
+use function array_map;
 use function implode;
 use function is_file;
 
@@ -15,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JUnitLog;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 use function preg_match;
@@ -89,7 +91,7 @@ final readonly class Invocation
     public static function coverage(
         Project $project,
         OwnConfig $config,
-        WholeSuite|Group|Filter $tests,
+        WholeSuite|Group|Filter|TestPaths $tests,
         DiskPath $directory,
     ): Command {
         return Command::php(
@@ -101,7 +103,7 @@ final readonly class Invocation
                 sprintf('%s=%s', PhpUnitOption::LogJunit->value, $directory->child(self::JUNIT)->value()),
                 PhpUnitOption::NoColors->value,
                 ...$config->extraArguments(),
-                ...self::narrowedTo($tests),
+                ...($tests instanceof TestPaths ? self::filesOf($project, $tests) : self::narrowedTo($tests)),
             ],
         )->with(['XDEBUG_MODE' => 'coverage']);
     }
@@ -138,6 +140,17 @@ final readonly class Invocation
             ...($judgedBy instanceof Filter ? ['--only-covering-test-cases'] : []),
             ...$paths,
         );
+    }
+
+    /**
+     * The test files PHPUnit runs, by their paths on disk, each an argument
+     * PHPUnit runs in place of the config's suites.
+     *
+     * @return list<string>
+     */
+    private static function filesOf(Project $project, TestPaths $tests): array
+    {
+        return array_map($project->absolute(...), [...$tests->files()]);
     }
 
     /** @return list<string> */

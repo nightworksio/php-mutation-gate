@@ -6,6 +6,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -58,4 +60,42 @@ it('does not walk into a linked directory, which may lead back up into a loop', 
     $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
 
     expect(new TestFiles($project)->all())->toEqual(Paths::of(Path::of('tests/MoneyTest.php')));
+});
+
+it('holds the tests of the class Pest declares for each file, and of each class a file declares itself', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'tests/Unit/MoneySpec.php', "<?php\nit('adds', fn () => true);");
+    Scratch::write($root, 'tests/Legacy/OldTest.php', "<?php\nnamespace Tests\\Legacy;\nfinal class OldTest {}");
+    Scratch::write($root, 'tests/Other/MoneySpec.php', "<?php\nit('adds', fn () => true);");
+    $files = new TestFiles(Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor')));
+    $tests = TestIds::of(
+        TestId::of('P\Tests\Unit\MoneySpec::__pest_evaluable_it_adds'),
+        TestId::of('P\Tests\Unit\MoneySpec::__pest_evaluable_it_adds#1'),
+        TestId::of('P\Tests\Other\MoneySpec::__pest_evaluable_it_adds'),
+        TestId::of('Tests\Legacy\OldTest::testOld'),
+        TestId::of('Tests\Legacy\GoneTest::testGone'),
+        TestId::of('P\Tests\Unit\GoneSpec::__pest_evaluable_it_goes'),
+        TestId::of('P\Tests\Unit\Dotted::__pest_evaluable_it_dots'),
+        TestId::of('P\Tests\Unit\Dottedmore::__pest_evaluable_it_dots'),
+        TestId::of('P\Root::__pest_evaluable_it_roots'),
+    );
+    $held = Paths::of(
+        Path::of('tests/Unit/MoneySpec.php'),
+        Path::of('tests/Legacy/OldTest.php'),
+        Path::of('tests/Legacy/GoneTest.php'),
+        Path::of('tests/Unit/Gone%41-Spec.php'),
+        Path::of('tests/Unit/Dotted.more.php'),
+        Path::of('lower/case/Spec.php'),
+    );
+
+    expect($files->holding($held, $tests))->toEqual(TestIds::of(
+        TestId::of('Tests\Legacy\OldTest::testOld'),
+        TestId::of('Tests\Legacy\GoneTest::testGone'),
+        TestId::of('P\Tests\Unit\MoneySpec::__pest_evaluable_it_adds'),
+        TestId::of('P\Tests\Unit\MoneySpec::__pest_evaluable_it_adds#1'),
+        TestId::of('P\Tests\Unit\GoneSpec::__pest_evaluable_it_goes'),
+        TestId::of('P\Tests\Unit\Dotted::__pest_evaluable_it_dots'),
+    ))
+        ->and($files->holding(Paths::of(Path::of('lower/case/Spec.php')), TestIds::of(TestId::of('P\Lower\case\Spec::x'))))
+        ->toEqual(TestIds::of(TestId::of('P\Lower\case\Spec::x')));
 });
