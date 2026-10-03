@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -107,6 +108,29 @@ it('hands the verdict every coverage map the plan made, its own and each shard\'
         ->and(dirname(Workspace::shardCoverage(ShardId::of(1))->value()))->toBe($coverage)
         ->and($touching)->toBe([])
         ->and($handed[0])->toBeLessThan($judged[0]);
+});
+
+it('hands each shard the plan\'s whole map beside its own, removing only the other shards\' directories', function (): void {
+    $jobs = WorkflowFile::at(REUSABLE)->field('jobs');
+    $coverage = Workspace::coverage()->value();
+    $whole = CoverageMapFile::in(Workspace::coverage())->value();
+    $shard = $jobs->field('shard')->field('steps');
+    $touching = WorkflowFile::stepsWhere($shard, 'run', static fn(string $run): bool => str_contains($run, $coverage));
+    $removing = Lenient::text(Lenient::items($shard)[$touching[0]]->field('run'));
+    $plan = $jobs->field('plan')->field('steps');
+    $uploads = WorkflowFile::stepsWhere($plan, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/upload-artifact@'));
+    $uploaded = array_values(array_filter(
+        $uploads,
+        static fn(int $at): bool => Lenient::text(Lenient::items($plan)[$at]->field('with')->field('name')) === 'mutation-gate-coverage',
+    ));
+    $paths = array_map(trim(...), explode("\n", trim(Lenient::text(Lenient::items($plan)[$uploaded[0]]->field('with')->field('path')))));
+    $excluded = array_filter($paths, static fn(string $path): bool => str_starts_with($path, '!') && fnmatch(substr($path, 1), $whole));
+
+    expect($touching)->toHaveCount(1)
+        ->and(dirname($whole))->toBe($coverage)
+        ->and($removing)->toContain(sprintf('find %s -mindepth 1 -maxdepth 1 -type d ! -name "shard-${SHARD}"', $coverage))
+        ->and($paths)->toContain(sprintf('%s/', $coverage))
+        ->and($excluded)->toBe([]);
 });
 
 it('checks the workflow out under .mutation-gate, which the gate leaves out of every change and key', function (): void {
