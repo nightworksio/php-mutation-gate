@@ -41,6 +41,19 @@ final readonly class MutantText
 
     private const string MESSAGE = 'Mutant %s: %s. %s Reproduce: %s';
 
+    /**
+     * The line that names the tests that judged a mutant, by the names their
+     * runner gave them (ADR-0014, decision 6); none where none are named.
+     *
+     * @return list<string>
+     */
+    public static function judgedBy(JudgedMutant|JudgedKill $judged, TestNames $names): array
+    {
+        $tests = $judged->tests();
+
+        return count($tests) === 0 ? [] : [sprintf(self::JUDGED_BY, $names->listed($tests))];
+    }
+
     /** The first line: where it is, what made it, how it was judged and its id. */
     public static function heading(JudgedMutant|JudgedKill $judged): string
     {
@@ -87,7 +100,7 @@ final readonly class MutantText
             ...self::diffOf($judged),
             ...$reason instanceof Reason ? [sprintf('Why: %s', $reason->text())] : [],
             ...$reason instanceof Rejection ? [self::rejected($reason)] : [],
-            ...count($judged->tests()) === 0 ? [] : [sprintf(self::JUDGED_BY, $names->listed($judged->tests()))],
+            ...self::judgedBy($judged, $names),
             $judged->hint()->text(),
             ...$finding instanceof Removable ? [sprintf(self::REMOVABLE, $finding->name())] : [],
             sprintf('Reproduce: %s', $judged->reproduce()),

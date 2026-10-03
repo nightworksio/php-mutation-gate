@@ -97,6 +97,7 @@ it('counts a unit its newest result stands for by it, each mutant standing or un
         Origin::Carried,
         Mutants::of($survivor, $timedOut->unjudged(OutOfTime::BeforeMutating)),
         ProvedKills::of($standing, $stale->unjudged(OutOfTime::BeforeMutating)),
+        Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base')),
     )]);
 });
 

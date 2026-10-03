@@ -43,7 +43,7 @@ final readonly class Proving
             $proof = self::proofOf($keys->keyOf($unit->path()), $defaultBranch, $own);
 
             if ($proof instanceof Proof) {
-                $proved[] = UnitResult::held($unit, Origin::Proved, $proof->reported(), $proof->kills());
+                $proved[] = UnitResult::fromProof($unit, Origin::Proved, $proof);
                 $ownScope += $defaultBranch->has($proof->key()) ? 0 : 1;
 
                 continue;

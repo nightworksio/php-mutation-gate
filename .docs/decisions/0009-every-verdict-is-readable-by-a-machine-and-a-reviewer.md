@@ -380,6 +380,12 @@ sees the same verdict.
 
    The judging tests are named as *It is judged by `A`, `B`, `C` and n more.*
 
+   **As built.** The verdict takes a mutant's judging tests from the kill
+   matrix: for a unit the whole suite judges, the tests that cover its line
+   and those its record names as killers. A held unit's group judges its
+   mutants, and the verdict does not know which of the group's tests cover
+   them, so it names none.
+
 ## Alternatives considered
 
 | Option | Why it lost |

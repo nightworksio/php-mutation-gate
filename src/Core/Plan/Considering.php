@@ -43,7 +43,7 @@ final readonly class Considering
             $newest = self::newer($trusted, $ownProofs->of($unit->path()));
 
             if (! $reach->reaches($unit) && $newest instanceof Proof) {
-                $carried[] = UnitResult::held($unit, Origin::Carried, $newest->reported(), $newest->kills());
+                $carried[] = UnitResult::fromProof($unit, Origin::Carried, $newest);
                 $ownScope += $newest === $trusted ? 0 : 1;
 
                 continue;

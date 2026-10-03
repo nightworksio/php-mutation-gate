@@ -2,14 +2,23 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
+use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
+use NightWorksIO\MutationGate\Core\Verdict\ThisRun;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
 
 $result = static fn(string $path): UnitResult => UnitResult::of(Unit::file(Path::of($path)), Origin::Proved, Mutants::none());
 $paths = static fn(UnitResults $results): array => array_map(static fn(UnitResult $result): string => $result->unit()->path()->value(), iterator_to_array($results, preserve_keys: true));
@@ -22,7 +31,17 @@ it('is a unit, where its result came from and its mutants', function (): void {
     expect($result->unit())->toBe($unit)
         ->and($result->origin())->toBe(Origin::Carried)
         ->and($result->mutants())->toBe($mutants)
-        ->and($result->flaky())->toHaveCount(0);
+        ->and($result->flaky())->toHaveCount(0)
+        ->and($result->run())->toEqual(ThisRun::result());
+});
+
+it('takes a proof\'s mutants, kills and run, and keeps the run when its flaky mutants are marked', function (): void {
+    $run = Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base'));
+    $kills = ProvedKills::of(ProvedKill::of(MutantId::hash(Path::of('src/Money.php'), 'Plus', 'diff', 3), Path::of('src/Money.php'), Line::of(3), 'Plus', TestIds::none()));
+    $proof = Proof::held(Digest::sha256Of('src/Money.php'), Path::of('src/Money.php'), Mutants::none(), $kills, $run);
+    $result = UnitResult::fromProof(Unit::file(Path::of('src/Money.php')), Origin::Proved, $proof)->withFlaky(MutantIds::none());
+
+    expect([$result->origin(), $result->mutants(), $result->kills(), $result->run()])->toBe([Origin::Proved, $proof->reported(), $kills, $run]);
 });
 
 it('takes the ids of its flaky mutants, keeping everything else', function (): void {

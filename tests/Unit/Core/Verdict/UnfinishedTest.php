@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -15,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -24,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\Unfinished;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
 
 $mutant = static fn(string $file, int $line, MutantStatus $status): Mutant => Mutant::of(
     MutantId::hash(Path::of($file), 'Plus', sprintf('%d', $line), 0),
@@ -42,7 +45,7 @@ it('fails each unit with a mutant or a kill a time budget left unjudged, countin
             $mutant('src/Money.php', 2, MutantStatus::TimedOut)->unjudged(OutOfTime::BeforeRetrying),
             $mutant('src/Money.php', 3, MutantStatus::Killed),
         )),
-        UnitResult::held(Unit::file(Path::of('src/Tax.php')), Origin::Carried, Mutants::none(), ProvedKills::of($kill->unjudged(OutOfTime::BeforeMutating))),
+        UnitResult::held(Unit::file(Path::of('src/Tax.php')), Origin::Carried, Mutants::none(), ProvedKills::of($kill->unjudged(OutOfTime::BeforeMutating)), Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base'))),
         UnitResult::of(Unit::file(Path::of('src/Rate.php')), Origin::Run, Mutants::of(
             $mutant('src/Rate.php', 1, MutantStatus::Unjudged)->because(Reason::that('No test could be named.')),
         )),

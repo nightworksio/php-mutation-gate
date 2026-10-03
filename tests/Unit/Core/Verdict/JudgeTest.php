@@ -7,9 +7,13 @@ use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -20,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
+use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -29,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -48,6 +54,7 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
 
 $mutant = static fn(string $file, int $line, MutantStatus $status): Mutant => Mutant::of(
     MutantId::hash(Path::of($file), 'LessThan', sprintf('%d', $line), 0),
@@ -190,7 +197,8 @@ it('judges a mutant flaky where its unit\'s result names it so, and every other 
         ->toBe([MutantJudgement::Flaky, MutantJudgement::Killed, MutantJudgement::Survived]);
 });
 
-it('judges each kill a ledger proved killed beside the mutants it reported in full, and marks those on changed lines', function () use ($judge, $mutant): void {
+it('judges each kill a ledger proved killed beside the mutants it reported in full, marks those on changed lines, and keeps the run the proof names', function () use ($judge, $mutant): void {
+    $run = Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base'));
     $kill = static fn(int $line): ProvedKill => ProvedKill::of(
         MutantId::hash(Path::of('packages/billing/src/Invoice.php'), 'LessThan', sprintf('%d', $line), 0),
         Path::of('packages/billing/src/Invoice.php'),
@@ -203,6 +211,7 @@ it('judges each kill a ledger proved killed beside the mutants it reported in fu
         Origin::Proved,
         Mutants::of($mutant('packages/billing/src/Invoice.php', 2, MutantStatus::Survived)),
         ProvedKills::of($kill(9), $kill(10), $kill(11)),
+        $run,
     ));
     $billing = [...$judge->trees($results)][2];
     $judged = [...$billing->mutants()];
@@ -212,5 +221,19 @@ it('judges each kill a ledger proved killed beside the mutants it reported in fu
         ->and(array_map(static fn(JudgedMutant|JudgedKill $mutant): string => $mutant->mutant()::class, $judged))
         ->toBe([Mutant::class, ProvedKill::class, ProvedKill::class, ProvedKill::class])
         ->and(array_map(static fn(JudgedMutant|JudgedKill $mutant): bool => $mutant->isOnChangedLine(), $judged))->toBe([false, true, false, false])
-        ->and([...$results][0]->kills())->toEqual(ProvedKills::of($kill(9), $kill(10), $kill(11)));
+        ->and([...$results][0]->kills())->toEqual(ProvedKills::of($kill(9), $kill(10), $kill(11)))
+        ->and([...$billing->units()][0]->run())->toBe($run);
+});
+
+it('judges each mutant of a unit the whole suite judges by the tests the kill matrix says cover it, and a held unit\'s by none it can name', function () use ($judge, $results): void {
+    $matrix = KillMatrix::of(MatrixKind::FirstKiller, CoverageMap::empty()
+        ->covered(Path::of('app/Kernel.php'), Line::of(2), TestId::of('KernelTest::boots'))
+        ->covered(Path::of('app/Http/Middleware/Auth.php'), Line::of(5), TestId::of('AuthTest::checks')));
+    $tested = static fn(Judge $judging): array => array_map(
+        static fn(JudgedMutant|JudgedKill $judged): array => array_map(static fn(TestId $test): string => $test->value(), [...$judged->tests()]),
+        [...$judging->trees($results)->mutants()],
+    );
+
+    expect($tested($judge->judging($matrix)))->toBe([[], ['KernelTest::boots'], [], [], []])
+        ->and($tested($judge))->toBe([[], [], [], [], []]);
 });

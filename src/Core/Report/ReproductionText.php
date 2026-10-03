@@ -45,7 +45,7 @@ final readonly class ReproductionText
                 $recorded->proof()->run()->at()->value(),
             ),
             ...$again instanceof Mutant ? self::found($again) : [sprintf('Now: not made. %s', $again->why()->text())],
-            sprintf('Judged by: %s', self::judging($judgedBy)),
+            sprintf(MutantText::JUDGED_BY, self::judging($judgedBy)),
             sprintf(sprintf('Explain: %s', JudgedMutant::EXPLAIN), $mutant->id()->value()),
         ];
 
