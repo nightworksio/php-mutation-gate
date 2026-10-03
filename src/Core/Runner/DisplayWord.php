@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
-/** A word PHP reads in a `display_errors` value, in any case, rather than a number. */
+/**
+ * A word PHP reads in a `display_errors` value, in any case, that names where
+ * an error is printed; a switch that is on prints on standard output too.
+ */
 enum DisplayWord: string
 {
-    case On = 'on';
-    case Yes = 'yes';
-    case True = 'true';
     case Stdout = 'stdout';
     case Stderr = 'stderr';
 

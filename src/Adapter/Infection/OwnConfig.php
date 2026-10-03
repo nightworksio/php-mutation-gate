@@ -14,6 +14,7 @@ use function is_file;
 use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonObject;
@@ -64,7 +65,7 @@ final readonly class OwnConfig
     private const array PATHS = ['configDir', 'customPath'];
 
     /** The package of each static analysis tool Infection runs. */
-    private const array ANALYSERS = ['phpstan' => 'phpstan/phpstan', 'mago' => 'carthage-software/mago'];
+    private const array ANALYSERS = ['phpstan' => Package::PhpStan->value, 'mago' => Package::Mago->value];
 
     private const string FRAMEWORK = 'phpunit';
 
@@ -97,7 +98,7 @@ final readonly class OwnConfig
             }
         }
 
-        return new self(self::NAMES[0], Node::decode('{}'));
+        return new self(self::NAMES[0], Node::decode(Node::NO_KEYS));
     }
 
     /** A config file's text, refused where the gate cannot run Infection over it. */

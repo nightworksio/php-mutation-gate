@@ -68,7 +68,7 @@ final readonly class Reports implements Part
     {
         return $this->reports instanceof Listed && [...$this->reports] !== []
             ? PhpCalls::onGate(
-                'reporting',
+                GateMethod::Reporting,
                 ...array_map(
                     static fn(Report $report): string => $report->php($origin),
                     [...$this->reports],

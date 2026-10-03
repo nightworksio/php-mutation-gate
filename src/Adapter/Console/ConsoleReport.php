@@ -94,7 +94,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
             $this->output->writeln($line, OutputInterface::OUTPUT_RAW);
         }
 
-        return Written::to('the console');
+        return Written::toTheConsole();
     }
 
     /**

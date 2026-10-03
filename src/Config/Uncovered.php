@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered as UncoveredMutants;
 
 /** `uncovered`: how uncovered mutants count in a score (ADR-0003). */
 final readonly class Uncovered implements Setting
@@ -16,13 +17,13 @@ final readonly class Uncovered implements Setting
     /** As not killed. */
     public static function counted(): self
     {
-        return new self(Json::at('uncovered', 'count'));
+        return new self(Json::at('uncovered', UncoveredMutants::Count->value));
     }
 
     /** Not at all: left out of the score, and still listed. */
     public static function excluded(): self
     {
-        return new self(Json::at('uncovered', 'exclude'));
+        return new self(Json::at('uncovered', UncoveredMutants::Exclude->value));
     }
 
     public function written(): Json

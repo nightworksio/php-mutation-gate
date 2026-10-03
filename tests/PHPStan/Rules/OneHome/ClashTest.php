@@ -65,3 +65,10 @@ it('leaves out a constant named a coincidence', function (): void {
         '/src/B.php' => [[['20', 'B::MOST_SHARDS', 2, false]]],
     ], ['A::FARTHEST']))->toBe([]);
 });
+
+it('reports a constant once for a value its array holds more than once', function (): void {
+    expect(clashesAmong([
+        '/src/A.php' => [[["'pest'", 'A::RUNNERS', 3, false], ["'pest'", 'A::RUNNERS', 3, false]]],
+        '/src/B.php' => [[["'pest'", 'B::RUNNER', 7, false]]],
+    ]))->toBe(['A::RUNNERS with B::RUNNER', 'B::RUNNER with A::RUNNERS']);
+});

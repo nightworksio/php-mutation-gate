@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Composer\Names;
+use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\BuiltinPreset;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -29,19 +30,13 @@ use function sprintf;
  */
 final readonly class Detected
 {
-    /** The package whose installation makes Pest the runner. */
-    public const string PEST = 'pestphp/pest-plugin-mutate';
-
-    /** The package whose installation makes Infection the runner. */
-    public const string INFECTION = 'infection/infection';
-
     /** Where Composer links each installed package's commands, in the vendor directory, by its default bin-dir. */
     private const string BIN = 'bin';
 
     /** The package that says each preset fits, in the order they are asked about (ADR-0008). */
     private const array PRESETS = [
-        'laravel/framework' => BuiltinPreset::Laravel,
-        'symfony/framework-bundle' => BuiltinPreset::Symfony,
+        Package::Laravel->value => BuiltinPreset::Laravel,
+        Package::Symfony->value => BuiltinPreset::Symfony,
     ];
 
     public function __construct(private Directory $project, private Directory $vendor)
@@ -108,21 +103,21 @@ final readonly class Detected
 
     private function runnerIn(Installed $installed): BuiltinRunner|CannotJudge
     {
-        $pest = $installed->has(self::PEST);
-        $infection = $installed->has(self::INFECTION);
+        $pest = $installed->has(Package::PestMutate->value);
+        $infection = $installed->has(Package::Infection->value);
 
         return match (true) {
             $pest && $infection => CannotJudge::because(sprintf(
                 'Both %s and %s are installed. Choose one: set runner in the config, or pass --runner.',
-                self::PEST,
-                self::INFECTION,
+                Package::PestMutate->value,
+                Package::Infection->value,
             )),
             $pest => BuiltinRunner::Pest,
             $infection => BuiltinRunner::Infection,
             default => CannotJudge::because(sprintf(
                 'Neither %s nor %s is installed, so nothing can mutate. Install one of them.',
-                self::PEST,
-                self::INFECTION,
+                Package::PestMutate->value,
+                Package::Infection->value,
             )),
         };
     }

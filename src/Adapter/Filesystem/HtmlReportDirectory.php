@@ -58,7 +58,7 @@ final readonly class HtmlReportDirectory implements Configurable, Reporter
         return $path instanceof Invalid ? $path : new self(
             $path,
             Directory::at('.'),
-            ReportPath::at(Resources::at('mutation-testing-elements')),
+            ReportPath::at(Resources::at(Shipped::ReportElements)),
         );
     }
 

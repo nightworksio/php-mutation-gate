@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Config\BuiltinPreset;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Name;
@@ -122,9 +123,9 @@ it('reads what Composer installed, or says it lists nothing', function () use ($
     $project = Scratch::directory();
     $bare = new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)))->installed();
 
-    expect($installed instanceof Installed && $installed->has(Detected::INFECTION))->toBeTrue()
-        ->and($installed instanceof Installed && $installed->has(Detected::PEST))->toBeFalse()
-        ->and($bare instanceof Installed && $bare->has(Detected::INFECTION))->toBeFalse();
+    expect($installed instanceof Installed && $installed->has(Package::Infection->value))->toBeTrue()
+        ->and($installed instanceof Installed && $installed->has(Package::PestMutate->value))->toBeFalse()
+        ->and($bare instanceof Installed && $bare->has(Package::Infection->value))->toBeFalse();
 });
 
 /** What zero-config finds in a project with these commands in vendor/bin and these files at its root. */

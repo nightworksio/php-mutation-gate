@@ -46,6 +46,9 @@ use function sprintf;
  */
 final readonly class Chosen
 {
+    /** Where the extensions a config names come from, as a refusal names it. */
+    private const string CONFIG = 'the config file';
+
     public function __construct(private Extensions $extensions)
     {
     }
@@ -126,12 +129,12 @@ final readonly class Chosen
      *
      * @param iterable<string> $classes
      */
-    public function withExtensions(iterable $classes, string $file): Extensions|CannotJudge
+    public function withExtensions(iterable $classes): Extensions|CannotJudge
     {
         $registry = $this->extensions;
 
         foreach ($classes as $class) {
-            $extended = $this->extended($registry, $class, $file);
+            $extended = $this->extended($registry, $class);
 
             if ($extended instanceof CannotJudge) {
                 return $extended;
@@ -143,23 +146,23 @@ final readonly class Chosen
         return $registry;
     }
 
-    private function extended(Extensions $registry, string $class, string $file): Extensions|CannotJudge
+    private function extended(Extensions $registry, string $class): Extensions|CannotJudge
     {
         if (! is_a($class, Extension::class, allow_string: true)) {
             return CannotJudge::because(sprintf(
                 '%s names %s in extensions, and it is not a class that implements %s.',
-                $file,
+                self::CONFIG,
                 $class,
                 Extension::class,
             ));
         }
 
         try {
-            return $registry->merge(new $class()->extend(new Extensions(Origin::of($file))));
+            return $registry->merge(new $class()->extend(new Extensions(Origin::of(self::CONFIG))));
         } catch (Error|LogicException|RuntimeException $failed) {
             return CannotJudge::because(sprintf(
                 '%s names %s in extensions, and it failed as it started: %s',
-                $file,
+                self::CONFIG,
                 $class,
                 $failed->getMessage(),
             ));

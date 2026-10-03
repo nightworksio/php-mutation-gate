@@ -315,6 +315,37 @@ final readonly class Fixtures
                     public const string SUFFIX = '.planted';
                 }
                 PHP, 'D9 — NightWorksIO\MutationGate\Core\PlantedTwins::SUFFIX holds'),
+            Fixture::analyser('D12', 'src/Core/PlantedSpelling.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                namespace NightWorksIO\MutationGate\Core;
+
+                final readonly class PlantedSpelling
+                {
+                    public function named(string $word): string
+                    {
+                        return $word;
+                    }
+                }
+
+                final readonly class PlantedFirstSpeller
+                {
+                    public function spell(PlantedSpelling $spelling): string
+                    {
+                        return $spelling->named('planted');
+                    }
+                }
+
+                final readonly class PlantedSecondSpeller
+                {
+                    public function spell(PlantedSpelling $spelling): string
+                    {
+                        return $spelling->named('planted');
+                    }
+                }
+                PHP, 'D12 — NightWorksIO\MutationGate\Core\PlantedSpelling::named() takes $word'),
             self::inTheCore('D10', 'PlantedMixed', 'return 1;', 'mixed', 'D10 — this type says mixed'),
             Fixture::analyser('D11', 'src/Adapter/Pest/PlantedOpenProperty.php', <<<'PHP'
                 <?php

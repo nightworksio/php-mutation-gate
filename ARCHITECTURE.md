@@ -114,9 +114,10 @@ Extension, and every core type their public signatures reach (ADR-0001).
 | **D6** | No unnamed number in a method body | phpstan: own rule |
 | **D7** | Every class is final, and every class on the API surface or in the core that is not an exception is readonly | arch: reflection over every class under `src` |
 | **D8** | A closed set of strings is an enum: no `match` over three or more strings, and no constant of three or more strings that `in_array` or `array_key_exists` asks about, outside the files that translate an outside vocabulary | phpstan: own rule, over `src`; review for the rest |
-| **D9** | One value has one home: a value two classes declare as constants is declared once and referred to, unless the two only coincide | phpstan: own rule with a collector, over `src`; arch: every exemption names a file or a constant that is there |
+| **D9** | One value has one home: a value two classes declare as constants, whole or as an item of an array constant, is declared once and referred to, unless the two only coincide | phpstan: own rule with a collector, over `src`; arch: every exemption names a file or a constant that is there |
 | **D10** | `mixed` appears only in a decoder of untrusted input, which hands on typed values, or in a class whose signatures a PHP protocol fixes, which holds what PHP hands it; the files still to type are listed, and the list only shrinks | phpstan: own rule, over `src` and `tests/Support`; arch: every listed file still holds a `mixed` |
 | **D11** | A public property is readonly, but for one PHP itself writes | phpstan: own rule, with those files named in `phpstan.neon` |
+| **D12** | A parameter that two classes hand string literals takes an enum or a constant they share, but for a method whose parameters take prose, keys or an outside vocabulary; those methods are listed, and the list only shrinks | phpstan: own rule with a collector, over calls under `src` to methods declared there, which on a run over every configured path refuses a listed method no two classes need any more; arch: every listed method is there |
 
 ## H — names, size and layout
 

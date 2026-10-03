@@ -104,14 +104,18 @@ final readonly class RunnerLayer
 
         if ($this->runner instanceof Choice) {
             return PhpCalls::onGate(
-                'runner',
-                sprintf('%s%s', PhpCalls::chosen($this->runner, 'Runner', ...self::RUNNERS), implode('', $also)),
+                GateMethod::Runner,
+                sprintf(
+                    '%s%s',
+                    PhpCalls::chosen($this->runner, AdapterBuilder::Runner, ...self::RUNNERS),
+                    implode('', $also),
+                ),
             );
         }
 
-        $calls = $this->withhold === [] ? PhpCalls::none() : PhpCalls::onGate('withholding', $withheld);
+        $calls = $this->withhold === [] ? PhpCalls::none() : PhpCalls::onGate(GateMethod::Withholding, $withheld);
 
-        return $memory === '' ? $calls : $calls->and(PhpCalls::onGate('cappedAt', $memory));
+        return $memory === '' ? $calls : $calls->and(PhpCalls::onGate(GateMethod::CappedAt, $memory));
     }
 
     /** A memory cap as the builder writes it. */

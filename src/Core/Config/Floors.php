@@ -141,7 +141,7 @@ final readonly class Floors implements Part
     {
         $calls = $this->trees instanceof Listed
             ? PhpCalls::onGate(
-                'trees',
+                GateMethod::Trees,
                 ...array_map(
                     static fn(DeclaredTree $tree): string => $tree->php($origin),
                     [...$this->trees],
@@ -150,7 +150,10 @@ final readonly class Floors implements Part
             : PhpCalls::none();
         $calls = $this->newCode instanceof Floor
             ? $calls->and(
-                PhpCalls::onGate('newCode', sprintf('Floor::of(%s)', PhpCalls::literal($this->newCode->written()))),
+                PhpCalls::onGate(
+                    GateMethod::NewCode,
+                    sprintf('Floor::of(%s)', PhpCalls::literal($this->newCode->written())),
+                ),
             )
             : $calls;
 

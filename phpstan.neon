@@ -525,7 +525,6 @@ services:
                 - src/Adapter/Infection/Families.php # Infection's mutator names
                 - src/Adapter/Infection/OwnConfig.php # infection.json's sections
                 - src/Adapter/Pest/Families.php # Pest's mutator names
-                - src/Core/Runner/Opcache.php # PHP's ini switches, as the Pest plugin and doctor's probe read them
                 - src/Core/File/Glob.php # the glob grammar
                 - src/Core/Assertion/AssertionTable.php # PHPUnit's assertions and Pest's expectations
             # Closed sets still to become enums, by the builder whose area holds them.
@@ -549,7 +548,8 @@ services:
                     - KILO # bytes in a kilobyte, as PHP counts one
                 'NightWorksIO\MutationGate\Core\Runner\DisplayWord':
                     - Stdout # PHP's display_errors value, not init's --stdout option
-                    - 'True' # a word PHP reads in display_errors, not a JSON value
+                'NightWorksIO\MutationGate\Core\Runner\OnSwitch':
+                    - 'True' # a word PHP reads as on, not a JSON value
                 'NightWorksIO\MutationGate\Core\Runner\ErrorDisplay':
                     - STDERR # PHP's number for display_errors=stderr
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
@@ -593,6 +593,30 @@ services:
                     - PER_BYTE # bytes of memory per byte of ledger
                 'NightWorksIO\MutationGate\Adapter\Infection\OwnConfig':
                     - FRAMEWORK # Infection's name for PHPUnit
+                    - TOOLS # infection.json's sections, not the analysers the gate runs
+                'NightWorksIO\MutationGate\Adapter\Infection\Invocation':
+                    - CONFIG # the file the gate writes and names with --configuration, not one Infection looks for
+                'NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug':
+                    - CHEAP # Xdebug's modes, not the Infection adapter's directory
+                'NightWorksIO\MutationGate\Adapter\Pest\Listing':
+                    - NOT_THE_SUITES # PHPUnit's and Pest's group names, not a mutator set
+                'NightWorksIO\MutationGate\Adapter\Pest\Registration':
+                    - WITH # Pest's method that hands a test its dataset, not the PHP builder's
+                'NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Choice':
+                    - BOUND # test files a fallback holds
+                'NightWorksIO\MutationGate\Cli\Command\CiRequest':
+                    - CI # an option of init, not the shipped CI templates
+                'NightWorksIO\MutationGate\Core\Assertion\AssertionTable':
+                    - PHPUNIT_CASE # PHPUnit's assertions
+                    - PEST_SUBJECTS # Pest's expectations
+                'NightWorksIO\MutationGate\Core\Composer\GateEntry':
+                    - EXTENSIONS # a key under a manifest's extra, not the PHP builder's method
+                'NightWorksIO\MutationGate\Core\Composer\Installed':
+                    - ORIGINS # Composer's kinds of source reference
+                'NightWorksIO\MutationGate\Core\Report\Problems':
+                    - GROUPS # groups of a problem matcher's pattern
+                'NightWorksIO\MutationGate\Core\Report\BadgeColors':
+                    - DEFAULTS # scores in percent
                 'NightWorksIO\MutationGate\Core\Test\TestsDirectory':
                     - CONVENTIONAL # the tests' directory
                 'NightWorksIO\MutationGate\Core\Hold\HotPaths':
@@ -682,6 +706,7 @@ services:
                     - DEFAULT # the default command
                 'NightWorksIO\MutationGate\Core\Report\Stryker':
                     - LANGUAGE # Stryker's name for the language
+                    - THRESHOLDS # Stryker's own scores in percent
                 'NightWorksIO\MutationGate\Core\Report\SavingsText':
                     - DAYS # days the savings count
                 'NightWorksIO\MutationGate\Cli\Command\FlowOptions':
@@ -718,6 +743,62 @@ services:
                     - PACKAGE # owner: flows (ThisPackage::COMPOSER)
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\Project':
                     - OWN # owner: phpunit runner (BuiltinRunner::PhpUnit)
+        tags:
+            - phpstan.rules.rule
+    # D12, with the methods whose parameters take prose, a key or an outside
+    # vocabulary from any class, a list that only shrinks.
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Collectors\LiteralArguments
+        tags:
+            - phpstan.collector
+    -
+        class: NightWorksIO\MutationGate\PHPStan\Rules\NoSharedLiteralArgumentRule
+        arguments:
+            analysedPaths: %analysedPaths%
+            configuredPaths: %analysedPathsFromConfig%
+            allowIn:
+                'NightWorksIO\MutationGate\Adapter\Filesystem\ReportPath':
+                    - ofFile # prose: what a message calls the report
+                'NightWorksIO\MutationGate\Adapter\GitHub\Answer':
+                    - text # keys: GitHub's API answers
+                    - number # keys: GitHub's API answers
+                    - items # keys: GitHub's API answers
+                'NightWorksIO\MutationGate\Core\CannotJudge':
+                    - because # prose: why a verdict cannot be given
+                'NightWorksIO\MutationGate\Core\Change\CannotTell':
+                    - because # prose: why what changed cannot be told
+                'NightWorksIO\MutationGate\Core\Ci\Variables':
+                    - has # vocabulary: a CI's environment variables
+                    - valueOf # vocabulary: a CI's environment variables
+                'NightWorksIO\MutationGate\Core\Config\Definition\Field':
+                    - optional # keys: a config's settings
+                    - required # keys: a config's settings
+                    - section # keys: a config's sections
+                'NightWorksIO\MutationGate\Core\Config\Definition\MisreadSetting':
+                    - as # prose: the type a setting was read as
+                'NightWorksIO\MutationGate\Core\Config\Definition\Text':
+                    - of # prose: what a setting holds
+                'NightWorksIO\MutationGate\Core\Config\Key':
+                    - of # keys: an adapter's options
+                'NightWorksIO\MutationGate\Core\Config\Problem':
+                    - at # keys and prose: a setting's path, and what is wrong with it
+                'NightWorksIO\MutationGate\Core\Format\Json':
+                    - at # keys: a setting's path
+                'NightWorksIO\MutationGate\Core\Format\Member':
+                    - of # keys and vocabulary: a JSON key, and JSON Schema's words
+                    - unlessEmpty # keys: a config's sections
+                'NightWorksIO\MutationGate\Core\Format\Node':
+                    - field # keys: a JSON text's
+                    - mismatch # prose: what a place should hold
+                'NightWorksIO\MutationGate\Core\Format\NotInShape':
+                    - at # prose: what a place should hold
+                'NightWorksIO\MutationGate\Core\Runner\Withheld':
+                    - of # vocabulary: a CI's secret variables
+                'NightWorksIO\MutationGateDefault\Calls':
+                    - unwrapped # vocabulary: PHP's functions
+                    - renamed # vocabulary: PHP's functions
+                'NightWorksIO\MutationGateDefault\DefaultSet':
+                    - mutator # names: each mutator's own, which it alone spells
         tags:
             - phpstan.rules.rule
     # D6

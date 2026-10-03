@@ -22,7 +22,6 @@ use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 
 use function sprintf;
-use function str_contains;
 use function str_ends_with;
 
 /**
@@ -64,7 +63,7 @@ final readonly class NoStringClosedSetRule implements Rule
     /** @return list<IdentifierRuleError> */
     public function processNode(Node $node, Scope $scope): array
     {
-        if (! str_contains($scope->getFile(), '/src/') || str_contains($scope->getFile(), '/tests/') || $this->translatesAVocabulary($scope)) {
+        if (! OwnSource::holds($scope->getFile()) || $this->translatesAVocabulary($scope)) {
             return [];
         }
 

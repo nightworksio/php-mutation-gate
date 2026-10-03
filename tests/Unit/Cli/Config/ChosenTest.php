@@ -151,25 +151,25 @@ it('refuses a class whose named constructor builds something else', function () 
 
 it('loads the extensions a config names, as coming from the config file', function (): void {
     $registry = new Chosen(new Extensions(Origin::of('nightworksio/mutation-gate')))
-        ->withExtensions([ExtensionFake::class], 'mutation-gate.json');
+        ->withExtensions([ExtensionFake::class]);
 
     expect($registry instanceof Extensions ? Lookup::in($registry)->runner(Name::of('fake'), Options::none()) : $registry)
         ->toEqual(RunnerFake::ofTheFixture());
 });
 
 it('refuses an extension a config names that fails as it starts', function () use ($classes): void {
-    expect($classes()->withExtensions([ExtensionThatCannotStart::class, ExtensionFake::class], 'mutation-gate.json'))
+    expect($classes()->withExtensions([ExtensionThatCannotStart::class, ExtensionFake::class]))
         ->toEqual(CannotJudge::because(sprintf(
-            'mutation-gate.json names %s in extensions, and it failed as it started: %s',
+            'the config file names %s in extensions, and it failed as it started: %s',
             ExtensionThatCannotStart::class,
             'the settings file of this extension is missing',
         )));
 });
 
 it('refuses an extension a config names that is not one', function () use ($classes): void {
-    expect($classes()->withExtensions([RunnerFake::class, ExtensionFake::class], 'mutation-gate.json'))
+    expect($classes()->withExtensions([RunnerFake::class, ExtensionFake::class]))
         ->toEqual(CannotJudge::because(sprintf(
-            'mutation-gate.json names %s in extensions, and it is not a class that implements %s.',
+            'the config file names %s in extensions, and it is not a class that implements %s.',
             RunnerFake::class,
             Extension::class,
         )));
@@ -179,9 +179,9 @@ it('refuses an extension a config names that registers what another package does
     $discovered = new Extensions(Origin::of('acme/one'))
         ->withRunner(Name::of('fake'), static fn(): Runner => RunnerFake::ofTheFixture());
 
-    expect(new Chosen($discovered)->withExtensions([ExtensionFake::class], 'mutation-gate.json'))
+    expect(new Chosen($discovered)->withExtensions([ExtensionFake::class]))
         ->toEqual(CannotJudge::because(
-            'Two packages register a runner named "fake": acme/one and mutation-gate.json. '
+            'Two packages register a runner named "fake": acme/one and the config file. '
             . 'Remove one of the packages, or run with --no-extensions.',
         ));
 });

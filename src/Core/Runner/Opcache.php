@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
-use function in_array;
 use function is_string;
 use function mb_strtolower;
 
@@ -15,8 +14,11 @@ use function mb_strtolower;
  */
 final readonly class Opcache
 {
-    /** How PHP writes an ini switch that is on. */
-    private const array ON = ['1', 'on', 'true', 'yes'];
+    /** PHP's switch of opcache for the command line. */
+    public const string CLI = 'opcache.enable_cli';
+
+    /** PHP's setting of the directory opcache keeps its file cache in, empty for none. */
+    public const string FILE_CACHE = 'opcache.file_cache';
 
     private function __construct(private bool $on)
     {
@@ -25,7 +27,7 @@ final readonly class Opcache
     /** As a PHP sets `opcache.enable_cli` and `opcache.file_cache`, each false where opcache is not loaded. */
     public static function of(string|false $cli, string|false $fileCache): self
     {
-        $cached = is_string($cli) && in_array(mb_strtolower($cli), self::ON, strict: true)
+        $cached = is_string($cli) && OnSwitch::tryFrom(mb_strtolower($cli)) instanceof OnSwitch
             || is_string($fileCache) && $fileCache !== '';
 
         return new self($cached);

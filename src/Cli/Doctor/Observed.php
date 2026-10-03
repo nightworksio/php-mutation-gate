@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -63,8 +64,8 @@ final readonly class Observed
             ->withFiles(Files::in($this->project)->of($settings));
         $installed = $this->detected->installed();
         $observed = $installed instanceof Installed ? $observed->withRunners(InstalledRunners::of(
-            pest: $installed->has(Detected::PEST),
-            infection: $installed->has(Detected::INFECTION),
+            pest: $installed->has(Package::PestMutate->value),
+            infection: $installed->has(Package::Infection->value),
             chosen: $this->effective->choosesRunner($given),
         )) : $observed;
 

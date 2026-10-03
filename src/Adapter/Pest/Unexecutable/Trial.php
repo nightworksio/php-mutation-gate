@@ -22,12 +22,15 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+
+use function sprintf;
 
 /**
  * Runs the tests that judge a mutant of a line that is not executable, with
@@ -47,7 +50,7 @@ final class Trial
 
     private const string NEVER = 'never loaded';
 
-    private const string OPCACHE = 'opcache.enable_cli or opcache.file_cache on';
+    private const string OPCACHE = '%s or %s on';
 
     /** @var array<string, bool> whether each set of test files passes on its own, by their paths */
     private array $alone = [];
@@ -119,7 +122,9 @@ final class Trial
         try {
             return match (true) {
                 $seen->field('before')->boolean() => Outcome::unjudged(self::BEFORE),
-                $seen->field('opcache')->boolean() => Outcome::unjudged(self::OPCACHE),
+                $seen->field('opcache')->boolean() => Outcome::unjudged(
+                    sprintf(self::OPCACHE, Opcache::CLI, Opcache::FILE_CACHE),
+                ),
                 ! $seen->field('loaded')->boolean() => Outcome::unjudged(self::NEVER),
                 $passed => Outcome::survived(),
                 default => Outcome::killed(),

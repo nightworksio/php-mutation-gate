@@ -27,11 +27,11 @@ final readonly class PhpstanNeon
     }
 
     /**
-     * The constants a rule's argument names by class, each as `Class::NAME`.
+     * The constants or methods a rule's argument names by class, each as `Class::member`.
      *
      * @return list<string>
      */
-    public static function constants(string $rule, string $argument): array
+    public static function members(string $rule, string $argument): array
     {
         $named = [];
 

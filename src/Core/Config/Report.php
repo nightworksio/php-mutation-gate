@@ -60,7 +60,7 @@ final readonly class Report
     /** This entry as the builder's `Report` writes it. */
     public function php(PathOrigin $origin): string
     {
-        $named = PhpCalls::chosen($this->reporter, 'Report', ...self::NAMED);
+        $named = PhpCalls::chosen($this->reporter, AdapterBuilder::Report, ...self::NAMED);
         $path = $this->path instanceof Path ? [PhpCalls::literal($origin->written($this->path))] : [];
 
         return $path !== [] && $named === sprintf('Report::%s()', $this->reporter->use()->value())

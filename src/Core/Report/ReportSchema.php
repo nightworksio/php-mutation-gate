@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
@@ -76,7 +77,7 @@ final readonly class ReportSchema
 
     private const array SECONDS = ['type' => 'number', 'minimum' => 0];
 
-    private const array PERCENT = ['type' => 'number', 'minimum' => 0, 'maximum' => 100];
+    private const array PERCENT = ['type' => 'number', 'minimum' => 0, 'maximum' => Percentage::MOST];
 
     private const array FLAG = ['type' => 'boolean'];
 

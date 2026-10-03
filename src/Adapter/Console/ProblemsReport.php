@@ -77,7 +77,7 @@ final readonly class ProblemsReport implements Configurable, Reporter
         $this->output->write($problems, options: OutputInterface::OUTPUT_RAW);
         $this->output->writeln(Problems::JUDGED, OutputInterface::OUTPUT_RAW);
 
-        return Written::to('the console');
+        return Written::toTheConsole();
     }
 
     /** @return array<string, Contents> each mutated file that can be read, by its path */

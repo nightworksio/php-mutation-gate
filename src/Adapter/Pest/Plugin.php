@@ -73,7 +73,7 @@ final class Plugin implements Bootable, HandlesArguments
     public function finish(): void
     {
         if ($this->guard instanceof Guard) {
-            $opcache = Opcache::of(ini_get('opcache.enable_cli'), ini_get('opcache.file_cache'));
+            $opcache = Opcache::of(ini_get(Opcache::CLI), ini_get(Opcache::FILE_CACHE));
             $this->guard->write(get_included_files(), $opcache);
         }
 
