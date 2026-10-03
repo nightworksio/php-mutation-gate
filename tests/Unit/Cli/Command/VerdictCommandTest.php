@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Cli\Command\Printing;
 use NightWorksIO\MutationGate\Cli\Command\RunCommand;
 use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
+use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
@@ -15,16 +16,20 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
+use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
+use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 afterEach(function (): void {
@@ -75,6 +80,26 @@ it('judges the shards\' results, says what it wrote, prints the verdict and exit
 })->with([
     'below its floor' => [50.0, 1, 'src scores 40.00%, below its floor of 50.00%.'],
     'at its floor' => [40.0, 0, 'src scores 40.00% against its floor of 40.00%.'],
+]);
+
+it('judges the results held to the floors it is named, showing a tree it does not hold', function (
+    HeldTo $heldTo,
+    Judgement $judgement,
+) use ($composed, $ran): void {
+    $project = FlowCommands::project();
+    $composition = $composed($project, 50.0);
+    $ran($composition, '.mutation-gate/results');
+    $flow = $composition->compose(new ArrayInput([]));
+    $plan = $flow instanceof Composed ? VerdictCommand::planIn($flow, Path::of('.mutation-gate/plan.json')) : $flow;
+    $judged = $flow instanceof Composed && $plan instanceof Plan
+        ? VerdictCommand::judgedOf($flow, $plan, Path::of('.mutation-gate/results'), $heldTo)
+        : $plan;
+
+    expect($judged instanceof Judged ? $judged->verdict->judgement() : $judged)->toBe($judgement)
+        ->and($judged instanceof Judged ? count($judged->verdict->trees()) : $judged)->toBe(1);
+})->with([
+    'its trees' => [HeldTo::Trees, Judgement::Failed],
+    'its new code alone' => [HeldTo::NewCode, Judgement::Passed],
 ]);
 
 it('reads the plan and the results where it is told to', function () use ($composed, $ran): void {

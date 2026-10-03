@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Push\Pushes;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 
 use function sprintf;
 use function stream_get_contents;
@@ -178,7 +179,7 @@ final readonly class PrePushCommand
 
         return match (true) {
             $ran instanceof CannotJudge => $ran,
-            $plan instanceof Plan => VerdictCommand::judgedOf($composed, $plan, $results),
+            $plan instanceof Plan => VerdictCommand::judgedOf($composed, $plan, $results, HeldTo::TreesAndNewCode),
         };
     }
 

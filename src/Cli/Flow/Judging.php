@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -41,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Carrying;
 use NightWorksIO\MutationGate\Core\Verdict\ChangesSince;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
+use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
@@ -86,6 +88,7 @@ final readonly class Judging
         private Settings $settings,
         private Setup $setup,
         private Reporting $reporting,
+        private HeldTo|NotGiven $heldTo = new NotGiven(),
     ) {
     }
 
@@ -282,13 +285,14 @@ final readonly class Judging
         KillMatrix $matrix,
     ): Verdict {
         $pullRequest = $plan->runOn()->isPullRequest();
-        $newCode = $pullRequest
+        $heldTo = HeldTo::named($this->heldTo, pullRequest: $pullRequest);
+        $newCode = $heldTo->holdsNewCode()
             ? $judge->newCode($verdicts, $this->settings->floors()->newCode())
             : NewCodeVerdicts::none();
         $failures = $pullRequest
             ? $this->pullRequestFailures($lowered, $verdicts)->and($missed)
             : $missed;
-        return Verdict::of($verdicts)
+        return Verdict::of($verdicts, $heldTo)
             ->withNewCode($newCode)
             ->withReach($plan->considered()->reach())
             ->withMatrix($matrix)

@@ -28,11 +28,15 @@ final readonly class Verdict
         private KillMatrix $matrix,
         private RunAccount $account,
         private Obstacles $obstacles,
+        private HeldTo $heldTo,
     ) {
     }
 
-    /** A verdict over these trees, with no new-code set, no reach, no warning and no other failure. */
-    public static function of(TreeVerdicts $trees): self
+    /**
+     * A verdict over these trees, held to the floors this says, with no
+     * new-code set, no reach, no warning and no other failure.
+     */
+    public static function of(TreeVerdicts $trees, HeldTo $heldTo = HeldTo::TreesAndNewCode): self
     {
         return new self(
             $trees,
@@ -44,6 +48,7 @@ final readonly class Verdict
             matrix: KillMatrix::none(),
             account: RunAccount::none(),
             obstacles: Obstacles::none(),
+            heldTo: $heldTo,
         );
     }
 
@@ -146,7 +151,8 @@ final readonly class Verdict
 
     /**
      * Cannot judge when anything kept the run from judging; failed when any
-     * tree or new-code set failed, or anything else did; passed otherwise.
+     * tree it holds or new-code set failed, or anything else did; passed
+     * otherwise.
      */
     public function judgement(): Judgement
     {
@@ -154,7 +160,7 @@ final readonly class Verdict
             return Judgement::CannotJudge;
         }
 
-        $sets = [...$this->trees, ...$this->newCode];
+        $sets = $this->heldTo->holdsTrees() ? [...$this->trees, ...$this->newCode] : [...$this->newCode];
 
         foreach ($sets as $set) {
             if ($set->judgement() === Judgement::Failed) {
