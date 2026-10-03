@@ -7,12 +7,14 @@ namespace NightWorksIO\MutationGate\Core\Hint;
 use function array_filter;
 use function array_find_key;
 use function array_map;
+use function array_pop;
 use function array_reverse;
 use function array_slice;
 use function array_values;
 use function count;
 use function explode;
 use function implode;
+use function in_array;
 use function is_int;
 use function mb_strcut;
 use function mb_substr;
@@ -44,8 +46,11 @@ final readonly class Change
         T_DOUBLE_ARROW, T_BOOLEAN_AND, T_BOOLEAN_OR, T_LOGICAL_AND, T_LOGICAL_OR, T_LOGICAL_XOR, T_COALESCE,
         T_PLUS_EQUAL, T_MINUS_EQUAL, T_MUL_EQUAL, T_DIV_EQUAL, T_CONCAT_EQUAL, T_MOD_EQUAL, T_POW_EQUAL,
         T_AND_EQUAL, T_OR_EQUAL, T_XOR_EQUAL, T_SL_EQUAL, T_SR_EQUAL, T_COALESCE_EQUAL,
-        T_RETURN, T_IF, T_ELSEIF, T_WHILE, T_FOR, T_FOREACH, T_MATCH, T_ECHO, T_PRINT, T_THROW, T_YIELD, T_NEW,
+        T_RETURN, T_ELSE, T_DO, T_ECHO, T_PRINT, T_THROW, T_YIELD,
     ];
+
+    /** What a condition in brackets follows, whose closing bracket an expression after it stops at. */
+    private const array CONDITIONED = [T_IF, T_ELSEIF, T_WHILE, T_FOR, T_FOREACH];
 
     /** What opens a bracket. */
     private const array OPENS = ['(', '['];
@@ -54,9 +59,10 @@ final readonly class Change
     private const array CLOSES = [')', ']'];
 
     /**
-     * @param list<PhpToken> $before the original's tokens
-     * @param int            $from   where the tokens that differ begin
-     * @param int            $to     where they end, exclusive
+     * @param list<PhpToken> $before     the original's tokens
+     * @param int            $from       where the tokens that differ begin
+     * @param int            $to         where they end, exclusive
+     * @param list<int>      $conditions where a bracket closes a control structure's condition
      */
     private function __construct(
         private string $code,
@@ -65,6 +71,7 @@ final readonly class Change
         private array $before,
         private int $from,
         private int $to,
+        private array $conditions,
     ) {
     }
 
@@ -82,7 +89,7 @@ final readonly class Change
             array_slice(array_reverse($after), 0, count($after) - $same),
         );
 
-        return new self($code, $removed, $added, $before, $same, count($before) - $tail);
+        return new self($code, $removed, $added, $before, $same, count($before) - $tail, self::conditionsIn($before));
     }
 
     /** The lines the mutant removed, joined and trimmed; nothing where it only added. */
@@ -177,6 +184,32 @@ final readonly class Change
     }
 
     /**
+     * Where a bracket closes a control structure's condition: one whose
+     * opening bracket follows the keyword. Each bracket is matched with the
+     * last one still open, so a bracket left unmatched closes nothing.
+     *
+     * @param  list<PhpToken> $tokens
+     * @return list<int>
+     */
+    private static function conditionsIn(array $tokens): array
+    {
+        $open = [];
+        $conditions = [];
+
+        foreach ($tokens as $at => $token) {
+            if ($token->is(self::OPENS)) {
+                $open[] = $at > 0 && $tokens[$at - 1]->is(self::CONDITIONED);
+            }
+
+            if ($token->is(self::CLOSES) && array_pop($open) === true) {
+                $conditions[] = $at;
+            }
+        }
+
+        return $conditions;
+    }
+
+    /**
      * How many tokens two lists begin with alike.
      *
      * @param list<PhpToken> $one
@@ -213,7 +246,10 @@ final readonly class Change
         return $segments[count($segments) - 1];
     }
 
-    /** Whether the expression ends before this token, reading leftward: an open bracket or a stop outside brackets. */
+    /**
+     * Whether the expression ends before this token, reading leftward: an open bracket, a stop outside brackets, or
+     * the bracket that closes the condition of a control structure the expression is the body of.
+     */
     private function endsLeftward(int $at): bool
     {
         $depth = 0;
@@ -223,7 +259,9 @@ final readonly class Change
             $depth -= $this->before[$token]->is(self::CLOSES) ? 1 : 0;
         }
 
-        return $depth > 0 || ($depth === 0 && $this->before[$at]->is(self::STOPS));
+        return $depth > 0
+            || ($depth === 0 && $this->before[$at]->is(self::STOPS))
+            || in_array($at, $this->conditions, strict: true);
     }
 
     /** Whether the expression ends at this token, reading rightward: a close bracket or a stop outside brackets. */
