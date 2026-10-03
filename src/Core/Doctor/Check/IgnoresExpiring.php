@@ -8,6 +8,7 @@ use DateTimeImmutable;
 
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Config\Expiry;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
@@ -22,9 +23,6 @@ use function sprintf;
 /** Ignores that have expired, or expire within 14 days (ADR-0008, decision 4). */
 final readonly class IgnoresExpiring
 {
-    /** How many days ahead an ignore's end is said, as the PR comment names it in advance. */
-    private const int NOTICE = 14;
-
     private const string ENTRY = 'ignores.entries[%d] %s %s';
 
     private const string WHY
@@ -43,21 +41,25 @@ final readonly class IgnoresExpiring
             return Findings::none();
         }
 
-        $today = Day::on($now);
-        $latest = Day::on($now->modify(sprintf('+%d days', self::NOTICE)));
         $found = [];
 
         foreach ($settings->ignores()->entries() as $index => $entry) {
             $expires = $entry->expires();
 
-            if (! $expires instanceof Day || $latest->isBefore($expires)) {
+            if (! $expires instanceof Day) {
+                continue;
+            }
+
+            $expiry = Expiry::of($expires, $now);
+
+            if ($expiry === Expiry::Lasting) {
                 continue;
             }
 
             $found[] = sprintf(
                 self::ENTRY,
                 $index,
-                $expires->isBefore($today) ? 'expired on' : 'expires on',
+                $expiry === Expiry::Expired ? 'expired on' : 'expires on',
                 $expires->value(),
             );
         }

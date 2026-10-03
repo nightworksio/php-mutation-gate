@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\BaseScores;
+use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 
@@ -86,6 +87,7 @@ final readonly class ScoreChanging
             $reach,
             Uncovered::from($this->settings->floors()->uncovered()->value),
             $this->settings->triage()->timeouts(),
+            Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now()),
         );
         $verdicts = BaseScores::of($judge, $trees, $inventory->units, $defaultBranch)->compare($judge->trees(
             $proving->proved()->and($considering->carried())->and($completing->carried()),

@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Cli\Flow\Keying;
 use NightWorksIO\MutationGate\Cli\Flow\ScoreChanging;
+use NightWorksIO\MutationGate\Config\Ignore;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -109,6 +110,22 @@ it('carries the newest result for a reached unit with no local one, and counts i
 
     expect(new ScoreChanging($adapters, Flows::settings(), Flows::setup())->text())->toBe(
         "src scores 40.00%, below its floor of 50.00%. That is ±0.00 against the base.\n"
+        . "1 unit unjudged since your last run: mutation-gate\n"
+        . 'The scores include unstaged changes in 1 file.',
+    );
+});
+
+it('scores each reached tree with the survivors the config ignores left out', function () use ($feature, $onMain): void {
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), $onMain('src/Money.php', 'src/Held.php'));
+    $adapters = Flows::adapters(Flows::project(), [], $store, ...$feature());
+    $settings = Flows::settings(
+        Ignore::mutant('49e02fb39669', 'The bound is never reached'),
+        Ignore::mutator('arithmetic', 'src/Held.php', 'Both sums are the same', '2026-09-29'),
+    );
+
+    expect(new ScoreChanging($adapters, $settings, Flows::setup())->text())->toBe(
+        "src scores 50.00% against its floor of 50.00%. That is ±0.00 against the base.\n"
         . "1 unit unjudged since your last run: mutation-gate\n"
         . 'The scores include unstaged changes in 1 file.',
     );

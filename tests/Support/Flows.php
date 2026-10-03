@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
 use NightWorksIO\MutationGate\Config\Gate;
+use NightWorksIO\MutationGate\Config\Ignore;
 use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
 use NightWorksIO\MutationGate\Config\Setting;
@@ -97,7 +98,7 @@ final readonly class Flows
      * The settings of a config the flows run on: the fake runner, unless one
      * of these parts names another, and these parts besides.
      */
-    public static function settings(ConfiguredRunner|Report|NewCodeFloor|Setting ...$parts): Settings
+    public static function settings(ConfiguredRunner|Report|NewCodeFloor|Ignore|Setting ...$parts): Settings
     {
         $gate = Gate::configure()->runner(ConfiguredRunner::uses('fake'));
         $reports = [];
@@ -108,6 +109,7 @@ final readonly class Flows
                 $part instanceof ConfiguredRunner => $gate->runner($part),
                 $part instanceof Report => $gate->reporting(...$reports),
                 $part instanceof NewCodeFloor => $gate->newCode($part),
+                $part instanceof Ignore => $gate->ignoring($part),
                 default => $gate->with($part),
             };
         }

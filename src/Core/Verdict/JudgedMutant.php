@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -94,6 +95,21 @@ final readonly class JudgedMutant
     {
         return $this->judgement === MutantJudgement::Survived
             ? clone($this, ['judgement' => MutantJudgement::Equivalent])
+            : $this;
+    }
+
+    /**
+     * This mutant, left out of the score by an ignore with this reason where
+     * it is a survivor or uncovered; a mutant judged otherwise stays as it was
+     * (ADR-0008, decision 4).
+     */
+    public function ignoredBecause(Reason $reason): self
+    {
+        return $this->judgement->asksForATest()
+            ? clone($this, [
+                'mutant' => $this->mutant->because($reason),
+                'judgement' => MutantJudgement::Ignored,
+            ])
             : $this;
     }
 

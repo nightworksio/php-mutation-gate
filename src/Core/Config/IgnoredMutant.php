@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Time\Day;
 
@@ -36,6 +37,16 @@ final readonly class IgnoredMutant implements Ignored
     public function expires(): Day|Absent
     {
         return $this->expires;
+    }
+
+    public function matches(Mutant $mutant): bool
+    {
+        return $mutant->id()->value() === $this->mutant->value();
+    }
+
+    public function named(): string
+    {
+        return $this->mutant->value();
     }
 
     public function written(PathOrigin $origin): Json

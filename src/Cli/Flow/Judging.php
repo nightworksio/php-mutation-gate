@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Carrying;
 use NightWorksIO\MutationGate\Core\Verdict\ChangesSince;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
+use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\LeftUnjudged;
@@ -169,12 +170,14 @@ final readonly class Judging
             $ledgers->own()->proofs(),
         );
         $uncovered = Uncovered::from($this->settings->floors()->uncovered()->value);
+        $ignoring = Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now());
         $judge = Judge::of(
             $trees,
             $baseline,
             $this->reachOf($plan, $trees),
             $uncovered,
             $this->settings->triage()->timeouts(),
+            $ignoring,
         );
         $fresh = Agreement::checked(
             $results->units(),
@@ -206,16 +209,21 @@ final readonly class Judging
         }
 
         $refused = count($unfloored) > 0 && $this->adapters->environment->inCi();
+        $unrun = $this->missed($results->misses())->and($unjudged->failures());
         $verdict = $this->verdictOf(
             $plan,
             Lowering::against($committed, $baseline, $trees),
-            $this->missed($results->misses())
-                ->and($unjudged->failures())
+            $unrun
                 ->and(Unfinished::failures($fresh->and($unjudged->results())))
-                ->and($refused ? $this->unfloored($baseline, $verdicts) : Failures::none()),
+                ->and($refused ? $this->unfloored($baseline, $verdicts) : Failures::none())
+                ->and(count($unrun) === 0 ? $ignoring->stale($verdicts) : Failures::none()),
             $judge,
             $verdicts,
-            $ledgers->unread()->and($results->warnings())->and($results->checks()->warnings())->and($since->warnings()),
+            $ledgers->unread()
+                ->and($results->warnings())
+                ->and($results->checks()->warnings())
+                ->and($since->warnings())
+                ->and($ignoring->warnings()),
             $map,
             $matrix,
         );
