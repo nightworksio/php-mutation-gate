@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
+use NightWorksIO\MutationGate\Core\Order\RankedFunction;
+use NightWorksIO\MutationGate\Core\Order\RankedMutant;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -115,35 +117,37 @@ final readonly class KillersRecord
     /** @param list<string> $tests */
     private static function mutantsIn(Node $section, array $tests): KillHistory
     {
-        $history = KillHistory::none();
+        $ranked = [];
 
         foreach (self::entriesOf($section->field(self::MUTANTS)) as $id => $pairs) {
             $mutant = MutantId::parse(sprintf('%s', $id));
             $ranking = self::rankingIn($pairs, $tests);
-            $history = $mutant instanceof MutantId && count($ranking) > 0
-                ? $history->withMutant($mutant, $ranking)
-                : $history;
+            if ($mutant instanceof MutantId && count($ranking) > 0) {
+                $ranked[] = RankedMutant::of($mutant, $ranking);
+            }
         }
 
-        return $history;
+        return KillHistory::none()->withMutants(...$ranked);
     }
 
     /** @param list<string> $tests */
     private static function functionsIn(Node $functions, array $tests, KillHistory $history): KillHistory
     {
+        $ranked = [];
+
         foreach (self::entriesOf($functions) as $file => $named) {
             foreach (self::entriesOf($named) as $name => $pairs) {
                 $function = $file === ''
                     ? Nameless::code()
                     : Enclosing::of(Path::of(sprintf('%s', $file)), sprintf('%s', $name));
                 $ranking = self::rankingIn($pairs, $tests);
-                $history = $function instanceof Enclosing && count($ranking) > 0
-                    ? $history->withFunction($function, $ranking)
-                    : $history;
+                if ($function instanceof Enclosing && count($ranking) > 0) {
+                    $ranked[] = RankedFunction::of($function, $ranking);
+                }
             }
         }
 
-        return $history;
+        return $history->withFunctions(...$ranked);
     }
 
     /**
