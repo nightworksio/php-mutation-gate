@@ -59,7 +59,8 @@ final readonly class MarkdownItems
     /**
      * Mutants as a table: where, mutator, judgement, why and how to
      * reproduce; a cluster as one row, with its size where the mutator goes
-     * and its stub command.
+     * and its stub command. With none of them shown, only how many were left
+     * out, and nothing where there were none.
      *
      * @param  list<JudgedMutant|Cluster> $items
      * @return list<string>
@@ -67,7 +68,7 @@ final readonly class MarkdownItems
     public static function table(array $items, int $of): array
     {
         if ($items === []) {
-            return [];
+            return self::more($of);
         }
 
         $rows = ['| Mutant | Mutator | Judgement | What the tests miss | Command |', '|---|---|---|---|---|'];

@@ -99,7 +99,10 @@ final readonly class Markdown
         ]);
     }
 
-    /** The summary, with what the default branch saved since this instant under the headline. */
+    /**
+     * The summary, with what the default branch saved since this instant under the headline: within the bytes one
+     * step may write, showing half as many survivors each time until it fits, none at the last.
+     */
     public static function summary(Verdict $verdict, string $run, Instant $since): string
     {
         $overview = Overview::of($verdict);
@@ -117,8 +120,9 @@ final readonly class Markdown
                 ),
                 ...$tail,
             ]);
+            $tried = $shown;
             $shown = intdiv($shown, 2);
-        } while (Bytes::length($summary) > self::SUMMARY_BYTES && $shown > 0);
+        } while (Bytes::length($summary) > self::SUMMARY_BYTES && $tried > 0);
 
         return $summary;
     }

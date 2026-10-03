@@ -18,11 +18,19 @@ use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
@@ -152,6 +160,31 @@ it('keeps a step summary of exactly the mebibyte one step may write whole, and c
         ->and($summary($fits))->toContain(str_repeat('a', $fits))
         ->and($summary($fits + 1))->not->toContain(str_repeat('a', $fits + 1))
         ->and($summary($fits + 1))->toContain('And 1 more; the JSON report lists every one.');
+});
+
+it('fits a step summary whose one survivor alone is past the size one step may write, by showing none', function (): void {
+    $huge = JudgedMutant::of(Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived)
+        ->judgedBy(TestIds::of(TestId::of(str_repeat('a', 1_100_000))));
+    $summary = Markdown::summary(Verdicts::of(Floor::of(80), $huge), '', Verdicts::monthAgo());
+
+    expect(strlen($summary))->toBeLessThanOrEqual(1_048_576)
+        ->and($summary)->toContain('### Not killed (1)')
+        ->and($summary)->toContain('And 1 more; the JSON report lists every one.');
+});
+
+it('stops cutting once it shows no survivor, even where what is left is past the size one step may write', function (): void {
+    $path = sprintf('src/%s', str_repeat('a', 1_100_000));
+    $tree = TreeVerdict::judged(
+        Tree::at(Path::of($path), Floor::of(80), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        JudgedMutants::of(JudgedMutant::of(Verdicts::mutant(sprintf('%s/Money.php:3', $path), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived)),
+        Uncovered::Count,
+    );
+    $summary = Markdown::summary(Verdict::of(TreeVerdicts::of($tree)), '', Verdicts::monthAgo());
+
+    expect($summary)->toContain('And 1 more; the JSON report lists every one.')
+        ->and($summary)->not->toContain('| Mutant | Mutator |');
 });
 
 it('lets nothing the project wrote become markup, a link, a mention or a new cell', function (): void {
