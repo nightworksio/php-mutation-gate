@@ -7,9 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Http;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Format\Bytes;
-use NightWorksIO\MutationGate\Core\Format\Fit;
-use NightWorksIO\MutationGate\Core\Http\Reply;
+use NightWorksIO\MutationGate\Core\Http\Request;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -18,16 +16,12 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerObject;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
-use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
 use function rtrim;
 use function sprintf;
 
-use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\TimeoutExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
  * A store a job without its credentials opens read-only (ADR-0013 decisions
@@ -42,9 +36,6 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  */
 final readonly class PublicLedger implements ProofStore
 {
-    /** The answer for a ledger that is not there yet. */
-    private const int NOT_FOUND = 404;
-
     private const string READ_ONLY = 'read-only: no credentials; this run\'s proofs are not kept. %s';
 
     private const string READ_FROM = 'The default branch\'s ledger is read from %s.';
@@ -52,7 +43,7 @@ final readonly class PublicLedger implements ProofStore
     private const string READ_NOWHERE = 'No publicUrl names where the default branch\'s ledger is read from.';
 
     private function __construct(
-        private HttpClientInterface $client,
+        private HttpExchange $exchange,
         private string|NotGiven $url,
         private LedgerObject $objects,
         private LedgerLimits $limits,
@@ -64,7 +55,7 @@ final readonly class PublicLedger implements ProofStore
     public static function at(HttpClientInterface $client, string $url, string $prefix): self
     {
         return new self(
-            $client,
+            HttpExchange::over($client),
             rtrim($url, '/'),
             LedgerObject::under($prefix),
             LedgerLimits::standard(),
@@ -76,7 +67,7 @@ final readonly class PublicLedger implements ProofStore
     public static function nowhere(HttpClientInterface $client): self
     {
         return new self(
-            $client,
+            HttpExchange::over($client),
             NotGiven::value(),
             LedgerObject::under(''),
             LedgerLimits::standard(),
@@ -106,7 +97,7 @@ final readonly class PublicLedger implements ProofStore
         }
 
         $url = sprintf('%s/%s', $this->url, $path);
-        $fetched = $this->fetched($url);
+        $fetched = $this->exchange->fetch(Request::get($url), $this->limits, $url);
         $read = is_string($fetched) ? LedgerFile::read($fetched, $this->limits) : $fetched;
 
         return $read instanceof Ledger || $read instanceof Unreadable ? $read : Unreadable::notRead($url, $read);
@@ -119,55 +110,5 @@ final readonly class PublicLedger implements ProofStore
             self::READ_ONLY,
             $this->url instanceof NotGiven ? self::READ_NOWHERE : sprintf(self::READ_FROM, $this->url),
         ));
-    }
-
-    /** The bytes at this URL; an empty ledger where none is there yet; or why they could not be read. */
-    private function fetched(string $url): string|Ledger|Unreadable
-    {
-        try {
-            $response = $this->client->request(
-                'GET',
-                $url,
-                ['max_duration' => $this->limits->seconds(), 'max_redirects' => 0],
-            );
-            $status = $response->getStatusCode();
-
-            return match (true) {
-                $status === self::NOT_FOUND => Ledger::empty(),
-                Reply::of($status, '', '')->isAccepted() => $this->bodyOf($response, $url),
-                default => Unreadable::because(UnreadReason::Refused, $url, sprintf('HTTP %d', $status)),
-            };
-        } catch (TimeoutExceptionInterface) {
-            return Unreadable::because(UnreadReason::TimedOut, $url, 'no answer came in time');
-        } catch (ExceptionInterface $unreached) {
-            return Unreadable::because(
-                UnreadReason::Unreachable,
-                $url,
-                Fit::line(Fit::plain($unreached->getMessage()), Reply::ANSWER),
-            );
-        }
-    }
-
-    /**
-     * The body as it streams in; or, once it passes the limit, why it is not read, when the response, no longer
-     * held, stops.
-     *
-     * @throws ExceptionInterface
-     */
-    private function bodyOf(ResponseInterface $response, string $url): string|Unreadable
-    {
-        $bytes = '';
-
-        foreach ($this->client->stream($response) as $chunk) {
-            $bytes .= $chunk->getContent();
-
-            if (! $this->limits->admitsPacked(Bytes::length($bytes))) {
-                $response->cancel();
-
-                return Unreadable::because(UnreadReason::TooLarge, $url, $this->limits->pastPacked());
-            }
-        }
-
-        return $bytes;
     }
 }

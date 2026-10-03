@@ -28,7 +28,7 @@ function keyedStoreIn(Bucket $bucket, Variables $environment, MockHttpClient $cl
     $keyed = KeyedStore::of(
         Credentials::needing('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'),
         static fn(): BucketLedger => BucketLedger::of($bucket->client(), 'ledgers', 'mutation-gate'),
-        static fn(Options $options): PublicLedger|Invalid => new PublicBucket($client)->build($options),
+        static fn(Options $options): PublicLedger|Invalid => new PublicBucket($client)->s3($options),
         $environment,
     );
 

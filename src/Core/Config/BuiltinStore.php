@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Proof\Credentials;
+use NightWorksIO\MutationGate\Core\Proof\StoreVariable;
 
 /** The proof stores this package builds in, by the name a config chooses each by. */
 enum BuiltinStore: string
@@ -12,6 +13,10 @@ enum BuiltinStore: string
     case Directory = 'directory';
 
     case S3 = 's3';
+
+    case Gcs = 'gcs';
+
+    case Azure = 'azure';
 
     public function named(): Name
     {
@@ -31,7 +36,8 @@ enum BuiltinStore: string
 
     /**
      * What the store needs to write, and reads besides (ADR-0007 decision 5): nothing for a directory; for S3,
-     * the access key's id and secret, and a session token and a role to assume where they are set.
+     * the access key's id and secret, and a session token and a role to assume where they are set; for Cloud
+     * Storage and Azure, what their federation reads, or a ready token (ADR-0028 decision 2).
      */
     public function credentials(): Credentials
     {
@@ -39,6 +45,14 @@ enum BuiltinStore: string
             self::Directory => Credentials::none(),
             self::S3 => Credentials::needing('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY')
                 ->reading('AWS_SESSION_TOKEN', 'AWS_ROLE_ARN'),
+            self::Gcs => Credentials::needing(StoreVariable::GoogleCredentials->value)
+                ->orNeeding(StoreVariable::GcsToken->value),
+            self::Azure => Credentials::needing(
+                StoreVariable::OidcRequestUrl->value,
+                StoreVariable::OidcRequestToken->value,
+                StoreVariable::AzureTenant->value,
+                StoreVariable::AzureClient->value,
+            )->orNeeding(StoreVariable::AzureToken->value),
         };
     }
 }

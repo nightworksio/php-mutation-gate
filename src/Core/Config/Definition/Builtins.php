@@ -41,6 +41,15 @@ use function sprintf;
 final readonly class Builtins
 {
     /** Why a chat reporter's options never hold its URL, and where it comes from instead (ADR-0016). */
+    /** A Cloud Storage bucket's name as Google allows it, which a URL's path holds as it is. */
+    private const string GCS_BUCKET = '^[a-z0-9][a-z0-9_.-]{1,220}[a-z0-9]$';
+
+    /** A storage account's name as Azure allows it, which the account's host name holds. */
+    private const string AZURE_ACCOUNT = '^[a-z0-9]{3,24}$';
+
+    /** A container's name as Azure allows it: 3 to 63 letters, digits and single hyphens between them. */
+    private const string AZURE_CONTAINER = '^[a-z0-9](?:[a-z0-9]|-(?=[a-z0-9])){2,62}$';
+
     private const string CREDENTIAL
         = 'expected no url: a webhook URL is a credential; set %s, or name another variable in urlEnv';
 
@@ -101,6 +110,20 @@ final readonly class Builtins
                 Field::optional('prefix', Text::of('a key prefix'), $judges),
                 Field::optional('region', Text::of('a region'), $judges),
                 Field::optional('endpoint', Url::web(), $judges),
+                Field::optional('publicUrl', Url::base(), $judges),
+            ),
+            BuiltinStore::Gcs->value => Section::options(
+                Json::object(Member::of('prefix', ThisPackage::NAME)),
+                Field::required('bucket', Text::matching('a Cloud Storage bucket name', self::GCS_BUCKET), $judges),
+                Field::optional('prefix', Text::of('a key prefix'), $judges),
+                Field::optional('publicUrl', Url::base(), $judges),
+            ),
+            BuiltinStore::Azure->value => Section::options(
+                Json::object(Member::of('prefix', ThisPackage::NAME)),
+                Field::required('account', Text::matching('a storage account name', self::AZURE_ACCOUNT), $judges),
+                Field::required('container', Text::matching('a container name', self::AZURE_CONTAINER), $judges),
+                Field::optional('prefix', Text::of('a key prefix'), $judges),
+                Field::optional('publicContainer', Text::matching('a container name', self::AZURE_CONTAINER), $judges),
                 Field::optional('publicUrl', Url::base(), $judges),
             ),
         ], $origin);

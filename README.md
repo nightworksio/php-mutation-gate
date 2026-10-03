@@ -450,13 +450,20 @@ and `?` match within one directory, and `**` across any number of them.
 | `ci.buildkite.definition` | path of the pipeline file that runs the gate under Buildkite | `.buildkite/pipeline.yml` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.azure.definition` | path of the pipeline file that runs the gate under Azure DevOps | `azure-pipelines.yml` | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | `ci.bitbucket.definition` | path of the pipeline file that runs the gate under Bitbucket Pipelines | `bitbucket-pipelines.yml` | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
-| `proofs.store` | adapter: `directory`, `s3` | `directory` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `proofs.store` | adapter: `directory`, `s3`, `gcs`, `azure` | `directory` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.path` (`directory`) | path | `.mutation-gate/ledger` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.bucket` (`s3`) | string | none; required | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.prefix` (`s3`) | string | `mutation-gate` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.region` (`s3`) | string | `us-east-1` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.endpoint` (`s3`) | `http://` or `https://` URL | AWS's own | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.publicUrl` (`s3`) | `https://` URL a run without credentials reads the default branch's ledger from, at `<publicUrl>/<prefix>/refs/heads/<default branch>/ledger.json.gz`; one with a user, a query or a fragment is refused | none | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
+| `proofs.store.with.bucket` (`gcs`) | a Cloud Storage bucket's name | none; required | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `proofs.store.with.prefix` (`gcs`, `azure`) | string | `mutation-gate` | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `proofs.store.with.publicUrl` (`gcs`) | `https://storage.googleapis.com/<bucket>`, over a managed folder `<prefix>/refs/heads/<default branch>/` that `allUsers` may read | none | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `proofs.store.with.account` (`azure`) | a storage account's name | none; required | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `proofs.store.with.container` (`azure`) | the private container every scope but the default branch's is kept in | none; required | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `proofs.store.with.publicContainer` (`azure`) | a container at the `Blob` access level, which keeps the default branch's scope | none | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `proofs.store.with.publicUrl` (`azure`) | `https://<account>.blob.core.windows.net/<publicContainer>` | none | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
 | `proofs.ignore` | list of globs | `[]` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.write` | `auto` or `never` | `auto` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `budget` | duration | none | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
@@ -500,6 +507,9 @@ Environment variables that change what the gate does:
 | `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, `CI_PIPELINE_ID`, `BUILDKITE_BUILD_ID`, `CIRCLE_WORKFLOW_ID`, `BUILD_BUILDID` | The run a proof names | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | `GITHUB_TOKEN` | Lets the sticky PR comment be posted, and the GitHub change source prove which pull request's run passed | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_ROLE_ARN` | The S3 proof store's credentials, and its only ones: no `~/.aws` file, instance, container or web identity role is read. With `AWS_ROLE_ARN` set, those keys assume that role | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | The external-account credentials file `google-github-actions/auth` writes, which the `gcs` store exchanges the CI's token through, impersonating the service account it names; only its `file` and `url` credential sources are read, and a file holding a service-account key or any other long-lived credential is refused (exit 2) | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `MUTATION_GATE_GCS_TOKEN`, `MUTATION_GATE_AZURE_TOKEN` | A ready bearer token for the `gcs` or `azure` store, which a CI with a federation of its own hands over | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` | The `azure` store's federation: GitHub's OIDC token, asked for the audience `api://AzureADTokenExchange`, exchanged at Microsoft Entra ID for the tenant and client `azure/login` reads | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
 | `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`, `MUTATION_GATE_WEBHOOK_URL` | The webhook URLs of the `slack`, `discord` and `webhook` reporters, unless their `with.urlEnv` names other variables | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `MUTATION_GATE_WEBHOOK_SECRET` | Signs each `webhook` request, with the time it was sent, as `X-Mutation-Gate-Signature`, unless `with.secretEnv` names another variable | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES` | Where and how the `otlp` reporter sends | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
@@ -595,14 +605,49 @@ pull request build reads the target branch's caches and cannot write them. On
 Buildkite and CircleCI a branch's pipeline config picks its cache key, and
 Bitbucket's caches are shared by every branch, so a cache is no boundary there.
 Wherever a pull request must read the default branch's proofs safely, keep the
-ledger in S3, with credentials that can write the default branch's prefix held
-only by default-branch runs
+ledger in S3, Cloud Storage or Azure Blob Storage, with credentials that can
+write the default branch's prefix held only by default-branch runs
 ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
 With an AWS OIDC role, make its trust policy match a GitHub environment that
 only the default branch may deploy to, or the verdict workflow's
 `job_workflow_ref`, never `ref: refs/heads/main` alone: every job a workflow
 runs on the default branch carries that `ref`, whatever started it
 ([ADR-0019](.docs/decisions/0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md)).
+
+The `gcs` and `azure` stores take their token from OIDC federation alone, over
+plain HTTP, so they need no package beyond the gate. `gcs` exchanges the
+external-account file `google-github-actions/auth` writes, and refuses a
+service-account key (exit 2). `azure` exchanges GitHub's OIDC token for the
+tenant and client `azure/login` reads, and has no option for an account key or
+a shared access signature. Bind the identity to a GitHub environment that only
+the default branch may deploy to, used only by the verdict job, or to the
+verdict workflow's `job_workflow_ref`, never to a bare `ref`. A repository
+created after 2026-07-15 issues `sub` as
+`repo:<owner>@<owner id>/<repo>@<repo id>:…`, and a credential that matches
+`sub` exactly has to use that form
+([ADR-0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md)):
+
+```sh
+# Cloud Storage: a provider only the verdict environment's runs pass
+gcloud iam workload-identity-pools create github --location=global
+gcloud iam workload-identity-pools providers create-oidc github --location=global \
+  --workload-identity-pool=github --issuer-uri=https://token.actions.githubusercontent.com \
+  --attribute-mapping=google.subject=assertion.sub,attribute.repository_id=assertion.repository_id \
+  --attribute-condition="assertion.repository_id == '<repo id>' && assertion.environment == 'mutation-verdict'"
+gcloud storage buckets add-iam-policy-binding gs://<bucket> --role=roles/storage.objectUser \
+  --member=principalSet://iam.googleapis.com/projects/<project number>/locations/global/workloadIdentityPools/github/attribute.repository_id/<repo id>
+
+# Azure: a federated credential on the verdict environment's subject
+az ad app federated-credential create --id <app id> --parameters '{"name": "mutation-verdict",
+  "issuer": "https://token.actions.githubusercontent.com", "audiences": ["api://AzureADTokenExchange"],
+  "subject": "repo:<owner>/<repo>:environment:mutation-verdict"}'
+az role assignment create --assignee <app id> --role "Storage Blob Data Contributor" \
+  --scope /subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.Storage/storageAccounts/<account>
+```
+
+To bind the workflow instead, the Cloud Storage condition tests
+`assertion.job_workflow_ref`, and on Azure the `sub` GitHub issues has to
+include `job_workflow_ref`, or the credential is a flexible one.
 
 A fork's pull request runs without credentials. On GitHub's cache it restores
 the default branch's ledger read-only, as any pull request does. With S3, set
@@ -616,7 +661,25 @@ A 404 reads as an empty ledger. Any other refusal, a redirect, no answer within
 a minute, or a ledger past 11 MB, or past 38 MB decompressed, is not read, and
 the verdict warns why. Until the default branch's first run writes its ledger,
 S3 answers 403, and the verdict warns of that. Without `publicUrl`, such a run
-reads nothing. A fork can plant no proof that another run trusts. It can
+reads nothing. On Cloud Storage, `publicUrl` is
+`https://storage.googleapis.com/<bucket>`, over a managed folder that `allUsers`
+may read. On Azure, the store writes the default branch's scope to
+`publicContainer`, a container at the `Blob` access level, and every other
+scope to `container`, and `publicUrl` is the public container's URL. An account
+whose `AllowBlobPublicAccess` is off refuses every anonymous read, and
+`doctor --online` reports it ([ADR-0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md)):
+
+```sh
+gcloud storage buckets update gs://<bucket> --uniform-bucket-level-access --no-public-access-prevention
+gcloud storage managed-folders create gs://<bucket>/mutation-gate/refs/heads/main/
+gcloud storage managed-folders add-iam-policy-binding gs://<bucket>/mutation-gate/refs/heads/main/ \
+  --member=allUsers --role=roles/storage.objectViewer
+
+az storage account update -n <account> --allow-blob-public-access true
+az storage container create -n <public container> --account-name <account> --public-access blob --auth-mode login
+```
+
+A fork can plant no proof that another run trusts. It can
 influence only its own verdict, which its own workflow file could anyway, so
 require approval before outside contributors' workflows run
 ([ADR-0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md)).
@@ -967,7 +1030,7 @@ or `last-passed` on the default branch, and leave it out of a weekly scheduled
 full run. Run the verdict even when a shard job failed, so a missing result is
 judged *cannot judge*. Carry `.mutation-gate/` from job to job, and keep
 `.mutation-gate/ledger` between runs with whatever cache your CI has, keyed by
-branch. Proofs can also live in S3 or R2
+branch. Proofs can also live in S3, R2, Cloud Storage or Azure Blob Storage
 ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
 To publish the badge and trend, restore the published files into
 `.mutation-gate/publish` before the verdict on your default branch, and publish

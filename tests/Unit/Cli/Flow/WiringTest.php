@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
@@ -13,6 +14,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\MergedHeads;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
+use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
@@ -403,4 +405,17 @@ it('cannot wire an analyser the registry does not have', function (): void {
         ->adapters(Flows::settings(StaticCheck::uses('nowhere')), Directory::at(Flows::project()));
 
     expect($adapters)->toEqual(CannotJudge::because('No static checker is registered as "nowhere".'));
+});
+
+it('tells an Azure store which scope is the default branch\'s, which its public container keeps', function (): void {
+    $settings = Flows::settings(Proofs::azure('acme', 'ledgers', publicContainer: 'public'), Ci::json(), Ci::defaultBranch('trunk'));
+    $token = ['MUTATION_GATE_AZURE_TOKEN' => 'eyJ'];
+    $wired = Environment::during($token, static fn(): Adapters => wiredOf($settings, Variables::of(['CI' => 'true'])));
+    $expected = Environment::during($token, static fn(): object => ContainerLedger::configured(
+        Configs::options('{"account": "acme", "container": "ledgers", "prefix": "mutation-gate", "publicContainer": "public"}'),
+        Variables::of(getenv()),
+        HttpExchange::over(HttpClient::create()),
+    ));
+
+    expect($wired->proofs)->toEqual($expected instanceof ContainerLedger ? $expected->forDefaultBranch(Scope::branch('trunk')) : $expected);
 });

@@ -77,6 +77,17 @@ What SonarQube documents:
    - Every option sits under `proofs`, which the proof key leaves out
      (ADR-0007 decision 2.3).
    - This amends ADR-0007 decision 4, whose table gains the two backends.
+   - **As built.** `Core\Http\Exchange` is the HTTP edge both stores and
+     `PublicLedger` share, and `Adapter\Http\HttpExchange` implements it
+     over `symfony/http-client`. It follows no redirect, gives every request
+     ADR-0013 decision 13's 60 seconds, and reads a ledger within its byte
+     limits. `Core\Proof\ObjectLedger` holds the read and the write a store
+     makes of one object per scope, and each store is an
+     `Core\Proof\ObjectStore`: where the object is, and the requests that
+     read and write it. `gcs` uses Cloud Storage's XML API at
+     `https://storage.googleapis.com/<bucket>/<object>`. `azure` sends
+     `x-ms-version: 2024-11-04`, and `x-ms-blob-type: BlockBlob` with a
+     write.
 
 2. **A store's token comes from OIDC federation, and never from a key.**
    - **GCS** reads the `external_account` credentials file that
@@ -98,6 +109,25 @@ What SonarQube documents:
      ledger never sits in CI.
    - A store with no token opens read-only, as ADR-0013 decision 14 decides
      for any store.
+   - **As built.**
+     - The `gcs` store asks STS for the scope `devstorage.read_write`, or for
+       `cloud-platform` where it then impersonates, and asks
+       `generateAccessToken` for `devstorage.read_write`. The file's
+       `token_url` has to be at `https://sts.googleapis.com`, its
+       `service_account_impersonation_url` at
+       `https://iamcredentials.googleapis.com`, and a `url` source has to be
+       `https://`, so the CI's token is sent nowhere else. The file is read
+       and checked even where `MUTATION_GATE_GCS_TOKEN` is set.
+     - The `azure` store asks Entra ID for the scope
+       `https://storage.azure.com/.default`, with GitHub's token as a
+       `jwt-bearer` client assertion.
+     - Each store asks for its token once per run, and only when it reads or
+       writes with it.
+     - A service-account key is refused as *GOOGLE_APPLICATION_CREDENTIALS
+       names a service-account key, which the gcs store refuses: use Workload
+       Identity Federation instead.*, and any other type of credentials as
+       *GOOGLE_APPLICATION_CREDENTIALS names "<type>" credentials; the gcs
+       store reads only an external_account file, from federation.*
 
 3. **The identity that can write the default branch's scope is bound to an
    environment, or to the verdict's workflow, never to a bare `ref`.**
@@ -121,6 +151,8 @@ What SonarQube documents:
      the bindings that do.
    - This amends ADR-0007 decision 5 and ADR-0019 decision 16, which gain
      the two clouds.
+   - **As built.** The test projects were not set up, so the bindings the
+     README gives are proven against the clouds' documentation alone.
 
 4. **A fork reads the default branch's ledger from a public URL, and each
    cloud makes exactly that scope public its own way.**
@@ -136,6 +168,10 @@ What SonarQube documents:
      empty ledger, which costs a run, never a verdict (ADR-0007 decision 3,
      ADR-0013 decision 13).
    - This amends ADR-0013 decision 13.
+   - **As built.** `doctor --online` asks the public container's URL for
+     `?restype=container` with no service version, as a fork's run asks,
+     and an account whose `AllowBlobPublicAccess` is off answers 409. It
+     reports that as *advice*, under the slug `anonymous-reads-refused`.
 
 5. **The last write wins, as on every store.** Two verdicts writing one scope
    at the same time keep the later ledger (ADR-0007 decision 4). Both clouds
@@ -151,6 +187,10 @@ What SonarQube documents:
      environment and each cloud's identity, and asks for `id-token: write`
      only in `plan`, which reads, and `verdict`, which writes, as it does for
      an S3 store behind an OIDC role. This amends ADR-0011 decision 8.
+   - **As built.** Every run also withholds `GOOGLE_GHA_CREDS_PATH` and
+     `CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE`, which
+     `google-github-actions/auth` sets to the same credentials file. The
+     reusable workflow's inputs are not built yet.
 
 ### A SonarQube reporter
 

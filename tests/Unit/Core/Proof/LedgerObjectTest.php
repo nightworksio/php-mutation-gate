@@ -42,3 +42,8 @@ it('names a scope\'s ledger as a URL\'s path, each segment of the prefix and the
 it('names no path for a ref that is no scope', function (): void {
     expect(LedgerObject::under('mutation-gate')->path(Scope::of('refs/tags/v1')))->toBeInstanceOf(CannotJudge::class);
 });
+
+it('percent-encodes each segment of a key as a URL\'s path, keeping its slashes', function (): void {
+    expect(LedgerObject::encoded('gate/refs/heads/feature/añadir #1/ledger.json.gz'))
+        ->toBe('gate/refs/heads/feature/a%C3%B1adir%20%231/ledger.json.gz');
+});

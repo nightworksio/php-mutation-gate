@@ -273,3 +273,17 @@ a time budget never started, which leaves that unit unjudged.
 
 Clone the whole history. On GitHub Actions, give `actions/checkout`
 `fetch-depth: 0`; on GitLab, set `GIT_DEPTH: 0`.
+
+## anonymous-reads-refused
+
+`doctor --online` asked the `azure` store's public container for its
+properties without credentials, as a fork's run reads it, and the storage
+account answered 409: its `AllowBlobPublicAccess` is off. That setting
+overrides every container's anonymous access level, so a run without
+credentials reads nothing from `publicUrl` and mutates everything a pull
+request reaches.
+
+Allow anonymous access on the account, with
+`az storage account update --name <account> --allow-blob-public-access true`,
+and keep only the public container at the `Blob` access level. Every other
+container keeps the default, which allows no anonymous access.

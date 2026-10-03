@@ -15,6 +15,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
 use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
+use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\BitbucketPlan;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
@@ -30,6 +31,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
+use NightWorksIO\MutationGate\Adapter\Gcs\BucketLedger as GcsBucket;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
@@ -37,6 +39,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
+use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
@@ -64,6 +67,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\ChangeSource;
+use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Port\Repository;
 use Symfony\Component\HttpClient\HttpClient;
@@ -80,9 +84,35 @@ final readonly class FirstParty implements Extension
 
     public function extend(Extensions $extensions): Extensions
     {
+        $environment = Variables::of(getenv());
+        $public = new PublicBucket(HttpClient::create());
+        $s3 = $this->keyed(BuiltinStore::S3, BucketLedger::fromOptions(...), $public->s3(...), $environment);
+        $gcs = $this->keyed(
+            BuiltinStore::Gcs,
+            static fn(Options $options): ProofStore|Invalid => GcsBucket::configured(
+                $options,
+                $environment,
+                HttpExchange::over(HttpClient::create()),
+            ),
+            $public->gcs(...),
+            $environment,
+        );
+        $azure = $this->keyed(
+            BuiltinStore::Azure,
+            static fn(Options $options): ProofStore|Invalid => ContainerLedger::configured(
+                $options,
+                $environment,
+                HttpExchange::over(HttpClient::create()),
+            ),
+            $public->azure(...),
+            $environment,
+        );
+
         return Registered::config($extensions, class_exists(...))
             ->withProofStore(BuiltinStore::Directory->named(), LedgerDirectory::fromOptions(...))
-            ->withProofStore(BuiltinStore::S3->named(), $this->bucket()->build(...))
+            ->withProofStore(BuiltinStore::S3->named(), $s3)
+            ->withProofStore(BuiltinStore::Gcs->named(), $gcs)
+            ->withProofStore(BuiltinStore::Azure->named(), $azure)
             ->withCostModel(BuiltinCostModel::Learned->named(), MeasuredCosts::fromOptions(...))
             ->withCiPlan(
                 BuiltinCiPlan::GitHub->named(),
@@ -197,15 +227,17 @@ final readonly class FirstParty implements Extension
             );
     }
 
-    /** S3, read-only through its public URL in a job without its credentials. */
-    private function bucket(): KeyedStore
+    /**
+     * An object store, read-only through its public URL in a job without the credentials this environment
+     * would hold.
+     *
+     * @param  Closure(Options): (ProofStore|Invalid) $keyed   the store, built from its options
+     * @param  Closure(Options): (ProofStore|Invalid) $keyless the store read-only, built from the same options
+     * @return Closure(Options): (ProofStore|Invalid)
+     */
+    private function keyed(BuiltinStore $store, Closure $keyed, Closure $keyless, Variables $environment): Closure
     {
-        return KeyedStore::of(
-            BuiltinStore::S3->credentials(),
-            BucketLedger::fromOptions(...),
-            new PublicBucket(HttpClient::create())->build(...),
-            Variables::of(getenv()),
-        );
+        return KeyedStore::of($store->credentials(), $keyed, $keyless, $environment)->build(...);
     }
 
     /** The project's root, where the gate runs, as an absolute path, which the analysers name files by. */

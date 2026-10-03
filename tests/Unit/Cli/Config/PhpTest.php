@@ -219,3 +219,20 @@ it('writes a report that writes no file with uses, and one that writes a file wi
         ->toContain("Report::writing('acme', 'build/a.txt', Option::of('channel', '#ci')),")
         ->toContain("Report::writing('acme', 'build/b.txt'),");
 });
+
+it('writes the gcs and azure stores by their builder methods, which read back as those stores', function (array $store, string $call) use ($php, $roundTrip): void {
+    $config = ['runner' => 'pest', 'proofs' => ['store' => $store]];
+    $settings = Configs::settings($config);
+
+    expect($php($config))->toContain($call)
+        ->and($roundTrip($settings))->toBe(Configs::effective($settings));
+})->with([
+    'Cloud Storage' => [
+        ['use' => 'gcs', 'with' => ['bucket' => 'acme-ledgers', 'publicUrl' => 'https://storage.googleapis.com/acme-ledgers']],
+        "Proofs::gcs(prefix: 'mutation-gate', bucket: 'acme-ledgers', publicUrl: 'https://storage.googleapis.com/acme-ledgers')",
+    ],
+    'Azure' => [
+        ['use' => 'azure', 'with' => ['account' => 'acme', 'container' => 'ledgers', 'prefix' => 'gate', 'publicContainer' => 'public']],
+        "Proofs::azure(prefix: 'gate', account: 'acme', container: 'ledgers', publicContainer: 'public')",
+    ],
+]);

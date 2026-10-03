@@ -44,7 +44,8 @@
                             "memory-uncapped",
                             "memory-cap-lifted",
                             "memory-cap-near",
-                            "shallow-clone"
+                            "shallow-clone",
+                            "anonymous-reads-refused"
                         ]
                     },
                     "severity": {

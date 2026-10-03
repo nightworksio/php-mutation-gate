@@ -25,3 +25,13 @@ it('lists every variable the store reads, those it needs first, and needs only t
         ->and($credentials->heldIn(Variables::of(['KEY' => 'k', 'SECRET' => 's'])))->toBeTrue()
         ->and($credentials->heldIn(Variables::of(['TOKEN' => 't', 'ROLE' => 'r', 'KEY' => 'k'])))->toBeFalse();
 });
+
+it('is held where every variable of any one set it names is set', function (): void {
+    $credentials = Credentials::needing('FILE')->orNeeding('URL', 'REQUEST')->reading('ROLE');
+
+    expect($credentials->heldIn(Variables::of(['FILE' => 'f'])))->toBeTrue()
+        ->and($credentials->heldIn(Variables::of(['URL' => 'u', 'REQUEST' => 'r'])))->toBeTrue()
+        ->and($credentials->heldIn(Variables::of(['URL' => 'u', 'ROLE' => 'r'])))->toBeFalse()
+        ->and($credentials->heldIn(Variables::of(['ROLE' => 'r'])))->toBeFalse()
+        ->and([...$credentials->variables()])->toBe(['FILE', 'URL', 'REQUEST', 'ROLE']);
+});

@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Doctor\Check\OnlineRead;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Opcache;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Php;
+use NightWorksIO\MutationGate\Core\Doctor\Check\PublicContainer;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Runners;
 use NightWorksIO\MutationGate\Core\Doctor\Check\ScheduleRunning;
 use NightWorksIO\MutationGate\Core\Doctor\Check\ShallowClone;
@@ -58,6 +59,7 @@ final readonly class Diagnosis
             OnlineRead::in($observed),
             VerdictRequired::in($observed),
             ForkApprovalPolicy::in($observed),
+            PublicContainer::in($observed),
             ScheduleRunning::in($observed),
             ShallowClone::in($observed),
         );

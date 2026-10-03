@@ -19,12 +19,13 @@ final readonly class Asked
     private function __construct(
         private Measurement|NotGiven $measurement,
         private GitHubSettings|CannotTell|NotGiven $gitHub,
+        private AnonymousReadsRefused|NotGiven $anonymousReads,
     ) {
     }
 
     public static function nothing(): self
     {
-        return new self(NotGiven::value(), NotGiven::value());
+        return new self(NotGiven::value(), NotGiven::value(), NotGiven::value());
     }
 
     public function withMeasurement(Measurement $measurement): self
@@ -37,6 +38,12 @@ final readonly class Asked
         return clone($this, ['gitHub' => $gitHub]);
     }
 
+    /** These, with the Azure storage account that refused an anonymous read of the store's public container. */
+    public function withAnonymousReadsRefused(AnonymousReadsRefused $refused): self
+    {
+        return clone($this, ['anonymousReads' => $refused]);
+    }
+
     public function measurement(): Measurement|NotGiven
     {
         return $this->measurement;
@@ -45,5 +52,10 @@ final readonly class Asked
     public function gitHub(): GitHubSettings|CannotTell|NotGiven
     {
         return $this->gitHub;
+    }
+
+    public function anonymousReads(): AnonymousReadsRefused|NotGiven
+    {
+        return $this->anonymousReads;
     }
 }

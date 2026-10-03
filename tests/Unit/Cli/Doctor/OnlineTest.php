@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Doctor\Online;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Doctor\AnonymousReadsRefused;
 use NightWorksIO\MutationGate\Core\Doctor\GitHub\GitHubSettings;
 use NightWorksIO\MutationGate\Core\Doctor\GitHub\Schedule;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
@@ -12,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Tests\Support\Cloud;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\GitHubAnswering;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -101,3 +104,27 @@ it('asks with GITHUB_TOKEN, else GH_TOKEN, at GITHUB_API_URL', function (
     'GH_TOKEN else' => ['', 'two', 'https://git.example.com/api/v3', 'https://git.example.com/api/v3/repos/octo/gate', 'Authorization: Bearer two'],
     'no token' => ['', '', '', 'https://api.github.com/repos/octo/gate', 'X-GitHub-Api-Version'],
 ]);
+
+it('finds the Azure account that refuses anonymous reads of the store\'s public container', function (): void {
+    $azure = ['use' => 'azure', 'with' => [
+        'account' => 'acme',
+        'container' => 'ledgers',
+        'publicContainer' => 'public',
+        'publicUrl' => 'https://acme.blob.core.windows.net/public',
+    ]];
+    $asked = static fn(array $store, Cloud $cloud): AnonymousReadsRefused|NotGiven => new Online(Scratch::directory(), Variables::of([]), $cloud->client())
+        ->into(Observations::none()->withSettings(Configs::settings(['runner' => 'pest', 'proofs' => ['store' => $store]])))
+        ->asked()
+        ->anonymousReads();
+    $refusing = new Cloud()->answering('https://acme.blob.core.windows.net/public?restype=container', 409, 'PublicAccessNotPermitted');
+
+    expect($asked($azure, $refusing))->toEqual(AnonymousReadsRefused::by('acme', 'https://acme.blob.core.windows.net/public'))
+        ->and($asked($azure, new Cloud()->answering('https://acme.blob.core.windows.net/public?restype=container', 404, 'ResourceNotFound')))
+        ->toEqual(NotGiven::value())
+        ->and($asked(['use' => 's3', 'with' => ['bucket' => 'b', 'publicUrl' => 'https://acme.blob.core.windows.net/public']], $refusing))
+        ->toEqual(NotGiven::value())
+        ->and($asked(['use' => 'acme-store', 'with' => [...$azure['with'], 'prefix' => 'mutation-gate']], $refusing))
+        ->toEqual(NotGiven::value())
+        ->and(new Online(Scratch::directory(), Variables::of([]), $refusing->client())->into(Observations::none())->asked()->anonymousReads())
+        ->toEqual(NotGiven::value());
+});

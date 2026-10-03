@@ -14,6 +14,14 @@ it('withholds the CI\'s credentials every run withholds, by the whole name', fun
     ['ACTIONS_RUNTIME_TOKEN', true],
     ['GITHUB_TOKEN', true],
     ['SONAR_TOKEN', true],
+    ['GOOGLE_APPLICATION_CREDENTIALS', true],
+    ['GOOGLE_GHA_CREDS_PATH', true],
+    ['CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE', true],
+    ['AZURE_CLIENT_ID', true],
+    ['AZURE_TENANT_ID', true],
+    ['MUTATION_GATE_GCS_TOKEN', true],
+    ['MUTATION_GATE_AZURE_TOKEN', true],
+    ['GOOGLE_CLOUD_PROJECT', false],
     ['MY_GITHUB_TOKEN', false],
     ['GITHUB_TOKENS', false],
     ['GITHUB_SHA', false],
@@ -38,7 +46,7 @@ it('withholds nothing where nothing is withheld', function () use ($withholds): 
 it('withholds what both withhold, each once, and only grows', function () use ($withholds): void {
     $both = Withheld::standard()->and(Withheld::of('CI_JOB_TOKEN', 'GITHUB_TOKEN'));
 
-    expect($both->pattern())->toBe('~^(?:AWS_.*|ACTIONS_.*|GITHUB_TOKEN|SONAR_TOKEN|CI_JOB_TOKEN)$~')
+    expect($both->pattern())->toBe('~^(?:AWS_.*|ACTIONS_.*|GITHUB_TOKEN|SONAR_TOKEN|GOOGLE_APPLICATION_CREDENTIALS|GOOGLE_GHA_CREDS_PATH|CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE|AZURE_.*|MUTATION_GATE_GCS_TOKEN|MUTATION_GATE_AZURE_TOKEN|CI_JOB_TOKEN)$~')
         ->and($withholds($both, 'CI_JOB_TOKEN'))->toBeTrue()
         ->and($withholds(Withheld::standard(), 'CI_JOB_TOKEN'))->toBeFalse();
 });
