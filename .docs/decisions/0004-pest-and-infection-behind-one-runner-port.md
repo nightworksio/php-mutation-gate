@@ -619,6 +619,12 @@ its parser attributes. Both change when the checkout moves.
      - an enum case through `Enum::Case`, and a case's backing value through
        any use of the enum, because `from()`, `tryFrom()`, `cases()` and
        serialisation all read it;
+     - a constant through a reflection, where it is built: one built on a
+       class written out (`Owner::class`, `self::class`, `parent::class` or a
+       string) that reaches the owner, a `ReflectionClassConstant` only where
+       it is built with the constant's name or a name not written out; and
+       one built on anything else, such as a variable or an object, in a file
+       that names the owner;
      - a static property through `Owner::$name`;
      - an instance property's default through any creation of the owner;
      - a plain function's parameter default through the covering tests of the
@@ -631,17 +637,19 @@ its parser attributes. Both change when the checkout moves.
      included, is limited to the holding group.
    - **The fallback** is the set of test files that cover the owner's file.
      It is used when it has at most 10 test files:
-     - when the scan is ambiguous (a variable class such as `$class::NAME`, a
-       `constant()` call on a non-literal name, reflection on the owner, or
-       `static::NAME` that a subclass overrides), the fallback is added to
-       what the scan found;
      - when the direct references leave the mutant alive, it runs against the
-       fallback too before it counts as a survivor.
+       fallback too before it counts as a survivor;
+     - when the scan is ambiguous (a variable class such as `$class::NAME`, a
+       `constant()` call on a non-literal name, or `static::NAME` that a
+       subclass overrides) and found no direct reference, the fallback alone
+       judges it.
 
-     An ambiguous mutant whose fallback is over the bound is unjudged, and its
-     reason says why, for example *ambiguous reference; src/Theme.php is
-     covered by 152 test files*. An unambiguous survivor whose fallback is over the bound
-     stays a survivor.
+     A kill by the direct references stands, whatever the fallback holds. An
+     ambiguous mutant they leave alive, or with no direct reference, whose
+     fallback is over the bound is unjudged, and its reason says why, for
+     example *ambiguous reference; src/Theme.php is covered by 152 test
+     files*. An unambiguous survivor whose fallback is over the bound stays a
+     survivor.
    - **No reference** makes the mutant unjudged, with the reason *no test
      reaches this value*. It is never passed.
    - **How it runs.** Pest serves a mutated file to a process through an

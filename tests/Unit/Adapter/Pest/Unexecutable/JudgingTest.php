@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Unexecutables;
@@ -152,6 +153,38 @@ it('runs the tests that read the value, then the fallback\'s others where the mu
         $alone('OtherSpec'),
         $override('OtherSpec'),
     ]);
+});
+
+it('lets the tests that read an ambiguous value kill it whatever the fallback holds, and leaves unjudged what they leave alive past ten', function () use (
+    $money,
+): void {
+    $at = Unexecutables::project();
+    Scratch::write($at->root(), 'src/Dynamic.php', "<?php\nnamespace App;\nfinal class Dynamic { public function rate(string \$class): int { return \$class::RATE; } }\n");
+    $results = Unexecutables::run($at, ['rate']);
+    $specs = [];
+
+    foreach (range(1, 11) as $each) {
+        Scratch::write($at->root(), sprintf('tests/S%dSpec.php', $each), "<?php\nit('runs', fn () => new App\\Money()->internal());\n");
+        $specs[] = sprintf('P\\Tests\\S%dSpec::__pest_evaluable_it_runs', $each);
+    }
+
+    $tests = [...$specs, 'P\\Tests\\MoneySpec::__pest_evaluable_it_reads'];
+    CoverageMaps::write(
+        Recorder::coverageBeside($results),
+        sprintf('%s/', $at->root()),
+        ['src/Money.php' => [10 => range(0, 10)], 'src/Dynamic.php' => [3 => [0]]],
+        $tests,
+        array_fill_keys($tests, 0.1),
+    );
+    $judged = static fn(string ...$killing): MutationResult|CannotJudge => new Judging(
+        $at,
+        new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, array_values($killing))),
+        new CapDirectory(),
+    )->of(judgingResult('rate'), $money, $results, judgingCoverage($results));
+
+    expect(judgingOutcomes($judged('tests/MoneySpec.php')))->toBe(['rate' => 'killed'])
+        ->and(judgingOutcomes($judged()))
+        ->toBe(['rate' => 'unjudged ambiguous reference; src/Money.php is covered by 11 test files']);
 });
 
 it('gives a mutant that timed out the limit Pest allows each mutant', function () use ($money): void {

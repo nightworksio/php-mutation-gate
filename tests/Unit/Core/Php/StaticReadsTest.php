@@ -103,15 +103,17 @@ it('reads no constant() that is a method, a static method or a declaration', fun
         ->and($read->isAmbiguous())->toBeFalse();
 });
 
-it('cannot follow reflection on the owner, but a file that reflects on something else reads nothing', function (string $reflection): void {
-    $reflected = static fn(string $class): References => staticReadsIn(
-        Symbol::constant('App\Base', 'RATE'),
-        sprintf('<?php namespace App; new \\%s(%s::class);', $reflection, $class),
-    );
+it('reads a constant through a reflection built on its owner, and no constant through one built on another class', function (): void {
+    $read = staticReadsIn(Symbol::constant('App\Base', 'RATE'), <<<'PHP'
+        <?php
+        namespace App;
+        new \ReflectionClass(Base::class);
+        new \ReflectionClass(Other::class);
+        PHP);
 
-    expect($reflected('Base')->isAmbiguous())->toBeTrue()
-        ->and($reflected('Other')->isAmbiguous())->toBeFalse();
-})->with(['ReflectionClass', 'ReflectionClassConstant', 'ReflectionEnum', 'ReflectionObject']);
+    expect(Php::sites($read))->toBe(['src/Reader.php:3'])
+        ->and($read->isAmbiguous())->toBeFalse();
+});
 
 it('reads a static property through the owner and a class that reaches it, and nothing else', function (): void {
     $read = staticReadsIn(Symbol::property('App\Base', 'count', static: true), <<<'PHP'

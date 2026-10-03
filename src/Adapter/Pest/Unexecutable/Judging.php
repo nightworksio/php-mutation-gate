@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Records;
 use NightWorksIO\MutationGate\Adapter\Pest\Shell;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -128,13 +129,15 @@ final readonly class Judging
         $choice = $selector->choose($symbol, $file);
         $first = $choice->first($file);
         $outcome = $first instanceof Outcome ? $first : $trial->of($first, $file, $copy);
-        $then = $choice->then();
+        $then = $outcome->leftAlive() ? $choice->then($file) : Paths::none();
 
-        return $this->judged(
-            $mutant,
-            $outcome->leftAlive() && count($then) > 0 ? $trial->of($then, $file, $copy) : $outcome,
-            $trial->limit(),
-        );
+        $judged = match (true) {
+            $then instanceof Outcome => $then,
+            count($then) > 0 => $trial->of($then, $file, $copy),
+            default => $outcome,
+        };
+
+        return $this->judged($mutant, $judged, $trial->limit());
     }
 
     /** The mutant as an outcome judges it, with the limit Pest allowed each mutant where it timed out. */
