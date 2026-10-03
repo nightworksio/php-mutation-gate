@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Hint\Change;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
+use NightWorksIO\MutationGate\Core\Php\Tokens;
 use PhpToken;
 
 /**
@@ -31,9 +32,6 @@ use PhpToken;
  */
 final readonly class Columns
 {
-    /** What ends or opens a statement, which a span of one statement holds none of. */
-    private const array STATEMENT_BOUNDS = [';', '{', '}'];
-
     /**
      * @param list<array{text: string, line: int, column: int, bound: bool}> $tokens every significant token,
      *                                                                             where it begins and whether it
@@ -56,7 +54,7 @@ final readonly class Columns
                     'text' => $token->text,
                     'line' => $line,
                     'column' => $column,
-                    'bound' => $token->is(self::STATEMENT_BOUNDS),
+                    'bound' => $token->is(Tokens::STATEMENT_BOUNDS),
                 ];
             }
 

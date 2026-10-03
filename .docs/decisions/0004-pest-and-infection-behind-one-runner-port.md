@@ -585,7 +585,8 @@ its parser attributes. Both change when the checkout moves.
    runner (ADR-0011).
 
 8. **A mutant on a line that is not executable is judged by the tests that
-   reference its symbol** (Pest only).
+   reference its symbol, and one on a statement's first line by the tests
+   that run the statement** (Pest only).
    - **Which mutants.** php-code-coverage leaves some lines out of the
      coverage map altogether: class and interface constants, enum cases,
      property declarations, parameters of plain functions and closures, and
@@ -593,6 +594,17 @@ its parser attributes. Both change when the checkout moves.
      test. The gate takes these mutants from the `Uncovered` events, reads
      what the first token the mutated copy writes differently stands in, and
      judges them itself.
+     - Coverage may also leave a statement's first line unmarked though the
+       statement ran: pcov never marks the head of a `match (true)`. A mutant
+       Pest left uncovered on the first line of a statement inside a
+       function's body, where a bracket opened on that line closes on a later
+       one, is judged by the trial below with the test files that cover the
+       statement's later lines up to that close, since PHP runs a statement's
+       first line before any other. Where no test covers them, it stays
+       uncovered. A line that starts no statement, such as a `match` arm's or
+       an `else`, can stay unrun while the lines around it run, so an
+       uncovered mutant there, as on a statement of one line, stays
+       uncovered.
      - A global `const` or `define()` sits on an executable line, so an
        uncovered mutant there stays uncovered.
      - pest-plugin-mutate makes no mutant of a string-backed enum case's

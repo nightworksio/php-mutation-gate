@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
+use function count;
 use function file_get_contents;
 use function is_file;
 use function is_string;
@@ -17,16 +18,21 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Codebase;
+use NightWorksIO\MutationGate\Core\Php\Executable;
 use NightWorksIO\MutationGate\Core\Php\Source;
+use NightWorksIO\MutationGate\Core\Php\StatementTail;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\Unnamed;
 
 /**
- * The test files that judge a mutant of a line that is not executable: each
- * test file that reads its value, and the test files a coverage map of every
- * file says cover each line of source that does, by Pest's own selection
- * rules; and the fallback of those that cover the mutant's file. The scan
+ * The test files that judge a mutant Pest left uncovered. On a line that is
+ * not executable: each test file that reads its value, and the test files a
+ * coverage map of every file says cover each line of source that does, by
+ * Pest's own selection rules; and the fallback of those that cover the
+ * mutant's file. On the first line of a statement that spans more (see
+ * StatementTail): the test files that cover its other lines. The scan
  * reads every file under the test directories and every file the map covers
  * or the run mutates, but chooses only the files that hold a test the map
  * names: another file there, such as a helper or a fixture, is no test file
@@ -67,6 +73,25 @@ final readonly class Selector
         return new self($project, $coverage, $tests, $suite, Codebase::of(...$sources));
     }
 
+    /**
+     * Which test files judge a mutant whose first changed token stands at an
+     * index of its file's source: by the value it changes, on a line that is
+     * not executable; by the statement's other lines, on the first line of a
+     * statement that spans more; or none, where coverage speaks for its line
+     * and the mutant stays uncovered.
+     */
+    public function judging(Source $source, int $changed): Choice|NotGiven
+    {
+        $symbol = $source->symbolAt($changed);
+        $tail = $symbol instanceof Executable ? StatementTail::of($source, $changed) : NotGiven::value();
+
+        return match (true) {
+            ! $symbol instanceof Executable => $this->choose($symbol, $source->path()),
+            $tail instanceof StatementTail => $this->running($tail, $source->path()),
+            default => NotGiven::value(),
+        };
+    }
+
     /** Which test files judge a mutant of a file whose changed value a symbol names. */
     public function choose(Symbol|Unnamed $symbol, Path $file): Choice
     {
@@ -85,6 +110,18 @@ final readonly class Selector
         }
 
         return Choice::of($reading, $this->covering($file, 1, self::WHOLE), $references->isAmbiguous());
+    }
+
+    /**
+     * Which test files judge a mutant of a statement's first line, which
+     * coverage may not mark run: those that run its other lines; none where
+     * no test does, and the mutant stays uncovered.
+     */
+    private function running(StatementTail $tail, Path $file): Choice|NotGiven
+    {
+        $tests = $this->covering($file, $tail->first()->number(), $tail->last()->number());
+
+        return count($tests) === 0 ? NotGiven::value() : Choice::of($tests, Paths::none(), ambiguous: false);
     }
 
     /** A file under the test directories, where it holds a test the map names. */
