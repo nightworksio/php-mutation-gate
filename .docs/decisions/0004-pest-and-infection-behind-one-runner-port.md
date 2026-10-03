@@ -265,10 +265,15 @@ its parser attributes. Both change when the checkout moves.
        carries the data provider.
    - **It reports results.** This part is inert unless the environment variable
      `MUTATION_GATE_RESULTS` names a file, which only the adapter sets. A
-     mutant's child process inherits it, and there the plugin appends the
-     mutated file Pest serves and the id of the first test that fails
-     (ADR-0013, decision 1), or of every test that fails under a full kill
-     matrix (ADR-0014, decision 7).
+     mutant's child process inherits it, and there the plugin appends the id
+     of the first test that fails (ADR-0013, decision 1), or of every test
+     that fails under a full kill matrix (ADR-0014, decision 7), to a file of
+     that mutant's own beside the results file. Once the child ends, the
+     plugin in Pest's own process writes each as a line of the results file
+     with the mutated file Pest serves, and removes that file. So the
+     results file has one writer, which runs no mutated code: in a child,
+     the plugin's own classes can be the mutant, as they are in the package's
+     own gate (ADR-0011).
      - At `FinishMutationSuite` it walks the suite's mutants and writes one JSON
        line per mutant: native id, file, lines, mutator class, diff, status and
        duration, and one line with the opening run's duration, from which the
