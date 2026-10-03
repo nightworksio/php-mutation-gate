@@ -16,9 +16,10 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use function sprintf;
 
 /**
- * Where a manifest's psr-4 and psr-0 autoload would look for a class, read
- * without loading anything: each file spelt from the repository's root.
- * Whether one is there is for the disk to say.
+ * Where a manifest's psr-4 and psr-0 autoload would look for a class, and
+ * the files its autoload loads in every process, read without loading
+ * anything: each file spelt from the repository's root. Whether one is there
+ * is for the disk to say.
  */
 final readonly class ClassLocations
 {
@@ -43,6 +44,26 @@ final readonly class ClassLocations
     public function directories(string $namespace): Paths
     {
         return $this->located($namespace, directory: true);
+    }
+
+    /**
+     * Every file a section lists under `files`, which Composer's autoloader
+     * loads in every process, whatever a test names, in the order listed.
+     */
+    public function loadedFiles(): Paths
+    {
+        $files = [];
+
+        foreach ($this->autoloads as $autoload) {
+            $entry = $autoload->field(AutoloadKind::Files->value);
+
+            foreach ([$entry, ...Lenient::items($entry)] as $place) {
+                $file = Lenient::text($place);
+                $files = $file === '' ? $files : [...$files, $this->directory->child(Path::of($file))->collapsed()];
+            }
+        }
+
+        return Paths::of(...$files);
     }
 
     private function located(string $name, bool $directory): Paths

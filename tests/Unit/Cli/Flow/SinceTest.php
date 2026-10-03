@@ -67,6 +67,38 @@ it('follows what changed in the tests to the test files that name it, a fixture 
     'support' => ['tests/Support/Builder.php', "<?php\nnamespace Tests\\Support;\n\nfinal class Builder\n{\n    public int \$size = 1;\n}\n"],
 ]);
 
+it('follows a change to a file composer.json has loaded in every process to every kill, and one to another file that runs code by its name', function (string $changed, bool $everything): void {
+    $repository = sinceRepository()
+        ->write('composer.json', '{"autoload": {"files": ["src/helpers.php"]}}')
+        ->write('src/helpers.php', "<?php\nfunction money(): int\n{\n    return 1;\n}\n")
+        ->write('modules/billing/composer.json', '{"autoload-dev": {"files": ["functions.php"]}}')
+        ->write('modules/billing/functions.php', "<?php\nfunction tax(): int\n{\n    return 1;\n}\n")
+        ->write('src/rates.php', "<?php\nreturn ['eur' => 1];\n")
+        ->write('src/Rate.php', "<?php\nfinal class Rate\n{\n    public function all(): array\n    {\n        return require __DIR__ . '/rates.php';\n    }\n}\n")
+        ->commit('The helpers.');
+    $commit = Revision::ref(trim($repository->git('rev-parse', 'HEAD')));
+    $repository->write($changed, "<?php\nreturn ['eur' => 2];\n");
+    $since = new Since(Flows::adapters($repository->root, [], Git::at($repository->root)), Flows::settings())->of($commit)->at($commit);
+
+    expect($since instanceof ChangeReach ? count($since->everything()) > 0 : $since)->toBe($everything)
+        ->and($since instanceof ChangeReach && $since->reaches(Path::of('src/Rate.php'), Paths::none()))->toBeTrue()
+        ->and($since instanceof ChangeReach && $since->reaches(Path::of('src/Tax.php'), Paths::none()))->toBe($everything);
+})->with([
+    'the autoloaded file' => ['src/helpers.php', true],
+    'a module\'s autoloaded file' => ['modules/billing/functions.php', true],
+    'a file that runs code, which another requires' => ['src/rates.php', false],
+]);
+
+it('cannot tell what changed where a package\'s composer.json cannot be read', function (): void {
+    $repository = sinceRepository();
+    $commit = Revision::ref(trim($repository->git('rev-parse', 'HEAD')));
+    $repository->write('composer.json', '{');
+    $since = new Since(Flows::adapters($repository->root, [], Git::at($repository->root)), Flows::settings())->of($commit)->at($commit);
+
+    expect($since instanceof CannotTell ? $since->why() : $since)
+        ->toBe('The files on disk cannot be read to follow what changed by name. composer.json is not a JSON object.');
+});
+
 it('cannot tell what changed since a commit the repository does not have, nor one a shallow clone left out', function (): void {
     $origin = sinceRepository();
     $first = trim($origin->git('rev-parse', 'HEAD'));

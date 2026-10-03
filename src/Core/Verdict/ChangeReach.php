@@ -35,15 +35,19 @@ use function sprintf;
  * or a test that killed it, is among them does not stand.
  *
  * A file that is not PHP is named by the words of its name, as a test that
- * reads `fixtures/rates.json` names it. A change the gate cannot follow by
- * name reaches every kill: one to a file that decides how the gate runs
- * ({@see FileRoles}), and one to a PHP file outside the tests that runs code
- * when it is loaded. What a killing test reads is also judged by its digests,
- * and what every test reads by the mutation digest.
+ * reads `fixtures/rates.json` names it, and so, besides what it declares, is
+ * a PHP file that runs code when it is loaded, as a file that requires it
+ * spells its path. A change the gate cannot follow by name reaches every
+ * kill: one to a file that decides how the gate runs, and one to a file
+ * Composer's autoloader loads in every process ({@see FileRoles}). What a
+ * killing test reads is also judged by its digests, and what every test
+ * reads by the mutation digest.
  */
 final readonly class ChangeReach
 {
-    private const string RUNS = '`%s` runs code when it is loaded, so what it changes cannot be followed by name.';
+    private const string LOADED = <<<'LOADED'
+        `%s` is loaded in every process by Composer's autoloader, so what it changes cannot be followed by name.
+        LOADED;
 
     private const string DECIDES = '`%s` decides how the gate runs, so nothing judged before it stands.';
 
@@ -131,7 +135,7 @@ final readonly class ChangeReach
     }
 
     /**
-     * The names a changed file declares, then or now, or why what it changes
+     * The names a changed file goes by, then or now, or why what it changes
      * cannot be followed by name.
      *
      * @param  list<Contents|Missing> $versions
@@ -141,18 +145,24 @@ final readonly class ChangeReach
     {
         return match (true) {
             $roles->decides($path) => Reason::that(sprintf(self::DECIDES, $path->value())),
+            $roles->isLoadedEverywhere($path) => Reason::that(sprintf(self::LOADED, $path->value())),
             ! $path->isPhp() => NamedFiles::nameOf($path),
-            default => self::declared($path, $roles->isTested($path), $versions),
+            default => self::declared($path, $versions),
         };
     }
 
     /**
+     * What a PHP file declares, then or now, and the words of its name where
+     * either version runs code when it is loaded, as a file that loads it
+     * spells its path.
+     *
      * @param  list<Contents|Missing> $versions
-     * @return list<string>|Reason
+     * @return list<string>
      */
-    private static function declared(Path $path, bool $inTests, array $versions): array|Reason
+    private static function declared(Path $path, array $versions): array
     {
         $names = [];
+        $runs = false;
 
         foreach ($versions as $version) {
             if (! $version instanceof Contents) {
@@ -160,14 +170,10 @@ final readonly class ChangeReach
             }
 
             $php = PhpFile::read($version);
-
-            if (! $inTests && ! $php->onlyDeclares()) {
-                return Reason::that(sprintf(self::RUNS, $path->value()));
-            }
-
-            $names = [...$names, ...NamedFiles::declaredIn($php)];
+            $runs = $runs || ! $php->onlyDeclares();
+            array_push($names, ...NamedFiles::declaredIn($php));
         }
 
-        return $names;
+        return $runs ? [...$names, ...NamedFiles::nameOf($path)] : $names;
     }
 }

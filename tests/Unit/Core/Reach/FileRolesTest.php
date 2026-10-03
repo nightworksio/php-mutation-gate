@@ -18,6 +18,7 @@ $roles = FileRoles::of(
         Tree::at(Path::of('src'), Floor::of(0), Package::at(Path::root())),
         Tree::at(Path::of('packages/billing/src'), Floor::of(0), Package::at(Path::of('packages/billing'))),
     )),
+    Paths::of(Path::of('src/helpers.php'), Path::of('packages/billing/src/functions.php')),
 );
 
 it('says a change to what the layout names, or to a package\'s lock file, decides how the gate runs', function (string $file) use ($roles): void {
@@ -28,13 +29,11 @@ it('says no other file decides how the gate runs', function (string $file) use (
     expect($roles->decides(Path::of($file)))->toBeFalse();
 })->with(['src/Money.php', 'README.md', 'config/services.yaml', 'packages/composer.lock', 'src/composer.lock']);
 
-it('says which PHP files are of a package\'s tests, whether they are there or not', function (string $file, bool $tested) use ($roles): void {
-    expect($roles->isTested(Path::of($file)))->toBe($tested);
+it('says which files Composer\'s autoloader loads in every process', function (string $file, bool $loaded) use ($roles): void {
+    expect($roles->isLoadedEverywhere(Path::of($file)))->toBe($loaded);
 })->with([
-    'a file of test cases' => ['tests/MoneyTest.php', true],
-    'support' => ['tests/Support/Builder.php', true],
-    'another package\'s test cases' => ['packages/billing/tests/InvoiceTest.php', true],
-    'a fixture that is not PHP' => ['tests/fixtures/rates.json', false],
+    'the root package\'s' => ['src/helpers.php', true],
+    'another package\'s' => ['packages/billing/src/functions.php', true],
+    'another file of the same name' => ['packages/billing/src/helpers.php', false],
     'source' => ['src/Money.php', false],
-    'a package\'s source' => ['packages/billing/src/Invoice.php', false],
 ]);
