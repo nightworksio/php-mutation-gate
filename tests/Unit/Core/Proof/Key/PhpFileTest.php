@@ -39,17 +39,18 @@ it('reads a file that only declares, and every name it declares at its top level
         interface Shape {}
         trait Helps {}
         enum Kind {}
-        function helper(): void {}
+        function helper(string $a, string $b): string { return "{$a} ${b}"; }
         const LIMIT = [1], OTHER = FOO;
         abstract class Base {}
         readonly class Value {}
+        class Plain {}
         ?>
 
 
         PHP);
 
     expect($file->onlyDeclares())->toBeTrue()
-        ->and($file->declares())->toBe(['money', 'shape', 'helps', 'kind', 'helper', 'limit', 'other', 'base', 'value']);
+        ->and($file->declares())->toBe(['money', 'shape', 'helps', 'kind', 'helper', 'limit', 'other', 'base', 'value', 'plain']);
 });
 
 it('reads a function or constant a file imports as a name it uses, not one it declares', function () use ($read): void {

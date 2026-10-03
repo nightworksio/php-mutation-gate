@@ -30,7 +30,7 @@ it('lets nothing in the viewer end its script element or open a comment', functi
 it('lets nothing the project wrote end the report\'s element, open a comment or break a line of script', function (): void {
     $report = (string) json_encode(
         ['diff' => "</script><script>alert(1)</script> <!-- ]]> & \u{2028}\u{2029}", 'file' => '</SCRIPT>.php'],
-        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_LINE_TERMINATORS,
     );
     $page = StrykerPage::html($report, 'viewer', 'licence');
     $data = preg_match('~<script type="application/json" id="report">(.*?)</script>~s', $page, $found) === 1 ? $found[1] : '';
@@ -39,6 +39,7 @@ it('lets nothing the project wrote end the report\'s element, open a comment or 
         ->and($data)->not->toContain('>')
         ->and($data)->not->toContain('&')
         ->and($data)->not->toContain("\u{2028}")
+        ->and($data)->not->toContain("\u{2029}")
         ->and(Decoded::at($data))->toBe([
             'diff' => "</script><script>alert(1)</script> <!-- ]]> & \u{2028}\u{2029}",
             'file' => '</SCRIPT>.php',

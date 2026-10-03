@@ -90,3 +90,13 @@ it('places no mutant whose change runs past one statement, or cannot be found', 
     'tokens that are not on its line' => [Verdicts::diff('return 42;', 'return 43;'), 8, Line::of(8)],
     'a change that only adds' => [Verdicts::diff('return true;', 'return ! true;'), 8, Line::of(8)],
 ]);
+
+it('places no mutant whose change holds a semicolon, an opening brace or a closing brace before its end', function (string $removed, int $line) use ($mutant): void {
+    $source = Contents::of("<?php\n\$a = 1; \$b = 2;\nif (\$ok) {\n    run(function () {\n    });\n}\n");
+
+    expect(Columns::in($source)->span($mutant($line, Line::of($line), sprintf("@@ @@\n-%s\n", $removed))))->toEqual(Unplaced::mutant());
+})->with([
+    'two statements on a line' => ['$a = 1; $b = 2;', 2],
+    'a block opened' => ['if ($ok) {', 3],
+    'a closure closed' => ['    });', 5],
+]);

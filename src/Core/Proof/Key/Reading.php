@@ -29,7 +29,7 @@ final readonly class Reading
     private const array NAMING = [T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM, T_FUNCTION, T_CONST];
 
     /** What opens a bracket, a brace or an attribute. */
-    private const array OPENING = ['{', '(', '[', T_ATTRIBUTE, T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES];
+    private const array OPENING = ['{', '(', '[', T_ATTRIBUTE, T_DOLLAR_OPEN_CURLY_BRACES];
 
     /** What closes one. */
     private const array CLOSING = ['}', ')', ']'];

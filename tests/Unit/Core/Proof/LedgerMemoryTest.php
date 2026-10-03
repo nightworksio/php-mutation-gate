@@ -22,5 +22,7 @@ it('admits a memory_limit of at least what a run may need, or none at all', func
 it('counts what a run may need in PHP\'s M, rounding up to a whole one', function (): void {
     expect(LedgerMemory::standard()->mebibytes())->toBe(1_506)
         ->and(LedgerMemory::within(LedgerLimits::of(1, 0, 60.0))->mebibytes())->toBe(128)
-        ->and(LedgerMemory::within(LedgerLimits::of(1, 1, 60.0))->mebibytes())->toBe(129);
+        ->and(LedgerMemory::within(LedgerLimits::of(1, 1, 60.0))->mebibytes())->toBe(129)
+        ->and(LedgerMemory::within(LedgerLimits::of(1, 524_288, 60.0))->mebibytes())->toBe(147)
+        ->and(LedgerMemory::within(LedgerLimits::of(1, 248_347, 60.0))->mebibytes())->toBe(138);
 });
