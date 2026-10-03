@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
@@ -70,6 +71,10 @@ it('keeps the ledger where the directory store keeps it by default', function ()
 
 it('reads the installed gate\'s version where the gate reads what Composer installed', function (): void {
     expect(scriptText('INSTALLED'))->toBe(Installed::fileIn(Path::of(Manifest::VENDOR))->value());
+});
+
+it('names the Pest runner by the word the config chooses it by', function (): void {
+    expect(scriptText('PEST'))->toBe(BuiltinRunner::Pest->value);
 });
 
 it('names the package as Composer does', function (): void {
