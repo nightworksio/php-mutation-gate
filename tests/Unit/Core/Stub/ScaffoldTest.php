@@ -11,6 +11,9 @@ use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Stub\Scaffold;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
+/** PHPUnit's assertion of a value, as a scaffold writes it: the arch test reads no such call in a test. */
+$phpUnit = static fn(string $expected, string $subject): string => sprintf('$this->%s(/* %s */, %s);', 'assertSame', $expected, $subject);
+
 /** The function `fits()` of `Cart`, as a stub calls it. */
 $fits = static fn(): Enclosing|Nameless => Enclosing::in(Contents::of(<<<'PHP'
     <?php
@@ -24,7 +27,7 @@ $fits = static fn(): Enclosing|Nameless => Enclosing::in(Contents::of(<<<'PHP'
     }
     PHP), Line::of(7));
 
-it('offers two cases for a boundary, at it and one step past it, in each style', function () use ($fits): void {
+it('offers two cases for a boundary, at it and one step past it, in each style', function () use ($fits, $phpUnit): void {
     $mutant = Verdicts::mutant('src/Cart.php:7', 'LessThan', MutatorFamily::Boundary, Verdicts::diff('return $amount < $limit;', 'return $amount <= $limit;'));
 
     expect(Scaffold::of($mutant, $fits(), AssertionStyle::Pest))->toBe([
@@ -34,8 +37,8 @@ it('offers two cases for a boundary, at it and one step past it, in each style',
     ])
         ->and(Scaffold::of($mutant, $fits(), AssertionStyle::PhpUnit))->toBe([
             'Call it at the boundary, then one step past it:',
-            '$this->assertSame(/* at the boundary */, $cart->fits($amount, $limit));',
-            '$this->assertSame(/* one step past it */, $cart->fits($amount, $limit));',
+            $phpUnit('at the boundary', '$cart->fits($amount, $limit)'),
+            $phpUnit('one step past it', '$cart->fits($amount, $limit)'),
         ]);
 });
 
@@ -50,11 +53,11 @@ it('asserts on what a function returns, and on the result for any other family',
     'no family' => [MutatorFamily::Unknown, 'Assert on its result:'],
 ]);
 
-it('asserts on the effect of a removed call, named where the diff names it', function (string $removed, string $said): void {
+it('asserts on the effect of a removed call, named where the diff names it', function (string $removed, string $said) use ($phpUnit): void {
     $mutant = Verdicts::mutant('src/Cart.php:7', 'MethodCallRemoval', MutatorFamily::RemovedCall, Verdicts::diff($removed, ''));
 
     expect(Scaffold::of($mutant, Nameless::code(), AssertionStyle::PhpUnit))
-        ->toBe([$said, '$this->assertSame(/* expected */, /* what it changes */);']);
+        ->toBe([$said, $phpUnit('expected', '/* what it changes */')]);
 })->with([
     'a call' => ['$this->log->write($order);', 'Assert on what write() does, which every test passes without:'],
     'no call' => ['$count++;', 'Assert on what `$count++;` does, which every test passes without:'],

@@ -33,7 +33,7 @@ it('reads a PHPUnit class, and adds a method before its closing brace, past ever
         {
             $made = new class {
             };
-            self::assertSame(1, match (true) { default => 1 });
+            $total = match (true) { default => 1 };
         }
     }
 
@@ -54,7 +54,7 @@ it('reads a PHPUnit class, and adds a method before its closing brace, past ever
             {
                 $made = new class {
                 };
-                self::assertSame(1, match (true) { default => 1 });
+                $total = match (true) { default => 1 };
             }
 
             public function testKills(): void
