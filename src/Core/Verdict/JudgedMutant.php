@@ -62,7 +62,7 @@ final readonly class JudgedMutant
         return clone($this, ['onChangedLine' => $reach->changedLines($location->file())->has($location->start())]);
     }
 
-    /** This mutant, judged by these tests: those covering its line, or the group of the held unit it is in. */
+    /** This mutant, judged by these tests: those covering its line; of a held unit, those of them its group runs. */
     public function judgedBy(TestIds $tests): self
     {
         return clone($this, ['tests' => $tests]);

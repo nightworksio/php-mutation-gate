@@ -79,7 +79,9 @@ final readonly class KilledRecords
     }
 
     /**
-     * The tests a killed record's indices name, one set for every record that names the same.
+     * The tests a list of indices into the ledger's tests names, as a killed
+     * record's killers or a held unit's proof's judging tests list them, one
+     * set for every list that names the same.
      *
      * @throws NotInShape
      */

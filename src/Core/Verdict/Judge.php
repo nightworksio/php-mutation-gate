@@ -23,7 +23,6 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
-use NightWorksIO\MutationGate\Core\Unit\Unit;
 
 use function sprintf;
 
@@ -32,9 +31,10 @@ use function sprintf;
  * carried, against the higher of its declared floor and its baseline's; and,
  * in a change-scoped run, the mutants on the lines the change added or
  * modified against the floor for new code. Each unit keeps the run whose
- * proof it came from (ADR-0015, decision 8), and each mutant of a unit the
- * whole suite judges is judged by the tests the kill matrix says cover it
- * (ADR-0004, decision 5).
+ * proof it came from (ADR-0015, decision 8), and each mutant is judged by
+ * the tests the kill matrix says cover it, of a held unit only those its
+ * holding tests that run it are among (ADR-0004 decision 5, ADR-0005
+ * decision 10).
  */
 final readonly class Judge
 {
@@ -153,7 +153,7 @@ final readonly class Judge
                 $mutant,
                 $flaky->has($mutant->id()) ? MutantJudgement::Flaky : $this->triage->judged($mutant),
             ));
-            $judged[] = $one->judgedBy($this->judgingTests($result->unit(), $one));
+            $judged[] = $one->judgedBy($this->judgingTests($result, $one));
         }
 
         $proved = [];
@@ -166,14 +166,27 @@ final readonly class Judge
     }
 
     /**
-     * The tests that judged a mutant: those the kill matrix says cover it,
-     * where the whole suite judges its unit. A held unit's group judged it,
-     * and which of the group's tests cover it is not known here, so none are
-     * named.
+     * The tests that judged a mutant: those the kill matrix says cover it;
+     * of a held unit, those of them its holding tests that run it are among.
+     * A held unit's result that names no holding tests, as a proof of an
+     * earlier gate does, names none.
      */
-    private function judgingTests(Unit $unit, JudgedMutant $mutant): TestIds
+    private function judgingTests(UnitResult $result, JudgedMutant $mutant): TestIds
     {
-        return $unit->judgedBy() instanceof WholeSuite ? $this->matrix->coveredBy($mutant) : TestIds::none();
+        $covering = $this->matrix->coveredBy($mutant);
+
+        if ($result->unit()->judgedBy() instanceof WholeSuite) {
+            return $covering;
+        }
+
+        $holding = $result->judging();
+        $judging = TestIds::none();
+
+        foreach ($covering as $test) {
+            $judging = $holding->has($test) ? $judging->with($test) : $judging;
+        }
+
+        return $judging;
     }
 
     /** @param list<NewCodeVerdict> $sets */

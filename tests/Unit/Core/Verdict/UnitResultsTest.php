@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
@@ -35,13 +36,16 @@ it('is a unit, where its result came from and its mutants', function (): void {
         ->and($result->run())->toEqual(ThisRun::result());
 });
 
-it('takes a proof\'s mutants, kills and run, and keeps the run when its flaky mutants are marked', function (): void {
+it('takes a proof\'s mutants, kills, run and judging tests, and keeps them when its flaky mutants are marked', function (): void {
     $run = Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base'));
     $kills = ProvedKills::of(ProvedKill::of(MutantId::hash(Path::of('src/Money.php'), 'Plus', 'diff', 3), Path::of('src/Money.php'), Line::of(3), 'Plus', TestIds::none()));
-    $proof = Proof::held(Digest::sha256Of('src/Money.php'), Path::of('src/Money.php'), Mutants::none(), $kills, $run);
+    $judging = TestIds::of(TestId::of('MoneyTest::adds'));
+    $proof = Proof::held(Digest::sha256Of('src/Money.php'), Path::of('src/Money.php'), Mutants::none(), $kills, $run)->judgedBy($judging);
     $result = UnitResult::fromProof(Unit::file(Path::of('src/Money.php')), Origin::Proved, $proof)->withFlaky(MutantIds::none());
 
-    expect([$result->origin(), $result->mutants(), $result->kills(), $result->run()])->toBe([Origin::Proved, $proof->reported(), $kills, $run]);
+    expect([$result->origin(), $result->mutants(), $result->kills(), $result->run(), $result->judging()])
+        ->toBe([Origin::Proved, $proof->reported(), $kills, $run, $judging])
+        ->and(UnitResult::of(Unit::file(Path::of('src/Money.php')), Origin::Run, Mutants::none())->judging())->toHaveCount(0);
 });
 
 it('takes the ids of its flaky mutants, keeping everything else', function (): void {

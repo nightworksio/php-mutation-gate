@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Hold\Covered;
+use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -20,7 +22,10 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
+use NightWorksIO\MutationGate\Core\Proof\ProofRecord;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\UnitRecord;
@@ -34,7 +39,9 @@ use function sprintf;
  * A shard's result as `.mutation-gate/results/<id>.json` holds it,
  * `"format": 1`, with `flaky` listing the ids of the mutants that gave two
  * answers where there are any, `missed` each held unit whose holding tests
- * miss lines of it, with why, where there are any, `warnings` what the
+ * miss lines of it, with why, where there are any, `covered` each held unit
+ * whose holding tests cover it, with those of them that run it as `judging`,
+ * where there are any, `warnings` what the
  * shard warns of, where it warns of anything, and `unjudged` the units its
  * budget ran out before, where there are any, and `staticChecks` what
  * static analysis's checks of its survivors came to, where they came to
@@ -57,7 +64,9 @@ final readonly class ShardResultFile
 
     private const string MISSED = 'missed';
 
-    private const string MISSED_UNIT = 'unit';
+    private const string UNIT = 'unit';
+
+    private const string COVERED = 'covered';
 
     private const string WARNINGS = 'warnings';
 
@@ -91,10 +100,20 @@ final readonly class ShardResultFile
             )] : [],
             ...count($result->misses()) > 0 ? [self::MISSED => array_map(
                 static fn(NotCovered $miss): array => [
-                    self::MISSED_UNIT => UnitRecord::one($miss->unit()),
+                    self::UNIT => UnitRecord::one($miss->unit()),
                     self::WHY => $miss->why(),
                 ],
                 [...$result->misses()],
+            )] : [],
+            ...count($result->covered()) > 0 ? [self::COVERED => array_map(
+                static fn(Covered $covered): array => [
+                    self::UNIT => UnitRecord::one($covered->unit()),
+                    ProofRecord::JUDGING => array_map(
+                        static fn(TestId $test): string => $test->value(),
+                        [...$covered->tests()],
+                    ),
+                ],
+                [...$result->covered()],
             )] : [],
             ...count($result->warnings()) > 0 ? [self::WARNINGS => array_map(
                 static fn(Warning $warning): string => $warning->text(),
@@ -132,6 +151,7 @@ final readonly class ShardResultFile
         )
             ->withFlaky(self::flakyIn($file->field(self::FLAKY)))
             ->withMisses(self::missesIn($file->field(self::MISSED)))
+            ->withCovered(self::coveredIn($file->field(self::COVERED)))
             ->withWarnings(self::warningsIn($file->field(self::WARNINGS)))
             ->withUnjudged(self::unjudgedIn($file->field(self::UNJUDGED)))
             ->withChecks(SurvivorChecksRecord::read($file->field(SurvivorChecksRecord::SECTION)));
@@ -162,12 +182,30 @@ final readonly class ShardResultFile
 
         foreach ($missed->isPresent() ? $missed->items() : [] as $miss) {
             $misses[] = NotCovered::because(
-                UnitRecord::read($miss->field(self::MISSED_UNIT)),
+                UnitRecord::read($miss->field(self::UNIT)),
                 $miss->field(self::WHY)->text(),
             );
         }
 
         return HeldMisses::of(...$misses);
+    }
+
+    /** @throws NotInShape */
+    private static function coveredIn(Node $covered): HeldCovered
+    {
+        $read = HeldCovered::none();
+
+        foreach ($covered->isPresent() ? $covered->items() : [] as $one) {
+            $tests = TestIds::none();
+
+            foreach ($one->field(ProofRecord::JUDGING)->items() as $test) {
+                $tests = $tests->with(TestId::of($test->text()));
+            }
+
+            $read = $read->with(Covered::by(UnitRecord::read($one->field(self::UNIT)), $tests));
+        }
+
+        return $read;
     }
 
     /** @throws NotInShape */

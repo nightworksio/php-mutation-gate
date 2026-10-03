@@ -198,7 +198,8 @@ has to bring its result with it.
                    { "id": "3f9a1c2b7d04", "line": 42, "status": "survived", "mutator": "LessThan", "diff": "…" },
                    ["81d0c9e2aa17", 44, 0, [0]]
                ],
-               "digests": { "source": "…64 hex…", "mutation": 0, "tests": [0], "commit": 0 }
+               "digests": { "source": "…64 hex…", "mutation": 0, "tests": [0], "commit": 0 },
+               "judging": [1]
            }
        },
        "timings": {
@@ -265,6 +266,11 @@ has to bring its result with it.
      once. That is what ignores, the stale-ignore check (ADR-0008) and the
      tests report (ADR-0014) need, in as few bytes as a ledger of hundreds of
      thousands of killed mutants can take.
+   - A proof of a held unit records as `judging` the indices in the
+     ledger's `tests` of the holding tests that run it (ADR-0005, decision
+     10). A proof without `judging` names none, as a proof of a unit the
+     whole suite judges, or one an earlier gate wrote, does. A proof whose
+     `judging` points past the end of `tests` is dropped.
    - Each proof records the `base` of the run that established it (decision
      2), and `bases` lists the bases of the runs that wrote the ledger, the
      most recent first. A run adds its own base when it writes.
@@ -278,8 +284,9 @@ has to bring its result with it.
      its file and its name, the tests that killed first, keeping the five
      most frequent. Each is a list of `[test, kills]` pairs, most kills
      first, `test` an index into the ledger's `tests`, which lists the tests
-     the killers name as well as those killed mutants name. Of two tests with
-     as many kills, the one that killed most recently comes first.
+     the killers name as well as those killed mutants and `judging` name. Of
+     two tests with as many kills, the one that killed most recently comes
+     first.
    - Retention of `killers` is one fixed policy too. It keeps the mutant ids a
      kept proof holds, and of those, and of the functions, the 20,000 mutants
      and the 5,000 functions that most recently learned a killer. A run

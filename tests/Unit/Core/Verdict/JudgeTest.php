@@ -247,15 +247,22 @@ it('judges each kill a ledger proved killed beside the mutants it reported in fu
         ->and([...$billing->units()][0]->run())->toBe($run);
 });
 
-it('judges each mutant of a unit the whole suite judges by the tests the kill matrix says cover it, and a held unit\'s by none it can name', function () use ($judge, $results): void {
+it('judges each mutant by the tests the kill matrix says cover it, a held unit\'s by those of them its holding tests run, and none where it names none', function () use ($judge, $results, $mutant): void {
     $matrix = KillMatrix::of(MatrixKind::FirstKiller, CoverageMap::empty()
         ->covered(Path::of('app/Kernel.php'), Line::of(2), TestId::of('KernelTest::boots'))
-        ->covered(Path::of('app/Http/Middleware/Auth.php'), Line::of(5), TestId::of('AuthTest::checks')));
-    $tested = static fn(Judge $judging): array => array_map(
-        static fn(JudgedMutant|JudgedKill $judged): array => array_map(static fn(TestId $test): string => $test->value(), [...$judged->tests()]),
-        [...$judging->trees($results)->mutants()],
+        ->covered(Path::of('app/Http/Middleware/Auth.php'), Line::of(5), TestId::of('AuthTest::checks'))
+        ->covered(Path::of('app/Http/Middleware/Auth.php'), Line::of(5), TestId::of('KernelTest::boots')));
+    $tested = static fn(Judge $judging, UnitResults $judged): array => array_map(
+        static fn(JudgedMutant|JudgedKill $one): array => array_map(static fn(TestId $test): string => $test->value(), [...$one->tests()]),
+        [...$judging->trees($judged)->mutants()],
     );
+    $held = UnitResults::of(UnitResult::of(
+        Unit::held(Path::of('app/Http/Middleware'), Group::named('holds:app/Http/Middleware')),
+        Origin::Run,
+        Mutants::of($mutant('app/Http/Middleware/Auth.php', 5, MutantStatus::Survived)),
+    )->judgedBy(TestIds::of(TestId::of('AuthTest::checks'), TestId::of('AuthTest::refuses'))));
 
-    expect($tested($judge->judging($matrix)))->toBe([[], ['KernelTest::boots'], [], [], []])
-        ->and($tested($judge))->toBe([[], [], [], [], []]);
+    expect($tested($judge->judging($matrix), $results))->toBe([[], ['KernelTest::boots'], [], [], []])
+        ->and($tested($judge->judging($matrix), $held))->toBe([['AuthTest::checks']])
+        ->and($tested($judge, $results))->toBe([[], [], [], [], []]);
 });

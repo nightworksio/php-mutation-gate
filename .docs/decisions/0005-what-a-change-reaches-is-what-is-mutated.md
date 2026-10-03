@@ -290,6 +290,11 @@ The same repository has two more needs.
     A group that does not pass on its own is *cannot judge*. A path with no
     file in the group's report is unreached as a whole, never "nothing missed".
 
+    The tests of the group that run any line of a path it covers are the
+    tests that judge its mutants. The shard's result lists them as `covered`,
+    and the unit's proof keeps them as `judging` (ADR-0007, decision 3), so a
+    proved or carried result names them as a run does (ADR-0009, decision 7).
+
 11. **A path every test runs through, and nothing holds, is named.** After the
     coverage run, a warning names each source file whose lines are executed by
     at least `holds.hotPath` of the suite's tests (a fraction from 0 to 1, 0.8

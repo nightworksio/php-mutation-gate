@@ -45,6 +45,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 
@@ -585,4 +586,28 @@ it('reads a ledger whose analysers section is not well formed as having learned 
     $file['analysers'] = ['mago' => 'fast'];
 
     expect(LedgerFile::decode($written($file)))->toEqual($readBack);
+});
+
+it('writes the holding tests that run a held unit as indices into its tests, and reads them back', function () use ($run, $base): void {
+    $judging = TestIds::of(TestId::of('HeldTest::doubles'), TestId::of('HeldTest::halves'));
+    $held = Proof::of(Digest::of(str_repeat('c', 64)), Path::of('src/Held.php'), Mutants::none(), $run('github:3/1', '2026-09-29T22:00:00Z'))
+        ->judgedBy($judging);
+    $ledger = Ledger::empty()->withProof($held)->atBase(Digest::of($base));
+    $json = Gzip::unpack(LedgerFile::encode($ledger), 'the ledger');
+    $text = is_string($json) ? $json : '';
+    $read = LedgerFile::decode(LedgerFile::encode($ledger))->proofs()->proofFor(Digest::of(str_repeat('c', 64)));
+
+    expect(Decoded::at($text, 'tests'))->toBe(['HeldTest::doubles', 'HeldTest::halves'])
+        ->and(Decoded::at($text, 'proofs', str_repeat('c', 64), 'judging'))->toBe([0, 1])
+        ->and($read instanceof Proof ? $read->judging() : TestIds::none())->toEqual($judging);
+});
+
+it('drops a held unit\'s proof whose judging tests point past the ledger\'s tests', function () use ($run, $base, $written): void {
+    $held = Proof::of(Digest::of(str_repeat('c', 64)), Path::of('src/Held.php'), Mutants::none(), $run('github:3/1', '2026-09-29T22:00:00Z'))
+        ->judgedBy(TestIds::of(TestId::of('HeldTest::doubles')));
+    $json = Gzip::unpack(LedgerFile::encode(Ledger::empty()->withProof($held)->atBase(Digest::of($base))), 'the ledger');
+    $file = is_string($json) ? json_decode($json, associative: true) : [];
+    $spoilt = is_array($file) ? array_replace($file, ['tests' => []]) : [];
+
+    expect(count(LedgerFile::decode($written($spoilt))->proofs()))->toBe(0);
 });

@@ -55,6 +55,7 @@ final readonly class LedgerJson
         $tests = array_values(array_unique([
             ...self::namesOf($kept, static fn(Mutant|ProvedKill $killed): array => self::idsOf($killed->killers())),
             ...KillersRecord::testsOf($killers),
+            ...self::judgingOf($kept),
         ]));
         $testIndex = array_flip($tests);
         $inputs = InputsTable::of(...$kept);
@@ -141,6 +142,23 @@ final readonly class LedgerJson
         }
 
         return array_merge(...$names);
+    }
+
+    /**
+     * The holding tests every kept proof of a held unit names, each once.
+     *
+     * @param  list<Proof>  $kept
+     * @return list<string>
+     */
+    private static function judgingOf(array $kept): array
+    {
+        $tests = [];
+
+        foreach ($kept as $proof) {
+            $tests = [...$tests, ...self::idsOf($proof->judging())];
+        }
+
+        return $tests;
     }
 
     /** @return list<string> */

@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 
 use function sprintf;
@@ -46,7 +47,23 @@ final readonly class GroupCoverage
 
         $message = sprintf(self::MISSES, self::nameOf($held), $held->path()->value(), implode(', ', $missed));
 
-        return $missed === [] ? Covered::by($held) : NotCovered::because($held, $message);
+        return $missed === []
+            ? Covered::by($held, self::running($group, $held->path()))
+            : NotCovered::because($held, $message);
+    }
+
+    /** Every test of the group's map that runs a line of a file inside a path. */
+    private static function running(CoverageMap $group, Path $path): TestIds
+    {
+        $running = TestIds::none();
+
+        foreach ($group->files() as $file) {
+            foreach ($file->within($path) ? $group->testsCoveringFile($file) : [] as $test) {
+                $running = $running->with($test);
+            }
+        }
+
+        return $running;
     }
 
     private static function runsAny(CoverageMap $map, Path $path): bool
