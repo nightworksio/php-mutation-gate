@@ -118,6 +118,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\CountedChanges;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
@@ -1026,6 +1027,142 @@ function judgingProven(string $moneySource, string $moneyTest): ProofStoreFake
 
     return $store;
 }
+
+/**
+ * The project, where src/Money.php uses the trait src/Equals.php declares
+ * and nothing names src/Tax.php, and a checkout whose working tree changed
+ * this file since each of these commits.
+ *
+ * @return array{string, ChangeSourceFake}
+ */
+function judgingAcross(string $changed, Revision ...$commits): array
+{
+    $files = [
+        ...Flows::FILES,
+        'src/Money.php' => "<?php\n\nfinal class Money\n{\n    use Equals;\n}\n",
+        'src/Equals.php' => "<?php\n\ntrait Equals\n{\n}\n",
+        'src/Tax.php' => "<?php\n\nfinal class Tax\n{\n}\n",
+    ];
+    $project = Scratch::directory();
+
+    foreach ($files as $path => $contents) {
+        Scratch::write($project, $path, $contents);
+    }
+
+    $byRevision = [Revision::workingTree()->name() => $files];
+
+    foreach ($commits as $commit) {
+        $byRevision[$commit->name()] = $files;
+    }
+
+    $checkout = new ChangeSourceFake($commits[0], Changes::of(Change::modified(Path::of($changed), Lines::of(Line::of(4)))), $byRevision);
+
+    foreach (array_slice($commits, 1) as $commit) {
+        $checkout = $checkout->alsoFrom($commit);
+    }
+
+    return [$project, $checkout];
+}
+
+/**
+ * A store whose default branch proves both units at another base, each
+ * result's digests taken at a commit: src/Money.php with a survivor and a
+ * kill by MoneyTest::adds, and src/Held.php with a kill by MoneyTest::adds.
+ */
+function judgingProvenAcross(Revision $money, Revision $held): ProofStoreFake
+{
+    $run = Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('another base'));
+    $kill = static fn(string $unit): ProvedKill => ProvedKill::of(
+        MutantId::hash(Path::of($unit), 'Plus', 'carried kill', 0),
+        Path::of($unit),
+        Line::of(3),
+        'Plus',
+        TestIds::of(TestId::of('MoneyTest::adds')),
+    );
+    $inputs = static fn(string $source, Revision $commit): Inputs => Inputs::of(Digest::sha256Of($source), Digest::sha256Of('mutation'))
+        ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test'))
+        ->takenAt($commit);
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()
+        ->withProof(Proof::held(Digest::sha256Of('money before'), Path::of('src/Money.php'), Mutants::none(), ProvedKills::of($kill('src/Money.php')), $run)
+            ->withInputs($inputs('money', $money)))
+        ->withProof(Proof::held(Digest::sha256Of('held before'), Path::of('src/Held.php'), Mutants::none(), ProvedKills::of($kill('src/Held.php')), $run)
+            ->withInputs($inputs('held', $held))));
+
+    return $store;
+}
+
+it('carries a kill from another commit where nothing changed since reaches its unit or its test by name', function () use ($tree, $reporting, $judged): void {
+    $commit = Revision::ref(str_repeat('c1', 20));
+    [$project, $checkout] = judgingAcross('src/Tax.php', $commit);
+    $store = judgingProvenAcross($commit, $commit);
+
+    $verdict = judgingVerdictOf($judged(
+        judgingDigested('money', 'money test'),
+        Flows::adapters($project, [], $store, $tree(Floor::of(0)), $checkout),
+        judgingSettings(Budget::of('1s')),
+        $reporting(new ReporterFake()),
+    ));
+    $trees = [...$verdict->trees()];
+
+    expect($verdict->judgement())->toBe(Judgement::Passed)
+        ->and($trees[0]->counts()->number(MutantJudgement::Killed))->toBe(2)
+        ->and($trees[0]->counts()->number(MutantJudgement::Unjudged))->toBe(0);
+});
+
+it('leaves a kill from another commit unjudged where what changed since reaches its unit by a name it uses', function () use ($tree, $reporting, $judged): void {
+    $commit = Revision::ref(str_repeat('c1', 20));
+    [$project, $checkout] = judgingAcross('src/Equals.php', $commit);
+
+    $verdict = judgingVerdictOf($judged(
+        judgingDigested('money', 'money test'),
+        Flows::adapters($project, [], judgingProvenAcross($commit, $commit), $tree(Floor::of(0)), $checkout),
+        judgingSettings(Budget::of('1s')),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect($verdict->judgement())->toBe(Judgement::Failed)
+        ->and(judgingTexts($verdict->failures()))->toBe([
+            "The time budget left 1 of the mutants of src/Money.php unjudged, so this run cannot pass it.\n"
+            . 'More time judges them: vendor/bin/mutation-gate run --budget=<duration>',
+        ]);
+});
+
+it('carries no kill from a commit git cannot read, and warns why', function () use ($tree, $reporting, $judged): void {
+    $commit = Revision::ref(str_repeat('c1', 20));
+    [$project, $checkout] = judgingAcross('src/Tax.php', Revision::ref(str_repeat('c2', 20)));
+
+    $verdict = judgingVerdictOf($judged(
+        judgingDigested('money', 'money test'),
+        Flows::adapters($project, [], judgingProvenAcross($commit, $commit), $tree(Floor::of(0)), $checkout),
+        judgingSettings(Budget::of('1s')),
+        $reporting(new ReporterFake()),
+    ));
+    $warnings = array_map(static fn(Warning $warning): string => $warning->text(), [...$verdict->warnings()]);
+
+    expect($verdict->judgement())->toBe(Judgement::Failed)
+        ->and($warnings)->toContain(sprintf(
+            'No kill proved at %1$s carries for a unit the budget never started. %1$s is not a revision this repository has.',
+            str_repeat('c1', 20),
+        ));
+});
+
+it('reads what changed since each commit once, however many results share it', function (Revision $money, Revision $held, array $asked) use ($tree, $reporting, $judged): void {
+    [$project, $checkout] = judgingAcross('src/Tax.php', $money, $held);
+    $counted = new CountedChanges($checkout);
+
+    $judged(
+        judgingDigested('money', 'money test'),
+        Flows::adapters($project, [], judgingProvenAcross($money, $held), $tree(Floor::of(0)), $counted),
+        judgingSettings(Budget::of('1s')),
+        $reporting(new ReporterFake()),
+    );
+
+    expect($counted->askedFrom())->toBe($asked);
+})->with([
+    'one commit' => [Revision::ref(str_repeat('c1', 20)), Revision::ref(str_repeat('c1', 20)), [str_repeat('c1', 20)]],
+    'two commits' => [Revision::ref(str_repeat('c1', 20)), Revision::ref(str_repeat('c2', 20)), [str_repeat('c1', 20), str_repeat('c2', 20)]],
+]);
 
 it('never passes new code in a unit the budget never started, whose newest result is of the code before', function () use (
     $tree,

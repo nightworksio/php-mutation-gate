@@ -189,8 +189,9 @@ would have cost without them.
 9. **`mutation-gate doctor` says what would fail, or run slowly, before a run
    does.**
    - It is read-only, offline and fast. It reads the config, the project's
-     files, git's config, the runner's PHP as it describes itself, and what
-     `.mutation-gate/` holds from earlier runs: timings and the ledger.
+     files, git's config and whether the clone is shallow, the runner's PHP
+     as it describes itself, and what `.mutation-gate/` holds from earlier
+     runs: timings and the ledger. A shallow clone is `shallow-clone`, *slow*.
    - `--measure` adds the coverage run of decision 4. It runs the whole
      suite once, finds the units as a run does, and writes no map. Where
      measuring fails, `coverage-run-failed` says why. Where the run covers

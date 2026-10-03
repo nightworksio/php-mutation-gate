@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Carrying;
+use NightWorksIO\MutationGate\Core\Verdict\ChangesSince;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
@@ -141,10 +142,13 @@ final readonly class Judging
             $ledgers->own()->proofs(),
         );
         $map = new Handoff($this->adapters->project)->forVerdict();
+        $newest = $ledgers->newest();
+        $commits = ChangesSince::commitsOf($results->unjudged(), $newest, $plan->base());
+        $since = new Since($this->adapters, $this->settings)->of(...$commits);
         $unjudged = LeftUnjudged::of(
             $results->unjudged(),
-            $ledgers->newest(),
-            Carrying::against($plan->digests(), $plan->base(), $plan->names(), $map),
+            $newest,
+            Carrying::against($plan->digests(), $plan->base(), $plan->names(), $map, $since),
         );
         $matrix = $this->matrixOf($plan, $map);
         $verdicts = $this->read(
@@ -168,7 +172,7 @@ final readonly class Judging
                 ->and($refused ? $this->unfloored($baseline, $verdicts) : Failures::none()),
             $judge,
             $verdicts,
-            $ledgers->unread()->and($results->warnings())->and($results->checks()->warnings()),
+            $ledgers->unread()->and($results->warnings())->and($results->checks()->warnings())->and($since->warnings()),
             $map,
             $matrix,
         );

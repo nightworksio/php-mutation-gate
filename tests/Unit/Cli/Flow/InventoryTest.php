@@ -91,6 +91,11 @@ it('cannot find the units where anything it asks cannot answer', function (
                 return Changes::none();
             }
 
+            public function changesFrom(Revision $commit): Changes
+            {
+                return Changes::none();
+            }
+
             public function fingerprints(): CannotTell
             {
                 return CannotTell::because('git ls-files failed.');

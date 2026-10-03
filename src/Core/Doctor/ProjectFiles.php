@@ -13,8 +13,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 /**
  * What the project's own files say, as far as the checks ask them: its
  * `.gitignore`, its Infection config, how its `composer.json` installs its
- * packages, which CI definitions run the gate, and its baseline. A file
- * nobody read is not given.
+ * packages, which CI definitions run the gate, its baseline, and whether its
+ * clone holds the whole of its history. A file nobody read is not given.
  */
 final readonly class ProjectFiles
 {
@@ -25,6 +25,7 @@ final readonly class ProjectFiles
         private Paths|NotGiven $runningTheGate,
         private Baseline|CannotJudge|NotGiven $baseline,
         private PhpUnitMemory|NotGiven $phpUnitMemory,
+        private bool $shallow,
     ) {
     }
 
@@ -32,7 +33,7 @@ final readonly class ProjectFiles
     {
         $none = NotGiven::value();
 
-        return new self($none, $none, $none, $none, $none, $none);
+        return new self($none, $none, $none, $none, $none, $none, shallow: false);
     }
 
     /** These, with the project's `.gitignore`, empty where it has none. */
@@ -69,6 +70,18 @@ final readonly class ProjectFiles
     public function withPhpUnitMemory(PhpUnitMemory $memory): self
     {
         return clone($this, ['phpUnitMemory' => $memory]);
+    }
+
+    /** These, from a shallow clone: one that holds only the newest commits, and not the history before them. */
+    public function shallow(): self
+    {
+        return clone($this, ['shallow' => true]);
+    }
+
+    /** Whether the clone holds only the newest commits. */
+    public function isShallow(): bool
+    {
+        return $this->shallow;
     }
 
     public function gitIgnore(): GitIgnore|NotGiven

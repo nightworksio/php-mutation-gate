@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\Opcache;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Php;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Runners;
 use NightWorksIO\MutationGate\Core\Doctor\Check\ScheduleRunning;
+use NightWorksIO\MutationGate\Core\Doctor\Check\ShallowClone;
 use NightWorksIO\MutationGate\Core\Doctor\Check\TreeFloors;
 use NightWorksIO\MutationGate\Core\Doctor\Check\TreesFound;
 use NightWorksIO\MutationGate\Core\Doctor\Check\VerdictRequired;
@@ -58,6 +59,7 @@ final readonly class Diagnosis
             VerdictRequired::in($observed),
             ForkApprovalPolicy::in($observed),
             ScheduleRunning::in($observed),
+            ShallowClone::in($observed),
         );
     }
 }

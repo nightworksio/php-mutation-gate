@@ -7,8 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
@@ -16,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\NeverProved;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -35,17 +39,23 @@ final readonly class Carrying
         private Digest $base,
         private TestNames|CannotJudge $names,
         private CoverageMap|CannotJudge $map,
+        private ChangesSince $since,
     ) {
     }
 
-    /** Carrying judged against this run's digests and base, its tests' names and its coverage map. */
+    /**
+     * Carrying judged against this run's digests and base, its tests' names,
+     * its coverage map, and what changed since each commit a result it
+     * carries was established at.
+     */
     public static function against(
         Digests|Undigested $now,
         Digest $base,
         TestNames|CannotJudge $names,
         CoverageMap|CannotJudge $map,
+        ChangesSince $since,
     ): self {
-        return new self($now, $base, $names, $map);
+        return new self($now, $base, $names, $map, $since);
     }
 
     /** The newest result, where its mutant set is the one the code on disk makes; or why it is not. */
@@ -93,31 +103,62 @@ final readonly class Carrying
         };
     }
 
-    /** A kill stands at the same base, every test that killed it known and unchanged, with what it reads. */
+    /**
+     * A kill stands where every test that killed it is known and unchanged,
+     * with what it reads, and the base is the same, or nothing that changed
+     * since the commit its result records reaches its unit or those tests.
+     */
     private function kill(Proof $proof, Mutant|ProvedKill $kill): Carry
     {
+        $killers = count($kill->killers()) > 0 && $this->names instanceof TestNames
+            ? $this->killers($proof->inputs(), $kill, $this->names)
+            : Carry::KillerUnknown;
+
         return match (true) {
-            $proof->run()->base()->value() !== $this->base->value() => Carry::OtherBase,
-            count($kill->killers()) === 0 || ! $this->names instanceof TestNames => Carry::KillerUnknown,
-            default => $this->killers($proof->inputs(), $kill, $this->names),
+            $killers instanceof Carry => $killers,
+            $proof->run()->base()->value() === $this->base->value() => Carry::Stands,
+            default => $this->since($proof, $killers),
         };
     }
 
-    /** Whether every test that killed a mutant is named, and reads what it read when it killed it. */
-    private function killers(Inputs|Undigested $inputs, Mutant|ProvedKill $kill, TestNames $names): Carry
+    /**
+     * The files of every test that killed a mutant, where each is named and
+     * reads what it read when it killed it; otherwise why the kill is unjudged.
+     */
+    private function killers(Inputs|Undigested $inputs, Mutant|ProvedKill $kill, TestNames $names): Paths|Carry
     {
-        $carry = Carry::Stands;
+        $files = [];
 
         foreach ($kill->killers() as $test) {
             $named = $names->testOf($test);
-            $carry = match (true) {
-                $carry !== Carry::Stands => $carry,
-                ! $named instanceof TestName => Carry::KillerUnknown,
-                default => $this->unchanged($inputs, $named) ? Carry::Stands : Carry::KillerChanged,
-            };
+
+            if (! $named instanceof TestName) {
+                return Carry::KillerUnknown;
+            }
+
+            if (! $this->unchanged($inputs, $named)) {
+                return Carry::KillerChanged;
+            }
+
+            $files[] = $named->file();
         }
 
-        return $carry;
+        return Paths::of(...$files);
+    }
+
+    /** Whether what changed since the commit a result records reaches a kill's unit or the tests that killed it. */
+    private function since(Proof $proof, Paths $killers): Carry
+    {
+        $inputs = $proof->inputs();
+        $commit = $inputs instanceof Inputs ? $inputs->commit() : Uncommitted::tree();
+        $since = $commit instanceof Revision ? $this->since->at($commit) : $commit;
+
+        return match (true) {
+            $since instanceof Uncommitted => Carry::NoCommit,
+            $since instanceof CannotTell => Carry::ChangeUnknown,
+            $since->reaches($proof->unit(), $killers) => Carry::Reached,
+            default => Carry::Stands,
+        };
     }
 
     /** Whether a killing test file reads now what it read when the result was established. */

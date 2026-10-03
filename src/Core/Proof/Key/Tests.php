@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use function array_key_exists;
 use function array_map;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -49,14 +48,16 @@ final readonly class Tests
     public static function of(TestFiles $files, Paths $known, Paths $canaries): self
     {
         $byPath = [];
-        $byName = [];
+        $declares = [];
+        $mentions = [];
         $seeds = [];
         $cases = [];
 
         foreach ($files as $file) {
             $path = $file->fingerprint()->path();
             $byPath[$path->value()] = $file;
-            $byName = self::withDeclarationsOf($file, $byName);
+            $declares[$path->value()] = $file->role() === Role::Support ? $file->php()->declares() : [];
+            $mentions[$path->value()] = $file->php()->names();
 
             if (self::isInEveryKey($file, $known)) {
                 $seeds[] = $path;
@@ -67,16 +68,7 @@ final readonly class Tests
             }
         }
 
-        $naming = [];
-
-        foreach ($byPath as $file) {
-            $naming[$file->fingerprint()->path()->value()] = array_map(
-                static fn(Path $support): string => $support->value(),
-                self::supportNamedBy($file, $byName),
-            );
-        }
-
-        $named = NamedFiles::of($naming);
+        $named = NamedFiles::byName($declares, $mentions);
         $unseeded = new self($byPath, $named, Paths::none(), Paths::none());
 
         return new self(
@@ -120,42 +112,10 @@ final readonly class Tests
             : Missing::at($path);
     }
 
-    /**
-     * @param  array<string, list<Path>> $byName
-     * @return array<string, list<Path>>
-     */
-    private static function withDeclarationsOf(TestFile $file, array $byName): array
-    {
-        foreach ($file->role() === Role::Support ? $file->php()->declares() : [] as $name) {
-            $byName[$name][] = $file->fingerprint()->path();
-        }
-
-        return $byName;
-    }
-
     private static function isInEveryKey(TestFile $file, Paths $known): bool
     {
         return $file->role() === Role::Loaded
             || ($file->role() === Role::TestCase && ! $known->has($file->fingerprint()->path()));
-    }
-
-    /**
-     * The support a file names, each once, in the order it names them.
-     *
-     * @param  array<string, list<Path>> $byName each support file, by each name it declares
-     * @return list<Path>
-     */
-    private static function supportNamedBy(TestFile $file, array $byName): array
-    {
-        $found = [];
-
-        foreach ($file->php()->names() as $name) {
-            foreach (array_key_exists($name, $byName) ? $byName[$name] : [] as $support) {
-                $found += [$support->value() => $support];
-            }
-        }
-
-        return array_values($found);
     }
 
     /** These files, and every support file they name, transitively, in the order they were reached. */

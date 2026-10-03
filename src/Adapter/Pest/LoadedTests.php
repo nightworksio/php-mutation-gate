@@ -7,9 +7,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_filter;
 use function array_key_exists;
 use function array_map;
-use function array_merge;
-use function count;
-use function explode;
 use function file_get_contents;
 use function get_declared_classes;
 use function get_included_files;
@@ -83,7 +80,7 @@ final class LoadedTests
             $reads[$file] = PhpFile::read(Contents::of(sprintf('%s', file_get_contents($file))));
         }
 
-        return new self($classes, self::naming($reads), self::acting($reads, $under));
+        return new self($classes, NamedFiles::read($reads), self::acting($reads, $under));
     }
 
     /** The file that declares a test case class, by its name in lower case; none for a class not loaded. */
@@ -105,38 +102,6 @@ final class LoadedTests
         }
 
         return $this->needs[$file];
-    }
-
-    /**
-     * The loaded test files each of these names, by what each declares: a
-     * class, trait or function by its full name, and a constant by its last
-     * segment, as PHP falls back to a global one.
-     *
-     * @param array<string, PhpFile> $reads each loaded test file, read, by its path
-     */
-    private static function naming(array $reads): NamedFiles
-    {
-        $declaring = [];
-
-        foreach ($reads as $file => $read) {
-            foreach ([...$read->declares()->all(), ...self::asConstants($read->constants()->all())] as $name) {
-                $declaring[$name][] = $file;
-            }
-        }
-
-        $naming = [];
-
-        foreach ($reads as $file => $read) {
-            $mentioned = $read->mentioned()->all();
-            $constants = self::asConstants(array_map(self::lastSegment(...), $mentioned));
-            $names = [...$mentioned, ...$read->quoted()->all(), ...$constants];
-            $naming[$file] = array_merge(...array_map(
-                static fn(string $name): array => array_key_exists($name, $declaring) ? $declaring[$name] : [],
-                $names,
-            ));
-        }
-
-        return NamedFiles::of($naming);
     }
 
     /**
@@ -169,25 +134,6 @@ final class LoadedTests
         }
 
         return DatasetInfo::isADatasetsFile($file) || DatasetInfo::isInsideADatasetsDirectory($file);
-    }
-
-    /**
-     * Names as constants, kept apart from classes and functions of the same spelling.
-     *
-     * @param  list<string> $names
-     * @return list<string>
-     */
-    private static function asConstants(array $names): array
-    {
-        return array_map(static fn(string $name): string => sprintf('const %s', $name), $names);
-    }
-
-    /** A name without its namespace. */
-    private static function lastSegment(string $name): string
-    {
-        $segments = explode('\\', $name);
-
-        return $segments[count($segments) - 1];
     }
 
     /** The file by its real path, where it is one on disk. */

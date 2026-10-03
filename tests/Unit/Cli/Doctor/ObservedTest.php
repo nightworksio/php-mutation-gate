@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\Doctored;
 use NightWorksIO\MutationGate\Tests\Support\FakePhp;
+use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 $here = (string) getcwd();
@@ -217,3 +218,15 @@ it('hands the runner\'s PHP none of a detected CI\'s credentials, whether the co
     'a plan named that does not build' => ['{"runner": {"use": "infection"}, "ci": {"plan": "\\\\Acme\\\\NoPlan"}}'],
     'a config that cannot be used' => ['{"runner": {"use": "infection"}, "trees": 3}'],
 ]);
+
+it('observes a shallow clone, and a clone of the whole history, or no clone, as not one', function (): void {
+    $origin = Repository::ofTheFixture()->commit('The change.');
+    $clone = Scratch::directory();
+    $origin->git('clone', '--quiet', '--depth', '1', sprintf('file://%s', $origin->root), $clone);
+    $php = FakePhp::printing(Described::output([], []));
+    $observed = static fn(string $project): bool => Doctored::observed($project, sprintf('%s/php', $php))->of(CommandLine::nothing())->files()->isShallow();
+
+    expect($observed($clone))->toBeTrue()
+        ->and($observed($origin->root))->toBeFalse()
+        ->and($observed(Scratch::copy('tests/Fixtures/Projects/Library')))->toBeFalse();
+});

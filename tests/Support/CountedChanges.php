@@ -7,28 +7,23 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
-use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Port\ChangeSource;
-use NightWorksIO\MutationGate\Port\Repository;
 
-/** A change source and a repository answering as one version-control source, as git does. */
-final readonly class Checkout implements ChangeSource, Repository
+/** Another change source, counting each revision it is asked what changed from. */
+final class CountedChanges implements ChangeSource
 {
-    private function __construct(private ChangeSource $changes, private Repository $repository)
-    {
-    }
+    /** @var list<string> each revision asked what changed from, by its name, in the order asked */
+    private array $asked = [];
 
-    public static function of(ChangeSource $changes, Repository $repository): self
+    public function __construct(private readonly ChangeSource $changes)
     {
-        return new self($changes, $repository);
     }
 
     public function changesSince(Revision $base): Changes|CannotTell
@@ -38,7 +33,15 @@ final readonly class Checkout implements ChangeSource, Repository
 
     public function changesFrom(Revision $commit): Changes|CannotTell
     {
+        $this->asked[] = $commit->name();
+
         return $this->changes->changesFrom($commit);
+    }
+
+    /** @return list<string> each revision asked what changed from, by its name, in the order asked */
+    public function askedFrom(): array
+    {
+        return $this->asked;
     }
 
     public function fingerprints(): Fingerprints|CannotTell
@@ -66,25 +69,5 @@ final readonly class Checkout implements ChangeSource, Repository
     public function filesAt(Paths $paths, Revision $revision): ByPath|CannotTell
     {
         return $this->changes->filesAt($paths, $revision);
-    }
-
-    public function head(): Revision|CannotTell
-    {
-        return $this->repository->head();
-    }
-
-    public function isClean(): bool|CannotTell
-    {
-        return $this->repository->isClean();
-    }
-
-    public function branch(): Scope|Detached|CannotTell
-    {
-        return $this->repository->branch();
-    }
-
-    public function defaultBranch(): Scope|CannotTell
-    {
-        return $this->repository->defaultBranch();
     }
 }

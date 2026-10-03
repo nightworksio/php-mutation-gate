@@ -262,3 +262,14 @@ its mutants would fit.
 
 Set `runner.memory` to at least what the finding names: twice what the suite
 held.
+
+## shallow-clone
+
+The checkout is a shallow clone: it holds only the newest commits, and not
+the history before them. Git cannot say what changed since a commit the
+clone does not hold. So a change-scoped run from an older base mutates
+everything, and a kill proved at an older commit does not carry for a unit
+a time budget never started, which leaves that unit unjudged.
+
+Clone the whole history. On GitHub Actions, give `actions/checkout`
+`fetch-depth: 0`; on GitLab, set `GIT_DEPTH: 0`.

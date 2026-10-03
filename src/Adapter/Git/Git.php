@@ -6,9 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Git;
 
 use function array_key_exists;
 use function array_map;
-use function array_pop;
 use function count;
-use function explode;
 use function getenv;
 use function mb_strlen;
 use function mb_substr;
@@ -69,6 +67,12 @@ final class Git implements ChangeSource, Repository
     /** Why a revision cannot be read from. */
     private const string UNKNOWN = '%s is not a revision this repository has.';
 
+    /** Why a revision cannot be read from a shallow clone, and what reads it. */
+    private const string SHALLOW = <<<'SAID'
+        %s is not a revision this repository has: the clone is shallow, so it holds only the newest commits.
+        A clone of the whole history reads it, as `fetch-depth: 0` asks of `actions/checkout`.
+        SAID;
+
 
     /** @var array<string, string|CannotTell> each revision read at, by its name: its commit, or why it has none */
     private array $commits = [];
@@ -97,14 +101,32 @@ final class Git implements ChangeSource, Repository
     {
         $mergeBase = $this->git->run(['merge-base', '--end-of-options', $base->name(), 'HEAD']);
 
-        return $mergeBase instanceof CannotTell ? $mergeBase : $this->changesFrom(trim($mergeBase));
+        return $mergeBase instanceof CannotTell ? $mergeBase : $this->changesFrom(Revision::ref(trim($mergeBase)));
+    }
+
+    public function changesFrom(Revision $commit): Changes|CannotTell
+    {
+        $resolved = $this->commitOf($commit);
+        $printed = $resolved instanceof CannotTell ? $resolved : $this->printed([
+            ['diff', '--find-renames', '--relative', '--name-status', '-z', $resolved],
+            ['diff', '--no-ext-diff', '--find-renames', '--relative', '--unified=0', $resolved],
+            ['ls-files', '--others', '--exclude-standard', '-z'],
+        ]);
+
+        if ($printed instanceof CannotTell) {
+            return $printed;
+        }
+
+        [$status, $patch, $untracked] = $printed;
+
+        return $this->withUntracked(Diff::changes($status, Diff::lines($patch)), $untracked);
     }
 
     public function fingerprints(): Fingerprints|CannotTell
     {
         $listed = $this->git->run(['ls-files', '--cached', '--others', '--exclude-standard', '-z']);
 
-        return $listed instanceof CannotTell ? $listed : $this->workingTree()->fingerprints($this->paths($listed));
+        return $listed instanceof CannotTell ? $listed : $this->workingTree()->fingerprints(Diff::paths($listed));
     }
 
     public function unstaged(): Paths|CannotTell
@@ -115,7 +137,7 @@ final class Git implements ChangeSource, Repository
         return match (true) {
             $changed instanceof CannotTell => $changed,
             $untracked instanceof CannotTell => $untracked,
-            default => Paths::of(...array_map(Path::of(...), [...$this->paths($changed), ...$this->paths($untracked)])),
+            default => Paths::of(...array_map(Path::of(...), [...Diff::paths($changed), ...Diff::paths($untracked)])),
         };
     }
 
@@ -170,6 +192,14 @@ final class Git implements ChangeSource, Repository
         };
     }
 
+    /** Whether the clone is shallow: it holds only the newest commits, and not the history before them. */
+    public function isShallow(): bool|CannotTell
+    {
+        $shallow = $this->git->run(['rev-parse', '--is-shallow-repository']);
+
+        return $shallow instanceof CannotTell ? $shallow : trim($shallow) === 'true';
+    }
+
     public function branch(): Scope|Detached|CannotTell
     {
         $name = $this->git->run(['rev-parse', '--abbrev-ref', 'HEAD']);
@@ -214,27 +244,10 @@ final class Git implements ChangeSource, Repository
             $parsed = $printed instanceof CannotTell ? $printed : Commit::parse(trim($printed));
             $this->commits[$name] = $parsed instanceof Commit
                 ? $parsed->id()
-                : CannotTell::because(sprintf(self::UNKNOWN, $name));
+                : CannotTell::because(sprintf($this->isShallow() === true ? self::SHALLOW : self::UNKNOWN, $name));
         }
 
         return $this->commits[$name];
-    }
-
-    private function changesFrom(string $commit): Changes|CannotTell
-    {
-        $printed = $this->printed([
-            ['diff', '--find-renames', '--relative', '--name-status', '-z', $commit],
-            ['diff', '--no-ext-diff', '--find-renames', '--relative', '--unified=0', $commit],
-            ['ls-files', '--others', '--exclude-standard', '-z'],
-        ]);
-
-        if ($printed instanceof CannotTell) {
-            return $printed;
-        }
-
-        [$status, $patch, $untracked] = $printed;
-
-        return $this->withUntracked(Diff::changes($status, Diff::lines($patch)), $untracked);
     }
 
     /**
@@ -264,7 +277,7 @@ final class Git implements ChangeSource, Repository
     {
         $added = [];
 
-        foreach ($this->paths($untracked) as $path) {
+        foreach (Diff::paths($untracked) as $path) {
             $read = $this->workingTree()->read(Path::of($path));
             $lines = $read instanceof Contents ? Diff::whole($read->text()) : Lines::none();
             $added[] = Change::added(Path::of($path), $lines);
@@ -277,18 +290,4 @@ final class Git implements ChangeSource, Repository
     {
         return WorkingTree::of($this->git, $this->directory);
     }
-
-    /**
-     * The paths of a `-z` listing, each ended by a NUL.
-     *
-     * @return list<string>
-     */
-    private function paths(string $listed): array
-    {
-        $paths = explode("\0", $listed);
-        array_pop($paths);
-
-        return $paths;
-    }
-
 }

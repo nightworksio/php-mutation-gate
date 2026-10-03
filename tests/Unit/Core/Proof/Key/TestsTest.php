@@ -122,3 +122,17 @@ it('puts a file that defines the runner in every key, even one that only declare
     expect($values($defined->inEveryKey()))->toContain('tests/Pest.php')
         ->and($values($other->inEveryKey()))->not->toContain('tests/Pest.php');
 });
+
+it('follows a file only to the support it names, not to a file of test cases or one loaded in every key', function () use ($other, $case, $paths, $values): void {
+    $tests = Tests::of(
+        TestFiles::of(
+            $case('tests/MoneyTest.php', "<?php\nit('adds', fn() => [new TaxTest(), new Loaded()]);\n"),
+            $case('tests/TaxTest.php', "<?php\nfinal class TaxTest {}\n"),
+            $other('tests/Loaded.php', "<?php\nfinal class Loaded {}\nrequire __DIR__ . '/boot.php';\n"),
+        ),
+        $paths('tests/MoneyTest.php', 'tests/TaxTest.php'),
+        Paths::none(),
+    );
+
+    expect($values($tests->readBy($paths('tests/MoneyTest.php'))))->toBe(['tests/MoneyTest.php']);
+});

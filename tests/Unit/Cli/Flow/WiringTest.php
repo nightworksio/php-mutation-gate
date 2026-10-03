@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
+use NightWorksIO\MutationGate\Adapter\GitHub\MergedHeads;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
@@ -315,15 +316,19 @@ it('reads changes through GitHub under GitHub Actions, by ci.check, trusting the
     ));
     $withheld = $adapters->withheld;
     $git = Environment::during($variables, static fn(): Git => Git::withholding('.', $withheld));
-    $check = new ReflectionProperty(PassedPullRequests::class, 'check');
-    $ledgers = new ReflectionProperty(PassedPullRequests::class, 'ledgers');
+    $heads = new ReflectionProperty(PassedPullRequests::class, 'heads');
+    $check = new ReflectionProperty(MergedHeads::class, 'check');
+    $ledgers = new ReflectionProperty(MergedHeads::class, 'ledgers');
     $source = new ReflectionProperty(PassedPullRequests::class, 'source');
+    $changed = $heads->getValue($adapters->changes);
+    $standing = $heads->getValue($adapters->repository);
 
     expect($adapters->changes)->toBeInstanceOf(PassedPullRequests::class)
         ->and($adapters->repository)->toBeInstanceOf(PassedPullRequests::class)
-        ->and($check->getValue($adapters->changes))->toBe('gate / verdict')
-        ->and($ledgers->getValue($adapters->changes))->toBe($adapters->proofs)
-        ->and($ledgers->getValue($adapters->repository))->toBe($adapters->proofs)
+        ->and($changed)->toBeInstanceOf(MergedHeads::class)
+        ->and($changed instanceof MergedHeads ? $check->getValue($changed) : $changed)->toBe('gate / verdict')
+        ->and($changed instanceof MergedHeads ? $ledgers->getValue($changed) : $changed)->toBe($adapters->proofs)
+        ->and($standing instanceof MergedHeads ? $ledgers->getValue($standing) : $standing)->toBe($adapters->proofs)
         ->and($source->getValue($adapters->changes))->toEqual($git);
 });
 
