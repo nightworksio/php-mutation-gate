@@ -57,7 +57,12 @@ final readonly class BaselineCommand
                     return Failed::because($output, $committed);
                 }
 
-                $measured = Measured::of($composed->adapters, $composed->settings, $committed);
+                $measured = Measured::of(
+                    $composed->adapters,
+                    $composed->settings,
+                    $committed,
+                    $composed->setup->clock->now(),
+                );
 
                 return $measured instanceof Measured
                     ? self::said($input, $output, $baselines, $committed, $measured)

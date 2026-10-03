@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Time\Day;
 
 use function sprintf;
@@ -50,6 +51,19 @@ final readonly class IgnoredPattern implements Ignored
     public function expires(): Day|Absent
     {
         return $this->expires;
+    }
+
+    public function matches(Mutant $mutant): bool
+    {
+        $mutation = $mutant->mutation();
+
+        return $this->path->matches($mutant->location()->file())
+            && ($this->mutator === $mutation->mutator() || $this->mutator === $mutation->family()->value);
+    }
+
+    public function named(): string
+    {
+        return sprintf('%s in %s', $this->mutator, $this->path->value());
     }
 
     public function written(PathOrigin $origin): Json

@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
@@ -47,7 +48,7 @@ $judged = static function (Floor|Undeclared $money, Baseline $baseline): TreeVer
         $results = $results->with(UnitResult::of(Unit::file(Path::of($file)), Origin::Run, Flows::mutantsOf($file)));
     }
 
-    return Judge::of($trees, $baseline, Reach::nothing(Packages::of($trees)), Uncovered::Count, TimeoutMode::Confirm)
+    return Judge::of($trees, $baseline, Reach::nothing(Packages::of($trees)), Uncovered::Count, TimeoutMode::Confirm, Ignoring::none())
         ->trees($results);
 };
 

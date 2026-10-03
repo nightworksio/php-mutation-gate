@@ -6,6 +6,9 @@ use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
+use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -24,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -42,6 +46,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -53,6 +58,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 
@@ -97,6 +103,7 @@ $judge = Judge::of(
     $reach,
     Uncovered::Count,
     TimeoutMode::Confirm,
+    Ignoring::none(),
 );
 
 it('judges each tree over the units it holds most closely, with their origins', function () use ($judge, $results): void {
@@ -133,15 +140,29 @@ it('judges each mutant as reported, marks those on changed lines, and scores the
 it('carries the reason a baseline gives for lowering a tree\'s floor', function () use ($trees, $reach, $results): void {
     $lowered = Lowered::from(Floor::of(60), 'The HTTP layer moved to integration tests');
     $baseline = Baseline::of(Entry::of(Path::of('app/Http'), Floor::of(40))->lowered($lowered), Entry::of(Path::of('app'), Floor::of(10)));
-    $judge = Judge::of($trees, $baseline, $reach, Uncovered::Count, TimeoutMode::Confirm);
+    $judge = Judge::of($trees, $baseline, $reach, Uncovered::Count, TimeoutMode::Confirm, Ignoring::none());
     [$app, $http] = [...$judge->trees($results)];
 
     expect($http->lowering())->toBe($lowered)
         ->and($app->lowering())->toEqual(Unlowered::floor());
 });
 
+it('leaves a survivor the config ignores out of its tree\'s score, with the ignore\'s reason', function () use ($trees, $reach, $results, $mutant): void {
+    $ignoring = Ignoring::of(
+        Listed::of(IgnoredMutant::of($mutant('app/Kernel.php', 2, MutantStatus::Survived)->id(), 'Both branches build the same list', Absent::setting())),
+        new DateTimeImmutable(Configs::NOW),
+    );
+    [$app] = [...Judge::of($trees, Baseline::none(), $reach, Uncovered::Count, TimeoutMode::Confirm, $ignoring)->trees($results)];
+    $reason = [...$app->mutants()][1]->mutant()->reason();
+
+    expect($app->score())->toEqual(Score::ofHundredths(10_000))
+        ->and($app->counts()->number(MutantJudgement::Ignored))->toBe(1)
+        ->and(Judged::natives($app->survivors()))->toBe([])
+        ->and($reason instanceof Reason ? $reason->text() : '')->toBe('Both branches build the same list');
+});
+
 it('holds the mutants on changed lines to the floor for new code, per package and floor', function () use ($trees, $reach, $results, $mutant): void {
-    $judge = Judge::of($trees, Baseline::none(), $reach, Uncovered::Count, TimeoutMode::Confirm);
+    $judge = Judge::of($trees, Baseline::none(), $reach, Uncovered::Count, TimeoutMode::Confirm, Ignoring::none());
     $billing = UnitResult::of(Unit::file(Path::of('packages/billing/src/Invoice.php')), Origin::Run, Mutants::of(
         $mutant('packages/billing/src/Invoice.php', 9, MutantStatus::Killed),
     ));
@@ -163,6 +184,7 @@ it('judges one empty new-code set, which passes and says so, when no changed lin
         Reach::nothing(Packages::of($trees)),
         Uncovered::Count,
         TimeoutMode::Confirm,
+        Ignoring::none(),
     );
     $sets = [...$judge->newCode($judge->trees(UnitResults::none()), Floor::of(90))];
 
@@ -190,7 +212,7 @@ it('judges a mutant flaky where its unit\'s result names it so, and every other 
     $mutants = Mutants::of($flaky, $killed, $survived);
     $result = UnitResult::of(Unit::file(Path::of('app/Kernel.php')), Origin::Run, $mutants)
         ->withFlaky(MutantIds::of($flaky->id()));
-    $judge = Judge::of($trees, Baseline::none(), $reach, Uncovered::Count, TimeoutMode::Confirm);
+    $judge = Judge::of($trees, Baseline::none(), $reach, Uncovered::Count, TimeoutMode::Confirm, Ignoring::none());
     [$app] = [...$judge->trees(UnitResults::of($result))];
 
     expect(array_map(static fn(JudgedMutant|JudgedKill $judged): MutantJudgement => $judged->judgement(), [...$app->mutants()]))

@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Config\Baseline as BaselineSetting;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
+use NightWorksIO\MutationGate\Config\Ignore;
 use NightWorksIO\MutationGate\Config\Ignores;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Report;
@@ -149,7 +150,7 @@ $reporting = static fn(Reporter $recorded): Reporting => new Reporting(
 );
 
 /** The settings of the least config, reporting to the recorded reporter, and of these besides. */
-function judgingSettings(NewCodeFloor|Setting ...$parts): Settings
+function judgingSettings(NewCodeFloor|Ignore|Setting ...$parts): Settings
 {
     return Flows::settings(Report::uses('recorded'), ...$parts);
 }
@@ -1236,6 +1237,68 @@ it('passes a run whose budget left units whose newest results all stand, and rec
         ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toBeInstanceOf(Passed::class);
 });
 
+it('fails on an ignore that names nothing where every unit the budget left has a result that stands', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $verdict = judgingVerdictOf($judged(
+        judgingDigested('money', 'money test'),
+        Flows::adapters(Flows::project(), [], judgingProven('money', 'money test'), $tree(Floor::of(0))),
+        judgingSettings(Budget::of('1s'), Ignore::mutator('MethodCallRemoval', 'src/Log/**', 'Logged elsewhere')),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect($verdict->wasCutShort())->toBeTrue()
+        ->and(judgingTexts($verdict->failures()))->toBe([
+            'The ignore of MethodCallRemoval in src/Log/** names no mutant it could leave out, in a run that judged every unit: remove it.',
+        ]);
+});
+
+it('fails on no ignore that names nothing where the budget left a unit with no result that stands', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $verdict = judgingVerdictOf($judged(
+        judgingDigested('money', 'money test'),
+        Flows::adapters(Flows::project(), [], new ProofStoreFake(), $tree(Floor::of(0))),
+        judgingSettings(Budget::of('1s'), Ignore::mutator('arithmetic', 'src/Held.php', 'Both sums are the same')),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect(judgingTexts($verdict->failures()))->toBe([
+        "src/Money.php is unjudged: the time budget ran out before this run mutated it.\n"
+        . 'No ledger holds a result of it to count. More time judges it: vendor/bin/mutation-gate run --budget=<duration>',
+        "src/Held.php is unjudged: the time budget ran out before this run mutated it.\n"
+        . 'No ledger holds a result of it to count. More time judges it: vendor/bin/mutation-gate run --budget=<duration>',
+    ]);
+});
+
+it('fails on no ignore that names nothing where a held unit did not run', function () use ($tree, $reporting): void {
+    $project = Flows::project();
+    $plan = Planned::oneShard();
+    $settings = judgingSettings(Ignore::mutator('arithmetic', 'src/Held.php', 'Both sums are the same'));
+    $adapters = Flows::adapters(
+        $project,
+        [],
+        $tree(Floor::of(0)),
+        new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::empty()),
+    );
+    new Handoff($adapters->project)->write($plan, Flows::map(), KillHistory::none());
+    new Running($adapters, $settings, Flows::setup())->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), $adapters->project);
+    $judging = new Judging($adapters, $settings, Flows::setup(), $reporting(new ReporterFake()));
+
+    $verdict = judgingVerdictOf($results instanceof Results ? $judging->verdict($plan, $results) : $results);
+
+    expect(judgingTexts($verdict->failures()))->toBe([<<<'SAID'
+        holds:src/Held.php does not cover src/Held.php, so its mutants cannot be judged by it.
+        Not reached: src/Held.php, all of it
+        Add the test that runs them to the group.
+        SAID]);
+});
+
 it('counts no unit the budget never started by a result of an earlier ledger format, nor one no ledger holds', function () use (
     $tree,
     $reporting,
@@ -1405,4 +1468,47 @@ it('suggests deleting the callee of a surviving removal whose body the tests lea
     expect($found[11][0])->toBe('record')
         ->and($found[11][1])->toContain('if nothing outside the tests needs `record()`, it can be deleted.')
         ->and($found[27][0])->toBe('');
+});
+
+it('leaves the survivors the config ignores out of the score, and names an ignore that ends soon or has ended', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(50))),
+        judgingSettings(
+            Ignore::mutant('49e02fb39669', 'The bound is never reached', '2026-10-10'),
+            Ignore::mutator('arithmetic', 'src/Held.php', 'Both sums are the same'),
+            Ignore::mutant('95e61bd8bf62', 'Covered by the integration suite', '2026-09-29'),
+        ),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect($verdict->judgement())->toBe(Judgement::Passed)
+        ->and($verdict->trees()->mutants()->counts()->number(MutantJudgement::Ignored))->toBe(2)
+        ->and($verdict->trees()->mutants()->counts()->number(MutantJudgement::Uncovered))->toBe(1)
+        ->and(judgingTexts($verdict->warnings()))->toBe([
+            'The ignore of 95e61bd8bf62 expired on 2026-09-29, so its mutants count again.',
+            'The ignore of 49e02fb39669 expires on 2026-10-10.',
+        ]);
+});
+
+it('fails a run that judged every unit on an ignore that names no mutant it leaves out', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $judgement = $judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(0))),
+        judgingSettings(Ignore::mutator('MethodCallRemoval', 'src/Log/**', 'Logged elsewhere')),
+        $reporting(new ReporterFake()),
+    );
+
+    expect(judgingTexts(judgingVerdictOf($judgement)->failures()))->toBe([
+        'The ignore of MethodCallRemoval in src/Log/** names no mutant it could leave out, in a run that judged every unit: remove it.',
+    ])
+        ->and($judgement instanceof Judged ? $judgement->exitCode() : $judgement)->toBe(ExitCode::Failed);
 });

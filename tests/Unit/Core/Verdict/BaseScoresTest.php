@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\BaseScores;
+use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
@@ -75,7 +76,7 @@ $trees = Trees::of(
     Tree::at(Path::of('empty'), Floor::of(50), $root),
 );
 $units = Units::of(Unit::file(Path::of('app/A.php')), Unit::file(Path::of('app/B.php')), Unit::file(Path::of('lib/C.php')));
-$judge = Judge::of($trees, Baseline::none(), Reach::nothing(Packages::of($trees)), Uncovered::Count, TimeoutMode::Confirm);
+$judge = Judge::of($trees, Baseline::none(), Reach::nothing(Packages::of($trees)), Uncovered::Count, TimeoutMode::Confirm, Ignoring::none());
 
 /** Each tree's base score, as the verdicts compared with them say. */
 $bases = static fn(TreeVerdicts $verdicts): array => array_map(

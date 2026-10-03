@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
 /**
- * Why a runner left a mutant unjudged, in the sentence a report prints beside
- * it, and the time budget that ran out before it, where one did (ADR-0008,
- * decision 1).
+ * Why a mutant stands as it does, in the sentence a report prints beside it:
+ * why a runner left it unjudged, and the time budget that ran out before it,
+ * where one did (ADR-0008, decision 1), or why the config ignores it
+ * (decision 4).
  */
 final readonly class Reason
 {

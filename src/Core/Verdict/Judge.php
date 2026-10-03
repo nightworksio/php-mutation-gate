@@ -45,6 +45,7 @@ final readonly class Judge
         private Uncovered $uncovered,
         private MutantTriage $triage,
         private KillMatrix $matrix,
+        private Ignoring $ignoring,
     ) {
     }
 
@@ -54,8 +55,17 @@ final readonly class Judge
         Reach $reach,
         Uncovered $uncovered,
         TimeoutMode $timeouts,
+        Ignoring $ignoring,
     ): self {
-        return new self($trees, $baseline, $reach, $uncovered, MutantTriage::under($timeouts), KillMatrix::none());
+        return new self(
+            $trees,
+            $baseline,
+            $reach,
+            $uncovered,
+            MutantTriage::under($timeouts),
+            KillMatrix::none(),
+            $ignoring,
+        );
     }
 
     /** This judge, naming each mutant's judging tests from this kill matrix; none are named without one. */
@@ -130,8 +140,8 @@ final readonly class Judge
 
     /**
      * Each mutant of a unit's result as its status reports it after triage,
-     * or flaky where it gave two answers, with the tests that judged it; and
-     * each kill a ledger proved.
+     * or flaky where it gave two answers, then left out where an ignore names
+     * it, with the tests that judged it; and each kill a ledger proved.
      */
     private function judged(UnitResult $result): JudgedMutants
     {
@@ -139,10 +149,10 @@ final readonly class Judge
         $judged = [];
 
         foreach ($result->mutants() as $mutant) {
-            $one = JudgedMutant::of(
+            $one = $this->ignoring->judged(JudgedMutant::of(
                 $mutant,
                 $flaky->has($mutant->id()) ? MutantJudgement::Flaky : $this->triage->judged($mutant),
-            );
+            ));
             $judged[] = $one->judgedBy($this->judgingTests($result->unit(), $one));
         }
 

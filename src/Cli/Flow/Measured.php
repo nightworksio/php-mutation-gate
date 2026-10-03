@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use DateTimeImmutable;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -15,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 
@@ -29,8 +31,12 @@ final readonly class Measured
     {
     }
 
-    public static function of(Adapters $adapters, Settings $settings, Baseline $baseline): self|CannotJudge
-    {
+    public static function of(
+        Adapters $adapters,
+        Settings $settings,
+        Baseline $baseline,
+        DateTimeImmutable $now,
+    ): self|CannotJudge {
         $inventory = Inventory::of($adapters, $settings);
 
         if ($inventory instanceof CannotJudge) {
@@ -57,6 +63,7 @@ final readonly class Measured
             Reach::nothing(Packages::of($inventory->trees)),
             Uncovered::from($settings->floors()->uncovered()->value),
             $settings->triage()->timeouts(),
+            Ignoring::of($settings->ignores()->entries(), $now),
         );
 
         return new self($judge->trees($newest->carried()), $unmeasured);
