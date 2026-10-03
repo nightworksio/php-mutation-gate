@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Infection\Bridges;
 use NightWorksIO\MutationGate\Adapter\Infection\Clock;
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\CoverageXml;
@@ -74,11 +75,14 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\InfectionRun;
 use NightWorksIO\MutationGate\Tests\Support\InfectionShellFake;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -898,4 +902,30 @@ it('leaves static analysis to the gate where it checks the survivors itself, in 
         ))
         ->and(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate"}'), new CapDirectory()))
         ->not->toEqual(Infection::fromOptions(Configs::options('{}'), new CapDirectory()));
+});
+
+it('makes the registered mutators\' mutants through the bridges it writes as Infection\'s bootstrap, by their names and families', function (): void {
+    $at = infectionProject('{"bootstrap": "tests/bootstrap.php"}');
+    $shell = infectionShell($at, infectionKilled($at, 'acme/RemoveEcho'));
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(RemoveEcho::class)));
+    $result = new Infection($at, $shell, Seconds::of(4.0), nativeMarkersAllowed: false, files: new CapDirectory(), bridges: $bridges)
+        ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
+    $generated = json_decode((string) file_get_contents($at->own('infection.json5')), associative: true);
+    $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
+
+    expect(array_map(static fn(Mutant $mutant): array => [$mutant->mutation()->mutator(), $mutant->mutation()->family()], $mutants))
+        ->toBe([['acme/RemoveEcho', MutatorFamily::RemovedCall]])
+        ->and(is_array($generated) ? $generated['bootstrap'] : null)->toBe($at->bridges())
+        ->and((string) file_get_contents($at->bridges()))
+        ->toContain("return 'acme/RemoveEcho';")
+        ->toContain(var_export(sprintf('%s/tests/bootstrap.php', $at->root()), return: true));
+});
+
+it('cannot judge a run whose options name a class that is not a mutator', function (): void {
+    $at = infectionProject();
+    $why = CannotJudge::because('The infection runner cannot make mutants with stdClass, which is not a mutator.');
+    $shell = infectionShell($at, infectionKilled($at));
+
+    expect(new Infection($at, $shell, Seconds::of(4.0), nativeMarkersAllowed: false, files: new CapDirectory(), bridges: Bridges::refusing($why))
+        ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())))->toBe($why);
 });

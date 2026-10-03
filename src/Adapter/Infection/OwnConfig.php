@@ -18,9 +18,10 @@ use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonObject;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -50,7 +51,7 @@ final readonly class OwnConfig
      * project's own.
      */
     private const array KEPT = [
-        'bootstrap',
+        self::BOOTSTRAP,
         'initialTestsPhpOptions',
         'testFramework',
     ];
@@ -72,6 +73,8 @@ final readonly class OwnConfig
     private const string PHPUNIT = 'vendor/bin/phpunit';
 
     private const string PHPUNIT_SECTION = 'phpUnit';
+
+    private const string BOOTSTRAP = 'bootstrap';
 
     private const string CONFIG_DIR = 'configDir';
 
@@ -186,10 +189,20 @@ final readonly class OwnConfig
         return array_key_exists($tool, self::ANALYSERS) ? [self::ANALYSERS[$tool]] : [];
     }
 
+    /** The project's own `bootstrap`, by its path on disk, where it names one. */
+    public function bootstrap(Project $project): string|NotGiven
+    {
+        $bootstrap = $this->text(self::BOOTSTRAP);
+
+        return $bootstrap === '' ? NotGiven::value() : $project->absolute(Path::of($bootstrap));
+    }
+
     /**
      * The config the gate runs Infection with: the project's own, with every
      * path absolute, and what the gate owns written over it. Its static
      * analysis keys are kept only where Infection runs static analysis.
+     * Where there are bridges to registered mutators, its `bootstrap` is the
+     * file that declares them and then loads the project's own (see Bridges).
      *
      * @param list<string> $directories the source directories, by their paths on disk
      */
@@ -199,16 +212,22 @@ final readonly class OwnConfig
         Seconds $cap,
         Mutators $mutators,
         StaticAnalysis $analysis,
+        Bridges $bridges = new Bridges(),
     ): string {
         $members = [];
 
-        foreach ($this->entriesOf($this->settings) as $key => $value) {
-            $members = [...$members, ...$this->kept($project, sprintf('%s', $key), $value, $mutators, $analysis)];
+        foreach (Lenient::entries($this->settings) as $key => $value) {
+            $kept = $this->kept($project, sprintf('%s', $key), $value, $mutators, $analysis, $bridges);
+            $members = [...$members, ...$kept];
         }
 
         $members[self::PHPUNIT_SECTION] = $this->section($project, self::PHPUNIT_SECTION, [
             self::CONFIG_DIR => JsonObject::value($this->configDirectory($project)),
         ]);
+
+        if (! $bridges->isEmpty()) {
+            $members[self::BOOTSTRAP] = JsonObject::value($project->bridges());
+        }
 
         return JsonObject::of([
             ...$members,
@@ -219,7 +238,7 @@ final readonly class OwnConfig
                 'json' => JsonObject::value($project->own(Invocation::JSON)),
                 'text' => JsonObject::value($project->own(Invocation::TEXT)),
             ]),
-            ...$this->mutators()->narrowedTo($mutators),
+            ...$this->mutators()->narrowedTo($mutators, $bridges),
         ]);
     }
 
@@ -236,9 +255,10 @@ final readonly class OwnConfig
         Node $value,
         Mutators $mutators,
         StaticAnalysis $analysis,
+        Bridges $bridges,
     ): array {
         return match (true) {
-            $key === 'mutators' => $this->mutators()->narrowedTo($mutators),
+            $key === 'mutators' => $this->mutators()->narrowedTo($mutators, $bridges),
             in_array($key, self::KEPT, strict: true),
             in_array($key, self::ANALYSIS, strict: true) && $analysis === StaticAnalysis::Infection
                 => [$key => $value->json()],
@@ -257,8 +277,8 @@ final readonly class OwnConfig
     {
         $members = [];
 
-        foreach ($this->entriesOf($this->settings->field($tool)) as $key => $value) {
-            $members[$key] = in_array($key, self::PATHS, strict: true) && self::textOf($value) !== ''
+        foreach (Lenient::entries($this->settings->field($tool)) as $key => $value) {
+            $members[$key] = in_array($key, self::PATHS, strict: true) && Lenient::text($value) !== ''
                 ? JsonObject::value($this->pathIn($project, $tool, $key, self::HERE))
                 : $value->json();
         }
@@ -269,7 +289,7 @@ final readonly class OwnConfig
     /** A path under a section of the config, absolute, or the fallback where it names none. */
     private function pathIn(Project $project, string $section, string $key, string $fallback): string
     {
-        $path = self::textOf($this->settings->field($section)->field($key));
+        $path = Lenient::text($this->settings->field($section)->field($key));
 
         return $project->absolute(Path::of($path === '' ? $fallback : $path));
     }
@@ -277,14 +297,14 @@ final readonly class OwnConfig
     /** The text under a key of the config, none where it holds no text. */
     private function text(string $key): string
     {
-        return self::textOf($this->settings->field($key));
+        return Lenient::text($this->settings->field($key));
     }
 
     /** The config, or why the gate cannot run Infection over it: another test framework, or Pest as PHPUnit. */
     private static function refusing(self $config): self|CannotJudge
     {
         $framework = $config->text('testFramework');
-        $custom = self::textOf($config->settings->field(self::PHPUNIT_SECTION)->field('customPath'));
+        $custom = Lenient::text($config->settings->field(self::PHPUNIT_SECTION)->field('customPath'));
 
         return match (true) {
             $framework !== '' && $framework !== self::FRAMEWORK => CannotJudge::because(
@@ -295,24 +315,5 @@ final readonly class OwnConfig
             ),
             default => $config,
         };
-    }
-
-    /** @return array<array-key, Node> each entry, by its key, which PHP keys as a number where it reads as one */
-    private function entriesOf(Node $node): array
-    {
-        try {
-            return $node->entries();
-        } catch (NotInShape) {
-            return [];
-        }
-    }
-
-    private static function textOf(Node $node): string
-    {
-        try {
-            return $node->text();
-        } catch (NotInShape) {
-            return '';
-        }
     }
 }

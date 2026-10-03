@@ -86,6 +86,7 @@ final readonly class Pest implements Runner
         private Patching $patching,
         private CapFiles $files,
         private Clock $clock = new WallClock(),
+        private Bridges $bridges = new Bridges(),
     ) {
         $this->tests = new TestFiles($project);
         $this->remembered = new Remembered();
@@ -106,7 +107,13 @@ final readonly class Pest implements Runner
 
         $project = Project::at(self::ROOT, $read->tests(), Workspace::root(), $vendor);
 
-        return new self($project, new ProcessShell($project->root()), $read->patching(), $files);
+        return new self(
+            $project,
+            new ProcessShell($project->root()),
+            $read->patching(),
+            $files,
+            bridges: $read->bridges(),
+        );
     }
 
     public function identity(Withheld $withheld): Identity|CannotJudge
@@ -316,7 +323,14 @@ final readonly class Pest implements Runner
         $project = $this->project->in($package);
 
         return Invocation::installedIn($project->vendor())->isIn($project)
-            ? new self($project, $this->shell->in($project->root()), $this->patching, $this->files, $this->clock)
+            ? new self(
+                $project,
+                $this->shell->in($project->root()),
+                $this->patching,
+                $this->files,
+                $this->clock,
+                $this->bridges,
+            )
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
     }
 
@@ -361,6 +375,7 @@ final readonly class Pest implements Runner
             $this->remembered,
             $this->groups(...),
             clock: $this->clock,
+            bridges: $this->bridges,
         );
     }
 }

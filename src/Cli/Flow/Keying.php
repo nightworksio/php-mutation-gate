@@ -67,7 +67,7 @@ final readonly class Keying
                     Tests::of(
                         $suite->files(),
                         self::known($adapters, $map),
-                        self::canaries($adapters, $suite),
+                        Paths::of(...self::canaries($adapters, $suite), ...self::declaring($adapters, $suite)),
                     ),
                 ),
                 $adapters,
@@ -169,6 +169,16 @@ final readonly class Keying
         }
 
         return $files;
+    }
+
+    /**
+     * The test files that declare a registered mutator the config turns on,
+     * which every key reads, as it does the files that define the runner
+     * (ADR-0021, decision 7).
+     */
+    private static function declaring(Adapters $adapters, Suite $suite): Paths
+    {
+        return $suite->files()->declaring(...$adapters->mutators->classes());
     }
 
     /** Every test file the coverage map knows, as the runner names the files that judge each covered file. */

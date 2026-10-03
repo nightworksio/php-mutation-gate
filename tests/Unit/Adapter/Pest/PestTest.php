@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Ceiling;
 use NightWorksIO\MutationGate\Adapter\Pest\Clock;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
@@ -78,10 +79,13 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus as AcmePlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\PestRun;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
@@ -1305,4 +1309,29 @@ it('gives a mutant as an analyser checks it: its diff put onto the file as Pest 
 
     expect($checkable instanceof Checkable ? $checkable->mutant()->text() : '')
         ->toBe("<?php\n\nfunction add()\n{\n    return 1 - 1;\n}");
+});
+
+it('makes the registered mutators\' mutants through the bridges it writes for its plugin, naming each for Pest', function (): void {
+    $at = adapterProject();
+    $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(AcmePlusToMinus::class)));
+    $file = sprintf('%s/.mutation-gate/mutators/pest/bridges.php', $at->root());
+
+    $result = new Pest($at, $shell, Patching::off(), new CapDirectory(), bridges: $bridges)->mutate(adapterMoney());
+
+    expect($result)->toEqual(MutationResult::of(Mutants::of(adapterMutant()), 0))
+        ->and($shell->commands())->toEqual([
+            adapterInvocation()->mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at), $bridges)
+                ->with(['MUTATION_GATE_MUTATORS' => $file]),
+        ])
+        ->and(is_file($file) ? (string) file_get_contents($file) : '')->toContain("return 'acme/PlusToMinus';");
+});
+
+it('cannot judge a run whose options name a class that is not a mutator, and starts no Pest', function (): void {
+    $shell = new ShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: ''));
+    $why = CannotJudge::because('The pest runner cannot make mutants with stdClass, which is not a mutator.');
+
+    expect(new Pest(adapterProject(), $shell, Patching::off(), new CapDirectory(), bridges: Bridges::refusing($why))->mutate(adapterMoney()))
+        ->toBe($why)
+        ->and($shell->commands())->toBe([]);
 });

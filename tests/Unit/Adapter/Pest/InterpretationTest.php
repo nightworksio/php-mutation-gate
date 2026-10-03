@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Ceiling;
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Diff;
@@ -31,7 +32,10 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\PestRun;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Pest\Mutate\Mutators\Arithmetic\MinusToPlus;
@@ -373,4 +377,25 @@ it('leaves a mutant it made before unjudged, keeping all but its status', functi
     expect(Interpretation::unjudged($killed, Reason::that('Gone.')))->toEqual(
         $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Unjudged, 0.25)->because(Reason::that('Gone.')),
     );
+});
+
+it('gives a bridged mutant its mutator\'s own name and family', function () use ($read): void {
+    [$project, $results, $root] = interpretedRun([11 => [0]], []);
+    PestRun::write($results, [
+        PestRun::planned('n1', sprintf('%s/src/Money.php', $root), 11, 'acme/RemoveEcho', 'echo $a;', ''),
+        PestRun::made(1),
+        PestRun::finished('n1', PestStatus::Untested, 0.5),
+        PestRun::end(),
+    ]);
+    $ran = Ran::finished(succeeded: true, output: "\n  Mutations: 1 untested\n");
+    $bridged = new Interpretation($project, Patching::off(), MemoryCap::standard(), Bridges::to(Enabled::of(MutatorSet::of(RemoveEcho::class))))
+        ->of($ran, $results, CoverageFile::at(Recorder::coverageBeside($results)));
+    $unbridged = $read($project, $ran, $results);
+
+    expect($bridged instanceof MutationResult ? [...$bridged->mutants()][0]->mutation()->family() : $bridged)
+        ->toBe(MutatorFamily::RemovedCall)
+        ->and($bridged instanceof MutationResult ? [...$bridged->mutants()][0]->mutation()->mutator() : $bridged)
+        ->toBe('acme/RemoveEcho')
+        ->and($unbridged instanceof MutationResult ? [...$unbridged->mutants()][0]->mutation()->family() : $unbridged)
+        ->toBe(MutatorFamily::Unknown);
 });

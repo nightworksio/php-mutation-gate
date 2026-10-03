@@ -2,15 +2,20 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Infection\Bridges;
 use NightWorksIO\MutationGate\Adapter\Infection\Setup;
 use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 
 it('allows each mutant 10 s, refuses native markers and finds the tests in tests, by default', function (): void {
     $setup = Setup::of(Options::none());
@@ -47,4 +52,18 @@ it('is invalid where an option is not in its shape', function (): void {
         ->toEqual(Invalid::because(Problem::at('staticAnalysis', 'expected text, got 1')))
         ->and(Setup::of(Configs::options('{"tests": "tests"}')))
         ->toEqual(Invalid::because(Problem::at('tests', 'expected a list of paths, got "tests"')));
+});
+
+it('bridges the registered mutators the flows name, none by default, refusing a class that is not a mutator', function (): void {
+    $setup = Setup::of(Configs::options((string) json_encode(['mutators' => [PlusToMinus::class]])));
+    $none = Setup::of(Options::none());
+    $refusing = Setup::of(Configs::options('{"mutators": ["stdClass"]}'));
+
+    expect($setup instanceof Setup ? $setup->bridges() : $setup)->toEqual(Bridges::to(Enabled::of(MutatorSet::of(PlusToMinus::class))))
+        ->and($none instanceof Setup ? $none->bridges() : $none)->toEqual(new Bridges())
+        ->and($refusing instanceof Setup ? $refusing->bridges() : $refusing)->toEqual(Bridges::refusing(
+            CannotJudge::because('The infection runner cannot make mutants with stdClass, which is not a mutator.'),
+        ))
+        ->and(Setup::of(Configs::options('{"mutators": "acme"}')))
+        ->toEqual(Invalid::because(Problem::at('mutators', 'expected a list of text, got "acme"')));
 });

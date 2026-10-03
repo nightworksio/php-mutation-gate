@@ -1,6 +1,6 @@
 {
     "name": "nightworksio/mutation-gate-runner-fixture",
-    "description": "The library the runner contract suite mutates, with the Pest plugin of the package it tests.",
+    "description": "The library the runner contract suite mutates, with the Pest plugin of the package it tests and the mutator the contract registers.",
     "license": "MIT",
     "type": "project",
     "require": {
@@ -20,7 +20,8 @@
     "autoload": {
         "psr-4": {
             "Library\\": "src/",
-            "NightWorksIO\\MutationGate\\": "../../../../src/"
+            "NightWorksIO\\MutationGate\\": "../../../../src/",
+            "NightWorksIO\\MutationGate\\Tests\\Contract\\Runner\\Mutators\\": "../Mutators/"
         },
         "files": [
             "src/Unexecutable/functions.php"

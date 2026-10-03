@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Price;
@@ -45,6 +46,10 @@ const DEFAULTS = <<<'JSON'
         "runner": {
             "use": "pest",
             "memory": "1G"
+        },
+        "mutators": {
+            "sets": [],
+            "except": []
         },
         "treeSource": {
             "use": "phpunit",
@@ -154,6 +159,7 @@ const EVERYTHING = [
     'preset' => ['laravel', 'acme'],
     'runner' => ['use' => 'infection', 'with' => [], 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512m'],
     'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app', 'lib']]],
+    'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
     'trees' => [
         ['path' => 'app/Domain', 'floor' => 100],
         ['path' => 'app/Http', 'floor' => 83.419],
@@ -278,8 +284,8 @@ it('reads the defaults into their types', function (): void {
         ->and([...$settings->reports()])->toBe([])
         ->and([...$settings->badge()])
         ->toBe(['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60])
-        ->and($settings->pest()->patch())->toBeFalse()
-        ->and($settings->pest()->canary())->toEqual(Group::named('mutation-canary'))
+        ->and($settings->effective()->pest()->patch())->toBeFalse()
+        ->and($settings->effective()->pest()->canary())->toEqual(Group::named('mutation-canary'))
         ->and($settings->staticCheck()->tool())->toEqual(Choice::of('auto', Configs::options('{}')))
         ->and($settings->staticCheck()->config())->toEqual(Absent::setting())
         ->and($settings->local()->watchBudget())->toEqual(Budgets::standard()->watch())
@@ -300,6 +306,8 @@ it('reads every setting a config writes into its type', function (): void {
         ->and($settings->runner()->withhold())->toEqual(Withheld::of('DEPLOY_*', 'COMPOSER_AUTH'))
         ->and($settings->runner()->memory())->toEqual(MemoryCap::of(512, MemoryUnit::Megabytes))
         ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":["app","lib"]}')))
+        ->and([...$settings->mutators()->sets()])->toEqual([Name::of('acme'), Name::of('acme-auth')])
+        ->and([...$settings->mutators()->except()])->toBe(['acme/RemoveAudit'])
         ->and(array_map(
             static fn(DeclaredTree $tree): array => [$tree->path()->value(), $tree->declared()],
             $trees instanceof Absent ? [] : [...$trees],
@@ -342,8 +350,8 @@ it('reads every setting a config writes into its type', function (): void {
         ->and($settings->ignores()->maxDays())->toBe(90)
         ->and($settings->ignores()->native())->toBe(NativeMarkers::Allow)
         ->and([...$settings->badge()])->toBe(['green' => 95])
-        ->and($settings->pest()->patch())->toBeTrue()
-        ->and($settings->pest()->canary())->toEqual(Group::named('canary'))
+        ->and($settings->effective()->pest()->patch())->toBeTrue()
+        ->and($settings->effective()->pest()->canary())->toEqual(Group::named('canary'))
         ->and($settings->staticCheck()->tool())->toEqual(Choice::of('phpstan', Configs::options('{}')))
         ->and($settings->staticCheck()->config())->toEqual(Path::of('phpstan.dist.neon'))
         ->and($settings->local()->watchBudget())->toEqual(Seconds::of(120))
@@ -427,14 +435,17 @@ it('serialises the settings that affect results canonically, and only those', fu
         '{"ci":{"azure":{"definition":"azure-pipelines.yml"},"bitbucket":{"definition":"bitbucket-pipelines.yml"},'
         . '"buildkite":{"definition":".buildkite/pipeline.yml"},'
         . '"gitlab":{"template":".gitlab/mutation-gate.yml"},"jenkins":{"definition":"Jenkinsfile"}},'
-        . '"flaky":{"confirmSurvivors":true},"packages":[],"pest":{"canary":"mutation-canary","patch":false},'
+        . '"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
+        . '"pest":{"canary":"mutation-canary","patch":false},'
         . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"tool":"auto"},"tests":{"order":"killers-first"},'
         . '"timeouts":{"retries":20,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
     )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
         '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
         . '"buildkite":{"definition":".buildkite/mutation.yml"},'
         . '"gitlab":{"template":".gitlab/gate.yml"},"jenkins":{"definition":"ci/Jenkinsfile"}},'
-        . '"flaky":{"confirmSurvivors":false},"packages":["packages/*"],"pest":{"canary":"canary","patch":true},'
+        . '"flaky":{"confirmSurvivors":false},'
+        . '"mutators":{"except":["acme/RemoveAudit"],"sets":["acme","acme-auth"]},"packages":["packages/*"],'
+        . '"pest":{"canary":"canary","patch":true},'
         . '"runner":{"memory":"512M","use":"infection"},"staticCheck":{"config":"phpstan.dist.neon","tool":"phpstan"},'
         . '"tests":{"order":"killers-first"},"timeouts":{"retries":0,"seconds":30},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
@@ -494,6 +505,8 @@ it('changes the canonical form with every setting that affects results', functio
     'the tree source\'s fallback' => [['treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]]]],
     'the Bitbucket pipeline' => [['ci' => [...EVERYTHING['ci'], 'bitbucket' => ['definition' => 'ci/other.yml']]]],
     'the Jenkinsfile' => [['ci' => [...EVERYTHING['ci'], 'jenkins' => ['definition' => 'ci/Other.Jenkinsfile']]]],
+    'the mutator sets' => [['mutators' => [...EVERYTHING['mutators'], 'sets' => ['acme']]]],
+    'the mutators turned off' => [['mutators' => [...EVERYTHING['mutators'], 'except' => []]]],
 ]);
 
 it('changes the canonical form with the options of a runner or a tree source', function (string $setting): void {

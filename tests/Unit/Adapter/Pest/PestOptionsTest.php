@@ -2,15 +2,20 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 
 it('is unpatched, with the tests under tests, where the config says nothing', function (): void {
     $read = PestOptions::read(Options::none());
@@ -48,5 +53,24 @@ it('refuses each option written as something else', function (): void {
         Problem::at('tests', 'expected a list of paths, got "tests"'),
     ))->and(PestOptions::read(Configs::options('{"tests": [3]}')))->toEqual(Invalid::because(
         Problem::at('tests[0]', 'expected a path, got 3'),
+    ));
+});
+
+it('bridges the registered mutators the options name, none by default', function (): void {
+    $read = PestOptions::read(Configs::options((string) json_encode(['mutators' => [PlusToMinus::class]])));
+    $none = PestOptions::read(Options::none());
+
+    expect($read instanceof PestOptions ? $read->bridges() : $read)
+        ->toEqual(Bridges::to(Enabled::of(MutatorSet::of(PlusToMinus::class))))
+        ->and($none instanceof PestOptions ? $none->bridges() : $none)->toEqual(new Bridges());
+});
+
+it('refuses every mutation run where the options name a class that is not a mutator, and a list of something else', function (): void {
+    $read = PestOptions::read(Configs::options('{"mutators": ["stdClass"]}'));
+
+    expect($read instanceof PestOptions ? $read->bridges() : $read)->toEqual(Bridges::refusing(
+        CannotJudge::because('The pest runner cannot make mutants with stdClass, which is not a mutator.'),
+    ))->and(PestOptions::read(Configs::options('{"mutators": "acme"}')))->toEqual(Invalid::because(
+        Problem::at('mutators', 'expected a list of text, got "acme"'),
     ));
 });

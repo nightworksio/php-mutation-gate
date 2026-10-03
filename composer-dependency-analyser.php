@@ -73,4 +73,8 @@ return (new Configuration())
     // Importing an Infection config reads the installed Infection's own
     // profile list, where Infection is installed; it asks first.
     ->ignoreErrorsOnPackages(['infection/infection'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // The bridges to registered mutators implement Infection's mutator
+    // contract, and load only in Infection's own process, where
+    // infection/infection has installed it (ADR-0021).
+    ->ignoreErrorsOnPackages(['infection/mutator'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
     ->ignoreErrorsOnExtension('ext-dom', [ErrorType::DEV_DEPENDENCY_IN_PROD]);

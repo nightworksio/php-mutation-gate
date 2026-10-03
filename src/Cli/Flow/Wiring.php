@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function count;
+
 use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
@@ -11,10 +13,12 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Setup;
 use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
+use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
+use NightWorksIO\MutationGate\Cli\Registry\EnabledMutators;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -40,9 +44,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
-use NightWorksIO\MutationGate\Mutator\Engine\SetEngine;
-use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\CostModel;
@@ -73,11 +76,22 @@ final readonly class Wiring
 
     public function adapters(Settings $settings, Directory $project): Adapters|Invalid|CannotJudge
     {
-        $chosen = new Chosen($this->extensions);
         $lookup = Lookup::in($this->extensions);
+        $mutators = EnabledMutators::in($lookup, $settings->mutators());
+
+        return $mutators instanceof CannotJudge ? $mutators : $this->built($settings, $project, $lookup, $mutators);
+    }
+
+    private function built(
+        Settings $settings,
+        Directory $project,
+        Lookup $lookup,
+        EnabledMutators $mutators,
+    ): Adapters|Invalid|CannotJudge {
+        $chosen = new Chosen($this->extensions);
         $source = BuiltinVersionControl::in($this->environment)->named();
         $checker = $this->checker($settings->staticCheck(), $chosen);
-        $runner = $chosen->runner($this->runnerChoice($settings, $checker, $lookup));
+        $runner = $chosen->runner($this->runnerChoice($settings, $checker, $mutators));
         $found = $chosen->treeSource($settings->treeSource());
         $trees = $found instanceof TreeSource ? new DeclaredTrees($found, $settings->floors()->trees()) : $found;
         $costs = $lookup->costModel(BuiltinCostModel::Learned->named(), $settings->shards()->costOptions());
@@ -110,60 +124,63 @@ final readonly class Wiring
                 $this->environment,
                 $withheld,
                 Cores::counted(),
-                $this->counting($lookup),
+                $this->counting($mutators->forTheEngine()),
+                $mutators->besideTheRunners(),
             ),
         };
     }
 
-    /** The engine that counts a plan's mutants with the default set, where that set is registered. */
-    private function counting(Lookup $lookup): Engine|NotGiven
+    /**
+     * The engine that counts a plan's mutants, with the `default` set's mutators and those the config turns on,
+     * where there are any.
+     */
+    private function counting(Enabled $mutators): Engine|NotGiven
     {
-        $set = $lookup->mutatorSet(MutatorSet::defaultName());
-
-        return $set instanceof MutatorSet ? SetEngine::of($set) : NotGiven::value();
+        return count($mutators) > 0 ? $mutators->engine() : NotGiven::value();
     }
 
     /**
      * The runner the config chooses: Infection told each mutant's cap,
      * `timeouts.seconds` (ADR-0008, decision 2), and that the gate checks its
      * survivors, where an analyser does, so it runs no static analysis of its
-     * own (ADR-0020, decision 13); and the PHPUnit runner told the cap on
-     * each mutant's limit, `timeouts.seconds`, and the mutators it makes its mutants with,
-     * the `default` set's (ADR-0023, decision 8).
+     * own (ADR-0020, decision 13); the PHPUnit runner told the cap on each
+     * mutant's limit, `timeouts.seconds`; and each told the classes of the
+     * registered mutators it makes mutants with (ADR-0021): Pest and
+     * Infection those the config turns on, beside their own, and the PHPUnit
+     * runner the `default` set's and those (ADR-0023, decision 8).
      */
     private function runnerChoice(
         Settings $settings,
         StaticChecker|NoAnalyser|Invalid|CannotJudge $checker,
-        Lookup $lookup,
+        EnabledMutators $mutators,
     ): Choice {
         $runner = $settings->runner()->choice();
         $use = $runner->use()->value();
         $seconds = $settings->triage()->limit()->seconds();
-        $infection = $checker instanceof StaticChecker
-            ? Json::object(
-                Member::of(Setup::TIMEOUT, $seconds),
-                Member::of(Setup::STATIC_ANALYSIS, StaticAnalysis::Gate->value),
-            )
-            : Json::object(Member::of(Setup::TIMEOUT, $seconds));
+        $beside = Json::items(...$mutators->besideTheRunners()->classes());
+        $infection = Json::object(
+            Member::of(Setup::TIMEOUT, $seconds),
+            Member::of(Setup::MUTATORS, $beside),
+            ...$checker instanceof StaticChecker
+                ? [Member::of(Setup::STATIC_ANALYSIS, StaticAnalysis::Gate->value)]
+                : [],
+        );
         $native = Json::object(
             Member::of(PhpUnitOptions::TIMEOUT, $seconds),
-            Member::of(PhpUnitOptions::MUTATORS, Json::items(...$this->mutators($lookup))),
+            Member::of(PhpUnitOptions::MUTATORS, Json::items(...$mutators->forTheEngine()->classes())),
         );
 
         return match (true) {
             $use === BuiltinRunner::Infection->value => Choice::of($use, $runner->options()->over($infection)),
             $use === BuiltinRunner::PhpUnit->value => Choice::of($use, $runner->options()->over($native)),
+            $use === BuiltinRunner::Pest->value => Choice::of(
+                $use,
+                $runner->options()->over(Json::object(Member::of(PestOptions::MUTATORS, $beside))),
+            ),
             default => $runner,
         };
     }
 
-    /** @return list<string> the classes of the mutators the `default` set holds, where it is registered */
-    private function mutators(Lookup $lookup): array
-    {
-        $set = $lookup->mutatorSet(MutatorSet::defaultName());
-
-        return $set instanceof MutatorSet ? [...$set] : [];
-    }
 
     /**
      * The static analyser `staticCheck.tool` names, reading `staticCheck.config`

@@ -147,7 +147,7 @@ Extension, and every core type their public signatures reach (ADR-0001).
 | Rule | Says | Enforced by |
 |---|---|---|
 | **P1** | No `__get`, `__set`, `__isset`, `__unset`, `__call` or `__callStatic` | phpstan: own rule |
-| **P2** | No variable variable and no dynamic class, method or property name, but for the two files that construct the extension classes Composer names and the classes a config names | phpstan: own rule, with those files named in `phpstan.neon` |
+| **P2** | No variable variable and no dynamic class, method or property name, but for the three files that construct the extension classes Composer names, the classes a config names and the mutators a set registers by class | phpstan: own rule, with those files named in `phpstan.neon` |
 | **P3** | No `func_get_args()`, no `#[AllowDynamicProperties]` | phpstan `disallowed-calls` |
 | **P4** | No reflection in `src`, but for the Pest plugin's filter, which reads `#[Holds]` from test closures (ADR-0004) | phpstan `disallowed-calls`, scoped by path |
 | **Q1** | Nothing reconfigures the runtime: `ini_set`, `setlocale`, error handlers | phpstan `disallowed-calls` |

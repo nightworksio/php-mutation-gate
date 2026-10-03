@@ -98,3 +98,18 @@ it('is the Pest plugin this package\'s composer.json lists', function (): void {
 
     expect($manifest)->toHaveKey('extra.pest.plugins', [Plugin::class]);
 });
+
+it('loads the bridges to the registered mutators the adapter wrote, as it boots', function (): void {
+    $before = getenv('MUTATION_GATE_MUTATORS');
+    $bridges = sprintf('%s/bridges.php', Scratch::untilExit());
+    file_put_contents($bridges, "<?php\n\nfunction pluginLoadedTheBridges(): bool\n{\n    return true;\n}\n");
+
+    try {
+        putenv(sprintf('MUTATION_GATE_MUTATORS=%s', $bridges));
+        new Plugin()->boot();
+    } finally {
+        putenv(is_string($before) ? sprintf('MUTATION_GATE_MUTATORS=%s', $before) : 'MUTATION_GATE_MUTATORS');
+    }
+
+    expect(function_exists('pluginLoadedTheBridges'))->toBeTrue();
+});
