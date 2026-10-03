@@ -89,6 +89,30 @@ final readonly class FlowCommands
         CiPlan $ci,
         Variables $environment,
     ): Composition {
+        return self::checkedOut(
+            $trees,
+            $project,
+            $runner,
+            $proofs,
+            $ci,
+            $environment,
+            RepositoryFake::onMain(Revision::ref(Flows::HEAD)),
+        );
+    }
+
+    /**
+     * How the command line composes a flow as {@see over()} does, with git's
+     * answers of the checkout from this repository.
+     */
+    public static function checkedOut(
+        Trees $trees,
+        string $project,
+        Runner $runner,
+        ProofStore $proofs,
+        CiPlan $ci,
+        Variables $environment,
+        Repository $repository,
+    ): Composition {
         $registry = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))
             ->withRunner(Name::of('fake'), static fn(): Runner => $runner)
             ->withTreeSource(Name::of('phpunit'), static fn(): TreeSource => new TreeSourceFake($trees))
@@ -96,10 +120,7 @@ final readonly class FlowCommands
             ->withCostModel(Name::of('learned'), static fn(): CostModel => new CostModelFake(Seconds::of(1.0)))
             ->withCiPlan(Name::of('json'), static fn(): CiPlan => $ci, Withheld::nothing(), CiMarker::none())
             ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Flows::checkout())
-            ->withRepository(
-                Name::of('git'),
-                static fn(): Repository => RepositoryFake::onMain(Revision::ref(Flows::HEAD)),
-            );
+            ->withRepository(Name::of('git'), static fn(): Repository => $repository);
         $vendor = sprintf('%s/vendor', $project);
         $detected = new Detected(Directory::at($project), Directory::at($vendor));
         $effective = new Effective($project, $registry, $detected, new StoppedClock(Configs::NOW)->now());
@@ -122,7 +143,14 @@ final readonly class FlowCommands
      */
     public static function run(Command $command, string $options = ''): self
     {
+        return self::handed($command, '', $options);
+    }
+
+    /** A command run as {@see run()} runs it, handed this text on standard input, as git hands a hook its refs. */
+    public static function handed(Command $command, string $input, string $options = ''): self
+    {
         $tester = new CommandTester($command);
+        $tester->setInputs($input === '' ? [] : [$input]);
         $code = $tester->execute(self::options($options), ['capture_stderr_separately' => true]);
         $output = $tester->getOutput();
 

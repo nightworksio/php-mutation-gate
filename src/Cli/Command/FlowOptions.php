@@ -140,21 +140,23 @@ final readonly class FlowOptions
     public static function cut(InputInterface $input, Settings $settings): Cut|CannotJudge
     {
         $shards = self::text($input, self::SHARDS);
-        $target = $settings->shards()->target();
 
         return match (true) {
-            $shards === '' && $target instanceof Seconds => Cut::toTarget(
-                $target,
-                $settings->shards()->setup(),
-                $settings->shards()->max(),
-            ),
-            $shards === '' => Cut::bySize(
-                (int) $settings->shards()->seconds()->seconds(),
-                $settings->shards()->max(),
-            ),
+            $shards === '' => self::configuredCut($settings),
             WholeNumber::isPositive($shards) => Cut::exactly(intval($shards)),
             default => CannotJudge::because(sprintf('--shards=%s is not a number of shards.', $shards)),
         };
+    }
+
+    /** The cut the config asks for: to `shards.target`, where it sets one, or by `shards.seconds`. */
+    public static function configuredCut(Settings $settings): Cut
+    {
+        $shards = $settings->shards();
+        $target = $shards->target();
+
+        return $target instanceof Seconds
+            ? Cut::toTarget($target, $shards->setup(), $shards->max())
+            : Cut::bySize((int) $shards->seconds()->seconds(), $shards->max());
     }
 
     /** The shard `--shard` names, or none, when the CI's environment names it. */

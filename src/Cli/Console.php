@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Cli\Command\Doctor;
 use NightWorksIO\MutationGate\Cli\Command\Init;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Cli\Command\PreCommitCommand;
+use NightWorksIO\MutationGate\Cli\Command\PrePushCommand;
 use NightWorksIO\MutationGate\Cli\Command\ReproduceCommand;
 use NightWorksIO\MutationGate\Cli\Command\RunCommand;
 use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
@@ -51,7 +52,6 @@ final readonly class Console
     private const array NOT_BUILT = [
         'triage' => 'Run a file n times and list every mutant whose result varied',
         'watch' => 'Re-judge what each save reaches',
-        'pre-push' => 'Judge the commits being pushed, as CI will',
         'hook' => 'Add or remove the pre-push hook: hook install, hook uninstall',
     ];
 
@@ -113,6 +113,7 @@ final readonly class Console
         $application->addCommand(BaselineCommand::command($composition));
         $application->addCommand(CoverageCommand::command($composition));
         $application->addCommand(PreCommitCommand::command($composition));
+        $application->addCommand(PrePushCommand::command($composition));
         $application->addCommand(ReproduceCommand::command($composition));
         $formats = new Formats(class_exists(...));
         $installed = $detected->installed();

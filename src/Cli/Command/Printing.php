@@ -42,6 +42,14 @@ final readonly class Printing
         }
     }
 
+    /** Say a line to whoever reads the console's report; problems leave it out, since an editor reads them. */
+    public function note(string $line, OutputInterface $output): void
+    {
+        if ($this->output === VerdictOutput::Console) {
+            $output->writeln($line, OutputInterface::OUTPUT_RAW);
+        }
+    }
+
     /** The verdict, as the console's report or as problems, with the mutated files read from the project. */
     public function verdict(Verdict $verdict, OutputInterface $output, Directory $project): void
     {
