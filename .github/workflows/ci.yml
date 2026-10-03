@@ -383,55 +383,79 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
-      # The fixture resolves its dependencies twice, lowest and highest, with
-      # no lock, so each resolution sees the Pest releases of the day. What it
-      # downloads for both is cached by the fixture's manifest and the root
-      # lock, whose php-code-coverage it pins.
+      # Each fixture library is installed twice: at the highest releases its
+      # committed lock holds, which Dependabot moves, and at the lowest its
+      # manifest allows, which no new release changes. So the job reds only
+      # for a change in this repository; the runner canary runs the newest
+      # releases (ADR-0017, decision 8). Each lowest resolution rewrites its
+      # lock in the job's checkout, so every fixture's locked install runs
+      # first. What both download is cached by the fixtures' manifests and
+      # locks, and the root lock, whose php-code-coverage each lowest Pest and
+      # PHPUnit resolution pins.
       - name: find Composer's download cache
         id: composer-files
         run: echo "dir=$(composer config --global cache-files-dir)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.composer-files.outputs.dir }}
-          key: runner-fixture-${{ runner.os }}-${{ hashFiles('tests/Contract/Runner/fixture/composer.json', 'composer.lock') }}
+          key: runner-fixture-${{ runner.os }}-${{ hashFiles('tests/Contract/**/composer.json', 'tests/Contract/**/composer.lock', 'composer.lock') }}
           restore-keys: runner-fixture-${{ runner.os }}-
-      - name: install the lowest supported Pest into the fixture library
+      # The fixture library holds the Pest plugin of this package. Its lock
+      # holds the php-code-coverage this package is locked at, or one that
+      # writes the same serialization format, which the Contract suite checks.
+      - name: install the locked highest Pest into the fixture library
         working-directory: tests/Contract/Runner/fixture
         run: |
-          coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
-          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
+          composer install --no-interaction --no-progress
           composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
       # The whole Contract suite, so every contract that needs the fixture
       # library runs against each resolution of it.
-      - id: pest-lowest
-        run: |
-          mkdir -p evidence/raw
-          vendor/bin/pest --testsuite=Contract --log-junit=evidence/raw/pest-lowest.xml
-        env:
-          RUNNER_CONTRACTS: pest
-      - name: install the highest supported Pest into the fixture library
-        working-directory: tests/Contract/Runner/fixture
-        run: |
-          coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
-          composer update --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
-          composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
       - id: pest-highest
         run: |
           mkdir -p evidence/raw
           vendor/bin/pest --testsuite=Contract --log-junit=evidence/raw/pest-highest.xml
         env:
           RUNNER_CONTRACTS: pest
-      # Infection's library is a project of its own too, installed at the lowest
-      # and the highest Infection 0.35, each with PHPUnit 12 and with PHPUnit 13.
-      # It carries the package's PHPUnit conflict, so the lowest PHPUnit 12 is
-      # the lowest the package allows.
+      - name: install the lowest supported Pest into the fixture library
+        working-directory: tests/Contract/Runner/fixture
+        run: |
+          coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
+          composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
+      - id: pest-lowest
+        run: vendor/bin/pest --testsuite=Contract --log-junit=evidence/raw/pest-lowest.xml
+        env:
+          RUNNER_CONTRACTS: pest
+      # Infection's library is a project of its own too, installed with
+      # Infection 0.35 and PHPUnit 13 by its own manifest, and with PHPUnit 12
+      # by the manifest in phpunit-12/, which installs into the same vendor
+      # directory. Each carries the package's PHPUnit conflict, so the lowest
+      # PHPUnit 12 is the lowest the package allows.
       # Its runs read only the PHPUnit XML coverage and JUnit log its own PHPUnit
       # writes, so it keeps its own php-code-coverage. The filter runs the tests
       # of the Infection library alone; the Pest library's ran above.
-      - name: install the lowest Infection with PHPUnit 12 into its library
+      - name: install the locked highest Infection with PHPUnit 13 into its library
         working-directory: tests/Contract/Runner/infection-fixture
         run: |
-          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/phpunit:^12.0"
+          composer install --no-interaction --no-progress
+          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
+      - id: infection-highest-13
+        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-highest-13.xml
+        env:
+          RUNNER_CONTRACTS: infection
+      - name: install the locked highest Infection with PHPUnit 12 into its library
+        working-directory: tests/Contract/Runner/infection-fixture/phpunit-12
+        run: |
+          composer install --no-interaction --no-progress
+          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
+      - id: infection-highest-12
+        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-highest-12.xml
+        env:
+          RUNNER_CONTRACTS: infection
+      - name: install the lowest Infection with PHPUnit 12 into its library
+        working-directory: tests/Contract/Runner/infection-fixture/phpunit-12
+        run: |
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
           composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
       - id: infection-lowest-12
         run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-lowest-12.xml
@@ -440,41 +464,32 @@ jobs:
       - name: install the lowest Infection with PHPUnit 13 into its library
         working-directory: tests/Contract/Runner/infection-fixture
         run: |
-          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/phpunit:^13.0"
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
           composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
       - id: infection-lowest-13
         run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-lowest-13.xml
         env:
           RUNNER_CONTRACTS: infection
-      - name: install the highest Infection with PHPUnit 12 into its library
-        working-directory: tests/Contract/Runner/infection-fixture
-        run: |
-          composer update --no-interaction --no-progress --with "phpunit/phpunit:^12.0"
-          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - id: infection-highest-12
-        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-highest-12.xml
-        env:
-          RUNNER_CONTRACTS: infection
-      - name: install the highest Infection with PHPUnit 13 into its library
-        working-directory: tests/Contract/Runner/infection-fixture
-        run: |
-          composer update --no-interaction --no-progress --with "phpunit/phpunit:^13.0"
-          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - id: infection-highest-13
-        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-highest-13.xml
-        env:
-          RUNNER_CONTRACTS: infection
       # The PHPUnit runner's fixture is a project of its own, installed at the
-      # lowest PHPUnit the runner supports, the one `Installed::FLOOR` names,
-      # and at the highest (ADR-0023). It holds the quirks of a project's tests
-      # and, in library/, the code every runner's contract mutates, which
-      # shares its vendor directory. The filter runs its contracts alone. It
-      # gets the php-code-coverage this package is locked at, as the Pest
-      # library does: the adapter reads the maps the library's PHPUnit writes.
-      # In a user's project the gate and PHPUnit share one vendor directory,
-      # as PHPUnit loads the gate's extension, so one php-code-coverage writes
-      # and reads each map; here there are two, and a map one release writes
-      # can be one another refuses.
+      # highest PHPUnit its lock holds and at the lowest the runner supports,
+      # the one `Installed::FLOOR` names (ADR-0023). It holds the quirks of a
+      # project's tests and, in library/, the code every runner's contract
+      # mutates, which shares its vendor directory. The filter runs its
+      # contracts alone. Its php-code-coverage is the one this package is
+      # locked at, as the Pest library's is: the adapter reads the maps the
+      # library's PHPUnit writes. In a user's project the gate and PHPUnit
+      # share one vendor directory, as PHPUnit loads the gate's extension, so
+      # one php-code-coverage writes and reads each map; here there are two,
+      # and a map one release writes can be one another refuses.
+      - name: install the locked highest PHPUnit into the PHPUnit runner's library
+        working-directory: tests/Contract/Runner/phpunit-fixture
+        run: |
+          composer install --no-interaction --no-progress
+          composer show | grep -E '^(phpunit/phpunit|phpunit/php-code-coverage) '
+      - id: phpunit-highest
+        run: vendor/bin/pest --testsuite=Contract --filter='PhpUnit' --log-junit=evidence/raw/phpunit-highest.xml
+        env:
+          RUNNER_CONTRACTS: phpunit
       - name: install the lowest supported PHPUnit into the PHPUnit runner's library
         working-directory: tests/Contract/Runner/phpunit-fixture
         run: |
@@ -485,20 +500,21 @@ jobs:
         run: vendor/bin/pest --testsuite=Contract --filter='PhpUnit' --log-junit=evidence/raw/phpunit-lowest.xml
         env:
           RUNNER_CONTRACTS: phpunit
-      - name: install the highest supported PHPUnit into the PHPUnit runner's library
-        working-directory: tests/Contract/Runner/phpunit-fixture
-        run: |
-          coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
-          composer update --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
-          composer show | grep -E '^(phpunit/phpunit|phpunit/php-code-coverage) '
-      - id: phpunit-highest
-        run: vendor/bin/pest --testsuite=Contract --filter='PhpUnit' --log-junit=evidence/raw/phpunit-highest.xml
-        env:
-          RUNNER_CONTRACTS: phpunit
       # The analysers the static checkers drive are a project of their own
-      # too, installed at the lowest and the highest Mago and PHPStan the
-      # adapters support. Mago's package downloads its binary the first time
-      # it runs, which the gate itself never does (ADR-0020, decision 18).
+      # too, installed at the highest Mago and PHPStan its lock holds and at
+      # the lowest the adapters support. Mago's package downloads its binary
+      # the first time it runs, which the gate itself never does (ADR-0020,
+      # decision 18).
+      - name: install the locked highest Mago and PHPStan into the analysers' fixture
+        working-directory: tests/Contract/StaticChecker/fixture
+        run: |
+          composer install --no-interaction --no-progress
+          vendor/bin/mago --version
+          composer show | grep -E '^(carthage-software/mago|phpstan/phpstan) '
+      - id: analysers-highest
+        run: vendor/bin/pest --testsuite=Contract --filter='StaticChecker' --log-junit=evidence/raw/analysers-highest.xml
+        env:
+          ANALYSER_CONTRACTS: '1'
       - name: install the lowest Mago and PHPStan into the analysers' fixture
         working-directory: tests/Contract/StaticChecker/fixture
         run: |
@@ -507,16 +523,6 @@ jobs:
           composer show | grep -E '^(carthage-software/mago|phpstan/phpstan) '
       - id: analysers-lowest
         run: vendor/bin/pest --testsuite=Contract --filter='StaticChecker' --log-junit=evidence/raw/analysers-lowest.xml
-        env:
-          ANALYSER_CONTRACTS: '1'
-      - name: install the highest Mago and PHPStan into the analysers' fixture
-        working-directory: tests/Contract/StaticChecker/fixture
-        run: |
-          composer update --no-interaction --no-progress
-          vendor/bin/mago --version
-          composer show | grep -E '^(carthage-software/mago|phpstan/phpstan) '
-      - id: analysers-highest
-        run: vendor/bin/pest --testsuite=Contract --filter='StaticChecker' --log-junit=evidence/raw/analysers-highest.xml
         env:
           ANALYSER_CONTRACTS: '1'
       # The job's evidence, whatever the steps above did (ADR-0019, decision 5).

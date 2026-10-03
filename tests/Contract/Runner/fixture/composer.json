@@ -6,7 +6,8 @@
     "require": {
         "php": "^8.5",
         "pestphp/pest": "^5.1",
-        "pestphp/pest-plugin-mutate": "^5.0"
+        "pestphp/pest-plugin-mutate": "^5.0",
+        "phpunit/php-code-coverage": "^14.3"
     },
     "conflict": {
         "pestphp/pest": "<5.1",

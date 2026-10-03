@@ -813,7 +813,7 @@ it('holds the library to the pest-plugin-mutate the package allows', function ()
             'phpunit/phpunit' => '<12.5.8 || >=12.5.21 <12.5.22 || >=13.1.5 <13.1.6',
             'symfony/yaml' => '<7.4.12 || >=8.0 <8.0.12',
         ]);
-});
+})->skip(getenv('RUNNER_CANARY') === '1', 'the runner canary frees the library from the pin');
 
 // The lowest resolution of the Infection library installs the lowest PHPUnit the
 // package allows, 12.5.8, not the lowest its own constraint would.
@@ -826,8 +826,30 @@ it('holds the Infection library to the PHPUnit the package allows', function ():
     };
 
     expect($phpunit(sprintf('%s/composer.json', Library::INFECTION_DIRECTORY)))->toBe($phpunit('composer.json'))
+        ->and($phpunit(sprintf('%s/phpunit-12/composer.json', Library::INFECTION_DIRECTORY)))->toBe($phpunit('composer.json'))
         ->and($phpunit('composer.json'))->toStartWith('<12.5.8 ');
 });
+
+// The Infection library installs with PHPUnit 13 by its own manifest and with
+// PHPUnit 12 by the one in phpunit-12/, into the same vendor directory: the
+// same Infection, the same code and tests, and only PHPUnit's major apart.
+it('installs the Infection library with PHPUnit 12 as with PHPUnit 13', function (): void {
+    $read = static function (string $manifest): array {
+        $decoded = json_decode((string) file_get_contents(Tree::at(sprintf('%s/%s', Library::INFECTION_DIRECTORY, $manifest))), associative: true);
+
+        return is_array($decoded) ? $decoded : [];
+    };
+    $thirteen = $read('composer.json');
+    $twelve = $read('phpunit-12/composer.json');
+    $field = static fn(array $manifest, string $key): array => is_array($manifest[$key] ?? null) ? $manifest[$key] : [];
+    $unprefixed = static fn(array $paths): string => str_replace('../', '', (string) json_encode($paths, JSON_UNESCAPED_SLASHES));
+
+    expect([...$field($twelve, 'require'), 'phpunit/phpunit' => '^13.0'])->toBe($field($thirteen, 'require'))
+        ->and($field($twelve, 'require')['phpunit/phpunit'] ?? '')->toBe('^12.0')
+        ->and($unprefixed($field($twelve, 'autoload')))->toBe($unprefixed($field($thirteen, 'autoload')))
+        ->and($unprefixed($field($twelve, 'autoload-dev')))->toBe($unprefixed($field($thirteen, 'autoload-dev')))
+        ->and($field($twelve, 'config')['vendor-dir'] ?? '')->toBe('../vendor');
+})->skip(getenv('RUNNER_CANARY') === '1', 'the runner canary frees the library from the pin');
 
 // The unit suite patches pest-plugin-mutate's files as the allowed version ships
 // them, from tests/Fixtures. Patching the installed plugin, which this

@@ -33,8 +33,8 @@ use Symfony\Component\Yaml\Yaml;
  */
 final readonly class Gates
 {
-    /** The workflows every CI job starts from: the code's, and the pull request text's. */
-    public const array WORKFLOWS = ['.github/workflows/ci.yml', '.github/workflows/pr.yml'];
+    /** The workflows every CI job starts from: the code's, the pull request text's, and the daily runner canary's. */
+    public const array WORKFLOWS = ['.github/workflows/ci.yml', '.github/workflows/pr.yml', '.github/workflows/canary.yml'];
 
     /** The table of the gates. */
     public const string TABLE = '.github/gates.json';

@@ -175,11 +175,16 @@ would have cost without them.
 8. **The runner pin stays exact, and a daily job keeps it current.**
    - The `conflict` on untested runner releases stays (ADR-0004 decision 3,
      ADR-0011 decision 10).
-   - A daily scheduled job runs the Runner contract suite against the newest
-     releases of `pestphp/pest-plugin-mutate` and `infection/infection`. It
-     fails, naming the `conflict` line to write, when a release the
-     `conflict` excludes passes. So each release is added by a pull request
-     within a day of passing.
+   - A daily scheduled job, the runner canary, runs the Runner contract
+     suite against the newest releases of `pestphp/pest-plugin-mutate` and
+     `infection/infection`, each freed from the package's pin. It fails,
+     naming the line to write, when a release that passes is one
+     `composer.json` refuses: pest-plugin-mutate by its `conflict`, Infection
+     by its `require-dev`. So each release is added by a pull request within
+     a day of passing.
+   - The required `runner contracts` job runs the releases the fixture
+     libraries' committed locks hold, which Dependabot moves, and the lowest
+     each supports, so a new release reds the canary alone.
    - The README's install line is `composer require --dev
      nightworksio/mutation-gate -W`, with the reason: `-W` lets Composer move
      the runner to the release the gate has tested.
