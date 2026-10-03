@@ -11,6 +11,7 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
@@ -20,10 +21,12 @@ use function sprintf;
 
 /**
  * The verdict as JUnit XML: a suite per tree and one for new code, each with
- * one test case per floor that fails exactly when the gate fails that set,
- * and a `run` suite with a test case for each thing that kept the run from
- * judging and each failure that belongs to no floor. JUnit failures match
- * gate failures one to one (ADR-0009, decision 2).
+ * one test case per floor that fails exactly when the gate fails that set, a
+ * `run` suite with a test case for each thing that kept the run from judging
+ * and each failure that belongs to no floor, and an `ignored` suite with a
+ * skipped test case for each mutant an ignore left out, with why (ADR-0008,
+ * decision 4). JUnit failures match gate failures one to one (ADR-0009,
+ * decision 2).
  */
 final readonly class JUnit
 {
@@ -41,13 +44,7 @@ final readonly class JUnit
 
     private const string OUTPUT = '<system-out>%s</system-out>';
 
-
-
-
-
-
     private const string NEW_CODE = 'new code';
-
 
     public static function xml(Verdict $verdict): string
     {
@@ -73,6 +70,12 @@ final readonly class JUnit
 
         if ($run !== []) {
             $suites[] = self::suite('run', $run);
+        }
+
+        $ignored = self::ignored($verdict);
+
+        if ($ignored !== []) {
+            $suites[] = self::suite(MutantJudgement::Ignored->value, $ignored);
         }
 
         $tests = 0;
@@ -150,6 +153,28 @@ final readonly class JUnit
 
         foreach ($verdict->failures() as $failure) {
             $cases[] = self::failure('run', $failure->text());
+        }
+
+        return $cases;
+    }
+
+    /**
+     * A skipped test case for each mutant an ignore left out, named by its
+     * heading, with why it is ignored.
+     *
+     * @return list<array{string, bool}>
+     */
+    private static function ignored(Verdict $verdict): array
+    {
+        $cases = [];
+
+        foreach (Overview::of($verdict)->ignored() as $mutant) {
+            $cases[] = [sprintf(
+                self::CASE,
+                Xml::text(MutantText::heading($mutant)),
+                MutantJudgement::Ignored->value,
+                sprintf(self::SKIPPED, Xml::text(MutantText::ignoredBecause($mutant))),
+            ), false];
         }
 
         return $cases;

@@ -46,9 +46,21 @@ it('writes one run of the tool with its four rules', function (): void {
 it('reports every mutant counted as not killed under its rule, an error in a set that failed', function (): void {
     $sarif = Sarif::json(Verdicts::failing());
 
-    expect(Decoded::column($sarif, 'ruleId', 'runs', 0, 'results'))->toBe(['survived', 'uncovered', 'flaky', 'unjudged', 'unjudged'])
-        ->and(Decoded::column($sarif, 'ruleIndex', 'runs', 0, 'results'))->toBe([0, 1, 3, 2, 2])
-        ->and(Decoded::column($sarif, 'level', 'runs', 0, 'results'))->toBe(['error', 'error', 'error', 'error', 'error']);
+    expect(Decoded::column($sarif, 'ruleId', 'runs', 0, 'results'))->toBe(['survived', 'uncovered', 'flaky', 'unjudged', 'unjudged', 'survived', 'survived'])
+        ->and(Decoded::column($sarif, 'ruleIndex', 'runs', 0, 'results'))->toBe([0, 1, 3, 2, 2, 0, 0])
+        ->and(Decoded::column($sarif, 'level', 'runs', 0, 'results'))->toBe(['error', 'error', 'error', 'error', 'error', 'note', 'note']);
+});
+
+it('reports each ignored mutant as a note, suppressed with why: by the config externally, by a marker in source', function (): void {
+    $sarif = Sarif::json(Verdicts::failing());
+    $result = static fn(int $at, string|int ...$keys): mixed => Decoded::at($sarif, 'runs', 0, 'results', $at, ...$keys);
+
+    expect($result(5, 'properties', 'judgement'))->toBe('ignored')
+        ->and($result(5, 'locations', 0, 'physicalLocation', 'artifactLocation', 'uri'))->toBe('src/Log.php')
+        ->and($result(5, 'suppressions'))->toBe([['kind' => 'external', 'status' => 'accepted', 'justification' => 'Logging is asserted in the integration suite']])
+        ->and($result(6, 'properties', 'judgement'))->toBe('ignored-by-marker')
+        ->and($result(6, 'suppressions'))->toBe([['kind' => 'inSource', 'status' => 'accepted', 'justification' => 'ignored by a native marker']])
+        ->and($result(0, 'suppressions'))->toBeNull();
 });
 
 it('places a result at the mutant, fingerprinted by the gate\'s id', function (): void {

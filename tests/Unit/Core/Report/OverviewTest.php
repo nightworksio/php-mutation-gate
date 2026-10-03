@@ -57,6 +57,18 @@ it('lists every mutant counted as not killed, those on changed lines first', fun
     expect($natives)->toBe(['native-7', 'native-12', 'native-3', 'native-5', 'native-8']);
 });
 
+it('lists every mutant an ignore left out, by the config or a marker, and every one a proof found equivalent', function (): void {
+    $overview = Overview::of(Verdicts::failing());
+    $places = [];
+
+    foreach ([...$overview->ignored(), ...$overview->equivalent()] as $mutant) {
+        $places[] = sprintf('%s %s', $mutant->mutant()->location()->file()->value(), $mutant->judgement()->value);
+    }
+
+    expect($places)->toBe(['src/Log.php ignored', 'src/Log.php ignored-by-marker', 'src/Log.php equivalent'])
+        ->and($overview->equivalent())->toHaveCount(1);
+});
+
 it('knows which mutants are in a set that failed, a tree or new code', function (): void {
     $failing = Verdicts::failing();
     $overview = Overview::of($failing);

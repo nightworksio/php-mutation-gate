@@ -77,6 +77,14 @@ final readonly class MutantText
         );
     }
 
+    /** Why an ignored mutant is left out: the reason its ignore gives, or, where it gives none, how it was ignored. */
+    public static function ignoredBecause(JudgedMutant $judged): string
+    {
+        $reason = $judged->mutant()->reason();
+
+        return $reason instanceof Reason ? $reason->text() : Label::of($judged->judgement());
+    }
+
     /**
      * One line for a tool that lists results: how it was judged, its mutator,
      * what its tests miss and how to reproduce it.
