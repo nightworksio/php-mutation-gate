@@ -12,20 +12,21 @@
 # The verdicts of %%branch%%'s pipeline and of mutation-full deploy to
 # %%deployment%% and write the ledger. A deployment cannot be a final step, so
 # Bitbucket skips such a verdict after a failed shard: the pipeline is red,
-# with no "cannot judge" report. Every other step runs with no keys and reads
-# %%branch%%'s ledger through proofs.store.with.publicUrl, so set it, and give
-# the bucket a public GetObject on that branch's prefix alone. Every other
-# verdict is a final step, which runs whatever the shards did, and writes
-# nothing. A pull request from a fork starts no pipeline.
+# with no "cannot judge" report. While one pipeline deploys to %%deployment%%,
+# Bitbucket pauses any other at its verdict, to be resumed or rerun once the
+# first ends. Every other step runs with no keys and reads %%branch%%'s ledger
+# through proofs.store.with.publicUrl, so set it, and give the bucket a public
+# GetObject on that branch's prefix alone. A pull request's verdict is a final
+# step, which runs whatever the shards did, and writes nothing. A pull request
+# from a fork starts no pipeline.
 image: <an image with PHP %%php%% and pcov>
-
-clone:
-  depth: full
 
 definitions:
   steps:
     - step: &mutation-shard
         name: 'mutation: shard'
+        clone:
+          depth: full
         script:
           - composer install --no-interaction --no-progress
           - vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json
@@ -33,6 +34,8 @@ definitions:
           - .mutation-gate/results/**
     - step: &mutation-verdict
         name: 'mutation: verdict'
+        clone:
+          depth: full
         script:
           - composer install --no-interaction --no-progress
           - vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
@@ -42,6 +45,8 @@ pipelines:
     '%%branch%%':
       - step:
           name: 'mutation: plan'
+          clone:
+            depth: full
           script:
             - composer install --no-interaction --no-progress
             - vendor/bin/mutation-gate plan --shards=4 --changed-since=last-passed
@@ -55,26 +60,12 @@ pipelines:
       - step:
           <<: *mutation-verdict
           deployment: '%%deployment%%'
-  default:
-    - step:
-        name: 'mutation: plan'
-        script:
-          - default_branch='%%branch%%'
-          - git fetch origin "+refs/heads/$default_branch:refs/remotes/origin/$default_branch"
-          - composer install --no-interaction --no-progress
-          - vendor/bin/mutation-gate plan --shards=4 "--changed-since=origin/$default_branch"
-        artifacts:
-          - .mutation-gate/**
-    - parallel:
-        - step: *mutation-shard
-        - step: *mutation-shard
-        - step: *mutation-shard
-        - step: *mutation-shard
-    - final: *mutation-verdict
   pull-requests:
     '**':
       - step:
           name: 'mutation: plan'
+          clone:
+            depth: full
           script:
             - git fetch origin "+refs/heads/$BITBUCKET_PR_DESTINATION_BRANCH:refs/remotes/origin/$BITBUCKET_PR_DESTINATION_BRANCH"
             - composer install --no-interaction --no-progress
@@ -91,6 +82,8 @@ pipelines:
     mutation-full:
       - step:
           name: 'mutation: plan'
+          clone:
+            depth: full
           script:
             - composer install --no-interaction --no-progress
             - vendor/bin/mutation-gate plan --shards=4

@@ -190,15 +190,16 @@ final readonly class CiRun
     {
         $repository = $variables->valueOf('BITBUCKET_REPO_FULL_NAME');
         $number = $variables->valueOf(Variables::BITBUCKET_BUILD_NUMBER);
-        $tag = $variables->valueOf('BITBUCKET_TAG');
+        $tag = $variables->valueOf(Variables::BITBUCKET_TAG);
+        $branch = $variables->valueOf(Variables::BITBUCKET_BRANCH);
 
         return new self(
             $repository,
-            $tag === '' ? self::branch($variables->valueOf('BITBUCKET_BRANCH')) : sprintf('refs/tags/%s', $tag),
+            $tag === '' ? self::branch($branch) : sprintf('refs/tags/%s', $tag),
             $variables->valueOf('BITBUCKET_COMMIT'),
             sprintf('https://bitbucket.org/%s/pipelines/results/%s', $repository, $number),
             '',
-            sprintf('bitbucket:%s', $number),
+            self::numbered('bitbucket:%s', $number),
         );
     }
 

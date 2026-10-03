@@ -12,6 +12,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
+use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -98,7 +99,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
     public static function fromOptions(Options $options): self|Invalid
     {
         $step = $options->object(Key::of('step'));
-        $definition = $options->text(Key::of('definition'));
+        $definition = $options->text(Key::of(CiJob::DEFINITION));
 
         return match (true) {
             $step instanceof Problem => Invalid::because(
@@ -109,10 +110,10 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
             ),
             $definition instanceof Problem => Invalid::because($definition),
             $definition instanceof NotGiven, $definition === '' => Invalid::because(
-                Problem::at('definition', 'expected the pipeline that runs the gate, as a path'),
+                Problem::at(CiJob::DEFINITION, CiJob::UNDEFINED),
             ),
             default => self::printing(
-                'php://output',
+                Written::OUTPUT,
                 $step instanceof Options ? BuildkiteStep::of($step->written()) : BuildkiteStep::none(),
                 Variables::of(getenv()),
             )->definedIn(Path::of($definition)),
@@ -131,12 +132,10 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
             ),
         ];
 
-        return file_put_contents(
+        return Written::attempted(
             $this->to,
-            Json::object(Member::of('steps', Json::items(...$steps)))->printed(),
-        ) === false
-            ? CannotJudge::because(sprintf('%s could not be written.', $this->to))
-            : Written::to($this->to);
+            file_put_contents($this->to, Json::object(Member::of('steps', Json::items(...$steps)))->printed()),
+        );
     }
 
     public function shard(Plan $plan): ShardId|CannotJudge

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function implode;
+use function in_array;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
@@ -20,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Ci\PhpVersion;
 use NightWorksIO\MutationGate\Core\Ci\Printed;
 use NightWorksIO\MutationGate\Core\Ci\TemplateValues;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -67,6 +69,12 @@ final readonly class CiDefinition
     private const string MISSING = 'The template %s is missing from the package. Reinstall it.';
 
     private const string UNNAMED = 'Set %s to %s in the config: reach and the proof key read it.';
+
+    private const string UNBRANCHED
+        = 'Set ci.defaultBranch to %s in the config, the branch the definition is written for: this CI names none.';
+
+    /** The CIs whose plan names no default branch, so `init` names the one it writes for (ADR-0024 decision 2). */
+    private const array BRANCHED_BY_CONFIG = [BuiltinCiPlan::Azure, BuiltinCiPlan::Bitbucket];
 
     /** @param Directory $templates where each template is, by its file under it */
     public function __construct(
@@ -184,18 +192,19 @@ final readonly class CiDefinition
 
     /**
      * What `init` adds to a config it writes for this CI (ADR-0024 decision 2): for Buildkite and Azure DevOps,
-     * the file of the gate's jobs it writes, as the definition; for Azure DevOps and Bitbucket, which name no
-     * default branch, the one the project has.
+     * the file of the gate's jobs it writes, as the definition; for each CI whose plan names no default branch,
+     * the one the project has.
      */
     private function config(BuiltinCiPlan $plan, Settings $settings): Layer
     {
+        $branch = in_array($plan, self::BRANCHED_BY_CONFIG, strict: true)
+            ? $this->defaultBranch($settings)
+            : new Absent();
+
         return match ($plan) {
             BuiltinCiPlan::Buildkite => Layer::of(Ci::of(buildkiteDefinition: CiTemplate::buildkitePipeline())),
-            BuiltinCiPlan::Azure => Layer::of(Ci::of(
-                defaultBranch: $this->defaultBranch($settings),
-                azureDefinition: CiTemplate::azureJobs(),
-            )),
-            BuiltinCiPlan::Bitbucket => Layer::of(Ci::of(defaultBranch: $this->defaultBranch($settings))),
+            BuiltinCiPlan::Azure => Layer::of(Ci::of(defaultBranch: $branch, azureDefinition: CiTemplate::azureJobs())),
+            BuiltinCiPlan::Bitbucket => Layer::of(Ci::of(defaultBranch: $branch)),
             BuiltinCiPlan::GitHub, BuiltinCiPlan::GitLab, BuiltinCiPlan::CircleCi, BuiltinCiPlan::Json => Layer::none(),
         };
     }
@@ -217,8 +226,10 @@ final readonly class CiDefinition
 
     /**
      * What else the person needs to know: on GitHub, whose definition names the gate's commit, which definition
-     * was written and why, the check to require, and that the commit is not known; on Buildkite and Azure DevOps,
-     * with the config kept, that it must name the file of the gate's jobs written as the one that runs the gate.
+     * was written and why, the check to require, and that the commit is not known; with the config kept, on
+     * Buildkite and Azure DevOps, that it must name the file of the gate's jobs written as the one that runs the
+     * gate, and for each CI whose plan names no default branch, that it must name the one the definition is
+     * written for, where it names none.
      *
      * @return list<string>
      */
@@ -252,9 +263,13 @@ final readonly class CiDefinition
             BuiltinCiPlan::Json => [],
         };
 
+        $unbranched = in_array($plan, self::BRANCHED_BY_CONFIG, strict: true) && $ci->defaultBranch() instanceof Absent
+            ? [sprintf(self::UNBRANCHED, $this->defaultBranch($settings))]
+            : [];
+
         return match (true) {
             $plan === BuiltinCiPlan::GitHub => $github,
-            $kept => $unnamed,
+            $kept => [...$unnamed, ...$unbranched],
             default => [],
         };
     }

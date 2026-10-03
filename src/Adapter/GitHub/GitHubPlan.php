@@ -218,8 +218,6 @@ final readonly class GitHubPlan implements CiPlan, Configurable
 
     private function appended(string $file, string $line): Written|CannotJudge
     {
-        return file_put_contents($file, $line, FILE_APPEND) === false
-            ? CannotJudge::because(sprintf('%s could not be written.', $file))
-            : Written::to($file);
+        return Written::attempted($file, file_put_contents($file, $line, FILE_APPEND));
     }
 }

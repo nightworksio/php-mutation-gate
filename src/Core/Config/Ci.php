@@ -8,6 +8,7 @@ use function array_map;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
+use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiTemplate;
 use NightWorksIO\MutationGate\Core\Ci\Definitions;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -245,13 +246,13 @@ final readonly class Ci implements Part
             BuiltinCiPlan::GitLab->value => Json::object(Member::of('template', $this->gitlabTemplate()->value())),
             BuiltinCiPlan::Buildkite->value => Json::object(
                 Member::of('step', $this->buildkiteStep()->json()),
-                Member::of('definition', $this->buildkiteDefinition()->value()),
+                Member::of(CiJob::DEFINITION, $this->buildkiteDefinition()->value()),
             ),
             BuiltinCiPlan::Azure->value => Json::object(
-                Member::of('definition', $this->azureDefinition()->value()),
+                Member::of(CiJob::DEFINITION, $this->azureDefinition()->value()),
             ),
             BuiltinCiPlan::Bitbucket->value => Json::object(
-                Member::of('definition', $this->bitbucketDefinition()->value()),
+                Member::of(CiJob::DEFINITION, $this->bitbucketDefinition()->value()),
             ),
             default => Json::object(),
         });

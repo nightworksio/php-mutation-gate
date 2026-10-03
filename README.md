@@ -868,7 +868,8 @@ runs, and says *cannot judge*, even when a shard failed.
 `init --ci=azure` writes the gate's jobs to `.azure/mutation-gate.yml` and
 prints the lines that take them into the pipeline Azure DevOps runs. A config
 it writes names that file as `ci.azure.definition`, and sets
-`ci.defaultBranch`, since Azure DevOps names no default branch:
+`ci.defaultBranch`, since Azure DevOps names no default branch. Where a config
+is kept, `init` says which of the two to set:
 
 ```yaml
 jobs:
@@ -896,9 +897,11 @@ default branch twice a week, with `always: true`, for the full run.
 
 ### Bitbucket Pipelines
 
-`init --ci=bitbucket` prints the pipelines to add to `bitbucket-pipelines.yml`,
-and a config it writes sets `ci.defaultBranch`, since Bitbucket names no
-default branch. Bitbucket's parallel steps are fixed in the file, so the plan
+`init --ci=bitbucket` prints the pipelines to add to `bitbucket-pipelines.yml`:
+the default branch's, every pull request's and the custom pipeline
+`mutation-full`'s. A config it writes sets `ci.defaultBranch`, since Bitbucket
+names no default branch, and where a config is kept without it, `init` says to
+set it. Bitbucket's parallel steps are fixed in the file, so the plan
 cuts exactly as many shards with `--shards`, and each step reads its shard
 from `BITBUCKET_PARALLEL_STEP`, which counts from 0. A pull request is named
 by `BITBUCKET_PR_ID`. Schedule the custom pipeline `mutation-full` on the
@@ -917,9 +920,11 @@ they cannot hold the keys.
 Bitbucket runs a deployment only as an ordinary step, never as the `final`
 step that runs after a failed one. On the default branch, a failed shard
 therefore skips the verdict: the pipeline is red, with no *cannot judge*
-report. Every other pipeline's verdict is a `final` step with no keys, which
-runs whatever the shards did. Every step but the deploying verdict, the plan
-on the default branch included, reads the default branch's ledger through
+report. While one pipeline deploys to `mutation-gate`, Bitbucket pauses any
+other at its verdict; once the first ends, resume the paused pipeline or rerun
+it. A pull request's verdict is a `final` step with no keys, which runs
+whatever the shards did. Every step but the deploying verdict, the plan on the
+default branch included, reads the default branch's ledger through
 `proofs.store.with.publicUrl`, so set it as described above. A pull request
 from a fork starts no pipeline. The gate withholds `BITBUCKET_STEP_OIDC_TOKEN`
 from the tests.

@@ -55,12 +55,18 @@ function ciSchema(string $provider): string
         : Schema::at(sprintf('tests/Fixtures/CiSchemas/%s.json', CI_SCHEMAS[$provider]));
 }
 
-/** The last item of a Bitbucket pipeline, by its path under `pipelines`, in a rendered template's JSON. */
-function bitbucketLastStep(string $json, string ...$pipeline): mixed
+/**
+ * The last item of a Bitbucket pipeline, by its path under `pipelines`, in a rendered template's JSON; none where
+ * the pipeline is not there.
+ *
+ * @return array<array-key, mixed>
+ */
+function bitbucketLastStep(string $json, string ...$pipeline): array
 {
     $items = Decoded::at($json, 'pipelines', ...$pipeline);
+    $last = is_array($items) && $items !== [] ? array_last($items) : [];
 
-    return Decoded::at($json, 'pipelines', ...$pipeline, ...[is_array($items) ? count($items) - 1 : 0]);
+    return is_array($last) ? $last : [];
 }
 
 /** A rendered template's YAML, as the JSON a schema validates. */
@@ -282,19 +288,22 @@ it('names every variable the bucket store reads in the README, where a fork\'s b
 
 it('refuses by Bitbucket\'s schema a deployment on a final step, so a verdict that holds the keys is a step', function (): void {
     $pipelines = ciTemplateRendered(CiTemplate::BitbucketPipelines);
-    $deployingFinal = str_replace(
-        "    - final: *mutation-verdict\n",
-        "    - final:\n        <<: *mutation-verdict\n        deployment: 'mutation-gate'\n",
+    $final = static fn(string $deployment): string => str_replace(
+        "      - final: *mutation-verdict\n",
+        sprintf("      - final:\n          <<: *mutation-verdict\n%s", $deployment),
         $pipelines,
     );
+    $merged = $final('');
+    $deploying = $final(sprintf("          deployment: '%s'\n", CiTemplate::bitbucketDeployment()));
 
-    expect($deployingFinal)->not->toBe($pipelines)
-        ->and(Schema::errors(ciTemplateJson($deployingFinal), ciSchema('bitbucket')))->not->toBe([]);
+    expect($merged)->not->toBe($pipelines)
+        ->and(Schema::errors(ciTemplateJson($merged), ciSchema('bitbucket')))->toBe([])
+        ->and(Schema::errors(ciTemplateJson($deploying), ciSchema('bitbucket')))->not->toBe([]);
 });
 
-it('deploys only the default branch\'s and the full run\'s verdicts, each the last step, and makes every other verdict final', function (): void {
+it('deploys only the default branch\'s and the full run\'s verdicts, each the last step, and makes a pull request\'s verdict final', function (): void {
     $json = ciTemplateJson(ciTemplateRendered(CiTemplate::BitbucketPipelines));
-    $verdict = ['name' => 'mutation: verdict', 'script' => [
+    $verdict = ['name' => 'mutation: verdict', 'clone' => ['depth' => 'full'], 'script' => [
         'composer install --no-interaction --no-progress',
         'vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results',
     ]];
@@ -302,7 +311,6 @@ it('deploys only the default branch\'s and the full run\'s verdicts, each the la
 
     expect(bitbucketLastStep($json, 'branches', 'trunk'))->toBe($deployed)
         ->and(bitbucketLastStep($json, 'custom', 'mutation-full'))->toBe($deployed)
-        ->and(bitbucketLastStep($json, 'default'))->toBe(['final' => $verdict])
         ->and(bitbucketLastStep($json, 'pull-requests', '**'))->toBe(['final' => $verdict]);
 });
 
@@ -317,7 +325,6 @@ it('cuts as many shards as each Bitbucket pipeline runs parallel steps', functio
         ->and(is_array($parallel) ? count($parallel) : 0)->toBe($shards);
 })->with([
     'the default branch' => ['branches', 'trunk'],
-    'any other branch' => ['default'],
     'a pull request' => ['pull-requests', '**'],
     'the full run' => ['custom', 'mutation-full'],
 ]);

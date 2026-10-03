@@ -639,7 +639,7 @@ it('says which file of the gate\'s jobs a config already here must name, where i
         ),
     ]);
 
-    expect($ran->output)->toEndWith(sprintf(
+    expect($ran->output)->toContain(sprintf(
         "Set ci.%s.definition to %s in the config: reach and the proof key read it.\n",
         $ci,
         $written,
@@ -648,6 +648,31 @@ it('says which file of the gate\'s jobs a config already here must name, where i
     'Buildkite' => ['buildkite', '.buildkite/mutation-gate.yml'],
     'Azure DevOps' => ['azure', '.azure/mutation-gate.yml'],
 ]);
+
+it('says to name the default branch in a config already here that names none, for a CI that names none', function (
+    string $ci,
+): void {
+    [, $ran] = initCi(['--ci' => $ci], [
+        'mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "app"}]}',
+    ]);
+    [, $named] = initCi(['--ci' => $ci], [
+        'mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "app"}], "ci": {"defaultBranch": "main"}}',
+    ]);
+
+    expect($ran->output)->toContain(
+        "Set ci.defaultBranch to main in the config, the branch the definition is written for: this CI names none.\n",
+    )->and($named->output)->not->toContain('Set ci.defaultBranch');
+})->with(['azure', 'bitbucket']);
+
+it('says nothing of the default branch in a config already here, for any other CI', function (
+    string $ci,
+): void {
+    [, $ran] = initCi(['--ci' => $ci], [
+        'mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "app"}]}',
+    ]);
+
+    expect($ran->output)->not->toContain('Set ci.defaultBranch');
+})->with(['github', 'gitlab', 'buildkite', 'circleci']);
 
 it('says what it wrote before a file it could not write', function (): void {
     [$project, $ran] = initCi(['--editor' => 'vscode'], ['.vscode/tasks.json/inside' => '']);
