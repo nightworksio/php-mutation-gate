@@ -181,6 +181,10 @@ it('writes the config init writes as a builder a person reads', function () use 
         PHP);
 });
 
+it('writes each built-in preset by its own method', function (string $preset) use ($php): void {
+    expect($php(['preset' => $preset, 'runner' => 'pest']))->toContain(sprintf('->preset(Preset::%s())', $preset));
+})->with(['library', 'laravel', 'symfony']);
+
 it('writes an empty list of trees, which declares no tree at all', function () use ($php): void {
     expect($php(['runner' => 'pest', 'trees' => []]))->toContain("\n    ->trees()");
 });
@@ -199,12 +203,18 @@ it('writes every other setting in one call to with', function () use ($php): voi
 
 it('writes a report that writes no file with uses, and one that writes a file with writing', function () use ($php): void {
     expect($php(['runner' => 'pest', 'reports' => [
+        ['use' => 'json', 'path' => 'build/m.json'],
+        ['use' => 'junit', 'path' => 'build/m.xml'],
         ['use' => 'sarif', 'path' => 'build/m.sarif'],
+        ['use' => 'html', 'path' => 'build/m.html'],
         ['use' => 'acme', 'with' => ['channel' => '#ci']],
         ['use' => 'acme', 'path' => 'build/a.txt', 'with' => ['channel' => '#ci']],
         ['use' => 'acme', 'path' => 'build/b.txt'],
     ]]))
+        ->toContain("Report::json('build/m.json'),")
+        ->toContain("Report::junit('build/m.xml'),")
         ->toContain("Report::sarif('build/m.sarif'),")
+        ->toContain("Report::html('build/m.html'),")
         ->toContain("Report::uses('acme', Option::of('channel', '#ci')),")
         ->toContain("Report::writing('acme', 'build/a.txt', Option::of('channel', '#ci')),")
         ->toContain("Report::writing('acme', 'build/b.txt'),");

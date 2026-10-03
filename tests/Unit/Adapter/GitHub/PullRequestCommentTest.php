@@ -67,6 +67,29 @@ it('updates its own comment in place, passing runs included, reading every page 
         ->and($patch->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/comments/101');
 });
 
+it('reads thirty full pages of comments for its own, and no more', function (int $page, string $method) use ($environment, $event, $comment): void {
+    $written = [];
+    $client = new MockHttpClient(static function (string $verb, string $url) use ($page, $comment, &$written): JsonMockResponse {
+        $asked = preg_match('/[?&]page=(\d+)/', $url, $found) === 1 ? (int) $found[1] : 0;
+        $comments = array_map(static fn(int $id): array => $comment($id, 'someone', 'text'), range(1, 100));
+        $comments[0] = $asked === $page ? $comment(9, 'gate-bot', Markdown::MARKER) : $comments[0];
+        $written = $verb === 'GET' ? $written : [...$written, $verb];
+
+        return match (true) {
+            $verb !== 'GET' => new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-9']),
+            str_ends_with($url, '/user') => new JsonMockResponse(['login' => 'gate-bot']),
+            default => new JsonMockResponse($comments),
+        };
+    });
+
+    PullRequestComment::inRun($environment, $event(), $client, '')->report(Verdicts::failing());
+
+    expect($written)->toBe([$method]);
+})->with([
+    'its comment on the thirtieth page, which it updates' => [30, 'PATCH'],
+    'its comment on the thirty-first page, past which it posts a new one' => [31, 'POST'],
+]);
+
 it('finds its comment by the identity it is given, asking GitHub nothing about the token', function () use ($environment, $event, $comment): void {
     $patch = new JsonMockResponse(['html_url' => 'u']);
     $requests = [new JsonMockResponse([$comment(5, 'gate-bot', Markdown::MARKER), $comment(6, 'other-bot', Markdown::MARKER)]), $patch];

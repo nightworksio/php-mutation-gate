@@ -27,5 +27,8 @@ it('says why what a CI names is no number of a pull request', function (string $
 ]);
 
 it('takes a number from a payload only where it is 1 or more', function (): void {
-    expect(PullRequestNumber::of(0))->toEqual(CannotTell::because('"0" is not the number of a pull request.'));
+    $first = PullRequestNumber::of(1);
+
+    expect(PullRequestNumber::of(0))->toEqual(CannotTell::because('"0" is not the number of a pull request.'))
+        ->and($first instanceof PullRequestNumber ? $first->value() : 0)->toBe(1);
 });

@@ -6,7 +6,21 @@ use NightWorksIO\MutationGate\Core\Alert\Alert;
 use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
 use NightWorksIO\MutationGate\Core\Alert\DiscordMessage;
 use NightWorksIO\MutationGate\Core\Ci\CiRun;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Report\TrendEntry;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Unrecorded;
+use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Tree\Tree;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Previous;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -56,4 +70,33 @@ it('keeps its title and description within what Discord takes, however long the 
     expect(is_string($title) ? mb_strlen($title) : 0)->toBe(256)
         ->and(is_string($description) ? mb_strlen($description) : 0)->toBeGreaterThan(1_800)->toBeLessThanOrEqual(2_000)
         ->and($description)->toEndWith(' more.');
+});
+
+it('keeps a description of exactly Discord\'s two thousand characters whole, and cuts one a character past it', function (): void {
+    $text = static function (int $last): string {
+        $trees = [];
+
+        foreach (range(1, 11) as $each) {
+            $path = $each === 11 ? str_repeat('b', $last) : sprintf('%s%d', str_repeat('a', 100), $each);
+            $trees[] = TreeVerdict::judged(
+                Tree::at(Path::of($path), Floor::of(90), Package::at(Path::root())),
+                Unrecorded::floor(),
+                JudgedUnits::none(),
+                JudgedMutants::of(JudgedMutant::of(
+                    Verdicts::mutant(sprintf('%s/A.php:1', $path), 'Plus', MutatorFamily::Arithmetic, ''),
+                    MutantJudgement::Survived,
+                )),
+                Uncovered::Count,
+            );
+        }
+
+        $said = Decoded::at(DiscordMessage::json(Alert::of(AlertEvent::Failed, Verdict::of(TreeVerdicts::of(...$trees)), TrendEntry::none()), Previous::ci()), 'embeds', 0, 'description');
+
+        return is_string($said) ? $said : '';
+    };
+    $fits = 2_000 - (mb_strlen($text(1)) - 1);
+
+    expect(mb_strlen($text($fits)))->toBe(2_000)
+        ->and(mb_strlen($text($fits + 1)))->toBeLessThan(2_000)
+        ->and($text($fits + 1))->toMatch('/And \\d+ more\\.$/');
 });

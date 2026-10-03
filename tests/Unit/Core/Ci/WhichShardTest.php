@@ -44,13 +44,18 @@ it('reads the first variable the CI set', function (Variables $set, int $shard) 
     'a count of another variable ignored' => [Variables::of(['SHARD' => '1', 'CI_NODE_TOTAL' => '9']), 1],
 ]);
 
-it('cannot judge a job count that is not the plan\'s count of shards', function () use ($plan): void {
-    $set = Variables::of(['CIRCLE_NODE_INDEX' => '0', 'CIRCLE_NODE_TOTAL' => '4']);
+it('cannot judge a job count that is not the plan\'s count of shards', function (string $index, string $total) use ($plan): void {
+    $set = Variables::of([$index => '1', $total => '4']);
 
     expect(WhichShard::in($set, $plan))->toEqual(CannotJudge::because(
-        'CIRCLE_NODE_TOTAL is 4, and the plan holds 3 shards. Plan with --shards=4, so each job has a shard.',
+        sprintf('%s is 4, and the plan holds 3 shards. Plan with --shards=4, so each job has a shard.', $total),
     ));
-});
+})->with([
+    'GitLab' => ['CI_NODE_INDEX', 'CI_NODE_TOTAL'],
+    'Buildkite' => ['BUILDKITE_PARALLEL_JOB', 'BUILDKITE_PARALLEL_JOB_COUNT'],
+    'CircleCI' => ['CIRCLE_NODE_INDEX', 'CIRCLE_NODE_TOTAL'],
+    'Bitbucket' => ['BITBUCKET_PARALLEL_STEP', 'BITBUCKET_PARALLEL_STEP_COUNT'],
+]);
 
 it('cannot judge a job named by something other than a number', function () use ($plan): void {
     expect(WhichShard::in(Variables::of(['SHARD' => 'two']), $plan))

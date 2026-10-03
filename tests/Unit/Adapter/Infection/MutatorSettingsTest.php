@@ -33,9 +33,9 @@ it('keeps the whole block for a run of every mutator, and nothing where the proj
         ->and(MutatorSettings::of(Node::decode('true'))->narrowedTo(Mutators::all()))->toBe([]);
 });
 
-it('turns a named mutator on bare where the project gives it no settings', function (): void {
-    expect(MutatorSettings::of(Node::decode('{"Plus": {}, "Minus": false, "global-ignore": []}'))->narrowedTo(Mutators::named('Plus', 'Minus')))
-        ->toBe(['mutators' => '{"global-ignore":[],"Plus":true,"Minus":true}']);
+it('turns a named mutator on bare where the project gives it no settings, keeping both global ignores', function (): void {
+    expect(MutatorSettings::of(Node::decode('{"Plus": {}, "Minus": false, "global-ignore": [], "global-ignoreSourceCodeByRegex": []}'))->narrowedTo(Mutators::named('Plus', 'Minus')))
+        ->toBe(['mutators' => '{"global-ignore":[],"global-ignoreSourceCodeByRegex":[],"Plus":true,"Minus":true}']);
 });
 
 it('reads a mutator whose name reads as a number as any other', function (): void {
