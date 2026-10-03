@@ -9,5 +9,19 @@
     ],
     "pest": {
         "patch": true
+    },
+    "ignores": {
+        "entries": [
+            {
+                "mutant": "cd88f123f3b9",
+                "reason": "Equivalent: the step only sets how many compressed bytes each inflate call takes. A stream inflates to the same text, TooLarge or CannotJudge at any step size, since inflating stops where the stream ends.",
+                "expires": "2027-10-03"
+            },
+            {
+                "mutant": "07c3b2ec795f",
+                "reason": "Equivalent: the step only sets how many compressed bytes each inflate call takes. A stream inflates to the same text, TooLarge or CannotJudge at any step size, since inflating stops where the stream ends.",
+                "expires": "2027-10-03"
+            }
+        ]
     }
 }
