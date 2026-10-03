@@ -9,11 +9,15 @@ use NightWorksIO\MutationGate\Cli\Flow\Baselines;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
+use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Cli\Flow\Raising;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Written;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -23,7 +27,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * `mutation-gate run --plan=<file>` mutates one shard of a plan and leaves
  * its result; it exits 0 once the result is written, whatever its mutants
  * did. Without `--plan` it plans, runs every shard and judges them in one
- * process, as `mutation-gate` with no command does; run in full outside CI,
+ * process, as `mutation-gate` with no command does, leaving its plan and
+ * results in the workspace for `explain`; run in full outside CI,
  * it then writes every floor it raised, and every missing one, into the
  * baseline, and says which lines to commit. With `--output=problems` it
  * prints the verdict as one line per result, for an editor.
@@ -84,12 +89,7 @@ final readonly class RunCommand
         $printing->begin($output, $composed->adapters->project);
         $plan = PlanCommand::planOf($composed, $input);
         $results = FlowOptions::path($input, FlowOptions::RESULTS, Workspace::results());
-        $running = new Running($composed->adapters, $composed->settings, $composed->setup);
-        $ran = $plan instanceof Plan ? $running->runAll($plan, $results) : $plan;
-        $judged = match (true) {
-            $ran instanceof CannotJudge => $ran,
-            $plan instanceof Plan => VerdictCommand::judgedOf($composed, $plan, $results),
-        };
+        $judged = $plan instanceof Plan ? self::judgedAll($composed, $plan, $results) : $plan;
         $local = FlowOptions::isFull($input) && ! $composed->adapters->environment->inCi();
 
         return VerdictCommand::printed(
@@ -98,6 +98,17 @@ final readonly class RunCommand
             $printing,
             $composed->adapters->project,
         );
+    }
+
+    /** A plan left in the workspace for `explain`, every shard of it run, and their results judged. */
+    private static function judgedAll(Composed $composed, Plan $plan, Path $results): Judged|Invalid|CannotJudge
+    {
+        $kept = LastRun::keep($composed->adapters->project, $plan);
+        $ran = $kept instanceof Written
+            ? new Running($composed->adapters, $composed->settings, $composed->setup)->runAll($plan, $results)
+            : $kept;
+
+        return $ran instanceof CannotJudge ? $ran : VerdictCommand::judgedOf($composed, $plan, $results);
     }
 
     /**

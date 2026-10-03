@@ -224,6 +224,44 @@ it('judges every tree whole, records the run, and reports it', function () use (
         ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toBeInstanceOf(CannotTell::class);
 });
 
+it('judges a plan\'s results again as the verdict did, reporting nothing and writing no ledger', function () use ($tree, $reporting, $judged): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $adapters = Flows::adapters($project, [], $store, $tree(Floor::of(50)));
+    $plan = Planned::twoShards();
+    $first = judgingVerdictOf($judged($plan, $adapters, judgingSettings(), $reporting(new ReporterFake())));
+    $written = $store->read(Scope::branch('main'));
+    $recorded = new ReporterFake();
+    $results = Results::read($plan, Workspace::results(), $adapters->project);
+
+    $again = $results instanceof Results
+        ? new Judging($adapters, judgingSettings(), Flows::setup(), $reporting($recorded))->again($plan, $results)
+        : $results;
+
+    expect($again instanceof Verdict ? [$again->judgement(), count($again->trees()->mutants())] : $again)
+        ->toBe([$first->judgement(), count($first->trees()->mutants())])
+        ->and($recorded->reported)->toBe([])
+        ->and($store->read(Scope::branch('main')))->toEqual($written);
+});
+
+it('cannot judge again where the trees or the baseline cannot be read', function (string $broken) use ($tree, $reporting): void {
+    $project = Flows::project();
+    $trees = $broken === 'trees' ? new TreeSourceFake(CannotJudge::because('No trees.')) : $tree(Floor::of(50));
+
+    if ($broken === 'baseline') {
+        Scratch::write($project, 'mutation-gate.baseline.json', '{');
+    }
+
+    $adapters = Flows::adapters($project, [], new ProofStoreFake(), $trees);
+    $again = new Judging($adapters, judgingSettings(), Flows::setup(), $reporting(new ReporterFake()))
+        ->again(Planned::twoShards(), judgingNoResults($project));
+
+    $baseline = BaselineFile::decode('{', Path::of('mutation-gate.baseline.json'));
+    $unreadable = $baseline instanceof CannotJudge ? $baseline->why() : 'a baseline';
+
+    expect($again instanceof CannotJudge ? $again->why() : $again)->toBe($broken === 'trees' ? 'No trees.' : $unreadable);
+})->with(['trees', 'baseline']);
+
 it('records a pass under the check the config names', function () use ($tree, $reporting, $judged): void {
     $project = Flows::project();
     $store = new ProofStoreFake();

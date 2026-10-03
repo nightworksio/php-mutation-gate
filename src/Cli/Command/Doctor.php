@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
-use function is_string;
-
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Doctor\Measure;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
@@ -16,11 +14,8 @@ use NightWorksIO\MutationGate\Core\Doctor\Diagnosis;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorJson;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorText;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
-use NightWorksIO\MutationGate\Core\Doctor\Output;
+use NightWorksIO\MutationGate\Core\Report\Form;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
-
-use function sprintf;
-
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -34,11 +29,11 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class Doctor
 {
-    private const string UNKNOWN_FORMAT = '--format is %s; doctor writes text or json.';
+    private const string NAME = 'doctor';
 
     public static function command(Observed $observed, Measure $measure, Online $online, Guide $guide): Command
     {
-        return new Command('doctor')
+        return FormOption::on(new Command(self::NAME))
             ->setDescription('Say what would fail, or run slowly, before a run does')
             ->addOption(
                 'measure',
@@ -50,30 +45,21 @@ final readonly class Doctor
                 mode: InputOption::VALUE_NONE,
                 description: 'Also read GitHub\'s settings: the required verdict, fork approval, the schedule',
             )
-            ->addOption(
-                'format',
-                mode: InputOption::VALUE_REQUIRED,
-                description: 'text or json',
-                default: Output::Text->value,
-            )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use (
                 $observed,
                 $measure,
                 $online,
                 $guide,
             ): int {
-                $asked = $input->getOption('format');
-                $format = Output::tryFrom(is_string($asked) ? $asked : '');
+                $format = FormOption::asked($input, self::NAME);
 
-                if (! $format instanceof Output) {
-                    $refused = CannotJudge::because(sprintf(self::UNKNOWN_FORMAT, is_string($asked) ? $asked : ''));
-
-                    return Failed::because($output, $refused);
+                if ($format instanceof CannotJudge) {
+                    return Failed::because($output, $format);
                 }
 
                 $findings = Diagnosis::of(self::observed($input, $observed, $measure, $online));
                 $output->writeln(
-                    $format === Output::Json ? DoctorJson::of($findings, $guide) : DoctorText::of($findings, $guide),
+                    $format === Form::Json ? DoctorJson::of($findings, $guide) : DoctorText::of($findings, $guide),
                     OutputInterface::OUTPUT_RAW,
                 );
 

@@ -98,27 +98,68 @@ final readonly class Judging
 
     public function verdict(Plan $plan, Results $results): Judged|Invalid|CannotJudge
     {
+        $reporters = $this->reporting->reporters($this->settings, $plan->runOn());
+
+        if (! is_array($reporters)) {
+            return $reporters;
+        }
+
+        $assessed = $this->grounded($plan, $results, Writing::from($this->settings->proofs()->write()->value));
+
+        return $assessed instanceof Assessed ? $this->judged($plan, $results, $assessed, $reporters) : $assessed;
+    }
+
+    /**
+     * A plan's results judged again as the verdict judged them, reporting
+     * nothing and writing no ledger, for a command that explains what a run
+     * found (ADR-0014, decision 12).
+     */
+    public function again(Plan $plan, Results $results): Verdict|CannotJudge
+    {
+        $assessed = $this->grounded($plan, $results, Writing::Never);
+
+        return $assessed instanceof Assessed ? $assessed->verdict : $assessed;
+    }
+
+    /** @param list<Reporter> $reporters */
+    private function judged(Plan $plan, Results $results, Assessed $assessed, array $reporters): Judged|CannotJudge
+    {
+        $verdict = $assessed->verdict;
+        $recorded = $this->recorded($plan, $results, $assessed->ledgers, $verdict, $assessed->ownScopeProofs);
+
+        if ($recorded instanceof CannotJudge) {
+            return $recorded;
+        }
+
+        $judged = new Judged($verdict, [$recorded, ...$this->reported($verdict, $reporters)], $assessed->baseline);
+
+        return $assessed->refused ? $judged->refusing() : $judged;
+    }
+
+    /** A plan's results judged over the trees and the committed baseline, or why either cannot be read. */
+    private function grounded(Plan $plan, Results $results, Writing $writing): Assessed|CannotJudge
+    {
         $trees = $this->adapters->trees->trees();
         $baseline = new Baselines($this->adapters, $this->settings->floors()->baseline())->committed();
-        $reporters = $this->reporting->reporters($this->settings, $plan->runOn());
 
         return match (true) {
             $trees instanceof CannotJudge => $trees,
             $baseline instanceof CannotJudge => $baseline,
-            ! is_array($reporters) => $reporters,
-            default => $this->judged($plan, $results, $trees, $baseline, $reporters),
+            default => $this->assessed($plan, $results, $trees, $baseline, $writing),
         };
     }
 
-    /** @param list<Reporter> $reporters */
-    private function judged(
+    /**
+     * Every shard's result merged with the proved and carried ones and
+     * judged, from the ledgers read as the run may write them.
+     */
+    private function assessed(
         Plan $plan,
         Results $results,
         Trees $trees,
         Baseline $baseline,
-        array $reporters,
-    ): Judged|CannotJudge {
-        $writing = Writing::from($this->settings->proofs()->write()->value);
+        Writing $writing,
+    ): Assessed|CannotJudge {
         $ledgers = Ledgers::read($this->adapters->proofs, Standing::planned($plan), $writing);
         $proving = $ledgers->proving($plan->considered()->proved(), $plan->keys(), $plan->base());
         $carrying = Considering::of(
@@ -178,17 +219,14 @@ final readonly class Judging
             $map,
             $matrix,
         );
-        $verdict = $results->wereCutShort() ? $verdict->cutShort() : $verdict;
-        $ownScopeProofs = $proving->ownScopeProofs() + $carrying->ownScopeProofs();
-        $recorded = $this->recorded($plan, $results, $ledgers, $verdict, $ownScopeProofs);
 
-        if ($recorded instanceof CannotJudge) {
-            return $recorded;
-        }
-
-        $judged = new Judged($verdict, [$recorded, ...$this->reported($verdict, $reporters)], $baseline);
-
-        return $refused ? $judged->refusing() : $judged;
+        return new Assessed(
+            $results->wereCutShort() ? $verdict->cutShort() : $verdict,
+            $baseline,
+            $ledgers,
+            $proving->ownScopeProofs() + $carrying->ownScopeProofs(),
+            $refused,
+        );
     }
 
     /**

@@ -9,14 +9,14 @@ use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Cli\Flow\Judging;
+use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
-use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 
 use function sprintf;
 
@@ -68,13 +68,9 @@ final readonly class VerdictCommand
     /** The plan a file holds, or why it cannot be followed. */
     public static function planIn(Composed $composed, Path $file): Plan|CannotJudge
     {
-        $contents = $composed->adapters->project->read($file);
+        $plan = LastRun::planAt($composed->adapters->project, $file);
 
-        return match (true) {
-            $contents instanceof Contents => PlanFile::decode($contents->text()),
-            $contents instanceof CannotJudge => $contents,
-            default => CannotJudge::because(sprintf(self::NO_PLAN, $file->value())),
-        };
+        return $plan instanceof Missing ? CannotJudge::because(sprintf(self::NO_PLAN, $file->value())) : $plan;
     }
 
     /** A plan's results judged, with what was written, or why they cannot be. */

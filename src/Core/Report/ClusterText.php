@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
-use function array_map;
 use function count;
-use function explode;
-use function implode;
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 
-use function rtrim;
 use function sprintf;
 
 /**
@@ -59,21 +55,13 @@ final readonly class ClusterText
         $lines = [];
 
         foreach ($cluster->members() as $member) {
-            $lines[] = MutantText::heading($member);
-            $diff = rtrim($member->mutant()->mutation()->diff(), "\n");
-
-            foreach ($diff === '' ? [] : explode("\n", $diff) as $line) {
-                $lines[] = $line;
-            }
+            $lines = [...$lines, MutantText::heading($member), ...MutantText::diff($member->mutant())];
         }
 
         $lines[] = self::hint($cluster);
         $lines[] = sprintf('Stub: %s', $cluster->stub());
         $lines[] = sprintf('Explain: %s', $cluster->explain());
 
-        return implode("\n", [
-            self::heading($cluster),
-            ...array_map(static fn(string $line): string => rtrim(sprintf('%s%s', MutantText::INDENT, $line)), $lines),
-        ]);
+        return MutantText::indented(self::heading($cluster), ...$lines);
     }
 }

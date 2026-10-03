@@ -26,3 +26,16 @@ it('adds a unit, or those of another set, without changing the units it came fro
         ->and($paths($units->and(JudgedUnits::of($unit('c'), $unit('d')))))->toBe(['a', 'c', 'd'])
         ->and($units)->toHaveCount(1);
 });
+
+it('finds the first unit that holds a file, its own or the held path it is in, and says where none does', function () use ($unit): void {
+    $units = JudgedUnits::of($unit('src/Money.php'), $unit('src/Held'), $unit('src/Held/Inner.php'));
+    $holding = static function (string $file) use ($units): string {
+        $found = $units->holding(Path::of($file));
+
+        return $found instanceof JudgedUnit ? $found->unit()->path()->value() : $found->why();
+    };
+
+    expect($holding('src/Money.php'))->toBe('src/Money.php')
+        ->and($holding('src/Held/Inner.php'))->toBe('src/Held')
+        ->and($holding('src/Moneys.php'))->toBe('No unit of the run holds src/Moneys.php.');
+});

@@ -162,6 +162,7 @@ it('plans, runs and judges in one process without a plan, and exits as the verdi
         ->and($ran->errors)->toBe('')
         ->and($ran->output)->toStartWith(sprintf("Wrote memory:refs/heads/feature.\nmutation-gate: %s\n", $judgement))
         ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeTrue()
+        ->and(is_file(sprintf('%s/.mutation-gate/plan.json', $project)))->toBeTrue()
         ->and(is_file(sprintf('%s/mutation-gate.baseline.json', $project)))->toBeFalse();
 })->with([
     'below its floor' => [50.0, 1, 'failed'],
@@ -248,6 +249,17 @@ it('cannot judge a run it could not plan, or whose shards could not leave their 
             ? "--shards=0 is not a number of shards.\n"
             : sprintf("%s/.mutation-gate/results/1.json could not be written.\n", $project));
 })->with(['plan', 'results']);
+
+it('cannot judge a run whose plan it could not leave for explain, and runs no shard of it', function () use ($composed): void {
+    $project = FlowCommands::project();
+    mkdir(sprintf('%s/.mutation-gate/plan.json', $project), recursive: true);
+
+    $ran = FlowCommands::run(RunCommand::command($composed($project, 30)));
+
+    expect([$ran->code, $ran->output, $ran->errors])
+        ->toBe([2, '', sprintf("%s/.mutation-gate/plan.json could not be written.\n", $project)])
+        ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeFalse();
+});
 
 it('offers a plan to run a shard of, the shard, and where the results go, besides plan\'s options', function () use (
     $composed,

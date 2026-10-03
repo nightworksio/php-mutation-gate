@@ -259,6 +259,24 @@ running it: why is this mutant here, and has it always been?
 15. **`explain` prints text, or JSON with `--format=json`.** The console, HTML
     and JSON reports give the `explain` command beside `reproduce`. Annotations
     and the PR comment keep `reproduce` alone, for space.
+    - **As built.**
+      - The last run is the plan and the results in the workspace, which
+        `plan` and a run in one process both leave. `Judging::again()`
+        judges them as the verdict did, reporting nothing and writing no
+        ledger. A mutant the last run holds is explained as that verdict
+        judged it; any other by its newest record, with only the killers
+        it names as its tests, and a `Unit:` line that says why.
+      - `ExplanationText` and `ExplanationJson` are its two forms. The text
+        reuses `MutantText`'s heading, diff, reason, hint and `Removable:`
+        line. Each JSON entry holds the `json` report's own mutant entry,
+        with its covering tests as `tests`, each with its `outcome`.
+        `resources/explain.schema.json` describes it.
+      - A cluster's id (ADR-0022, decision 17) is twelve hex characters, as
+        a mutant's is, since its `c` is a hex digit. An id the last run names
+        a cluster by is explained as that cluster: its heading, hint and stub
+        command, then each member. Any other id is a mutant's.
+      - An id with no record is exit 2, with the sentence `reproduce` gives:
+        run the gate on the code that has the mutant to record it.
 
 ## Alternatives considered
 
