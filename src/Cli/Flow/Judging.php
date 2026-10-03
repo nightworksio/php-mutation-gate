@@ -37,7 +37,6 @@ use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
-use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Carrying;
 use NightWorksIO\MutationGate\Core\Verdict\ChangesSince;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
@@ -52,7 +51,6 @@ use NightWorksIO\MutationGate\Core\Verdict\Ratchet;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Unfinished;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
-use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -70,16 +68,10 @@ use function sprintf;
  */
 final readonly class Judging
 {
-    private const string NO_MATRIX = 'The kill matrix holds each mutant\'s killers alone. %s';
-
     private const string FAILED = 'The verdict failed, so the commit did not pass.';
 
     /** Why a passing verdict's commit is not recorded as passed: a run from it must still reach what it left. */
     private const string UNJUDGED = 'The run left mutants unjudged, so its commit is not recorded as passed.';
-
-    private const string UNNAMED = 'The reports name each test by its coverage id. %s';
-
-    private const string UNFLOORED = '%s has no floor yet. Run mutation-gate baseline --write and commit %s.';
 
     private const string MEASURED = "The baseline this run measured, ready to commit as %s:\n%s";
 
@@ -296,15 +288,11 @@ final readonly class Judging
         $failures = $pullRequest
             ? $this->pullRequestFailures($lowered, $verdicts)->and($missed)
             : $missed;
-        $raised = $map instanceof CannotJudge
-            ? $shards->with(Warning::that(sprintf(self::NO_MATRIX, $map->why())))
-            : $this->hotPathsIn($plan, $map, $shards);
-
         return Verdict::of($verdicts)
             ->withNewCode($newCode)
             ->withReach($plan->considered()->reach())
             ->withMatrix($matrix)
-            ->withWarnings($this->warnings($plan, $verdicts, $raised))
+            ->withWarnings(new VerdictWarnings($this->adapters, $this->settings)->of($plan, $verdicts, $shards, $map))
             ->withFailures($failures);
     }
 
@@ -359,54 +347,6 @@ final readonly class Judging
         return $plan->runOn()->isPullRequest()
             ? $baselines->onDefaultBranch(Standing::planned($plan)->defaultBranch())
             : Baseline::none();
-    }
-
-    /**
-     * Each tree held to no floor, the runner's own ignore markers the config
-     * lets through, why the tests go by their ids where the plan holds no
-     * names for them, and what the shards warn of.
-     */
-    private function warnings(Plan $plan, TreeVerdicts $verdicts, Warnings $shards): Warnings
-    {
-        $warnings = new RunnerMarkers($this->adapters, $this->settings)->allowed($plan);
-        $names = $plan->names();
-        $warnings = $names instanceof CannotJudge
-            ? $warnings->with(Warning::that(sprintf(self::UNNAMED, $names->why())))
-            : $warnings;
-
-        foreach ($shards as $warning) {
-            $warnings = $warnings->with($warning);
-        }
-
-        foreach ($this->adapters->environment->inCi() ? [] : Ratchet::unfloored($verdicts) as $tree) {
-            $warnings = $warnings->with(Warning::that(sprintf(
-                self::UNFLOORED,
-                $tree->value(),
-                $this->settings->floors()->baseline()->value(),
-            )));
-        }
-
-        return $warnings;
-    }
-
-    /**
-     * These warnings, and one for each file most of the suite runs through
-     * that no held unit of the plan holds, past `holds.hotPath` of its tests
-     * (ADR-0005, decision 11): each of its mutants runs most of the suite.
-     */
-    private function hotPathsIn(Plan $plan, CoverageMap $map, Warnings $warnings): Warnings
-    {
-        $units = [...$plan->considered()->proved(), ...$plan->considered()->carried()];
-
-        foreach ($plan as $shard) {
-            $units = [...$units, ...$shard->units()];
-        }
-
-        foreach ($this->settings->reach()->hotPaths()->in($map, Units::of(...$units)) as $hot) {
-            $warnings = $warnings->with($hot);
-        }
-
-        return $warnings;
     }
 
     /**
