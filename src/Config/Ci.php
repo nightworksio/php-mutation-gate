@@ -40,6 +40,11 @@ final readonly class Ci implements Setting
         return new self(Json::at('ci.plan', BuiltinCiPlan::Azure->value));
     }
 
+    public static function bitbucket(): self
+    {
+        return new self(Json::at('ci.plan', BuiltinCiPlan::Bitbucket->value));
+    }
+
     /** The plan as JSON, for any other CI. */
     public static function json(): self
     {
@@ -103,6 +108,12 @@ final readonly class Ci implements Setting
     public static function azureDefinition(string $path): self
     {
         return new self(Json::at('ci.azure.definition', $path));
+    }
+
+    /** `ci.bitbucket.definition`: the pipeline file that runs the gate under Bitbucket Pipelines. */
+    public static function bitbucketDefinition(string $path): self
+    {
+        return new self(Json::at('ci.bitbucket.definition', $path));
     }
 
     public function written(): Json

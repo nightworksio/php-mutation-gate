@@ -21,6 +21,18 @@ final readonly class Variables
     /** Set to `true` by CircleCI in every job it runs. */
     public const string CIRCLECI = 'CIRCLECI';
 
+    /** Set, to the build's number, by Bitbucket Pipelines in every step it runs. */
+    public const string BITBUCKET_BUILD_NUMBER = 'BITBUCKET_BUILD_NUMBER';
+
+    /** Set by Bitbucket Pipelines, to the branch a step builds, in a branch's or a pull request's pipeline. */
+    public const string BITBUCKET_BRANCH = 'BITBUCKET_BRANCH';
+
+    /** Set by Bitbucket Pipelines, to the tag a step builds, in a tag's pipeline. */
+    public const string BITBUCKET_TAG = 'BITBUCKET_TAG';
+
+    /** Set by Bitbucket Pipelines, to the pull request's id, in a pull request's pipeline. */
+    public const string BITBUCKET_PR_ID = 'BITBUCKET_PR_ID';
+
     /** Set, to `True`, by Azure Pipelines in every job it runs. */
     public const string TF_BUILD = 'TF_BUILD';
 

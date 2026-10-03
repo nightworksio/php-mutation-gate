@@ -8,6 +8,7 @@ use function array_map;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
+use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiTemplate;
 use NightWorksIO\MutationGate\Core\Ci\Definitions;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -32,6 +33,7 @@ final readonly class Ci implements Part
         private BuildkiteStep|Absent $buildkiteStep,
         private Path|Absent $buildkiteDefinition,
         private Path|Absent $azureDefinition,
+        private Path|Absent $bitbucketDefinition,
     ) {
     }
 
@@ -43,6 +45,7 @@ final readonly class Ci implements Part
         BuildkiteStep|Absent $buildkiteStep = new Absent(),
         Path|Absent $buildkiteDefinition = new Absent(),
         Path|Absent $azureDefinition = new Absent(),
+        Path|Absent $bitbucketDefinition = new Absent(),
     ): self {
         return new self(
             $plan,
@@ -52,6 +55,7 @@ final readonly class Ci implements Part
             $buildkiteStep,
             $buildkiteDefinition,
             $azureDefinition,
+            $bitbucketDefinition,
         );
     }
 
@@ -70,6 +74,7 @@ final readonly class Ci implements Part
             buildkiteStep: $none->buildkiteStep(),
             buildkiteDefinition: $none->buildkiteDefinition(),
             azureDefinition: $none->azureDefinition(),
+            bitbucketDefinition: $none->bitbucketDefinition(),
         );
     }
 
@@ -88,6 +93,7 @@ final readonly class Ci implements Part
                 },
                 Absent::laid($this->buildkiteDefinition, $later->buildkiteDefinition),
                 Absent::laid($this->azureDefinition, $later->azureDefinition),
+                Absent::laid($this->bitbucketDefinition, $later->bitbucketDefinition),
             )
             : $this;
     }
@@ -153,6 +159,17 @@ final readonly class Ci implements Part
         return $this->azureDefinition instanceof Path ? $this->azureDefinition : Path::of(Definitions::AZURE);
     }
 
+    /**
+     * `ci.bitbucket.definition`: the pipeline file that runs the gate under Bitbucket Pipelines, which reach and
+     * the proof key count as its CI definition (ADR-0024 decision 3).
+     */
+    public function bitbucketDefinition(): Path
+    {
+        return $this->bitbucketDefinition instanceof Path
+            ? $this->bitbucketDefinition
+            : Path::of(Definitions::BITBUCKET);
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
@@ -181,6 +198,10 @@ final readonly class Ci implements Part
                     'azure',
                     Json::object(Member::of('definition', $this->path($origin, $this->azureDefinition))),
                 ),
+                Member::unlessEmpty(
+                    'bitbucket',
+                    Json::object(Member::of('definition', $this->path($origin, $this->bitbucketDefinition))),
+                ),
             ),
         ));
     }
@@ -207,12 +228,17 @@ final readonly class Ci implements Part
                 'Ci::azureDefinition(%s)',
                 PhpCalls::literal($origin->written($this->azureDefinition)),
             )] : [],
+            ...$this->bitbucketDefinition instanceof Path ? [sprintf(
+                'Ci::bitbucketDefinition(%s)',
+                PhpCalls::literal($origin->written($this->bitbucketDefinition)),
+            )] : [],
         ]);
     }
 
     /**
      * The options the gate hands a CI plan it builds in, from this section: `gitlab` its template, `buildkite`
-     * its step and the pipeline that runs it, and `azure` the pipeline that runs it; none for any other.
+     * its step and the pipeline that runs it, and `azure` and `bitbucket` the pipeline that runs each; none for
+     * any other.
      */
     public function planOptions(Name $plan): Options
     {
@@ -220,10 +246,13 @@ final readonly class Ci implements Part
             BuiltinCiPlan::GitLab->value => Json::object(Member::of('template', $this->gitlabTemplate()->value())),
             BuiltinCiPlan::Buildkite->value => Json::object(
                 Member::of('step', $this->buildkiteStep()->json()),
-                Member::of('definition', $this->buildkiteDefinition()->value()),
+                Member::of(CiJob::DEFINITION, $this->buildkiteDefinition()->value()),
             ),
             BuiltinCiPlan::Azure->value => Json::object(
-                Member::of('definition', $this->azureDefinition()->value()),
+                Member::of(CiJob::DEFINITION, $this->azureDefinition()->value()),
+            ),
+            BuiltinCiPlan::Bitbucket->value => Json::object(
+                Member::of(CiJob::DEFINITION, $this->bitbucketDefinition()->value()),
             ),
             default => Json::object(),
         });

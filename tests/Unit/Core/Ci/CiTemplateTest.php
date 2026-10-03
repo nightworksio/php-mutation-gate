@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use Symfony\Component\Yaml\Yaml;
 
@@ -29,6 +30,8 @@ use Symfony\Component\Yaml\Yaml;
  * - circleci.json: github.com/CircleCI-Public/circleci-yaml-language-server, schema.json (Apache-2.0);
  * - github-workflow.json: json.schemastore.org/github-workflow.json (Apache-2.0), beside actionlint in CI;
  * - azure-pipelines.json: github.com/microsoft/azure-pipelines-vscode, service-schema.json (MIT).
+ *
+ * Bitbucket states no licence for its schema, so it is fetched instead, and held to BITBUCKET_SCHEMA's digest.
  */
 const CI_SCHEMAS = [
     'github' => 'github-workflow',
@@ -37,6 +40,34 @@ const CI_SCHEMAS = [
     'circleci' => 'circleci',
     'azure' => 'azure-pipelines',
 ];
+
+/** Bitbucket Pipelines' published schema, and the SHA-256 of the version the template is validated against. */
+const BITBUCKET_SCHEMA = [
+    'https://api.bitbucket.org/schemas/pipelines-configuration',
+    '9387b9d72352521be95652848b9148163c6fa4090e870efc87ce731b2ff80630',
+];
+
+/** The schema a provider's templates are validated against, by the directory that holds them. */
+function ciSchema(string $provider): string
+{
+    return $provider === 'bitbucket'
+        ? Schema::fetched(...BITBUCKET_SCHEMA)
+        : Schema::at(sprintf('tests/Fixtures/CiSchemas/%s.json', CI_SCHEMAS[$provider]));
+}
+
+/**
+ * The last item of a Bitbucket pipeline, by its path under `pipelines`, in a rendered template's JSON; none where
+ * the pipeline is not there.
+ *
+ * @return array<array-key, mixed>
+ */
+function bitbucketLastStep(string $json, string ...$pipeline): array
+{
+    $items = Decoded::at($json, 'pipelines', ...$pipeline);
+    $last = is_array($items) && $items !== [] ? array_last($items) : [];
+
+    return is_array($last) ? $last : [];
+}
 
 /** A rendered template's YAML, as the JSON a schema validates. */
 function ciTemplateJson(string $yaml): string
@@ -88,6 +119,7 @@ it('renders each CI\'s templates, the GitHub one as the estimate or the request 
         ->toEqual(Listed::of(CiTemplate::BuildkitePipeline, CiTemplate::BuildkiteUpload))
         ->and(CiTemplate::for(BuiltinCiPlan::CircleCi, $single))->toEqual(Listed::of(CiTemplate::CircleCi))
         ->and(CiTemplate::for(BuiltinCiPlan::Azure, $single))->toEqual(Listed::of(CiTemplate::AzureJobs, CiTemplate::AzureInclude))
+        ->and(CiTemplate::for(BuiltinCiPlan::Bitbucket, $single))->toEqual(Listed::of(CiTemplate::BitbucketPipelines))
         ->and(CiTemplate::for(BuiltinCiPlan::Json, $single))->toEqual(Listed::of());
 });
 
@@ -99,7 +131,7 @@ it('names the file of the gate\'s jobs that the lines it prints pull in, where t
             ? $included->value()
             : 'none',
         BuiltinCiPlan::cases(),
-    ))->toBe(['none', 'ci/gate.yml', '.buildkite/mutation-gate.yml', 'none', '.azure/mutation-gate.yml', 'none']);
+    ))->toBe(['none', 'ci/gate.yml', '.buildkite/mutation-gate.yml', 'none', '.azure/mutation-gate.yml', 'none', 'none']);
 });
 
 it('writes a definition to a file of its own, and prints one that belongs in a file the CI reads', function (): void {
@@ -120,6 +152,7 @@ it('writes a definition to a file of its own, and prints one that belongs in a f
         'printed into .circleci/config.yml',
         '.azure/mutation-gate.yml',
         'printed into azure-pipelines.yml',
+        'printed into bitbucket-pipelines.yml',
     ]);
 });
 
@@ -128,7 +161,7 @@ it('fills in every placeholder, and renders YAML the provider\'s published schem
 ): void {
     $text = ciTemplateRendered($template);
     [$provider] = explode('/', $template->value);
-    $schema = Schema::at(sprintf('tests/Fixtures/CiSchemas/%s.json', CI_SCHEMAS[$provider]));
+    $schema = ciSchema($provider);
 
     expect($text)->not->toContain('%%')
         ->and(Schema::errors(ciTemplateJson($text), $schema))->toBe([]);
@@ -251,4 +284,52 @@ it('names every variable the bucket store reads in the README, where a fork\'s b
     $named = implode(', ', array_map(static fn(string $variable): string => sprintf('`%s`', $variable), [...BuiltinStore::S3->variables()]));
 
     expect($readme)->toContain(sprintf('drop every variable the S3 store reads, %s,', $named));
+});
+
+it('refuses by Bitbucket\'s schema a deployment on a final step, so a verdict that holds the keys is a step', function (): void {
+    $pipelines = ciTemplateRendered(CiTemplate::BitbucketPipelines);
+    $final = static fn(string $deployment): string => str_replace(
+        "      - final: *mutation-verdict\n",
+        sprintf("      - final:\n          <<: *mutation-verdict\n%s", $deployment),
+        $pipelines,
+    );
+    $merged = $final('');
+    $deploying = $final(sprintf("          deployment: '%s'\n", CiTemplate::bitbucketDeployment()));
+
+    expect($merged)->not->toBe($pipelines)
+        ->and(Schema::errors(ciTemplateJson($merged), ciSchema('bitbucket')))->toBe([])
+        ->and(Schema::errors(ciTemplateJson($deploying), ciSchema('bitbucket')))->not->toBe([]);
+});
+
+it('deploys only the default branch\'s and the full run\'s verdicts, each the last step, and makes a pull request\'s verdict final', function (): void {
+    $json = ciTemplateJson(ciTemplateRendered(CiTemplate::BitbucketPipelines));
+    $verdict = ['name' => 'mutation: verdict', 'clone' => ['depth' => 'full'], 'script' => [
+        'composer install --no-interaction --no-progress',
+        'vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results',
+    ]];
+    $deployed = ['step' => [...$verdict, 'deployment' => CiTemplate::bitbucketDeployment()]];
+
+    expect(bitbucketLastStep($json, 'branches', 'trunk'))->toBe($deployed)
+        ->and(bitbucketLastStep($json, 'custom', 'mutation-full'))->toBe($deployed)
+        ->and(bitbucketLastStep($json, 'pull-requests', '**'))->toBe(['final' => $verdict]);
+});
+
+it('cuts as many shards as each Bitbucket pipeline runs parallel steps', function (string ...$pipeline): void {
+    $json = ciTemplateJson(ciTemplateRendered(CiTemplate::BitbucketPipelines));
+    $script = Decoded::at($json, 'pipelines', ...$pipeline, ...[0, 'step', 'script']);
+    $parallel = Decoded::at($json, 'pipelines', ...$pipeline, ...[1, 'parallel']);
+
+    $shards = preg_match('/--shards=(\d+)/', (string) json_encode($script), $cut) === 1 ? (int) $cut[1] : 0;
+
+    expect($shards)->toBeGreaterThan(0)
+        ->and(is_array($parallel) ? count($parallel) : 0)->toBe($shards);
+})->with([
+    'the default branch' => ['branches', 'trunk'],
+    'a pull request' => ['pull-requests', '**'],
+    'the full run' => ['custom', 'mutation-full'],
+]);
+
+it('names the deployment environment that holds the keys in the README', function (): void {
+    expect((string) file_get_contents(Schema::at('README.md')))
+        ->toContain(sprintf('deployment environment `%s`', CiTemplate::bitbucketDeployment()));
 });

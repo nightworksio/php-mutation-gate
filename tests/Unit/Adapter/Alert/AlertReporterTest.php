@@ -131,7 +131,7 @@ it('sends nothing, and says why, where there is nothing to send or nowhere to se
     'a CI the gate cannot name a run of' => [
         Variables::of(['CI' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
         Verdicts::failing()->withAccount(Previous::run('passed')),
-        'This CI is not GitHub Actions, GitLab, Buildkite, CircleCI or Azure DevOps: the gate cannot name its run.',
+        'The gate names a run on GitHub, GitLab, Buildkite, CircleCI, Azure DevOps or Bitbucket, and not on this CI.',
     ],
     'off the default branch' => [
         Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),

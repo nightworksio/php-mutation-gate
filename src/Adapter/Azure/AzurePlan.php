@@ -11,15 +11,14 @@ use function json_encode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
-use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
@@ -53,42 +52,34 @@ final readonly class AzurePlan implements CiPlan, Configurable
     /** A GitHub pull request's number, which Azure sets where it differs from the pull request's id. */
     private const string PULL_REQUEST_NUMBER = 'SYSTEM_PULLREQUEST_PULLREQUESTNUMBER';
 
-    private function __construct(private Variables $variables, private string $to, private Path $definition)
+    private function __construct(private CiJob $job, private string $to)
     {
     }
 
     /** A plan that prints to this file, for a pipeline run from this definition. */
     public static function printing(string $to, Variables $variables, Path $definition): self
     {
-        return new self($variables, $to, $definition);
+        return new self(CiJob::of($variables, Paths::of($definition)), $to);
     }
 
     /** From `definition`, the pipeline file that runs the gate, which `ci.azure.definition` names. */
     public static function fromOptions(Options $options): self|Invalid
     {
-        $definition = $options->path(Key::of('definition'));
+        $job = CiJob::definedIn($options, Variables::of(getenv()));
 
-        return match (true) {
-            $definition instanceof Path => self::printing('php://output', Variables::of(getenv()), $definition),
-            $definition instanceof Problem => Invalid::because($definition),
-            default => Invalid::because(
-                Problem::at('definition', 'expected the pipeline that runs the gate, as a path'),
-            ),
-        };
+        return $job instanceof CiJob ? new self($job, Written::OUTPUT) : $job;
     }
 
     public function publish(Plan $plan): Written|CannotJudge
     {
         $line = sprintf(self::SET_OUTPUT, self::OUTPUT, $this->matrixOf($plan));
 
-        return file_put_contents($this->to, $line) === false
-            ? CannotJudge::because(sprintf('%s could not be written.', $this->to))
-            : Written::to($this->to);
+        return Written::attempted($this->to, file_put_contents($this->to, $line));
     }
 
     public function shard(Plan $plan): ShardId|CannotJudge
     {
-        return WhichShard::in($this->variables, $plan);
+        return $this->job->shard($plan);
     }
 
     /**
@@ -100,19 +91,20 @@ final readonly class AzurePlan implements CiPlan, Configurable
     public function runOn(): RunOn|CannotTell
     {
         $defaultBranch = CannotTell::because(self::NO_DEFAULT);
-        $number = $this->variables->has(self::PULL_REQUEST_NUMBER)
-            ? $this->variables->valueOf(self::PULL_REQUEST_NUMBER)
-            : $this->variables->valueOf('SYSTEM_PULLREQUEST_PULLREQUESTID');
+        $variables = $this->job->variables();
+        $number = $variables->has(self::PULL_REQUEST_NUMBER)
+            ? $variables->valueOf(self::PULL_REQUEST_NUMBER)
+            : $variables->valueOf('SYSTEM_PULLREQUEST_PULLREQUESTID');
 
-        return $this->variables->valueOf('BUILD_REASON') === 'PullRequest'
+        return $variables->valueOf('BUILD_REASON') === 'PullRequest'
             ? RunOn::pullRequest(PullRequestNumber::parse($number), $defaultBranch)
-            : RunOn::onRef($this->variables->valueOf('BUILD_SOURCEBRANCH'), $defaultBranch);
+            : RunOn::onRef($variables->valueOf('BUILD_SOURCEBRANCH'), $defaultBranch);
     }
 
     /** The pipeline file that runs the gate. */
     public function definitions(): Paths
     {
-        return Paths::of($this->definition);
+        return $this->job->definitions();
     }
 
     /**

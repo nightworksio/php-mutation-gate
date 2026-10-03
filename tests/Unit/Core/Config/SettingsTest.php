@@ -88,6 +88,9 @@ const DEFAULTS = <<<'JSON'
             },
             "azure": {
                 "definition": "azure-pipelines.yml"
+            },
+            "bitbucket": {
+                "definition": "bitbucket-pipelines.yml"
             }
         },
         "proofs": {
@@ -169,6 +172,7 @@ const EVERYTHING = [
         'gitlab' => ['template' => '.gitlab/gate.yml'],
         'buildkite' => ['step' => ['agents' => ['queue' => 'mutation']], 'definition' => '.buildkite/mutation.yml'],
         'azure' => ['definition' => 'ci/azure.yml'],
+        'bitbucket' => ['definition' => 'ci/bitbucket.yml'],
     ],
     'proofs' => [
         'store' => ['use' => 's3', 'with' => ['bucket' => 'proofs', 'endpoint' => 'https://r2.example.com']],
@@ -252,6 +256,7 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->ci()->gitlabTemplate())->toEqual(Path::of('.gitlab/mutation-gate.yml'))
         ->and($settings->ci()->buildkiteStep()->json()->line())->toBe('{}')
         ->and($settings->ci()->buildkiteDefinition())->toEqual(Path::of('.buildkite/pipeline.yml'))
+        ->and($settings->ci()->bitbucketDefinition())->toEqual(Path::of('bitbucket-pipelines.yml'))
         ->and($settings->runner()->withhold())->toEqual(Withheld::nothing())
         ->and($settings->runner()->memory())->toEqual(MemoryCap::standard())
         ->and($settings->proofs()->store())->toEqual(Choice::of('directory', Configs::options('{"path":".mutation-gate/ledger"}')))
@@ -316,6 +321,7 @@ it('reads every setting a config writes into its type', function (): void {
         ->and($ci->gitlabTemplate())->toEqual(Path::of('.gitlab/gate.yml'))
         ->and($ci->buildkiteStep()->json()->line())->toBe('{"agents":{"queue":"mutation"}}')
         ->and($ci->buildkiteDefinition())->toEqual(Path::of('.buildkite/mutation.yml'))
+        ->and($ci->bitbucketDefinition())->toEqual(Path::of('ci/bitbucket.yml'))
         ->and($proofs->store())->toEqual(Choice::of(
             's3',
             Configs::options('{"bucket":"proofs","prefix":"mutation-gate","region":"us-east-1","endpoint":"https://r2.example.com"}'),
@@ -412,13 +418,15 @@ it('leaves an ignore without an end date open when nothing limits it', function 
 
 it('serialises the settings that affect results canonically, and only those', function (): void {
     expect(Configs::settings(['runner' => 'pest'])->canonical())->toBe(
-        '{"ci":{"azure":{"definition":"azure-pipelines.yml"},"buildkite":{"definition":".buildkite/pipeline.yml"},'
+        '{"ci":{"azure":{"definition":"azure-pipelines.yml"},"bitbucket":{"definition":"bitbucket-pipelines.yml"},'
+        . '"buildkite":{"definition":".buildkite/pipeline.yml"},'
         . '"gitlab":{"template":".gitlab/mutation-gate.yml"}},'
         . '"flaky":{"confirmSurvivors":true},"packages":[],"pest":{"canary":"mutation-canary","patch":false},'
         . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"tool":"auto"},"tests":{"order":"killers-first"},'
         . '"timeouts":{"retries":20,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
     )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
-        '{"ci":{"azure":{"definition":"ci/azure.yml"},"buildkite":{"definition":".buildkite/mutation.yml"},'
+        '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
+        . '"buildkite":{"definition":".buildkite/mutation.yml"},'
         . '"gitlab":{"template":".gitlab/gate.yml"}},'
         . '"flaky":{"confirmSurvivors":false},"packages":["packages/*"],"pest":{"canary":"canary","patch":true},'
         . '"runner":{"memory":"512M","use":"infection"},"staticCheck":{"config":"phpstan.dist.neon","tool":"phpstan"},'
@@ -478,6 +486,7 @@ it('changes the canonical form with every setting that affects results', functio
     'a tree\'s exclude' => [['trees' => [...EVERYTHING['trees'], ['path' => 'lib', 'exclude' => ['lib/Gen/**']]]]],
     'the test order' => [['tests' => ['order' => 'runner']]],
     'the tree source\'s fallback' => [['treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]]]],
+    'the Bitbucket pipeline' => [['ci' => [...EVERYTHING['ci'], 'bitbucket' => ['definition' => 'ci/other.yml']]]],
 ]);
 
 it('changes the canonical form with the options of a runner or a tree source', function (string $setting): void {
@@ -1035,6 +1044,12 @@ it('reads a key that reads as a number as any other: unknown where nothing decla
     expect(Configs::problems(Configs::validated('{"runner": "pest", "12": 1}')))->toBe(['12: unknown key'])
         ->and(Configs::validated('{"runner": "pest", "costs": {"secondsPerLine": {"12": 2}}}'))->toBeInstanceOf(Settings::class)
         ->and($colors)->toBeInstanceOf(Settings::class);
+});
+
+it('names each CI\'s pipeline file in a config written as PHP', function (): void {
+    expect(Configs::valid(EVERYTHING)->php(ProjectRoot::origin())->code())
+        ->toContain("Ci::azureDefinition('ci/azure.yml')")
+        ->toContain("Ci::bitbucketDefinition('ci/bitbucket.yml')");
 });
 
 it('hands on a name in a map that reads as a number as text, to the cost model and to a config written as PHP', function (): void {

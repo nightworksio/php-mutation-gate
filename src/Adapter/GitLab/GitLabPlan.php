@@ -102,9 +102,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
             ? file_put_contents($this->pipeline, JsonText::encode($this->pipelineOf($plan, $planJob)))
             : false;
 
-        return $written === false
-            ? CannotJudge::because(sprintf('%s could not be written.', $this->pipeline))
-            : Written::to($this->pipeline);
+        return Written::attempted($this->pipeline, $written);
     }
 
     public function shard(Plan $plan): ShardId|CannotJudge

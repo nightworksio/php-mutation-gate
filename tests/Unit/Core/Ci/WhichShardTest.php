@@ -29,6 +29,7 @@ it('names the shard a CI variable names, adding one where it counts from 0', fun
     'a GitLab parallel job' => [Variables::of(['CI_NODE_INDEX' => '2', 'CI_NODE_TOTAL' => '3']), 2],
     'a Buildkite parallel job' => [Variables::of(['BUILDKITE_PARALLEL_JOB' => '1', 'BUILDKITE_PARALLEL_JOB_COUNT' => '3']), 2],
     'a CircleCI node' => [Variables::of(['CIRCLE_NODE_INDEX' => '0', 'CIRCLE_NODE_TOTAL' => '3']), 1],
+    'a Bitbucket parallel step' => [Variables::of(['BITBUCKET_PARALLEL_STEP' => '0', 'BITBUCKET_PARALLEL_STEP_COUNT' => '3']), 1],
     'a parallel job that does not say how many there are' => [Variables::of(['CI_NODE_INDEX' => '3']), 3],
 ]);
 
@@ -38,6 +39,7 @@ it('reads the first variable the CI set', function (Variables $set, int $shard) 
     'a matrix job before a parallel one' => [Variables::of(['CI_NODE_INDEX' => '1', 'SHARD' => '3']), 3],
     'GitLab before Buildkite' => [Variables::of(['BUILDKITE_PARALLEL_JOB' => '0', 'CI_NODE_INDEX' => '3']), 3],
     'Buildkite before CircleCI' => [Variables::of(['CIRCLE_NODE_INDEX' => '0', 'BUILDKITE_PARALLEL_JOB' => '2']), 3],
+    'CircleCI before Bitbucket' => [Variables::of(['BITBUCKET_PARALLEL_STEP' => '0', 'CIRCLE_NODE_INDEX' => '2']), 3],
     'a variable set to nothing skipped' => [Variables::of(['SHARD' => '', 'CIRCLE_NODE_INDEX' => '1']), 2],
     'a count of another variable ignored' => [Variables::of(['SHARD' => '1', 'CI_NODE_TOTAL' => '9']), 1],
 ]);
@@ -66,6 +68,6 @@ it('cannot judge a job the plan has no shard for', function () use ($plan): void
 it('cannot judge a job no variable names', function () use ($plan): void {
     expect(WhichShard::in(Variables::of([]), $plan))->toEqual(CannotJudge::because(
         'No shard is named. Pass --shard=<id>, or run under a CI that sets one of SHARD, CI_NODE_INDEX, '
-            . 'BUILDKITE_PARALLEL_JOB, CIRCLE_NODE_INDEX.',
+            . 'BUILDKITE_PARALLEL_JOB, CIRCLE_NODE_INDEX, BITBUCKET_PARALLEL_STEP.',
     ));
 });

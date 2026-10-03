@@ -506,6 +506,25 @@ it('prints CircleCI\'s config to add to .circleci/config.yml, and writes none', 
         ->and(initCiFile($project, '.circleci/config.yml'))->toBe('');
 });
 
+it('prints Bitbucket\'s pipelines to add to bitbucket-pipelines.yml, writes none, and names the default branch in the config', function (): void {
+    [$project, $ran] = initCi(['--ci' => 'bitbucket', '--format' => 'json']);
+    $config = json_decode(initCiFile($project, 'mutation-gate.json'), associative: true);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toContain("\nAdd this to bitbucket-pipelines.yml:\n\n# Written by `mutation-gate init --ci=bitbucket`")
+        ->and($ran->output)->toContain("      - final: *mutation-verdict\n")
+        ->and(initCiFile($project, 'bitbucket-pipelines.yml'))->toBe('')
+        ->and(is_array($config) ? $config['ci'] : null)->toBe(['defaultBranch' => 'main']);
+});
+
+it('writes for Bitbucket where the project holds its pipelines, and --ci names no CI', function (): void {
+    [$project, $ran] = initCi(['--ci' => null], ['bitbucket-pipelines.yml' => "pipelines: {}\n"]);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toContain('Add this to bitbucket-pipelines.yml:')
+        ->and(initCiFile($project, 'bitbucket-pipelines.yml'))->toBe("pipelines: {}\n");
+});
+
 it('prints the definition with --stdout, and writes it nowhere', function (): void {
     [$project, $ran] = initCi(['--ci' => 'github', '--single' => true, '--stdout' => true]);
 
@@ -525,7 +544,7 @@ it('writes for the one CI the project\'s files show, where --ci names none', fun
 it('writes nothing where --ci names no CI it writes for, or where the files show none or several', function (): void {
     $refused = initCiRefused(...);
     $nothing = static fn(string $why): array => [2, '', sprintf("%s\n", $why), ''];
-    $unwritten = 'init --ci writes a definition for github, gitlab, buildkite, circleci and azure, not for %s.';
+    $unwritten = 'init --ci writes a definition for github, gitlab, buildkite, circleci, azure and bitbucket, not for %s.';
 
     expect($refused(['--ci' => null]))
         ->toBe($nothing('No CI is detected here, so init writes nothing. Name one with --ci=<name>.'))
@@ -603,7 +622,7 @@ it('writes nothing for a CI where the default branch would run as code', functio
         ->and(initCiFile($project, '.gitlab/mutation-gate.yml'))->toBe('')
         ->and(initCiFile($project, '.buildkite/mutation-gate.yml'))->toBe('')
         ->and(initCiFile($project, '.azure/mutation-gate.yml'))->toBe('');
-})->with(['github', 'gitlab', 'buildkite', 'circleci', 'azure']);
+})->with(['github', 'gitlab', 'buildkite', 'circleci', 'azure', 'bitbucket']);
 
 it('says which file of the gate\'s jobs a config already here must name, where it names another', function (
     string $ci,
@@ -620,7 +639,7 @@ it('says which file of the gate\'s jobs a config already here must name, where i
         ),
     ]);
 
-    expect($ran->output)->toEndWith(sprintf(
+    expect($ran->output)->toContain(sprintf(
         "Set ci.%s.definition to %s in the config: reach and the proof key read it.\n",
         $ci,
         $written,
@@ -629,6 +648,31 @@ it('says which file of the gate\'s jobs a config already here must name, where i
     'Buildkite' => ['buildkite', '.buildkite/mutation-gate.yml'],
     'Azure DevOps' => ['azure', '.azure/mutation-gate.yml'],
 ]);
+
+it('says to name the default branch in a config already here that names none, for a CI that names none', function (
+    string $ci,
+): void {
+    [, $ran] = initCi(['--ci' => $ci], [
+        'mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "app"}]}',
+    ]);
+    [, $named] = initCi(['--ci' => $ci], [
+        'mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "app"}], "ci": {"defaultBranch": "main"}}',
+    ]);
+
+    expect($ran->output)->toContain(
+        "Set ci.defaultBranch to main in the config, the branch the definition is written for: this CI names none.\n",
+    )->and($named->output)->not->toContain('Set ci.defaultBranch');
+})->with(['azure', 'bitbucket']);
+
+it('says nothing of the default branch in a config already here, for any other CI', function (
+    string $ci,
+): void {
+    [, $ran] = initCi(['--ci' => $ci], [
+        'mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "app"}]}',
+    ]);
+
+    expect($ran->output)->not->toContain('Set ci.defaultBranch');
+})->with(['github', 'gitlab', 'buildkite', 'circleci']);
 
 it('says what it wrote before a file it could not write', function (): void {
     [$project, $ran] = initCi(['--editor' => 'vscode'], ['.vscode/tasks.json/inside' => '']);

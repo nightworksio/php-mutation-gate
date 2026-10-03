@@ -18,7 +18,7 @@ use function sprintf;
 final readonly class CiRun
 {
     private const string UNREAD
-        = 'This CI is not GitHub Actions, GitLab, Buildkite, CircleCI or Azure DevOps: the gate cannot name its run.';
+        = 'The gate names a run on GitHub, GitLab, Buildkite, CircleCI, Azure DevOps or Bitbucket, and not on this CI.';
 
     private function __construct(
         private string $repository,
@@ -43,7 +43,8 @@ final readonly class CiRun
 
     /**
      * The run the environment of a GitHub Actions, GitLab CI, Buildkite,
-     * CircleCI or Azure DevOps job describes; why there is none in any other.
+     * CircleCI, Azure DevOps or Bitbucket Pipelines job describes; why there
+     * is none in any other.
      */
     public static function read(Variables $variables): self|CannotTell
     {
@@ -75,6 +76,7 @@ final readonly class CiRun
                 self::numbered('circleci:%s', $variables->valueOf('CIRCLE_WORKFLOW_ID')),
             ),
             $variables->has(Variables::TF_BUILD) => self::azure($variables),
+            $variables->has(Variables::BITBUCKET_BUILD_NUMBER) => self::bitbucket($variables),
             default => CannotTell::because(self::UNREAD),
         };
     }
@@ -110,7 +112,8 @@ final readonly class CiRun
 
     /**
      * The run as a proof names it (ADR-0007 decision 3): `github:<run id>/<attempt>`, `gitlab:<pipeline id>`,
-     * `buildkite:<build id>`, `circleci:<workflow id>` or `azure:<build id>`; empty where the CI numbers none.
+     * `buildkite:<build id>`, `circleci:<workflow id>`, `azure:<build id>` or `bitbucket:<build number>`; empty
+     * where the CI numbers none.
      */
     public function id(): string
     {
@@ -180,6 +183,23 @@ final readonly class CiRun
             ),
             $variables->valueOf('BUILD_DEFINITIONNAME'),
             self::numbered('azure:%s', $variables->valueOf('BUILD_BUILDID')),
+        );
+    }
+
+    private static function bitbucket(Variables $variables): self
+    {
+        $repository = $variables->valueOf('BITBUCKET_REPO_FULL_NAME');
+        $number = $variables->valueOf(Variables::BITBUCKET_BUILD_NUMBER);
+        $tag = $variables->valueOf(Variables::BITBUCKET_TAG);
+        $branch = $variables->valueOf(Variables::BITBUCKET_BRANCH);
+
+        return new self(
+            $repository,
+            $tag === '' ? self::branch($branch) : sprintf('refs/tags/%s', $tag),
+            $variables->valueOf('BITBUCKET_COMMIT'),
+            sprintf('https://bitbucket.org/%s/pipelines/results/%s', $repository, $number),
+            '',
+            self::numbered('bitbucket:%s', $number),
         );
     }
 

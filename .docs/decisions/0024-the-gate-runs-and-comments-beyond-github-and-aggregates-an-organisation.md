@@ -23,7 +23,7 @@ documentation, are these.
   | A job count set at runtime | No: `parallel` is static, at most 100 steps per pipeline; dynamic pipelines, a generated YAML uploaded by a pipe, are a Premium feature | Yes: `strategy: matrix` takes a runtime expression holding a JSON object from an output variable; it always makes at least one job | Yes, in a `script` block: a map of closures handed to `parallel` |
   | The shard | `BITBUCKET_PARALLEL_STEP` (0-based) and `BITBUCKET_PARALLEL_STEP_COUNT` | the matrix leg's variables, or `System.JobPositionInPhase` and `System.TotalJobsInPhase` under `parallel: N` | the closure's own argument |
   | Files between jobs | artifacts, kept 14 days, 1 GB each; a parallel group's artifacts may not reach its siblings | `PublishPipelineArtifact` and `DownloadPipelineArtifact` | `stash` and `unstash` |
-  | The verdict after a failed shard | a `final` step, which runs whatever the others did | `condition: succeededOrFailed()` | `post { always { … } }` |
+  | The verdict after a failed shard | a `final` step, which runs whatever the others did, and which cannot deploy | `condition: succeededOrFailed()` | `post { always { … } }` |
   | Ref, pull request, run | `BITBUCKET_BRANCH`, `BITBUCKET_PR_ID`, `BITBUCKET_BUILD_NUMBER` | `Build.SourceBranch`, `System.PullRequest.PullRequestNumber` (GitHub) or `System.PullRequest.PullRequestId`, `System.PullRequest.TargetBranch`, `Build.BuildId` | `BRANCH_NAME`, `CHANGE_ID`, `BUILD_TAG`, `GIT_COMMIT` |
   | Default branch | not named | not named | not named |
   | Cache | shared by every branch of the repository: no boundary | a pull request build reads its source's, its target's, `main`'s and `master`'s caches and writes only its own; any other run reads its own branch's, `main`'s and `master`'s: a boundary | none built in |
@@ -32,6 +32,16 @@ documentation, are these.
   No Azure variable names the YAML file a pipeline runs. Azure's
   `System.AccessToken` reaches a step only when the pipeline maps it into
   that step's environment.
+
+  On Bitbucket, repository and workspace variables, secured ones included,
+  reach every branch's pipeline, and each branch's author controls its
+  `bitbucket-pipelines.yml`. A deployment environment's variables reach only
+  the step that deploys to it, one step per environment in a pipeline, and
+  restricting an environment's deployments to a branch takes Premium. While
+  one pipeline deploys to an environment, Bitbucket pauses any other at its
+  step that deploys there; once the first deployment ends, the paused
+  pipeline is resumed or rerun by hand. A step can request an OpenID Connect token, `BITBUCKET_STEP_OIDC_TOKEN`, whose
+  subject names a branch only through a deployment environment.
 - **Comments beyond GitHub.**
   - **GitLab.** A merge request note is created and updated through the
     notes API, and a job finds its own note by its author. `CI_JOB_TOKEN`
@@ -97,9 +107,15 @@ documentation, are these.
      `post { always { … } }`.
    - **Bitbucket Pipelines.** Parallelism is fixed in the pipeline, as on
      CircleCI (ADR-0006 decision 5): `plan --shards=<N>`, and each step's
-     shard is `BITBUCKET_PARALLEL_STEP` plus 1. The verdict is the `final`
-     step. The README also shows the dynamic-pipelines form for Premium
-     workspaces.
+     shard is `BITBUCKET_PARALLEL_STEP` plus 1. The verdicts of the default
+     branch's pipeline and of the custom pipeline `mutation-full`, the full
+     run, are each the last ordinary step, deploying to the environment
+     that holds the store's keys (decision 4), because a `final` step cannot
+     deploy. After a failed shard Bitbucket skips such a verdict, and the
+     pipeline is red with no *cannot judge* report, and while one such
+     verdict deploys, Bitbucket pauses any other at its own. A pull request's
+     verdict is the `final` step. The README also shows the
+     dynamic-pipelines form for Premium workspaces.
 
    This amends ADR-0006 decision 5, whose two tables gain a row for each, and
    ADR-0007 decision 3, whose list of the run a proof names gains three
@@ -114,7 +130,9 @@ documentation, are these.
 2. **None of the three names its default branch, so `ci.defaultBranch`
    decides**, and failing that git's `origin/HEAD`, and failing that `main`,
    as for the JSON plan and CircleCI (ADR-0006 decision 5). `init --ci` for
-   these three writes `ci.defaultBranch` into the config it writes.
+   these three writes `ci.defaultBranch` into the config it writes, and
+   where a config is kept that does not set it, says to set it to the branch
+   the template is written for.
 
 3. **Each CI's definition file is named for reach and the proof key.**
    `ci.bitbucket.definition` (a path, `bitbucket-pipelines.yml` by default),
@@ -140,19 +158,31 @@ documentation, are these.
      hold. Bitbucket's caches are shared by every branch and Jenkins has
      none, so neither is a boundary. This is ADR-0007 decision 5's reasoning
      for Buildkite and CircleCI.
+   - **Bitbucket's credentials** are variables of the deployment environment
+     `mutation-gate`, which only the deploying verdicts of decision 1 name.
+     Restricted to the default branch, which takes Premium, it is the
+     boundary; without that restriction any branch whose pipeline names it
+     gets the keys, and the template and README say so. Every other step,
+     the default branch's plan included, holds no keys and reads the default
+     branch's ledger through `proofs.store.with.publicUrl` (ADR-0013).
 
    This amends ADR-0007 decision 5.
 
 5. **What the runners never see grows with these CIs.** Azure's
-   `SYSTEM_ACCESSTOKEN`, and the `AZURE_DEVOPS_EXT_PAT` that `az devops`
-   reads, join what every run withholds from the runner
+   `SYSTEM_ACCESSTOKEN`, the `AZURE_DEVOPS_EXT_PAT` that `az devops` reads,
+   and Bitbucket's `BITBUCKET_STEP_OIDC_TOKEN` join what every run withholds
+   from the runner
    (`CiPlan::withheld`, ADR-0004 decision 3), as do the comment tokens of
    decision 7. A project adds any other Bitbucket or Jenkins credential it
    passes to `runner.withhold`.
 
 6. **`init --ci=bitbucket|azure|jenkins` writes a pinned template**, by the
    rules of ADR-0015 decisions 13 to 17. Azure's and Bitbucket's templates
-   are validated offline against each provider's published schema.
+   are validated against each provider's published schema. Azure's is
+   MIT-licensed, kept in the repository and read offline. Bitbucket's states
+   no licence, so the test fetches it from its URL into the system's
+   temporary directory, holds it to a SHA-256 digest, and fails, never skips,
+   where the fetch fails or the digest differs.
    Jenkins publishes no schema for a Jenkinsfile, so its template is held by
    its snapshot test alone. This amends ADR-0015 decisions 13 to 17.
    - **Azure DevOps.** `init --ci=azure` writes the gate's jobs as a template,
@@ -163,6 +193,12 @@ documentation, are these.
      config is kept, `init` says to. `Cache@2` saves only from a job that
      succeeds, so a last job, run whatever the verdict decided, saves the
      ledger the verdict wrote.
+   - **Bitbucket Pipelines.** `init --ci=bitbucket` prints the pipelines to
+     add to `bitbucket-pipelines.yml`, which it never edits: the default
+     branch's, every pull request's and `mutation-full`'s, each a plan step,
+     four parallel shard steps and the verdict of decision 1, each step
+     cloning the full history. A config `init` writes sets
+     `ci.defaultBranch` (decision 2).
 
 ### Comments beyond GitHub
 

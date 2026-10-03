@@ -15,6 +15,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
 use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
+use NightWorksIO\MutationGate\Adapter\Bitbucket\BitbucketPlan;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
@@ -115,6 +116,12 @@ final readonly class FirstParty implements Extension
                 AzurePlan::fromOptions(...),
                 AzurePlan::withheld(),
                 AzurePlan::marker(),
+            )
+            ->withCiPlan(
+                BuiltinCiPlan::Bitbucket->named(),
+                BitbucketPlan::fromOptions(...),
+                BitbucketPlan::withheld(),
+                BitbucketPlan::marker(),
             )
             ->withCiPlan(
                 BuiltinCiPlan::Json->named(),
