@@ -76,7 +76,7 @@ function checkedIdentity(): AnalyserIdentity
 /** What the analyser finds in the originals: one error they already have. */
 function checkedOriginals(): Findings
 {
-    return Findings::of(Finding::error('known', 'The originals already have this.'));
+    return Findings::of(Finding::error(Path::of('src/Money.php'), 'known', 'The originals already have this.'));
 }
 
 /** @param array<string, Findings|OutOfScope|CannotJudge> $answers what the analyser answers of each mutant, by where it reads it */
@@ -118,14 +118,14 @@ it('checks nothing where no analyser is configured, or no survivor is left once 
         ->and($checker->warmUps())->toBe([]);
 });
 
-it('kills a survivor whose check finds an error its original does not have, by that error, and leaves one whose errors it has', function (): void {
+it('kills a survivor whose check finds an error its original does not have, by that error in its file, and leaves one whose errors it has', function (): void {
     $project = Scratch::directory();
     $mutants = checkedMutants();
     $money = checkedSurvivor($mutants, 'src/Money.php');
     $held = checkedSurvivor($mutants, 'src/Held.php');
-    $new = Finding::error('return.type', 'Method Money::isLarge() should return bool.');
+    $new = Finding::error(Path::of('src/Wallet.php'), 'return.type', 'Method Wallet::isLarge() should return bool.');
     $checker = checkedBy($project, [
-        checkedAt($money) => Findings::of(...checkedOriginals(), ...Findings::of($new, Finding::error('second', 'Also new.'))),
+        checkedAt($money) => Findings::of(...checkedOriginals(), ...Findings::of($new, Finding::error(Path::of('src/Money.php'), 'second', 'Also new.'))),
         checkedAt($held) => checkedOriginals(),
     ]);
 
@@ -218,7 +218,7 @@ it('judges a printed survivor against its original printed the same way, analyse
     );
     $held = checkedSurvivor($mutants, 'src/Held.php');
     $printed = ScriptedRunner::fixture()->checking(Checkable::printed(Contents::of('<?php // printed'), Contents::of('<?php // mutant')));
-    $new = Finding::error('new', 'New.');
+    $new = Finding::error(Path::of('src/Money.php'), 'new', 'New.');
     $checker = checkedBy($project, [
         Workspace::checkedOriginal($money->id())->value() => checkedOriginals(),
         Workspace::checkedOriginal($held->id())->value() => Findings::none(),

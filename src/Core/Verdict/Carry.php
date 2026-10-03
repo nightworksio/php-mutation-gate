@@ -34,11 +34,8 @@ enum Carry
     /** A test that killed it changed, with the support it reads, or is gone. */
     case KillerChanged;
 
-    /**
-     * A static analyser killed it, and its result does not record which file
-     * the finding sits in, so what the rejection depended on is not known.
-     */
-    case RejectionUnplaced;
+    /** A static analyser killed it. */
+    case Rejected;
 
     /** It was uncovered, and a test covers its line now. */
     case NowCovered;

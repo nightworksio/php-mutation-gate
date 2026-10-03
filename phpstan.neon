@@ -681,6 +681,7 @@ services:
                     - STATUS # a field of a shard result
                     - END # a field of a shard result
                     - DIFF # a field of a shard result
+                    - FILE # a field of a shard result
                 'NightWorksIO\MutationGate\Adapter\Infection\Results':
                     - MUTATOR # a field of Infection's log
                 'NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming':
