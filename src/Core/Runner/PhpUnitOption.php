@@ -48,4 +48,7 @@ enum PhpUnitOption: string
 
     /** Writes the coverage map as PHP, to the file named after `=`. */
     case CoveragePhp = '--coverage-php';
+
+    /** Logs each test's outcome as JUnit, to the file named after `=`. */
+    case LogJunit = '--log-junit';
 }

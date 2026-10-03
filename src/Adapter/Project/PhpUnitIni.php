@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Project;
 use function array_last;
 use function is_array;
 
+use NightWorksIO\MutationGate\Core\Format\Xml;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 
@@ -30,7 +31,7 @@ final readonly class PhpUnitIni
     {
         $xml = $config === ''
             ? false
-            : simplexml_load_string($config, options: LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+            : simplexml_load_string($config, options: Xml::QUIET);
         $values = $xml instanceof SimpleXMLElement ? $xml->xpath(self::MEMORY) : [];
         $limit = is_array($values) && $values !== []
             ? MemoryCap::parse(trim((string) array_last($values)))

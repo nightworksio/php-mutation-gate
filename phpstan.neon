@@ -643,8 +643,10 @@ services:
                     - WITH_ITS_PRINT # the checks a printed file's first survivor needs
                 'NightWorksIO\MutationGate\Core\Plan\SurvivorChecksRecord':
                     - FILE # a field of a shard result
-                'NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks':
-                    - NAMED # how many files a warning of unchecked survivors names
+                'NightWorksIO\MutationGate\Core\Format\Fit':
+                    - SHOWN # how many names a shortened list shows
+                'NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Evidence':
+                    - KEPT # characters of a line a run printed
                 'NightWorksIO\MutationGate\Core\Mutant\DiffPatch':
                     - NO_NEWLINE # a unified diff's note on a missing line break
                 'NightWorksIO\MutationGate\Core\Mutant\MutantRecord':

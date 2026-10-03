@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function is_int;
+
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -64,7 +66,10 @@ final readonly class ProcessShell implements Shell
             usleep(Polling::interval()->microseconds());
         }
 
-        return Ran::finished(succeeded: $process->isSuccessful(), output: $this->outputOf($process))
+        $code = $process->getExitCode();
+        $output = $this->outputOf($process);
+
+        return (is_int($code) ? Ran::exited($code, $output) : Ran::finished(succeeded: false, output: $output))
             ->took($this->since($started));
     }
 

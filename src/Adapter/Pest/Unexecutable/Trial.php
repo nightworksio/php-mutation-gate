@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
 use function array_key_exists;
+use function dirname;
 use function file_get_contents;
 use function implode;
 use function is_file;
@@ -22,12 +23,17 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\JUnitLog;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+
+use function sprintf;
 
 /**
  * Runs the tests that judge a mutant of a line that is not executable, with
@@ -35,7 +41,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * serves its own mutants. The tests must pass on their own first, once for
  * each set of them. A run that loaded the original before the override, never
  * loaded it, or ran where opcache could serve a cached original, judges
- * nothing.
+ * nothing, and the reason says what the run did (see Evidence), from what it
+ * printed and the JUnit log it writes beside the guard.
  */
 final class Trial
 {
@@ -49,7 +56,10 @@ final class Trial
 
     private const string OPCACHE = 'opcache.enable_cli or opcache.file_cache on';
 
-    /** @var array<string, bool> whether each set of test files passes on its own, by their paths */
+    /** A reason, then what the run did. */
+    private const string SAID = '%s (%s)';
+
+    /** @var array<string, Outcome|true> each set of test files' outcome on its own where they fail, by their paths */
     private array $alone = [];
 
     public function __construct(
@@ -73,11 +83,13 @@ final class Trial
     /** What the tests in some files find of a mutant whose mutated copy of a file is kept at a path. */
     public function of(Paths $tests, Path $original, string $copy): Outcome
     {
-        if (! $this->passesAlone($tests)) {
-            return Outcome::unjudged(self::ALONE);
+        $alone = $this->alone($tests);
+
+        if ($alone instanceof Outcome) {
+            return $alone;
         }
 
-        $this->project->without($this->guard);
+        $this->project->without($this->guard, $this->log());
         $started = microtime(as_float: true);
         $ran = $this->shell->run($this->judging($tests)->with([
             Recorder::MUTANT => $this->project->absolute($original),
@@ -86,15 +98,18 @@ final class Trial
         ]));
         $took = Seconds::of(microtime(as_float: true) - $started);
 
-        return ($ran->wasStopped() ? Outcome::timedOut() : $this->guarded($ran->succeeded()))->took($took);
+        return ($ran->wasStopped() ? Outcome::timedOut() : $this->guarded($ran, $tests))->took($took);
     }
 
-    private function passesAlone(Paths $tests): bool
+    /** What a set of test files finds on its own where it fails there, run once for each set. */
+    private function alone(Paths $tests): Outcome|true
     {
         $key = implode("\n", $this->valuesOf($tests));
 
         if (! array_key_exists($key, $this->alone)) {
-            $this->alone[$key] = $this->shell->run($this->judging($tests))->succeeded();
+            $this->project->without($this->log());
+            $ran = $this->shell->run($this->judging($tests));
+            $this->alone[$key] = $ran->succeeded() ? true : $this->unjudged(self::ALONE, $ran, $tests);
         }
 
         return $this->alone[$key];
@@ -102,31 +117,49 @@ final class Trial
 
     private function judging(Paths $tests): Command
     {
-        return $this->scan->onto($this->invocation->judging($tests, $this->judgedBy, $this->withheld)
+        $log = sprintf('%s=%s', PhpUnitOption::LogJunit->value, $this->log());
+
+        return $this->scan->onto($this->invocation->judging($tests, $this->judgedBy, $this->withheld, $log)
             ->within($this->limit instanceof Seconds ? $this->limit : Unlimited::time()));
     }
 
+    /** The JUnit log each run writes, beside the guard. */
+    private function log(): string
+    {
+        return sprintf('%s/%s', dirname($this->guard), JUnitLog::NAME);
+    }
+
     /** What a run that finished found, where its guard says the mutated copy is what ran. */
-    private function guarded(bool $passed): Outcome
+    private function guarded(Ran $ran, Paths $tests): Outcome
     {
         $text = is_file($this->guard) ? file_get_contents($this->guard) : false;
 
-        return is_string($text) ? $this->read(Node::decode($text), $passed) : Outcome::unjudged(self::UNGUARDED);
+        return is_string($text)
+            ? $this->read(Node::decode($text), $ran, $tests)
+            : $this->unjudged(self::UNGUARDED, $ran, $tests);
     }
 
-    private function read(Node $seen, bool $passed): Outcome
+    private function read(Node $seen, Ran $ran, Paths $tests): Outcome
     {
         try {
             return match (true) {
-                $seen->field('before')->boolean() => Outcome::unjudged(self::BEFORE),
-                $seen->field('opcache')->boolean() => Outcome::unjudged(self::OPCACHE),
-                ! $seen->field('loaded')->boolean() => Outcome::unjudged(self::NEVER),
-                $passed => Outcome::survived(),
+                $seen->field('before')->boolean() => $this->unjudged(self::BEFORE, $ran, $tests),
+                $seen->field('opcache')->boolean() => $this->unjudged(self::OPCACHE, $ran, $tests),
+                ! $seen->field('loaded')->boolean() => $this->unjudged(self::NEVER, $ran, $tests),
+                $ran->succeeded() => Outcome::survived(),
                 default => Outcome::killed(),
             };
         } catch (NotInShape) {
-            return Outcome::unjudged(self::UNGUARDED);
+            return $this->unjudged(self::UNGUARDED, $ran, $tests);
         }
+    }
+
+    /** A mutant left unjudged for a reason, which says what the run did. */
+    private function unjudged(string $reason, Ran $ran, Paths $tests): Outcome
+    {
+        $evidence = Evidence::of($ran, $this->limit, FailedFirst::in($this->log()), $tests);
+
+        return Outcome::unjudged(sprintf(self::SAID, $reason, $evidence->text()));
     }
 
     /** @return list<string> */

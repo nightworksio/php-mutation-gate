@@ -24,6 +24,13 @@ it('cuts one line to its limit, ending where it was cut', function (): void {
         ->and(Fit::line('ééééééé', 6))->toBe('ééééé…');
 });
 
+it('names the first three names, parted by commas, and how many more there are', function (): void {
+    expect(Fit::named(['a', 'b', 'c', 'd', 'e']))->toBe('a, b, c and 2 more')
+        ->and(Fit::named(['a', 'b', 'c']))->toBe('a, b, c')
+        ->and(Fit::named(['a']))->toBe('a')
+        ->and(Fit::named([]))->toBe('');
+});
+
 it('says how many it left out', function (): void {
     expect(Fit::more(3))->toBe('And 3 more.');
 });

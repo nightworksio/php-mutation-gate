@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ending;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -16,6 +17,22 @@ it('is a program that finished, and whether it succeeded', function (): void {
         ->toBe([true, false, Ending::Succeeded, 'OK'])
         ->and([$failed->succeeded(), $failed->wasStopped(), $failed->ending(), $failed->output()])
         ->toBe([false, false, Ending::Failed, 'FAILED']);
+});
+
+it('is a program that exited with a code, which succeeded where it is 0, and keeps the code', function (): void {
+    $passed = Ran::exited(0, 'OK');
+    $failed = Ran::exited(3, 'FAILED');
+
+    expect([$passed->succeeded(), $passed->ending(), $passed->exitCode(), $passed->output()])
+        ->toBe([true, Ending::Succeeded, 0, 'OK'])
+        ->and([$failed->succeeded(), $failed->ending(), $failed->exitCode(), $failed->output()])
+        ->toBe([false, Ending::Failed, 3, 'FAILED'])
+        ->and($failed->took(Seconds::of(1.5))->exitCode())->toBe(3);
+});
+
+it('has no exit code where it was stopped, or finished with none read', function (): void {
+    expect(Ran::stopped('half')->exitCode())->toEqual(NotGiven::value())
+        ->and(Ran::finished(succeeded: false, output: '')->exitCode())->toEqual(NotGiven::value());
 });
 
 it('is a program stopped at its deadline, which did not succeed', function (): void {

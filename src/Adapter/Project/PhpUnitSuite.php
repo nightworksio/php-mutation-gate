@@ -7,14 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Project;
 use function array_any;
 use function array_values;
 
-use const LIBXML_NOERROR;
-use const LIBXML_NONET;
-use const LIBXML_NOWARNING;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Xml;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 
 use function simplexml_load_string;
@@ -55,7 +52,7 @@ final readonly class PhpUnitSuite
     /** The suite a PHPUnit config, read from this file, declares. */
     public static function declaredIn(Contents $config, Path $file): self|CannotJudge
     {
-        $xml = simplexml_load_string($config->text(), options: LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xml = simplexml_load_string($config->text(), options: Xml::QUIET);
 
         if (! $xml instanceof SimpleXMLElement) {
             return CannotJudge::because(sprintf(self::NOT_XML, $file->value()));

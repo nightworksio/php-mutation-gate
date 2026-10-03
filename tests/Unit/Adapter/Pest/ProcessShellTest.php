@@ -20,20 +20,20 @@ it('runs a program in its directory, with its environment, and keeps both of its
         ->with(['GATE' => 'on']);
     $ran = new ProcessShell($directory)->run($command);
 
-    expect($ran)->toEqual(Ran::finished(succeeded: true, output: sprintf('%s on!', $directory))->took(Measured::of($ran)));
+    expect($ran)->toEqual(Ran::exited(0, sprintf('%s on!', $directory))->took(Measured::of($ran)));
 });
 
 it('runs a program in another directory once moved there', function (): void {
     $directory = (string) realpath(Scratch::directory());
     $ran = new ProcessShell('/')->in($directory)->run(Command::of(PHP_BINARY, '-r', 'echo getcwd();'));
 
-    expect($ran)->toEqual(Ran::finished(succeeded: true, output: $directory)->took(Measured::of($ran)));
+    expect($ran)->toEqual(Ran::exited(0, $directory)->took(Measured::of($ran)));
 });
 
-it('says a program that exits with a failure did not succeed', function (): void {
+it('says a program that exits with a failure did not succeed, and its exit code', function (): void {
     $ran = new ProcessShell(Scratch::directory())->run(Command::of(PHP_BINARY, '-r', 'echo "no"; exit(3);'));
 
-    expect($ran)->toEqual(Ran::finished(succeeded: false, output: 'no')->took(Measured::of($ran)));
+    expect($ran)->toEqual(Ran::exited(3, 'no')->took(Measured::of($ran)));
 });
 
 it('stops a program at its deadline, keeping what it printed', function (): void {
