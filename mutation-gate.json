@@ -1,6 +1,9 @@
 {
     "$schema": "resources/mutation-gate.schema.json",
-    "runner": "pest",
+    "runner": {
+        "use": "pest",
+        "memory": "2G"
+    },
     "trees": [
         {
             "path": "src",
