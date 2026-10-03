@@ -83,7 +83,7 @@ final readonly class ExplanationText
     {
         $judged = $explanation->mutant();
 
-        return MutantText::indented(MutantText::heading($judged), ...[
+        $lines = [
             ...MutantText::diff($judged->mutant()),
             ...MutantText::stands($judged),
             ...MutantText::missed($judged),
@@ -93,7 +93,9 @@ final readonly class ExplanationText
             ...self::unit($explanation),
             ...self::history($explanation),
             sprintf('Reproduce: %s', $judged->reproduce()),
-        ]);
+        ];
+
+        return MutantText::indented(MutantText::heading($judged), ...$lines);
     }
 
     /**

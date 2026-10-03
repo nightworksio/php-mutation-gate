@@ -100,14 +100,16 @@ final readonly class MutantText
      */
     public static function block(JudgedMutant $judged, TestNames $names): string
     {
-        return self::indented(self::heading($judged), ...[
+        $lines = [
             ...self::diff($judged->mutant()),
             ...self::stands($judged),
             ...self::judgedBy($judged, $names),
             ...self::missed($judged),
             sprintf('Reproduce: %s', $judged->reproduce()),
             sprintf('Explain: %s', $judged->explain()),
-        ]);
+        ];
+
+        return self::indented(self::heading($judged), ...$lines);
     }
 
     /** A heading, and these lines under it, indented. */
