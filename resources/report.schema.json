@@ -526,6 +526,9 @@
                             "analyser": {
                                 "type": "string"
                             },
+                            "file": {
+                                "type": "string"
+                            },
                             "code": {
                                 "type": "string"
                             },
@@ -535,6 +538,7 @@
                         },
                         "required": [
                             "analyser",
+                            "file",
                             "code",
                             "message"
                         ],

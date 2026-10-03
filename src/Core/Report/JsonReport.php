@@ -46,6 +46,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  * program reads. `resources/report.schema.json` describes it, and it is
  * public API (ADR-0009, decision 2).
  *
+ * @phpstan-import-type RejectionWritten from MutantRecord
+ *
  * @phpstan-type Numbers array<string, int>
  * @phpstan-type TestEntry array{id: string, name: string, file?: string, row?: string, seconds?: float}
  * @phpstan-type UnitEntry array{path: string, group?: string, filter?: string, origin: string}
@@ -83,7 +85,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     status: string,
  *     judgement: string,
  *     reason?: string,
- *     rejection?: array{analyser: string, code: string, message: string},
+ *     rejection?: RejectionWritten,
  *     changedLine: bool,
  *     tests: list<string>,
  *     coveredBy: list<int>,
@@ -283,7 +285,7 @@ final readonly class JsonReport
      * Why the mutant stands as it does, where its record says: the reason
      * its runner gave, and the rejection of the analyser that killed it.
      *
-     * @return array{reason?: string, rejection?: array{analyser: string, code: string, message: string}}
+     * @return array{reason?: string, rejection?: RejectionWritten}
      */
     private static function why(Mutant|ProvedKill $mutant): array
     {

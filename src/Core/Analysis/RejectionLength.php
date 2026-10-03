@@ -36,9 +36,13 @@ final readonly class RejectionLength
         return new self(self::CODE, self::MESSAGE);
     }
 
-    /** The finding as a record keeps it: its code and its message each cut to its length. */
+    /** The finding as a record keeps it: in its file, its code and its message each cut to its length. */
     public function cut(Finding $finding): Finding
     {
-        return Finding::error(Fit::line($finding->code(), $this->code), Fit::line($finding->message(), $this->message));
+        return Finding::error(
+            $finding->file(),
+            Fit::line($finding->code(), $this->code),
+            Fit::line($finding->message(), $this->message),
+        );
     }
 }

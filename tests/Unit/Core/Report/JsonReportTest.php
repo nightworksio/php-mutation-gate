@@ -132,7 +132,7 @@ it('writes the verdict, the project and each tree', function (): void {
         ]]);
 });
 
-it('writes the rejection of a mutant a static analyser killed, and none of any other', function (): void {
+it('writes the rejection of a mutant a static analyser killed, with the file its finding sits in, and none of any other', function (): void {
     $report = JsonReport::encode(Verdicts::failing());
 
     expect(Decoded::at($report, 'mutants', 11))->toMatchArray([
@@ -141,6 +141,7 @@ it('writes the rejection of a mutant a static analyser killed, and none of any o
         'judgement' => 'killed-by-static-analysis',
         'rejection' => [
             'analyser' => 'phpstan',
+            'file' => 'src/Log.php',
             'code' => 'return.type',
             'message' => 'Method Log::id() should return string but returns int.',
         ],

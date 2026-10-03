@@ -29,13 +29,14 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  * @internal the shape of a proof in the ledger file
  *
  * @phpstan-import-type ProofWritten from DigestsRecord as ProofDigests
+ * @phpstan-import-type Full from MutantRecord
  *
  * @phpstan-type Written array{
  *     unit: string,
  *     base: string,
  *     at: string,
  *     run: string,
- *     mutants: list<array{string, int, int, list<int>}|array<string, int|float|string|list<string>>>,
+ *     mutants: list<array{string, int, int, list<int>}|Full>,
  *     digests?: ProofDigests,
  *     judging?: list<int>,
  * }

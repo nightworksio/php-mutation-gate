@@ -75,14 +75,13 @@ final readonly class Carrying
      * unjudged, and why. A timeout or a mutant out of memory is unjudged,
      * since triage can count it as a kill (ADR-0008; ADR-0004, decision 9); a
      * skipped mutant stands, since nothing counts it as one. A kill by static
-     * analysis is unjudged: its result does not record which file the finding
-     * sits in, so what it depended on is not known.
+     * analysis is unjudged.
      */
     public function carry(Proof $proof, Mutant|ProvedKill $mutant): Carry
     {
         return match ($mutant->status()) {
             MutantStatus::Killed => $this->kill($proof, $mutant),
-            MutantStatus::KilledByStaticAnalysis => Carry::RejectionUnplaced,
+            MutantStatus::KilledByStaticAnalysis => Carry::Rejected,
             MutantStatus::Errored, MutantStatus::TimedOut, MutantStatus::OutOfMemory => Carry::KillerUnknown,
             MutantStatus::Uncovered => $this->uncovered($mutant),
             MutantStatus::Survived,

@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  *
  * @internal the shape of the plan, shard result and ledger files
  *
+ * @phpstan-type RejectionWritten array{analyser: string, file: string, code: string, message: string}
  * @phpstan-type Full array{
  *     id: string,
  *     native: string,
@@ -51,6 +52,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  *     reason?: string,
  *     outOfTime?: string,
  *     killedBy?: list<string>,
+ *     rejection?: RejectionWritten,
  * }
  */
 final readonly class MutantRecord
@@ -60,6 +62,9 @@ final readonly class MutantRecord
 
     /** A field of a rejection, as {@see self::rejection()} writes it. */
     public const string ANALYSER = 'analyser';
+
+    /** The field of a record that holds the mutant's file, and of a rejection, the file its finding sits in. */
+    public const string FILE = 'file';
 
     /** A field of a rejection, as {@see self::rejection()} writes it. */
     public const string CODE = 'code';
@@ -100,7 +105,7 @@ final readonly class MutantRecord
         return [
             self::ID => $mutant->id()->value(),
             'native' => $mutant->nativeId(),
-            'file' => $mutant->location()->file()->value(),
+            self::FILE => $mutant->location()->file()->value(),
             self::LINE => $mutant->location()->start()->number(),
             ...$end instanceof Line ? [self::END => $end->number()] : [],
             self::MUTATOR => $mutant->mutation()->mutator(),
@@ -118,12 +123,13 @@ final readonly class MutantRecord
     /**
      * A rejection as a record and the JSON report write it.
      *
-     * @return array{analyser: string, code: string, message: string}
+     * @return RejectionWritten
      */
     public static function rejection(Rejection $rejection): array
     {
         return [
             self::ANALYSER => $rejection->analyser(),
+            self::FILE => $rejection->finding()->file()->value(),
             self::CODE => $rejection->finding()->code(),
             self::MESSAGE => $rejection->finding()->message(),
         ];
@@ -154,7 +160,7 @@ final readonly class MutantRecord
             self::idIn($record),
             $record->field('native')->text(),
             Location::of(
-                Path::of($record->field('file')->text()),
+                Path::of($record->field(self::FILE)->text()),
                 self::lineIn($record->field(self::LINE)),
                 self::endIn($record),
             ),
@@ -227,7 +233,11 @@ final readonly class MutantRecord
                 => throw NotInShape::at($rejection->at(), 'a rejection with no reason beside it'),
             default => $mutant->rejected(Rejection::by(
                 $rejection->field(self::ANALYSER)->text(),
-                Finding::error($rejection->field(self::CODE)->text(), $rejection->field(self::MESSAGE)->text()),
+                Finding::error(
+                    Path::of($rejection->field(self::FILE)->text()),
+                    $rejection->field(self::CODE)->text(),
+                    $rejection->field(self::MESSAGE)->text(),
+                ),
             )),
         };
     }

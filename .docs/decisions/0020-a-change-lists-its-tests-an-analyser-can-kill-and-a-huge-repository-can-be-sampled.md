@@ -136,10 +136,11 @@ needs remain, and the runners' own behaviour shapes each answer.
    - `check(MutantCheck): Findings|OutOfScope|CannotJudge` checks one
      mutant. The request holds the original, the mutant, the dependents to
      analyse again unchanged against it (none by default), and what is
-     withheld. So a finding always belongs to that mutant or to one of those
-     dependents. An original outside the paths the analyser analyses is
-     `OutOfScope`. A check that is out of scope or cannot run leaves the
-     mutant to its tests. It never kills it.
+     withheld. Each finding names the file it sits in: the original, where
+     it sits in the mutant, or another file the analyser analysed again
+     against the mutant (decision 10). An original outside the paths the
+     analyser analyses is `OutOfScope`. A check that is out of scope or
+     cannot run leaves the mutant to its tests. It never kills it.
    - The runner gives each mutant as the analyser reads it:
      `Runner::checkable(Mutant): Checkable|CannotJudge` holds the mutant's
      text and the original it is judged against (decision 9). The runner
@@ -251,17 +252,26 @@ needs remain, and the runners' own behaviour shapes each answer.
     - Its `killedBy` is unknown (ADR-0013 decision 1), and every kill-matrix
       cell is `not-run` (ADR-0014).
     - The mutant's record keeps its rejection where the gate's own check
-      found it: the analyser's name and the finding's code and message, the
-      code cut to 128 characters and the message to 1,024, each ending in
-      `…` where it was cut. A shard's results and the proof hold it, and so
-      does the JSON report's `rejection`. A kill Infection reports carries
-      none, since its log names no finding. A record that gives a rejection
-      to a mutant of any other status, or a reason or an `outOfTime` beside
-      its rejection, is not well formed.
+      found it: the analyser's name, the file the finding sits in, and the
+      finding's code and message, the code cut to 128 characters and the
+      message to 1,024, each ending in `…` where it was cut.
+    - The file is the path the analyser names, relative to the project's
+      root and normalised, or absolute where it lies outside the root. A
+      finding in the mutant sits in the original it stands in for. A
+      PHPStan error in a trait sits in the trait's file, whatever class it
+      was analysed in. A Mago issue sits in the file of its primary
+      annotation, and one with none means the analysis did not finish, as a
+      PHPStan error of no file does.
+    - A shard's results and the proof hold the rejection, and so does the
+      JSON report's `rejection`, as its `analyser`, `file`, `code` and
+      `message`. A kill Infection reports carries none, since its log names
+      no finding. A record that gives a rejection to a mutant of any other
+      status, or a reason or an `outOfTime` beside its rejection, or a
+      rejection with no file, is not well formed.
     - A kill by static analysis a time budget carries is unjudged (ADR-0008,
-      decision 1), since the record does not say which file the finding sits
-      in.
-    - `explain` prints the analyser, the finding's code and its message.
+      decision 1).
+    - `explain` prints the analyser, the file the finding sits in, the
+      finding's code and its message.
 
 11. **Each mutant is checked where it pays: before its tests, after them, or
     both.**

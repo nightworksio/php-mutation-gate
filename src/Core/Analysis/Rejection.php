@@ -7,8 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Analysis;
 /**
  * Why a static analyser killed a mutant (ADR-0020, decision 10): the
  * analyser that rejected it, and the error it found that the original does
- * not have. A mutant's record keeps it, in a shard's results and in a proof,
- * so a proved kill by static analysis can still say what rejected it.
+ * not have, in the file it sits in. A mutant's record keeps it, in a shard's
+ * results and in a proof, so a proved kill by static analysis can still say
+ * what rejected it, and where.
  */
 final readonly class Rejection
 {
@@ -16,7 +17,7 @@ final readonly class Rejection
     {
     }
 
-    /** The rejection a record keeps: the finding's code and message cut to their standard length. */
+    /** The rejection a record keeps: the finding in its file, its code and message cut to their standard length. */
     public static function by(string $analyser, Finding $finding): self
     {
         return new self($analyser, RejectionLength::standard()->cut($finding));

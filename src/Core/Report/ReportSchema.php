@@ -345,6 +345,7 @@ final readonly class ReportSchema
             'reason' => self::TEXT,
             MutantRecord::REJECTION => self::object([
                 MutantRecord::ANALYSER => self::TEXT,
+                MutantRecord::FILE => self::TEXT,
                 MutantRecord::CODE => self::TEXT,
                 MutantRecord::MESSAGE => self::TEXT,
             ], []),

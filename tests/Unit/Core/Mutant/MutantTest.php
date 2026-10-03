@@ -112,7 +112,7 @@ it('is killed by the static analyser that rejected it, none until one did, keepi
         MutantStatus::Survived,
         Seconds::of(0.1),
     );
-    $rejection = Rejection::by('mago', Finding::error('invalid-return-statement', 'Money::add() must return int.'));
+    $rejection = Rejection::by('mago', Finding::error(Path::of('src/Money.php'), 'invalid-return-statement', 'Money::add() must return int.'));
     $rejected = $mutant->rejected($rejection);
 
     expect($mutant->reason())->toEqual(Unreported::reason())
@@ -132,11 +132,11 @@ it('keeps no rejection once a budget leaves it unjudged, and no killer and no ot
         MutantStatus::Killed,
         Seconds::of(0.1),
     )->killedBy(TestIds::of(TestId::of('MoneyTest::adds')));
-    $rejected = $mutant->rejected(Rejection::by('phpstan', Finding::error('return.type', 'No.')));
+    $rejected = $mutant->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Money.php'), 'return.type', 'No.')));
 
     expect($rejected->killers())->toEqual(TestIds::none())
-        ->and($mutant->unjudged(OutOfTime::BeforeMutating)->rejected(Rejection::by('phpstan', Finding::error('return.type', 'No.')))->reason())
-        ->toEqual(Rejection::by('phpstan', Finding::error('return.type', 'No.')))
+        ->and($mutant->unjudged(OutOfTime::BeforeMutating)->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Money.php'), 'return.type', 'No.')))->reason())
+        ->toEqual(Rejection::by('phpstan', Finding::error(Path::of('src/Money.php'), 'return.type', 'No.')))
         ->and($rejected->unjudged(OutOfTime::BeforeMutating)->reason())->toEqual(OutOfTime::BeforeMutating->reason())
         ->and($rejected->unjudged(OutOfTime::BeforeMutating)->status())->toBe(MutantStatus::Unjudged);
 });

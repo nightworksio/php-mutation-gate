@@ -185,15 +185,17 @@ final readonly class MutantText
     }
 
     /**
-     * The line naming the analyser that rejected a mutant, and the error it
-     * found, each part one plain line, since an analyser's words come from
-     * the project's code and custom rules.
+     * The line naming the analyser that rejected a mutant, the file its
+     * finding sits in, and the error it found, each part one plain line,
+     * since an analyser's words come from the project's code and custom
+     * rules, and a file's name from the project.
      */
     private static function rejected(Rejection $rejection): string
     {
         return sprintf(
-            'Rejected by %s: %s: %s',
+            'Rejected by %s in %s: %s: %s',
             Fit::plain($rejection->analyser()),
+            Fit::plain($rejection->finding()->file()->value()),
             Fit::plain($rejection->finding()->code()),
             Fit::plain($rejection->finding()->message()),
         );

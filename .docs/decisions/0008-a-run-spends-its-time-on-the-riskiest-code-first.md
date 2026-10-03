@@ -137,9 +137,7 @@ presets for Laravel, Symfony and plain libraries.
        judges it again;
      - a timeout or a crash, which can count as a kill but names no test that
        caused it, is unjudged;
-     - a kill by static analysis is unjudged, since its result does not
-       record which file the analyser's finding sits in, so what the
-       rejection depended on is not known (ADR-0020, decision 10).
+     - a kill by static analysis is unjudged (ADR-0020, decision 10).
 
      The one assumption left is ADR-0007's: a test's outcome depends on the
      files it reads, not on state another test in the same process leaves

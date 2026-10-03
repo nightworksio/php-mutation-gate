@@ -109,9 +109,11 @@ sees the same verdict.
      - Each mutant is written once, at the top: `id`, `file`, `line`, `end`,
        `mutator`, `family`, `diff`, the runner's `status`, the gate's
        `judgement`, the `reason` its record gives, the `rejection` that killed
-       it where a static analyser did (ADR-0020), `changedLine`, its judging
-       `tests`, its `hint`, its `reproduce` command, and the `seconds` it ran
-       and the `limit` it was allowed where the runner says.
+       it where a static analyser did, with the analyser, the file its
+       finding sits in and the finding's code and message (ADR-0020),
+       `changedLine`, its judging `tests`, its `hint`, its `reproduce`
+       command, and the `seconds` it ran and the `limit` it was allowed where
+       the runner says.
      - A value that is not known is left out, never written as null.
      - The mutants a run reported in full come first, then the kills a
        ledger proved. A ledger keeps a kill's id, line, mutator and killing
