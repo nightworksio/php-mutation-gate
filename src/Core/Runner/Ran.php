@@ -36,8 +36,11 @@ final readonly class Ran
         );
     }
 
-    /** A process that exited with this code, which succeeded where it is 0. */
-    public static function exited(int $code, string $output): self
+    /**
+     * A process that exited with this code, which succeeded where it is 0; one
+     * whose code the shell could not read did not succeed.
+     */
+    public static function exited(int|NotGiven $code, string $output): self
     {
         return new self($output, $code === 0 ? Ending::Succeeded : Ending::Failed, $code, Unmeasured::duration());
     }

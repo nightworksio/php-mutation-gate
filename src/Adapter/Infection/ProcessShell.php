@@ -9,6 +9,7 @@ use function array_filter;
 use function array_key_exists;
 use function is_int;
 
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -78,12 +79,7 @@ final readonly class ProcessShell implements Shell
         }
 
         $output = sprintf('%s%s', $process->getOutput(), $process->getErrorOutput());
-        $code = $process->getExitCode();
-        $ran = match (true) {
-            $stopped => Ran::stopped($output),
-            is_int($code) => Ran::exited($code, $output),
-            default => Ran::finished(succeeded: false, output: $output),
-        };
+        $ran = $stopped ? Ran::stopped($output) : Ran::exited($process->getExitCode() ?? NotGiven::value(), $output);
 
         return $ran->took(Seconds::of(($this->clock->nanoseconds() - $started) / Seconds::NANOSECONDS));
     }

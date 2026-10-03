@@ -30,9 +30,11 @@ it('is a program that exited with a code, which succeeded where it is 0, and kee
         ->and($failed->took(Seconds::of(1.5))->exitCode())->toBe(3);
 });
 
-it('has no exit code where it was stopped, or finished with none read', function (): void {
+it('has no exit code where it was stopped, or finished with none read, and did not succeed where none was read', function (): void {
     expect(Ran::stopped('half')->exitCode())->toEqual(NotGiven::value())
-        ->and(Ran::finished(succeeded: false, output: '')->exitCode())->toEqual(NotGiven::value());
+        ->and(Ran::finished(succeeded: false, output: '')->exitCode())->toEqual(NotGiven::value())
+        ->and(Ran::exited(NotGiven::value(), 'out')->ending())->toBe(Ending::Failed)
+        ->and(Ran::exited(NotGiven::value(), 'out')->exitCode())->toEqual(NotGiven::value());
 });
 
 it('is a program stopped at its deadline, which did not succeed', function (): void {
