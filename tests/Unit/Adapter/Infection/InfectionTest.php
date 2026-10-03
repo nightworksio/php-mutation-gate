@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -367,7 +368,7 @@ it('writes the map another job handed on in its own layout for a run judged by t
     $handed = infectionHandedOn($at, 'planned');
     $shell = infectionShell($at, infectionKilled($at));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-        ->reusingCoverage(Path::of('planned'))
+        ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')))
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('Plus'));
     $result = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request);
     $own = sprintf('%s/.gate/infection/coverage', $at->root());
@@ -383,7 +384,7 @@ it('cannot judge a handed-on map whose test class no test file declares', functi
     Scratch::write($at->root(), 'planned/map.json.gz', CoverageMapFile::encode(
         CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\GoneTest::adds')),
     ));
-    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->reusingCoverage(Path::of('planned'));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
     expect(new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request))
         ->toEqual(CannotJudge::because(
@@ -396,7 +397,7 @@ it('never judges a held path with a map of the whole suite, but runs its own tes
     InfectionRun::coverage(sprintf('%s/planned', $at->root()), $at->root(), [], [], []);
     $shell = infectionShell($at, infectionKilled($at));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Filter::matching('MoneyTest'))
-        ->reusingCoverage(Path::of('planned'));
+        ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
     new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request);
 
     expect(infectionRan($shell)[0])->toContain('--filter=MoneyTest')
@@ -480,7 +481,7 @@ it('runs mutants again on the map the planning job handed the invocation, and ru
     ]), Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     infectionHandedOn($at, 'planned');
     $again = infectionShell($at, infectionKilled($at));
-    $invocation = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->reusingCoverage(Path::of('planned'));
+    $invocation = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
     $retried = new Infection($at, $again, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())
         ->retry($invocation, $first instanceof MutationResult ? $first->mutants() : Mutants::none(), Seconds::of(12.0));
@@ -740,7 +741,7 @@ it('cannot judge a run whose earlier reports or logs cannot be removed, or whose
     )))->and($locked($logs, static fn(): mixed => $adapter->mutate($request)))->toEqual(CannotJudge::because(sprintf(
         'The gate cannot remove %s/infection.json, so it cannot tell what this run wrote from what an earlier one did.',
         $logs,
-    )))->and($adapter->mutate($request->reusingCoverage(Path::of('nowhere'))))->toEqual(CannotJudge::because(sprintf(
+    )))->and($adapter->mutate($request->reusingCoverage(Handed::maps(Path::of('nowhere'), Path::of('nowhere')))))->toEqual(CannotJudge::because(sprintf(
         'The gate wrote no coverage map at %s/nowhere/map.json.gz, and reads no runner\'s map another job wrote.',
         $at->root(),
     )));

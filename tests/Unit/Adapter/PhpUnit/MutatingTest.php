@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -138,7 +139,7 @@ it('runs a held unit\'s coverage by its group, where the request reuses a map of
     $project = mutatingProject();
     $shell = mutatingPhpUnit($project);
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'))
-        ->reusingCoverage(Path::of('.mutation-gate/handed'));
+        ->reusingCoverage(Handed::maps(Path::of('.mutation-gate/handed'), Path::of('.mutation-gate/handed')));
     mutating($project, $shell)->result($request, Seconds::of(5.0), NotGiven::value());
 
     expect(array_slice($shell->commands()[0]->arguments(), -2))->toBe(['--group', 'holds:src/Money.php']);
@@ -150,7 +151,7 @@ it('reads the map another job handed on, for a request judged by the whole suite
     $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(5), $adds)->timed($adds, Seconds::of(0.5));
     Scratch::write($project->root(), CoverageMapFile::in(Path::of('.mutation-gate/handed'))->value(), CoverageMapFile::encode($map));
     $shell = mutatingPhpUnit($project);
-    $result = mutating($project, $shell)->result($whole->reusingCoverage(Path::of('.mutation-gate/handed')), Seconds::of(5.0), NotGiven::value());
+    $result = mutating($project, $shell)->result($whole->reusingCoverage(Handed::maps(Path::of('.mutation-gate/handed'), Path::of('.mutation-gate/handed'))), Seconds::of(5.0), NotGiven::value());
 
     expect(statusesOf($result))->toBe([['src/Money.php', 'killed'], ['src/Tax.php', 'uncovered']])
         ->and($shell->commands())->toHaveCount(1);

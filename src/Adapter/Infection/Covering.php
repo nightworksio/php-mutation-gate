@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
@@ -30,16 +31,19 @@ final readonly class Covering
     /**
      * The coverage directory a run reads, which the adapter writes unless the
      * mutation run a run again follows left the same there: for a run judged by
-     * the whole suite that reuses the map another job handed on, that map in
-     * Infection's layout; otherwise PHPUnit's run of the tests that judge it.
+     * the whole suite that reuses the maps a plan handed on, the shard's own
+     * map in Infection's layout; otherwise PHPUnit's run of the tests that
+     * judge it.
      * A held path never reads a map of the whole suite.
      */
     public function of(OwnConfig $config, MutationRequest $request): DiskPath|CannotJudge
     {
-        $reused = $request->coverage();
+        $handed = $request->coverage();
 
-        if ($reused instanceof Path && $request->judgedBy() instanceof WholeSuite) {
-            return $this->held->handedOn($reused, fn(): DiskPath|CannotJudge => $this->handedOn($reused));
+        if ($handed instanceof Handed && $request->judgedBy() instanceof WholeSuite) {
+            $shard = $handed->own();
+
+            return $this->held->handedOn($shard, fn(): DiskPath|CannotJudge => $this->handedOn($shard));
         }
 
         $own = $this->ownCoverage();

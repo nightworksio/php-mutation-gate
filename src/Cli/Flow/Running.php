@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -294,7 +295,7 @@ final readonly class Running
 
     /**
      * One invocation: a held unit alone by the tests that hold it, or files
-     * by the whole suite, reading the map the plan handed the shard, its
+     * by the whole suite, reading the maps the plan handed the shard, its
      * tests in the order asked.
      */
     private function requestFor(Units $units, ShardId $shard, Ordering $ordering): MutationRequest
@@ -309,7 +310,7 @@ final readonly class Running
 
         return RunRequest::of($this->adapters, $this->settings, $files, $judgedBy)
             ->across($this->adapters->processes())
-            ->reusingCoverage(Workspace::shardCoverage($shard))
+            ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard), Workspace::coverage()))
             ->orderedBy($ordering);
     }
 

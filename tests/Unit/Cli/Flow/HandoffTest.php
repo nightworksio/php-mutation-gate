@@ -103,6 +103,28 @@ it('cannot hand a shard a map it cannot write', function () use ($plan, $map): v
         ));
 });
 
+it('hands every shard the plan\'s whole map, beside the maps of each shard\'s own files', function () use (
+    $plan,
+    $map,
+): void {
+    $project = Scratch::directory();
+    new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none());
+
+    expect(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)))
+        ->toBe(CoverageMapFile::encode($map));
+});
+
+it('cannot hand the shards a whole map it cannot write', function () use ($plan, $map): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '.mutation-gate/coverage/map.json.gz/blocked', '');
+
+    expect(new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none()))
+        ->toEqual(CannotJudge::because(
+            sprintf('%s/.mutation-gate/coverage/map.json.gz could not be written.', $project),
+        ))
+        ->and(file_exists(sprintf('%s/.mutation-gate/coverage/shard-1/map.json.gz', $project)))->toBeFalse();
+});
+
 it('says a shard was handed no map where there is none', function (): void {
     expect(new Handoff(Directory::at(Scratch::directory()))->read(ShardId::of(4)))->toEqual(CannotJudge::because(
         'Shard 4 was handed no coverage map at .mutation-gate/coverage/shard-4/map.json.gz. '

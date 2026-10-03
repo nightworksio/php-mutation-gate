@@ -8,9 +8,11 @@ use function array_key_exists;
 use function count;
 use function file_put_contents;
 use function in_array;
+use function is_dir;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -96,7 +98,12 @@ final class Unexecutables
     public static function run(Project $project, array $uncovered, array $uncopied = []): string
     {
         $results = sprintf('%s/.mutation-gate/pest/results.jsonl', $project->root());
-        mkdir(sprintf('%s/.mutation-gate/pest/mutants', $project->root()), recursive: true);
+        $mutants = sprintf('%s/.mutation-gate/pest/mutants', $project->root());
+
+        if (! is_dir($mutants)) {
+            mkdir($mutants, recursive: true);
+        }
+
         CoverageMaps::write(
             Recorder::coverageBeside($results),
             sprintf('%s/', $project->root()),
@@ -105,10 +112,12 @@ final class Unexecutables
             [self::INTERNAL => 0.1, self::OTHER => 0.1, self::READS => 0.1],
         );
         $records = [];
+        $finished = [];
 
         foreach ($uncovered as $id) {
             [$line, $removed, $added] = self::MUTANTS[$id];
             $records[] = PestRun::planned($id, sprintf('%s/src/Money.php', $project->root()), $line, self::INCREMENT, $removed, $added);
+            $finished[] = PestRun::finished($id, PestStatus::Uncovered, 0.0);
             $copied = ! in_array($id, $uncopied, strict: true);
 
             if ($copied) {
@@ -116,7 +125,7 @@ final class Unexecutables
             }
         }
 
-        PestRun::write($results, [...$records, PestRun::made(count($uncovered)), PestRun::end()]);
+        PestRun::write($results, [...$records, PestRun::made(count($uncovered)), ...$finished, PestRun::end()]);
 
         return $results;
     }

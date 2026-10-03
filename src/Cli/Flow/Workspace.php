@@ -22,6 +22,7 @@ final readonly class Workspace
         return Path::of(sprintf('%s/plan.json', GateDirectory::root()->value()));
     }
 
+    /** The directory of the coverage map the plan used, whole, which it hands every shard beside the shard's own. */
     public static function coverage(): Path
     {
         return Path::of(sprintf('%s/coverage', GateDirectory::root()->value()));

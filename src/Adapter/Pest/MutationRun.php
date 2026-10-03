@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Judging;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -39,10 +40,10 @@ use function sprintf;
 
 /**
  * One Pest mutation run, from a fresh results file to the gate's records: a
- * patched shard opens on the canary group with the map another job handed
- * over, which the run then reads its mutants' covering tests from, and every
- * other run reads its own opening map once, for its records and for judging
- * its mutants on lines that are not executable.
+ * patched shard opens on the canary group with the map of its own files the
+ * plan handed over, which the run then reads its mutants' covering tests
+ * from, and judges its mutants on lines that are not executable by the plan's
+ * whole map; every other run reads its own opening map once, for both.
  */
 final readonly class MutationRun
 {
@@ -169,9 +170,15 @@ final readonly class MutationRun
         $interpretation = new Interpretation($this->project, $this->patching, $request->memory());
         $result = $interpretation->of($ran, $results, $coverage);
 
-        return $result instanceof CannotJudge || $coverage instanceof CannotJudge
-            ? $result
-            : new Judging($this->project, $this->shell, $this->files)->of($result, $request, $results, $coverage);
+        if ($result instanceof CannotJudge || $coverage instanceof CannotJudge) {
+            return $result;
+        }
+
+        $reads = new WholeMap($this->project, $this->remembered)->covering($request, $coverage, $shared);
+
+        return $reads instanceof CannotJudge
+            ? $reads
+            : new Judging($this->project, $this->shell, $this->files)->of($result, $request, $results, $reads);
     }
 
     /** Whether each mutant's own run loads only the test files its covering tests need. */
@@ -303,16 +310,19 @@ final readonly class MutationRun
     }
 
     /**
-     * The map another job handed over, where a patched shard opens on the
-     * canary group, why it cannot, or none where the run opens on its own suite.
+     * The shard's own map the plan handed over, where a patched shard opens
+     * on the canary group, why it cannot, or none where the run opens on its
+     * own suite.
      */
     private function shared(MutationRequest $request): CoverageMap|Unshared|CannotJudge
     {
-        $directory = $request->coverage();
+        $handed = $request->coverage();
 
-        if (! $this->patching->isOn() || ! $directory instanceof Path || ! $request->judgedBy() instanceof WholeSuite) {
+        if (! $this->patching->isOn() || ! $handed instanceof Handed || ! $request->judgedBy() instanceof WholeSuite) {
             return Unshared::Coverage;
         }
+
+        $directory = $handed->own();
 
         $refusal = $this->refusal($request->withheld());
 

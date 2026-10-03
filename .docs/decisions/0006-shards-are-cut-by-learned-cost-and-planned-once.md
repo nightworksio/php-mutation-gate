@@ -55,10 +55,16 @@ Two parts of that do not carry over to a public package.
      runner's report states them, as Infection's does, it also holds each of
      those files' methods some test ran, with the lines the report gives them.
      A shard's runner writes the map back into its own layout in its own job
-     (ADR-0004), and the verdict learns what each shard cost from it. A shard
-     handed no map mutates nothing and its result cannot judge, since its held
+     (ADR-0004), and the verdict learns what each shard cost from it. Every
+     shard is also handed the plan's whole map,
+     `.mutation-gate/coverage/map.json.gz`, which its runner reads only to
+     find the tests that run a line reading a value a mutant changes, since
+     that line may be in a file the shard does not mutate (ADR-0004,
+     decision 8); the runner's own run reads the shard's map. A shard handed
+     no map mutates nothing and its result cannot judge, since its held
      units' coverage check (ADR-0005, decision 10) and its timeout triage
-     (ADR-0008) read that map; a verdict whose shard map is missing cannot
+     (ADR-0008) read that map, and a Pest shard that opens on its map cannot
+     judge without the whole map; a verdict whose shard map is missing cannot
      judge, because the jobs were not handed what the plan wrote.
    - **`mutation-gate run --plan=<file>`** mutates one shard's units and writes
      `.mutation-gate/results/<id>.json`. That file holds every mutant's record,
