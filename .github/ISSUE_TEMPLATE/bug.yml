@@ -1,0 +1,59 @@
+name: Bug report
+description: The gate judged, refused or reported something wrongly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A vulnerability is reported privately, as [SECURITY.md](https://github.com/nightworksio/php-mutation-gate/blob/main/SECURITY.md) says, not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what the gate did, and what you expected it to do.
+    validations:
+      required: true
+  - type: textarea
+    id: message
+    attributes:
+      label: The full message
+      description: Everything the gate printed about it. A refusal, a failure or a warning ends with a link to `.docs/guide/troubleshooting.md`; keep the link, whose part after `#` is the message's slug.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: The gate's version
+      description: What `composer show nightworksio/mutation-gate` prints on its `versions` line.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: The config
+      description: What `vendor/bin/mutation-gate config:show` prints.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: runner
+    attributes:
+      label: The runner and its version
+      description: Each runner package with its version, as `composer show pestphp/pest pestphp/pest-plugin-mutate`, or `composer show infection/infection phpunit/phpunit`, lists them.
+    validations:
+      required: true
+  - type: input
+    id: php
+    attributes:
+      label: PHP version
+      description: The first line `php --version` prints.
+    validations:
+      required: true
+  - type: input
+    id: ci
+    attributes:
+      label: Where it ran
+      description: The CI, such as GitHub Actions, GitLab CI or Buildkite, or your own machine.
+    validations:
+      required: true
