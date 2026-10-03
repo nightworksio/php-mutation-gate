@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -17,6 +18,9 @@ use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus as AcmePlusToMinus;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use Pest\Mutate\Mutators\Logical\TrueToFalse;
 
@@ -239,4 +243,22 @@ it('puts the options a judging run is given before its files', function (): void
         '--log-junit=/r/junit.xml',
         'tests/MoneySpec.php',
     ]);
+});
+
+it('names Pest\'s default set beside the bridges for a run of every mutator, and a bridged mutator by its bridge', function (): void {
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(AcmePlusToMinus::class)));
+    $bridge = 'NightWorksIO\\MutationGateBridge\\Pest\\NightWorksIO\\MutationGate\\Tests\\Support\\Mutators\\PlusToMinus';
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests());
+    $every = invocation()->mutation($request, WholeSuite::tests(), '/p/r.jsonl', $bridges)->arguments();
+    $some = invocation()->mutation(
+        $request->narrowedTo(Paths::of(Path::of('src')), Mutators::named('acme/PlusToMinus', TrueToFalse::class)),
+        WholeSuite::tests(),
+        '/p/r.jsonl',
+        $bridges,
+    )->arguments();
+
+    expect($every)->toContain(sprintf('--mutator=Pest\\Mutate\\Mutators\\Sets\\DefaultSet,%s', $bridge))
+        ->and($some)->toContain(sprintf('--mutator=%s,%s', $bridge, TrueToFalse::class))
+        ->and(invocation()->mutation($request, WholeSuite::tests(), '/p/r.jsonl')->arguments())
+        ->not->toContain(sprintf('--mutator=Pest\\Mutate\\Mutators\\Sets\\DefaultSet,%s', $bridge));
 });

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
+use function array_any;
 use function array_last;
+use function array_map;
 use function array_values;
 use function explode;
+use function in_array;
 use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -73,6 +76,17 @@ final readonly class PhpFile
     public function declares(): array
     {
         return $this->declares;
+    }
+
+    /**
+     * Whether it declares one of these classes, each named in full: matched
+     * by its last segment, as a key follows support by name.
+     */
+    public function declaresAnyOf(string ...$classes): bool
+    {
+        $names = array_map(static fn(string $class): string => self::lastSegmentOf(mb_strtolower($class)), $classes);
+
+        return array_any($names, fn(string $name): bool => in_array($name, $this->declares, strict: true));
     }
 
     /** @return list<string> every name and word it mentions, lower-cased */

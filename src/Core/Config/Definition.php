@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\CiKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\FloorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\IgnoresKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\LocalKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\MutatorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PestKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ProofsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ReachKeys;
@@ -61,6 +62,7 @@ final readonly class Definition
             ...BadgeKeys::fields(),
             ...PestKeys::fields(),
             ...StaticCheckKeys::fields($origin),
+            ...MutatorsKeys::fields(),
             ...LocalKeys::fields(),
         ];
 

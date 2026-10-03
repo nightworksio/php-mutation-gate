@@ -54,7 +54,8 @@ use function sprintf;
  * 7. Every CI definition that runs the gate, as it runs.
  * 8. Of the test directories, what every key reads: what runs when it is
  *    loaded, every test file the coverage map does not know, the canary
- *    group, and what those name, each file by its digest.
+ *    group, the files that declare a registered mutator the config turns
+ *    on, and what those name, each file by its digest.
  * 9. Of the test directories, what else can judge the unit, each file by its
  *    digest.
  * 10. The unit: its path, what judges it, and each of its covered lines with

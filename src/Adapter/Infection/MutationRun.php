@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
+use function array_map;
 use function file_put_contents;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -30,6 +31,7 @@ final readonly class MutationRun
         private OwnConfig $config,
         private bool $nativeMarkersAllowed,
         private StaticAnalysis $analysis,
+        private Bridges $bridges = new Bridges(),
     ) {
     }
 
@@ -80,6 +82,7 @@ final readonly class MutationRun
                 $request->memory(),
                 ProjectPhpUnit::display($this->project, $this->config),
                 $this->nativeMarkersAllowed,
+                $this->bridges,
             );
     }
 
@@ -96,17 +99,31 @@ final readonly class MutationRun
         };
     }
 
-    /** The paths the run mutates, with its config written and no earlier run's logs left, or why not. */
+    /**
+     * The paths the run mutates, with its config written, the bridges to the
+     * registered mutators where there are any, and no earlier run's logs
+     * left, or why not.
+     */
     private function prepared(MutationRequest $request, Seconds $cap): Targets|CannotJudge
     {
         $targets = Targets::of($this->project, $request->files(), $request->leftOut());
+        $bridged = ! $this->bridges->isEmpty();
+        $files = [
+            $this->project->own(Invocation::JSON),
+            $this->project->own(Invocation::TEXT),
+            $this->project->own(Invocation::CONFIG),
+            ...$bridged ? [$this->project->bridges()] : [],
+        ];
 
-        foreach ([Invocation::JSON, Invocation::TEXT, Invocation::CONFIG] as $name) {
-            $fresh = $this->project->fresh($this->project->own($name));
-
-            if ($fresh instanceof CannotJudge) {
-                return $fresh;
+        foreach ([$this->bridges->refusal(), ...array_map($this->project->fresh(...), $files)] as $prepared) {
+            if ($prepared instanceof CannotJudge) {
+                return $prepared;
             }
+        }
+
+        if ($bridged) {
+            $bootstrap = $this->config->bootstrap($this->project);
+            file_put_contents($this->project->bridges(), $this->bridges->written($bootstrap));
         }
 
         file_put_contents(
@@ -117,6 +134,7 @@ final readonly class MutationRun
                 $cap,
                 $request->mutators(),
                 $this->analysis,
+                $this->bridges,
             ),
         );
 

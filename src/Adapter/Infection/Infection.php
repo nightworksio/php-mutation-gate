@@ -73,6 +73,7 @@ final readonly class Infection implements Runner
         private Clock $clock = new WallClock(),
         private HeldCoverage $held = new HeldCoverage(),
         private StaticAnalysis $analysis = StaticAnalysis::Infection,
+        private Bridges $bridges = new Bridges(),
     ) {
     }
 
@@ -97,6 +98,7 @@ final readonly class Infection implements Runner
             nativeMarkersAllowed: $setup->allowsNativeMarkers(),
             files: $files,
             analysis: $setup->analysis(),
+            bridges: $setup->bridges(),
         );
     }
 
@@ -302,6 +304,7 @@ final readonly class Infection implements Runner
                 $this->files,
                 $this->clock,
                 analysis: $this->analysis,
+                bridges: $this->bridges,
             )
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value()));
     }
@@ -320,6 +323,7 @@ final readonly class Infection implements Runner
             $this->analysis,
             $covered,
             $this->clock,
+            $this->bridges,
         );
     }
 
@@ -338,6 +342,7 @@ final readonly class Infection implements Runner
             $config,
             $this->nativeMarkersAllowed,
             $this->analysis,
+            $this->bridges,
         );
     }
 }

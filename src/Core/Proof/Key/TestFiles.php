@@ -12,6 +12,7 @@ use function count;
 
 use Countable;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use Traversable;
 
 /**
@@ -36,6 +37,20 @@ final readonly class TestFiles implements Countable, IteratorAggregate
         }
 
         return new self($collected);
+    }
+
+    /** The files that declare one of these classes, each named in full, matched by its last segment. */
+    public function declaring(string ...$classes): Paths
+    {
+        $declaring = Paths::none();
+
+        foreach ($this->files as $file) {
+            $declaring = $file->php()->declaresAnyOf(...$classes)
+                ? $declaring->with($file->fingerprint()->path())
+                : $declaring;
+        }
+
+        return $declaring;
     }
 
     public function count(): int

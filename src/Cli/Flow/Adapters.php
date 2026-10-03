@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
@@ -27,9 +28,10 @@ use NightWorksIO\MutationGate\Port\TreeSource;
  * chose, with the static analyser where one checks the mutants and what
  * it said it is, asked once so the keys and the checks agree, the
  * project's directory for the files no port writes, the environment the run
- * was started in, the cores of the machine it runs on, and the engine that
- * counts a plan's mutants with the default set, where that set is
- * registered.
+ * was started in, the cores of the machine it runs on, the engine that
+ * counts a plan's mutants with the default set and the sets the config turns
+ * on, where any is registered, and the registered mutators the config turns
+ * on (ADR-0021).
  */
 final readonly class Adapters
 {
@@ -48,6 +50,7 @@ final readonly class Adapters
         public Withheld $withheld,
         public Processes $cores,
         public Engine|NotGiven $engine,
+        public Enabled $mutators,
     ) {
     }
 

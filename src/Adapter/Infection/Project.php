@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 
 use function realpath;
 use function sprintf;
@@ -112,6 +113,12 @@ final readonly class Project
         return $this->root->at(
             $this->workspace->child(Path::of(BuiltinRunner::Infection->value))->child(Path::of($name)),
         )->value();
+    }
+
+    /** Where the gate writes the bridges Infection loads as its bootstrap, by its path on disk (see Bridges). */
+    public function bridges(): string
+    {
+        return $this->root->at($this->workspace->child(Workspace::bridges(BuiltinRunner::Infection)))->value();
     }
 
     /** A directory as its real path where it is there, so that it compares with the real paths the runner reports. */

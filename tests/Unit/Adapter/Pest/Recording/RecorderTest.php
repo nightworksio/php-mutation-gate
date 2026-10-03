@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Bridged;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
@@ -28,7 +29,12 @@ use Pest\Mutate\Event\Events\TestSuite\FinishMutationSuiteSubscriber;
 use Pest\Mutate\Event\Events\TestSuite\StartMutationGenerationSubscriber;
 use Pest\Mutate\Event\Events\TestSuite\StartMutationSuiteSubscriber;
 use Pest\Mutate\Event\Facade;
+use Pest\Mutate\Mutation;
+use Pest\Mutate\MutationTest;
+use Pest\Mutate\Mutators\String\UnwrapWordwrap;
 use Pest\Mutate\Support\MutationTestResult;
+use Pest\Mutate\Support\MutatorMap;
+use Symfony\Component\Finder\SplFileInfo;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -196,4 +202,26 @@ it('records every mutant\'s final status and how long it ran, then the end', fun
         RecordLine::finished('id-2', PestStatus::None, 0.0),
         RecordLine::end(),
     ]);
+});
+
+it('names a planned mutant\'s bridged mutator by its own name, and any other by its class', function (): void {
+    $bridged = new Mutation(
+        new SplFileInfo('/p/src/Money.php', '', ''),
+        'id-1',
+        UnwrapWordwrap::class,
+        11,
+        12,
+        '',
+        '/nowhere/mutated',
+    );
+
+    try {
+        Bridged::register(UnwrapWordwrap::class, 'acme/UnwrapWordwrap', []);
+
+        expect(Recorder::plannedOf(new MutationTest($bridged))->mutator())->toBe('acme/UnwrapWordwrap')
+            ->and(Recorder::plannedOf(Mutations::test('/p/src/Money.php', 'id-2', MutationTestResult::None))->mutator())
+            ->toBe(Mutations::PLUS);
+    } finally {
+        MutatorMap::$map = null;
+    }
 });

@@ -69,7 +69,8 @@ has to bring its result with it.
       - In: `runner` with its options, `runner.memory` (ADR-0004, decision 9),
         `pest.patch`, `pest.canary`,
         `timeouts.seconds`, `timeouts.retries`, `flaky.confirmSurvivors`,
-        `tests.order` (ADR-0013, decision 4), and what decides the trees and packages (`trees[].path`, `trees[].exclude` (ADR-0016), `treeSource`,
+        `tests.order` (ADR-0013, decision 4), `mutators.sets` and
+        `mutators.except` (ADR-0021), and what decides the trees and packages (`trees[].path`, `trees[].exclude` (ADR-0016), `treeSource`,
         `packages`).
       - Left out: floors and their reasons (`trees[].floor`,
         `trees[].reason`, `newCode`), `baseline`, `uncovered`, `ignores`,
@@ -142,6 +143,8 @@ has to bring its result with it.
         that matches one is shown as a warning, as in item 6;
       - every test file the coverage map does not know;
       - with the Pest patch on, every test in the canary group;
+      - every file under a test directory that declares a registered mutator
+        the config turns on (ADR-0021);
       - the support those files name, and the support that names in turn,
         matched by the class and function names each file declares.
    8. **Of the test directories, what else can judge this unit**, each file by

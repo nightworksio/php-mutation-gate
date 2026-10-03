@@ -1621,6 +1621,30 @@
             },
             "additionalProperties": false
         },
+        "mutators": {
+            "type": "object",
+            "properties": {
+                "sets": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                    },
+                    "default": []
+                },
+                "except": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*/[A-Z][A-Za-z0-9]*$"
+                    },
+                    "default": []
+                }
+            },
+            "additionalProperties": false
+        },
         "local": {
             "type": "object",
             "properties": {

@@ -27,13 +27,14 @@ use function register_shutdown_function;
 
 /**
  * The Pest plugin this package lists under `extra.pest.plugins`. In every Pest
- * run it turns `#[Holds]` into `holds:` groups, it records every mutant's
- * result for the adapter where the adapter asked for it, and it guards a run
- * the adapter starts on one mutant through Pest's override. Once Pest has made
- * its mutants it writes each one's order, and in a mutant's own process it
- * runs the tests in that order and names the test that killed the mutant. In
- * a run that lists the tests for the adapter, it names each test the suite
- * loaded.
+ * run it loads the bridges to the registered mutators where the adapter
+ * wrote them, it turns `#[Holds]` into `holds:` groups, it records every
+ * mutant's result for the adapter where the adapter asked for it, and it
+ * guards a run the adapter starts on one mutant through Pest's override. Once
+ * Pest has made its mutants it writes each one's order, and in a mutant's own
+ * process it runs the tests in that order and names the test that killed the
+ * mutant. In a run that lists the tests for the adapter, it names each test
+ * the suite loaded.
  *
  * Pest loads this class before pest-plugin-mutate puts a mutated file in the
  * place of the original, so a mutant of this file would never run. It holds
@@ -61,6 +62,7 @@ final class Plugin implements Bootable, HandlesArguments
     public function boot(): void
     {
         $loaded = get_included_files();
+        Bridged::load(getenv(GateVariable::Mutators->value));
         HoldsGroups::register(TestSuite::getInstance()->tests);
         $this->recorder = Recorder::fromEnvironment();
         $this->guard = Guard::fromEnvironment($loaded);

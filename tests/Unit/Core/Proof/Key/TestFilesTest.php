@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 
@@ -24,4 +25,18 @@ it('holds one file per path, a later one replacing the earlier', function () use
     expect($digests($files))->toBe(['3', '2'])
         ->and($files)->toHaveCount(2)
         ->and(TestFiles::of())->toHaveCount(0);
+});
+
+it('names the files that declare one of some classes', function (): void {
+    $declaring = static fn(string $path, string $source): TestFile => TestFile::other(
+        Fingerprint::of(Path::of($path), Digest::of($path)),
+        Contents::of($source),
+    );
+    $files = TestFiles::of(
+        $declaring('tests/Mutators/PlusToMinus.php', "<?php\nnamespace Tests;\nfinal class PlusToMinus {}\n"),
+        $declaring('tests/Support/Money.php', "<?php\nfinal class Money {}\n"),
+    );
+
+    expect($files->declaring('Acme\\Mutators\\PlusToMinus'))->toEqual(Paths::of(Path::of('tests/Mutators/PlusToMinus.php')))
+        ->and($files->declaring())->toEqual(Paths::none());
 });

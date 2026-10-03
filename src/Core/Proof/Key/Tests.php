@@ -18,8 +18,9 @@ use NightWorksIO\MutationGate\Core\Test\Role;
  * Of the test directories, what can judge a unit. That is the test files the
  * runner says can judge it, the support those name and the support that
  * names in turn, and, in every key, what runs when it is loaded, every test
- * file the coverage map does not know, the canary group, and what all of
- * those name. Support is found by the names each file declares, and matching
+ * file the coverage map does not know, the canary group, the files that
+ * declare a registered mutator the config turns on, and what all of those
+ * name. Support is found by the names each file declares, and matching
  * over-reads on purpose: a word that happens to match brings the file in.
  *
  * What each file names is looked up once, when the files are read, so
@@ -42,10 +43,11 @@ final readonly class Tests
     }
 
     /**
-     * @param Paths $known    the test files the coverage map knows
-     * @param Paths $canaries the canary group's test files where the Pest patch is on, and none where it is off
+     * @param Paths $known  the test files the coverage map knows
+     * @param Paths $always the other test files every key reads: the canary group's where the Pest patch is
+     *                      on, and those that declare a registered mutator the config turns on (ADR-0021)
      */
-    public static function of(TestFiles $files, Paths $known, Paths $canaries): self
+    public static function of(TestFiles $files, Paths $known, Paths $always): self
     {
         $byPath = [];
         $declares = [];
@@ -74,7 +76,7 @@ final readonly class Tests
         return new self(
             $byPath,
             $named,
-            $unseeded->reachedFrom(Paths::of(...$canaries, ...$seeds)),
+            $unseeded->reachedFrom(Paths::of(...$always, ...$seeds)),
             Paths::of(...$cases),
         );
     }
