@@ -10,7 +10,6 @@ use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -47,9 +46,18 @@ final readonly class KillHistory
     /** This history, with a mutant's ranking as its newest. */
     public function withMutant(MutantId $mutant, Ranking $ranking): self
     {
+        return $this->withMutants(RankedMutant::of($mutant, $ranking));
+    }
+
+    /** This history, with these mutants' rankings as its newest, each newer than the one before it. */
+    public function withMutants(RankedMutant ...$ranked): self
+    {
         $mutants = $this->mutants;
-        unset($mutants[$mutant->value()]);
-        $mutants[$mutant->value()] = RankedMutant::of($mutant, $ranking);
+
+        foreach ($ranked as $one) {
+            unset($mutants[$one->mutant()->value()]);
+            $mutants[$one->mutant()->value()] = $one;
+        }
 
         return new self($mutants, $this->functions);
     }
@@ -57,31 +65,52 @@ final readonly class KillHistory
     /** This history, with a function's ranking as its newest. */
     public function withFunction(Enclosing $function, Ranking $ranking): self
     {
+        return $this->withFunctions(RankedFunction::of($function, $ranking));
+    }
+
+    /** This history, with these functions' rankings as their newest, each newer than the one before it. */
+    public function withFunctions(RankedFunction ...$ranked): self
+    {
         $functions = $this->functions;
-        unset($functions[$this->keyOf($function)]);
-        $functions[$this->keyOf($function)] = RankedFunction::of($function, $ranking);
+
+        foreach ($ranked as $one) {
+            unset($functions[$this->keyOf($one->function())]);
+            $functions[$this->keyOf($one->function())] = $one;
+        }
 
         return new self($this->mutants, $functions);
     }
 
     /**
-     * This history, having learned the first killer of a mutant, in the
-     * function it is in. A mutant that was not killed, or was killed by a
-     * test nobody knows, teaches it nothing.
+     * This history, having learned, in turn, the first killer of each mutant,
+     * in the function it is in. A mutant that was not killed, or was killed
+     * by a test nobody knows, teaches it nothing.
      */
-    public function learnedFrom(Mutant $mutant, Enclosing|Nameless $in): self
+    public function learnedFrom(Lesson ...$lessons): self
     {
-        $killers = [...$mutant->killers()];
+        $mutants = $this->mutants;
+        $functions = $this->functions;
 
-        if ($mutant->status() !== MutantStatus::Killed || $killers === []) {
-            return $this;
+        foreach ($lessons as $lesson) {
+            $mutant = $lesson->mutant();
+            $killers = [...$mutant->killers()];
+            $teaches = $mutant->status() === MutantStatus::Killed && $killers !== [];
+            $in = $lesson->in();
+
+            if ($teaches) {
+                $ranking = $this->rankingIn($mutants, $mutant->id()->value())->killedBy($killers[0]);
+                unset($mutants[$mutant->id()->value()]);
+                $mutants[$mutant->id()->value()] = RankedMutant::of($mutant->id(), $ranking);
+            }
+
+            if ($teaches && $in instanceof Enclosing) {
+                $ranking = $this->rankingIn($functions, $this->keyOf($in))->killedBy($killers[0]);
+                unset($functions[$this->keyOf($in)]);
+                $functions[$this->keyOf($in)] = RankedFunction::of($in, $ranking);
+            }
         }
 
-        $learned = $this->withMutant($mutant->id(), $this->mutantRanking($mutant->id())->killedBy($killers[0]));
-
-        return $in instanceof Enclosing
-            ? $learned->withFunction($in, $this->functionRanking($in)->killedBy($killers[0]))
-            : $learned;
+        return new self($mutants, $functions);
     }
 
     /**
@@ -169,16 +198,22 @@ final readonly class KillHistory
 
     private function mutantRanking(MutantId $mutant): Ranking
     {
-        return array_key_exists($mutant->value(), $this->mutants)
-            ? $this->mutants[$mutant->value()]->ranking()
-            : Ranking::none();
+        return $this->rankingIn($this->mutants, $mutant->value());
     }
 
     private function functionRanking(Enclosing $function): Ranking
     {
-        $key = $this->keyOf($function);
+        return $this->rankingIn($this->functions, $this->keyOf($function));
+    }
 
-        return array_key_exists($key, $this->functions) ? $this->functions[$key]->ranking() : Ranking::none();
+    /**
+     * The ranking held under a key; none where nothing is.
+     *
+     * @param array<RankedMutant|RankedFunction> $ranked
+     */
+    private function rankingIn(array $ranked, string $key): Ranking
+    {
+        return array_key_exists($key, $ranked) ? $ranked[$key]->ranking() : Ranking::none();
     }
 
     private function keyOf(Enclosing $function): string

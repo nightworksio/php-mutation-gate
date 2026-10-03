@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Order\Lesson;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
@@ -166,15 +167,17 @@ final readonly class Recorded
 
     private function killedIn(Ledger $ledger, UnitResults $fresh, SourceFunctions $functions): Ledger
     {
-        $history = $ledger->killers();
+        $lessons = [];
 
         foreach ($fresh as $result) {
             foreach ($result->mutants() as $mutant) {
-                $history = $history->learnedFrom($mutant, $functions->around($mutant));
+                $lessons[] = Lesson::of($mutant, $functions->around($mutant));
             }
         }
 
-        return $ledger->withKillers($history)->keepingKillersIn($functions->files());
+        return $ledger
+            ->withKillers($ledger->killers()->learnedFrom(...$lessons))
+            ->keepingKillersIn($functions->files());
     }
 
     /**

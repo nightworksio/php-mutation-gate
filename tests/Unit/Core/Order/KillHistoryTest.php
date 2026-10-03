@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Order\Bound;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
+use NightWorksIO\MutationGate\Core\Order\Lesson;
 use NightWorksIO\MutationGate\Core\Order\RankedFunction;
 use NightWorksIO\MutationGate\Core\Order\RankedMutant;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
@@ -23,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 /** A mutant of src/Money.php, with a status, killed by these tests. */
 function historyMutant(string $diff, MutantStatus $status, string ...$killers): Mutant
@@ -69,10 +71,8 @@ it('learns the first killer of each killed mutant, and of its function\'s mutant
     $one = historyMutant('-+ one', MutantStatus::Killed, 'MoneyTest::adds', 'MoneyTest::sums');
     $two = historyMutant('-+ two', MutantStatus::Killed, 'CartTest::totals');
     $history = KillHistory::none()
-        ->learnedFrom($one, $add)
-        ->learnedFrom($one, $add)
-        ->learnedFrom($two, $add)
-        ->learnedFrom(historyMutant('-+ three', MutantStatus::Killed, 'CartTest::totals'), Nameless::code());
+        ->learnedFrom(Lesson::of($one, $add), Lesson::of($one, $add))
+        ->learnedFrom(Lesson::of($two, $add), Lesson::of(historyMutant('-+ three', MutantStatus::Killed, 'CartTest::totals'), Nameless::code()));
 
     expect(historyNames($history->likelyKillers($one->id(), $add)))->toBe(['MoneyTest::adds'])
         ->and(historyNames($history->likelyKillers($two->id(), Nameless::code())))->toBe(['CartTest::totals'])
@@ -83,10 +83,24 @@ it('learns the first killer of each killed mutant, and of its function\'s mutant
         ->and(historyMutants($history))->toBe([$one->id()->value(), $two->id()->value(), historyMutant('-+ three', MutantStatus::Killed)->id()->value()]);
 });
 
+it('keeps each mutant and function in the order it last learned something, the newest last', function () use ($add): void {
+    $one = historyMutant('-+ one', MutantStatus::Killed, 'MoneyTest::adds');
+    $two = historyMutant('-+ two', MutantStatus::Killed, 'MoneyTest::adds');
+    $cart = Enclosing::named(Path::of('src/Cart.php'), 'total');
+    $ranking = Ranking::of(Kills::of(TestId::of('MoneyTest::adds'), 1));
+    $learned = KillHistory::none()->learnedFrom(Lesson::of($one, $add), Lesson::of($two, $cart), Lesson::of($one, $add));
+    $given = KillHistory::none()->withFunction($add, $ranking)->withFunction($cart, $ranking)->withFunction($add, $ranking);
+
+    expect(historyMutants($learned))->toBe([$two->id()->value(), $one->id()->value()])
+        ->and(historyFunctions($learned))->toBe(['total', 'add'])
+        ->and(historyFunctions($given))->toBe(['total', 'add']);
+});
+
 it('learns nothing from a mutant that survived, or was killed by a test nobody knows', function () use ($add): void {
-    $history = KillHistory::none()
-        ->learnedFrom(historyMutant('-+ one', MutantStatus::Survived, 'MoneyTest::adds'), $add)
-        ->learnedFrom(historyMutant('-+ two', MutantStatus::Killed), $add);
+    $history = KillHistory::none()->learnedFrom(
+        Lesson::of(historyMutant('-+ one', MutantStatus::Survived, 'MoneyTest::adds'), $add),
+        Lesson::of(historyMutant('-+ two', MutantStatus::Killed), $add),
+    );
 
     expect($history)->toEqual(KillHistory::none());
 });
@@ -142,4 +156,22 @@ it('keeps a mutant whose id reads as a number under that id, so learning of it a
         ->keeping(MutantIds::of($numeric, $other), Bound::atMost(5), Bound::atMost(5));
 
     expect(historyMutants($kept->withMutant($numeric, $ranking)))->toBe(['abcdefabcdef', '123456789012']);
+});
+
+it('learns from a run in time linear in its mutants and in what the history already holds', function () use ($add): void {
+    $learned = static function (int $size) use ($add): Closure {
+        $lessons = array_map(
+            static fn(int $at): Lesson => Lesson::of(historyMutant(sprintf("-a\n+%d", $at), MutantStatus::Killed, 'MoneyTest::adds'), $add),
+            range(1, $size),
+        );
+        $held = KillHistory::none()->learnedFrom(...array_map(
+            static fn(int $at): Lesson => Lesson::of(historyMutant(sprintf("-b\n+%d", $at), MutantStatus::Killed, 'MoneyTest::adds'), $add),
+            range(1, $size),
+        ));
+
+        return static fn(): KillHistory => $held->learnedFrom(...$lessons);
+    };
+
+    expect(iterator_count($learned(10)()->mutants()))->toBe(20)
+        ->and(Growth::of(2500, $learned))->toBeLessThan(Growth::LINEAR);
 });
