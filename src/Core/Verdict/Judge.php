@@ -13,15 +13,17 @@ use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
-use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
+use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 
 use function sprintf;
 
@@ -29,7 +31,10 @@ use function sprintf;
  * Judges every tree whole, from the results of all its units, run, proved or
  * carried, against the higher of its declared floor and its baseline's; and,
  * in a change-scoped run, the mutants on the lines the change added or
- * modified against the floor for new code.
+ * modified against the floor for new code. Each unit keeps the run whose
+ * proof it came from (ADR-0015, decision 8), and each mutant of a unit the
+ * whole suite judges is judged by the tests the kill matrix says cover it
+ * (ADR-0004, decision 5).
  */
 final readonly class Judge
 {
@@ -39,6 +44,7 @@ final readonly class Judge
         private Reach $reach,
         private Uncovered $uncovered,
         private MutantTriage $triage,
+        private KillMatrix $matrix,
     ) {
     }
 
@@ -49,7 +55,13 @@ final readonly class Judge
         Uncovered $uncovered,
         TimeoutMode $timeouts,
     ): self {
-        return new self($trees, $baseline, $reach, $uncovered, MutantTriage::under($timeouts));
+        return new self($trees, $baseline, $reach, $uncovered, MutantTriage::under($timeouts), KillMatrix::none());
+    }
+
+    /** This judge, naming each mutant's judging tests from this kill matrix; none are named without one. */
+    public function judging(KillMatrix $matrix): self
+    {
+        return clone($this, ['matrix' => $matrix]);
     }
 
     /** Each tree, over every unit result it holds; a result no tree holds is judged in none. */
@@ -97,8 +109,10 @@ final readonly class Judge
                 continue;
             }
 
-            $units[] = JudgedUnit::of($result->unit(), $result->origin());
-            $mutants[] = $this->judged($result->mutants(), $result->flaky(), $result->kills());
+            $unit = JudgedUnit::of($result->unit(), $result->origin());
+            $run = $result->run();
+            $units[] = $run instanceof Run ? $unit->withRun($run) : $unit;
+            $mutants[] = $this->judged($result);
         }
 
         $verdict = TreeVerdict::judged(
@@ -115,27 +129,41 @@ final readonly class Judge
     }
 
     /**
-     * Each mutant as its status reports it after triage, or flaky where
-     * it gave two answers, and each kill a ledger proved.
+     * Each mutant of a unit's result as its status reports it after triage,
+     * or flaky where it gave two answers, with the tests that judged it; and
+     * each kill a ledger proved.
      */
-    private function judged(Mutants $mutants, MutantIds $flaky, ProvedKills $kills): JudgedMutants
+    private function judged(UnitResult $result): JudgedMutants
     {
+        $flaky = $result->flaky();
         $judged = [];
 
-        foreach ($mutants as $mutant) {
-            $judged[] = JudgedMutant::of(
+        foreach ($result->mutants() as $mutant) {
+            $one = JudgedMutant::of(
                 $mutant,
                 $flaky->has($mutant->id()) ? MutantJudgement::Flaky : $this->triage->judged($mutant),
             );
+            $judged[] = $one->judgedBy($this->judgingTests($result->unit(), $one));
         }
 
         $proved = [];
 
-        foreach ($kills as $kill) {
+        foreach ($result->kills() as $kill) {
             $proved[] = JudgedKill::of($kill);
         }
 
         return JudgedMutants::of(...$judged)->and(JudgedMutants::kills(...$proved))->within($this->reach);
+    }
+
+    /**
+     * The tests that judged a mutant: those the kill matrix says cover it,
+     * where the whole suite judges its unit. A held unit's group judged it,
+     * and which of the group's tests cover it is not known here, so none are
+     * named.
+     */
+    private function judgingTests(Unit $unit, JudgedMutant $mutant): TestIds
+    {
+        return $unit->judgedBy() instanceof WholeSuite ? $this->matrix->coveredBy($mutant) : TestIds::none();
     }
 
     /** @param list<NewCodeVerdict> $sets */

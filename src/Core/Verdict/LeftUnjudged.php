@@ -39,7 +39,13 @@ final readonly class LeftUnjudged
         foreach ($this->units as $unit) {
             $counted = $this->carrying->counted($this->newest->of($unit->path()));
             $carried = $counted instanceof Proof
-                ? UnitResult::held($unit, Origin::Carried, $this->reported($counted), $this->kills($counted))
+                ? UnitResult::held(
+                    $unit,
+                    Origin::Carried,
+                    $this->reported($counted),
+                    $this->kills($counted),
+                    $counted->run(),
+                )
                 : $counted;
             $results = $carried instanceof UnitResult ? $results->with($carried) : $results;
         }

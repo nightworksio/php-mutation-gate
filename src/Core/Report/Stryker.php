@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_key_exists;
-use function count;
 use function explode;
 use function implode;
 
@@ -149,7 +148,7 @@ final readonly class Stryker
     private static function description(JudgedMutant|JudgedKill $judged, TestNames $names): string
     {
         return implode("\n", [
-            ...count($judged->tests()) > 0 ? [sprintf(MutantText::JUDGED_BY, $names->listed($judged->tests()))] : [],
+            ...MutantText::judgedBy($judged, $names),
             $judged->hint()->text(),
             sprintf('Reproduce: %s', $judged->reproduce()),
             sprintf('Explain: %s', $judged->explain()),

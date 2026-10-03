@@ -153,7 +153,9 @@ final readonly class Judging
         $matrix = $this->matrixOf($plan, $map);
         $verdicts = $this->read(
             $matrix,
-            $judge->trees($fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results())),
+            $judge->judging($matrix)->trees(
+                $fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results()),
+            ),
         );
         $unfloored = Ratchet::unfloored($verdicts);
         $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));

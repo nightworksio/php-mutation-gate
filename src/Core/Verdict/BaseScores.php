@@ -40,7 +40,7 @@ final readonly class BaseScores
             $tree = $trees->holding($unit->path());
             $proof = $newest->of($unit->path());
             if ($proof instanceof Proof) {
-                $results[] = UnitResult::held($unit, Origin::Carried, $proof->reported(), $proof->kills());
+                $results[] = UnitResult::fromProof($unit, Origin::Carried, $proof);
             }
 
             if (! $proof instanceof Proof && $tree instanceof Tree) {

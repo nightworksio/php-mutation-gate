@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -32,6 +34,7 @@ use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -282,4 +285,23 @@ it('refuses to run with an output it cannot print, and runs nothing', function (
     expect($ran->code)->toBe(2)
         ->and($ran->errors)->toBe("--output is console or problems, not \"json\".\n")
         ->and(is_dir(sprintf('%s/.mutation-gate/results', $project)))->toBeFalse();
+});
+
+it('names the tests that judged each survivor by their names, and marks each result a proof gave with the run it names', function (): void {
+    $survivor = Verdicts::mutant('src/Money.php:11', 'Plus', MutatorFamily::Arithmetic, Verdicts::diff('return $amount + $tax;', 'return $amount - $tax;'));
+    $composition = FlowCommands::composition(
+        FlowCommands::project(),
+        ScriptedRunner::fixture()->answering(Mutants::of($survivor), 0),
+        new ProofStoreFake(),
+        Flows::ci(),
+    );
+
+    $ran = FlowCommands::run(RunCommand::command($composition), '--full');
+    $proved = FlowCommands::run(RunCommand::command($composition), '--output=problems');
+
+    expect($ran->output)->toContain(sprintf(
+        "\n      Judged by: tests/MoneyTest.php::it adds\n      %s It is judged by `MoneyTest::adds`.\n",
+        'No test checks the result of `$amount + $tax` with a non-zero operand.',
+    ))
+        ->and($proved->output)->toContain(' (proved in run local:2026-09-30T12:00:00Z) [survived] ');
 });
