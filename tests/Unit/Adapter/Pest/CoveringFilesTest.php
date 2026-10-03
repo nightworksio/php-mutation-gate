@@ -76,7 +76,7 @@ it('needs each loaded test file that is not inert, and each that declares a func
 
 it('leaves out of what a file needs the files Pest loads in every process, whatever their top runs', function () use ($suite): void {
     [, $files, $root] = $suite();
-    $booted = ['Pest.php', 'Helpers.php', 'Helpers/Shared.php', 'Expectations/Money.php', 'Datasets.php'];
+    $booted = ['Pest.php', 'Helpers.php', 'Helpers/Shared.php', 'Expectations.php', 'Expectations/Money.php', 'Datasets.php'];
 
     foreach ($booted as $name) {
         Scratch::write($root, $name, sprintf("<?php\n\$GLOBALS['%s'] = 1;\n", $name));
@@ -155,12 +155,19 @@ it('narrows a run of a test its class takes from a trait to the class\'s file an
     expect(CoveringFiles::of([sprintf('%s\UsesTraitTest::testIt', $namespace)], '/tmp/mutations/abc'))->toBe($expected);
 });
 
-it('reads the suite from the test directory Pest runs, where none is named', function (): void {
+it('reads the suite from the test directory Pest runs, where none is named', function (Closure $unnamed): void {
     putenv(sprintf('%s=1', GateVariable::Narrow->value));
     putenv(sprintf('%s=%s/results.jsonl', GateVariable::Results->value, Scratch::directory()));
-    CoveringFiles::forget();
+    $unnamed();
 
     // The class Pest builds for this file.
     expect(CoveringFiles::of(['P\Tests\Unit\Adapter\Pest\CoveringFilesTest::__pest_evaluable_it_reads'], '/tmp/mutations/abc'))
         ->toContain((string) realpath(__FILE__));
-});
+})->with([
+    'once forgotten' => [static fn() => CoveringFiles::forget()],
+    'in a process that has named none' => [static function (): void {
+        foreach (new ReflectionClass(CoveringFiles::class)->getProperties(ReflectionProperty::IS_STATIC) as $property) {
+            $property->setValue(null, $property->getDefaultValue());
+        }
+    }],
+]);

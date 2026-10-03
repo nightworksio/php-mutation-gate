@@ -7,12 +7,14 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use Symfony\Component\Process\Process;
 
-it('counts the memory of a process it waited for', function (): void {
-    new Process([PHP_BINARY, '-d', 'memory_limit=-1', '-r', '$held = str_repeat("x", 96 * 1024 * 1024);'])->mustRun();
+it('counts the memory of a process it waited for, rather than its own', function (): void {
+    $own = getrusage();
+    $held = ChildMemory::bytes(is_array($own) && is_int($own['ru_maxrss']) ? $own['ru_maxrss'] : 0, PHP_OS_FAMILY) + 64 * 1024 * 1024;
+    new Process([PHP_BINARY, '-d', 'memory_limit=-1', '-r', sprintf('$held = str_repeat("x", %d);', $held)])->mustRun();
     $peak = new ChildMemory()->peak();
 
     expect($peak)->toBeInstanceOf(MemoryCap::class)
-        ->and($peak instanceof MemoryCap && MemoryCap::of(96, MemoryUnit::Megabytes)->isExceededBy($peak))->toBeTrue();
+        ->and($peak instanceof MemoryCap && MemoryCap::of($held, MemoryUnit::Bytes)->isExceededBy($peak))->toBeTrue();
 });
 
 it('reads ru_maxrss in bytes on macOS, and in kilobytes elsewhere', function (): void {
