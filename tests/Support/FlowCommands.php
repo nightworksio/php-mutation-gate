@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -88,7 +89,7 @@ final readonly class FlowCommands
         CiPlan $ci,
         Variables $environment,
     ): Composition {
-        $registry = new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)))
+        $registry = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))
             ->withRunner(Name::of('fake'), static fn(): Runner => $runner)
             ->withTreeSource(Name::of('phpunit'), static fn(): TreeSource => new TreeSourceFake($trees))
             ->withProofStore(Name::of('directory'), static fn(): ProofStore => $proofs)

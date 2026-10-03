@@ -47,6 +47,7 @@ use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\SetEngine;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
@@ -68,7 +69,7 @@ afterEach(function (): void {
 /** This package's registry, with the fake runner beside it. */
 function wiringRegistry(): Extensions
 {
-    return new ExtensionFake()->extend(new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE))));
+    return new ExtensionFake()->extend(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))));
 }
 
 /** The tokens of every CI the gate knows, past those every run withholds. */

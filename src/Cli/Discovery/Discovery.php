@@ -13,13 +13,13 @@ use function is_a;
 
 use LogicException;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
-use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use RuntimeException;
@@ -83,7 +83,7 @@ final readonly class Discovery
     /** @param array<int, Declared> $declared */
     private function register(array $declared): Extensions|CannotJudge
     {
-        $registry = new Extensions(Origin::of(FirstParty::PACKAGE));
+        $registry = new Extensions(Origin::of(ThisPackage::COMPOSER));
 
         foreach ($declared as $one) {
             $registry = $this->add($registry, $one);

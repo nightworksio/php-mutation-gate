@@ -75,9 +75,6 @@ use Symfony\Component\HttpClient\HttpClient;
  */
 final readonly class FirstParty implements Extension
 {
-    /** The Composer package this extension comes from. */
-    public const string PACKAGE = 'nightworksio/mutation-gate';
-
     /** Where the gate runs: the project's root, which holds its repository. */
     private const string HERE = '.';
 

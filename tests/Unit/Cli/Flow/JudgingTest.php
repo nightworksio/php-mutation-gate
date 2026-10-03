@@ -97,6 +97,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -139,7 +140,7 @@ $tree = static fn(Floor|Undeclared $floor): TreeSourceFake => new TreeSourceFake
 
 /** What chooses the verdict's reporters: this package's own, and one that remembers what it was handed. */
 $reporting = static fn(Reporter $recorded): Reporting => new Reporting(
-    new Chosen(new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)))->withReporter(
+    new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))->withReporter(
         Name::of('recorded'),
         static fn(): Reporter => $recorded,
     )),
