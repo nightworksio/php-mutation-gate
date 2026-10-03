@@ -15,6 +15,7 @@ it('reads a plain function\'s default at each call as the file resolves the name
         \App\tax(1);
         other();
         $a->tax();
+        $a?->tax();
         A::tax();
         new tax();
         function tax() { }
@@ -22,6 +23,6 @@ it('reads a plain function\'s default at each call as the file resolves the name
         tax;
         PHP));
 
-    expect(Php::sites($read))->toBe(['src/A.php:4', 'src/A.php:5', 'src/A.php:11'])
+    expect(Php::sites($read))->toBe(['src/A.php:4', 'src/A.php:5', 'src/A.php:12'])
         ->and($read->isAmbiguous())->toBeFalse();
 });

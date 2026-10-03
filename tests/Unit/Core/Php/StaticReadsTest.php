@@ -80,7 +80,6 @@ it('reads constant() with the name written out, and cannot follow any other', fu
         constant("\\App\\Base::RATE");
         constant('App\Base::OWN');
         constant('GLOBAL_ONE');
-        $a->constant('x');
         PHP);
     $unwritten = staticReadsIn(Symbol::constant('App\Base', 'RATE'), '<?php constant($name);');
 
@@ -91,16 +90,28 @@ it('reads constant() with the name written out, and cannot follow any other', fu
         ->toBeTrue();
 });
 
-it('cannot follow reflection on the owner, but a file that reflects on something else reads nothing', function (): void {
-    expect(staticReadsIn(
-        Symbol::constant('App\Base', 'RATE'),
-        '<?php namespace App; new \ReflectionClass(Base::class);',
-    )->isAmbiguous())->toBeTrue()
-        ->and(staticReadsIn(
-            Symbol::constant('App\Base', 'RATE'),
-            '<?php namespace App; new \ReflectionClass(Other::class);',
-        )->isAmbiguous())->toBeFalse();
+it('reads no constant() that is a method, a static method or a declaration', function (): void {
+    $read = staticReadsIn(Symbol::constant('App\Base', 'RATE'), <<<'PHP'
+        <?php
+        $registry->constant('App\Base::RATE');
+        $registry?->constant('App\Base::RATE');
+        Registry::constant('App\Base::RATE');
+        function constant(string $name) {}
+        PHP);
+
+    expect(Php::sites($read))->toBe([])
+        ->and($read->isAmbiguous())->toBeFalse();
 });
+
+it('cannot follow reflection on the owner, but a file that reflects on something else reads nothing', function (string $reflection): void {
+    $reflected = static fn(string $class): References => staticReadsIn(
+        Symbol::constant('App\Base', 'RATE'),
+        sprintf('<?php namespace App; new \\%s(%s::class);', $reflection, $class),
+    );
+
+    expect($reflected('Base')->isAmbiguous())->toBeTrue()
+        ->and($reflected('Other')->isAmbiguous())->toBeFalse();
+})->with(['ReflectionClass', 'ReflectionClassConstant', 'ReflectionEnum', 'ReflectionObject']);
 
 it('reads a static property through the owner and a class that reaches it, and nothing else', function (): void {
     $read = staticReadsIn(Symbol::property('App\Base', 'count', static: true), <<<'PHP'
