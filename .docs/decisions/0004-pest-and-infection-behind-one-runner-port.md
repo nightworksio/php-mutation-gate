@@ -370,7 +370,9 @@ its parser attributes. Both change when the checkout moves.
 
        A kill that does not count runs again with every test file within the
        time left, or is unjudged. A kill whose records cannot be read does
-       not count either.
+       not count either. A kill of a mutant Pest left uncovered is the
+       trial's (decision 8), which ran its tests alone on the unmutated code
+       first, so it always counts.
      - What a test's body leaves behind as it runs is not seen: a test that
        writes a global, a static or a file while it runs, which a test in
        another file reads, passes or fails by whether that other test ran

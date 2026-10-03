@@ -28,7 +28,10 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
  * on the unmutated code, loaded alone: a file left out can hold what a test
  * needs without a name, such as a hook `pest()->in()` registers or state its
  * loading sets, and a test that fails for want of it would pass as a killer.
- * Mutants that share Pest's id share their own run, and so its doubt.
+ * Mutants that share Pest's id share their own run, and so its doubt. A
+ * kill of a mutant Pest left uncovered is the trial's (ADR-0004, decision 8),
+ * which ran no own process of Pest's and first ran its tests alone on the
+ * unmutated code, so it is never doubted.
  */
 final readonly class NarrowedKills
 {
@@ -45,12 +48,14 @@ final readonly class NarrowedKills
 
     public static function in(MutationResult $result, string $results): self
     {
-        $runs = self::runs(Records::in($results));
+        $records = Records::in($results);
+        $runs = self::runs($records);
+        $trial = self::uncovered($records);
         $doubtful = [];
         $narrowed = [];
 
         foreach ($result->mutants() as $mutant) {
-            if ($mutant->status() !== MutantStatus::Killed) {
+            if ($mutant->status() !== MutantStatus::Killed || array_key_exists($mutant->nativeId(), $trial)) {
                 continue;
             }
 
@@ -86,6 +91,24 @@ final readonly class NarrowedKills
         }
 
         return Mutants::of(...$doubted);
+    }
+
+    /** @return array<string, true> each native id Pest left uncovered, so that only the trial judges it */
+    private static function uncovered(Records|CannotJudge $records): array
+    {
+        if (! $records instanceof Records) {
+            return [];
+        }
+
+        $uncovered = [];
+
+        foreach ($records->planned() as $planned) {
+            if ($records->statusOf($planned) === PestStatus::Uncovered) {
+                $uncovered[$planned->id()] = true;
+            }
+        }
+
+        return $uncovered;
     }
 
     /** @return array<string, OwnRun> what each mutant's own process recorded, by its native id */

@@ -79,6 +79,20 @@ it('doubts a kill no test is named for, one only errors made, one with no record
         ->and($asked)->toBe([['/p/tests/ASpec.php', '/p/tests/BSpec.php'], ['/p/tests/CSpec.php']]);
 });
 
+it('never doubts a kill of a mutant Pest left uncovered, which the trial judged', function () use ($mutant): void {
+    $file = narrowedResults(
+        PestRun::finished('native-1', PestStatus::Uncovered, 0.0),
+        PestRun::finished('native-2', PestStatus::Tested, 0.1),
+    );
+
+    $doubted = NarrowedKills::in(
+        MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed), $mutant(2, MutantStatus::Killed)), 0),
+        $file,
+    )->doubted(static fn(): bool => true);
+
+    expect(array_map(static fn(Mutant $each): string => $each->nativeId(), [...$doubted]))->toBe(['native-2']);
+});
+
 it('doubts every kill, and asks nothing, where the records cannot be read', function () use ($mutant): void {
     $killed = $mutant(1, MutantStatus::Killed, 'T::a');
     $asked = 0;
