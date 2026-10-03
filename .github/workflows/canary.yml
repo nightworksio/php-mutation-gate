@@ -28,6 +28,10 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 30
+    # Every contract step runs once the fixtures are freed from their pins, so
+    # each skips the contracts that hold a fixture's manifest to its pin.
+    env:
+      RUNNER_CANARY: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,8 +46,7 @@ jobs:
       # pest-plugin-mutate from its conflict, and Infection from its minor, so
       # the newest release of each is the one that runs. The Pest and PHPUnit
       # libraries keep the php-code-coverage this package is locked at, whose
-      # maps the adapters read. RUNNER_CANARY skips the contracts that hold a
-      # fixture's manifest to the pin it was freed from.
+      # maps the adapters read.
       - name: install the newest Pest into the fixture library
         working-directory: tests/Contract/Runner/fixture
         run: |
@@ -60,7 +63,6 @@ jobs:
           vendor/bin/pest --testsuite=Contract --log-junit=evidence/raw/pest-newest.xml
         env:
           RUNNER_CONTRACTS: pest
-          RUNNER_CANARY: '1'
       - name: install the newest Infection into its library
         working-directory: tests/Contract/Runner/infection-fixture
         run: |
@@ -72,7 +74,6 @@ jobs:
         run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-newest.xml
         env:
           RUNNER_CONTRACTS: infection
-          RUNNER_CANARY: '1'
       - name: install the newest PHPUnit into the PHPUnit runner's library
         working-directory: tests/Contract/Runner/phpunit-fixture
         run: |
