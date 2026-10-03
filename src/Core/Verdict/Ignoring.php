@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use function count;
+
 use DateTimeImmutable;
 use NightWorksIO\MutationGate\Core\Config\Expiry;
 use NightWorksIO\MutationGate\Core\Config\Ignored;
@@ -109,14 +111,15 @@ final readonly class Ignoring
     /**
      * Each entry that still applies but names no mutant it could leave out,
      * a survivor, an uncovered mutant, or one an ignore left out or a proof
-     * found equivalent (ADR-0013, decision 12), in verdicts over a result of
-     * every unit; none where a mutant of them is unjudged, since it could be
-     * the one an entry names.
+     * found equivalent (ADR-0013, decision 12); none where a unit has no
+     * result, as the failures of the units that did not run say, or a mutant
+     * is unjudged, since either could hold the mutant an entry names.
      */
-    public function stale(TreeVerdicts $verdicts): Failures
+    public function stale(TreeVerdicts $verdicts, Failures $unrun): Failures
     {
         $failures = Failures::none();
-        $judgedEveryMutant = $verdicts->mutants()->counts()->number(MutantJudgement::Unjudged) === 0;
+        $judgedEveryMutant = count($unrun) === 0
+            && $verdicts->mutants()->counts()->number(MutantJudgement::Unjudged) === 0;
 
         foreach ($judgedEveryMutant ? $this->applying : [] as $entry) {
             $failures = $this->names($entry, $verdicts)
