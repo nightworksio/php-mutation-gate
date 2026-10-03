@@ -34,24 +34,22 @@ use function sprintf;
  * 14). A mutant the last run holds is explained as its verdict judged it; any
  * other by its newest record, judged as a verdict judges it. A cluster is
  * found by the last run alone, since its verdict is what clusters survivors.
- * A cluster's id is twelve hex characters too, since its `c` is one, so an id
- * the last run names a cluster by is that cluster, and any other a mutant.
  */
 final readonly class Explaining
 {
     private const string NOT_HELD = 'It is not among the mutants of the last run, so this is its newest record.';
 
-    private const string NO_CLUSTER = <<<'SAID'
-        %s Nor did the last run find a cluster %s: clusters change as survivors do, so give one it printed.
-        SAID;
+    private const string NO_CLUSTER
+        = 'The last run found no cluster %s: clusters change as survivors do, so give one it printed.';
 
-    private const string UNCLUSTERED = '%s Clusters are found by the last run, which cannot be read. %s';
+    private const string UNCLUSTERED = 'Clusters are found by the last run, which cannot be read. %s';
 
     public function __construct(private Composed $composed)
     {
     }
 
-    public function explain(IdPrefix $sought): Explanations|NoRecord|Ambiguous|CannotJudge
+    /** The mutant an id or a prefix names, or the cluster a cluster id names; or why there is none. */
+    public function explain(IdPrefix|ClusterId $sought): Explanations|NoRecord|Ambiguous|CannotJudge
     {
         $settings = $this->composed->settings;
         $adapters = $this->composed->adapters;
@@ -63,15 +61,10 @@ final readonly class Explaining
 
         $ledgers = Ledgers::read($adapters->proofs, $standing, Writing::Never);
         $last = LastRun::verdict($this->composed);
-        $cluster = $last instanceof Verdict ? $this->clusterOf($sought, $last) : Unclustered::mutant();
-        $mutant = $this->mutant($sought, $ledgers, $last);
 
-        return match (true) {
-            $cluster instanceof Cluster => $this->members($cluster, $last, $ledgers),
-            $mutant instanceof NoRecord && ClusterId::parse($sought->value()) instanceof ClusterId
-                => $this->unfound($mutant, $sought, $last),
-            default => $mutant,
-        };
+        return $sought instanceof ClusterId
+            ? $this->cluster($sought, $ledgers, $last)
+            : $this->mutant($sought, $ledgers, $last);
     }
 
     private function mutant(
@@ -98,24 +91,22 @@ final readonly class Explaining
         };
     }
 
-    /** The cluster of the last run this id names; none where it names none. */
-    private function clusterOf(IdPrefix $sought, Verdict $last): Cluster|Unclustered
+    /** The cluster of the last run this id names, every member explained; or why the last run holds none. */
+    private function cluster(ClusterId $sought, Ledgers $ledgers, Verdict|CannotJudge $last): Explanations|CannotJudge
     {
+        if (! $last instanceof Verdict) {
+            return CannotJudge::because(sprintf(self::UNCLUSTERED, $last->why()));
+        }
+
         $found = Unclustered::mutant();
 
         foreach ($last->trees()->clusters() as $cluster) {
             $found = $cluster->id()->value() === $sought->value() ? $cluster : $found;
         }
 
-        return $found;
-    }
-
-    /** Why an id that reads as a cluster's names neither a cluster of the last run nor a recorded mutant. */
-    private function unfound(NoRecord $mutant, IdPrefix $sought, Verdict|CannotJudge $last): CannotJudge
-    {
-        return CannotJudge::because($last instanceof CannotJudge
-            ? sprintf(self::UNCLUSTERED, $mutant->why(), $last->why())
-            : sprintf(self::NO_CLUSTER, $mutant->why(), $sought->value()));
+        return $found instanceof Cluster
+            ? $this->members($found, $last, $ledgers)
+            : CannotJudge::because(sprintf(self::NO_CLUSTER, $sought->value()));
     }
 
     /** A cluster, its first survivor explained first, then each other member. */

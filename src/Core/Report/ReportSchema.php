@@ -13,6 +13,7 @@ use function in_array;
 
 use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
 use NightWorksIO\MutationGate\Core\Alert\WebhookPayload;
+use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
@@ -93,7 +94,7 @@ final readonly class ReportSchema
 
     private const array ID_SPELLING = ['type' => 'string', 'pattern' => '^[0-9a-f]{12}$'];
 
-    private const array CLUSTER_ID = ['type' => 'string', 'pattern' => '^c[0-9a-f]{11}$'];
+    private const array CLUSTER_ID = ['type' => 'string', 'pattern' => ClusterId::PATTERN];
 
     public static function json(): string
     {

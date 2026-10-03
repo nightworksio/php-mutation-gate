@@ -86,7 +86,7 @@ it('writes one test for a cluster, calling the function its first survivor is in
         $comparison('LessThanNegotiation', 'if ($amount > $limit) {'),
     ), 0));
     $ranAgain = FlowCommands::run(RunCommand::command($composition), '--full');
-    $id = preg_match('/\b(c[0-9a-f]{11})\b/', $ranAgain->output, $found) === 1 ? $found[1] : '';
+    $id = preg_match('/\b(k[0-9a-f]{11})\b/', $ranAgain->output, $found) === 1 ? $found[1] : '';
 
     $stubbed = FlowCommands::run(StubCommand::command($composition), sprintf('id=%s', $id));
 
@@ -134,11 +134,15 @@ it('exits 2 where the file it goes in cannot be written', function () use ($ran)
     expect([$stubbed->code, $stubbed->errors])->toBe([2, sprintf("%s/tests/HeldTest.php could not be written.\n", $project)]);
 });
 
-it('exits 2 for what is no id, and for a mutant no record holds', function () use ($ran): void {
+it('exits 2 for what is no id, mutant or cluster, for a mutant no record holds, and for a cluster the last run did not find', function () use ($ran): void {
     $composition = $ran(FlowCommands::project());
     $misspelled = FlowCommands::run(StubCommand::command($composition), 'id=49E02F');
+    $short = FlowCommands::run(StubCommand::command($composition), 'id=k0123');
     $unrecorded = FlowCommands::run(StubCommand::command($composition), 'id=abcdef');
+    $unfound = FlowCommands::run(StubCommand::command($composition), 'id=k0123456789a');
 
     expect([$misspelled->code, $misspelled->errors])->toBe([2, "\"49E02F\" is not a mutant id. Give the twelve lowercase hex characters every report prints, or the first six or more.\n"])
-        ->and([$unrecorded->code, $unrecorded->errors])->toBe([2, "No ledger read holds a mutant abcdef names. Run mutation-gate on the code that has it to record it first.\n"]);
+        ->and([$short->code, $short->errors])->toBe([2, "\"k0123\" is not a cluster id, which is \"k\" and eleven lowercase hex characters, as every report prints it.\n"])
+        ->and([$unrecorded->code, $unrecorded->errors])->toBe([2, "No ledger read holds a mutant abcdef names. Run mutation-gate on the code that has it to record it first.\n"])
+        ->and([$unfound->code, $unfound->errors])->toBe([2, "The last run found no cluster k0123456789a: clusters change as survivors do, so give one it printed.\n"]);
 });

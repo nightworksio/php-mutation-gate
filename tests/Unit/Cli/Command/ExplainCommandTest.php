@@ -191,7 +191,7 @@ it('explains a cluster of the last run by its id: its heading, hint and stub, th
     ), 0);
     $composition = $composed($runner, new ProofStoreFake(), $project);
     $ran = FlowCommands::run(RunCommand::command($composition), '--full');
-    $id = preg_match('/\b(c[0-9a-f]{11})\b/', $ran->output, $found) === 1 ? $found[1] : '';
+    $id = preg_match('/\b(k[0-9a-f]{11})\b/', $ran->output, $found) === 1 ? $found[1] : '';
 
     $explained = FlowCommands::run(ExplainCommand::command($composition), sprintf('id=%s', $id));
     $json = FlowCommands::run(ExplainCommand::command($composition), sprintf('id=%s --format=json', $id))->output;
@@ -211,20 +211,22 @@ it('explains a cluster of the last run by its id: its heading, hint and stub, th
         ->and($explainedIds)->toBe($members);
 });
 
-it('exits 2 for an id that reads as a cluster\'s where neither a cluster of the last run nor a ledger holds it', function () use ($store, $composed): void {
+it('exits 2 for a cluster id the last run names no cluster by, or where there is no last run to find clusters in', function () use ($store, $composed): void {
     $composition = $composed(ScriptedRunner::fixture(), $store());
-    $unread = FlowCommands::run(ExplainCommand::command($composition), 'id=c0123456789a');
+    $unread = FlowCommands::run(ExplainCommand::command($composition), 'id=k0123456789a');
     FlowCommands::run(RunCommand::command($composition), '--full');
-    $unfound = FlowCommands::run(ExplainCommand::command($composition), 'id=c0123456789a');
-    $unrecorded = 'No ledger read holds a mutant c0123456789a names. Run mutation-gate on the code that has it to record it first.';
+    $unfound = FlowCommands::run(ExplainCommand::command($composition), 'id=k0123456789a');
+    $misspelled = FlowCommands::run(ExplainCommand::command($composition), 'id=k0123');
 
     expect([$unread->code, $unread->errors])
-        ->toBe([2, sprintf("%s Clusters are found by the last run, which cannot be read. No run has left a plan at .mutation-gate/plan.json here: run mutation-gate first.\n", $unrecorded)])
+        ->toBe([2, "Clusters are found by the last run, which cannot be read. No run has left a plan at .mutation-gate/plan.json here: run mutation-gate first.\n"])
         ->and([$unfound->code, $unfound->errors])
-        ->toBe([2, sprintf("%s Nor did the last run find a cluster c0123456789a: clusters change as survivors do, so give one it printed.\n", $unrecorded)]);
+        ->toBe([2, "The last run found no cluster k0123456789a: clusters change as survivors do, so give one it printed.\n"])
+        ->and([$misspelled->code, $misspelled->errors])
+        ->toBe([2, "\"k0123\" is not a cluster id, which is \"k\" and eleven lowercase hex characters, as every report prints it.\n"]);
 });
 
-it('explains a mutant whose id reads as a cluster\'s, where the last run names no cluster by it', function () use ($store, $composed, $survivor): void {
+it('explains an id of twelve hex characters as a mutant, a letter first or not', function () use ($store, $composed, $survivor): void {
     $id = MutantId::parse('c0ffee000001');
     $composition = $composed(ScriptedRunner::fixture(), $id instanceof MutantId ? $store($survivor($id)) : $store());
     FlowCommands::run(RunCommand::command($composition), '--full');
