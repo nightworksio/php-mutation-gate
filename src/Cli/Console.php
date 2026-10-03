@@ -66,7 +66,7 @@ final readonly class Console
         ClockInterface $clock,
         Variables $environment,
     ): Application {
-        $application = new Application(self::NAME);
+        $application = new Application(self::NAME, InstalledGate::version()->spelt());
         $application->setAutoExit(boolean: false);
         $definition = $application->getDefinition();
         $definition->addOption(new InputOption(
