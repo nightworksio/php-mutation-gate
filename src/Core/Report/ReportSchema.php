@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Alert\WebhookPayload;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Matrix\Outcome;
 use NightWorksIO\MutationGate\Core\Matrix\Standing;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -29,9 +30,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use function sprintf;
 
 /**
- * The JSON Schemas of the gate's own reports, built from the same enums the
- * reports are written from, and committed at `resources/report.schema.json`
- * and `resources/tests.schema.json`.
+ * The JSON Schemas of the gate's own reports and of `explain`, built from the
+ * same enums they are written from, and committed in `resources/`.
  *
  * @phpstan-type Leaf array{
  *     type?: string,
@@ -70,6 +70,9 @@ final readonly class ReportSchema
 
     private const string TESTS
         = 'The tests mutation says catch nothing, and those that can go without losing a kill (ADR-0014).';
+
+    private const string EXPLAIN
+        = 'One mutant, or a cluster of survivors and each of them, explained from what the gate keeps (ADR-0014).';
 
     private const array WHOLE = ['type' => 'integer', 'minimum' => 0];
 
@@ -137,20 +140,9 @@ final readonly class ReportSchema
                 'trees' => self::listOfObjects(self::tree()),
                 'newCode' => self::listOfObjects(self::newCode()),
                 'matrix' => self::oneOf(...MatrixKind::cases()),
-                'tests' => self::listOf(self::object([
-                    'id' => self::TEXT,
-                    'name' => self::TEXT,
-                    'file' => self::TEXT,
-                    'row' => self::TEXT,
-                    'seconds' => self::SECONDS,
-                ], ['file', 'row', 'seconds'])),
+                'tests' => self::listOf(self::test([])),
                 'mutants' => self::listOfObjects(self::mutant()),
-                'clusters' => self::listOfObjects(self::object([
-                    'id' => self::CLUSTER_ID,
-                    'kind' => self::oneOf(...ClusterKind::cases()),
-                    'members' => self::listOf(self::ID_SPELLING),
-                    'representative' => self::ID_SPELLING,
-                ], [])),
+                'clusters' => self::listOfObjects(self::cluster()),
                 'reach' => self::listOf(self::TEXT),
                 'warnings' => self::listOf(self::TEXT),
                 'failures' => self::listOf(self::TEXT),
@@ -230,6 +222,40 @@ final readonly class ReportSchema
         ]);
     }
 
+    /** The schema of `explain --format=json`: a mutant, or a cluster and its members, explained (ADR-0014). */
+    public static function explain(): string
+    {
+        $listed = self::listOf(self::TEXT);
+        $record = self::object([
+            'status' => self::oneOf(...MutantStatus::cases()),
+            'run' => self::TEXT,
+            'scope' => self::TEXT,
+            'at' => self::INSTANT,
+        ], []);
+        $explained = self::object([
+            'mutant' => self::mutant(),
+            'judgingSeconds' => self::SECONDS,
+            'tests' => self::listOf(self::test(['outcome' => self::oneOf(...Outcome::cases())])),
+            'unit' => ['oneOf' => [
+                self::unit(['run' => self::TEXT, 'reach' => $listed]),
+                self::object(['unknown' => self::TEXT], []),
+            ]],
+            'history' => self::listOf($record),
+        ], ['judgingSeconds']);
+
+        return JsonText::encode([
+            '$schema' => self::DRAFT,
+            '$id' => sprintf(self::ID, 'explain'),
+            'title' => 'mutation-gate explain',
+            'description' => self::EXPLAIN,
+            ...self::object([
+                'format' => ['const' => ExplanationJson::FORMAT],
+                'cluster' => self::cluster(),
+                'mutants' => ['type' => 'array', 'items' => $explained],
+            ], ['cluster']),
+        ]);
+    }
+
     /** The schema of what the `webhook` reporter posts when the default branch changes state (ADR-0016). */
     public static function webhook(): string
     {
@@ -279,12 +305,7 @@ final readonly class ReportSchema
             'raised' => self::PERCENT,
             'judgement' => self::oneOf(...Judgement::cases()),
             'counts' => self::counts(),
-            'units' => self::listOf(self::object([
-                'path' => self::TEXT,
-                'group' => self::TEXT,
-                'filter' => self::TEXT,
-                'origin' => self::oneOf(...Origin::cases()),
-            ], ['group', 'filter'])),
+            'units' => self::listOf(self::unit([])),
             'mutants' => self::listOf(self::ID_SPELLING),
         ], ['declared', 'exempt', 'baseline', 'floor', 'score', 'base', 'raised']);
     }
@@ -338,6 +359,53 @@ final readonly class ReportSchema
             'cluster' => self::CLUSTER_ID,
             'removable' => self::PRESENT,
         ], ['end', 'family', 'diff', 'reason', MutantRecord::REJECTION, 'seconds', 'limit', 'cluster', 'removable']);
+    }
+
+    /**
+     * A test, as a report lists it once for its mutants to point at, with
+     * any properties a report adds to it.
+     *
+     * @param  array<string, Leaf> $added
+     * @return Flat
+     */
+    private static function test(array $added): array
+    {
+        return self::object([
+            'id' => self::TEXT,
+            'name' => self::TEXT,
+            'file' => self::TEXT,
+            'row' => self::TEXT,
+            'seconds' => self::SECONDS,
+            ...$added,
+        ], ['file', 'row', 'seconds']);
+    }
+
+    /**
+     * A unit of a tree and how the run took it, with any properties a report adds to it.
+     *
+     * @param  array<string, Leaf> $added
+     * @return Shallow
+     */
+    private static function unit(array $added): array
+    {
+        return self::object([
+            'path' => self::TEXT,
+            'group' => self::TEXT,
+            'filter' => self::TEXT,
+            'origin' => self::oneOf(...Origin::cases()),
+            ...$added,
+        ], ['group', 'filter', 'run']);
+    }
+
+    /** @return Shallow */
+    private static function cluster(): array
+    {
+        return self::object([
+            'id' => self::CLUSTER_ID,
+            'kind' => self::oneOf(...ClusterKind::cases()),
+            'members' => self::listOf(self::ID_SPELLING),
+            'representative' => self::ID_SPELLING,
+        ], []);
     }
 
     /** @return Flat */

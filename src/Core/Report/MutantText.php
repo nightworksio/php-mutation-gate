@@ -11,11 +11,17 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
+use NightWorksIO\MutationGate\Core\Test\Filter;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 
 use function rtrim;
 use function sprintf;
@@ -24,7 +30,8 @@ use function sprintf;
  * One mutant as plain text, the same in the console and in a JUnit failure:
  * where it is, its mutator, how it was judged and its id; then its diff, why
  * it stands as it does, the tests that judge it by name, what they miss, the
- * command that reproduces it and the one that explains it.
+ * command that reproduces it and the one that explains it. `explain`,
+ * `reproduce` and a cluster's block are built from the same pieces.
  */
 final readonly class MutantText
 {
@@ -93,24 +100,80 @@ final readonly class MutantText
      */
     public static function block(JudgedMutant $judged, TestNames $names): string
     {
-        $reason = $judged->mutant()->reason();
-        $finding = $judged->finding();
-
         $lines = [
-            ...self::diffOf($judged),
-            ...$reason instanceof Reason ? [sprintf('Why: %s', $reason->text())] : [],
-            ...$reason instanceof Rejection ? [self::rejected($reason)] : [],
+            ...self::diff($judged->mutant()),
+            ...self::stands($judged),
             ...self::judgedBy($judged, $names),
-            $judged->hint()->text(),
-            ...$finding instanceof Removable ? [sprintf(self::REMOVABLE, $finding->name())] : [],
+            ...self::missed($judged),
             sprintf('Reproduce: %s', $judged->reproduce()),
             sprintf('Explain: %s', $judged->explain()),
         ];
 
+        return self::indented(self::heading($judged), ...$lines);
+    }
+
+    /** A heading, and these lines under it, indented. */
+    public static function indented(string $heading, string ...$lines): string
+    {
         return implode("\n", [
-            self::heading($judged),
+            $heading,
             ...array_map(static fn(string $line): string => rtrim(sprintf('%s%s', self::INDENT, $line)), $lines),
         ]);
+    }
+
+    /**
+     * Its diff, line by line; none for a kill a ledger proved, which keeps no diff.
+     *
+     * @return list<string>
+     */
+    public static function diff(Mutant|ProvedKill $mutant): array
+    {
+        $diff = $mutant instanceof Mutant ? rtrim($mutant->mutation()->diff(), "\n") : '';
+
+        return $diff === '' ? [] : explode("\n", $diff);
+    }
+
+    /**
+     * Why it stands as it does, where its record says: the reason its runner
+     * gave, or the rejection of the analyser that killed it.
+     *
+     * @return list<string>
+     */
+    public static function stands(JudgedMutant|JudgedKill $judged): array
+    {
+        $reason = $judged->mutant()->reason();
+
+        return match (true) {
+            $reason instanceof Reason => [sprintf('Why: %s', $reason->text())],
+            $reason instanceof Rejection => [self::rejected($reason)],
+            default => [],
+        };
+    }
+
+    /**
+     * What its tests miss, and the callee it may be deleted with where the
+     * gate found one (ADR-0025, decision 12).
+     *
+     * @return list<string>
+     */
+    public static function missed(JudgedMutant|JudgedKill $judged): array
+    {
+        $finding = $judged instanceof JudgedMutant ? $judged->finding() : NoFinding::survivor();
+
+        return [
+            $judged->hint()->text(),
+            ...$finding instanceof Removable ? [sprintf(self::REMOVABLE, $finding->name())] : [],
+        ];
+    }
+
+    /** The tests that judge a unit's mutants, as a reader names them. */
+    public static function judging(WholeSuite|Group|Filter $judgedBy): string
+    {
+        return match (true) {
+            $judgedBy instanceof Group => sprintf('the tests in the group %s', $judgedBy->name()),
+            $judgedBy instanceof Filter => sprintf('the tests matching %s', $judgedBy->pattern()),
+            default => 'every test that covers it',
+        };
     }
 
     /**
@@ -126,13 +189,5 @@ final readonly class MutantText
             Fit::plain($rejection->finding()->code()),
             Fit::plain($rejection->finding()->message()),
         );
-    }
-
-    /** @return list<string> */
-    private static function diffOf(JudgedMutant $judged): array
-    {
-        $diff = rtrim($judged->mutant()->mutation()->diff(), "\n");
-
-        return $diff === '' ? [] : explode("\n", $diff);
     }
 }

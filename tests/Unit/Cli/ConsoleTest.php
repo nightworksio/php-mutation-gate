@@ -45,6 +45,7 @@ it('offers every command the README lists', function (string $command) use ($con
     'baseline',
     'coverage',
     'reproduce',
+    'explain',
     'triage',
     'watch',
     'pre-push',

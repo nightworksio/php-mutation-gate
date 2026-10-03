@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Cli\Command\ConfigSchema;
 use NightWorksIO\MutationGate\Cli\Command\ConfigShow;
 use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
 use NightWorksIO\MutationGate\Cli\Command\Doctor;
+use NightWorksIO\MutationGate\Cli\Command\ExplainCommand;
 use NightWorksIO\MutationGate\Cli\Command\Init;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Cli\Command\PreCommitCommand;
@@ -115,6 +116,7 @@ final readonly class Console
         $application->addCommand(PreCommitCommand::command($composition));
         $application->addCommand(PrePushCommand::command($composition));
         $application->addCommand(ReproduceCommand::command($composition));
+        $application->addCommand(ExplainCommand::command($composition));
         $formats = new Formats(class_exists(...));
         $installed = $detected->installed();
         $gate = $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();

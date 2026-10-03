@@ -12,6 +12,11 @@ use function count;
 
 use Countable;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\File\Path;
+
+use function sprintf;
+
 use Traversable;
 
 /**
@@ -21,6 +26,8 @@ use Traversable;
  */
 final readonly class JudgedUnits implements Countable, IteratorAggregate
 {
+    private const string NONE = 'No unit of the run holds %s.';
+
     /** @param list<JudgedUnit> $units */
     private function __construct(private array $units)
     {
@@ -45,6 +52,18 @@ final readonly class JudgedUnits implements Countable, IteratorAggregate
     public function and(self $those): self
     {
         return new self([...$this->units, ...$those->units]);
+    }
+
+    /** The first of these units that holds a file: the file's own, or the held path it is in; or that none does. */
+    public function holding(Path $file): JudgedUnit|CannotTell
+    {
+        foreach ($this->units as $unit) {
+            if ($file->within($unit->unit()->path())) {
+                return $unit;
+            }
+        }
+
+        return CannotTell::because(sprintf(self::NONE, $file->value()));
     }
 
     public function count(): int

@@ -6,14 +6,18 @@ namespace NightWorksIO\MutationGate\Core\Report;
 
 use function count;
 
+use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
 /**
- * Every test that covers or killed a mutant of a verdict, each once, in the
- * order the mutants first name them, so a report can list the tests once
- * and point at them by their place (ADR-0014, decision 9).
+ * Every test that covers or killed a mutant of a verdict, or of one mutant
+ * explained, each once, in the order the mutants first name them, so a
+ * report can list the tests once and point at them by their place
+ * (ADR-0014, decision 9).
  */
 final readonly class TestTable
 {
@@ -24,11 +28,17 @@ final readonly class TestTable
 
     public static function of(Verdict $verdict): self
     {
+        return self::over($verdict->matrix(), ...$verdict->trees()->mutants());
+    }
+
+    /** Every test that covers or killed these mutants, by the matrix, each once in the order they first name them. */
+    public static function over(KillMatrix $matrix, JudgedMutant|JudgedKill ...$mutants): self
+    {
         $tests = TestIds::none();
         $places = [];
 
-        foreach ($verdict->trees()->mutants() as $judged) {
-            foreach ($verdict->matrix()->coveredBy($judged) as $test) {
+        foreach ($mutants as $judged) {
+            foreach ($matrix->coveredBy($judged) as $test) {
                 if ($tests->has($test)) {
                     continue;
                 }

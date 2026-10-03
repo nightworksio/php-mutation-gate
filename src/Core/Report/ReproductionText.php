@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
-use function array_map;
 use function count;
-use function explode;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -29,35 +27,27 @@ use function sprintf;
  */
 final readonly class ReproductionText
 {
-    private const string RECORDED = 'Recorded: %s, by %s on %s at %s';
-
     public static function of(Recorded $recorded, WholeSuite|Group|Filter $judgedBy, Reproduction $now): string
     {
         $mutant = $recorded->mutant();
         $again = $now->mutant();
         $lines = [
-            ...$mutant instanceof Mutant ? self::diffOf($mutant) : [],
-            sprintf(
-                self::RECORDED,
-                $mutant->status()->value,
-                $recorded->proof()->run()->id(),
-                $recorded->scope()->name(),
-                $recorded->proof()->run()->at()->value(),
-            ),
+            ...MutantText::diff($mutant),
+            sprintf('Recorded: %s', RecordText::of($recorded)),
             ...$again instanceof Mutant ? self::found($again) : [sprintf('Now: not made. %s', $again->why()->text())],
-            sprintf(MutantText::JUDGED_BY, self::judging($judgedBy)),
+            sprintf(MutantText::JUDGED_BY, MutantText::judging($judgedBy)),
             sprintf(sprintf('Explain: %s', JudgedMutant::EXPLAIN), $mutant->id()->value()),
         ];
+        $heading = sprintf(
+            '%s:%d  %s  %s',
+            $mutant->location()->file()->value(),
+            $mutant->location()->start()->number(),
+            Mutator::short($mutant->mutator()),
+            $mutant->id()->value(),
+        );
 
         return implode("\n", [
-            sprintf(
-                '%s:%d  %s  %s',
-                $mutant->location()->file()->value(),
-                $mutant->location()->start()->number(),
-                Mutator::short($mutant->mutator()),
-                $mutant->id()->value(),
-            ),
-            ...array_map(static fn(string $line): string => rtrim(sprintf('%s%s', MutantText::INDENT, $line)), $lines),
+            MutantText::indented($heading, ...$lines),
             '',
             'What the runner printed:',
             rtrim($now->printed(), "\n"),
@@ -80,15 +70,6 @@ final readonly class ReproductionText
         ];
     }
 
-    private static function judging(WholeSuite|Group|Filter $judgedBy): string
-    {
-        return match (true) {
-            $judgedBy instanceof Group => sprintf('the tests in the group %s', $judgedBy->name()),
-            $judgedBy instanceof Filter => sprintf('the tests matching %s', $judgedBy->pattern()),
-            default => 'every test that covers it',
-        };
-    }
-
     private static function listed(TestIds $tests): string
     {
         $ids = [];
@@ -98,13 +79,5 @@ final readonly class ReproductionText
         }
 
         return implode(', ', $ids);
-    }
-
-    /** @return list<string> */
-    private static function diffOf(Mutant $mutant): array
-    {
-        $diff = rtrim($mutant->mutation()->diff(), "\n");
-
-        return $diff === '' ? [] : explode("\n", $diff);
     }
 }

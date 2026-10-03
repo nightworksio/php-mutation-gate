@@ -26,6 +26,12 @@ final readonly class IdPrefix
     {
     }
 
+    /** A whole id, which names that mutant alone. */
+    public static function of(MutantId $id): self
+    {
+        return new self($id->value());
+    }
+
     public static function parse(string $written): self|CannotJudge
     {
         return preg_match(self::SPELLING, $written) === 1

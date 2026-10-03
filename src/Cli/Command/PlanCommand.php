@@ -9,13 +9,12 @@ use function count;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
-use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
@@ -73,7 +72,7 @@ final readonly class PlanCommand
     /** Write the plan and hand it to the CI; or say why it cannot be. */
     private static function published(Composed $composed, Plan $plan, OutputInterface $output): int
     {
-        $written = $composed->adapters->project->write(Workspace::plan(), Contents::of(PlanFile::encode($plan)));
+        $written = LastRun::keep($composed->adapters->project, $plan);
         $published = $written instanceof Written ? $composed->adapters->ci->publish($plan) : $written;
 
         if ($published instanceof CannotJudge) {

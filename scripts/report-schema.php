@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-// Writes resources/report.schema.json, resources/tests.schema.json and
-// resources/webhook.schema.json from the reports' own definitions, and
-// resources/doctor.schema.json from doctor's, as `composer report:schema`
-// runs it. The Unit suite fails while a committed file differs from what
+// Writes resources/report.schema.json, resources/tests.schema.json,
+// resources/webhook.schema.json and resources/explain.schema.json from the
+// reports' own definitions, and resources/doctor.schema.json from doctor's,
+// as `composer report:schema` runs it. The Unit suite fails while a committed file differs from what
 // this writes.
 
 use NightWorksIO\MutationGate\Core\Doctor\DoctorSchema;
@@ -17,3 +17,4 @@ file_put_contents(dirname(__DIR__) . '/resources/report.schema.json', ReportSche
 file_put_contents(dirname(__DIR__) . '/resources/tests.schema.json', ReportSchema::tests() . "\n");
 file_put_contents(dirname(__DIR__) . '/resources/doctor.schema.json', DoctorSchema::json() . "\n");
 file_put_contents(dirname(__DIR__) . '/resources/webhook.schema.json', ReportSchema::webhook() . "\n");
+file_put_contents(dirname(__DIR__) . '/resources/explain.schema.json', ReportSchema::explain() . "\n");

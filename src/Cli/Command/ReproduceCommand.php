@@ -14,8 +14,6 @@ use NightWorksIO\MutationGate\Cli\Flow\Reproducing;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
-use NightWorksIO\MutationGate\Core\Proof\Ambiguous;
-use NightWorksIO\MutationGate\Core\Proof\NoRecord;
 use NightWorksIO\MutationGate\Core\Report\ReproductionText;
 
 use function sprintf;
@@ -33,10 +31,6 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class ReproduceCommand
 {
-    private const string NO_RECORD = <<<'SAID'
-        No ledger read holds a mutant %s names. Run mutation-gate on the code that has it to record it first.
-        SAID;
-
     private const string DIFFERS = <<<'SAID'
         The run found it %s where the ledger recorded it %s: it may be flaky, or its code or tests changed since.
         SAID;
@@ -61,7 +55,7 @@ final readonly class ReproduceCommand
 
                 return $reproduced instanceof Reproduced
                     ? self::shown($output, $reproduced)
-                    : Failed::because($output, self::unreproduced($reproduced));
+                    : Failed::unfound($output, $reproduced);
             });
     }
 
@@ -86,14 +80,5 @@ final readonly class ReproduceCommand
         $output->writeln(sprintf(self::DIFFERS, $now->status()->value, $recorded->value), OutputInterface::OUTPUT_RAW);
 
         return ExitCode::Failed->value;
-    }
-
-    private static function unreproduced(NoRecord|Ambiguous|CannotJudge $why): CannotJudge
-    {
-        return match (true) {
-            $why instanceof NoRecord => CannotJudge::because(sprintf(self::NO_RECORD, $why->sought()->value())),
-            $why instanceof Ambiguous => CannotJudge::because($why->why()),
-            default => $why,
-        };
     }
 }

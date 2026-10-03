@@ -172,7 +172,7 @@ run does.
 | `verdict --plan=<file> --results=<dir>` | Merge every shard's results, judge the floors, write reports and the ledger |
 | `baseline [--write]` | Show, or write, floors raised to what was measured |
 | `reproduce <id>` | Run one recorded mutant again, alone, and show why it survives, with the runner's own output; the id may be a unique prefix of 6 or more. Exits 1 where the run finds other than what was recorded, and 2 where no ledger holds it or the run no longer makes it |
-| `explain <id> [--format=text\|json]` | Show one mutant's diff, hint, covering tests and their outcomes, and its history, from the ledgers, running nothing; the id may be a unique prefix of 6 or more |
+| `explain <id> [--format=text\|json]` | Show one mutant's diff, hint, covering tests and their outcomes, how the last run took its unit, and its history, from the ledgers and the last run, running nothing; the id may be a unique prefix of 6 or more, or a cluster's id. `--format=json` is described by [`resources/explain.schema.json`](resources/explain.schema.json). Exits 2 where no record holds it |
 | `tests` | Print the tests report from the ledgers, running nothing: the useless, redundant and weakly asserting tests |
 | `triage <path> [--repeat=<n>] [--order=runner\|killers-first]` | Run a unit n times (5 by default) and list every mutant whose result varied, with each mutant's tests in the order `--order` names (`tests.order` by default) |
 | `watch` | Re-judge what each save reaches |
@@ -522,7 +522,7 @@ Files the gate reads and writes:
 |------|------------|------------|
 | `mutation-gate.php`, `.json`, `.yaml`, `.yml` or `.neon` | The config | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `mutation-gate.baseline.json` | The committed floors | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
-| `.mutation-gate/plan.json`, `.mutation-gate/coverage/`, `.mutation-gate/results/<id>.json` | The plan, its coverage and each shard's result | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `.mutation-gate/plan.json`, `.mutation-gate/coverage/`, `.mutation-gate/results/<id>.json` | The plan, its coverage and each shard's result, which `plan` and a run in one process leave and `explain` reads as the last run | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | `.mutation-gate/pipeline.yml` | GitLab's child pipeline | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `.mutation-gate/ledger/<scope>/ledger.json.gz` | The proof ledger of one ref; outside CI, the one a run writes whatever store the config names | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md), [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 | `.mutation-gate/mutants/<native id>.php` | The mutated file of a mutant judged by reference (Pest) | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |

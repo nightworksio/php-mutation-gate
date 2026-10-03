@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -117,7 +118,10 @@ final readonly class JsonReport
             'trees' => self::each($verdict->trees(), self::tree(...)),
             'newCode' => self::each($verdict->newCode(), self::newCode(...)),
             'matrix' => $verdict->matrix()->kind()->value,
-            'tests' => self::tests($verdict, $table),
+            'tests' => self::each(
+                $table->tests(),
+                static fn(TestId $test): array => self::test($verdict->matrix(), $test),
+            ),
             'mutants' => self::each(
                 $verdict->trees()->mutants(),
                 static fn(JudgedMutant|JudgedKill $judged): array => self::mutant($judged, $verdict->matrix(), $table),
@@ -129,6 +133,89 @@ final readonly class JsonReport
             'cannotJudge' => self::texts($verdict->obstacles(), static fn(CannotJudge $why): string => $why->why()),
             ...AccountJson::of($verdict),
         ]);
+    }
+
+    /** @return UnitEntry */
+    public static function unit(JudgedUnit $unit): array
+    {
+        $judgedBy = $unit->unit()->judgedBy();
+
+        return [
+            'path' => $unit->unit()->path()->value(),
+            ...$judgedBy instanceof Group ? ['group' => $judgedBy->name()] : [],
+            ...$judgedBy instanceof Filter ? ['filter' => $judgedBy->pattern()] : [],
+            'origin' => $unit->origin()->value,
+        ];
+    }
+
+    /**
+     * One mutant, with its tests by their places in the table (ADR-0014, decision 9).
+     *
+     * @return MutantEntry
+     */
+    public static function mutant(JudgedMutant|JudgedKill $judged, KillMatrix $matrix, TestTable $table): array
+    {
+        $mutant = $judged->mutant();
+        $end = $mutant->location()->end();
+        $tests = [];
+
+        foreach ($judged->tests() as $test) {
+            $tests[] = $test->value();
+        }
+
+        return [
+            'id' => $mutant->id()->value(),
+            'file' => $mutant->location()->file()->value(),
+            'line' => $mutant->location()->start()->number(),
+            ...$end instanceof Line ? ['end' => $end->number()] : [],
+            'mutator' => $mutant->mutator(),
+            ...$mutant instanceof Mutant
+                ? ['family' => $mutant->mutation()->family()->value, 'diff' => $mutant->mutation()->diff()]
+                : [],
+            'status' => $mutant->status()->value,
+            'judgement' => $judged->judgement()->value,
+            ...self::why($mutant),
+            'changedLine' => $judged->isOnChangedLine(),
+            'tests' => $tests,
+            'coveredBy' => $table->placesOf($matrix->coveredBy($judged)),
+            'killedBy' => $table->placesOf($judged->mutant()->killers()),
+            'hint' => $judged->hint()->text(),
+            'reproduce' => $judged->reproduce(),
+            'explain' => $judged->explain(),
+            ...self::optional($judged),
+        ];
+    }
+
+    /** @return ClusterEntry */
+    public static function cluster(Cluster $cluster): array
+    {
+        return [
+            'id' => $cluster->id()->value(),
+            'kind' => $cluster->kind()->value,
+            'members' => self::ids(JudgedMutants::of(...$cluster->members())),
+            'representative' => $cluster->representative()->mutant()->id()->value(),
+        ];
+    }
+
+    /**
+     * One test the mutants name, as the list of tests holds it once for
+     * their `coveredBy` and `killedBy` to point at.
+     *
+     * @return TestEntry
+     */
+    public static function test(KillMatrix $matrix, TestId $test): array
+    {
+        $name = $matrix->names()->nameOf($test);
+        $whole = $matrix->names()->testOf($test);
+        $seconds = $matrix->secondsOf($test);
+
+        return [
+            'id' => $test->value(),
+            'name' => $name->value(),
+            ...$whole instanceof TestName ? ['file' => $whole->file()->value()] : [],
+            ...$name instanceof TestRow ? ['row' => $name->row()] : [],
+            ...$seconds instanceof Seconds ? ['seconds' => $seconds->seconds()] : [],
+        ];
     }
 
     /** @return TreeEntry */
@@ -170,53 +257,6 @@ final readonly class JsonReport
         ];
     }
 
-    /** @return UnitEntry */
-    private static function unit(JudgedUnit $unit): array
-    {
-        $judgedBy = $unit->unit()->judgedBy();
-
-        return [
-            'path' => $unit->unit()->path()->value(),
-            ...$judgedBy instanceof Group ? ['group' => $judgedBy->name()] : [],
-            ...$judgedBy instanceof Filter ? ['filter' => $judgedBy->pattern()] : [],
-            'origin' => $unit->origin()->value,
-        ];
-    }
-
-    /** @return MutantEntry */
-    private static function mutant(JudgedMutant|JudgedKill $judged, KillMatrix $matrix, TestTable $table): array
-    {
-        $mutant = $judged->mutant();
-        $end = $mutant->location()->end();
-        $tests = [];
-
-        foreach ($judged->tests() as $test) {
-            $tests[] = $test->value();
-        }
-
-        return [
-            'id' => $mutant->id()->value(),
-            'file' => $mutant->location()->file()->value(),
-            'line' => $mutant->location()->start()->number(),
-            ...$end instanceof Line ? ['end' => $end->number()] : [],
-            'mutator' => $mutant->mutator(),
-            ...$mutant instanceof Mutant
-                ? ['family' => $mutant->mutation()->family()->value, 'diff' => $mutant->mutation()->diff()]
-                : [],
-            'status' => $mutant->status()->value,
-            'judgement' => $judged->judgement()->value,
-            ...self::why($mutant),
-            'changedLine' => $judged->isOnChangedLine(),
-            'tests' => $tests,
-            'coveredBy' => $table->placesOf($matrix->coveredBy($judged)),
-            'killedBy' => $table->placesOf($judged->mutant()->killers()),
-            'hint' => $judged->hint()->text(),
-            'reproduce' => $judged->reproduce(),
-            'explain' => $judged->explain(),
-            ...self::optional($judged),
-        ];
-    }
-
     /**
      * What a mutant's entry holds only where it applies: how long it ran,
      * the limit it ran under, its cluster, and whether its callee may be
@@ -254,42 +294,6 @@ final readonly class JsonReport
             $reason instanceof Rejection => [MutantRecord::REJECTION => MutantRecord::rejection($reason)],
             default => [],
         };
-    }
-
-    /** @return ClusterEntry */
-    private static function cluster(Cluster $cluster): array
-    {
-        return [
-            'id' => $cluster->id()->value(),
-            'kind' => $cluster->kind()->value,
-            'members' => self::ids(JudgedMutants::of(...$cluster->members())),
-            'representative' => $cluster->representative()->mutant()->id()->value(),
-        ];
-    }
-
-    /**
-     * Every test the mutants name, once, in the places their `coveredBy` and `killedBy` point at.
-     *
-     * @return list<TestEntry>
-     */
-    private static function tests(Verdict $verdict, TestTable $table): array
-    {
-        $entries = [];
-
-        foreach ($table->tests() as $test) {
-            $name = $verdict->matrix()->names()->nameOf($test);
-            $whole = $verdict->matrix()->names()->testOf($test);
-            $seconds = $verdict->matrix()->secondsOf($test);
-            $entries[] = [
-                'id' => $test->value(),
-                'name' => $name->value(),
-                ...$whole instanceof TestName ? ['file' => $whole->file()->value()] : [],
-                ...$name instanceof TestRow ? ['row' => $name->row()] : [],
-                ...$seconds instanceof Seconds ? ['seconds' => $seconds->seconds()] : [],
-            ];
-        }
-
-        return $entries;
     }
 
     /** @return Numbers */
