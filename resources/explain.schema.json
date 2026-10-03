@@ -13,7 +13,7 @@
             "properties": {
                 "id": {
                     "type": "string",
-                    "pattern": "^c[0-9a-f]{11}$"
+                    "pattern": "^k[0-9a-f]{11}$"
                 },
                 "kind": {
                     "enum": [
@@ -184,7 +184,7 @@
                             },
                             "cluster": {
                                 "type": "string",
-                                "pattern": "^c[0-9a-f]{11}$"
+                                "pattern": "^k[0-9a-f]{11}$"
                             },
                             "removable": {
                                 "const": true

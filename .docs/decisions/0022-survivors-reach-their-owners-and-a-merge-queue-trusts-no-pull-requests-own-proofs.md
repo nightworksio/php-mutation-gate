@@ -320,9 +320,11 @@ verdict reaches and how.
     - **SARIF:** every mutant stays a result, so code scanning's fingerprints
       do not move, with `properties.cluster`.
     - **Annotations:** one per cluster, at its first survivor.
-    - A cluster's id is `c` followed by 11 hex characters of a SHA-256 over
-      its sorted member ids. `stub` and `explain` accept it. The `c` keeps it
-      from reading as a mutant id, which is always 12 hex characters.
+    - A cluster's id is `k` followed by 11 hex characters of a SHA-256 over
+      its sorted member ids. `stub` and `explain` accept it. The `k` is no
+      hex digit, so the id never reads as a mutant id, which is always 12
+      hex characters, nor as the prefix of one that `explain` and
+      `reproduce` accept.
     - **As built.**
       - A cluster with any member on a changed line is listed among the
         survivors on changed lines, with every member. The section's

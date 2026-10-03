@@ -276,10 +276,11 @@ running it: why is this mutant here, and has it always been?
         line. Each JSON entry holds the `json` report's own mutant entry,
         with its covering tests as `tests`, each with its `outcome`.
         `resources/explain.schema.json` describes it.
-      - A cluster's id (ADR-0022, decision 17) is twelve hex characters, as
-        a mutant's is, since its `c` is a hex digit. An id the last run names
-        a cluster by is explained as that cluster: its heading, hint and stub
-        command, then each member. Any other id is a mutant's.
+      - An id that begins with `k` is a cluster's (ADR-0022, decision 17),
+        and any other a mutant's or a prefix of one. A cluster is explained
+        as the last run found it: its heading, hint and stub command, then
+        each member. A cluster id the last run names no cluster by is exit
+        2, as is one where there is no last run to read.
       - An id with no record is exit 2, with the sentence `reproduce` gives:
         run the gate on the code that has the mutant to record it.
 

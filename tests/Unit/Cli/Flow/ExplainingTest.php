@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Explaining;
 use NightWorksIO\MutationGate\Cli\Flow\Reporting;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
-use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
+use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -27,9 +27,9 @@ it('cannot explain a mutant or a cluster where it cannot tell where the checkout
         Flows::setup(),
         new Reporting(new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))), Variables::of([])),
     );
-    $sought = IdPrefix::parse($id);
+    $sought = ClusterId::orMutant($id);
     $explained = $sought instanceof CannotJudge ? $sought : new Explaining($composed)->explain($sought);
 
     expect($explained instanceof CannotJudge ? $explained->why() : $explained)
         ->toBe('The commit HEAD is at cannot be read, so the run cannot be tied to one. git is not installed.');
-})->with(['49e02f', 'c0123456789a']);
+})->with(['49e02f', 'k0123456789a']);

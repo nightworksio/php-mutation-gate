@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Explaining;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
+use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\Proof\Ambiguous;
 use NightWorksIO\MutationGate\Core\Proof\NoRecord;
 use NightWorksIO\MutationGate\Core\Report\ExplanationJson;
@@ -47,7 +47,7 @@ final readonly class ExplainCommand
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $composed = $composition->compose($input);
                 $id = $input->getArgument('id');
-                $sought = IdPrefix::parse(is_string($id) ? $id : '');
+                $sought = ClusterId::orMutant(is_string($id) ? $id : '');
                 $form = FormOption::asked($input, self::NAME);
 
                 return match (true) {
