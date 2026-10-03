@@ -8,8 +8,19 @@ version: 2
 # run. Security updates are never held by a cooldown.
 
 updates:
+  # The package and the contract suites' fixture libraries, in one entry, so a
+  # group's update moves the package's lock and every fixture's in one pull
+  # request: the fixtures' php-code-coverage moves with the package's, whose
+  # maps the adapters read. The fixtures' locks hold the highest releases the
+  # required `runner contracts` job runs; the runner canary runs the newest.
   - package-ecosystem: composer
-    directory: /
+    directories:
+      - /
+      - /tests/Contract/Runner/fixture
+      - /tests/Contract/Runner/infection-fixture
+      - /tests/Contract/Runner/infection-fixture/phpunit-12
+      - /tests/Contract/Runner/phpunit-fixture
+      - /tests/Contract/StaticChecker/fixture
     schedule:
       interval: weekly
       day: monday
@@ -38,6 +49,14 @@ updates:
           - 'pestphp/*'
           - 'phpunit/*'
           - 'symfony/*'
+        update-types:
+          - minor
+          - patch
+      # The runners and the analyser only a fixture library installs.
+      runners:
+        patterns:
+          - 'infection/*'
+          - 'carthage-software/*'
         update-types:
           - minor
           - patch

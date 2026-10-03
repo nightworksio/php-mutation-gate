@@ -7,17 +7,13 @@
 /.mutation-gate/
 /.phpactor.json
 /tests/Contract/Runner/fixture/vendor/
-/tests/Contract/Runner/fixture/composer.lock
 /tests/Contract/Runner/fixture/.mutation-gate/
 /tests/Contract/Runner/infection-fixture/vendor/
-/tests/Contract/Runner/infection-fixture/composer.lock
 /tests/Contract/Runner/infection-fixture/.mutation-gate/
 /tests/Contract/Runner/infection-fixture/.phpunit.result.cache
 /tests/Contract/StaticChecker/fixture/vendor/
-/tests/Contract/StaticChecker/fixture/composer.lock
 /tests/Contract/StaticChecker/fixture/.mutation-gate/
 /tests/Contract/Runner/phpunit-fixture/vendor/
-/tests/Contract/Runner/phpunit-fixture/composer.lock
 /tests/Contract/Runner/phpunit-fixture/.mutation-gate/
 /tests/Contract/Runner/phpunit-fixture/.phpunit.cache/
 /tests/Contract/Runner/phpunit-fixture/.phpunit.result.cache

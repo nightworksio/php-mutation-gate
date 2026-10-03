@@ -161,8 +161,8 @@
     },
     "runner-contracts": {
       "check": "runner contracts",
-      "checks": "ADR-0004's Runner contract suite against the real Pest and Infection, the PHPUnit runner's pieces against a real PHPUnit, and ADR-0020's StaticChecker contract suite against the real Mago and PHPStan, at both ends of the ranges the package supports.",
-      "reproduce": "vendor/bin/pest --testsuite=Contract, after installing the fixture libraries as the job does; ANALYSER_CONTRACTS=1 for the analysers",
+      "checks": "ADR-0004's Runner contract suite against the real Pest and Infection, the PHPUnit runner's pieces against a real PHPUnit, and ADR-0020's StaticChecker contract suite against the real Mago and PHPStan, at the highest releases the fixtures' committed locks hold and the lowest the package supports.",
+      "reproduce": "vendor/bin/pest --testsuite=Contract, after installing the fixture libraries as the job does (composer install for the locked highest, composer update --prefer-lowest for the lowest); ANALYSER_CONTRACTS=1 for the analysers",
       "evidence": [
         {"step": "pest-lowest", "tool": "pest", "raw": "evidence/raw/pest-lowest.xml"},
         {"step": "pest-highest", "tool": "pest", "raw": "evidence/raw/pest-highest.xml"},
@@ -180,6 +180,32 @@
         "failure": "A runner broke a promise of the Runner port, or an analyser one of the StaticChecker port.",
         "error": "A contract test threw before it could finish."
       }
+    },
+    "runner-canary": {
+      "check": "runner canary",
+      "checks": "Every day, ADR-0004's Runner contract suite and ADR-0020's StaticChecker contract suite against the newest releases of Pest, Infection, PHPUnit, Mago and PHPStan, the pinned pest-plugin-mutate and Infection freed from the package's pin; then that composer.json takes each pinned release that passed (ADR-0017, decision 8). It is not required: a new release reds it alone.",
+      "reproduce": "gh workflow run canary.yml, or install each fixture library with no lock as the job does and run vendor/bin/pest --testsuite=Contract with RUNNER_CANARY=1; then python3 .github/scripts/runner_pins.py with each fixture's vendor/composer/installed.json",
+      "evidence": [
+        {"step": "pest-newest", "tool": "pest", "raw": "evidence/raw/pest-newest.xml"},
+        {"step": "infection-newest", "tool": "pest", "raw": "evidence/raw/infection-newest.xml"},
+        {"step": "phpunit-newest", "tool": "pest", "raw": "evidence/raw/phpunit-newest.xml"},
+        {"step": "analysers-newest", "tool": "pest", "raw": "evidence/raw/analysers-newest.xml"},
+        {"step": "pins", "tool": "pins", "raw": "evidence/raw/pins.json"}
+      ],
+      "rules": {
+        "pest": "The suite did not run to the end, so it wrote no log of its tests.",
+        "failure": "The newest release of a runner broke a promise of the Runner port, or of an analyser one of the StaticChecker port. Support it, or keep the package's constraint from allowing it.",
+        "error": "A contract test threw before it could finish.",
+        "pins": "The check could not read composer.json or a fixture's installed packages.",
+        "refuses-a-passing-release": "A pinned runner's newest release passes every contract, and composer.json refuses it. Write the line the finding names in composer.json and in the fixture manifests it lists, so the package takes the release."
+      }
+    },
+    "canary-evidence": {
+      "check": "canary evidence",
+      "checks": "It gathers the runner canary's evidence into the one artifact the bot reads.",
+      "reproduce": "Nothing to reproduce",
+      "evidence": "none",
+      "why": "It holds the runner canary's evidence and checks nothing itself."
     },
     "sonar": {
       "check": "sonarcloud",

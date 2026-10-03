@@ -1,0 +1,144 @@
+# The runner canary: every day, the Runner and StaticChecker contract suites
+# against the newest releases of Pest, Infection, PHPUnit, Mago and PHPStan
+# (ADR-0011, decision 6; ADR-0017, decision 8). The required `runner contracts`
+# job runs the releases the fixtures' locks hold, so a release that breaks a
+# contract reds only this workflow, and a release the package's pin refuses
+# that passes reds it too, naming the line to write.
+name: canary
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+# One canary at a time; a dispatched run waits for the scheduled one.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  PHP_VERSION: '8.5'
+
+jobs:
+  runner-canary:
+    name: runner canary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      # Each fixture resolves with no lock, so it gets the releases of the day.
+      # The pinned runner packages are freed from the package's pin first:
+      # pest-plugin-mutate from its conflict, and Infection from its minor, so
+      # the newest release of each is the one that runs. The Pest and PHPUnit
+      # libraries keep the php-code-coverage this package is locked at, whose
+      # maps the adapters read. RUNNER_CANARY skips the contracts that hold a
+      # fixture's manifest to the pin it was freed from.
+      - name: install the newest Pest into the fixture library
+        working-directory: tests/Contract/Runner/fixture
+        run: |
+          rm composer.lock
+          jq 'del(.conflict["pestphp/pest-plugin-mutate"])' composer.json > freed.json
+          mv freed.json composer.json
+          composer require --no-update --no-interaction 'pestphp/pest-plugin-mutate:*'
+          coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
+          composer update --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
+          composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
+      - id: pest-newest
+        run: |
+          mkdir -p evidence/raw
+          vendor/bin/pest --testsuite=Contract --log-junit=evidence/raw/pest-newest.xml
+        env:
+          RUNNER_CONTRACTS: pest
+          RUNNER_CANARY: '1'
+      - name: install the newest Infection into its library
+        working-directory: tests/Contract/Runner/infection-fixture
+        run: |
+          rm composer.lock
+          composer require --no-update --no-interaction 'infection/infection:*'
+          composer update --no-interaction --no-progress
+          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
+      - id: infection-newest
+        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-newest.xml
+        env:
+          RUNNER_CONTRACTS: infection
+          RUNNER_CANARY: '1'
+      - name: install the newest PHPUnit into the PHPUnit runner's library
+        working-directory: tests/Contract/Runner/phpunit-fixture
+        run: |
+          rm composer.lock
+          coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
+          composer update --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
+          composer show | grep -E '^(phpunit/phpunit|phpunit/php-code-coverage) '
+      - id: phpunit-newest
+        run: vendor/bin/pest --testsuite=Contract --filter='PhpUnit' --log-junit=evidence/raw/phpunit-newest.xml
+        env:
+          RUNNER_CONTRACTS: phpunit
+      - name: install the newest Mago and PHPStan into the analysers' fixture
+        working-directory: tests/Contract/StaticChecker/fixture
+        run: |
+          rm composer.lock
+          composer update --no-interaction --no-progress
+          vendor/bin/mago --version
+          composer show | grep -E '^(carthage-software/mago|phpstan/phpstan) '
+      - id: analysers-newest
+        run: vendor/bin/pest --testsuite=Contract --filter='StaticChecker' --log-junit=evidence/raw/analysers-newest.xml
+        env:
+          ANALYSER_CONTRACTS: '1'
+      # Every contract passed on the newest releases, so a pinned release that
+      # composer.json refuses is one to take.
+      - id: pins
+        run: |
+          python3 .github/scripts/runner_pins.py \
+            tests/Contract/Runner/fixture/vendor/composer/installed.json \
+            tests/Contract/Runner/infection-fixture/vendor/composer/installed.json \
+            --findings evidence/raw/pins.json
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py runner-canary
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-runner-canary
+          path: evidence/runner-canary*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py runner-canary
+
+  canary-evidence:
+    name: canary evidence
+    needs: [runner-canary]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - uses: actions/upload-artifact/merge@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: evidence
+          pattern: evidence-*
+          delete-merged: true
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py canary-evidence
