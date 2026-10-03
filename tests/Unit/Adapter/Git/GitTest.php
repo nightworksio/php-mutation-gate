@@ -211,9 +211,11 @@ it('never counts what the gate keeps in its own workspace as a change', function
         ->write('.mutation-gate/workflow/src/Gate.php', "<?php\n")
         ->write('src/B.php', "<?php\n");
     $git = Git::at($repository->root);
+    $fingerprints = $git->fingerprints();
 
     expect(array_keys(changesByPath($git->changesSince(Revision::ref('base')))))->toBe(['src/B.php'])
-        ->and($git->unstaged())->toEqual(Paths::of(Path::of('src/B.php')));
+        ->and($git->unstaged())->toEqual(Paths::of(Path::of('src/B.php')))
+        ->and($fingerprints instanceof Fingerprints ? $fingerprints->count() : 0)->toBe(2);
 });
 
 it('names a staged file as unstaged only once it changes again, and an ignored one never', function (): void {

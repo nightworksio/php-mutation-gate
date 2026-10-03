@@ -40,11 +40,11 @@ use function trim;
  * The repository as git sees it from a directory: what changed from the merge
  * base of a revision and HEAD to what is on disk, every file that is not
  * ignored with its blob id, and a file as it was at a revision. Uncommitted
- * changes and untracked files count, but for the gate's own workspace,
- * `.mutation-gate`. It also says the commit HEAD is at, whether the working
- * tree holds anything it does not, a file marked assume-unchanged or
- * skip-worktree counting as holding more, since what is on disk there is not
- * what git shows, the branch it is on,
+ * changes and untracked files count; the gate's own workspace,
+ * `.mutation-gate`, never does, nor is it fingerprinted. It also says the
+ * commit HEAD is at, whether the working tree holds anything it does not, a
+ * file marked assume-unchanged or skip-worktree counting as holding more,
+ * since what is on disk there is not what git shows, the branch it is on,
  * the branch the remote calls its default, and the URL that remote fetches
  * from.
  *
@@ -122,7 +122,14 @@ final class Git implements ChangeSource, Repository
 
     public function fingerprints(): Fingerprints|CannotTell
     {
-        $listed = $this->git->run(['ls-files', '--cached', '--others', '--exclude-standard', '-z']);
+        $listed = $this->git->run([
+            'ls-files',
+            '--cached',
+            '--others',
+            '--exclude-standard',
+            '-z',
+            ...OutsideTheWorkspace::pathspec(),
+        ]);
 
         return $listed instanceof CannotTell ? $listed : $this->workingTree()->fingerprints(Diff::paths($listed));
     }
