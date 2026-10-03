@@ -64,22 +64,19 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 
-$registry = static fn(): Extensions => new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)));
-
-it('comes from this package', function (): void {
-    expect(FirstParty::PACKAGE)->toBe('nightworksio/mutation-gate');
-});
+$registry = static fn(): Extensions => new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)));
 
 it('is named in this package\'s own composer.json', function (): void {
     $manifest = json_decode((string) file_get_contents(sprintf('%s/composer.json', dirname(__DIR__, 3))), associative: true);
 
-    expect($manifest)->toMatchArray(['name' => FirstParty::PACKAGE])
+    expect($manifest)->toMatchArray(['name' => ThisPackage::COMPOSER])
         ->toHaveKey('extra.mutation-gate.extensions.0', FirstParty::class);
 });
 
@@ -214,7 +211,7 @@ it('detects the plan of the CI a job runs in, GitHub Actions first, and none any
     Variables $environment,
     Name|NotGiven $plan,
 ): void {
-    $registry = new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)));
+    $registry = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)));
 
     expect($registry->detectedCiPlan(CiEnvironment::of($environment)->shows(...)))->toEqual($plan);
 })->with([
@@ -262,7 +259,7 @@ it('keeps GitHub Actions for github where an extension claims it too, and detect
             Withheld::nothing(),
             CiMarker::setting('ACME_BUILD'),
         );
-    $registry = new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)))->merge($extension);
+    $registry = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))->merge($extension);
 
     expect($registry instanceof Extensions ? $registry->detectedCiPlan(CiEnvironment::of(Variables::of(['GITHUB_ACTIONS' => 'true']))->shows(...)) : $registry)
         ->toEqual(BuiltinCiPlan::GitHub->named())

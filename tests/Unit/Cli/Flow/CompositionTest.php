@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
@@ -51,7 +52,7 @@ function compositionOf(array $files, Variables $environment, bool $fake): Compos
     }
 
     $vendor = sprintf('%s/vendor', $project);
-    $firstParty = new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)));
+    $firstParty = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)));
     $extensions = $fake ? new ExtensionFake()->extend($firstParty) : $firstParty;
     $clock = new StoppedClock(Configs::NOW);
     $effective = new Effective(
@@ -95,9 +96,9 @@ it('composes the settings, the adapters they choose, the gate\'s setup and the r
         ->and($composed instanceof Composed ? $composed->setup->installed : $composed)
         ->toEqual(Digest::sha256Of('{"packages": []}'))
         ->and($composed instanceof Composed ? $composed->setup->gate : $composed)->toEqual(Version::of(
-            FirstParty::PACKAGE,
-            (string) InstalledVersions::getPrettyVersion(FirstParty::PACKAGE),
-            (string) InstalledVersions::getReference(FirstParty::PACKAGE),
+            ThisPackage::COMPOSER,
+            (string) InstalledVersions::getPrettyVersion(ThisPackage::COMPOSER),
+            (string) InstalledVersions::getReference(ThisPackage::COMPOSER),
         ))
         ->and($composed instanceof Composed ? $composed->setup->clock->now() : $composed)
         ->toEqual(new DateTimeImmutable(Configs::NOW))

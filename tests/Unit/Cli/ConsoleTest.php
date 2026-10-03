@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Composer\InstalledVersions;
+use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Tests\Support\Commands;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -15,6 +17,23 @@ $console = static fn(): Application => Commands::console(Tree::root());
 
 it('is the mutation-gate command line', function () use ($console): void {
     expect($console()->getName())->toBe('mutation-gate');
+});
+
+it('says which gate Composer installed when asked its version', function () use ($console): void {
+    $tester = new ApplicationTester($console());
+    $code = $tester->run(['--version' => true]);
+    $said = trim(Printed::by($tester->getOutput()));
+
+    expect($code)->toBe(0)
+        ->and($said)->not->toBe('mutation-gate')
+        ->and($said)->toBe(sprintf(
+            'mutation-gate %s',
+            Version::of(
+                'nightworksio/mutation-gate',
+                InstalledVersions::getPrettyVersion('nightworksio/mutation-gate') ?? '',
+                InstalledVersions::getReference('nightworksio/mutation-gate') ?? '',
+            )->spelt(),
+        ));
 });
 
 it('offers every command the README lists', function (string $command) use ($console): void {

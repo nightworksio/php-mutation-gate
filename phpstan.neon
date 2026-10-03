@@ -739,8 +739,6 @@ services:
                     - API # owner: flows (Api::at() gives GitHub's own)
                 'NightWorksIO\MutationGate\Cli\Console':
                     - NAME # owner: flows (ThisPackage::NAME)
-                'NightWorksIO\MutationGate\Cli\FirstParty':
-                    - PACKAGE # owner: flows (ThisPackage::COMPOSER)
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\Project':
                     - OWN # owner: phpunit runner (BuiltinRunner::PhpUnit)
         tags:

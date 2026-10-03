@@ -24,3 +24,13 @@ it('is a release where its version is a tag, and not where Composer installed a 
     'an aliased branch' => ['2.x-dev', false],
     'no version' => ['', false],
 ]);
+
+it('is spelt by its tag where it is a release, and by its branch and commit where it is not', function (string $version, string $reference, string $spelt): void {
+    expect(Version::of('nightworksio/mutation-gate', $version, $reference)->spelt())->toBe($spelt);
+})->with([
+    'a release' => ['0.1.0', 'a1b2c3d', '0.1.0'],
+    'a branch' => ['dev-main', 'a1b2c3d', 'dev-main a1b2c3d'],
+    'an aliased branch' => ['0.x-dev', 'a1b2c3d', '0.x-dev a1b2c3d'],
+    'a branch with no commit known' => ['dev-main', '', 'dev-main'],
+    'nothing known' => ['', '', ''],
+]);

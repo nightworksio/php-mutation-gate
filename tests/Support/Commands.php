@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Cli\Console;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
 use function sprintf;
@@ -35,7 +36,7 @@ final readonly class Commands
     public static function console(string $project, array $environment = []): Application
     {
         return Console::application(
-            new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE))),
+            new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))),
             $project,
             sprintf('%s/vendor', $project),
             new StoppedClock(Configs::NOW),

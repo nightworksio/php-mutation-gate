@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Cli\Doctor\Observed;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
 use function sprintf;
@@ -30,7 +31,7 @@ final class Doctored
     /** @param array<string, string> $environment */
     public static function observed(string $project, string $php, array $environment = []): Observed
     {
-        $extensions = new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)));
+        $extensions = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)));
         $detected = new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)));
 
         $now = new DateTimeImmutable(Configs::NOW);

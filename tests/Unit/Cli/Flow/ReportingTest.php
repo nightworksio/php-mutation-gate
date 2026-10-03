@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -49,7 +50,7 @@ function reportingOnMain(): RunOn
  */
 function reportersOf(Settings $settings, Variables $environment, RunOn $runOn): array|Invalid|CannotJudge
 {
-    $chosen = new Chosen(new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE))));
+    $chosen = new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))));
 
     return new Reporting($chosen, $environment)->reporters($settings, $runOn);
 }

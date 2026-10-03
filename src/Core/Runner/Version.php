@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function sprintf;
 use function str_ends_with;
 use function str_starts_with;
 
@@ -37,6 +38,14 @@ final readonly class Version
     public function reference(): string
     {
         return $this->reference;
+    }
+
+    /** The version as a person quotes it: a release by its tag, a branch by its name and the commit it was at. */
+    public function spelt(): string
+    {
+        return $this->isRelease() || $this->reference === ''
+            ? $this->version
+            : sprintf('%s %s', $this->version, $this->reference);
     }
 
     /** Whether Composer installed a release, whose version is a tag, rather than a branch: `dev-main` or `2.x-dev`. */

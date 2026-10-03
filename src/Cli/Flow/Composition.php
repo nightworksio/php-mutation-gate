@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use Composer\InstalledVersions;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
@@ -12,7 +11,7 @@ use NightWorksIO\MutationGate\Cli\Config\ConfigLocation;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
-use NightWorksIO\MutationGate\Cli\FirstParty;
+use NightWorksIO\MutationGate\Cli\InstalledGate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -24,7 +23,6 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Console\Input\InputInterface;
@@ -55,11 +53,7 @@ final readonly class Composition
 
         return new Setup(
             $configFile instanceof Path ? $configFile->relativeTo(Path::of($this->project)) : Absent::setting(),
-            Version::of(
-                FirstParty::PACKAGE,
-                InstalledVersions::getPrettyVersion(FirstParty::PACKAGE) ?? '',
-                InstalledVersions::getReference(FirstParty::PACKAGE) ?? '',
-            ),
+            InstalledGate::version(),
             Digest::sha256Of($installed instanceof Contents ? $installed->text() : ''),
             $this->clock,
         );
