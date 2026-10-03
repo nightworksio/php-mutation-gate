@@ -15,8 +15,9 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 /**
  * What the plugin recorded of a mutant's own process, by the mutated copy it
  * ran on: the tests that failed or errored in it, in the order they did,
- * which of them errored, the test files it was narrowed to load, and the
- * memory limit it ran out of, where it did. Any two mutants that leave the
+ * which of them errored, the test files it was narrowed to load, the
+ * memory limit it ran out of, where it did, and whether it had loaded the
+ * original file before the mutant was in its place. Any two mutants that leave the
  * same source share their mutated copy, and so this, even under different
  * mutators.
  */
@@ -32,6 +33,7 @@ final readonly class OwnRun
         private array $errored,
         private array $loaded,
         private MemoryCap|NotGiven $exhaustion,
+        private bool $preloaded,
     ) {
     }
 
@@ -40,14 +42,16 @@ final readonly class OwnRun
      * @param list<string>       $errored    those of them that errored rather than fail an assertion
      * @param list<string>       $loaded     the test files it was narrowed to load, or none where it loaded every one
      * @param MemoryCap|NotGiven $exhaustion the memory limit it ran out of, or none where it did not
+     * @param bool               $preloaded  whether it had loaded the original file before the mutant was in place
      */
     public static function of(
         array $killers,
         array $errored,
         array $loaded,
         MemoryCap|NotGiven $exhaustion,
+        bool $preloaded,
     ): self {
-        return new self($killers, $errored, $loaded, $exhaustion);
+        return new self($killers, $errored, $loaded, $exhaustion, $preloaded);
     }
 
     /** The tests that failed in it, in the order they failed: the first killed the mutant. */
@@ -80,5 +84,14 @@ final readonly class OwnRun
     public function exhaustion(): MemoryCap|NotGiven
     {
         return $this->exhaustion;
+    }
+
+    /**
+     * Whether it had loaded the original file before the mutant was in its
+     * place, so that its tests ran the original code.
+     */
+    public function ranTheOriginal(): bool
+    {
+        return $this->preloaded;
     }
 }

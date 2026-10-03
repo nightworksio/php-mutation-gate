@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -20,7 +21,7 @@ afterEach(function (): void {
  */
 function guardWritten(string $file, string $original, array $before, array $after, Opcache $opcache): string
 {
-    $guard = Guard::watching($file, $original, $before);
+    $guard = Guard::watching($file, $original, Loaded::of($before));
 
     if ($guard instanceof Guard) {
         $guard->write($after, $opcache);
@@ -30,10 +31,10 @@ function guardWritten(string $file, string $original, array $before, array $afte
 }
 
 it('guards nothing unless the adapter names a file and the override an original', function (): void {
-    expect(Guard::watching(file: false, original: '/p/src/A.php', loaded: []))->toBe(Off::Guarding)
-        ->and(Guard::watching('', '/p/src/A.php', []))->toBe(Off::Guarding)
-        ->and(Guard::watching('/g.json', original: false, loaded: []))->toBe(Off::Guarding)
-        ->and(Guard::fromEnvironment())->toBe(Off::Guarding);
+    expect(Guard::watching(file: false, original: '/p/src/A.php', loaded: Loaded::of([])))->toBe(Off::Guarding)
+        ->and(Guard::watching('', '/p/src/A.php', Loaded::of([])))->toBe(Off::Guarding)
+        ->and(Guard::watching('/g.json', original: false, loaded: Loaded::of([])))->toBe(Off::Guarding)
+        ->and(Guard::fromEnvironment([]))->toBe(Off::Guarding);
 });
 
 it('writes whether the original was loaded before the override, at all, and whether opcache could serve it', function (): void {

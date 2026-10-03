@@ -77,6 +77,9 @@ final class Records
     /** @var array<string, MemoryCap> the memory limit a mutant's own process ran out of, by the copy it ran on */
     private array $exhausted = [];
 
+    /** @var array<string, true> each own run that loaded the original before the mutant was in place, by its copy */
+    private array $preloaded = [];
+
     /** @var array<string, list<string>> the test files each narrowed own run loaded, by the mutated copy it ran on */
     private array $narrowed = [];
 
@@ -149,6 +152,7 @@ final class Records
             array_key_exists($mutated, $this->errored) ? $this->errored[$mutated] : [],
             array_key_exists($mutated, $this->narrowed) ? $this->narrowed[$mutated] : [],
             array_key_exists($mutated, $this->exhausted) ? $this->exhausted[$mutated] : NotGiven::value(),
+            array_key_exists($mutated, $this->preloaded),
         );
     }
 
@@ -214,6 +218,7 @@ final class Records
             RecordEvent::Killed, RecordEvent::Errored => $this->withKiller($record, RecordEvent::from($event->text())),
             RecordEvent::Exhausted => $this->exhausted[$record->field(RecordField::Mutated->value)->text()]
                 = WrittenBytes::read($record->field(RecordField::Bytes->value)),
+            RecordEvent::Preloaded => $this->preloaded[$record->field(RecordField::Mutated->value)->text()] = true,
             RecordEvent::Narrowed => $this->withNarrowed($record),
             RecordEvent::End => $this->ended = true,
             null => throw NotInShape::at($event->at(), 'an event the plugin writes'),

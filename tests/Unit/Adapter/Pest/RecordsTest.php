@@ -312,6 +312,20 @@ it('keeps the memory limit each mutant\'s own process ran out of, by the mutated
         ->toEndWith('is not a record the gate reads: the record.bytes is not a number of bytes.');
 });
 
+it('keeps whether each mutant\'s own process had loaded the original before the mutant was in place, by its copy', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        $planned('b', '/p/src/Money.php', 20),
+        RecordLine::preloaded('/tmp/a'),
+        RecordLine::preloaded('/tmp/a'),
+    ]));
+
+    expect($records instanceof Records ? $records->runOf($mutant('a', '/p/src/Money.php', 10))->ranTheOriginal() : $records)
+        ->toBeTrue()
+        ->and($records instanceof Records ? $records->runOf($mutant('b', '/p/src/Money.php', 20))->ranTheOriginal() : $records)
+        ->toBeFalse();
+});
+
 it('keeps apart the mutants Pest gives one id, as two changes that leave the same source share it', function () use ($results, $planned, $mutant): void {
     $records = Records::in($results([
         $planned('same', '/p/src/Money.php', 10),

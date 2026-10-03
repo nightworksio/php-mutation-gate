@@ -101,6 +101,18 @@ final readonly class RecordLine
         ]);
     }
 
+    /**
+     * That the own process of the mutant Pest serves this mutated copy for had
+     * loaded the original file before the mutant was in its place.
+     */
+    public static function preloaded(string $mutated): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Preloaded->value,
+            RecordField::Mutated->value => $mutated,
+        ]);
+    }
+
     /** The memory limit the own process of the mutant Pest serves this mutated copy for ran out of. */
     public static function exhausted(string $mutated, MemoryCap $limit): string
     {

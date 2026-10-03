@@ -51,12 +51,20 @@ final class Plugin implements Bootable, HandlesArguments
 
     private Seeder|Off $seeder = Off::Ordering;
 
+    /**
+     * The guard and the killers read what PHP had loaded when this method
+     * starts, before it loads anything itself, as loaded before
+     * pest-plugin-mutate's override started: the override starts as that
+     * plugin boots, and what boots between the two loads none of the
+     * project's code.
+     */
     public function boot(): void
     {
+        $loaded = get_included_files();
         HoldsGroups::register(TestSuite::getInstance()->tests);
         $this->recorder = Recorder::fromEnvironment();
-        $this->guard = Guard::fromEnvironment();
-        $this->killers = Killers::fromEnvironment();
+        $this->guard = Guard::fromEnvironment($loaded);
+        $this->killers = Killers::fromEnvironment($loaded);
         $this->naming = Naming::fromEnvironment();
         $this->seeder = Seeder::fromEnvironment();
 
