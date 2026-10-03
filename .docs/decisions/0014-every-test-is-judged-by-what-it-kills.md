@@ -110,6 +110,11 @@ running it: why is this mutant here, and has it always been?
        every form says why in place of the removable tests: a run of first
        killers, or Infection, which stops each mutant at its first failing
        test.
+     - `mutation-gate tests` prints `text()` over the last run, judged again
+       as `explain` judges it (decision 12): the plan and results the run
+       left, the ledgers, and the coverage map the plan handed the verdict.
+       Where no run has left a plan, it exits 2 and says to run the gate
+       first.
 
 6. **A test is a test method or a Pest test, with its dataset rows folded
    in.** It is useless only when every row is. The JSON lists each row. A
