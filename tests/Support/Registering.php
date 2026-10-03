@@ -15,7 +15,6 @@ use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -150,7 +149,7 @@ final class Registering
             ExtensionPoint::TreeSource => TreeSourceFake::ofTheFixture(),
             ExtensionPoint::CostModel => new CostModelFake(Seconds::of(1.0)),
             ExtensionPoint::ProofStore => new ProofStoreFake(),
-            ExtensionPoint::CiPlan => new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')),
+            ExtensionPoint::CiPlan => new CiPlanFake(CannotTell::because('A fake run.')),
             ExtensionPoint::Reporter => new ReporterFake(),
             ExtensionPoint::ChangeSource => ChangeSourceFake::ofTheFixture(),
             ExtensionPoint::Repository => RepositoryFake::onMain(Revision::ref('5eeca8f')),

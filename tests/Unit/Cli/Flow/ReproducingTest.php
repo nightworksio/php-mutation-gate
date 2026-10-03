@@ -11,7 +11,6 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\NoRecord;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -102,7 +101,7 @@ it('runs a held unit\'s mutant by the group that holds it', function () use ($st
 it('takes the run\'s own scope\'s newer record of a mutant before the default branch\'s', function () use ($store, $ledger): void {
     $proofs = $store();
     $proofs->write(Scope::branch('feature'), $ledger('2026-09-30T10:00:00Z', 'src/Money.php'));
-    $ci = new CiPlanFake(ShardId::of(1), RunOn::at(Scope::branch('feature'), Scope::branch('main')));
+    $ci = new CiPlanFake(RunOn::at(Scope::branch('feature'), Scope::branch('main')));
 
     $reproduced = new Reproducing(Flows::adapters(Flows::project(), [], $proofs, $ci, ScriptedRunner::fixture()), Flows::settings())
         ->reproduce(Sought::of('49e02fb39669'));

@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
+use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -23,7 +24,6 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
@@ -31,49 +31,47 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-it('appends the shards, by id and label, to the file GitHub reads a step\'s outputs from', function (): void {
-    $output = sprintf('%s/output', Scratch::directory());
-    file_put_contents($output, "earlier=1\n");
+/** Where a GitHub Actions step's outputs go, as `GITHUB_OUTPUT` names it. */
+const GITHUB_OUTPUT = '/home/runner/work/_temp/_runner_file_commands/set_output';
 
-    $github = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => $output]));
+it('appends the shards, by id and label, to the file GitHub reads a step\'s outputs from', function (): void {
     $plan = ShardedPlan::of(2);
 
-    expect($github->publish($plan))->toEqual(Written::to($output))
-        ->and(file_get_contents($output))->toBe(sprintf(
-            "earlier=1\nshards=%s\nplan=%s\n",
+    expect(GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan))->toEqual(Publication::appended(
+        GITHUB_OUTPUT,
+        sprintf(
+            "shards=%s\nplan=%s\n",
             '[{"id":1,"label":"src, part 1 of 2"},{"id":2,"label":"src, part 2 of 2"}]',
             PlanListing::inline($plan),
-        ));
+        ),
+    ));
 });
 
 it('writes a label as it is, slashes and all', function (): void {
-    $output = sprintf('%s/output', Scratch::directory());
     $label = 'src/Http, part 1 of 2 — naïve';
     $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::of(
         Shard::of(ShardId::of(1), Package::at(Path::root()), Units::none(), Seconds::of(1.0), $label),
     ));
-    GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => $output]))->publish($plan);
+    $published = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan);
 
-    expect(file_get_contents($output))->toBe(sprintf(
+    expect($published instanceof Publication ? $published->text() : $published)->toBe(sprintf(
         "shards=[{\"id\":1,\"label\":\"src/Http, part 1 of 2 — naïve\"}]\nplan=%s\n",
         PlanListing::inline($plan),
     ));
 });
 
 it('hands a matrix nothing to run for a plan with no shards', function (): void {
-    $output = sprintf('%s/output', Scratch::directory());
     $plan = ShardedPlan::of(0);
-    GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => $output]))->publish($plan);
 
-    expect(file_get_contents($output))->toBe(sprintf("shards=[]\nplan=%s\n", PlanListing::inline($plan)));
+    expect(GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan))
+        ->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\n", PlanListing::inline($plan))));
 });
 
 it('fills a matrix up to its 256 jobs and refuses one more', function (): void {
-    $output = sprintf('%s/output', Scratch::directory());
-    $github = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => $output]));
+    $github = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]));
 
     expect(GitHubPlan::MOST_JOBS)->toBe(256)
-        ->and($github->publish(ShardedPlan::of(256)))->toEqual(Written::to($output))
+        ->and($github->publish(ShardedPlan::of(256)))->toBeInstanceOf(Publication::class)
         ->and($github->publish(ShardedPlan::of(257)))->toEqual(CannotJudge::because(
             'The plan holds 257 shards, and a GitHub matrix runs at most 256 jobs. Set shards.max to 256 or less.',
         ));
@@ -83,20 +81,6 @@ it('cannot hand a plan to a matrix outside a GitHub Actions step', function (): 
     expect(GitHubPlan::in(Variables::of([]))->publish(ShardedPlan::of(1)))->toEqual(CannotJudge::because(
         'GITHUB_OUTPUT is not set, so the plan cannot reach the matrix. Run plan in a GitHub Actions step.',
     ));
-});
-
-it('cannot judge an output file it cannot write', function (): void {
-    $root = Scratch::directory();
-    $github = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => sprintf('%s/missing/output', $root)]));
-    set_error_handler(static fn(): bool => true);
-    $written = $github->publish(ShardedPlan::of(1));
-    restore_error_handler();
-
-    expect($written)->toEqual(CannotJudge::because(sprintf('%s/missing/output could not be written.', $root)));
-});
-
-it('names the shard a job was started as', function (): void {
-    expect(GitHubPlan::in(Variables::of(['SHARD' => '2']))->shard(ShardedPlan::of(3)))->toEqual(ShardId::of(2));
 });
 
 $event = static function (string $json): string {
@@ -204,15 +188,13 @@ it('is run by the workflow GITHUB_WORKFLOW_REF names, and by none where it names
 });
 
 it('reads the output file from the environment', function (): void {
-    $output = sprintf('%s/output', Scratch::directory());
     $before = getenv('GITHUB_OUTPUT');
-    putenv(sprintf('GITHUB_OUTPUT=%s', $output));
+    putenv(sprintf('GITHUB_OUTPUT=%s', GITHUB_OUTPUT));
     $plan = ShardedPlan::of(0);
-    $written = GitHubPlan::fromOptions(Options::none())->publish($plan);
+    $published = GitHubPlan::fromOptions(Options::none())->publish($plan);
     putenv($before === false ? 'GITHUB_OUTPUT' : sprintf('GITHUB_OUTPUT=%s', $before));
 
-    expect($written)->toEqual(Written::to($output))
-        ->and(file_get_contents($output))->toBe(sprintf("shards=[]\nplan=%s\n", PlanListing::inline($plan)));
+    expect($published)->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\n", PlanListing::inline($plan))));
 });
 
 it('withholds the Actions runtime\'s credentials and the workflow\'s token', function (): void {

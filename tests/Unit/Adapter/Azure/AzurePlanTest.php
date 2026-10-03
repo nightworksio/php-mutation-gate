@@ -3,9 +3,10 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
-use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
+use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -15,22 +16,15 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
-use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
-
-afterEach(function (): void {
-    Scratch::sweep();
-});
 
 /** The plan for a pipeline run from azure-pipelines.yml, in a job with these variables. */
 function azurePlanIn(Variables $variables): AzurePlan
 {
-    return AzurePlan::printing('', $variables, Path::of('azure-pipelines.yml'));
+    return AzurePlan::in(CiJob::of($variables, Paths::of(Path::of('azure-pipelines.yml'))));
 }
 
 /** The reason Azure DevOps gives the plan for naming no default branch. */
@@ -40,43 +34,22 @@ function azureUnnamed(): CannotTell
 }
 
 it('sets the output variable the mutation job\'s matrix reads, one leg per shard', function (): void {
-    $file = sprintf('%s/matrix.txt', Scratch::directory());
-    $written = AzurePlan::printing($file, Variables::of([]), Path::of('azure-pipelines.yml'))->publish(ShardedPlan::of(2));
-
-    expect($written)->toEqual(Written::to($file))
-        ->and(file_get_contents($file))
-        ->toBe("##vso[task.setvariable variable=matrix;isOutput=true]{\"s1\":{\"SHARD\":\"1\"},\"s2\":{\"SHARD\":\"2\"}}\n");
+    expect(azurePlanIn(Variables::of([]))->publish(ShardedPlan::of(2)))->toEqual(Publication::printed(
+        "##vso[task.setvariable variable=matrix;isOutput=true]{\"s1\":{\"SHARD\":\"1\"},\"s2\":{\"SHARD\":\"2\"}}\n",
+    ));
 });
 
 it('sets one leg with no shard for a plan that holds none, as Azure always makes a job', function (): void {
-    $file = sprintf('%s/matrix.txt', Scratch::directory());
-    AzurePlan::printing($file, Variables::of([]), Path::of('azure-pipelines.yml'))->publish(ShardedPlan::of(0));
-
-    expect(file_get_contents($file))->toBe("##vso[task.setvariable variable=matrix;isOutput=true]{\"none\":{\"SHARD\":\"\"}}\n");
+    expect(azurePlanIn(Variables::of([]))->publish(ShardedPlan::of(0))->text())
+        ->toBe("##vso[task.setvariable variable=matrix;isOutput=true]{\"none\":{\"SHARD\":\"\"}}\n");
 });
 
 it('prints to the output, where the agent reads its logging commands', function (): void {
-    ob_start();
     $plan = AzurePlan::fromOptions(Configs::options('{"definition": "azure-pipelines.yml"}'));
-    $written = $plan instanceof AzurePlan ? $plan->publish(ShardedPlan::of(1)) : $plan;
-    $printed = ob_get_clean();
 
-    expect($written)->toEqual(Written::to('php://output'))
-        ->and($printed)->toBe("##vso[task.setvariable variable=matrix;isOutput=true]{\"s1\":{\"SHARD\":\"1\"}}\n");
-});
-
-it('cannot judge a plan it cannot print', function (): void {
-    $root = Scratch::directory();
-    $azure = AzurePlan::printing(sprintf('%s/missing/matrix.txt', $root), Variables::of([]), Path::of('azure-pipelines.yml'));
-    set_error_handler(static fn(): bool => true);
-    $written = $azure->publish(ShardedPlan::of(1));
-    restore_error_handler();
-
-    expect($written)->toEqual(CannotJudge::because(sprintf('%s/missing/matrix.txt could not be written.', $root)));
-});
-
-it('runs the shard its matrix leg names', function (): void {
-    expect(azurePlanIn(Variables::of(['SHARD' => '2']))->shard(ShardedPlan::of(2)))->toEqual(ShardId::of(2));
+    expect($plan instanceof AzurePlan ? $plan->publish(ShardedPlan::of(1)) : $plan)->toEqual(Publication::printed(
+        "##vso[task.setvariable variable=matrix;isOutput=true]{\"s1\":{\"SHARD\":\"1\"}}\n",
+    ));
 });
 
 it('reads a pull request from its id where the build is for one, and the ref it builds otherwise', function (): void {

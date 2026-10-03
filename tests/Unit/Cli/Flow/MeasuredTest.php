@@ -12,7 +12,6 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -77,7 +76,7 @@ it('takes the run\'s own scope\'s newer results, and judges them against the bas
             Digest::sha256Of('base'),
         )))
         ->withProof($proofOf('src/Held.php', '2026-09-29T10:00:00Z')));
-    $ci = new CiPlanFake(ShardId::of(1), RunOn::at(Scope::branch('feature'), Scope::branch('main')));
+    $ci = new CiPlanFake(RunOn::at(Scope::branch('feature'), Scope::branch('main')));
     $baseline = Baseline::of(Entry::of(Path::of('src'), Floor::of(12.5)));
 
     $measured = Measured::of(Flows::adapters(Flows::project(), [], $store, $ci), Flows::settings(), $baseline, new DateTimeImmutable(Configs::NOW));

@@ -9,7 +9,6 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -31,7 +30,7 @@ function modeLedgers(string $passed): Ledgers
         ? Ledger::empty()
         : Ledger::empty()->withPassed(Passed::of(Revision::ref($passed), 'check', 0));
     $store->write(Scope::pullRequest(7), $ledger);
-    $ci = new CiPlanFake(ShardId::of(1), RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
+    $ci = new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
     $standing = Standing::of($ci, RepositoryFake::onMain(Revision::ref('head')), Absent::setting());
 
     return $standing instanceof Standing

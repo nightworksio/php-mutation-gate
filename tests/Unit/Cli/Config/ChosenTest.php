@@ -13,7 +13,6 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -45,7 +44,7 @@ $registry = static fn(): Extensions => new Extensions(Origin::of('acme/gate'))
     ->withProofStore(Name::of('it'), static fn(): ProofStore => new ProofStoreFake())
     ->withCiPlan(
         Name::of('it'),
-        static fn(): CiPlan => new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')),
+        static fn(): CiPlan => new CiPlanFake(CannotTell::because('A fake run.')),
         CiPlanFake::withheld(),
         CiPlanFake::marker(),
     )
@@ -70,7 +69,7 @@ it('builds the adapter an extension registered under the name a setting chooses'
         ->and($chosen->treeSource(Choice::of('it', Configs::options('{}'))))->toEqual(TreeSourceFake::ofTheFixture())
         ->and($chosen->proofStore(Choice::of('it', Configs::options('{}'))))->toBeInstanceOf(ProofStoreFake::class)
         ->and($chosen->ciPlan(Choice::of('it', Configs::options('{}'))))
-        ->toEqual(new CiPlanFake(ShardId::of(1), CannotTell::because('A fake run.')))
+        ->toEqual(new CiPlanFake(CannotTell::because('A fake run.')))
         ->and($chosen->staticChecker(Choice::of('it', Configs::options('{}'))))
         ->toEqual(StaticCheckerFake::findingNothing());
 });

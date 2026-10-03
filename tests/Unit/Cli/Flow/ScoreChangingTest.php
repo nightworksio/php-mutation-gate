@@ -18,7 +18,6 @@ use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -42,7 +41,7 @@ afterEach(function (): void {
 
 /** A working tree on a feature branch that changed a line of src/Money.php since it left `main`. */
 $feature = static fn(): array => [
-    new CiPlanFake(ShardId::of(1), RunOn::at(Scope::branch('feature'), Scope::branch('main'))),
+    new CiPlanFake(RunOn::at(Scope::branch('feature'), Scope::branch('main'))),
     new ChangeSourceFake(
         Revision::ref(Flows::MAIN),
         Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(11)))),

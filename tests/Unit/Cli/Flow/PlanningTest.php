@@ -521,7 +521,7 @@ it('cannot plan where it cannot hand a shard its map', function () use ($plan): 
 it('hands a full pull request plan the lines changed since the default branch, for new code', function () use (
     $plan,
 ): void {
-    $pullRequest = new CiPlanFake(ShardId::of(1), RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
+    $pullRequest = new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
     $changed = Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))));
     $checkout = new ChangeSourceFake(Revision::ref(Flows::MAIN), $changed, [
         Revision::workingTree()->name() => Flows::FILES,
@@ -536,7 +536,7 @@ it('hands a full pull request plan the lines changed since the default branch, f
 it('cannot plan a full pull request run where git cannot tell what changed since the default branch', function () use (
     $plan,
 ): void {
-    $pullRequest = new CiPlanFake(ShardId::of(1), RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
+    $pullRequest = new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
 
     expect($plan(Flows::project(), Mode::full(), Cut::exactly(1), $pullRequest))->toEqual(CannotJudge::because(sprintf(
         "%s %s\n%s\n%s",

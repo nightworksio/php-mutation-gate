@@ -75,9 +75,9 @@ it('leaves standard output to the plan a CI reads from it, and says what it wrot
         ->and(json_validate($stdout))->toBeTrue()
         ->and($planned->errors)->toStartWith("Wrote .mutation-gate/plan.json, with 2 shards.\n");
 })->with([
-    'json' => [JsonPlan::printing('php://output', Variables::of([]))],
-    'circleci' => [CircleCiPlan::printing('php://output', Variables::of([]))],
-    'buildkite' => [BuildkitePlan::printing('php://output', BuildkiteStep::none(), Variables::of([]))],
+    'json' => [JsonPlan::in(Variables::of([]))],
+    'circleci' => [CircleCiPlan::in(Variables::of([]))],
+    'buildkite' => [BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))],
 ]);
 
 it('cuts shards by the config\'s size where no count is asked for', function () use ($plan): void {

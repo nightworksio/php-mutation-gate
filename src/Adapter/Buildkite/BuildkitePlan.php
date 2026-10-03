@@ -5,19 +5,17 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Buildkite;
 
 use function array_map;
-use function file_put_contents;
 use function getenv;
 use function is_string;
 
-use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
+use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
-use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
@@ -31,9 +29,7 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
@@ -60,39 +56,32 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
 
 
     /** @param list<string> $commands the commands the step template runs before the gate's */
-    private function __construct(
-        private Variables $variables,
-        private BuildkiteStep $step,
-        private array $commands,
-        private string $to,
-        private Path $definition,
-    ) {
+    private function __construct(private CiJob $job, private BuildkiteStep $step, private array $commands)
+    {
     }
 
-    /** A plan that prints its steps to this file, built from this step template. */
-    public static function printing(string $to, BuildkiteStep $step, Variables $variables): self
+    /** The plan for a job with these variables, whose steps are built from this step template. */
+    public static function of(BuildkiteStep $step, Variables $variables): self
     {
         $commands = Options::of($step->json());
         $one = $commands->text(Key::of(BuildkiteStep::COMMAND));
         $many = $commands->texts(Key::of(BuildkiteStep::COMMAND));
 
         return new self(
-            $variables,
+            CiJob::of($variables, Paths::of(Ci::none()->buildkiteDefinition())),
             $step,
             match (true) {
                 is_string($one) => [$one],
                 $many instanceof Listed => [...$many],
                 default => [],
             },
-            $to,
-            Ci::none()->buildkiteDefinition(),
         );
     }
 
     /** This plan, run by the pipeline at this path rather than `.buildkite/pipeline.yml`. */
     public function definedIn(Path $definition): self
     {
-        return new self($this->variables, $this->step, $this->commands, $this->to, $definition);
+        return new self(CiJob::of($this->job->variables(), Paths::of($definition)), $this->step, $this->commands);
     }
 
     /** `{"step": {…}, "definition": "<path>"}`, printed to the output. */
@@ -112,15 +101,15 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
             $definition instanceof NotGiven, $definition === '' => Invalid::because(
                 Problem::at(CiJob::DEFINITION, CiJob::UNDEFINED),
             ),
-            default => self::printing(
-                Written::OUTPUT,
+            default => self::of(
                 $step instanceof Options ? BuildkiteStep::of($step->written()) : BuildkiteStep::none(),
                 Variables::of(getenv()),
             )->definedIn(Path::of($definition)),
         };
     }
 
-    public function publish(Plan $plan): Written|CannotJudge
+    /** The steps, printed for `buildkite-agent pipeline upload` to read from a pipe. */
+    public function publish(Plan $plan): Publication
     {
         $steps = [
             ...array_map($this->shardStep(...), [...$plan]),
@@ -132,43 +121,36 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
             ),
         ];
 
-        return Written::attempted(
-            $this->to,
-            file_put_contents($this->to, Json::object(Member::of('steps', Json::items(...$steps)))->printed()),
-        );
+        return Publication::printed(Json::object(Member::of('steps', Json::items(...$steps)))->printed());
     }
 
-    public function shard(Plan $plan): ShardId|CannotJudge
+    /** The pipeline Buildkite uploads from the repository. */
+    public function definitions(): Paths
     {
-        return WhichShard::in($this->variables, $plan);
+        return $this->job->definitions();
     }
 
     public function runOn(): RunOn|CannotTell
     {
-        $defaultBranch = RunOn::branchNamed($this->variables->valueOf('BUILDKITE_PIPELINE_DEFAULT_BRANCH'));
-        $pullRequest = $this->variables->valueOf('BUILDKITE_PULL_REQUEST');
+        $variables = $this->job->variables();
+        $defaultBranch = RunOn::branchNamed($variables->valueOf('BUILDKITE_PIPELINE_DEFAULT_BRANCH'));
+        $pullRequest = $variables->valueOf('BUILDKITE_PULL_REQUEST');
 
         return match (true) {
             $pullRequest !== '' && $pullRequest !== 'false'
                 => RunOn::pullRequest(PullRequestNumber::parse($pullRequest), $defaultBranch),
-            $this->variables->valueOf('BUILDKITE_TAG') !== '' => RunOn::detached($defaultBranch),
-            default => RunOn::branch($this->variables->valueOf('BUILDKITE_BRANCH'), $defaultBranch),
+            $variables->valueOf('BUILDKITE_TAG') !== '' => RunOn::detached($defaultBranch),
+            default => RunOn::branch($variables->valueOf('BUILDKITE_BRANCH'), $defaultBranch),
         };
     }
 
-    /** The pipeline Buildkite uploads from the repository to run the gate. */
-    public function definitions(): Paths
-    {
-        return Paths::of($this->definition);
-    }
-
-    /** The agent's token, which can upload and change pipelines. */
     /** Buildkite sets `BUILDKITE` to `true` in every job. */
     public static function marker(): CiMarker
     {
         return CiMarker::saying(Variables::BUILDKITE);
     }
 
+    /** The agent's token, which can upload and change pipelines. */
     public static function withheld(): Withheld
     {
         return Withheld::of('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN');

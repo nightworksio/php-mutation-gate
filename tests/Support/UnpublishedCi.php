@@ -10,7 +10,6 @@ use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
@@ -27,19 +26,14 @@ final readonly class UnpublishedCi implements CiPlan
         return CannotJudge::because($this->why);
     }
 
-    public function shard(Plan $plan): ShardId|CannotJudge
+    public function definitions(): Paths
     {
-        return Flows::ci()->shard($plan);
+        return Flows::ci()->definitions();
     }
 
     public function runOn(): RunOn|CannotTell
     {
         return Flows::ci()->runOn();
-    }
-
-    public function definitions(): Paths
-    {
-        return Flows::ci()->definitions();
     }
 
     public static function withheld(): Withheld

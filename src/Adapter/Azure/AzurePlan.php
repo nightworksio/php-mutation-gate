@@ -5,27 +5,23 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Azure;
 
 use function count;
-use function file_put_contents;
 use function getenv;
 use function json_encode;
 
-use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
+use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
@@ -52,34 +48,32 @@ final readonly class AzurePlan implements CiPlan, Configurable
     /** A GitHub pull request's number, which Azure sets where it differs from the pull request's id. */
     private const string PULL_REQUEST_NUMBER = 'SYSTEM_PULLREQUEST_PULLREQUESTNUMBER';
 
-    private function __construct(private CiJob $job, private string $to)
+    private function __construct(private CiJob $job)
     {
     }
 
-    /** A plan that prints to this file, for a pipeline run from this definition. */
-    public static function printing(string $to, Variables $variables, Path $definition): self
+    /** The plan for this job. */
+    public static function in(CiJob $job): self
     {
-        return new self(CiJob::of($variables, Paths::of($definition)), $to);
+        return new self($job);
     }
 
     /** From `definition`, the pipeline file that runs the gate, which `ci.azure.definition` names. */
     public static function fromOptions(Options $options): self|Invalid
     {
-        $job = CiJob::definedIn($options, Variables::of(getenv()));
-
-        return $job instanceof CiJob ? new self($job, Written::OUTPUT) : $job;
+        return CiJob::planned($options, Variables::of(getenv()), self::in(...));
     }
 
-    public function publish(Plan $plan): Written|CannotJudge
+    /** The logging command that sets the output variable `matrix`, printed where Azure reads it. */
+    public function publish(Plan $plan): Publication
     {
-        $line = sprintf(self::SET_OUTPUT, self::OUTPUT, $this->matrixOf($plan));
-
-        return Written::attempted($this->to, file_put_contents($this->to, $line));
+        return Publication::printed(sprintf(self::SET_OUTPUT, self::OUTPUT, $this->matrixOf($plan)));
     }
 
-    public function shard(Plan $plan): ShardId|CannotJudge
+    /** The pipeline file that runs the gate. */
+    public function definitions(): Paths
     {
-        return $this->job->shard($plan);
+        return $this->job->definitions();
     }
 
     /**
@@ -99,12 +93,6 @@ final readonly class AzurePlan implements CiPlan, Configurable
         return $variables->valueOf('BUILD_REASON') === 'PullRequest'
             ? RunOn::pullRequest(PullRequestNumber::parse($number), $defaultBranch)
             : RunOn::onRef($variables->valueOf('BUILD_SOURCEBRANCH'), $defaultBranch);
-    }
-
-    /** The pipeline file that runs the gate. */
-    public function definitions(): Paths
-    {
-        return $this->job->definitions();
     }
 
     /**

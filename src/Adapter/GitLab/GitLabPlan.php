@@ -6,16 +6,14 @@ namespace NightWorksIO\MutationGate\Adapter\GitLab;
 
 use function array_map;
 use function count;
-use function dirname;
-use function file_put_contents;
 use function getenv;
-use function is_dir;
-use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\Definitions;
+use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -30,9 +28,7 @@ use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
@@ -63,14 +59,17 @@ final readonly class GitLabPlan implements CiPlan, Configurable
 
     private const string SCRIPT = 'script';
 
-    private function __construct(private Variables $variables, private string $template, private string $pipeline)
+    private function __construct(private CiJob $job, private string $template, private string $pipeline)
     {
     }
 
     /** A plan that writes its child pipeline to this file, including this template. */
     public static function writing(string $pipeline, string $template, Variables $variables): self
     {
-        return new self($variables, $template, $pipeline);
+        $config = $variables->valueOf('CI_CONFIG_PATH');
+        $definitions = Paths::of(Path::of($config === '' ? Definitions::GITLAB : $config), Path::of($template));
+
+        return new self(CiJob::of($variables, $definitions), $template, $pipeline);
     }
 
     /** `{"template": "<path>"}`, as `ci.gitlab.template` gives it. */
@@ -87,9 +86,10 @@ final readonly class GitLabPlan implements CiPlan, Configurable
         };
     }
 
-    public function publish(Plan $plan): Written|CannotJudge
+    /** The child pipeline, written to its file, which the trigger job reads as an artifact. */
+    public function publish(Plan $plan): Publication|CannotJudge
     {
-        $planJob = $this->variables->valueOf('CI_JOB_NAME');
+        $planJob = $this->job->variables()->valueOf('CI_JOB_NAME');
 
         if ($planJob === '') {
             return CannotJudge::because(
@@ -97,49 +97,39 @@ final readonly class GitLabPlan implements CiPlan, Configurable
             );
         }
 
-        $directory = dirname($this->pipeline);
-        $written = is_dir($directory) || mkdir($directory, recursive: true)
-            ? file_put_contents($this->pipeline, JsonText::encode($this->pipelineOf($plan, $planJob)))
-            : false;
-
-        return Written::attempted($this->pipeline, $written);
-    }
-
-    public function shard(Plan $plan): ShardId|CannotJudge
-    {
-        return WhichShard::in($this->variables, $plan);
-    }
-
-    /** A merge request's scope, a branch's, or none for a tag, which is no branch the gate writes for. */
-    public function runOn(): RunOn|CannotTell
-    {
-        $defaultBranch = RunOn::branchNamed($this->variables->valueOf('CI_DEFAULT_BRANCH'));
-
-        return match (true) {
-            $this->variables->has('CI_MERGE_REQUEST_IID') => RunOn::pullRequest(
-                PullRequestNumber::parse($this->variables->valueOf('CI_MERGE_REQUEST_IID')),
-                $defaultBranch,
-            ),
-            $this->variables->has('CI_COMMIT_TAG') => RunOn::detached($defaultBranch),
-            default => RunOn::branch($this->variables->valueOf('CI_COMMIT_REF_NAME'), $defaultBranch),
-        };
+        return Publication::written($this->pipeline, JsonText::encode($this->pipelineOf($plan, $planJob)));
     }
 
     /** The pipeline `CI_CONFIG_PATH` names, `.gitlab-ci.yml` by default, and the template its child includes. */
     public function definitions(): Paths
     {
-        $pipeline = $this->variables->valueOf('CI_CONFIG_PATH');
-
-        return Paths::of(Path::of($pipeline === '' ? Definitions::GITLAB : $pipeline), Path::of($this->template));
+        return $this->job->definitions();
     }
 
-    /** The job's token and its signed identity, and the registry's and deploy tokens' passwords. */
+    /** A merge request's scope, a branch's, or none for a tag, which is no branch the gate writes for. */
+    public function runOn(): RunOn|CannotTell
+    {
+        $variables = $this->job->variables();
+        $defaultBranch = RunOn::branchNamed($variables->valueOf('CI_DEFAULT_BRANCH'));
+
+        return match (true) {
+            $variables->has('CI_MERGE_REQUEST_IID') => RunOn::pullRequest(
+                PullRequestNumber::parse($variables->valueOf('CI_MERGE_REQUEST_IID')),
+                $defaultBranch,
+            ),
+            $variables->has('CI_COMMIT_TAG') => RunOn::detached($defaultBranch),
+            default => RunOn::branch($variables->valueOf('CI_COMMIT_REF_NAME'), $defaultBranch),
+        };
+    }
+
+
     /** GitLab CI sets `GITLAB_CI` to `true` in every job. */
     public static function marker(): CiMarker
     {
         return CiMarker::saying(Variables::GITLAB_CI);
     }
 
+    /** The job's token and its signed identity, and the registry's and deploy tokens' passwords. */
     public static function withheld(): Withheld
     {
         return Withheld::of(
