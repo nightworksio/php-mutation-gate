@@ -6,6 +6,8 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Config\BuiltinPreset;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -29,28 +31,28 @@ $detected = static function (string $manifest, array $installed): Detected {
     return new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)));
 };
 
-it('chooses the preset from what composer.json requires', function (string $manifest, string $preset) use (
+it('chooses the preset from what composer.json requires', function (string $manifest, BuiltinPreset $preset) use (
     $detected,
 ): void {
     expect($detected($manifest, [])->preset())->toBe($preset);
 })->with([
-    'Laravel' => ['{"require": {"php": "^8.5", "laravel/framework": "^12.0"}}', 'laravel'],
-    'Symfony' => ['{"require": {"symfony/framework-bundle": "^8.0"}}', 'symfony'],
+    'Laravel' => ['{"require": {"php": "^8.5", "laravel/framework": "^12.0"}}', BuiltinPreset::Laravel],
+    'Symfony' => ['{"require": {"symfony/framework-bundle": "^8.0"}}', BuiltinPreset::Symfony],
     'Laravel before Symfony' => [
         '{"require": {"symfony/framework-bundle": "^8.0", "laravel/framework": "^12.0"}}',
-        'laravel',
+        BuiltinPreset::Laravel,
     ],
-    'a library' => ['{"require": {"php": "^8.5"}}', 'library'],
-    'a framework only a dev dependency' => ['{"require-dev": {"laravel/framework": "^12.0"}}', 'library'],
-    'no requirements' => ['{"name": "acme/x"}', 'library'],
-    'no composer.json' => ['', 'library'],
+    'a library' => ['{"require": {"php": "^8.5"}}', BuiltinPreset::Library],
+    'a framework only a dev dependency' => ['{"require-dev": {"laravel/framework": "^12.0"}}', BuiltinPreset::Library],
+    'no requirements' => ['{"name": "acme/x"}', BuiltinPreset::Library],
+    'no composer.json' => ['', BuiltinPreset::Library],
 ]);
 
-it('chooses the runner that is installed', function (array $installed, string $runner) use ($detected): void {
+it('chooses the runner that is installed', function (array $installed, BuiltinRunner $runner) use ($detected): void {
     expect($detected('', $installed)->runner())->toBe($runner);
 })->with([
-    'Pest' => [['pestphp/pest', 'pestphp/pest-plugin-mutate'], 'pest'],
-    'Infection' => [['infection/infection'], 'infection'],
+    'Pest' => [['pestphp/pest', 'pestphp/pest-plugin-mutate'], BuiltinRunner::Pest],
+    'Infection' => [['infection/infection'], BuiltinRunner::Infection],
 ]);
 
 it('asks for a choice when both runners are installed', function () use ($detected): void {
@@ -84,7 +86,7 @@ it('reads only the packages installed.json names by a string', function (): void
     ]]));
 
     expect(new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)))->runner())
-        ->toBe('infection');
+        ->toBe(BuiltinRunner::Infection);
 });
 
 it('cannot judge a composer.json it cannot read', function (): void {

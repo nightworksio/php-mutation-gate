@@ -27,6 +27,10 @@ it('looks for a config file by every name it has, in the order the formats are l
     ]);
 });
 
+it('lists the words --format takes, in the order the formats are listed', function (): void {
+    expect(Format::words())->toBe('php, json, yaml or neon');
+});
+
 it('says what each format is called, what init writes it to, and what reads it', function (
     Format $format,
     string $title,

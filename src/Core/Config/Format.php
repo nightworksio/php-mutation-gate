@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use function array_map;
 use function mb_strtoupper;
 
+use NightWorksIO\MutationGate\Core\Format\Series;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
@@ -36,6 +37,12 @@ enum Format: string
     public static function fromExtension(string $extension): self|Absent
     {
         return self::tryFrom($extension === self::YML ? self::Yaml->value : $extension) ?? Absent::setting();
+    }
+
+    /** The words `--format` takes, as a sentence lists them: php, json, yaml or neon. */
+    public static function words(): string
+    {
+        return Series::or(...array_map(static fn(self $format): string => $format->value, self::cases()));
     }
 
     /** @return list<string> every name a config file in the project has, in the order the formats are listed */

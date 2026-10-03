@@ -41,6 +41,23 @@ it('cannot judge a PHPUnit older than 13.2.0, which has no --test-id-filter-file
     )));
 })->with([['13.1.9', '13.1.9'], ['v12.5.8', '12.5.8']]);
 
-it('cannot judge where Composer installed nothing', function (): void {
-    expect(Installed::versionsIn(sprintf('%s/none.json', Scratch::directory())))->toBeInstanceOf(CannotJudge::class);
+it('cannot judge where Composer installed nothing, naming PHPUnit as the runner it cannot say', function (): void {
+    $manifest = sprintf('%s/none.json', Scratch::directory());
+
+    expect(Installed::versionsIn($manifest))->toEqual(CannotJudge::because(sprintf(
+        '%s does not list phpunit/phpunit, phpunit/php-code-coverage, so the gate cannot say which PHPUnit judges '
+        . 'the mutants. Run composer install.',
+        $manifest,
+    )));
 });
+
+it('cannot judge with a manifest that is not JSON, or that holds no list of packages', function (string $text): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'installed.json', $text);
+    $file = sprintf('%s/installed.json', $root);
+
+    expect(Installed::versionsIn($file))->toEqual(CannotJudge::because(sprintf(
+        '%s is not the list of installed packages Composer 2 writes, so what it installed cannot be read.',
+        $file,
+    )));
+})->with(['{', '{"packages": "none"}']);

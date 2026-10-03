@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Leftover;
+use NightWorksIO\MutationGate\Core\Runner\Program;
 
 use function unlink;
 
@@ -64,6 +65,6 @@ final readonly class Coverage
 
         return $ran->succeeded()
             ? CoverageFile::read($this->project, $map)
-            : CoverageFailure::said('PHPUnit', $ran->output());
+            : CoverageFailure::said(Program::PhpUnit, $ran->output());
     }
 }

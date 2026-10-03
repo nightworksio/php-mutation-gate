@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as Composer;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 
 use function sprintf;
@@ -31,6 +32,6 @@ final readonly class Installed
 
         return $installed instanceof CannotJudge
             ? $installed
-            : $installed->drivenBy('Infection', ...self::DRIVEN, ...$also);
+            : $installed->drivenBy(Program::Infection, ...self::DRIVEN, ...$also);
     }
 }
