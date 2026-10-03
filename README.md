@@ -173,7 +173,7 @@ run does.
 | `baseline [--write]` | Show, or write, floors raised to what was measured |
 | `reproduce <id>` | Run one recorded mutant again, alone, and show why it survives, with the runner's own output; the id may be a unique prefix of 6 or more. Exits 1 where the run finds other than what was recorded, and 2 where no ledger holds it or the run no longer makes it |
 | `explain <id> [--format=text\|json]` | Show one mutant's diff, hint, covering tests and their outcomes, how the last run took its unit, and its history, from the ledgers and the last run, running nothing; the id may be a unique prefix of 6 or more, or a cluster's id. `--format=json` is described by [`resources/explain.schema.json`](resources/explain.schema.json). Exits 2 where no record holds it |
-| `tests` | Print the tests report from the ledgers, running nothing: the useless, redundant and weakly asserting tests |
+| `tests` | Print the tests report of the last run, judged again from the ledgers and the coverage map it left, running nothing: the useless, redundant and weakly asserting tests. Exits 0 whatever it finds, and 2 where no run has left one |
 | `triage <path> [--repeat=<n>] [--order=runner\|killers-first]` | Run a unit n times (5 by default) and list every mutant whose result varied, with each mutant's tests in the order `--order` names (`tests.order` by default) |
 | `watch` | Re-judge what each save reaches |
 | `pre-push` | Judge the commits being pushed, as CI will, after printing each reached tree's score change |

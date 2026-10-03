@@ -24,7 +24,7 @@ use function sprintf;
  */
 final readonly class LastRun
 {
-    private const string NONE = 'No run has left a plan at %s here.';
+    private const string NONE = 'No run has left a plan at %s here: run mutation-gate first.';
 
     /** Leave a plan where the shards, the verdict and a later `explain` read it. */
     public static function keep(Directory $project, Plan $plan): Written|CannotJudge
