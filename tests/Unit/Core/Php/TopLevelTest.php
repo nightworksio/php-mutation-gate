@@ -69,6 +69,17 @@ it('runs code when any statement at the top does', function (string $code) use (
     'an array' => "<?php\n\n[1, 2];\n",
 ]);
 
+it('reads each statement in a namespace\'s block as one at the top', function () use ($top): void {
+    $declaring = $top("<?php\n\nnamespace App {\n    use Lib\\Clock;\n    final class Money {}\n}\n\nnamespace {\n    function format(): string { return ''; }\n}\n");
+    $running = $top("<?php\n\nnamespace Tests {\n    putenv('SHARED=5');\n}\n");
+
+    expect($declaring->onlyDeclares())->toBeTrue()
+        ->and($declaring->declared())->toBe(['Money', 'format'])
+        ->and($running->onlyDeclares())->toBeFalse()
+        ->and(array_map(static fn(array $statement): string => TopLevel::spelt(...$statement), $running->running()))
+        ->toBe(["putenv ( 'SHARED=5' ) ;"]);
+});
+
 it('only declares when the file ends by closing its tag', function () use ($top): void {
     expect($top("<?php\n\nclass Money {}\n?>\n")->onlyDeclares())->toBeTrue();
 });
@@ -127,4 +138,19 @@ it('reads a namespace of one segment, and a file with none', function () use ($t
 
 it('spells tokens joined by spaces', function (): void {
     expect(TopLevel::spelt(...PhpToken::tokenize('<?php use A\B;')))->toBe('<?php  use   A\B ;');
+});
+
+it('runs each statement that declares nothing, whole, a block inside its brackets included', function () use ($top): void {
+    $running = $top(<<<'PHP'
+        <?php
+        use App\Money;
+        it('adds', function (): void { expect(1)->toBe(1); })->with([function () { return 1; }]);
+        #[Attribute] final class Held {}
+        $shared = 5;
+        PHP)->running();
+
+    expect(array_map(static fn(array $statement): string => TopLevel::spelt(...$statement), $running))->toBe([
+        "it ( 'adds' , function ( ) : void { expect ( 1 ) -> toBe ( 1 ) ; } ) -> with ( [ function ( ) { return 1 ; } ] ) ;",
+        '$shared = 5 ;',
+    ]);
 });

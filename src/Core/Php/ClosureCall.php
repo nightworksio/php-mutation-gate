@@ -14,9 +14,6 @@ use NightWorksIO\MutationGate\Core\Hold\Standing;
  */
 final readonly class ClosureCall
 {
-    /** How the name of one of Pest's functions is spelt: global, whether written so or not. */
-    private const array NAMES = [T_STRING, T_NAME_FULLY_QUALIFIED];
-
     /** What calls a method rather than a function. */
     private const array CHAINS = [T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR, T_DOUBLE_COLON];
 
@@ -55,7 +52,7 @@ final readonly class ClosureCall
             $opener = $tokens->enclosing($opener);
         }
 
-        return $tokens->is($opener, '(') && $tokens->is($opener - 1, ...self::NAMES)
+        return $tokens->is($opener, '(') && $tokens->is($opener - 1, ...Chain::FUNCTION_NAMES)
             ? self::calledBy($tokens, $opener - 1)
             : Standing::OtherClosure;
     }

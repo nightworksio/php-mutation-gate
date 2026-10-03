@@ -70,6 +70,19 @@ final readonly class Naming
     }
 
     /**
+     * The file a test class's tests are in, as the class names it: the one
+     * Pest built its class from, or the one that declares it.
+     *
+     * @param class-string<TestCase> $class
+     */
+    public static function fileOfClass(string $class): string
+    {
+        $reflection = new ReflectionClass($class);
+
+        return self::fileOf($reflection, $reflection->implementsInterface(HasPrintableTestCaseName::class));
+    }
+
+    /**
      * @param  class-string<TestCase>                                          $class
      * @return list<array{test: string, file: string, description: string}>
      */
@@ -77,7 +90,7 @@ final readonly class Naming
     {
         $reflection = new ReflectionClass($class);
         $pest = $reflection->implementsInterface(HasPrintableTestCaseName::class);
-        $file = $this->fileOf($reflection, $pest);
+        $file = self::fileOf($reflection, $pest);
         $tests = [];
 
         foreach ($reflection->isAbstract() ? [] : $reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
@@ -97,7 +110,7 @@ final readonly class Naming
      *
      * @param ReflectionClass<TestCase> $class
      */
-    private function fileOf(ReflectionClass $class, bool $pest): string
+    private static function fileOf(ReflectionClass $class, bool $pest): string
     {
         $built = $pest ? $class->getStaticPropertyValue(self::BUILT_FROM, '') : '';
 

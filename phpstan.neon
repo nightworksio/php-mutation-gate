@@ -31,6 +31,7 @@ parameters:
         analyseAndScan:
             - tests/Contract/Runner/fixture
             - tests/Contract/Runner/infection-fixture
+            - tests/Contract/Runner/reach
             - tests/Contract/Runner/phpunit-fixture
             - tests/Contract/StaticChecker/fixture
 

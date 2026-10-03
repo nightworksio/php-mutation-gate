@@ -19,8 +19,14 @@ enum RecordEvent: string
     /** A mutant's final status and duration. */
     case Finished = 'finished';
 
-    /** A test that failed in a mutant's own process. */
+    /** A test that failed an assertion in a mutant's own process. */
     case Killed = 'killed';
+
+    /** A test that errored in a mutant's own process, rather than fail an assertion. */
+    case Errored = 'errored';
+
+    /** The test files a mutant's own run was narrowed to load, by its mutated copy. */
+    case Narrowed = 'narrowed';
 
     /** A mutant's own process ran out of its memory limit. */
     case Exhausted = 'exhausted';

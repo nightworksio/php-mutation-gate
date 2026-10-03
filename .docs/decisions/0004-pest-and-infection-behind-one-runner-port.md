@@ -316,16 +316,63 @@ its parser attributes. Both change when the checkout moves.
      - Groups come from `<vendor>/pestphp/pest/bin/pest --list-groups --colors=never`. A
        listing without `Available test group` is *cannot judge*, never *no
        groups*.
-   - **The in-house gate's two patches are an opt-in.** Enabling it is
+   - **The in-house gate's patches are an opt-in.** Enabling them is
      `pest.patch: true` (a boolean, `false` by default), plus
      `@php vendor/bin/mutation-gate pest:patch` in `post-install-cmd` and
-     `post-update-cmd`. The command applies both patches to
+     `post-update-cmd`. The command applies every patch to
      pest-plugin-mutate:
      - Shards open on a canary group (`pest.canary`, a group name,
        `mutation-canary` by default) and read the map the planning job wrote,
        instead of each running the whole suite again.
-     - A `--filter` that will not fit is dropped, so that mutant runs against
-       the whole suite. That can only kill more mutants, never fewer.
+     - A `--filter` that will not fit is dropped, so that mutant runs every
+       test its run loads. That can only kill more mutants, never fewer.
+     - A run again makes only the mutants whose native ids a file beside the
+       results lists.
+     - A mutant's own run loads only the test files its covering tests need:
+       the file that declares each covering test's class, and every test file
+       Pest's parent process loaded that declares a name those use, in turn.
+       The names are functions, classes, interfaces, traits and enums, and
+       constants declared by `const` or `define()`, used in code or, fully
+       qualified, in a quoted string. Where a covering test's class is not
+       loaded, or the paths would not fit in the bytes a filter may take, it
+       loads every test file. The patched plugin records the files each
+       narrowed run loads.
+     - A test file can also give another what it needs by what loading it
+       does, which no name shows. So every narrowed run also loads each test
+       file that is not inert, with what it needs. A test file is inert where
+       its top only declares, imports, and makes the Pest registrations whose
+       effects stay in the file: `test`, `it`, `todo`, `arch`, `describe`,
+       `beforeEach`, `afterEach`, `beforeAll`, `afterAll`, `dataset`,
+       `covers` and `uses`. Each is one call with methods chained on it, none
+       of them `->in()`, whose arguments run nothing as the file loads:
+       literals, constants, class names, arrays of these, and closures. Pest
+       runs two closures as the file loads, so each is held to more: a
+       `describe` body, whose statements must each be such a registration in
+       turn, and a dataset handed to `dataset` or `->with()` as a closure,
+       which may only return or yield what runs nothing. Anything else acts,
+       at the top, in a `describe` body or in a dataset closure: a hook or a
+       trait sent `->in()` a directory, `pest()` and `mutates()`, which change
+       Pest's configuration, a write to `$_ENV`, the environment or
+       `$GLOBALS`, an include, a call, or any other statement. The files Pest
+       loads in every process, `tests/Pest.php` and its kind, are loaded
+       anyway.
+     - A narrowed kill counts only where the run can vouch for it:
+       - a kill with no test named as its killer, or only tests that errored,
+         does not count, as a helper a test calls by a name built at run time
+         leaves;
+       - any other counts only where every test in the files its run loaded
+         passes on the unmutated code, loaded alone as that run loaded them.
+         That run is made once for each set of files, and kept while the gate
+         runs.
+
+       A kill that does not count runs again with every test file within the
+       time left, or is unjudged. A kill whose records cannot be read does
+       not count either.
+     - What a test's body leaves behind as it runs is not seen: a test that
+       writes a global, a static or a file while it runs, which a test in
+       another file reads, passes or fails by whether that other test ran
+       first. Where a test needs that, and its narrowed run leaves it out, a
+       kill can count that a run with every test file would not have made.
 
      Every anchor is checked before anything is written, and one that has moved
      fails the install: a patch that quietly matched nothing is worse than none.

@@ -147,10 +147,11 @@ final readonly class Invocation
 
     /**
      * The tests in some files, one after another, stopping at the first that
-     * fails, narrowed to a holding group where one judges: the run that judges
-     * a mutant of a line that is not executable through Pest's override.
+     * fails, narrowed to what judges: the run that judges a mutant of a line
+     * that is not executable through Pest's override, and the run on the
+     * unmutated code a narrowed kill stands on (see NarrowedKills).
      */
-    public function judging(Paths $tests, WholeSuite|Group $judgedBy, Withheld $withheld): Command
+    public function judging(Paths $tests, WholeSuite|Group|Filter $judgedBy, Withheld $withheld): Command
     {
         $files = [];
 

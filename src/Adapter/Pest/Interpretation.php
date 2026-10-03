@@ -150,7 +150,7 @@ final readonly class Interpretation
     {
         $status = $records->statusOf($planned)->status();
 
-        return $status === MutantStatus::Killed && Exhaustion::isOf($records->exhaustionOf($planned), $this->cap)
+        return $status === MutantStatus::Killed && Exhaustion::isOf($records->runOf($planned)->exhaustion(), $this->cap)
             ? MutantStatus::OutOfMemory
             : $status;
     }
@@ -174,7 +174,7 @@ final readonly class Interpretation
         $limited = match (true) {
             $status === MutantStatus::OutOfMemory => $mutant->withLimit($this->cap),
             $status === MutantStatus::TimedOut && $limit instanceof Seconds => $mutant->withLimit($limit),
-            $status === MutantStatus::Killed => $mutant->killedBy($records->killersOf($planned)),
+            $status === MutantStatus::Killed => $mutant->killedBy($records->runOf($planned)->killers()),
             default => $mutant,
         };
         $names = array_map(static fn(TestId $test): string => $test->value(), [...$unselected]);

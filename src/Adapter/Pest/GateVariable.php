@@ -36,4 +36,7 @@ enum GateVariable: string
 
     /** The file listing the native ids of the only mutants a patched run again makes (see OnlyList). */
     case Only = 'MUTATION_GATE_ONLY';
+
+    /** Set where a patched run loads only the test files each mutant's covering tests need (see CoveringFiles). */
+    case Narrow = 'MUTATION_GATE_NARROW';
 }

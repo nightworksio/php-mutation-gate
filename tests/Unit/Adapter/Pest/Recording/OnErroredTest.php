@@ -23,7 +23,7 @@ it('names a test that errored in a mutant\'s own process, by its id', function (
 
     $line = json_decode((string) file_get_contents($results), associative: true);
 
-    expect($line)->toMatchArray(['event' => 'killed', 'mutated' => '/tmp/mutations/abc'])
+    expect($line)->toMatchArray(['event' => 'errored', 'mutated' => '/tmp/mutations/abc'])
         ->and(is_array($line) ? $line['test'] : '')
         ->toStartWith('P\\Tests\\Unit\\Adapter\\Pest\\Recording\\OnErroredTest::__pest_evaluable_it_names_a_test');
 });

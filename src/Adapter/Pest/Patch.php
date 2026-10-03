@@ -36,11 +36,14 @@ use function str_replace;
  * `pest:patch`: the changes to pest-plugin-mutate the gate's `pest.patch`
  * setting relies on.
  * - A mutant's `--filter` too long to start a process with is dropped, so the
- *   mutant runs against the whole suite, which can only kill more mutants.
+ *   mutant runs every test its run loads, which can only kill more mutants.
  * - Given a coverage map another job wrote, the opening run is the canary
  *   group alone, the map is copied in place of the one that run wrote, and
  *   Pest times its mutants by the seconds the whole suite took.
  * - Given a list of native ids (see OnlyList), a run makes only those mutants.
+ * - Where the gate narrows a run, a mutant's own run loads only the test files
+ *   its covering tests need (see CoveringFiles), not every test file, and the
+ *   files it loads are recorded by the mutant's mutated copy.
  *
  * Every anchor is checked, against the source as the hunks before it left
  * it, before anything is written, so a moved one changes nothing, and
@@ -48,9 +51,6 @@ use function str_replace;
  */
 final readonly class Patch
 {
-    /** The longest `--filter` argument, in bytes, the patch starts a mutant's process with. */
-    public const int CEILING = 100000;
-
     private const string SOURCE = '%s/pestphp/pest-plugin-mutate/src/%s';
 
     private const string FILTER_SHIPS = <<<'PHP'
@@ -141,6 +141,39 @@ final readonly class Patch
 
                 foreach ($files as $file) {
                     $linesToMutate = [];
+        PHP;
+
+    private const string COVERING_SHIPS = <<<'PHP'
+                $filters = [];
+                foreach (range($this->mutation->startLine, $this->mutation->endLine) as $lineNumber) {
+                    foreach ($coveredLines[$this->mutation->file->getRealPath()][$lineNumber] ?? [] as $test) {
+        PHP;
+
+    private const string COVERING_BECOMES = <<<'PHP'
+                {MARK} the tests that cover the mutant, gathered as Pest builds its filter.
+                $filters = [];
+                $covering = [];
+                foreach (range($this->mutation->startLine, $this->mutation->endLine) as $lineNumber) {
+                    foreach ($coveredLines[$this->mutation->file->getRealPath()][$lineNumber] ?? [] as $test) {
+                        $covering[] = $test;
+        PHP;
+
+    private const string PATHS_SHIPS = <<<'PHP'
+                $envs = [
+                    Mutate::ENV_MUTATION_TESTING => $this->mutation->file->getRealPath(),
+        PHP;
+
+    private const string PATHS_BECOMES = <<<'PHP'
+                {MARK} a mutant's own run loads only the test files its covering tests need.
+                if (class_exists(\%1$s::class)) {
+                    $originalArguments = [
+                        ...$originalArguments,
+                        ...\%1$s::of($covering, $this->mutation->modifiedSourcePath),
+                    ];
+                }
+
+                $envs = [
+                    Mutate::ENV_MUTATION_TESTING => $this->mutation->file->getRealPath(),
         PHP;
 
     /**
@@ -327,7 +360,9 @@ final readonly class Patch
     private static function hunks(): array
     {
         return [
-            self::hunk('MutationTest.php', self::FILTER_SHIPS, sprintf(self::FILTER_BECOMES, self::CEILING)),
+            self::hunk('MutationTest.php', self::FILTER_SHIPS, sprintf(self::FILTER_BECOMES, Ceiling::BYTES)),
+            self::hunk('MutationTest.php', self::COVERING_SHIPS, self::COVERING_BECOMES),
+            self::hunk('MutationTest.php', self::PATHS_SHIPS, sprintf(self::PATHS_BECOMES, CoveringFiles::class)),
             self::hunk(
                 'Plugins/Mutate.php',
                 self::CANARY_SHIPS,

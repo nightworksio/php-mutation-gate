@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Remembered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -41,4 +42,28 @@ it('learns each thing once, and each set of groups once for what it withheld', f
         ->and($patched)->toBe([true, true])
         ->and($mapAgain)->toBe($map)
         ->and($written)->toBe(1);
+});
+
+it('runs each baseline once, keeping whether it passed, and keeps nothing of one stopped at its deadline', function (): void {
+    $remembered = new Remembered();
+    $runs = 0;
+    $running = static function (Ran $ran) use (&$runs): Closure {
+        return static function () use ($ran, &$runs): Ran {
+            $runs++;
+
+            return $ran;
+        };
+    };
+
+    $passed = [
+        $remembered->baseline('passes', $running(Ran::finished(succeeded: true, output: ''))),
+        $remembered->baseline('passes', $running(Ran::finished(succeeded: false, output: ''))),
+        $remembered->baseline('fails', $running(Ran::finished(succeeded: false, output: ''))),
+        $remembered->baseline('fails', $running(Ran::finished(succeeded: true, output: ''))),
+        $remembered->baseline('stopped', $running(Ran::stopped(''))),
+        $remembered->baseline('stopped', $running(Ran::finished(succeeded: true, output: ''))),
+    ];
+
+    expect($passed)->toBe([true, true, false, false, false, true])
+        ->and($runs)->toBe(4);
 });

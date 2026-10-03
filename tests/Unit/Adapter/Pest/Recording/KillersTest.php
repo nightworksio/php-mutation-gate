@@ -46,6 +46,17 @@ it('writes each killer as a line of its own, with the mutated copy it ran on', f
     );
 });
 
+it('writes a test that errored apart from one that failed, with the mutated copy it ran on', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade());
+
+    if ($killers instanceof Killers) {
+        $killers->erroredBy('T::adds');
+    }
+
+    expect(file_get_contents($results))->toBe("{\"event\":\"errored\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"T::adds\"}\n");
+});
+
 it('logs its process\'s errors to the mutant\'s own file, emptied of what an earlier run left', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $log = Recorder::errorsBeside($results, '/tmp/mutations/abc');

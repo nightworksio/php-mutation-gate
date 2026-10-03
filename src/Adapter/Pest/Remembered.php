@@ -11,14 +11,16 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 
 /**
  * What one Pest runner learns once for every run it starts in a process: the
  * groups its suite lists, the PHP it starts, whether the vendor is patched,
- * each map another job handed over, and the maps it has written again for
- * Pest. Each is slow to learn, from a process started for it or a map that
+ * each map another job handed over, the maps it has written again for Pest,
+ * and whether the tests of each set of files a mutant's own run was narrowed
+ * to pass on the unmutated code. Each is slow to learn, from a process started for it or a map that
  * can reach hundreds of megabytes, and none changes while the gate runs.
  */
 final class Remembered
@@ -37,6 +39,9 @@ final class Remembered
 
     /** @var array<string, true> the files a map has been written to */
     private array $written = [];
+
+    /** @var array<string, bool> whether each set of test files passes on the unmutated code, loaded alone */
+    private array $baselines = [];
 
     /** @param Closure(): (Groups|CannotJudge) $listing */
     public function groups(Withheld $withheld, Closure $listing): Groups|CannotJudge
@@ -96,5 +101,26 @@ final class Remembered
             $writing();
             $this->written[$file] = true;
         }
+    }
+
+    /**
+     * Whether a baseline run passed, run once for its key; a run stopped at
+     * its deadline says nothing of the tests, is not kept, and does not pass.
+     *
+     * @param Closure(): Ran $running
+     */
+    public function baseline(string $key, Closure $running): bool
+    {
+        if (! array_key_exists($key, $this->baselines)) {
+            $ran = $running();
+
+            if ($ran->wasStopped()) {
+                return false;
+            }
+
+            $this->baselines[$key] = $ran->succeeded();
+        }
+
+        return $this->baselines[$key];
     }
 }

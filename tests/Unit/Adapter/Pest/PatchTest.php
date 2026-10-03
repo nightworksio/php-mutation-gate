@@ -111,6 +111,23 @@ it('writes nothing when a file it rewrites cannot be written', function () use (
     )))->and($source($at, 'MutationTest.php'))->toBe($before);
 });
 
+it('counts a vendor it already patched as patched, though none of its files can be written', function () use ($vendor): void {
+    $at = $vendor();
+    Patch::applyIn($at);
+    $files = array_map(static fn(string $file): string => sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $at, $file), MutatePlugin::FILES);
+    array_map(static fn(string $file): bool => chmod($file, 0o444), $files);
+
+    try {
+        $again = Patch::applyIn($at);
+        $applied = Patch::isAppliedIn($at);
+    } finally {
+        array_map(static fn(string $file): bool => chmod($file, 0o644), $files);
+    }
+
+    expect($again)->toBe('pest:patch patched 0 of the 3 files it changes in pest-plugin-mutate.')
+        ->and($applied)->toBeTrue();
+});
+
 it('writes nothing where a line it rewrites is there twice', function () use ($vendor, $source): void {
     $at = $vendor();
     $twice = sprintf('%s/pestphp/pest-plugin-mutate/src/Plugins/Mutate.php', $at);
@@ -158,5 +175,5 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(5);
+    expect($marks)->toBe(7);
 });

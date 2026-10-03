@@ -59,6 +59,11 @@ it('adds the same amount to itself', function (): void {
 });
 
 it('tells a large amount from a small one', function (): void {
+    // CONTRACT_ARGV names a file each mutant's own run of this test adds its arguments to.
+    if (getenv('CONTRACT_ARGV') !== false && getenv('PEST_MUTATION_TESTING') !== false) {
+        file_put_contents((string) getenv('CONTRACT_ARGV'), sprintf("%s\n", implode(' ', $_SERVER['argv'])), FILE_APPEND);
+    }
+
     expect(new Money()->isLarge(500))->toBeTrue()
         ->and(new Money()->isLarge(1))->toBeFalse();
 });

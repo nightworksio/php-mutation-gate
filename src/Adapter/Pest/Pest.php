@@ -83,6 +83,7 @@ final readonly class Pest implements Runner
         private Shell $shell,
         private Patching $patching,
         private CapFiles $files,
+        private Clock $clock = new WallClock(),
     ) {
         $this->tests = new TestFiles($project);
         $this->remembered = new Remembered();
@@ -240,7 +241,9 @@ final readonly class Pest implements Runner
             ->only(...$natives)
             ->of($request->narrowedTo(Paths::of(...array_values($files)), Mutators::named(...array_values($mutators))));
 
-        return $result instanceof CannotJudge ? $result : FoundAgain::matched($mutants, $result->mutants());
+        return $result instanceof CannotJudge
+            ? $result
+            : FoundAgain::among($mutants, $result->mutants(), Reason::that(FoundAgain::NOT_FOUND_AGAIN));
     }
 
     /**
@@ -303,7 +306,7 @@ final readonly class Pest implements Runner
         $project = $this->project->in($package);
 
         return Invocation::installedIn($project->vendor())->isIn($project)
-            ? new self($project, $this->shell->in($project->root()), $this->patching, $this->files)
+            ? new self($project, $this->shell->in($project->root()), $this->patching, $this->files, $this->clock)
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
     }
 
@@ -347,6 +350,7 @@ final readonly class Pest implements Runner
             $this->patching,
             $this->remembered,
             $this->groups(...),
+            clock: $this->clock,
         );
     }
 }
