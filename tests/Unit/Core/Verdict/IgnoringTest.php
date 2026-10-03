@@ -115,7 +115,7 @@ it('fails on an entry that names no mutant it leaves out', function (MutantJudge
     $mutant = Judged::mutant('a', $judgement);
     $stale = IgnoredPattern::of(Glob::of('src/Log/**'), 'MethodCallRemoval', 'Logged elsewhere', Absent::setting());
 
-    expect(failureTexts(ignoring(ignoreOf($mutant), $stale)->stale(verdictsOver($mutant))))->toBe([
+    expect(failureTexts(ignoring(ignoreOf($mutant), $stale)->stale(verdictsOver($mutant), Failures::none())))->toBe([
         sprintf('The ignore of %s names no mutant it could leave out, in a run that judged every unit: remove it.', $mutant->mutant()->id()->value()),
         'The ignore of MethodCallRemoval in src/Log/** names no mutant it could leave out, in a run that judged every unit: remove it.',
     ]);
@@ -125,21 +125,29 @@ it('fails on an entry that names no mutant it leaves out, beside a survivor it d
     $killed = Judged::mutant('a', MutantJudgement::Killed);
     $survivor = Judged::mutant('a', MutantJudgement::Survived, 'src/Ledger.php');
 
-    expect(ignoring(ignoreOf($killed))->stale(verdictsOver($killed, $survivor)))->toHaveCount(1);
+    expect(ignoring(ignoreOf($killed))->stale(verdictsOver($killed, $survivor), Failures::none()))->toHaveCount(1);
 });
 
 it('does not fail on an entry that names a mutant it or another entry leaves out, or a proof found equivalent', function (MutantJudgement $judgement): void {
     $mutant = Judged::mutant('a', $judgement);
 
-    expect(ignoring(ignoreOf($mutant))->stale(verdictsOver($mutant)))->toHaveCount(0);
+    expect(ignoring(ignoreOf($mutant))->stale(verdictsOver($mutant), Failures::none()))->toHaveCount(0);
 })->with([MutantJudgement::Survived, MutantJudgement::Uncovered, MutantJudgement::Ignored, MutantJudgement::Equivalent]);
 
 it('fails on no entry where a mutant is unjudged, or for one that expired', function (): void {
     $killed = Judged::mutant('a', MutantJudgement::Killed);
     $unjudged = Judged::mutant('a', MutantJudgement::Unjudged, 'src/Ledger.php');
 
-    expect(ignoring(ignoreOf($killed))->stale(verdictsOver($killed, $unjudged)))->toHaveCount(0)
-        ->and(ignoring(ignoreOf($killed, expires: '2026-09-29'))->stale(verdictsOver($killed)))->toHaveCount(0);
+    expect(ignoring(ignoreOf($killed))->stale(verdictsOver($killed, $unjudged), Failures::none()))->toHaveCount(0)
+        ->and(ignoring(ignoreOf($killed, expires: '2026-09-29'))->stale(verdictsOver($killed), Failures::none()))->toHaveCount(0);
+});
+
+it('fails on no entry where a unit did not run, since it could hold the mutant an entry names', function (): void {
+    $killed = Judged::mutant('a', MutantJudgement::Killed);
+    $unrun = Failures::of(Failure::that('src/Held.php is unjudged.'));
+
+    expect(ignoring(ignoreOf($killed))->stale(verdictsOver($killed), $unrun))->toHaveCount(0)
+        ->and(ignoring(ignoreOf($killed))->stale(verdictsOver($killed), Failures::none()))->toHaveCount(1);
 });
 
 it('applies nothing when there are no entries', function (): void {
@@ -147,5 +155,5 @@ it('applies nothing when there are no entries', function (): void {
 
     expect(Ignoring::none()->judged($mutant))->toBe($mutant)
         ->and(Ignoring::none()->warnings())->toHaveCount(0)
-        ->and(Ignoring::none()->stale(verdictsOver($mutant)))->toHaveCount(0);
+        ->and(Ignoring::none()->stale(verdictsOver($mutant), Failures::none()))->toHaveCount(0);
 });
