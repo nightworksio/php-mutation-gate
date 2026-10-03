@@ -79,13 +79,29 @@ final readonly class Columns
     public function of(Mutant|ProvedKill $mutant): array
     {
         [$first, $last] = $this->linesOf($mutant);
+        $found = $this->found($mutant);
+
+        return $found instanceof Unplaced
+            ? [
+                'start' => ['line' => $first, 'column' => 1],
+                'end' => ['line' => $last, 'column' => $this->pastEnd($last)],
+            ]
+            : $found;
+    }
+
+    /**
+     * Where a mutant's change is, from its first changed token to the end of
+     * its last; nothing where those tokens are not found on its lines, or it
+     * is a kill that keeps no diff.
+     *
+     * @return array{start: array{line: int, column: int}, end: array{line: int, column: int}}|Unplaced
+     */
+    public function found(Mutant|ProvedKill $mutant): array|Unplaced
+    {
         [$at, $length] = $this->placed($mutant);
 
         if ($at < 0) {
-            return [
-                'start' => ['line' => $first, 'column' => 1],
-                'end' => ['line' => $last, 'column' => $this->pastEnd($last)],
-            ];
+            return Unplaced::mutant();
         }
 
         $final = $this->tokens[$at + $length - 1];

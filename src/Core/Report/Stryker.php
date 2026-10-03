@@ -8,7 +8,6 @@ use function array_key_exists;
 use function explode;
 use function implode;
 
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Hint\Change;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
@@ -59,23 +58,19 @@ final readonly class Stryker
 
     private const string LANGUAGE = 'php';
 
-    /**
-     * @param array<string, Contents> $sources each mutated file the gate could read, by its path
-     */
-    public static function json(Verdict $verdict, array $sources): string
+    public static function json(Verdict $verdict, Sources $sources): string
     {
         $uncovered = Overview::of($verdict)->uncovered();
+        $columns = FileColumns::of($verdict->trees()->mutants(), $sources);
         $files = [];
-        $columns = [];
 
         foreach ($verdict->trees()->mutants() as $judged) {
-            $path = $judged->mutant()->location()->file()->value();
-            $source = array_key_exists($path, $sources) ? $sources[$path] : Contents::of('');
-            $columns[$path] = array_key_exists($path, $columns) ? $columns[$path] : Columns::in($source);
+            $at = $judged->mutant()->location()->file();
+            $path = $at->value();
             $file = array_key_exists($path, $files)
                 ? $files[$path]
-                : ['language' => self::LANGUAGE, 'source' => $source->text(), 'mutants' => []];
-            $file['mutants'][] = self::mutant($judged, $columns[$path], $uncovered, $verdict->matrix());
+                : ['language' => self::LANGUAGE, 'source' => $sources->of($at)->text(), 'mutants' => []];
+            $file['mutants'][] = self::mutant($judged, $columns->in($at), $uncovered, $verdict->matrix());
             $files[$path] = $file;
         }
 

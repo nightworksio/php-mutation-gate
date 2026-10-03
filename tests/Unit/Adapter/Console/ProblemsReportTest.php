@@ -8,9 +8,11 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Report\Sources;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -32,7 +34,7 @@ it('frames the problems of a judgement for a background matcher, reading each mu
     expect($report->report(Verdicts::failing()))->toEqual(Written::to('the console'))
         ->and($output->fetch())->toBe(sprintf(
             "mutation-gate: judging\n%smutation-gate: judged\n",
-            Problems::text(Verdicts::failing(), ['src/Money.php' => Contents::of(Verdicts::MONEY)], $shown),
+            Problems::text(Verdicts::failing(), Sources::none()->with(Path::of('src/Money.php'), Contents::of(Verdicts::MONEY)), $shown),
         ));
 })->with([ProblemsShown::All, ProblemsShown::Changed]);
 

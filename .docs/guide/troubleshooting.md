@@ -287,3 +287,51 @@ Allow anonymous access on the account, with
 `az storage account update --name <account> --allow-blob-public-access true`,
 and keep only the public container at the `Blob` access level. Every other
 container keeps the default, which allows no anonymous access.
+
+## outside-sonar-sources
+
+A `sonar` report is listed in `reports`, and a tree lies outside every path
+`sonar.sources` names in `sonar-project.properties`. SonarQube indexes only
+the files under `sonar.sources`, and drops an imported issue on a file it did
+not index, with one log line that counts those files and names at most five.
+The survivors in that tree never reach SonarQube.
+
+Add the tree to `sonar.sources`, or leave it out of the gate's trees.
+
+## survived
+
+The tests that run the mutant's line all passed with it in place, so none of
+them checks what the change undid. It counts as not killed. The report's
+hint says what the tests miss, and `vendor/bin/mutation-gate explain <id>`
+shows the mutant's diff and the tests that ran it.
+
+Add an assertion that fails with the mutant in place, in a test that runs
+its line, and check it with `vendor/bin/mutation-gate reproduce <id>`. A
+mutant no test could tell from the code, such as one that changes only how
+fast it runs, is ignored in `ignores.entries` with a reason.
+
+## uncovered
+
+No test runs the mutant's line, so no test could fail with it in place. It
+counts as not killed.
+
+Write a test that runs the line and asserts what it does.
+
+## unjudged
+
+The run did not judge the mutant: the run stopped first, as a time budget
+stops it, or the mutant's tests take too long or hold too much memory for a
+timeout or the memory cap to say anything about it. It counts as not killed.
+
+Run again with more time, or without `--budget`. For a mutant too slow to
+judge, hold its code with a group of the tests that assert on it, or raise
+`timeouts.seconds`. For one too heavy to judge, raise `runner.memory`.
+
+## flaky
+
+The mutant's tests killed it on one run and let it survive on another, so a
+test's outcome does not depend on the code alone. It counts as not killed.
+
+Make the mutant's judging tests, which the report names, give the same
+answer on every run: no shared state between tests, no clock or random value
+they do not control, and no order they rely on.

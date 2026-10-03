@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Report\Sources;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
@@ -30,7 +31,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
-$sources = static fn(): array => ['src/Money.php' => Contents::of(Verdicts::MONEY)];
+$sources = static fn(): Sources => Sources::none()->with(Path::of('src/Money.php'), Contents::of(Verdicts::MONEY));
 
 $line = static fn(JudgedMutant $judged, string $place, string $level, string $mark, string $rule): string => sprintf(
     "%s: %s: %s%s [%s] %s\n",
@@ -71,7 +72,7 @@ it('names the run whose proof a proved or carried result came from, and warns of
     $tree = TreeVerdict::judged(Tree::at(Path::of('src'), Floor::of(0), Package::at(Path::root())), Unrecorded::floor(), $units, $mutants, Uncovered::Count);
     $all = Judged::listed($mutants);
 
-    expect(Problems::text(Verdict::of(TreeVerdicts::of($tree)), [], ProblemsShown::All))->toBe(implode('', [
+    expect(Problems::text(Verdict::of(TreeVerdicts::of($tree)), Sources::none(), ProblemsShown::All))->toBe(implode('', [
         $line($all[0], 'src/Order.php:3:1', 'warning', ' (proved in run github:12345/1)', 'survived'),
         $line($all[1], 'src/Log.php:4:1', 'warning', ' (carried from run github:12345/1)', 'survived'),
     ]));
@@ -80,7 +81,7 @@ it('names the run whose proof a proved or carried result came from, and warns of
 it('keeps each result on one line, whatever its hint holds, and marks none a verdict lists no unit for', function (): void {
     $survivor = Verdicts::survivor()->hinted(Hint::that("No test\r\nuses\rthe\nboundary."));
 
-    expect(Problems::text(Verdicts::of(Floor::of(0), $survivor), [], ProblemsShown::All))->toBe(sprintf(
+    expect(Problems::text(Verdicts::of(Floor::of(0), $survivor), Sources::none(), ProblemsShown::All))->toBe(sprintf(
         "src/Money.php:7:1: warning: Mutant survived: LessToLessOrEqual. No test uses the boundary. Reproduce: %s [survived] %s\n",
         $survivor->reproduce(),
         $survivor->mutant()->id()->value(),
@@ -88,7 +89,7 @@ it('keeps each result on one line, whatever its hint holds, and marks none a ver
 });
 
 it('prints nothing for a verdict with no result', function (string $verdict): void {
-    expect(Problems::text(Verdicts::named($verdict), [], ProblemsShown::All))->toBe('');
+    expect(Problems::text(Verdicts::named($verdict), Sources::none(), ProblemsShown::All))->toBe('');
 })->with(['passing', 'empty']);
 
 it('frames each judgement for a background matcher', function (): void {
@@ -99,6 +100,6 @@ it('frames each judgement for a background matcher', function (): void {
 it('writes no escape or other control character a project\'s code could carry into an editor', function (): void {
     $survivor = Verdicts::survivor()->hinted(Hint::that("No test\e[31m uses\tthe\x07 boundary."));
 
-    expect(Problems::text(Verdicts::of(Floor::of(0), $survivor), [], ProblemsShown::All))->toContain('. No test[31m uses the boundary. Reproduce: ')
-        ->and(Problems::text(Verdicts::of(Floor::of(0), $survivor), [], ProblemsShown::All))->not->toMatch('/\p{Cc}(?!$)/u');
+    expect(Problems::text(Verdicts::of(Floor::of(0), $survivor), Sources::none(), ProblemsShown::All))->toContain('. No test[31m uses the boundary. Reproduce: ')
+        ->and(Problems::text(Verdicts::of(Floor::of(0), $survivor), Sources::none(), ProblemsShown::All))->not->toMatch('/\p{Cc}(?!$)/u');
 });

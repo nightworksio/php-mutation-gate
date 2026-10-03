@@ -266,6 +266,7 @@ would have cost without them.
     | A GitHub workflow with no `schedule`, `cache: false` on the directory store, the action pinned by tag, or `persist-credentials` left on | advice |
     | Ignores expired or expiring within 14 days (ADR-0008 decision 4) | advice |
     | `.mutation-gate/` not in `.gitignore` | advice |
+    | A tree outside `sonar.sources` in `sonar-project.properties`, while a `sonar` report is listed (ADR-0028 decision 10) | advice |
     | An `infection.json5` with `minMsi` or native ignores | advice: `init --from` (ADR-0016) |
     | `runner.memory` at `-1`, a PHPUnit config whose `memory_limit` lifts the cap, or, under `--measure`, a suite that held over half the cap (ADR-0004 decision 9) | advice |
 
@@ -482,3 +483,4 @@ and nobody edits them by hand.
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): what `init --ci` writes
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): `init --from`, and the run's cost
 - [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the troubleshooting slugs `doctor` links
+- [ADR-0028](0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md): the check against `sonar.sources`

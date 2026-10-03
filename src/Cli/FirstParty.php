@@ -30,6 +30,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\KillMatrixFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\SonarReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\Gcs\BucketLedger as GcsBucket;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
@@ -64,6 +65,7 @@ use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\ChangeSource;
@@ -183,6 +185,13 @@ final readonly class FirstParty implements Extension
                 ),
             )
             ->withReporter(BuiltinReporter::GitLab->named(), CodeQualityReportFile::fromOptions(...))
+            ->withReporter(
+                BuiltinReporter::Sonar->named(),
+                static fn(Options $options): Reporter|Invalid => SonarReportFile::configured(
+                    $options,
+                    Guide::ofInstalled(InstalledGate::version()->version()),
+                ),
+            )
             ->withReporter(BuiltinReporter::KillMatrix->named(), KillMatrixFile::fromOptions(...))
             ->withReporter(BuiltinReporter::Tests->named(), TestsReportFile::fromOptions(...))
             ->withReporter(BuiltinReporter::Problems->named(), ProblemsReport::fromOptions(...))

@@ -46,6 +46,13 @@ it('names the file it ends in, without its .php', function (): void {
         ->and(Path::of('phpunit.xml')->stem())->toBe('phpunit.xml');
 });
 
+it('names the directory at the root it lies in, and the root for a file in it', function (): void {
+    expect(Path::of('src/Core/Money.php')->top())->toEqual(Path::of('src'))
+        ->and(Path::of('app/Legacy')->top())->toEqual(Path::of('app'))
+        ->and(Path::of('index.php')->top())->toEqual(Path::root())
+        ->and(Path::root()->top())->toEqual(Path::root());
+});
+
 it('drops empty and current-directory segments', function (): void {
     expect(Path::of('./src//Core/./Money.php')->value())->toBe('src/Core/Money.php');
 });

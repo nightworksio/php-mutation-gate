@@ -157,6 +157,7 @@ final readonly class Builtins
                 BuiltinReporter::Tests,
                 BuiltinReporter::KillMatrix,
                 BuiltinReporter::GitLab,
+                BuiltinReporter::Sonar,
             ),
             BuiltinReporter::Slack->value => $chat('MUTATION_GATE_SLACK_URL', Json::object()),
             BuiltinReporter::Discord->value => $chat('MUTATION_GATE_DISCORD_URL', Json::object()),

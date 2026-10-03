@@ -100,3 +100,23 @@ it('places no mutant whose change holds a semicolon, an opening brace or a closi
     'a block opened' => ['if ($ok) {', 3],
     'a closure closed' => ['    });', 5],
 ]);
+
+it('finds where a mutant\'s change is only where its tokens are on its lines', function () use ($mutant): void {
+    $columns = Columns::in(Contents::of(Verdicts::MONEY));
+
+    expect($columns->found($mutant(7, Line::of(7), Verdicts::BOUNDARY)))->toBe([
+        'start' => ['line' => 7, 'column' => 21],
+        'end' => ['line' => 7, 'column' => 22],
+    ])
+        ->and($columns->found($mutant(8, Line::of(8), Verdicts::diff('return 42;', 'return 43;'))))->toEqual(Unplaced::mutant())
+        ->and($columns->found(Verdicts::provedKill()->mutant()))->toEqual(Unplaced::mutant());
+});
+
+it('ends a change that runs onto the next line at the end of its last token there', function () use ($mutant): void {
+    $diff = "@@ @@\n-return \$a\n-    && \$b;\n+return \$b && \$a;\n";
+
+    expect(Columns::in(Contents::of("<?php\nreturn \$a\n    && \$b;\n"))->found($mutant(2, Line::of(3), $diff)))->toBe([
+        'start' => ['line' => 2, 'column' => 8],
+        'end' => ['line' => 3, 'column' => 10],
+    ]);
+});

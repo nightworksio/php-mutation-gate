@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Editor\VsCode;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
 use NightWorksIO\MutationGate\Core\Report\ResultRule;
+use NightWorksIO\MutationGate\Core\Report\Sources;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -64,7 +66,7 @@ it('writes a background task that watches with the problems output, and the matc
 });
 
 it('reads every line the problems output writes into its file, place, severity, message and rule', function (): void {
-    $text = Problems::text(Verdicts::failing(), ['src/Money.php' => Contents::of(Verdicts::MONEY)], ProblemsShown::All);
+    $text = Problems::text(Verdicts::failing(), Sources::none()->with(Path::of('src/Money.php'), Contents::of(Verdicts::MONEY)), ProblemsShown::All);
     $read = matchedProblems($text);
 
     expect($read)->toHaveCount(5)
@@ -77,7 +79,7 @@ it('reads every line the problems output writes into its file, place, severity, 
 
 it('reads a message that holds brackets, colons and what looks like a rule and an id, up to its own rule', function (): void {
     $survivor = Verdicts::survivor()->hinted(Hint::that('See src/A.php:3:4: error: x [flaky] 0123456789ab and [unjudged].'));
-    [$read] = matchedProblems(Problems::text(Verdicts::of(Floor::of(0), $survivor), [], ProblemsShown::All));
+    [$read] = matchedProblems(Problems::text(Verdicts::of(Floor::of(0), $survivor), Sources::none(), ProblemsShown::All));
 
     expect($read)->toMatchArray(['file' => 'src/Money.php', 'line' => '7', 'column' => '1', 'severity' => 'warning', 'code' => 'survived'])
         ->and($read['message'])->toContain('See src/A.php:3:4: error: x [flaky] 0123456789ab and [unjudged]. Reproduce: ');

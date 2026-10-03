@@ -7,7 +7,9 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Report\Sources;
 use NightWorksIO\MutationGate\Core\Report\Stryker;
 use NightWorksIO\MutationGate\Core\Report\StrykerPage;
 use NightWorksIO\MutationGate\Core\Written;
@@ -26,7 +28,7 @@ it('writes the report and a page that shows it with the viewer the package carri
     $html = sprintf('%s/build/html', $project);
     $viewer = Schema::at('resources/mutation-testing-elements');
     $answer = HtmlReportDirectory::at($html, $project, $viewer)->report(Verdicts::failing());
-    $report = Stryker::json(Verdicts::failing(), ['src/Money.php' => Contents::of(Verdicts::MONEY)]);
+    $report = Stryker::json(Verdicts::failing(), Sources::none()->with(Path::of('src/Money.php'), Contents::of(Verdicts::MONEY)));
 
     expect($answer)->toEqual(Written::to(sprintf('%s/index.html', $html)))
         ->and(file_get_contents(sprintf('%s/mutation-report.json', $html)))->toBe($report)

@@ -99,6 +99,7 @@ that reproduces it and a sentence saying what the tests miss.
 | | A benchmark against plain Pest and Infection on four open-source projects: cold, warm and per pull request, losses included | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | The sticky comment and its planned state on GitLab merge requests and Bitbucket pull requests, with survivors in GitLab's Code Quality report and Bitbucket's Code Insights | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | | An organisation dashboard: a static site of every repository's trends, floors and savings | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
+| | Survivors in SonarQube's issue list, through its generic external-issues format | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
 
 ## Install
 
@@ -379,6 +380,7 @@ Each reporter is registered by a name:
 | `sarif` | Listed in `reports` | SARIF 2.1.0 at `path`, for code scanning; with `CI` unset it also names the repository's root as a `file://` URI, for an editor's SARIF viewer |
 | `html` | Listed in `reports` | `mutation-report.json` and a self-contained `index.html` under the `path` directory, shown with Stryker's viewer |
 | `gitlab` | Listed in `reports` | GitLab's Code Quality JSON at `path`: an issue per mutant counted as not killed, `major` in a set that failed and `minor` otherwise |
+| `sonar` | Listed in `reports` | SonarQube's generic external-issues format at `path`, for SonarQube Server 10.3 or later and SonarQube Cloud: an issue per mutant counted as not killed, at its lines and columns, under the rule SARIF reports it by, each rule a medium reliability issue of the engine `mutation-gate`, and `survived-security` a medium security one; the line saying where it wrote also says how many issues are under each top directory |
 | `kill-matrix` | Listed in `reports` | CSV at `path`: a record per mutant and covering test, with what the test did with the mutant in place |
 | `tests` | Listed in `reports` | JSON at `path`, described by [`resources/tests.schema.json`](resources/tests.schema.json), and Markdown beside it: the tests that kill nothing they judged, those never the first to kill, from a full kill matrix those that can go together without losing a kill, and those that assert only existence or shape beside the survivors they let through, with the assertion of value to write |
 | `problems` | With `--output=problems` | One `<path>:<line>:<col>: <error\|warning>: <message> [<rule>] <id>` line per result, between `mutation-gate: judging` and `mutation-gate: judged`, for an editor's problem matcher |
@@ -390,6 +392,18 @@ Each reporter is registered by a name:
 | `github-summary` | Under GitHub Actions | The step summary: what a timed run took and saved, what the default branch saved over 30 days, and every mutant counted as not killed in one table, a cluster of survivors as one row |
 | `github-comment` | On a pull request, with `GITHUB_TOKEN` | One sticky comment, updated in place, with what a timed run took and saved under the verdict and what it cost folded at the end; `with: {identity: …}` names the account it is found by when the token is not `GITHUB_TOKEN` |
 | `badge` | In CI, on the default branch | `badge.json`, `trend.json`, `trend.svg` and `savings.json` in `--publish-dir` |
+
+SonarQube imports the `sonar` report from the path the scanner's
+`sonar.externalIssuesReportPaths` names, as in `sonar-project.properties`:
+
+```properties
+sonar.externalIssuesReportPaths=build/mutation-sonar.json
+```
+
+with `{"use": "sonar", "path": "build/mutation-sonar.json"}` in `reports`.
+SonarQube drops an issue on a file outside `sonar.sources`, and `doctor`
+names each tree that lies outside it
+([ADR-0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md)).
 
 Every mutant the score counts as not killed carries its reproduce command,
 `vendor/bin/mutation-gate reproduce <id>`, and a sentence saying what the
@@ -476,7 +490,7 @@ and `?` match within one directory, and `**` across any number of them.
 | `ignores.maxDays` | integer | none | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `ignores.native` | `refuse` or `allow` | `refuse` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `equivalence.static` | boolean | `true` | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
-| `reports` | list of `{use, path, with}`; built-in `json`, `junit`, `sarif`, `html`, `tests`, `kill-matrix`, `gitlab`; `badge`, whose `path` is `--publish-dir` where it names none; and without a `path` `console`, `problems`, `slack`, `discord`, `webhook`, `otlp`, `github-annotations`, `github-summary`, `github-comment`. A config names every `path` inside the project | `[]` | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `reports` | list of `{use, path, with}`; built-in `json`, `junit`, `sarif`, `html`, `tests`, `kill-matrix`, `gitlab`, `sonar`; `badge`, whose `path` is `--publish-dir` where it names none; and without a `path` `console`, `problems`, `slack`, `discord`, `webhook`, `otlp`, `github-annotations`, `github-summary`, `github-comment`. A config names every `path` inside the project | `[]` | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `badge.colors` | map of shields.io colour to lowest score | `{"brightgreen": 90, "green": 80, "yellow": 70, "orange": 60}`, red below | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `pest.patch` | boolean | `false` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `pest.canary` | group name, with no whitespace | `mutation-canary` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
@@ -531,7 +545,7 @@ Files the gate reads and writes:
 | `.mutation-gate/publish/badge.json`, `trend.json`, `trend.svg` | The badge and trend | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `.mutation-gate/publish/savings.json` | A shields.io endpoint with the time saved in the last 30 days | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | `.mutation-gate/baseline.measured.json` | The baseline a CI run measured for trees with no floor, to commit as `mutation-gate.baseline.json` | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
-| A `json`, `junit`, `sarif`, `gitlab` or `kill-matrix` report's `path` | That report | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| A `json`, `junit`, `sarif`, `gitlab`, `sonar` or `kill-matrix` report's `path` | That report | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | An `html` report's `path`: `index.html`, `mutation-report.json` | The HTML report and its data | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | A `tests` report's `path`, and the same path with `.md` | The useless, removable and weakly asserting tests, as JSON and Markdown | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 

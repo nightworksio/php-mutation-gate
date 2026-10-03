@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\KillMatrixFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\SonarReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
@@ -24,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
@@ -77,6 +79,7 @@ $reporters = [
     'SARIF' => fn(): Reporter => SarifReportFile::at(sprintf('%s/mutation.sarif', Scratch::directory())),
     'SARIF for an editor' => fn(): Reporter => SarifReportFile::rootedAt(sprintf('%s/mutation.sarif', Scratch::directory()), '/work/gate'),
     'GitLab Code Quality' => fn(): Reporter => CodeQualityReportFile::at(sprintf('%s/gl-code-quality.json', Scratch::directory())),
+    'SonarQube' => fn(): Reporter => SonarReportFile::at(sprintf('%s/mutation-sonar.json', Scratch::directory()), Scratch::directory(), Guide::unreleased()),
     'the kill matrix' => fn(): Reporter => KillMatrixFile::at(sprintf('%s/kill-matrix.csv', Scratch::directory())),
     'the tests report' => fn(): Reporter => TestsReportFile::at(sprintf('%s/tests.json', Scratch::directory())),
     'HTML' => fn(): Reporter => HtmlReportDirectory::at(

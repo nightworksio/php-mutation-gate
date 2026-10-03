@@ -20,6 +20,7 @@ it('says whether an entry of each reporter names a path', function (BuiltinRepor
     [BuiltinReporter::Tests, EntryPath::Required],
     [BuiltinReporter::KillMatrix, EntryPath::Required],
     [BuiltinReporter::GitLab, EntryPath::Required],
+    [BuiltinReporter::Sonar, EntryPath::Required],
     [BuiltinReporter::Badge, EntryPath::Optional],
     [BuiltinReporter::Console, EntryPath::Refused],
     [BuiltinReporter::Problems, EntryPath::Refused],

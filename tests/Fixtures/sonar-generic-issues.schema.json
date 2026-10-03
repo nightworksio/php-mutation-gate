@@ -1,0 +1,77 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$comment": "The fields SonarQube's generic issue import format lists, as https://docs.sonarsource.com/sonarqube-server/analyzing-source-code/importing-external-issues/generic-issue-import-format/ and https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/importing-external-issues/generic-issue-data/ give them. A rule needs impacts in SonarQube Cloud, and the scanner refuses an issue that carries a severity or a type of its own beside the rules.",
+    "type": "object",
+    "required": ["rules", "issues"],
+    "additionalProperties": false,
+    "properties": {
+        "rules": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["id", "name", "description", "engineId", "cleanCodeAttribute", "impacts"],
+                "additionalProperties": false,
+                "properties": {
+                    "id": {"type": "string", "minLength": 1},
+                    "name": {"type": "string", "minLength": 1},
+                    "description": {"type": "string", "minLength": 1},
+                    "engineId": {"type": "string", "minLength": 1},
+                    "cleanCodeAttribute": {
+                        "enum": ["FORMATTED", "CONVENTIONAL", "IDENTIFIABLE", "CLEAR", "LOGICAL", "COMPLETE", "EFFICIENT", "FOCUSED", "DISTINCT", "MODULAR", "TESTED", "LAWFUL", "TRUSTWORTHY", "RESPECTFUL"]
+                    },
+                    "type": {"enum": ["BUG", "VULNERABILITY", "CODE_SMELL"]},
+                    "severity": {"enum": ["BLOCKER", "CRITICAL", "MAJOR", "MINOR", "INFO"]},
+                    "impacts": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": ["softwareQuality", "severity"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "softwareQuality": {"enum": ["SECURITY", "RELIABILITY", "MAINTAINABILITY"]},
+                                "severity": {"enum": ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "issues": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["ruleId", "primaryLocation"],
+                "additionalProperties": false,
+                "properties": {
+                    "ruleId": {"type": "string", "minLength": 1},
+                    "effortMinutes": {"type": "integer"},
+                    "primaryLocation": {"$ref": "#/definitions/location"},
+                    "secondaryLocations": {"type": "array", "items": {"$ref": "#/definitions/location"}}
+                }
+            }
+        }
+    },
+    "definitions": {
+        "location": {
+            "type": "object",
+            "required": ["message", "filePath"],
+            "additionalProperties": false,
+            "properties": {
+                "message": {"type": "string", "minLength": 1},
+                "filePath": {"type": "string", "minLength": 1},
+                "textRange": {
+                    "type": "object",
+                    "required": ["startLine"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "startLine": {"type": "integer", "minimum": 1},
+                        "endLine": {"type": "integer", "minimum": 1},
+                        "startColumn": {"type": "integer", "minimum": 0},
+                        "endColumn": {"type": "integer", "minimum": 0}
+                    }
+                }
+            }
+        }
+    }
+}
