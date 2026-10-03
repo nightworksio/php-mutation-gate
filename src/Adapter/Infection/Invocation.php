@@ -101,7 +101,7 @@ final readonly class Invocation
                 $config->phpunit($project),
                 sprintf('--configuration=%s', $config->configDirectory($project)),
                 sprintf('--coverage-xml=%s', $directory->child(self::XML)->value()),
-                sprintf('--log-junit=%s', $directory->child(self::JUNIT)->value()),
+                sprintf('%s=%s', PhpUnitOption::LogJunit->value, $directory->child(self::JUNIT)->value()),
                 '--colors=never',
                 ...$config->extraArguments(),
                 ...self::narrowedTo($tests),

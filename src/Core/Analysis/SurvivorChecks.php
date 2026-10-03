@@ -6,16 +6,15 @@ namespace NightWorksIO\MutationGate\Core\Analysis;
 
 use function array_filter;
 use function array_map;
-use function array_slice;
 use function array_unique;
 use function array_values;
 
 use ArrayIterator;
 
 use function count;
-use function implode;
 
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
@@ -34,16 +33,11 @@ use Traversable;
  */
 final readonly class SurvivorChecks implements IteratorAggregate
 {
-    /** How many of a reason's files its warning names; it counts the rest. */
-    private const int NAMED = 3;
-
     private const string LEFT = 'Static analysis left %d %s unchecked, as %s: %s.';
 
     private const string ONE = 'survivor';
 
     private const string MANY = 'survivors';
-
-    private const string MORE = '%s and %d more';
 
     /** @param list<UncheckedSurvivor> $unchecked */
     private function __construct(private AnalyserHistories $histories, private array $unchecked)
@@ -109,15 +103,13 @@ final readonly class SurvivorChecks implements IteratorAggregate
     {
         $distinct = array_values(array_unique($files));
         sort($distinct);
-        $named = implode(', ', array_slice($distinct, 0, self::NAMED));
-        $more = count($distinct) - self::NAMED;
 
         return Warning::that(sprintf(
             self::LEFT,
             count($files),
             count($files) === 1 ? self::ONE : self::MANY,
             $why->because(),
-            $more > 0 ? sprintf(self::MORE, $named, $more) : $named,
+            Fit::named($distinct),
         ));
     }
 }

@@ -215,3 +215,17 @@ it('judges one mutant by some test files, one after another, stopping at the fir
         'tests/Unit/TaxSpec.php',
     ]);
 });
+
+it('puts the options a judging run is given before its files', function (): void {
+    $tests = Paths::of(Path::of('tests/MoneySpec.php'));
+
+    expect(invocation()->judging($tests, WholeSuite::tests(), Withheld::nothing(), '--log-junit=/r/junit.xml')->arguments())->toBe([
+        PHP_BINARY,
+        'vendor/pestphp/pest/bin/pest',
+        '--no-tia',
+        '--bail',
+        '--colors=never',
+        '--log-junit=/r/junit.xml',
+        'tests/MoneySpec.php',
+    ]);
+});

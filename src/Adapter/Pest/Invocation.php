@@ -79,7 +79,7 @@ final readonly class Invocation
             sprintf('--processes=%d', $request->processes()->count()),
             '--no-tia',
             sprintf('%s=%s/%s', PhpUnitOption::CoveragePhp->value, $directory, self::MAP),
-            sprintf('--log-junit=%s/%s', $directory, self::JUNIT),
+            sprintf('%s=%s/%s', PhpUnitOption::LogJunit->value, $directory, self::JUNIT),
             ...$this->narrowedTo($request->tests()),
         );
     }
@@ -149,10 +149,15 @@ final readonly class Invocation
      * The tests in some files, one after another, stopping at the first that
      * fails, narrowed to what judges: the run that judges a mutant of a line
      * that is not executable through Pest's override, and the run on the
-     * unmutated code a narrowed kill stands on (see NarrowedKills).
+     * unmutated code a narrowed kill stands on (see NarrowedKills). The
+     * options given come before the files, such as the log a run writes.
      */
-    public function judging(Paths $tests, WholeSuite|Group|Filter $judgedBy, Withheld $withheld): Command
-    {
+    public function judging(
+        Paths $tests,
+        WholeSuite|Group|Filter $judgedBy,
+        Withheld $withheld,
+        string ...$options,
+    ): Command {
         $files = [];
 
         foreach ($tests as $test) {
@@ -166,6 +171,7 @@ final readonly class Invocation
             '--bail',
             '--colors=never',
             ...$this->narrowedTo($judgedBy),
+            ...$options,
             ...$files,
         );
     }

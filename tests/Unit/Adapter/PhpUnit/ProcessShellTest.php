@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Command;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ending;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -38,12 +39,14 @@ it('runs PHP in another directory once moved there, with the running PHP first o
     expect($ran->output())->toBe(sprintf('%s %s%s/usr/bin', $directory, dirname(PHP_BINARY), PATH_SEPARATOR));
 });
 
-it('says a program failed where it exits with an error, or cannot start', function (): void {
+it('says a program failed where it exits with an error, with its exit code, or cannot start, with none', function (): void {
     $failed = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'exit(3);'));
     $unstarted = new ProcessShell('/no/such/directory', [])->run(Command::php('-r', 'echo 1;'));
 
     expect($failed->ending())->toBe(Ending::Failed)
+        ->and($failed->exitCode())->toBe(3)
         ->and($unstarted->ending())->toBe(Ending::Failed)
+        ->and($unstarted->exitCode())->toEqual(NotGiven::value())
         ->and($unstarted->output())->toContain('/no/such/directory');
 });
 

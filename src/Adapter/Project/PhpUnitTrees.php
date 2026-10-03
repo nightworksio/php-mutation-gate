@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Format\Xml;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -152,7 +153,7 @@ final readonly class PhpUnitTrees implements TreeSource
 
         $xml = simplexml_load_string(
             sprintf('%s', file_get_contents($this->root->at($config)->value())),
-            options: LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING,
+            options: Xml::QUIET,
         );
 
         return $xml instanceof SimpleXMLElement

@@ -70,7 +70,12 @@ final readonly class ProcessShell implements Shell
         }
 
         $said = sprintf('%s%s', $process->getOutput(), $process->getErrorOutput());
-        $ran = $stopped ? Ran::stopped($said) : Ran::finished(succeeded: $process->isSuccessful(), output: $said);
+        $code = $process->getExitCode();
+        $ran = match (true) {
+            $stopped => Ran::stopped($said),
+            is_int($code) => Ran::exited($code, $said),
+            default => Ran::finished(succeeded: false, output: $said),
+        };
 
         return $ran->took($this->since($started));
     }
