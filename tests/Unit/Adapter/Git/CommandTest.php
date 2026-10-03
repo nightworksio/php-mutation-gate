@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Pest\Mutate\Support\StreamWrapper;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -30,6 +31,20 @@ it('runs git with settings that keep what it prints the same', function (string 
 it('hands git what it reads from its input', function (): void {
     expect(Command::in(Repository::empty()->root)->feed(['hash-object', '--stdin'], "hello\n"))
         ->toBe("ce013625030ba8dba906f756967f9e9ca394464a\n");
+});
+
+it('feeds git where a stream wrapper of PHP code serves file://, as Pest\'s does in a mutant\'s own run', function (): void {
+    $copy = sprintf('%s/Money.php', Scratch::directory());
+    file_put_contents($copy, '<?php');
+    StreamWrapper::start(__FILE__, $copy);
+
+    try {
+        $hashed = Command::in(Repository::empty()->root)->feed(['hash-object', '--stdin'], "hello\n");
+    } finally {
+        StreamWrapper::disable();
+    }
+
+    expect($hashed)->toBe("ce013625030ba8dba906f756967f9e9ca394464a\n");
 });
 
 it('cannot tell where git gives no answer, and says what git said', function (): void {

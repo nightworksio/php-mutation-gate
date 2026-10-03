@@ -6,12 +6,16 @@ namespace NightWorksIO\MutationGate\Adapter\Git;
 
 use function array_filter;
 use function array_key_exists;
+use function array_map;
+use function fclose;
 use function file_get_contents;
 use function file_put_contents;
+use function fopen;
 use function getenv;
 use function getmypid;
 use function implode;
 use function is_dir;
+use function is_resource;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -149,15 +153,23 @@ final readonly class Command
 
     /**
      * What git printed, reading its input from one file and writing what went
-     * wrong to another, or why it gave no answer.
+     * wrong to another, or why it gave no answer. Git is handed both files
+     * open, not by their paths: given a path, proc_open opens it through the
+     * stream wrapper registered for `file://`, and a wrapper of PHP code,
+     * such as the one Pest serves a mutant through in a mutant's own run,
+     * has no descriptor to hand a process, so git would never start there.
+     * Git whose files cannot be opened is not started.
      *
      * @param list<string> $arguments
      */
     private function fedFrom(array $arguments, string $in, string $errors): string|CannotTell
     {
-        $git = proc_open(
+        $reading = fopen($in, 'r');
+        $writing = fopen($errors, 'w');
+        $pipes = [];
+        $git = $reading === false || $writing === false ? false : proc_open(
             ['git', ...self::SETTINGS, ...$arguments],
-            [0 => ['file', $in, 'r'], 1 => ['pipe', 'w'], 2 => ['file', $errors, 'w']],
+            [0 => $reading, 1 => ['pipe', 'w'], 2 => $writing],
             $pipes,
             $this->directory,
             $this->environment,
@@ -165,6 +177,8 @@ final readonly class Command
         $printed = $git === false ? false : stream_get_contents($pipes[1]);
         $succeeded = $git !== false && proc_close($git) === 0;
         $said = $git === false ? self::NOT_STARTED : trim(sprintf('%s', file_get_contents($errors)));
+
+        array_map(fclose(...), array_filter([$reading, $writing], is_resource(...)));
 
         return $succeeded && is_string($printed) ? $printed : $this->refused($arguments, $said);
     }
