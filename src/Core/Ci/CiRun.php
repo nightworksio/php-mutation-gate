@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Ci;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Format\Series;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 
+use function preg_match;
 use function rawurlencode;
 use function sprintf;
 
@@ -17,8 +19,13 @@ use function sprintf;
  */
 final readonly class CiRun
 {
-    private const string UNREAD
-        = 'The gate names a run on GitHub, GitLab, Buildkite, CircleCI, Azure DevOps or Bitbucket, and not on this CI.';
+    private const string UNREAD = 'The gate names a run on %s, and not on this CI.';
+
+    /** Each CI whose run the gate names, as a person names it. */
+    private const array NAMED = ['GitHub', 'GitLab', 'Buildkite', 'CircleCI', 'Azure DevOps', 'Bitbucket', 'Jenkins'];
+
+    /** A remote's URL, by its last two parts, the repository's owner and name, without `.git`. */
+    private const string OWNER_AND_NAME = '#([^/:]+/[^/:]+?)(?:\.git)?/?$#D';
 
     private function __construct(
         private string $repository,
@@ -43,8 +50,8 @@ final readonly class CiRun
 
     /**
      * The run the environment of a GitHub Actions, GitLab CI, Buildkite,
-     * CircleCI, Azure DevOps or Bitbucket Pipelines job describes; why there
-     * is none in any other.
+     * CircleCI, Azure DevOps, Bitbucket Pipelines or Jenkins job describes;
+     * why there is none in any other.
      */
     public static function read(Variables $variables): self|CannotTell
     {
@@ -77,7 +84,8 @@ final readonly class CiRun
             ),
             $variables->has(Variables::TF_BUILD) => self::azure($variables),
             $variables->has(Variables::BITBUCKET_BUILD_NUMBER) => self::bitbucket($variables),
-            default => CannotTell::because(self::UNREAD),
+            $variables->has(Variables::BUILD_TAG) => self::jenkins($variables),
+            default => CannotTell::because(sprintf(self::UNREAD, Series::or(...self::NAMED))),
         };
     }
 
@@ -112,8 +120,8 @@ final readonly class CiRun
 
     /**
      * The run as a proof names it (ADR-0007 decision 3): `github:<run id>/<attempt>`, `gitlab:<pipeline id>`,
-     * `buildkite:<build id>`, `circleci:<workflow id>`, `azure:<build id>` or `bitbucket:<build number>`; empty
-     * where the CI numbers none.
+     * `buildkite:<build id>`, `circleci:<workflow id>`, `azure:<build id>`, `bitbucket:<build number>` or
+     * `jenkins:<build tag>`; empty where the CI numbers none.
      */
     public function id(): string
     {
@@ -156,7 +164,7 @@ final readonly class CiRun
 
         return new self(
             $variables->valueOf('CI_PROJECT_PATH'),
-            $tag === '' ? self::branch($variables->valueOf('CI_COMMIT_REF_NAME')) : sprintf('refs/tags/%s', $tag),
+            self::refOf($tag, $variables->valueOf('CI_COMMIT_REF_NAME')),
             $variables->valueOf('CI_COMMIT_SHA'),
             $variables->valueOf('CI_PIPELINE_URL'),
             $variables->valueOf('CI_PIPELINE_NAME'),
@@ -167,6 +175,12 @@ final readonly class CiRun
     private static function branch(string $name): string
     {
         return Scope::branch($name)->ref();
+    }
+
+    /** The full ref of the tag a run builds, or of its branch where it builds none. */
+    private static function refOf(string $tag, string $branch): string
+    {
+        return $tag === '' ? self::branch($branch) : sprintf('refs/tags/%s', $tag);
     }
 
     private static function azure(Variables $variables): self
@@ -195,11 +209,34 @@ final readonly class CiRun
 
         return new self(
             $repository,
-            $tag === '' ? self::branch($branch) : sprintf('refs/tags/%s', $tag),
+            self::refOf($tag, $branch),
             $variables->valueOf('BITBUCKET_COMMIT'),
             sprintf('https://bitbucket.org/%s/pipelines/results/%s', $repository, $number),
             '',
             self::numbered('bitbucket:%s', $number),
+        );
+    }
+
+    /**
+     * A Jenkins build: the repository is the last two parts of its remote's URL, or the whole URL where it has
+     * fewer; the ref is the tag a build builds, else the branch a pull request comes from, else the branch; the
+     * pipeline is the job.
+     */
+    private static function jenkins(Variables $variables): self
+    {
+        $remote = $variables->valueOf('GIT_URL');
+        $tag = $variables->valueOf(Variables::TAG_NAME);
+        $branch = $variables->has(Variables::CHANGE_BRANCH)
+            ? $variables->valueOf(Variables::CHANGE_BRANCH)
+            : $variables->valueOf(Variables::BRANCH_NAME);
+
+        return new self(
+            preg_match(self::OWNER_AND_NAME, $remote, $named) === 1 ? $named[1] : $remote,
+            self::refOf($tag, $branch),
+            $variables->valueOf('GIT_COMMIT'),
+            $variables->valueOf('BUILD_URL'),
+            $variables->valueOf('JOB_NAME'),
+            self::numbered('jenkins:%s', $variables->valueOf(Variables::BUILD_TAG)),
         );
     }
 

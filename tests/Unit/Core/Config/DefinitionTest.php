@@ -74,6 +74,7 @@ it('declares every setting as affecting results or as judging or reporting only'
         'ci.buildkite.definition' => $results,
         'ci.azure.definition' => $results,
         'ci.bitbucket.definition' => $results,
+        'ci.jenkins.definition' => $results,
         'proofs.store' => $judges,
         'proofs.store.with.path' => $judges,
         'proofs.store.with.bucket' => $judges,

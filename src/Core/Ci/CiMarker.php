@@ -21,7 +21,7 @@ final readonly class CiMarker
         return new self($variable, Marking::SaysTrue);
     }
 
-    /** A CI that sets this variable to any value, as Jenkins sets `JENKINS_URL`. */
+    /** A CI that sets this variable to any value, as Jenkins sets `BUILD_TAG`. */
     public static function setting(string $variable): self
     {
         return new self($variable, Marking::IsSet);

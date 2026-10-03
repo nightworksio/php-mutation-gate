@@ -45,6 +45,11 @@ final readonly class Ci implements Setting
         return new self(Json::at('ci.plan', BuiltinCiPlan::Bitbucket->value));
     }
 
+    public static function jenkins(): self
+    {
+        return new self(Json::at('ci.plan', BuiltinCiPlan::Jenkins->value));
+    }
+
     /** The plan as JSON, for any other CI. */
     public static function json(): self
     {
@@ -114,6 +119,12 @@ final readonly class Ci implements Setting
     public static function bitbucketDefinition(string $path): self
     {
         return new self(Json::at('ci.bitbucket.definition', $path));
+    }
+
+    /** `ci.jenkins.definition`: the Jenkinsfile that runs the gate under Jenkins. */
+    public static function jenkinsDefinition(string $path): self
+    {
+        return new self(Json::at('ci.jenkins.definition', $path));
     }
 
     public function written(): Json

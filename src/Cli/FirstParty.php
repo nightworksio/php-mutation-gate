@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
+use NightWorksIO\MutationGate\Adapter\Jenkins\JenkinsPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
@@ -152,6 +153,12 @@ final readonly class FirstParty implements Extension
                 BitbucketPlan::fromOptions(...),
                 BitbucketPlan::withheld(),
                 BitbucketPlan::marker(),
+            )
+            ->withCiPlan(
+                BuiltinCiPlan::Jenkins->named(),
+                JenkinsPlan::fromOptions(...),
+                JenkinsPlan::withheld(),
+                JenkinsPlan::marker(),
             )
             ->withCiPlan(
                 BuiltinCiPlan::Json->named(),

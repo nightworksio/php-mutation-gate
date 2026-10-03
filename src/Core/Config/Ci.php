@@ -34,6 +34,7 @@ final readonly class Ci implements Part
         private Path|Absent $buildkiteDefinition,
         private Path|Absent $azureDefinition,
         private Path|Absent $bitbucketDefinition,
+        private Path|Absent $jenkinsDefinition,
     ) {
     }
 
@@ -46,6 +47,7 @@ final readonly class Ci implements Part
         Path|Absent $buildkiteDefinition = new Absent(),
         Path|Absent $azureDefinition = new Absent(),
         Path|Absent $bitbucketDefinition = new Absent(),
+        Path|Absent $jenkinsDefinition = new Absent(),
     ): self {
         return new self(
             $plan,
@@ -56,6 +58,7 @@ final readonly class Ci implements Part
             $buildkiteDefinition,
             $azureDefinition,
             $bitbucketDefinition,
+            $jenkinsDefinition,
         );
     }
 
@@ -75,6 +78,7 @@ final readonly class Ci implements Part
             buildkiteDefinition: $none->buildkiteDefinition(),
             azureDefinition: $none->azureDefinition(),
             bitbucketDefinition: $none->bitbucketDefinition(),
+            jenkinsDefinition: $none->jenkinsDefinition(),
         );
     }
 
@@ -94,6 +98,7 @@ final readonly class Ci implements Part
                 Absent::laid($this->buildkiteDefinition, $later->buildkiteDefinition),
                 Absent::laid($this->azureDefinition, $later->azureDefinition),
                 Absent::laid($this->bitbucketDefinition, $later->bitbucketDefinition),
+                Absent::laid($this->jenkinsDefinition, $later->jenkinsDefinition),
             )
             : $this;
     }
@@ -170,6 +175,15 @@ final readonly class Ci implements Part
             : Path::of(Definitions::BITBUCKET);
     }
 
+    /**
+     * `ci.jenkins.definition`: the Jenkinsfile that runs the gate under Jenkins, which reach and the proof key count
+     * as its CI definition (ADR-0024 decision 3).
+     */
+    public function jenkinsDefinition(): Path
+    {
+        return $this->jenkinsDefinition instanceof Path ? $this->jenkinsDefinition : Path::of(Definitions::JENKINS);
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
@@ -191,16 +205,20 @@ final readonly class Ci implements Part
                                 ? $this->buildkiteStep->json()
                                 : $this->buildkiteStep,
                         ),
-                        Member::of('definition', $this->path($origin, $this->buildkiteDefinition)),
+                        Member::of(CiJob::DEFINITION, $this->path($origin, $this->buildkiteDefinition)),
                     ),
                 ),
                 Member::unlessEmpty(
                     'azure',
-                    Json::object(Member::of('definition', $this->path($origin, $this->azureDefinition))),
+                    Json::object(Member::of(CiJob::DEFINITION, $this->path($origin, $this->azureDefinition))),
                 ),
                 Member::unlessEmpty(
                     'bitbucket',
-                    Json::object(Member::of('definition', $this->path($origin, $this->bitbucketDefinition))),
+                    Json::object(Member::of(CiJob::DEFINITION, $this->path($origin, $this->bitbucketDefinition))),
+                ),
+                Member::unlessEmpty(
+                    'jenkins',
+                    Json::object(Member::of(CiJob::DEFINITION, $this->path($origin, $this->jenkinsDefinition))),
                 ),
             ),
         ));
@@ -222,25 +240,14 @@ final readonly class Ci implements Part
             ...$this->buildkiteStep instanceof BuildkiteStep
                 ? [sprintf('Ci::buildkiteStep(%s)', implode(', ', PhpOptions::of($this->buildkiteStep->json())))]
                 : [],
-            ...$this->buildkiteDefinition instanceof Path ? [sprintf(
-                'Ci::buildkiteDefinition(%s)',
-                PhpCalls::literal($origin->written($this->buildkiteDefinition)),
-            )] : [],
-            ...$this->azureDefinition instanceof Path ? [sprintf(
-                'Ci::azureDefinition(%s)',
-                PhpCalls::literal($origin->written($this->azureDefinition)),
-            )] : [],
-            ...$this->bitbucketDefinition instanceof Path ? [sprintf(
-                'Ci::bitbucketDefinition(%s)',
-                PhpCalls::literal($origin->written($this->bitbucketDefinition)),
-            )] : [],
+            ...$this->definitionCalls($origin),
         ]);
     }
 
     /**
      * The options the gate hands a CI plan it builds in, from this section: `gitlab` its template, `buildkite`
-     * its step and the pipeline that runs it, and `azure` and `bitbucket` the pipeline that runs each; none for
-     * any other.
+     * its step and the pipeline that runs it, and `azure`, `bitbucket` and `jenkins` the pipeline that runs each;
+     * none for any other.
      */
     public function planOptions(Name $plan): Options
     {
@@ -256,8 +263,35 @@ final readonly class Ci implements Part
             BuiltinCiPlan::Bitbucket->value => Json::object(
                 Member::of(CiJob::DEFINITION, $this->bitbucketDefinition()->value()),
             ),
+            BuiltinCiPlan::Jenkins->value => Json::object(
+                Member::of(CiJob::DEFINITION, $this->jenkinsDefinition()->value()),
+            ),
             default => Json::object(),
         });
+    }
+
+    /**
+     * A builder call for each CI's pipeline file this section names, by the builder method that names it.
+     *
+     * @return list<string>
+     */
+    private function definitionCalls(PathOrigin $origin): array
+    {
+        $calls = [];
+        $named = [
+            'buildkiteDefinition' => $this->buildkiteDefinition,
+            'azureDefinition' => $this->azureDefinition,
+            'bitbucketDefinition' => $this->bitbucketDefinition,
+            'jenkinsDefinition' => $this->jenkinsDefinition,
+        ];
+
+        foreach ($named as $method => $path) {
+            $calls = $path instanceof Path
+                ? [...$calls, sprintf('Ci::%s(%s)', $method, PhpCalls::literal($origin->written($path)))]
+                : $calls;
+        }
+
+        return $calls;
     }
 
     private function path(PathOrigin $origin, Path|Absent $path): string|Absent

@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Filesystem\PublicationFile;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
+use NightWorksIO\MutationGate\Adapter\Jenkins\JenkinsPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
@@ -51,6 +52,7 @@ $plans = [
     'CircleCI' => fn(): CiPlan => CircleCiPlan::in($job()),
     'Azure DevOps' => fn(): CiPlan => AzurePlan::in(CiJob::of($job(), Paths::of(Path::of('azure-pipelines.yml')))),
     'Bitbucket Pipelines' => fn(): CiPlan => BitbucketPlan::in(CiJob::of($job(), Paths::of(Path::of('bitbucket-pipelines.yml')))),
+    'Jenkins' => fn(): CiPlan => JenkinsPlan::in(CiJob::of($job(), Paths::of(Path::of('Jenkinsfile')))),
     'plain JSON' => fn(): CiPlan => JsonPlan::in($job()),
 ];
 
@@ -97,5 +99,6 @@ it('declares the credentials of its CI that no runner hands the tests, over and 
     'CircleCI' => fn(): Withheld => CircleCiPlan::withheld(),
     'Azure DevOps' => fn(): Withheld => AzurePlan::withheld(),
     'Bitbucket Pipelines' => fn(): Withheld => BitbucketPlan::withheld(),
+    'Jenkins' => fn(): Withheld => JenkinsPlan::withheld(),
     'plain JSON' => fn(): Withheld => JsonPlan::withheld(),
 ]);

@@ -28,6 +28,9 @@ final readonly class Definitions
     /** The pipeline Bitbucket Pipelines runs, and `ci.bitbucket.definition`'s default. */
     public const string BITBUCKET = 'bitbucket-pipelines.yml';
 
+    /** The pipeline Jenkins runs where a job names none, and `ci.jenkins.definition`'s default. */
+    public const string JENKINS = 'Jenkinsfile';
+
     /** The directory of CircleCI's config. */
     public const string CIRCLECI_DIRECTORY = '.circleci/';
 
@@ -47,6 +50,7 @@ final readonly class Definitions
             BuiltinCiPlan::CircleCi => self::CIRCLECI_DIRECTORY,
             BuiltinCiPlan::Azure => self::AZURE,
             BuiltinCiPlan::Bitbucket => self::BITBUCKET,
+            BuiltinCiPlan::Jenkins => self::JENKINS,
             BuiltinCiPlan::Json => NotGiven::value(),
         };
     }

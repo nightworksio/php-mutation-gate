@@ -29,6 +29,7 @@ it('names the run as its CI numbers it, or by its time where no CI does', functi
     'GitLab' => [Variables::of(['GITLAB_CI' => 'true', 'CI_PIPELINE_ID' => '9']), 'gitlab:9'],
     'Azure DevOps' => [Variables::of(['TF_BUILD' => 'True', 'BUILD_BUILDID' => '42']), 'azure:42'],
     'Bitbucket Pipelines' => [Variables::of(['CI' => 'true', 'BITBUCKET_BUILD_NUMBER' => '12']), 'bitbucket:12'],
+    'Jenkins' => [Variables::of(['CI' => 'true', 'BUILD_TAG' => 'jenkins-gate-main-4']), 'jenkins:jenkins-gate-main-4'],
     'no CI' => [Variables::of([]), 'local:2026-09-30T12:00:00Z'],
     'a CI that numbers no run' => [Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_RUN_ID' => '']), 'local:2026-09-30T12:00:00Z'],
     'a CI the gate cannot read' => [Variables::of(['CI' => 'true', 'GITHUB_RUN_ID' => '5813']), 'local:2026-09-30T12:00:00Z'],

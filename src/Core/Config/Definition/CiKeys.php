@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use Closure;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
+use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Effect;
@@ -28,20 +30,17 @@ final readonly class CiKeys
         $results = Effect::AffectsResults;
         $template = Field::optional('template', Location::path($origin), $results);
         $step = Field::optional('step', StepTemplate::buildkite(), $judges);
-        $definition = Field::optional('definition', Location::path($origin), $results);
-        $azure = Field::section(
-            'azure',
-            Section::single(
-                Field::optional('definition', Location::path($origin), $results),
-                static fn(Path|Absent $path): Ci => Ci::of(azureDefinition: $path),
-            ),
-        );
-        $bitbucket = Field::section(
+        $definition = Field::optional(CiJob::DEFINITION, Location::path($origin), $results);
+        $azure = self::defined('azure', $origin, static fn(Path|Absent $path): Ci => Ci::of(azureDefinition: $path));
+        $bitbucket = self::defined(
             'bitbucket',
-            Section::single(
-                Field::optional('definition', Location::path($origin), $results),
-                static fn(Path|Absent $path): Ci => Ci::of(bitbucketDefinition: $path),
-            ),
+            $origin,
+            static fn(Path|Absent $path): Ci => Ci::of(bitbucketDefinition: $path),
+        );
+        $jenkins = self::defined(
+            'jenkins',
+            $origin,
+            static fn(Path|Absent $path): Ci => Ci::of(jenkinsDefinition: $path),
         );
         $gitlab = Field::section(
             'gitlab',
@@ -82,9 +81,16 @@ final readonly class CiKeys
                     $buildkite,
                     $azure,
                     $bitbucket,
+                    $jenkins,
                 ): Layer|Invalid {
                     $readings = [$plan->read($ci), $branch->read($ci), $check->read($ci)];
-                    $inner = [$gitlab->read($ci), $buildkite->read($ci), $azure->read($ci), $bitbucket->read($ci)];
+                    $inner = [
+                        $gitlab->read($ci),
+                        $buildkite->read($ci),
+                        $azure->read($ci),
+                        $bitbucket->read($ci),
+                        $jenkins->read($ci),
+                    ];
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(self::laid(
@@ -106,8 +112,27 @@ final readonly class CiKeys
                 $buildkite,
                 $azure,
                 $bitbucket,
+                $jenkins,
             ),
         )];
+    }
+
+    /**
+     * A CI's section that holds only `definition`, the path of the pipeline file that runs the gate there, which
+     * affects results (ADR-0024 decision 3).
+     *
+     * @param  Closure(Path|Absent): Ci $build
+     * @return Field<Ci>
+     */
+    private static function defined(string $ci, PathOrigin $origin, Closure $build): Field
+    {
+        return Field::section(
+            $ci,
+            Section::single(
+                Field::optional(CiJob::DEFINITION, Location::path($origin), Effect::AffectsResults),
+                $build,
+            ),
+        );
     }
 
     private static function step(Json|Absent $keys): BuildkiteStep|Absent

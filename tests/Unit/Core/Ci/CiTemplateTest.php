@@ -32,6 +32,7 @@ use Symfony\Component\Yaml\Yaml;
  * - azure-pipelines.json: github.com/microsoft/azure-pipelines-vscode, service-schema.json (MIT).
  *
  * Bitbucket states no licence for its schema, so it is fetched instead, and held to BITBUCKET_SCHEMA's digest.
+ * Jenkins publishes no schema for a Jenkinsfile, so its template is held by its snapshot alone (ADR-0024 decision 6).
  */
 const CI_SCHEMAS = [
     'github' => 'github-workflow',
@@ -46,6 +47,28 @@ const BITBUCKET_SCHEMA = [
     'https://api.bitbucket.org/schemas/pipelines-configuration',
     '9387b9d72352521be95652848b9148163c6fa4090e870efc87ce731b2ff80630',
 ];
+
+/**
+ * Each template a provider's published schema validates: all of them but Jenkins'.
+ *
+ * @return list<CiTemplate>
+ */
+function ciSchemaTemplates(): array
+{
+    $validated = [];
+
+    foreach (CiTemplate::cases() as $template) {
+        $validated = $template === CiTemplate::JenkinsPipeline ? $validated : [...$validated, $template];
+    }
+
+    return $validated;
+}
+
+/** What starts a comment line in a template: `//` in a Jenkinsfile, `#` in YAML. */
+function ciCommentMark(CiTemplate $template): string
+{
+    return $template === CiTemplate::JenkinsPipeline ? '//' : '#';
+}
 
 /** The schema a provider's templates are validated against, by the directory that holds them. */
 function ciSchema(string $provider): string
@@ -120,6 +143,7 @@ it('renders each CI\'s templates, the GitHub one as the estimate or the request 
         ->and(CiTemplate::for(BuiltinCiPlan::CircleCi, $single))->toEqual(Listed::of(CiTemplate::CircleCi))
         ->and(CiTemplate::for(BuiltinCiPlan::Azure, $single))->toEqual(Listed::of(CiTemplate::AzureJobs, CiTemplate::AzureInclude))
         ->and(CiTemplate::for(BuiltinCiPlan::Bitbucket, $single))->toEqual(Listed::of(CiTemplate::BitbucketPipelines))
+        ->and(CiTemplate::for(BuiltinCiPlan::Jenkins, $single))->toEqual(Listed::of(CiTemplate::JenkinsPipeline))
         ->and(CiTemplate::for(BuiltinCiPlan::Json, $single))->toEqual(Listed::of());
 });
 
@@ -131,11 +155,11 @@ it('names the file of the gate\'s jobs that the lines it prints pull in, where t
             ? $included->value()
             : 'none',
         BuiltinCiPlan::cases(),
-    ))->toBe(['none', 'ci/gate.yml', '.buildkite/mutation-gate.yml', 'none', '.azure/mutation-gate.yml', 'none', 'none']);
+    ))->toBe(['none', 'ci/gate.yml', '.buildkite/mutation-gate.yml', 'none', '.azure/mutation-gate.yml', 'none', 'none', 'none']);
 });
 
 it('writes a definition to a file of its own, and prints one that belongs in a file the CI reads', function (): void {
-    $ci = Ci::of(gitlabTemplate: Path::of('ci/gate.yml'));
+    $ci = Ci::of(gitlabTemplate: Path::of('ci/gate.yml'), jenkinsDefinition: Path::of('ci/Jenkinsfile'));
 
     expect(array_map(
         static fn(CiTemplate $template): string => ($where = $template->destination($ci)) instanceof Printed
@@ -153,19 +177,20 @@ it('writes a definition to a file of its own, and prints one that belongs in a f
         '.azure/mutation-gate.yml',
         'printed into azure-pipelines.yml',
         'printed into bitbucket-pipelines.yml',
+        'printed into ci/Jenkinsfile',
     ]);
+    expect(CiTemplate::JenkinsPipeline->destination(Ci::none()))->toEqual(Printed::into('Jenkinsfile'));
 });
 
-it('fills in every placeholder, and renders YAML the provider\'s published schema accepts', function (
-    CiTemplate $template,
-): void {
-    $text = ciTemplateRendered($template);
-    [$provider] = explode('/', $template->value);
-    $schema = ciSchema($provider);
-
-    expect($text)->not->toContain('%%')
-        ->and(Schema::errors(ciTemplateJson($text), $schema))->toBe([]);
+it('fills in every placeholder', function (CiTemplate $template): void {
+    expect(ciTemplateRendered($template))->not->toContain('%%');
 })->with(CiTemplate::cases());
+
+it('renders YAML the provider\'s published schema accepts', function (CiTemplate $template): void {
+    [$provider] = explode('/', $template->value);
+
+    expect(Schema::errors(ciTemplateJson(ciTemplateRendered($template)), ciSchema($provider)))->toBe([]);
+})->with(ciSchemaTemplates());
 
 it('renders each template as its snapshot', function (CiTemplate $template): void {
     expect(ciTemplateRendered($template))->toBe((string) file_get_contents(Schema::at(sprintf('tests/Fixtures/CiTemplates/%s', $template->value))));
@@ -236,7 +261,7 @@ it('quotes every value a project gives wherever a template holds it, and runs no
     CiTemplate $template,
 ): void {
     $lines = explode("\n", (string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value))));
-    $unquoted = array_filter($lines, static fn(string $line): bool => ! str_starts_with(trim($line), '#')
+    $unquoted = array_filter($lines, static fn(string $line): bool => ! str_starts_with(trim($line), ciCommentMark($template))
         && preg_match("/(?<!')%%(branch|runner|included|check)%%|%%(branch|runner|included|check)%%(?!')/", $line) === 1);
 
     expect(array_values($unquoted))->toBe([]);
@@ -294,7 +319,7 @@ it('refuses by Bitbucket\'s schema a deployment on a final step, so a verdict th
         $pipelines,
     );
     $merged = $final('');
-    $deploying = $final(sprintf("          deployment: '%s'\n", CiTemplate::bitbucketDeployment()));
+    $deploying = $final(sprintf("          deployment: '%s'\n", CiTemplate::keyHolder()));
 
     expect($merged)->not->toBe($pipelines)
         ->and(Schema::errors(ciTemplateJson($merged), ciSchema('bitbucket')))->toBe([])
@@ -307,7 +332,7 @@ it('deploys only the default branch\'s and the full run\'s verdicts, each the la
         'composer install --no-interaction --no-progress',
         'vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results',
     ]];
-    $deployed = ['step' => [...$verdict, 'deployment' => CiTemplate::bitbucketDeployment()]];
+    $deployed = ['step' => [...$verdict, 'deployment' => CiTemplate::keyHolder()]];
 
     expect(bitbucketLastStep($json, 'branches', 'trunk'))->toBe($deployed)
         ->and(bitbucketLastStep($json, 'custom', 'mutation-full'))->toBe($deployed)
@@ -331,5 +356,43 @@ it('cuts as many shards as each Bitbucket pipeline runs parallel steps', functio
 
 it('names the deployment environment that holds the keys in the README', function (): void {
     expect((string) file_get_contents(Schema::at('README.md')))
-        ->toContain(sprintf('deployment environment `%s`', CiTemplate::bitbucketDeployment()));
+        ->toContain(sprintf('deployment environment `%s`', CiTemplate::keyHolder()));
+});
+
+it('reads the plan Jenkins prints with readJSON, and hands parallel one closure per shard, named in its variable', function (): void {
+    $jenkinsfile = ciTemplateRendered(CiTemplate::JenkinsPipeline);
+    $jenkins = BuiltinCiPlan::Jenkins->value;
+
+    expect($jenkinsfile)->toContain(sprintf('vendor/bin/mutation-gate plan --ci=%s $base > .mutation-gate/shards.json', $jenkins))
+        ->and($jenkinsfile)->toContain("for (shard in readJSON(file: '.mutation-gate/shards.json').shards) {")
+        ->and($jenkinsfile)->toContain(sprintf('withEnv(["%s=${number}"]) {', WhichShard::VARIABLE))
+        ->and($jenkinsfile)->toContain(sprintf("sh 'vendor/bin/mutation-gate run --ci=%s --plan=.mutation-gate/plan.json'", $jenkins))
+        ->and($jenkinsfile)->toContain("            parallel shards\n");
+});
+
+it('runs Jenkins\' verdict in post, always, and binds the keys there alone, on the default branch alone', function (): void {
+    $jenkinsfile = ciTemplateRendered(CiTemplate::JenkinsPipeline);
+    [$id, $secret] = [...BuiltinStore::S3->variables()];
+    $post = substr($jenkinsfile, (int) strpos($jenkinsfile, "\n  post {\n    always {\n"));
+    $binding = sprintf(
+        "withCredentials([usernamePassword(credentialsId: '%s', usernameVariable: '%s', passwordVariable: '%s')]) {",
+        CiTemplate::keyHolder(),
+        $id,
+        $secret,
+    );
+
+    expect($post)->toContain(sprintf(
+        "def verdict = 'vendor/bin/mutation-gate verdict --ci=%s --plan=.mutation-gate/plan.json --results=.mutation-gate/results'",
+        BuiltinCiPlan::Jenkins->value,
+    ))
+        ->and(substr_count($jenkinsfile, 'withCredentials('))->toBe(1)
+        ->and($post)->toContain(sprintf(
+            "if (env.BRANCH_NAME == env.MUTATION_GATE_DEFAULT_BRANCH && env.CHANGE_ID == null) {\n          %s",
+            $binding,
+        ));
+});
+
+it('names the credentials that hold the keys on Jenkins in the README', function (): void {
+    expect((string) file_get_contents(Schema::at('README.md')))
+        ->toContain(sprintf('the credentials `%s`', CiTemplate::keyHolder()));
 });

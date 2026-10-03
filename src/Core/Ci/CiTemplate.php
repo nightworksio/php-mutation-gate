@@ -43,6 +43,8 @@ enum CiTemplate: string
 
     case BitbucketPipelines = 'bitbucket/pipelines.yml';
 
+    case JenkinsPipeline = 'jenkins/Jenkinsfile';
+
     /** The file of the workflow GitHub runs the gate in, among GitHub's workflows. */
     private const string GITHUB_WORKFLOW = 'mutation.yml';
 
@@ -52,8 +54,11 @@ enum CiTemplate: string
     /** The directory the gate's GitLab template is in by default: the gate's choice, beside `.gitlab-ci.yml`. */
     private const string GITLAB_TEMPLATES = '.gitlab/';
 
-    /** The deployment environment whose variables hold the store's keys on Bitbucket: named for the gate. */
-    private const string BITBUCKET_DEPLOYMENT = ThisPackage::NAME;
+    /**
+     * What holds the store's keys where a CI holds them by a name, Bitbucket's deployment environment and Jenkins'
+     * credentials: named for the gate.
+     */
+    private const string KEY_HOLDER = ThisPackage::NAME;
 
     /** The directory `init --ci=azure` writes the gate's template to: the gate's choice, not Azure's convention. */
     private const string AZURE_TEMPLATES = '.azure/';
@@ -76,6 +81,7 @@ enum CiTemplate: string
             BuiltinCiPlan::CircleCi => Listed::of(self::CircleCi),
             BuiltinCiPlan::Azure => Listed::of(self::AzureJobs, self::AzureInclude),
             BuiltinCiPlan::Bitbucket => Listed::of(self::BitbucketPipelines),
+            BuiltinCiPlan::Jenkins => Listed::of(self::JenkinsPipeline),
             BuiltinCiPlan::Json => Listed::of(),
         };
     }
@@ -90,8 +96,11 @@ enum CiTemplate: string
             BuiltinCiPlan::GitLab => $ci->gitlabTemplate(),
             BuiltinCiPlan::Buildkite => self::buildkitePipeline(),
             BuiltinCiPlan::Azure => self::azureJobs(),
-            BuiltinCiPlan::GitHub, BuiltinCiPlan::CircleCi, BuiltinCiPlan::Bitbucket, BuiltinCiPlan::Json
-                => NotGiven::value(),
+            BuiltinCiPlan::GitHub,
+            BuiltinCiPlan::CircleCi,
+            BuiltinCiPlan::Bitbucket,
+            BuiltinCiPlan::Jenkins,
+            BuiltinCiPlan::Json => NotGiven::value(),
         };
     }
 
@@ -126,12 +135,12 @@ enum CiTemplate: string
     }
 
     /**
-     * The deployment environment the Bitbucket definition's verdicts that write the ledger deploy to, whose
-     * variables hold the proof store's keys (ADR-0024 decision 4).
+     * What holds the proof store's keys for the verdicts that write the ledger (ADR-0024 decision 4): on Bitbucket,
+     * the deployment environment they deploy to; on Jenkins, the credentials they bind.
      */
-    public static function bitbucketDeployment(): string
+    public static function keyHolder(): string
     {
-        return self::BITBUCKET_DEPLOYMENT;
+        return self::KEY_HOLDER;
     }
 
     /** Where it goes: a file, from the project, or printed for a file the CI already reads. */
@@ -149,6 +158,7 @@ enum CiTemplate: string
             self::AzureJobs => self::azureJobs(),
             self::AzureInclude => Printed::into(Definitions::AZURE),
             self::BitbucketPipelines => Printed::into(Definitions::BITBUCKET),
+            self::JenkinsPipeline => Printed::into($ci->jenkinsDefinition()->value()),
         };
     }
 }
