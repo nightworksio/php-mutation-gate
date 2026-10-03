@@ -124,12 +124,23 @@ it('counts nothing and fails nothing where the budget left no unit unjudged', fu
         ->and($none->failures())->toHaveCount(0);
 });
 
-it('carries a kill by static analysis as unjudged, with no rejection, though its result is of this base', function () use ($proofOf, $carrying, $timedOut): void {
+it('carries a kill by static analysis of this base with its rejection, and one that records no finding as unjudged', function () use ($proofOf, $carrying, $timedOut): void {
     $rejected = $timedOut->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Money.php'), 'return.type', 'Method Money::sub() should return int.')));
-    $newest = Proofs::of($proofOf('src/Money.php', 'money', Mutants::of($rejected), ProvedKills::none()))->newest();
-    $results = [...LeftUnjudged::of(Units::of(Unit::file(Path::of('src/Money.php'))), $newest, $carrying)->results()];
-    $carried = $results === [] ? [] : [...$results[0]->mutants()];
+    $unplaced = Mutant::of(
+        $timedOut->id(),
+        $timedOut->nativeId(),
+        $timedOut->location(),
+        $timedOut->mutation(),
+        MutantStatus::KilledByStaticAnalysis,
+        Unmeasured::duration(),
+    );
+    $carried = static function (Mutant $mutant) use ($proofOf, $carrying): array {
+        $newest = Proofs::of($proofOf('src/Money.php', 'money', Mutants::of($mutant), ProvedKills::none()))->newest();
+        $results = [...LeftUnjudged::of(Units::of(Unit::file(Path::of('src/Money.php'))), $newest, $carrying)->results()];
 
-    expect($carried)->toEqual([$rejected->unjudged(OutOfTime::BeforeMutating)])
-        ->and($carried === [] ? $carried : $carried[0]->reason())->toEqual(OutOfTime::BeforeMutating->reason());
+        return $results === [] ? [] : [...$results[0]->mutants()];
+    };
+
+    expect($carried($rejected))->toEqual([$rejected])
+        ->and($carried($unplaced))->toEqual([$unplaced->unjudged(OutOfTime::BeforeMutating)]);
 });

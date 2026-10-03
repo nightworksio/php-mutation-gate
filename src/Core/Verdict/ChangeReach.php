@@ -32,7 +32,8 @@ use function sprintf;
  * kills it holds (ADR-0008, decision 1): every file that names, as
  * {@see NamedFiles} links files, what a changed file declares, then or now,
  * and every file that names what those declare in turn. A kill whose unit,
- * or a test that killed it, is among them does not stand.
+ * a test that killed it, or the file a static analyser's finding sits in, is
+ * among them does not stand.
  *
  * A file that is not PHP is named by the words of its name, as a test that
  * reads `fixtures/rates.json` names it, and so, besides what it declares, is
@@ -90,12 +91,15 @@ final readonly class ChangeReach
         return new self($reached, self::inside($reached), $everything);
     }
 
-    /** Whether the change reaches a unit, a file within the path it holds, or one of these test files. */
-    public function reaches(Path $unit, Paths $tests): bool
+    /**
+     * Whether the change reaches a unit, a file within the path it holds, or
+     * one of these files a kill depended on besides.
+     */
+    public function reaches(Path $unit, Paths $dependedOn): bool
     {
         return count($this->everything) > 0
             || array_key_exists($unit->value(), $this->inside)
-            || array_any([...$tests], fn(Path $test): bool => $this->reached->has($test));
+            || array_any([...$dependedOn], fn(Path $file): bool => $this->reached->has($file));
     }
 
     /** Why the change reaches every kill; none where it follows each by name. */

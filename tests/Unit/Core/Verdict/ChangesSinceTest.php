@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -62,22 +64,33 @@ $proof = static fn(string $unit, string $base, ProvedKills $kills, Mutants $muta
 $inputs = Inputs::of(Digest::sha256Of('source'), Digest::sha256Of('mutation'));
 $roles = FileRoles::of(Layout::standard(Paths::none()), Packages::of(Flows::trees()), Paths::none());
 
-it('reads the commit of each result established at another base that holds a kill, each commit once', function () use ($commit, $kill, $killed, $proof, $inputs): void {
+it('reads the commit of each result established at another base that holds a kill, by a test or by static analysis, each commit once', function () use ($commit, $kill, $killed, $proof, $inputs): void {
+    $rejected = $killed('src/Checked.php')->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Checked.php'), 'return.type', 'No.')));
+    $survived = Mutant::of(
+        MutantId::hash(Path::of('src/Survived.php'), 'Plus', '2', 0),
+        '2',
+        Location::of(Path::of('src/Survived.php'), Line::of(2), Line::of(2)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, ''),
+        MutantStatus::Survived,
+        Unmeasured::duration(),
+    );
     $proofs = Proofs::of(
         $proof('src/Money.php', 'old', ProvedKills::of($kill('src/Money.php')), Mutants::none(), $inputs->takenAt($commit('first'))),
         $proof('src/Tax.php', 'old', ProvedKills::none(), Mutants::of($killed('src/Tax.php')), $inputs->takenAt($commit('first'))),
         $proof('src/Rate.php', 'older', ProvedKills::of($kill('src/Rate.php')), Mutants::none(), $inputs->takenAt($commit('second'))),
         $proof('src/Same.php', 'base', ProvedKills::of($kill('src/Same.php')), Mutants::none(), $inputs->takenAt($commit('same base'))),
         $proof('src/Spared.php', 'old', ProvedKills::none(), Mutants::none(), $inputs->takenAt($commit('no kill'))),
+        $proof('src/Checked.php', 'old', ProvedKills::none(), Mutants::of($rejected), $inputs->takenAt($commit('third'))),
+        $proof('src/Survived.php', 'old', ProvedKills::none(), Mutants::of($survived), $inputs->takenAt($commit('survivor'))),
         $proof('src/Dirty.php', 'old', ProvedKills::of($kill('src/Dirty.php')), Mutants::none(), $inputs),
         $proof('src/Old.php', 'old', ProvedKills::of($kill('src/Old.php')), Mutants::none(), Undigested::proof()),
     );
     $units = Units::of(...array_map(
         static fn(string $unit): Unit => Unit::file(Path::of($unit)),
-        ['src/Money.php', 'src/Tax.php', 'src/Rate.php', 'src/Same.php', 'src/Spared.php', 'src/Dirty.php', 'src/Old.php', 'src/New.php'],
+        ['src/Money.php', 'src/Tax.php', 'src/Rate.php', 'src/Same.php', 'src/Spared.php', 'src/Checked.php', 'src/Survived.php', 'src/Dirty.php', 'src/Old.php', 'src/New.php'],
     ));
 
-    expect(ChangesSince::commitsOf($units, $proofs->newest(), Digest::sha256Of('base')))->toEqual([$commit('first'), $commit('second')]);
+    expect(ChangesSince::commitsOf($units, $proofs->newest(), Digest::sha256Of('base')))->toEqual([$commit('first'), $commit('second'), $commit('third')]);
 });
 
 it('answers what changed since a commit it read, and cannot tell for one it did not', function () use ($commit, $roles): void {

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 
 use function count;
 
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -75,13 +76,13 @@ final readonly class Carrying
      * unjudged, and why. A timeout or a mutant out of memory is unjudged,
      * since triage can count it as a kill (ADR-0008; ADR-0004, decision 9); a
      * skipped mutant stands, since nothing counts it as one. A kill by static
-     * analysis is unjudged.
+     * analysis stands as a kill does, by the file its finding sits in.
      */
     public function carry(Proof $proof, Mutant|ProvedKill $mutant): Carry
     {
         return match ($mutant->status()) {
             MutantStatus::Killed => $this->kill($proof, $mutant),
-            MutantStatus::KilledByStaticAnalysis => Carry::Rejected,
+            MutantStatus::KilledByStaticAnalysis => $this->rejected($proof, $mutant),
             MutantStatus::Errored, MutantStatus::TimedOut, MutantStatus::OutOfMemory => Carry::KillerUnknown,
             MutantStatus::Uncovered => $this->uncovered($mutant),
             MutantStatus::Survived,
@@ -121,6 +122,26 @@ final readonly class Carrying
     }
 
     /**
+     * A kill by static analysis stands where its result records the file the
+     * finding sits in, within the repository, and the base is the same, or
+     * nothing that changed since the commit its result records reaches its
+     * unit or that file. The mutant's file and the finding's are what the
+     * rejection depended on, and the unit's source is already unchanged.
+     */
+    private function rejected(Proof $proof, Mutant|ProvedKill $kill): Carry
+    {
+        $rejection = $kill->reason();
+        $file = $rejection instanceof Rejection ? $rejection->finding()->file() : Carry::RejectionUnknown;
+
+        return match (true) {
+            $file instanceof Carry => $file,
+            $file->escapes() => Carry::FindingOutside,
+            $proof->run()->base()->value() === $this->base->value() => Carry::Stands,
+            default => $this->since($proof, Paths::of($file)),
+        };
+    }
+
+    /**
      * The files of every test that killed a mutant, where each is named and
      * reads what it read when it killed it; otherwise why the kill is unjudged.
      */
@@ -145,8 +166,12 @@ final readonly class Carrying
         return Paths::of(...$files);
     }
 
-    /** Whether what changed since the commit a result records reaches a kill's unit or the tests that killed it. */
-    private function since(Proof $proof, Paths $killers): Carry
+    /**
+     * Whether what changed since the commit a result records reaches a
+     * kill's unit or the files it depended on besides: the tests that killed
+     * it, or the file a static analyser's finding sits in.
+     */
+    private function since(Proof $proof, Paths $dependedOn): Carry
     {
         $inputs = $proof->inputs();
         $commit = $inputs instanceof Inputs ? $inputs->commit() : Uncommitted::tree();
@@ -155,7 +180,7 @@ final readonly class Carrying
         return match (true) {
             $since instanceof Uncommitted => Carry::NoCommit,
             $since instanceof CannotTell => Carry::ChangeUnknown,
-            $since->reaches($proof->unit(), $killers) => Carry::Reached,
+            $since->reaches($proof->unit(), $dependedOn) => Carry::Reached,
             default => Carry::Stands,
         };
     }

@@ -268,7 +268,8 @@ needs remain, and the runners' own behaviour shapes each answer.
       no finding. A record that gives a rejection to a mutant of any other
       status, or a reason or an `outOfTime` beside its rejection, or a
       rejection with no file, is not well formed.
-    - A kill by static analysis a time budget carries is unjudged (ADR-0008,
+    - A kill by static analysis a time budget carries stands as a kill
+      does, by its unit and the file its finding sits in (ADR-0008,
       decision 1).
     - `explain` prints the analyser, the file the finding sits in, the
       finding's code and its message.

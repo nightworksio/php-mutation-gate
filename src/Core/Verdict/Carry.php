@@ -12,7 +12,9 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
  * it is unchanged, with the support it reads, and either the whole base is
  * unchanged or nothing that changed since reaches its unit or those tests by
  * a name they use: a mutated run can reach code the unmutated run never did,
- * so no narrower bound than what the code names holds.
+ * so no narrower bound than what the code names holds. A kill by static
+ * analysis stands as a kill does, the file its finding sits in taking the
+ * place of the tests.
  */
 enum Carry
 {
@@ -34,8 +36,14 @@ enum Carry
     /** A test that killed it changed, with the support it reads, or is gone. */
     case KillerChanged;
 
-    /** A static analyser killed it. */
-    case Rejected;
+    /** A static analyser killed it, and its result does not record the finding, as for a kill Infection reports. */
+    case RejectionUnknown;
+
+    /**
+     * A static analyser killed it by a finding in a file outside the
+     * repository, whose changes git does not say.
+     */
+    case FindingOutside;
 
     /** It was uncovered, and a test covers its line now. */
     case NowCovered;
