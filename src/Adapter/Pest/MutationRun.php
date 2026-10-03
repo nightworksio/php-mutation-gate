@@ -85,6 +85,7 @@ final readonly class MutationRun
         private array $only = [],
         private Clock $clock = new WallClock(),
         private bool $whole = false,
+        private Bridges $bridges = new Bridges(),
     ) {
     }
 
@@ -167,7 +168,7 @@ final readonly class MutationRun
         $coverage = $shared instanceof CoverageMap
             ? new HandedOver($shared, $this->project)
             : CoverageFile::at(Recorder::coverageBeside($results));
-        $interpretation = new Interpretation($this->project, $this->patching, $request->memory());
+        $interpretation = new Interpretation($this->project, $this->patching, $request->memory(), $this->bridges);
         $result = $interpretation->of($ran, $results, $coverage);
 
         if ($result instanceof CannotJudge || $coverage instanceof CannotJudge) {
@@ -282,10 +283,14 @@ final readonly class MutationRun
             $files->holdsAComma() || $leftOut->holdsAComma() => CannotJudge::because(
                 sprintf(self::COMMA, $files->joined(', '), $leftOut->joined(', ')),
             ),
-            default => $this->opened(
-                Invocation::installedIn($this->project->vendor())->mutation($request, $judgedBy, $results),
-                $results,
-                $shared,
+            default => $this->bridges->loading(
+                $this->project,
+                $this->opened(
+                    Invocation::installedIn($this->project->vendor())
+                        ->mutation($request, $judgedBy, $results, $this->bridges),
+                    $results,
+                    $shared,
+                ),
             ),
         };
     }

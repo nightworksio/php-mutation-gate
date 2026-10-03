@@ -103,9 +103,15 @@ final readonly class Invocation
      * The options after `--no-tia` undo what a project's own
      * `pest()->mutate()` could set: covered lines only, a class list, a stop
      * at the first escaped or uncovered mutant, and escaped mutants first.
+     * `--mutator` names the bridges to the registered mutators a config turns
+     * on beside Pest's own (see Bridges).
      */
-    public function mutation(MutationRequest $request, WholeSuite|Group $judgedBy, string $results): Command
-    {
+    public function mutation(
+        MutationRequest $request,
+        WholeSuite|Group $judgedBy,
+        string $results,
+        Bridges $bridges = new Bridges(),
+    ): Command {
         return Command::pest(
             $this->script,
             $request->withheld(),
@@ -122,7 +128,7 @@ final readonly class Invocation
             sprintf('--path=%s', PathList::of($request->files())->joined(',')),
             sprintf('--ignore=%s', $this->ignored($request->leftOut())),
             ...$this->narrowedTo($judgedBy),
-            ...$this->applying($request->mutators()),
+            ...$this->applying($request->mutators(), $bridges),
         )->with([GateVariable::Results->value => $results])->within($request->deadline());
     }
 
@@ -230,14 +236,10 @@ final readonly class Invocation
     }
 
     /** @return list<string> */
-    private function applying(Mutators $mutators): array
+    private function applying(Mutators $mutators, Bridges $bridges): array
     {
-        $named = [];
+        $named = $bridges->applying($mutators);
 
-        foreach ($mutators as $mutator) {
-            $named[] = $mutator;
-        }
-
-        return $mutators->isAll() ? [] : [sprintf('--mutator=%s', implode(',', $named))];
+        return $named === [] ? [] : [sprintf('--mutator=%s', implode(',', $named))];
     }
 }

@@ -15,7 +15,9 @@
     "prefer-stable": true,
     "autoload": {
         "psr-4": {
-            "Library\\": "../src/"
+            "Library\\": "../src/",
+            "NightWorksIO\\MutationGate\\": "../../../../../src/",
+            "NightWorksIO\\MutationGate\\Tests\\Contract\\Runner\\Mutators\\": "../../Mutators/"
         }
     },
     "autoload-dev": {

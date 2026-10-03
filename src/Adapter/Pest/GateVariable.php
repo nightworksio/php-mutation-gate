@@ -39,4 +39,7 @@ enum GateVariable: string
 
     /** Set where a patched run loads only the test files each mutant's covering tests need (see CoveringFiles). */
     case Narrow = 'MUTATION_GATE_NARROW';
+
+    /** The file of bridges the plugin loads, through which Pest makes registered mutators' mutants (see Bridges). */
+    case Mutators = 'MUTATION_GATE_MUTATORS';
 }

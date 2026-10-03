@@ -120,15 +120,16 @@ final readonly class Settings
         return $this->layer->badge()->colors();
     }
 
-    public function pest(): Pest
-    {
-        return $this->layer->pest();
-    }
-
     /** Which static analyser rejects a mutant before its tests run, and with which config (ADR-0020). */
     public function staticCheck(): StaticCheck
     {
         return $this->layer->staticCheck();
+    }
+
+    /** The registered mutators a run makes mutants with besides its runner's own (ADR-0021). */
+    public function mutators(): Mutators
+    {
+        return $this->layer->setup()->mutators();
     }
 
     public function local(): Local

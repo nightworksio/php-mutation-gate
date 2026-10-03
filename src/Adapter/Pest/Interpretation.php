@@ -55,8 +55,12 @@ final readonly class Interpretation
     private const string OUT_OF_MEMORY
         = "Pest ran out of the %s memory cap in its own process, so the run did not finish. %s Pest said:\n%s";
 
-    public function __construct(private Project $project, private Patching $patching, private MemoryCap $cap)
-    {
+    public function __construct(
+        private Project $project,
+        private Patching $patching,
+        private MemoryCap $cap,
+        private Bridges $bridges = new Bridges(),
+    ) {
     }
 
     /** A run's records, read with the covering tests of the run's opening map. */
@@ -170,7 +174,11 @@ final readonly class Interpretation
             $gate,
             $planned->id(),
             Location::of($file, $planned->start(), $planned->end()),
-            Mutation::of($planned->mutator(), Families::of($planned->mutator()), Diff::fromPest($planned->diff())),
+            Mutation::of(
+                $planned->mutator(),
+                $this->bridges->familyOf($planned->mutator()),
+                Diff::fromPest($planned->diff()),
+            ),
             $judged ? $this->statusOf($planned, $records) : MutantStatus::Unjudged,
             $records->durationOf($planned),
         );

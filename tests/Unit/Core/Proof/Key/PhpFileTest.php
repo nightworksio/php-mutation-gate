@@ -113,3 +113,11 @@ it('reads every word of its text, a hyphenated word also joined up', function ()
 
     expect($file->names())->toBe(['hello', 'world', 'readysteady', 'ready', 'steady', 'go', '7', 'xray', 'x', 'ray']);
 });
+
+it('says whether it declares a class named in full, by the class\'s last segment, in any case', function () use ($read): void {
+    $file = $read("<?php\nnamespace Tests\\Mutators;\nfinal class PlusToMinus {}\n");
+
+    expect($file->declaresAnyOf('Acme\\Other', 'Tests\\Mutators\\PLUSTOMINUS'))->toBeTrue()
+        ->and($file->declaresAnyOf('Acme\\PlusToMinusToo'))->toBeFalse()
+        ->and($file->declaresAnyOf())->toBeFalse();
+});

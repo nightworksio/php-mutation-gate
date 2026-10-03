@@ -23,8 +23,9 @@ use function sprintf;
 /**
  * What a config builds on (ADR-0002, ADR-0008): the extensions it loads, the
  * presets it applies, the runner, what the runner withholds from the
- * project's tests and the memory each mutant's process may use, and where
- * the trees come from.
+ * project's tests and the memory each mutant's process may use, the
+ * registered mutators it turns on beside the runner's own (ADR-0021), and
+ * where the trees come from.
  */
 final readonly class Setup implements Part
 {
@@ -47,6 +48,7 @@ final readonly class Setup implements Part
         private Listed|Absent $presets,
         private RunnerLayer $runner,
         private Choice|Absent $treeSource,
+        private Mutators $mutators,
     ) {
     }
 
@@ -61,12 +63,14 @@ final readonly class Setup implements Part
         Withheld|Absent $withhold = new Absent(),
         Choice|Absent $treeSource = new Absent(),
         MemoryCap|Absent $memory = new Absent(),
+        Mutators|Absent $mutators = new Absent(),
     ): self {
         return new self(
             $extensions,
             $presets,
             RunnerLayer::of($runner, $withhold, $memory),
             $treeSource,
+            $mutators instanceof Mutators ? $mutators : Mutators::none(),
         );
     }
 
@@ -79,10 +83,18 @@ final readonly class Setup implements Part
     {
         $none = self::none();
 
-        return self::of(extensions: $none->extensions(), treeSource: $none->treeSource(), memory: $none->memory());
+        return self::of(
+            extensions: $none->extensions(),
+            treeSource: $none->treeSource(),
+            memory: $none->memory(),
+            mutators: Mutators::standard(),
+        );
     }
 
-    /** Presets and extensions add to an earlier layer's; a runner, a memory cap or a tree source is chosen whole. */
+    /**
+     * Presets, extensions and mutators add to an earlier layer's; a runner, a
+     * memory cap or a tree source is chosen whole.
+     */
     public function over(Part $later): self
     {
         return $later instanceof self
@@ -91,6 +103,7 @@ final readonly class Setup implements Part
                 $this->joined($this->presets, $later->presets),
                 $this->runner->over($later->runner),
                 Absent::laid($this->treeSource, $later->treeSource),
+                $this->mutators->over($later->mutators),
             )
             : $this;
     }
@@ -125,6 +138,12 @@ final readonly class Setup implements Part
         return $this->runner->memory();
     }
 
+    /** The registered mutators the config turns on beside the runner's own (ADR-0021). */
+    public function mutators(): Mutators
+    {
+        return $this->mutators;
+    }
+
     public function treeSource(): Choice
     {
         return $this->treeSource instanceof Choice
@@ -149,7 +168,7 @@ final readonly class Setup implements Part
         $written = $this->presets instanceof Listed
             ? $written->with(Member::of('preset', $this->presetsWritten($this->presets)))
             : $written;
-        $written = $this->runner->written($written);
+        $written = $this->runner->written($written)->merged($this->mutators->written());
 
         return $this->treeSource instanceof Choice
             ? $written->with(Member::of('treeSource', $this->sourceFrom($origin)->written()))
@@ -170,7 +189,7 @@ final readonly class Setup implements Part
         $calls = $this->presets instanceof Listed && [...$this->presets] !== []
             ? $calls->and(PhpCalls::onGate(GateMethod::Preset, ...array_map($this->preset(...), [...$this->presets])))
             : $calls;
-        $calls = $calls->and($this->runner->php());
+        $calls = $calls->and($this->runner->php())->and($this->mutators->php());
 
         return $this->treeSource instanceof Choice
             ? $calls->and(PhpCalls::onGate(GateMethod::TreeSource, $this->source($this->sourceFrom($origin))))

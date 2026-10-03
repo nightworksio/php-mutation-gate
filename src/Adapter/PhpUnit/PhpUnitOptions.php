@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function count;
-use function is_a;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Listed;
@@ -18,12 +18,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
-use NightWorksIO\MutationGate\Mutator\Engine\SetEngine;
-use NightWorksIO\MutationGate\Mutator\Mutator;
-use NightWorksIO\MutationGate\Mutator\MutatorSet;
-
-use function sprintf;
 
 /**
  * What the `phpunit` runner's options say, as the flows write them: `tests`,
@@ -45,8 +41,6 @@ final readonly class PhpUnitOptions
 
     private const string NO_MUTATORS
         = 'The phpunit runner makes its mutants with the default mutator set, and no extension registers one.';
-
-    private const string NOT_A_MUTATOR = 'The phpunit runner cannot make mutants with %s, which is not a mutator.';
 
     private function __construct(private Paths $tests, private Seconds $timeout, private Engine|CannotJudge $engine)
     {
@@ -89,16 +83,12 @@ final readonly class PhpUnitOptions
     /** @param list<string> $classes */
     private static function engineOf(array $classes): Engine|CannotJudge
     {
-        $mutators = [];
+        $enabled = Enabled::named(BuiltinRunner::PhpUnit, ...$classes);
 
-        foreach ($classes as $class) {
-            if (! is_a($class, Mutator::class, allow_string: true)) {
-                return CannotJudge::because(sprintf(self::NOT_A_MUTATOR, $class));
-            }
-
-            $mutators[] = $class;
+        if ($enabled instanceof CannotJudge) {
+            return $enabled;
         }
 
-        return $mutators === [] ? CannotJudge::because(self::NO_MUTATORS) : SetEngine::of(MutatorSet::of(...$mutators));
+        return count($enabled) === 0 ? CannotJudge::because(self::NO_MUTATORS) : $enabled->engine();
     }
 }

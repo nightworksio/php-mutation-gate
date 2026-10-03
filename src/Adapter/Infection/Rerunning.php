@@ -43,6 +43,7 @@ final readonly class Rerunning
         private StaticAnalysis $analysis,
         private Closure $covered,
         private Clock $clock = new WallClock(),
+        private Bridges $bridges = new Bridges(),
     ) {
     }
 
@@ -141,6 +142,7 @@ final readonly class Rerunning
             $prepared->config,
             $this->nativeMarkersAllowed,
             $this->analysis,
+            $this->bridges,
         );
         $result = $run
             ->of($request->narrowedTo(Paths::of($file), Mutators::named($mutator)), $prepared->coverage, $limit);
