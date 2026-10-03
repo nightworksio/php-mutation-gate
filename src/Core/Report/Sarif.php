@@ -8,13 +8,16 @@ use NightWorksIO\MutationGate\Core\Cluster\Membership;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
 /**
  * The verdict as SARIF 2.1.0, for code scanning: one run of the tool
  * `mutation-gate`, four rules, and a result for every mutant the score counts
  * as not killed. A result is an error when its mutant is in a set that
- * failed, and a warning otherwise. The gate's id is its partial fingerprint,
+ * failed, and a warning otherwise. Each ignored mutant is a note, suppressed
+ * with why it is ignored: externally by the config, in source by a runner's
+ * own marker (ADR-0008, decision 4). The gate's id is its partial fingerprint,
  * so a result is matched across commits when code above it moves
  * (ADR-0009, decision 2). A mutant in a cluster stays a result of its own,
  * so no fingerprint moves, and names its cluster (ADR-0022, decision 17).
@@ -29,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  *         region: array{startLine: int, endLine?: int},
  *     }}>,
  *     partialFingerprints: array{primaryLocationLineHash: string},
+ *     suppressions?: list<array{kind: string, status: string, justification: string}>,
  *     properties: array{
  *         id: string,
  *         mutator: string,
@@ -48,6 +52,9 @@ final readonly class Sarif
     private const string HOME = 'https://github.com/nightworksio/php-mutation-gate';
 
     private const string ROOT = '%SRCROOT%';
+
+    /** The level of a result whose mutant an ignore left out of the score. */
+    private const string IGNORED = 'note';
 
     /** The report as CI uploads it, with paths relative to a root it does not name. */
     public static function json(Verdict $verdict): string
@@ -73,7 +80,15 @@ final readonly class Sarif
         }
 
         foreach ($overview->survivors() as $mutant) {
-            $results[] = self::result($mutant, $overview->isFailing($mutant));
+            $results[] = self::result($mutant, $overview->isFailing($mutant) ? 'error' : 'warning');
+        }
+
+        foreach ($overview->ignored() as $mutant) {
+            $results[] = [...self::result($mutant, self::IGNORED), 'suppressions' => [[
+                'kind' => $mutant->judgement() === MutantJudgement::IgnoredByMarker ? 'inSource' : 'external',
+                'status' => 'accepted',
+                'justification' => MutantText::ignoredBecause($mutant),
+            ]]];
         }
 
         return JsonText::encode([
@@ -88,7 +103,7 @@ final readonly class Sarif
     }
 
     /** @return Result */
-    private static function result(JudgedMutant $judged, bool $failing): array
+    private static function result(JudgedMutant $judged, string $level): array
     {
         $mutant = $judged->mutant();
         $rule = ResultRule::of($judged->judgement());
@@ -98,7 +113,7 @@ final readonly class Sarif
         return [
             'ruleId' => $rule->value,
             'ruleIndex' => $rule->index(),
-            'level' => $failing ? 'error' : 'warning',
+            'level' => $level,
             'message' => ['text' => MutantText::message($judged)],
             'locations' => [[
                 'physicalLocation' => [

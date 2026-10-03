@@ -11,6 +11,7 @@ use function count;
 use function implode;
 use function intdiv;
 use function iterator_to_array;
+use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
@@ -41,11 +42,12 @@ use function sprintf;
  * The verdict as GitHub Markdown, for the sticky comment and the step
  * summary: the verdict, each tree's floor and score with its change against
  * the base, the new-code sets, the survivors, the unjudged and flaky
- * mutants, why the run could not judge, the failures, the warnings, the
- * floors that can rise, and a link to the run. The comment holds up to 20
- * survivors on changed lines, each with its diff, hint and reproduce
- * command; the summary lists every mutant counted as not killed in a table
- * (ADR-0009, decision 3). A cluster of survivors is one item of either, with
+ * mutants, the ignored mutants with why, why the run could not judge, the
+ * failures, the warnings, the floors that can rise, and a link to the run.
+ * The comment holds up to 20 survivors on changed lines, each with its diff,
+ * hint and reproduce command, and up to 20 ignored mutants; the summary lists
+ * every mutant counted as not killed and every ignored one in a table each
+ * (ADR-0009, decision 3; ADR-0008, decision 4). A cluster of survivors is one item of either, with
  * its members' diffs, one hint and its stub command (ADR-0022, decision 17).
  */
 final readonly class Markdown
@@ -94,6 +96,7 @@ final readonly class Markdown
                 sprintf('Unjudged and flaky (%d)', count($other)),
                 MarkdownItems::table(array_slice($other, 0, self::COMMENTED), count($other)),
             ),
+            ...self::ignored($overview, self::COMMENTED),
             ...self::tail($verdict, $run),
             CostText::of($verdict),
         ]);
@@ -109,7 +112,7 @@ final readonly class Markdown
         $items = Folded::of($overview->survivors(), $verdict->trees()->clusters());
         $head = self::head($verdict, $overview, $verdict->account()->savedSince($since));
         $tail = self::tail($verdict, $run);
-        $shown = count($items);
+        $shown = max(count($items), count($overview->ignored()));
 
         do {
             $summary = self::document([
@@ -118,6 +121,7 @@ final readonly class Markdown
                     sprintf('Not killed (%d)', count($overview->survivors())),
                     MarkdownItems::table(array_slice($items, 0, $shown), count($items)),
                 ),
+                ...self::ignored($overview, $shown),
                 ...$tail,
             ]);
             $tried = $shown;
@@ -181,6 +185,21 @@ final readonly class Markdown
             Escape::text(
                 $floor instanceof Exempt ? sprintf('exempt: %s', $floor->reason()) : $tree->judgement()->value,
             ),
+        );
+    }
+
+    /**
+     * The mutants an ignore left out, up to this many, each with why (ADR-0008, decision 4).
+     *
+     * @return list<string>
+     */
+    private static function ignored(Overview $overview, int $shown): array
+    {
+        $ignored = $overview->ignored();
+
+        return self::section(
+            sprintf('Ignored (%d)', count($ignored)),
+            MarkdownItems::ignored(array_slice($ignored, 0, $shown), count($ignored)),
         );
     }
 

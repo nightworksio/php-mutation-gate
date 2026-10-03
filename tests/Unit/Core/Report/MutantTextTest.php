@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
+use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -65,6 +66,13 @@ it('says why a mutant stands as it does, where its record says, and leaves out a
 
     expect(MutantText::block($unjudged, TestNames::none()))->toContain("\n    Why: The run's budget ran out before it.\n    Nothing judged it")
         ->and(explode("\n", MutantText::block($bare, TestNames::none())))->toHaveCount(4);
+});
+
+it('says why an ignored mutant is left out: its ignore\'s reason, or how it was ignored where it gives none', function (): void {
+    [$ignored, $marked] = Overview::of(Verdicts::failing())->ignored();
+
+    expect(MutantText::ignoredBecause($ignored))->toBe('Logging is asserted in the integration suite')
+        ->and(MutantText::ignoredBecause($marked))->toBe('ignored by a native marker');
 });
 
 it('names the analyser that rejected a mutant, and the error it found', function (): void {

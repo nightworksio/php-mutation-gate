@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_key_exists;
+use function in_array;
 
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
@@ -12,13 +13,15 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
 /**
  * What every report reads off a verdict beyond its parts: the whole
- * project's score, how uncovered mutants count, and which mutants are in a
- * set that failed, whether a tree below its floor or new code below its own.
+ * project's score, how uncovered mutants count, which mutants are in a set
+ * that failed, whether a tree below its floor or new code below its own, and
+ * which an ignore or a proof left out.
  */
 final readonly class Overview
 {
@@ -62,10 +65,50 @@ final readonly class Overview
         return $this->verdict->trees()->mutants()->survivors($this->uncovered);
     }
 
+    /**
+     * Every mutant an ignore left out of the score, by the config or by a
+     * runner's own marker, which every report lists (ADR-0008, decision 4).
+     *
+     * @return list<JudgedMutant>
+     */
+    public function ignored(): array
+    {
+        return $this->judgedAs(MutantJudgement::Ignored, MutantJudgement::IgnoredByMarker);
+    }
+
+    /**
+     * Every mutant a proof found equivalent (ADR-0013, decision 12).
+     *
+     * @return list<JudgedMutant>
+     */
+    public function equivalent(): array
+    {
+        return $this->judgedAs(MutantJudgement::Equivalent);
+    }
+
     /** Whether a mutant is in a set that failed: a tree below its floor, or new code below its own. */
     public function isFailing(JudgedMutant $mutant): bool
     {
         return array_key_exists($mutant->mutant()->id()->value(), $this->failing);
+    }
+
+    /**
+     * The mutants reported in full that are judged one of these ways, in the
+     * verdict's order; a kill a ledger proved is never one.
+     *
+     * @return list<JudgedMutant>
+     */
+    private function judgedAs(MutantJudgement ...$judgements): array
+    {
+        $judged = [];
+
+        foreach ($this->verdict->trees()->mutants() as $mutant) {
+            if ($mutant instanceof JudgedMutant && in_array($mutant->judgement(), $judgements, strict: true)) {
+                $judged[] = $mutant;
+            }
+        }
+
+        return $judged;
     }
 
     /** @return array<string, true> */

@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\Escape;
 use NightWorksIO\MutationGate\Core\Report\Label;
+use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\Mutator;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 
@@ -20,7 +21,8 @@ use function sprintf;
 
 /**
  * The mutants and clusters of a comment or step summary as GitHub Markdown:
- * as folded blocks, or as rows of a table, then how many more there are.
+ * as folded blocks, or as rows of a table, then how many more there are; and
+ * the ignored mutants as a table of their own.
  */
 final readonly class MarkdownItems
 {
@@ -78,6 +80,35 @@ final readonly class MarkdownItems
         }
 
         return [implode("\n", $rows), ...self::more($of - count($items))];
+    }
+
+    /**
+     * Ignored mutants as a table: where, mutator, the gate's id and why it is
+     * ignored (ADR-0008, decision 4).
+     *
+     * @param  list<JudgedMutant> $mutants
+     * @return list<string>
+     */
+    public static function ignored(array $mutants, int $of): array
+    {
+        if ($mutants === []) {
+            return [];
+        }
+
+        $rows = ['| Mutant | Mutator | Id | Why it is ignored |', '|---|---|---|---|'];
+
+        foreach ($mutants as $judged) {
+            $mutant = $judged->mutant();
+            $rows[] = sprintf(
+                '| %s | %s | %s | %s |',
+                self::place($judged),
+                Escape::text(Mutator::short($mutant->mutator())),
+                Escape::code($mutant->id()->value()),
+                Escape::text(MutantText::ignoredBecause($judged)),
+            );
+        }
+
+        return [implode("\n", $rows), ...self::more($of - count($mutants))];
     }
 
     private static function clusterDetails(Cluster $cluster): string

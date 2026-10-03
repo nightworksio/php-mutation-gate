@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
@@ -36,7 +37,7 @@ use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 $run = 'https://github.com/octo/gate/actions/runs/7';
 
-it('writes the sticky comment: the verdict, trees, new code, survivors on changed lines, unjudged and flaky, failures, warnings and the run', function () use ($run): void {
+it('writes the sticky comment: the verdict, trees, new code, survivors on changed lines, unjudged and flaky, the ignored, failures, warnings and the run', function () use ($run): void {
     $survivor = Verdicts::survivor();
     $id = static fn(int $at): string => iterator_to_array(Verdicts::everyJudgement(), preserve_keys: false)[$at]->mutant()->id()->value();
 
@@ -66,6 +67,13 @@ it('writes the sticky comment: the verdict, trees, new code, survivors on change
             '|---|---|---|---|---|',
             sprintf('| <code>src/Order.php:3</code> | MethodCallRemoval | flaky | Its tests killed it on one run and let it survive on another, so they are the suspects. It is judged by <code>OrderTest::saves</code>. | <code>vendor/bin/mutation-gate reproduce %s</code> |', $id(3)),
             sprintf('| <code>src/Order.php:5</code> | DecrementInteger | unjudged | The run&apos;s budget ran out before it. Nothing judged it before the run stopped, so it counts as not killed. | <code>vendor/bin/mutation-gate reproduce %s</code> |', $id(4)),
+        ]),
+        '### Ignored (2)',
+        implode("\n", [
+            '| Mutant | Mutator | Id | Why it is ignored |',
+            '|---|---|---|---|',
+            '| <code>src/Log.php:4</code> | MethodCallRemoval | <code>1fbb0cb71a10</code> | Logging is asserted in the integration suite |',
+            '| <code>src/Log.php:6</code> | Concat | <code>33b077f96af4</code> | ignored by a native marker |',
         ]),
         '### Failures',
         '- The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.',
@@ -97,7 +105,7 @@ it('writes the comment of a passing run, with the floors that can rise and a run
     ]));
 });
 
-it('comments on up to 20 survivors on changed lines, and 20 unjudged or flaky, then says how many more', function (): void {
+it('comments on up to 20 survivors on changed lines, 20 unjudged or flaky and 20 ignored, then says how many more', function (): void {
     $lines = Lines::of(...array_map(Line::of(...), range(1, 25)));
     $reach = Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/Money.php'), $lines);
     $mutants = [];
@@ -106,24 +114,34 @@ it('comments on up to 20 survivors on changed lines, and 20 unjudged or flaky, t
         $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Money.php:%d', $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived)->within($reach);
         $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Order.php:%d', $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Flaky);
         $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Price.php:%d', $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived);
+        $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Log.php:%d', $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Ignored);
     }
 
     $comment = Markdown::comment(Verdicts::of(Floor::of(80), ...$mutants), '');
 
     expect(substr_count($comment, '<details>'))->toBe(20)
         ->and(substr_count($comment, '| <code>src/Order.php:'))->toBe(20)
+        ->and(substr_count($comment, '| <code>src/Log.php:'))->toBe(20)
         ->and($comment)->not->toContain('src/Price.php')
         ->and($comment)->toContain('### Survivors on changed lines (25)')
         ->and($comment)->toContain('### Unjudged and flaky (25)')
-        ->and(substr_count($comment, 'And 5 more; the JSON report lists every one.'))->toBe(2);
+        ->and($comment)->toContain('### Ignored (25)')
+        ->and(substr_count($comment, 'And 5 more; the JSON report lists every one.'))->toBe(3);
 });
 
-it('writes the step summary with every mutant counted as not killed in one table', function () use ($run): void {
+it('writes the step summary with every mutant counted as not killed in one table, and every ignored one in another', function () use ($run): void {
     $summary = Markdown::summary(Verdicts::failing(), $run, Verdicts::monthAgo());
 
     expect($summary)->toStartWith("## mutation-gate: failed\n\nThe project scores 44.44%.")
         ->and($summary)->not->toContain(Markdown::MARKER)
         ->and($summary)->toContain("### Not killed (5)\n\n| Mutant | Mutator | Judgement | What the tests miss | Command |")
+        ->and($summary)->toContain(implode("\n", [
+            "### Ignored (2)\n",
+            '| Mutant | Mutator | Id | Why it is ignored |',
+            '|---|---|---|---|',
+            '| <code>src/Log.php:4</code> | MethodCallRemoval | <code>1fbb0cb71a10</code> | Logging is asserted in the integration suite |',
+            '| <code>src/Log.php:6</code> | Concat | <code>33b077f96af4</code> | ignored by a native marker |',
+        ]))
         ->and(substr_count($summary, '| <code>vendor/bin/mutation-gate reproduce '))->toBe(5)
         ->and($summary)->not->toContain('<details>')
         ->and($summary)->toEndWith(sprintf("[The run](%s) keeps the HTML report among its artifacts.\n", $run));
@@ -185,6 +203,32 @@ it('stops cutting once it shows no survivor, even where what is left is past the
 
     expect($summary)->toContain('And 1 more; the JSON report lists every one.')
         ->and($summary)->not->toContain('| Mutant | Mutator |');
+});
+
+it('fits the ignored mutants of a step summary into the size one step may write, saying how many it left out', function (): void {
+    $reason = Reason::that(str_repeat('Asserted in the integration suite. ', 400));
+    $mutants = [];
+
+    foreach (range(1, 300) as $line) {
+        $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Log.php:%d', $line), 'Plus', MutatorFamily::None, '')->because($reason), MutantJudgement::Ignored);
+    }
+
+    $summary = Markdown::summary(Verdicts::of(Floor::of(80), ...$mutants), '', Verdicts::monthAgo());
+
+    expect(strlen($summary))->toBeLessThanOrEqual(Markdown::SUMMARY_BYTES)
+        ->and($summary)->toContain('### Ignored (300)')
+        ->and($summary)->toContain('| <code>src/Log.php:1</code> |')
+        ->and($summary)->toMatch('/And \d+ more; the JSON report lists every one\./');
+});
+
+it('lets no reason the config wrote become markup, a mention or a new cell', function (): void {
+    $ignored = JudgedMutant::of(
+        Verdicts::mutant('src/Log.php:3', 'Plus', MutatorFamily::None, '')->because(Reason::that('a | b <script> @octocat')),
+        MutantJudgement::Ignored,
+    );
+
+    expect(Markdown::comment(Verdicts::of(Floor::of(80), $ignored), ''))
+        ->toContain(sprintf('| <code>src/Log.php:3</code> | Plus | <code>%s</code> | a &#124; b &lt;script&gt; &#64;octocat |', $ignored->mutant()->id()->value()));
 });
 
 it('lets nothing the project wrote become markup, a link, a mention or a new cell', function (): void {

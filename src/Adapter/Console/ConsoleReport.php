@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Adapter\Console;
 use function count;
 use function explode;
 use function implode;
-use function in_array;
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -24,7 +23,7 @@ use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Report\TestsText;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
-use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -79,11 +78,8 @@ final readonly class ConsoleReport implements Configurable, Reporter
                 sprintf('Not killed (%d)', count($overview->survivors())),
                 $this->survivors($verdict, $overview),
             ),
-            ...$this->section(
-                'Ignored',
-                $this->leftOut($verdict, MutantJudgement::Ignored, MutantJudgement::IgnoredByMarker),
-            ),
-            ...$this->section('Equivalent, proven', $this->leftOut($verdict, MutantJudgement::Equivalent)),
+            ...$this->section('Ignored', $this->leftOut($overview->ignored())),
+            ...$this->section('Equivalent, proven', $this->leftOut($overview->equivalent())),
             ...$this->section('Floors that can rise', $this->raised($verdict)),
             ...$this->section('Failures', $this->texts($verdict->failures())),
             ...$this->section('Warnings', $this->texts($verdict->warnings())),
@@ -182,19 +178,16 @@ final readonly class ConsoleReport implements Configurable, Reporter
     }
 
     /**
-     * The mutants so judged, each with the reason its record gives.
+     * These mutants, each with the reason its record gives.
      *
+     * @param  list<JudgedMutant> $mutants
      * @return list<string>
      */
-    private function leftOut(Verdict $verdict, MutantJudgement ...$judgements): array
+    private function leftOut(array $mutants): array
     {
         $lines = [];
 
-        foreach ($verdict->trees()->mutants() as $judged) {
-            if (! in_array($judged->judgement(), $judgements, strict: true)) {
-                continue;
-            }
-
+        foreach ($mutants as $judged) {
             $reason = $judged->mutant()->reason();
             $lines[] = $reason instanceof Reason
                 ? sprintf('%s: %s', MutantText::heading($judged), $reason->text())

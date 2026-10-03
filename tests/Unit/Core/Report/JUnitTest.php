@@ -10,13 +10,26 @@ use NightWorksIO\MutationGate\Tests\Support\Xpath;
 
 $failing = static fn(string $query): array => Xpath::of(JUnit::xml(Verdicts::failing()), $query);
 
-it('writes a suite per tree, one for new code and one for the run, each failing as the gate does', function () use ($failing): void {
+it('writes a suite per tree, one for new code, one for the run and one for the ignored mutants, each failing as the gate does', function () use ($failing): void {
     expect($failing('/testsuites/@name'))->toBe(['mutation-gate'])
-        ->and($failing('/testsuites/@tests'))->toBe(['5'])
+        ->and($failing('/testsuites/@tests'))->toBe(['7'])
         ->and($failing('/testsuites/@failures'))->toBe(['3'])
-        ->and($failing('/testsuites/testsuite/@name'))->toBe(['src', 'app/Legacy', 'src/Empty', 'new code', 'run'])
-        ->and($failing('/testsuites/testsuite/@tests'))->toBe(['1', '1', '1', '1', '1'])
-        ->and($failing('/testsuites/testsuite/@failures'))->toBe(['1', '0', '0', '1', '1']);
+        ->and($failing('/testsuites/testsuite/@name'))->toBe(['src', 'app/Legacy', 'src/Empty', 'new code', 'run', 'ignored'])
+        ->and($failing('/testsuites/testsuite/@tests'))->toBe(['1', '1', '1', '1', '1', '2'])
+        ->and($failing('/testsuites/testsuite/@failures'))->toBe(['1', '0', '0', '1', '1', '0']);
+});
+
+it('skips a case for each mutant an ignore left out, named by its heading, with why it is ignored', function () use ($failing): void {
+    expect($failing('/testsuites/testsuite[6]/testcase/@name'))->toBe([
+        'src/Log.php:4  MethodCallRemoval  ignored  1fbb0cb71a10',
+        'src/Log.php:6  Concat  ignored by a native marker  33b077f96af4',
+    ])
+        ->and($failing('/testsuites/testsuite[6]/testcase/@classname'))->toBe(['ignored', 'ignored'])
+        ->and($failing('/testsuites/testsuite[6]/testcase/skipped/@message'))->toBe([
+            'Logging is asserted in the integration suite',
+            'ignored by a native marker',
+        ])
+        ->and($failing('/testsuites/testsuite[6]/testcase/failure'))->toBe([]);
 });
 
 it('fails a tree\'s floor with every mutant it counts as not killed', function () use ($failing): void {
