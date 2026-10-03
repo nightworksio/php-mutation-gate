@@ -69,6 +69,8 @@ final class Unexecutables
 
     private const string OTHER = 'P\Tests\OtherSpec::__pest_evaluable_it_runs_the_other';
 
+    private const string READS = 'P\Tests\MoneySpec::__pest_evaluable_it_reads';
+
     private const string INCREMENT = IncrementInteger::class;
 
     public static function project(): Project
@@ -78,6 +80,7 @@ final class Unexecutables
         Scratch::write($root, 'tests/MoneySpec.php', "<?php\nuse App\\Money;\nit('reads', fn () => Money::RATE);\n");
         Scratch::write($root, 'tests/InternalSpec.php', "<?php\nit('runs', fn () => new App\\Money()->internal());\n");
         Scratch::write($root, 'tests/OtherSpec.php', "<?php\nit('runs the other', fn () => new App\\Money()->other());\n");
+        Scratch::write($root, 'tests/Support/RatedTest.php', "<?php\nnamespace Tests\\Support;\nfinal class RatedTest { const RATE = \\App\\Money::RATE; }\n");
 
         return Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
     }
@@ -98,8 +101,8 @@ final class Unexecutables
             Recorder::coverageBeside($results),
             sprintf('%s/', $project->root()),
             ['src/Money.php' => [10 => [0], 14 => [1]]],
-            [self::INTERNAL, self::OTHER],
-            [self::INTERNAL => 0.1, self::OTHER => 0.1],
+            [self::INTERNAL, self::OTHER, self::READS],
+            [self::INTERNAL => 0.1, self::OTHER => 0.1, self::READS => 0.1],
         );
         $records = [];
 

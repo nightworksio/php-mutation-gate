@@ -27,7 +27,10 @@ use NightWorksIO\MutationGate\Core\Php\Unnamed;
  * test file that reads its value, and the test files the run's own coverage
  * map says cover each line of source that does, by Pest's own selection
  * rules; and the fallback of those that cover the mutant's file. The scan
- * reads the test files and every file the map covers or the run mutates.
+ * reads every file under the test directories and every file the map covers
+ * or the run mutates, but chooses only the files that hold a test the map
+ * names: another file there, such as a helper or a fixture, is no test file
+ * Pest runs, and run as one it fails.
  */
 final readonly class Selector
 {
@@ -38,6 +41,7 @@ final readonly class Selector
         private Project $project,
         private Covering $coverage,
         private TestFiles $tests,
+        private Paths $suite,
         private Codebase $codebase,
     ) {
     }
@@ -52,11 +56,15 @@ final readonly class Selector
             $sources = [...$sources, ...self::read($project, $test, test: true)];
         }
 
-        foreach ([...$coverage->map($project)->files(), ...$mutated] as $file) {
+        $map = $coverage->map($project);
+
+        foreach ([...$map->files(), ...$mutated] as $file) {
             $sources = $listed->has($file) ? $sources : [...$sources, ...self::read($project, $file, test: false)];
         }
 
-        return new self($project, $coverage, $tests, Codebase::of(...$sources));
+        $suite = $tests->naming(Selection::of($map->tests())->classes());
+
+        return new self($project, $coverage, $tests, $suite, Codebase::of(...$sources));
     }
 
     /** Which test files judge a mutant of a file whose changed value a symbol names. */
@@ -67,7 +75,9 @@ final readonly class Selector
 
         foreach ($references->sites() as $site) {
             $line = $site->line()->number();
-            $judging = $site->isInTest() ? Paths::of($site->file()) : $this->covering($site->file(), $line, $line);
+            $judging = $site->isInTest()
+                ? $this->ofTheSuite($site->file())
+                : $this->covering($site->file(), $line, $line);
 
             foreach ($judging as $test) {
                 $reading = $reading->with($test);
@@ -77,7 +87,16 @@ final readonly class Selector
         return Choice::of($reading, $this->covering($file, 1, self::WHOLE), $references->isAmbiguous());
     }
 
-    /** The test files whose tests run any line from the first to the last of a file, or all where Pest cannot say. */
+    /** A file under the test directories, where it holds a test the map names. */
+    private function ofTheSuite(Path $file): Paths
+    {
+        return $this->suite->has($file) ? Paths::of($file) : Paths::none();
+    }
+
+    /**
+     * The test files whose tests run any line from the first to the last of a
+     * file, or the whole suite's where Pest cannot say.
+     */
     private function covering(Path $file, int $first, int $last): Paths
     {
         $selection = Selection::of($this->coverage->testsCovering(
@@ -89,7 +108,7 @@ final readonly class Selector
         return match (true) {
             $selection->count() === 0 => Paths::none(),
             $selection->fits() => $this->tests->naming($selection->classes()),
-            default => $this->tests->all(),
+            default => $this->suite,
         };
     }
 

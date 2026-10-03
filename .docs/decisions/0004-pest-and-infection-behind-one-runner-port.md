@@ -598,7 +598,9 @@ its parser attributes. Both change when the checkout moves.
        contract test proves both.
    - **Which tests judge it.** A scan of tokens, with names resolved through
      namespaces, imports and aliases, finds every reference to the symbol:
-     - in test files, the test files themselves;
+     - in test files, the test files themselves, where the coverage map
+       names a test of theirs: another file under the test directories, such
+       as a helper or a fixture, is no test file Pest runs;
      - in source files, the test files that cover the line of each reference,
        read from the coverage map. So a constant read through `self::RATE`
        inside a covered method is judged by that method's tests. References

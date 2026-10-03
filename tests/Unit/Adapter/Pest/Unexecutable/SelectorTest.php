@@ -40,7 +40,7 @@ function selectorTests(string ...$names): Paths
     return Paths::of(...array_map(static fn(string $name): Path => Path::of(sprintf('tests/%s.php', $name)), $names));
 }
 
-it('chooses the test files that read a value, and those that cover the mutant\'s file to fall back on', function (): void {
+it('chooses the test files that read a value, and those that cover the mutant\'s file to fall back on, never a file the suite runs no test of', function (): void {
     $selector = selectorOver(Unexecutables::project());
     $money = Path::of('src/Money.php');
     $covering = selectorTests('InternalSpec', 'OtherSpec');
@@ -55,7 +55,7 @@ it('chooses the test files that read a value, and those that cover the mutant\'s
         ->toEqual(Choice::of(Paths::none(), $covering, ambiguous: true));
 });
 
-it('reads only the files still there, and falls back on every test where Pest\'s filter cannot name them', function (): void {
+it('reads only the files still there, and falls back on every test file of the run where Pest\'s filter cannot name them', function (): void {
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, []);
     $long = sprintf('P\Tests\InternalSpec::%s', str_repeat('x', 100_000));
@@ -67,8 +67,8 @@ it('reads only the files still there, and falls back on every test where Pest\'s
         [$long => 0.1],
     );
     $selector = Selector::over($at, selectorMap($results), Paths::none());
-    $every = selectorTests('InternalSpec', 'MoneySpec', 'OtherSpec');
+    $run = selectorTests('InternalSpec');
 
     expect($selector->choose(Symbol::constant('App\Money', 'INTERNAL'), Path::of('src/Money.php')))
-        ->toEqual(Choice::of($every, $every, ambiguous: false));
+        ->toEqual(Choice::of($run, $run, ambiguous: false));
 });
