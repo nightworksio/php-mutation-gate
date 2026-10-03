@@ -48,15 +48,19 @@ it('names its version and the digest of the config it reads, or of none', functi
         ->toEqual(AnalyserIdentity::of('mago', '1.50.0', Digest::sha256Of("[source]\npaths = [\"src\"]\n")));
 });
 
-it('checks a mutant in its original\'s place over the whole workspace, each error an error and the rest lesser', function (): void {
+it('checks a mutant in its original\'s place over the whole workspace, each error an error and the rest lesser, each in its file', function (): void {
     $project = FakeAnalyser::mago('1.50.0', "src/Caller.php\0src/Money.php\0");
     Scratch::write($project, 'build/mago.toml', '');
-    magoAnswers($project, '{"issues": [{"level": "Error", "code": "invalid-method-access", "message": "Cannot access private method."}, {"level": "Help", "code": "unused-method", "message": "Method is never used."}]}', 1);
+    magoAnswers($project, sprintf(
+        '{"issues": [%s, %s]}',
+        '{"level": "Error", "code": "invalid-method-access", "message": "Cannot access private method.", "annotations": [{"kind": "Primary", "span": {"file_id": {"path": "/tmp/mutant.php"}}}]}',
+        sprintf('{"level": "Help", "code": "unused-method", "message": "Method is never used.", "annotations": [{"kind": "Primary", "span": {"file_id": {"path": "%s/src/Caller.php"}}}]}', $project),
+    ), 1);
 
     expect(magoIn($project, '{"config": "build/mago.toml"}')->check(MutantCheck::of(Path::of('src/Money.php'), Path::of('/tmp/mutant.php'))))
         ->toEqual(Findings::of(
-            Finding::error('invalid-method-access', 'Cannot access private method.'),
-            Finding::lesser('unused-method', 'Method is never used.'),
+            Finding::error(Path::of('src/Money.php'), 'invalid-method-access', 'Cannot access private method.'),
+            Finding::lesser(Path::of('src/Caller.php'), 'unused-method', 'Method is never used.'),
         ))
         ->and(explode("\n", (string) file_get_contents(sprintf('%s/argv.txt', FakeAnalyser::scripts($project)))))->toBe([
             sprintf('--workspace=%s', $project),

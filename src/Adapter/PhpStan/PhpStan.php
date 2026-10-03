@@ -16,6 +16,7 @@ use function is_writable;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\FindingFiles;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
@@ -133,8 +134,9 @@ final readonly class PhpStan implements StaticChecker
     public function findings(Paths $files, Withheld $withheld): Findings|CannotJudge
     {
         $scope = $this->keptScope($withheld);
+        $findingFiles = FindingFiles::under($this->root);
 
-        return $scope instanceof CannotJudge ? $scope : $this->analysed($withheld, []);
+        return $scope instanceof CannotJudge ? $scope : $this->analysed($withheld, $findingFiles, []);
     }
 
     /** A mutant, where PHPStan analyses its original, as its warm-up said; out of scope where it does not. */
@@ -147,7 +149,7 @@ final readonly class PhpStan implements StaticChecker
         return match (true) {
             $scope instanceof CannotJudge => $scope,
             ! $scope->holds($original) => OutOfScope::of($check->original()),
-            default => $this->analysed($check->withheld(), [
+            default => $this->analysed($check->withheld(), FindingFiles::under($this->root)->substituting($check), [
                 sprintf('--tmp-file=%s', $this->absolute($check->mutant())),
                 sprintf('--instead-of=%s', $original),
             ]),
@@ -191,12 +193,16 @@ final readonly class PhpStan implements StaticChecker
         return $this->absolute(Path::of(sprintf(self::SCOPE, Workspace::root()->value())));
     }
 
-    /** @param list<string> $editing */
-    private function analysed(Withheld $withheld, array $editing): Findings|CannotJudge
+    /**
+     * What PHPStan reports, each finding in the file it sits in, given
+     * these editing arguments.
+     *
+     * @param list<string> $editing
+     */
+    private function analysed(Withheld $withheld, FindingFiles $files, array $editing): Findings|CannotJudge
     {
         $check = $this->checkConfig();
-
-        return $check instanceof CannotJudge ? $check : Report::of($this->ran($withheld, [
+        $ran = $check instanceof CannotJudge ? $check : $this->ran($withheld, [
             PHP_BINARY,
             self::SCRIPT,
             'analyse',
@@ -204,7 +210,9 @@ final readonly class PhpStan implements StaticChecker
             '--error-format=json',
             '--no-progress',
             ...$editing,
-        ]));
+        ]);
+
+        return $ran instanceof CannotJudge ? $ran : Report::of($ran, $files);
     }
 
     /**

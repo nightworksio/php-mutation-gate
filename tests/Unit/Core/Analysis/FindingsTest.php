@@ -12,37 +12,39 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 it('rejects a mutant by an error its original does not have', function (): void {
-    $original = Findings::of(Finding::error('return.type', 'Method add() should return int but returns string.'));
+    $original = Findings::of(Finding::error(Path::of('src/Money.php'), 'return.type', 'Method add() should return int but returns string.'));
 
-    expect(Findings::of(Finding::error('binaryOp.invalid', 'Binary operation "." between int and int.'))
+    expect(Findings::of(Finding::error(Path::of('src/Money.php'), 'binaryOp.invalid', 'Binary operation "." between int and int.'))
         ->rejects($original))->toBeTrue()
-        ->and(Findings::of(Finding::error('return.type', 'Method sub() should return int but returns string.'))
+        ->and(Findings::of(Finding::error(Path::of('src/Money.php'), 'return.type', 'Method sub() should return int but returns string.'))
             ->rejects($original))->toBeTrue();
 });
 
-it('leaves a mutant whose errors its original has, by code and message', function (): void {
-    $known = Finding::error('return.type', 'Method add() should return int but returns string.');
+it('leaves a mutant whose errors its original has, by code and message, in whatever file', function (): void {
+    $known = Finding::error(Path::of('src/Money.php'), 'return.type', 'Method add() should return int but returns string.');
+    $elsewhere = Finding::error(Path::of('src/Wallet.php'), 'return.type', 'Method add() should return int but returns string.');
 
     expect(Findings::of($known)->rejects(Findings::of($known)))->toBeFalse()
+        ->and(Findings::of($elsewhere)->rejects(Findings::of($known)))->toBeFalse()
         ->and(Findings::of($known)->rejects(Findings::of(
-            Finding::lesser('return.type', 'Method add() should return int but returns string.'),
+            Finding::lesser(Path::of('src/Money.php'), 'return.type', 'Method add() should return int but returns string.'),
         )))->toBeFalse()
         ->and(Findings::none()->rejects(Findings::of($known)))->toBeFalse();
 });
 
 it('leaves a mutant for what is below an error, however new', function (): void {
-    expect(Findings::of(Finding::lesser('deadCode.unreachable', 'Unreachable statement.'))->rejects(Findings::none()))
+    expect(Findings::of(Finding::lesser(Path::of('src/Money.php'), 'deadCode.unreachable', 'Unreachable statement.'))->rejects(Findings::none()))
         ->toBeFalse();
 });
 
-it('keeps each finding as the analyser gave it, in its order', function (): void {
-    $findings = Findings::of(Finding::error('a.b', 'First.'), Finding::lesser('c.d', 'Second.'));
+it('keeps each finding as the analyser gave it, in its file and its order', function (): void {
+    $findings = Findings::of(Finding::error(Path::of('src/Money.php'), 'a.b', 'First.'), Finding::lesser(Path::of('src/Wallet.php'), 'c.d', 'Second.'));
 
     expect($findings)->toHaveCount(2)
         ->and(array_map(
-            static fn(Finding $finding): array => [$finding->code(), $finding->message(), $finding->isError()],
+            static fn(Finding $finding): array => [$finding->file()->value(), $finding->code(), $finding->message(), $finding->isError()],
             [...$findings],
-        ))->toBe([['a.b', 'First.', true], ['c.d', 'Second.', false]]);
+        ))->toBe([['src/Money.php', 'a.b', 'First.', true], ['src/Wallet.php', 'c.d', 'Second.', false]]);
 });
 
 it('names an analyser by its name, its version and its config\'s digest', function (): void {
@@ -68,25 +70,25 @@ it('asks about a mutant alone, without what every run withholds, unless told mor
 });
 
 it('names the new errors a mutant has, in its order, and none that its original has or that are lesser', function (): void {
-    $known = Finding::error('return.type', 'Method add() should return int but returns string.');
-    $first = Finding::error('binaryOp.invalid', 'Binary operation "." between int and int.');
-    $second = Finding::error('argument.type', 'Parameter #1 expects int, string given.');
-    $mutant = Findings::of($known, $first, Finding::lesser('deadCode.unreachable', 'Unreachable statement.'), $second);
+    $known = Finding::error(Path::of('src/Money.php'), 'return.type', 'Method add() should return int but returns string.');
+    $first = Finding::error(Path::of('src/Money.php'), 'binaryOp.invalid', 'Binary operation "." between int and int.');
+    $second = Finding::error(Path::of('src/Money.php'), 'argument.type', 'Parameter #1 expects int, string given.');
+    $mutant = Findings::of($known, $first, Finding::lesser(Path::of('src/Money.php'), 'deadCode.unreachable', 'Unreachable statement.'), $second);
 
     expect([...$mutant->newErrors(Findings::of($known))])->toBe([$first, $second])
         ->and([...Findings::of($known)->newErrors(Findings::of($known))])->toBe([]);
 });
 
 it('knows the same findings, as many of each and whatever their order, by code and message', function (): void {
-    $a = Finding::error('a.b', 'First.');
-    $b = Finding::lesser('c.d', 'Second.');
+    $a = Finding::error(Path::of('src/Money.php'), 'a.b', 'First.');
+    $b = Finding::lesser(Path::of('src/Money.php'), 'c.d', 'Second.');
 
-    expect(Findings::of($a, $b)->same(Findings::of($b, Finding::lesser('a.b', 'First.'))))->toBeTrue()
+    expect(Findings::of($a, $b)->same(Findings::of($b, Finding::lesser(Path::of('src/Money.php'), 'a.b', 'First.'))))->toBeTrue()
         ->and(Findings::none()->same(Findings::none()))->toBeTrue()
         ->and(Findings::of($a, $b)->same(Findings::of($a)))->toBeFalse()
         ->and(Findings::of($a, $a)->same(Findings::of($a, $b)))->toBeFalse()
         ->and(Findings::of($a, $a, $b)->same(Findings::of($a, $b)))->toBeFalse()
         ->and(Findings::of($a, $b)->same(Findings::of($b, $a, $a)))->toBeFalse()
-        ->and(Findings::of($a)->same(Findings::of(Finding::error('a.b', 'Other.'))))->toBeFalse()
-        ->and(Findings::of($a)->same(Findings::of(Finding::error('a.c', 'First.'))))->toBeFalse();
+        ->and(Findings::of($a)->same(Findings::of(Finding::error(Path::of('src/Money.php'), 'a.b', 'Other.'))))->toBeFalse()
+        ->and(Findings::of($a)->same(Findings::of(Finding::error(Path::of('src/Money.php'), 'a.c', 'First.'))))->toBeFalse();
 });

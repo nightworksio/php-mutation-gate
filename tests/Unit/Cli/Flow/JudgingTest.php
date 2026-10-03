@@ -791,7 +791,7 @@ it('kills a survivor static analysis rejects, and warns once for each reason it 
 
     $answers = new StaticCheckerFake($identity, Findings::none(), array_merge(...array_map(
         static fn(Mutant $mutant): array => [
-            Workspace::checkedMutant($mutant->id())->value() => Findings::of(Finding::error('new', 'New.')),
+            Workspace::checkedMutant($mutant->id())->value() => Findings::of(Finding::error(Path::of('src/Money.php'), 'new', 'New.')),
         ],
         [...$survivor],
     )));

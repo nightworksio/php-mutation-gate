@@ -76,7 +76,7 @@ it('cannot judge without a config, one it cannot read, or a version it does not 
 
 it('analyses every file the config names for the originals, and a mutant in its original\'s place', function (): void {
     $project = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
-    Scratch::write($project, 'vendor/bin/answer.json', '{"totals": {}, "files": {"/p/src/Money.php": {"messages": [{"message": "Method add() should return int but returns string.", "identifier": "return.type"}]}}, "errors": []}');
+    Scratch::write($project, 'vendor/bin/answer.json', sprintf('{"totals": {}, "files": {"%s/src/Money.php": {"messages": [{"message": "Method add() should return int but returns string.", "identifier": "return.type"}]}}, "errors": []}', $project));
     Scratch::write($project, 'vendor/bin/answer.exit', '1');
     Scratch::write($project, 'src/Money.php', '<?php');
     Scratch::write($project, 'vendor/bin/params.json', sprintf('{"paths": ["%s/src"]}', $project));
@@ -89,7 +89,7 @@ it('analyses every file the config names for the originals, and a mutant in its 
     $warmedWith = $argv();
     $checked = $phpstan->check($check);
 
-    expect($checked)->toEqual(Findings::of(Finding::error('return.type', 'Method add() should return int but returns string.')))
+    expect($checked)->toEqual(Findings::of(Finding::error(Path::of('src/Money.php'), 'return.type', 'Method add() should return int but returns string.')))
         ->and(explode("\n", $argv()))->toBe([
             'analyse',
             sprintf('--configuration=%s/.mutation-gate/phpstan/check.neon', $project),
@@ -103,6 +103,27 @@ it('analyses every file the config names for the originals, and a mutant in its 
         ->and($warmedWith)->toEndWith("--no-progress\nleaked")
         ->and(file_get_contents(sprintf('%s/.mutation-gate/phpstan/scope.json', $project)))
         ->toBe(sprintf('{"paths": ["%s/src"]}', $project));
+});
+
+it('places each finding in the file it sits in, one in the mutant\'s own file in the original it stands in for', function (): void {
+    $project = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
+    Scratch::write($project, 'vendor/bin/answer.json', sprintf(
+        '{"totals": {}, "files": {"%s": {"messages": [%s]}, "%s/src/Wallet.php": {"messages": [%s]}}, "errors": []}',
+        '/tmp/mutant.php',
+        '{"message": "Method add() should return int but returns string.", "identifier": "return.type"}',
+        $project,
+        '{"message": "Method total() should return int but returns string.", "identifier": "return.type"}',
+    ));
+    Scratch::write($project, 'vendor/bin/answer.exit', '1');
+    Scratch::write($project, 'src/Money.php', '<?php');
+    Scratch::write($project, 'vendor/bin/params.json', sprintf('{"paths": ["%s/src"]}', $project));
+    $phpstan = phpstanIn($project);
+    $phpstan->findings(Paths::none(), Withheld::standard());
+
+    expect($phpstan->check(MutantCheck::of(Path::of('src/Money.php'), Path::of('/tmp/mutant.php'))))->toEqual(Findings::of(
+        Finding::error(Path::of('src/Money.php'), 'return.type', 'Method add() should return int but returns string.'),
+        Finding::error(Path::of('src/Wallet.php'), 'return.type', 'Method total() should return int but returns string.'),
+    ));
 });
 
 it('leaves a mutant out of its scope where its original is outside the paths it analyses, or excluded', function (): void {

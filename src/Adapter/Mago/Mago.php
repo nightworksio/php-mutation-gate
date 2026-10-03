@@ -13,6 +13,7 @@ use function is_file;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\FindingFiles;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
@@ -101,7 +102,7 @@ final readonly class Mago implements StaticChecker
         return match (true) {
             $outside instanceof OutOfScope => CannotJudge::because(sprintf(self::OUTSIDE, $outside->file()->value())),
             $outside instanceof CannotJudge => $outside,
-            default => $this->analysed($withheld, []),
+            default => $this->analysed($withheld, FindingFiles::under($this->root), []),
         };
     }
 
@@ -109,8 +110,9 @@ final readonly class Mago implements StaticChecker
     public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge
     {
         $outside = $this->withinScope(Paths::of($check->original()), $check->withheld());
+        $files = FindingFiles::under($this->root)->substituting($check);
 
-        return $outside instanceof Paths ? $this->analysed($check->withheld(), [
+        return $outside instanceof Paths ? $this->analysed($check->withheld(), $files, [
             '--substitute',
             sprintf('%s=%s', $this->absolute($check->original()), $this->absolute($check->mutant())),
         ]) : $outside;
@@ -158,12 +160,17 @@ final readonly class Mago implements StaticChecker
         };
     }
 
-    /** @param list<string> $arguments */
-    private function analysed(Withheld $withheld, array $arguments): Findings|CannotJudge
+    /**
+     * What Mago reports of the whole workspace, each finding in the file it
+     * sits in, given these arguments.
+     *
+     * @param list<string> $arguments
+     */
+    private function analysed(Withheld $withheld, FindingFiles $files, array $arguments): Findings|CannotJudge
     {
         $ran = $this->mago($withheld, ['--threads=1', 'analyze', '--reporting-format=json', ...$arguments]);
 
-        return $ran instanceof CannotJudge ? $ran : Report::of($ran);
+        return $ran instanceof CannotJudge ? $ran : Report::of($ran, $files);
     }
 
     /**

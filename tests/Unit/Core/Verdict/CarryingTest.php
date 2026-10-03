@@ -73,7 +73,7 @@ function carryMutant(int $line, MutantStatus $status): Mutant
 function carryRejected(int $line): Mutant
 {
     return carryMutant($line, MutantStatus::Survived)
-        ->rejected(Rejection::by('phpstan', Finding::error('return.type', 'Method Money::add() should return int.')));
+        ->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Money.php'), 'return.type', 'Method Money::add() should return int.')));
 }
 
 /** A kill of src/Money.php on this line, by these tests. */
@@ -200,8 +200,8 @@ it('carries each mutant of a counted result as it stands, or unjudged, and says 
     'a kill by a test file the run no longer has' => ['base', carryKill(3, TestId::of('RateTest::rates')), Carry::KillerChanged],
     'a kill by a deleted test the run cannot name' => ['base', carryKill(3, TestId::of('GoneTest::adds')), Carry::KillerUnknown],
     'a kill no test is known for' => ['base', carryKill(3), Carry::KillerUnknown],
-    'a kill by static analysis at the same base, its finding\'s file unrecorded' => ['base', carryRejected(3), Carry::RejectionUnplaced],
-    'a kill by static analysis at another base' => ['other base', carryRejected(3), Carry::RejectionUnplaced],
+    'a kill by static analysis at the same base' => ['base', carryRejected(3), Carry::Rejected],
+    'a kill by static analysis at another base' => ['other base', carryRejected(3), Carry::Rejected],
     'a timeout, which triage may count a kill' => ['base', carryMutant(3, MutantStatus::TimedOut), Carry::KillerUnknown],
     'out of memory, which triage may count a kill' => ['base', carryMutant(3, MutantStatus::OutOfMemory), Carry::KillerUnknown],
     'a crash, which counts a kill' => ['base', carryMutant(3, MutantStatus::Errored), Carry::KillerUnknown],

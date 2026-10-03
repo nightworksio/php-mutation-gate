@@ -211,7 +211,7 @@ final class Verdicts
     public static function rejected(): Mutant
     {
         return self::mutant('src/Log.php:14', 'CastString', Family::Unwrap, self::diff('return (string) $id;', 'return $id;'))
-            ->rejected(Rejection::by('phpstan', Finding::error('return.type', 'Method Log::id() should return string but returns int.')));
+            ->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Log.php'), 'return.type', 'Method Log::id() should return string but returns int.')));
     }
 
     /** Every judgement once, the survivor on a changed line first and the kill by static analysis last. */
