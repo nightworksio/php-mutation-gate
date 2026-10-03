@@ -10,6 +10,7 @@ use function copy;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -129,7 +130,8 @@ final readonly class Pest implements Runner
      * Pest's plugin reads each `#[Holds]` as its test files load, and Pest's
      * limit cannot be raised. Patched, every shard opens on the canary group,
      * whose test files every key then reads; unpatched, each shard pays a full
-     * opening run under coverage. It runs a mutant per core.
+     * opening run under coverage. It runs a mutant per core, and its tests are
+     * Pest's closures.
      */
     public function behaviour(): RunnerBehaviour
     {
@@ -137,7 +139,8 @@ final readonly class Pest implements Runner
         $pest = RunnerBehaviour::standard()
             ->holdingAsLoaded()
             ->raisingNoLimit()
-            ->runningPerCore();
+            ->runningPerCore()
+            ->writingTestsIn(AssertionStyle::Pest);
 
         return $canary instanceof Group ? $pest->readingInEveryKey($canary) : $pest->openingEachShard();
     }

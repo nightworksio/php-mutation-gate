@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Cli\Command\PreCommitCommand;
 use NightWorksIO\MutationGate\Cli\Command\PrePushCommand;
 use NightWorksIO\MutationGate\Cli\Command\ReproduceCommand;
 use NightWorksIO\MutationGate\Cli\Command\RunCommand;
+use NightWorksIO\MutationGate\Cli\Command\StubCommand;
 use NightWorksIO\MutationGate\Cli\Command\TestsCommand;
 use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
@@ -119,6 +120,7 @@ final readonly class Console
         $application->addCommand(ReproduceCommand::command($composition));
         $application->addCommand(ExplainCommand::command($composition));
         $application->addCommand(TestsCommand::command($composition));
+        $application->addCommand(StubCommand::command($composition));
         $formats = new Formats(class_exists(...));
         $installed = $detected->installed();
         $gate = $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -14,8 +15,9 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
  * for a retry (ADR-0008), which groups' test files every proof key reads
  * (ADR-0007), whether each shard pays a full opening run under coverage
  * (ADR-0006), whether it can record every test that kills a mutant, for
- * a full kill matrix (ADR-0014), and whether it runs a mutant per core. The
- * flows ask the runner, never its name.
+ * a full kill matrix (ADR-0014), whether it runs a mutant per core, and the
+ * style its own tests are written in (ADR-0015). The flows ask the runner,
+ * never its name.
  */
 final readonly class RunnerBehaviour
 {
@@ -26,13 +28,14 @@ final readonly class RunnerBehaviour
         private bool $opensEachShard,
         private NotFull $whyNotFull,
         private Parallelism $parallelism,
+        private AssertionStyle $writes,
     ) {
     }
 
     /**
      * A runner that lists `#[Holds]` as groups, can raise a limit, has no
-     * group every key reads, reuses the map the plan handed each shard, and
-     * runs one mutant at a time.
+     * group every key reads, reuses the map the plan handed each shard, runs
+     * one mutant at a time, and whose tests are PHPUnit classes.
      */
     public static function standard(): self
     {
@@ -43,7 +46,20 @@ final readonly class RunnerBehaviour
             opensEachShard: false,
             whyNotFull: NotFull::FirstKillers,
             parallelism: Parallelism::Serial,
+            writes: AssertionStyle::PhpUnit,
         );
+    }
+
+    /** This behaviour, whose runner's own tests are written in this style, as a stub with no test to follow is. */
+    public function writingTestsIn(AssertionStyle $style): self
+    {
+        return clone($this, ['writes' => $style]);
+    }
+
+    /** The style the runner's tests are written in, which a stub with no covering test takes (ADR-0015, decision 2). */
+    public function testStyle(): AssertionStyle
+    {
+        return $this->writes;
     }
 
     /** This behaviour, reading each `#[Holds]` as the runner loads its test files, where a group may never form. */

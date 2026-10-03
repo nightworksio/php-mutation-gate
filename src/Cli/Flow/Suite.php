@@ -134,6 +134,20 @@ final readonly class Suite
         return $holdings;
     }
 
+    /** The suite the first PHPUnit config the project has declares; the conventional one where it has none. */
+    public static function configured(Directory $project): PhpUnitSuite|CannotJudge
+    {
+        foreach (PhpUnitConfig::candidatesIn(Path::root()) as $candidate) {
+            $contents = $project->read($candidate);
+
+            if ($contents instanceof Contents || $contents instanceof CannotJudge) {
+                return $contents instanceof Contents ? PhpUnitSuite::declaredIn($contents, $candidate) : $contents;
+            }
+        }
+
+        return PhpUnitSuite::conventional();
+    }
+
     /** The suite, of the test files the PHPUnit config declares and those of every other package's tests. */
     private static function readIn(
         Trees $trees,
@@ -176,20 +190,6 @@ final readonly class Suite
             $outside,
             $contentsOf,
         );
-    }
-
-    /** The suite the first PHPUnit config the project has declares; the conventional one where it has none. */
-    private static function configured(Directory $project): PhpUnitSuite|CannotJudge
-    {
-        foreach (PhpUnitConfig::candidatesIn(Path::root()) as $candidate) {
-            $contents = $project->read($candidate);
-
-            if ($contents instanceof Contents || $contents instanceof CannotJudge) {
-                return $contents instanceof Contents ? PhpUnitSuite::declaredIn($contents, $candidate) : $contents;
-            }
-        }
-
-        return PhpUnitSuite::conventional();
     }
 
     /**

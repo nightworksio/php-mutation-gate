@@ -31,7 +31,10 @@ use function sprintf;
 final readonly class HoldsReader
 {
     /** The attribute, as the package declares it. */
-    private const string HOLDS = 'NightWorksIO\MutationGate\Attribute\Holds';
+    public const string HOLDS = 'NightWorksIO\MutationGate\Attribute\Holds';
+
+    /** PHPUnit's attribute that puts a test in a group. */
+    public const string GROUP = 'PHPUnit\Framework\Attributes\Group';
 
     /**
      * The attribute's own name, in lower case, which any file that writes it
@@ -39,9 +42,6 @@ final readonly class HoldsReader
      * inline or where it imports it.
      */
     private const string SPELT = 'holds';
-
-    /** PHPUnit's attribute that puts a test in a group. */
-    private const string GROUP = 'PHPUnit\Framework\Attributes\Group';
 
     /** What may stand between the attributes and what they stand on. */
     private const array MODIFIERS = [T_STATIC, T_ABSTRACT, T_FINAL, T_READONLY, T_PUBLIC, T_PROTECTED, T_PRIVATE];

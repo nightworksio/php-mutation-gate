@@ -11,9 +11,11 @@ use function array_keys;
 use function array_last;
 use function array_pop;
 use function array_slice;
+use function array_values;
 use function count;
 
 use Countable;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use PhpToken;
 
@@ -45,6 +47,15 @@ final readonly class Tokens implements Countable
      */
     private function __construct(private array $tokens, private array $enclosing, private array $closing)
     {
+    }
+
+    /** A file's significant tokens: every token but whitespace and comments. */
+    public static function in(Contents $file): self
+    {
+        return self::of(array_values(array_filter(
+            PhpToken::tokenize($file->text()),
+            static fn(PhpToken $token): bool => ! $token->isIgnorable(),
+        )));
     }
 
     /** @param list<PhpToken> $tokens a file's significant tokens, in order */
@@ -116,6 +127,12 @@ final readonly class Tokens implements Countable
     public function text(int $at): string
     {
         return $this->tokens[$at]->text;
+    }
+
+    /** The byte the token at an index begins at, from 0. */
+    public function offset(int $at): int
+    {
+        return $this->tokens[$at]->pos;
     }
 
     /** The line the token at an index begins on, from 1. */

@@ -18,3 +18,8 @@ it('records what a time budget ran out before where one did, and nothing where a
         ->and($budget->outOfTime())->toBe(OutOfTime::BeforeConfirming)
         ->and(Reason::that('The time budget ran out.')->outOfTime())->toEqual(Unreported::reason());
 });
+
+it('tells the reason no test reaches a value from any other, by its words', function (): void {
+    expect(Reason::that(Reason::UNREACHED)->isUnreached())->toBeTrue()
+        ->and(Reason::that('the budget ran out')->isUnreached())->toBeFalse();
+});

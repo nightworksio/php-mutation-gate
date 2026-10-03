@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Assertion;
 
-use function array_filter;
 use function array_key_exists;
-use function array_values;
 use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Php\Tokens;
-use PhpToken;
 
 /**
  * The functions and methods a test may call to assert for it: those its own
@@ -34,10 +31,7 @@ final readonly class Helpers
     /** The named functions and methods a file declares. */
     public static function in(Contents $file): self
     {
-        return self::declaredIn(Tokens::of(array_values(array_filter(
-            PhpToken::tokenize($file->text()),
-            static fn(PhpToken $token): bool => ! $token->isIgnorable(),
-        ))));
+        return self::declaredIn(Tokens::in($file));
     }
 
     /** The named functions and methods some tokens declare. */

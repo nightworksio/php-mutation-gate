@@ -96,6 +96,42 @@ one of those values the gate can know or check.
 5. **A stub also offers the ignore.** Its last comment holds the exact
    `ignores.entries` item for the mutant, with `reason` left for a person to
    write. That is the other legitimate outcome, when no test can kill it.
+   - **As built.**
+     - `Core\Stub\Unstubbable` decides what a mutant asks for, and words
+       the next step from its hint. A flaky mutant points at `triage`, an
+       unjudged one whose value no test reaches asks for a test that
+       references it, and any other unjudged one asks for a run first.
+     - `Core\Stub\Nearest` picks the covering file. The file named for
+       the class (`MoneyTest.php` for `Money.php`) wins. Otherwise the file
+       with the most covering tests wins, then the first by path.
+       `Core\Stub\TestFile` reads its kind from its tokens: a file that
+       declares a named class is PHPUnit's. It adds a method before that
+       class's closing brace, or a closure at the end.
+     - Without a covering file, the stub goes under the first `<testsuites>`
+       directory, at the source's path from its tree, named for its class
+       with that directory's suffix (`tests/Unit/Domain/MoneyTest.php`). A
+       file already there is added to, in its own kind. `RunnerBehaviour::testStyle()`
+       says which style the runner's tests are written in: Pest for Pest,
+       PHPUnit for every other runner.
+     - A `--style` that the target file is not written in is exit 2.
+     - The stub is printed under a comment naming its file: the test that
+       `--write` adds, or the whole of a new file. A new PHPUnit file is a
+       class named for the file, extending `TestCase`, in no namespace.
+     - `Core\Php\Enclosing` writes the call with parameter names as
+       placeholders. A function is called by name, a constructor with
+       `new`, a static method on its class, and any other method on an
+       object named for the class (`$cart->fits($amount, $limit)`).
+     - Each scaffold is a comment, so the file parses, and the one failing
+       line is code. The comments drop control characters, and write `?>`
+       as `? >`, so no line ends a comment early.
+     - A held unit's stub holds it: `->group('holds:…')` on a Pest test, and
+       `#[Holds('…')]` on a PHPUnit method, with `#[Group('holds:…')]`
+       beside it where Pest runs the class (ADR-0005, decision 9).
+     - A weak test that let the mutant through gets its assertion of value,
+       in that test's own style (ADR-0025, decision 6).
+     - The ignore is written as the project's config writes one:
+       `Ignore::mutant(…)` for a PHP config, or where there is none, and a
+       JSON object otherwise. A cluster gets one item per member.
 
 6. **Editors read SARIF, and a problems output.**
    - The `sarif` report is unchanged (ADR-0009).

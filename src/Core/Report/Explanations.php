@@ -20,7 +20,7 @@ use Traversable;
  */
 final readonly class Explanations implements IteratorAggregate
 {
-    /** @param list<Explanation> $explanations */
+    /** @param non-empty-list<Explanation> $explanations */
     private function __construct(private Cluster|Unclustered $cluster, private array $explanations)
     {
     }
@@ -30,9 +30,16 @@ final readonly class Explanations implements IteratorAggregate
         return new self(Unclustered::mutant(), [$explanation]);
     }
 
-    public static function ofCluster(Cluster $cluster, Explanation ...$members): self
+    /** A cluster, with each member explained, its first survivor first. */
+    public static function ofCluster(Cluster $cluster, Explanation $first, Explanation ...$more): self
     {
-        return new self($cluster, array_values($members));
+        return new self($cluster, [$first, ...array_values($more)]);
+    }
+
+    /** The mutant explained, or a cluster's first survivor, which `stub` writes for (ADR-0022, decision 16). */
+    public function first(): Explanation
+    {
+        return $this->explanations[0];
     }
 
     /** The cluster explained; none where one mutant is. */

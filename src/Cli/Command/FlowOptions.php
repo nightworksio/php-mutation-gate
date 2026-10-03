@@ -49,6 +49,9 @@ final readonly class FlowOptions
 
     public const string ONLY = 'only';
 
+    /** The option that has a command write what it would otherwise print: `baseline --write`, `stub --write`. */
+    public const string WRITE = 'write';
+
     private const string OUTPUTS = '--output is console or problems, not "%s".';
 
     private const string ONLY_WHAT = '--only takes changed, not "%s".';

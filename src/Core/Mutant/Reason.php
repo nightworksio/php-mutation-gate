@@ -12,6 +12,13 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
  */
 final readonly class Reason
 {
+    /**
+     * Why a mutant of a line that is not executable is unjudged where no test
+     * reads its value (ADR-0004), which a test that references the value
+     * judges (ADR-0015, decision 1).
+     */
+    public const string UNREACHED = 'no test reaches this value';
+
     private function __construct(private string $text, private OutOfTime|Unreported $outOfTime)
     {
     }
@@ -25,6 +32,12 @@ final readonly class Reason
     public static function ranOutOf(OutOfTime $before, string $text): self
     {
         return new self($text, $before);
+    }
+
+    /** Whether it says no test reaches the mutant's value, as the ledger keeps it, in its words. */
+    public function isUnreached(): bool
+    {
+        return $this->text === self::UNREACHED;
     }
 
     public function text(): string

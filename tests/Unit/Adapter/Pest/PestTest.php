@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -1227,7 +1228,11 @@ it('reads holds as it loads them and raises no limit, and patched, has every key
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $patched = new Pest(adapterProject(), $shell, Patching::on($canary), new CapDirectory());
     $unpatched = new Pest(adapterProject(), $shell, Patching::off(), new CapDirectory());
-    $pest = RunnerBehaviour::standard()->holdingAsLoaded()->raisingNoLimit()->runningPerCore();
+    $pest = RunnerBehaviour::standard()
+        ->holdingAsLoaded()
+        ->raisingNoLimit()
+        ->runningPerCore()
+        ->writingTestsIn(AssertionStyle::Pest);
 
     expect($patched->behaviour())->toEqual($pest->readingInEveryKey($canary))
         ->and($unpatched->behaviour())->toEqual($pest->openingEachShard());
