@@ -11,6 +11,7 @@ use function array_pop;
 use function array_slice;
 use function basename;
 use function count;
+use function dirname;
 use function explode;
 use function implode;
 use function in_array;
@@ -109,6 +110,12 @@ final readonly class Path
     public function stem(): string
     {
         return basename($this->value, self::PHP);
+    }
+
+    /** The directory this path is in: the root for a path of one segment. */
+    public function directory(): self
+    {
+        return self::of(dirname($this->value));
     }
 
     /** The path of an entry inside this directory, spelt as a path from it. */

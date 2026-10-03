@@ -46,3 +46,8 @@ it('drops every format character, so no text it is shown in is reordered or hidd
     expect(Fit::plain("it adds\u{202E}lave\u{202C}"))->toBe('it addslave')
         ->and(Fit::plain("it\u{200B} adds"))->toBe('it adds');
 });
+
+it('keeps a line of text from outside as it is written, but for its control characters and invalid UTF-8', function (): void {
+    expect(Fit::verbatim("  one  \ttwo\r\e[31m"))->toBe('  one  two[31m')
+        ->and(Fit::verbatim("ol\xE9"))->toBe('ol?');
+});

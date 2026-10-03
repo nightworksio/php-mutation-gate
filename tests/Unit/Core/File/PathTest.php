@@ -143,3 +143,8 @@ it('takes back the directory before each up, and keeps an up with none before it
     'absolute' => ['/project/ci/../src', '/project/src'],
     'up right after the file system root' => ['/../src', '/../src'],
 ]);
+
+it('says the directory it is in, the root for a path of one segment', function (): void {
+    expect(Path::of('src/Domain/Money.php')->directory())->toEqual(Path::of('src/Domain'))
+        ->and(Path::of('Money.php')->directory())->toEqual(Path::root());
+});

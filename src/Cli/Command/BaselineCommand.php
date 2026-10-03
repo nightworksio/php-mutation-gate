@@ -32,8 +32,6 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class BaselineCommand
 {
-    private const string WRITE = 'write';
-
     private const string UNMEASURED = <<<'SAID'
         %s: floor %s, not measured: a unit of it has no result yet. Run mutation-gate to measure it.
         SAID;
@@ -42,7 +40,7 @@ final readonly class BaselineCommand
     {
         return new Command('baseline')
             ->setDescription('Show, or write, floors raised to what was measured')
-            ->addOption(self::WRITE, mode: InputOption::VALUE_NONE, description: 'Write every improved floor')
+            ->addOption(FlowOptions::WRITE, mode: InputOption::VALUE_NONE, description: 'Write every improved floor')
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $composed = $composition->compose($input);
 
@@ -77,7 +75,7 @@ final readonly class BaselineCommand
         Baseline $committed,
         Measured $measured,
     ): int {
-        $lines = $input->getOption(self::WRITE) === true
+        $lines = $input->getOption(FlowOptions::WRITE) === true
             ? new Raising($baselines)->raise($committed, $measured->trees())
             : self::shown($committed, $measured);
 

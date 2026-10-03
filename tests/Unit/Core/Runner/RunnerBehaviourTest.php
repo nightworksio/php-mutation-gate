@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Runner\Parallelism;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
@@ -15,7 +16,12 @@ it('lists holds as groups, raises limits, has no group in every key and opens no
         ->toBe([false, true, false])
         ->and($standard->readByEveryKey())->toEqual(Groups::none())
         ->and($standard->whyNotFull())->toBe(NotFull::FirstKillers)
-        ->and($standard->parallelism())->toBe(Parallelism::Serial);
+        ->and($standard->parallelism())->toBe(Parallelism::Serial)
+        ->and($standard->testStyle())->toBe(AssertionStyle::PhpUnit);
+});
+
+it('writes its tests in the style it is told', function (): void {
+    expect(RunnerBehaviour::standard()->writingTestsIn(AssertionStyle::Pest)->testStyle())->toBe(AssertionStyle::Pest);
 });
 
 it('says each way it behaves otherwise, and nothing more', function (): void {

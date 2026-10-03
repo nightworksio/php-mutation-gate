@@ -84,9 +84,17 @@ final readonly class Fit
      */
     public static function plain(string $text): string
     {
-        $spaced = preg_replace(self::SPACE, ' ', mb_scrub($text, 'UTF-8')) ?? '';
+        return trim(self::verbatim(preg_replace(self::SPACE, ' ', mb_scrub($text, 'UTF-8')) ?? ''));
+    }
 
-        return trim(preg_replace(self::CONTROL, '', $spaced) ?? '');
+    /**
+     * One line of text from outside as it is written, its spaces kept:
+     * invalid UTF-8 replaced, and every control and format character, a tab
+     * and a carriage return among them, dropped.
+     */
+    public static function verbatim(string $line): string
+    {
+        return preg_replace(self::CONTROL, '', mb_scrub($line, 'UTF-8')) ?? '';
     }
 
     /**

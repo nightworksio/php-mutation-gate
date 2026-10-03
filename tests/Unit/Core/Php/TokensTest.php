@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Php\Tokens;
 
 $tokens = static fn(string $code): Tokens => Tokens::of(array_values(array_filter(
@@ -88,4 +89,13 @@ it('counts its tokens, and says whether a bracket encloses one', function () use
         ->and($read->isEnclosed(2))->toBeTrue()
         ->and($read->isEnclosed(3))->toBeTrue()
         ->and($read->isEnclosed(4))->toBeFalse();
+});
+
+it('reads a file\'s significant tokens, each with the byte it begins at', function (): void {
+    $tokens = Tokens::in(Contents::of("<?php\n// a comment\n\$é = 1;"));
+
+    expect($tokens->count())->toBe(4)
+        ->and($tokens->text(0))->toBe('$é')
+        ->and($tokens->offset(0))->toBe(19)
+        ->and($tokens->offset(1))->toBe(23);
 });

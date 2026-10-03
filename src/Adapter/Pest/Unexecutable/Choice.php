@@ -8,6 +8,7 @@ use function count;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 
 use function sprintf;
 
@@ -23,8 +24,6 @@ final readonly class Choice
     private const int BOUND = 10;
 
     private const string AMBIGUOUS = 'ambiguous reference; %s is covered by %d test files';
-
-    private const string UNREAD = 'no test reaches this value';
 
     private function __construct(private Paths $reading, private Paths $covering, private bool $ambiguous)
     {
@@ -50,7 +49,7 @@ final readonly class Choice
             $this->ambiguous && (! $bounded || $none) => Outcome::unjudged(
                 sprintf(self::AMBIGUOUS, $file->value(), count($this->covering)),
             ),
-            $none => Outcome::unjudged(self::UNREAD),
+            $none => Outcome::unjudged(Reason::UNREACHED),
             default => $tests,
         };
     }

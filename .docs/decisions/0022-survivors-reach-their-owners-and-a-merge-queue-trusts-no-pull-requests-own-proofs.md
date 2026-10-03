@@ -305,9 +305,10 @@ verdict reaches and how.
       member's diff, and it carries one assertion scaffold per family
       present.
     - The stub fails until it is filled in (ADR-0015 decision 4).
-    - **As built.** The `stub` command does not exist yet, so a cluster
-      has no stub to write. Every report prints its `stub` and `explain`
-      commands, and `ClusterId::parse` reads its id and refuses a mutant id.
+    - **As built.** `stub <cluster id>` writes the one test, through
+      `Core\Stub\StubText`. Every report prints a cluster's `stub` and
+      `explain` commands, and `ClusterId::parse` reads its id and refuses a
+      mutant id.
 
 17. **Clusters change what is shown, never the score.**
     - Every mutant still counts.

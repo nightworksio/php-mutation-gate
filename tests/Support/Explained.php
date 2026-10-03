@@ -64,18 +64,24 @@ final class Explained
 
     private static function of(Cluster $cluster): Explanations
     {
-        $members = [];
+        $first = $cluster->representative();
+        $more = [];
 
         foreach ($cluster->members() as $member) {
-            $members[] = Explanation::judged(
-                $member,
-                KillMatrix::none(),
-                CannotTell::because('Not run.'),
-                Reasons::of(),
-                Records::none(IdPrefix::of($member->mutant()->id())),
-            );
+            $more = $member === $first ? $more : [...$more, self::judged($member)];
         }
 
-        return Explanations::ofCluster($cluster, ...$members);
+        return Explanations::ofCluster($cluster, self::judged($first), ...$more);
+    }
+
+    private static function judged(JudgedMutant $member): Explanation
+    {
+        return Explanation::judged(
+            $member,
+            KillMatrix::none(),
+            CannotTell::because('Not run.'),
+            Reasons::of(),
+            Records::none(IdPrefix::of($member->mutant()->id())),
+        );
     }
 }

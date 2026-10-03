@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Assertion;
 
-use function array_filter;
 use function array_key_exists;
-use function array_values;
 use function max;
 use function mb_strtolower;
 use function mb_substr;
@@ -14,7 +12,6 @@ use function mb_substr;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\Tokens;
-use PhpToken;
 
 use function sprintf;
 use function stripslashes;
@@ -44,10 +41,7 @@ final readonly class TestAssertions
     /** The tests a file holds, where a test may call the helpers the file declares and these. */
     public static function in(Contents $file, Helpers $shared): self
     {
-        $tokens = Tokens::of(array_values(array_filter(
-            PhpToken::tokenize($file->text()),
-            static fn(PhpToken $token): bool => ! $token->isIgnorable(),
-        )));
+        $tokens = Tokens::in($file);
         $helpers = Helpers::declaredIn($tokens)->and($shared);
 
         return new self(self::methods($tokens, $helpers), self::pestTests($tokens, $helpers));

@@ -21,3 +21,8 @@ it('tells test cases by PHPUnit\'s suffix where it names none, under tests where
         ->and(SuiteDirectory::conventional()->holdsTestCase(Path::of('tests/Unit/MoneyTest.php')))->toBeTrue()
         ->and(SuiteDirectory::conventional()->holdsTestCase(Path::of('tests/Unit/Money.php')))->toBeFalse();
 });
+
+it('places a file of test cases for a source file at its path, named for its class with the suffix', function (): void {
+    expect(SuiteDirectory::of(Path::of('tests/Unit'), '')->caseFor(Path::of('Domain/Money.php')))->toEqual(Path::of('tests/Unit/Domain/MoneyTest.php'))
+        ->and(SuiteDirectory::of(Path::of('tests'), 'Spec.php')->caseFor(Path::of('Money.php')))->toEqual(Path::of('tests/MoneySpec.php'));
+});

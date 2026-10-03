@@ -118,15 +118,17 @@ final readonly class Explaining
             : sprintf(self::NO_CLUSTER, $mutant->why(), $sought->value()));
     }
 
+    /** A cluster, its first survivor explained first, then each other member. */
     private function members(Cluster $cluster, Verdict $last, Ledgers $ledgers): Explanations
     {
-        $members = [];
+        $first = $cluster->representative();
+        $more = [];
 
         foreach ($cluster->members() as $member) {
-            $members[] = $this->judged($member, $last, $ledgers);
+            $more = $member === $first ? $more : [...$more, $this->judged($member, $last, $ledgers)];
         }
 
-        return Explanations::ofCluster($cluster, ...$members);
+        return Explanations::ofCluster($cluster, $this->judged($first, $last, $ledgers), ...$more);
     }
 
     /** @return list<JudgedMutant|JudgedKill> the mutants of the last run the id or prefix names */
