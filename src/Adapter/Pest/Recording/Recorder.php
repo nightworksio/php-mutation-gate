@@ -44,9 +44,10 @@ use function unlink;
  *   it, diff and the mutated copy Pest serves in a mutant's own process,
  *   once they are all made, and `made`, how many there are and the opening
  *   run's seconds;
- * - `outcome`, each mutant's status as Pest decides it, and `exhausted`, the
- *   memory limit a caught mutant's own process ran out of, where its output
- *   says it did;
+ * - `outcome`, each mutant's status as Pest decides it, then `killed` and
+ *   `errored`, each test its own process wrote to its killer file as failing
+ *   or erroring there, and `exhausted`, the memory limit a caught mutant's
+ *   own process ran out of, where its output says it did;
  * - `finished`, every mutant's final status and duration, which Pest sets only
  *   after the outcome is announced, and `end`.
  */
@@ -216,9 +217,19 @@ final readonly class Recorder
         );
     }
 
+    /**
+     * A mutant's status as Pest decided it, once its own process has ended,
+     * and each test that process wrote to its killer file as failing or
+     * erroring there.
+     */
     public function outcome(MutationTest $test): void
     {
+        $mutated = $test->mutation->modifiedSourcePath;
         $this->write(RecordLine::outcome($test->getId(), $this->statusOf($test)));
+
+        foreach (KillerFile::taken(KillerFile::beside($this->results, $mutated), $mutated) as $record) {
+            $this->write($record);
+        }
     }
 
     /**
