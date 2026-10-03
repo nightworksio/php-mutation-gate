@@ -7,6 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Change;
 /** A state of the repository: a ref or commit as git names it, or the working tree as it is on disk. */
 final readonly class Revision
 {
+    /** The commit the checkout is at, as git names it, and as it names a detached checkout's branch. */
+    public const string HEAD = 'HEAD';
+
     private const string WORKING_TREE = 'the working tree';
 
     private function __construct(private string $name, private bool $workingTree)
@@ -16,6 +19,12 @@ final readonly class Revision
     public static function ref(string $ref): self
     {
         return new self($ref, workingTree: false);
+    }
+
+    /** The commit the checkout is at. */
+    public static function head(): self
+    {
+        return self::ref(self::HEAD);
     }
 
     public static function workingTree(): self

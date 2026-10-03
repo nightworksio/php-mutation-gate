@@ -43,6 +43,12 @@ final readonly class Workspace
         return Path::of(sprintf('%s/coverage/verdict', GateDirectory::root()->value()));
     }
 
+    /** Where a run of some test files leaves the map that measures their tests again for the kept one. */
+    public static function remeasuredCoverage(): Path
+    {
+        return Path::of(sprintf('%s/coverage/remeasured', GateDirectory::root()->value()));
+    }
+
     /** Where the tests that hold a shard's units leave the map of their run on their own. */
     public static function heldCoverage(ShardId $shard): Path
     {

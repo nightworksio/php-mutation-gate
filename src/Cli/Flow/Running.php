@@ -67,8 +67,18 @@ final readonly class Running
 
     private const string UNREAD_HISTORY = 'Shard %d ran its tests without the kill history the plan handed it. %s';
 
-    public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
+    public function __construct(
+        private Adapters $adapters,
+        private Settings $settings,
+        private Setup $setup,
+        private Interruption $interruption = new Interruption(),
+    ) {
+    }
+
+    /** The same, stopping before its next batch once this says so, as at its deadline. */
+    public function interrupted(Interruption $interruption): self
     {
+        return clone($this, ['interruption' => $interruption]);
     }
 
     /** The shard `--shard` names, or, where it names none, the one the environment's variables name (WhichShard). */
@@ -234,9 +244,9 @@ final readonly class Running
 
     /**
      * The shard's units in the order the plan lists them, riskiest first, in
-     * batches that each fit the time left, until one does not or the time is
-     * up. A batch the runner cannot judge once the time is up is unjudged, as
-     * is every unit no batch took.
+     * batches that each fit the time left, until one does not, the time is
+     * up, or the run is interrupted. A batch the runner cannot judge once the
+     * time is up is unjudged, as is every unit no batch took.
      */
     private function spentWithin(
         Invoking $invoking,
@@ -250,7 +260,7 @@ final readonly class Running
         $batching = Batching::opening($map->suiteDuration());
         $spent = Spent::none($this->settings->triage()->retries());
         $left = $deadline->left($this->setup->clock->now());
-        $batch = $batching->next($queue, $left);
+        $batch = $this->batchOf($batching, $queue, $left);
 
         while ($batch->count() > 0) {
             $request = $this->requestFor($batch, $kept->id(), $ordering)->within($left);
@@ -267,10 +277,20 @@ final readonly class Running
             }
 
             $left = $deadline->left($this->setup->clock->now());
-            $batch = $batching->next($queue, $left);
+            $batch = $this->batchOf($batching, $queue, $left);
         }
 
         return $spent->leaving(Units::of(...array_map(static fn(Weighed $weighed): Unit => $weighed->unit(), $queue)));
+    }
+
+    /**
+     * The next batch that fits the time left, or none once the run is interrupted.
+     *
+     * @param list<Weighed> $queue
+     */
+    private function batchOf(Batching $batching, array $queue, Seconds $left): Units
+    {
+        return $this->interruption->arrived() ? Units::none() : $batching->next($queue, $left);
     }
 
     /**

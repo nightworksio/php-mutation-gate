@@ -109,7 +109,7 @@ it('carries the newest result for a reached unit with no local one, and counts i
 
     expect(new ScoreChanging($adapters, Flows::settings(), Flows::setup())->text())->toBe(
         "src scores 40.00%, below its floor of 50.00%. That is ±0.00 against the base.\n"
-        . "1 unit unjudged since your last run: mutation-gate\n"
+        . "1 unit unjudged since your last run: mutation-gate watch\n"
         . 'The scores include unstaged changes in 1 file.',
     );
 });
@@ -125,7 +125,7 @@ it('scores each reached tree with the survivors the config ignores left out', fu
 
     expect(new ScoreChanging($adapters, $settings, Flows::setup())->text())->toBe(
         "src scores 50.00% against its floor of 50.00%. That is ±0.00 against the base.\n"
-        . "1 unit unjudged since your last run: mutation-gate\n"
+        . "1 unit unjudged since your last run: mutation-gate watch\n"
         . 'The scores include unstaged changes in 1 file.',
     );
 });
@@ -137,7 +137,7 @@ it('shows no score for a tree with a unit that has no result anywhere', function
 
     expect(new ScoreChanging($adapters, Flows::settings(), Flows::setup())->text())->toBe(
         "src is not measured yet: a unit of it has no result.\n"
-        . "2 units unjudged since your last run: mutation-gate\n"
+        . "2 units unjudged since your last run: mutation-gate watch\n"
         . 'The scores include unstaged changes in 1 file.',
     );
 });

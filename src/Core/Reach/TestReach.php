@@ -12,11 +12,8 @@ use NightWorksIO\MutationGate\Core\Change\ChangeKind;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Coverage\Judges;
 use NightWorksIO\MutationGate\Core\Coverage\NoMap;
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Php\Names;
-use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
@@ -44,9 +41,6 @@ final readonly class TestReach
 
     private const string NOTHING = '`%s` reaches nothing by itself.';
 
-    private const string UNREAD
-        = '`%s` cannot be read, so what it declares is not known, and every unit of %s is reached.';
-
     private function __construct(
         private Layout $layout,
         private Packages $packages,
@@ -57,11 +51,7 @@ final readonly class TestReach
     ) {
     }
 
-    /**
-     * The reach of these changes to tests and test support. Every PHP file
-     * on disk is read for who uses support only where some of the changes
-     * are to support.
-     */
+    /** The reach of these changes to tests and test support. */
     public static function of(
         Layout $layout,
         Trees $trees,
@@ -70,7 +60,6 @@ final readonly class TestReach
         Changes $changes,
     ): self {
         $packages = Packages::of($trees);
-        $read = self::changesSupport($layout, $packages, $changes) ? $sources : Sources::none();
 
         return new self(
             $layout,
@@ -78,7 +67,7 @@ final readonly class TestReach
             $trees,
             $coverage,
             $sources,
-            SupportUsers::in($layout, $packages, $read),
+            SupportUsers::ofChanges($layout, $packages, $sources, $changes),
         );
     }
 
@@ -116,8 +105,7 @@ final readonly class TestReach
     private function supportChanged(Reach $reach, Change $change, Package $package): Reach
     {
         $path = $change->path();
-        $declared = $this->declaredBy($change, $package);
-        $users = $declared instanceof Reason ? $declared : $this->users->of($path, $declared, $this->named($package));
+        $users = $this->users->ofChanged($change, $this->sources, $this->named($package));
 
         if ($users instanceof Reason || $this->coverage instanceof NoMap) {
             $why = $users instanceof Reason
@@ -142,30 +130,6 @@ final readonly class TestReach
         );
     }
 
-    /**
-     * What a changed piece of support declares, on disk and at the base; or,
-     * where neither can be read, why every unit of its package is reached,
-     * since the tests that use it cannot be told.
-     */
-    private function declaredBy(Change $change, Package $package): Names|Reason
-    {
-        $declared = Names::of();
-        $read = false;
-
-        $versions = [$this->sources->now($change->path()), $this->sources->before($change->previousPath())];
-
-        foreach ($versions as $version) {
-            if ($version instanceof Contents) {
-                $declared = $declared->merge(PhpFile::read($version)->declares());
-                $read = true;
-            }
-        }
-
-        return $read
-            ? $declared
-            : Reason::that(sprintf(self::UNREAD, $change->path()->value(), $this->named($package)));
-    }
-
     /** This reach, and every tree of each module a changed test is inside. */
     private function withModules(Reach $reach, Path $test): Reach
     {
@@ -185,20 +149,6 @@ final readonly class TestReach
         }
 
         return $reach;
-    }
-
-    /** Whether any of these changes is to test support. */
-    private static function changesSupport(Layout $layout, Packages $packages, Changes $changes): bool
-    {
-        foreach ($changes as $change) {
-            $path = $change->path();
-
-            if ($layout->isSupport($path->relativeTo($packages->holding($path)->path()))) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private function named(Package $package): string

@@ -25,7 +25,7 @@ final readonly class ScoreChangeText
 
     private const string UNMEASURED = '%s is not measured yet: a unit of it has no result.';
 
-    private const string UNJUDGED = '%d %s unjudged since your last run: mutation-gate';
+    private const string UNJUDGED = '%d %s unjudged since your last run: mutation-gate watch';
 
     private const string UNSTAGED = 'The scores include unstaged changes in %d %s.';
 

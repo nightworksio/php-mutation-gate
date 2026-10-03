@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
+use NightWorksIO\MutationGate\Cli\Flow\Interruption;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
@@ -764,6 +765,36 @@ it('starts nothing a budget has no room for, and leaves every unit unjudged', fu
     expect($runner->requests())->toBe([])
         ->and($unjudged($result))->toBe(['src/Money.php', 'src/Held.php'])
         ->and($statuses($result))->toBe([]);
+});
+
+it('stops before the batch after the one an interruption arrived in, leaving the units no batch took unjudged', function () use (
+    $resultIn,
+    $unjudged,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+    $setup = new Setup(
+        Absent::setting(),
+        Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
+        Digest::sha256Of('installed'),
+        new StoppedClock('2026-09-30T12:00:00Z'),
+    );
+    $looks = 0;
+    $arrived = Interruption::when(static function () use (&$looks): bool {
+        ++$looks;
+
+        return $looks > 1;
+    });
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('2s')), $setup)
+        ->interrupted($arrived)
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect(array_map(
+        static fn(MutationRequest $request): array => array_map(static fn(Path $file): string => $file->value(), [...$request->files()]),
+        $runner->requests(),
+    ))->toEqual([['src/Money.php']])
+        ->and($unjudged($resultIn($project, 1)))->toBe(['src/Held.php']);
 });
 
 it('leaves the units no batch took unjudged, and each survivor it had no time to confirm', function () use (
