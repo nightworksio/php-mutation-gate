@@ -303,6 +303,27 @@ it('starts a check only where the time left has room for it, as long as the run 
     ],
 ]);
 
+it('checks a printed file\'s first survivor where the time left has room for exactly its print and its mutant', function (): void {
+    $project = Scratch::directory();
+    $mutants = Flows::mutantsOf('src/Money.php');
+    $money = checkedSurvivor($mutants, 'src/Money.php');
+    $checker = checkedBy($project, [
+        Workspace::checkedOriginal($money->id())->value() => checkedOriginals(),
+        checkedAt($money) => checkedOriginals(),
+    ]);
+    $printed = ScriptedRunner::fixture()->checking(Checkable::printed(Contents::of('<?php // printed'), Contents::of('<?php // mutant')));
+    $deadline = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(10.0));
+    // before the warm-up, its start and end of 1s; then before the survivor, with 2s left, room for two checks of 1s
+    $clock = new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 1, 8, 8, 9, 9, 10);
+
+    checking($project, $checker, $printed, $deadline, $clock)->checked($mutants, MutantIds::none());
+
+    expect(array_map(static fn(array $check): string => $check[1], $checker->checks()))->toBe([
+        Workspace::checkedOriginal($money->id())->value(),
+        checkedAt($money),
+    ]);
+});
+
 it('needs room for one check alone for a printed file\'s later survivors, whose print is analysed', function (): void {
     $project = Scratch::directory();
     $mutants = Flows::mutantsOf('src/Money.php');

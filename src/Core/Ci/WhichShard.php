@@ -29,22 +29,30 @@ final readonly class WhichShard
     /** The variable a job the gate's own plan starts is named by, as a matrix sets it. */
     public const string VARIABLE = 'SHARD';
 
-    /** Each variable that names a job, with the one that counts the jobs and what it counts from. */
+    /** Each variable that names a job, with what it counts from. */
     private const array NAMED_BY = [
-        self::VARIABLE => ['', 1],
-        'CI_NODE_INDEX' => ['CI_NODE_TOTAL', 1],
-        'BUILDKITE_PARALLEL_JOB' => ['BUILDKITE_PARALLEL_JOB_COUNT', 0],
-        'CIRCLE_NODE_INDEX' => ['CIRCLE_NODE_TOTAL', 0],
-        'BITBUCKET_PARALLEL_STEP' => ['BITBUCKET_PARALLEL_STEP_COUNT', 0],
+        self::VARIABLE => 1,
+        'CI_NODE_INDEX' => 1,
+        'BUILDKITE_PARALLEL_JOB' => 0,
+        'CIRCLE_NODE_INDEX' => 0,
+        'BITBUCKET_PARALLEL_STEP' => 0,
+    ];
+
+    /** The variable that counts the jobs, for each variable that names a job and has one. */
+    private const array COUNTED_BY = [
+        'CI_NODE_INDEX' => 'CI_NODE_TOTAL',
+        'BUILDKITE_PARALLEL_JOB' => 'BUILDKITE_PARALLEL_JOB_COUNT',
+        'CIRCLE_NODE_INDEX' => 'CIRCLE_NODE_TOTAL',
+        'BITBUCKET_PARALLEL_STEP' => 'BITBUCKET_PARALLEL_STEP_COUNT',
     ];
 
     private const string NUMBER = '/^\d+$/D';
 
     public static function in(Variables $variables, Plan $plan): ShardId|CannotJudge
     {
-        foreach (self::NAMED_BY as $index => [$total, $from]) {
+        foreach (self::NAMED_BY as $index => $from) {
             if ($variables->has($index)) {
-                return self::named($variables, $index, $total, $from, $plan);
+                return self::named($variables, $index, $from, $plan);
             }
         }
 
@@ -54,36 +62,36 @@ final readonly class WhichShard
         ));
     }
 
-    private static function named(
-        Variables $variables,
-        string $index,
-        string $total,
-        int $from,
-        Plan $plan,
-    ): ShardId|CannotJudge {
+    private static function named(Variables $variables, string $index, int $from, Plan $plan): ShardId|CannotJudge
+    {
         $value = $variables->valueOf($index);
 
-        if (preg_match(self::NUMBER, $value) !== 1) {
-            return CannotJudge::because(sprintf('%s is "%s", which is not a job number.', $index, $value));
-        }
-
-        if (! self::counted($variables, $total, $plan)) {
-            return CannotJudge::because(sprintf(
-                '%s is %s, and the plan holds %d shards. Plan with --shards=%s, so each job has a shard.',
-                $total,
-                $variables->valueOf($total),
-                count($plan),
-                $variables->valueOf($total),
-            ));
-        }
-
-        return self::shardOf(intval($value) + 1 - $from, $plan);
+        return preg_match(self::NUMBER, $value) === 1
+            ? self::counted($variables, $index, intval($value) + 1 - $from, $plan)
+            : CannotJudge::because(sprintf('%s is "%s", which is not a job number.', $index, $value));
     }
 
-    /** Whether the jobs the CI started, where it says, are as many as the plan's shards. */
-    private static function counted(Variables $variables, string $total, Plan $plan): bool
+    /**
+     * The shard of this number, where the jobs the CI started, if it says how many, are as many as the plan's
+     * shards; or why not.
+     */
+    private static function counted(Variables $variables, string $index, int $number, Plan $plan): ShardId|CannotJudge
     {
-        return ! $variables->has($total) || $variables->valueOf($total) === sprintf('%d', count($plan));
+        foreach (self::COUNTED_BY as $named => $total) {
+            $miscounted = $variables->has($total) && $variables->valueOf($total) !== sprintf('%d', count($plan));
+
+            if ($named === $index && $miscounted) {
+                return CannotJudge::because(sprintf(
+                    '%s is %s, and the plan holds %d shards. Plan with --shards=%s, so each job has a shard.',
+                    $total,
+                    $variables->valueOf($total),
+                    count($plan),
+                    $variables->valueOf($total),
+                ));
+            }
+        }
+
+        return self::shardOf($number, $plan);
     }
 
     private static function shardOf(int $number, Plan $plan): ShardId|CannotJudge

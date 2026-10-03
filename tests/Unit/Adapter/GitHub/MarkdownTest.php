@@ -136,6 +136,24 @@ it('fits the step summary into the size one step may write, saying how many it l
         ->and($summary)->toMatch('/And \d+ more; the JSON report lists every one\./');
 });
 
+it('keeps a step summary of exactly the mebibyte one step may write whole, and cuts one a byte past it', function (): void {
+    $judged = static fn(int $line, int $length): JudgedMutant => JudgedMutant::of(
+        Verdicts::mutant(sprintf('src/Money.php:%d', $line), 'Plus', MutatorFamily::None, ''),
+        MutantJudgement::Survived,
+    )->judgedBy(TestIds::of(TestId::of(str_repeat('a', $length))));
+    $summary = static fn(int $length): string => Markdown::summary(
+        Verdicts::of(Floor::of(80), $judged(3, 1), $judged(4, $length)),
+        '',
+        Verdicts::monthAgo(),
+    );
+    $fits = 1_048_576 - (strlen($summary(2)) - 2);
+
+    expect(strlen($summary($fits)))->toBe(1_048_576)
+        ->and($summary($fits))->toContain(str_repeat('a', $fits))
+        ->and($summary($fits + 1))->not->toContain(str_repeat('a', $fits + 1))
+        ->and($summary($fits + 1))->toContain('And 1 more; the JSON report lists every one.');
+});
+
 it('lets nothing the project wrote become markup, a link, a mention or a new cell', function (): void {
     $hostile = JudgedMutant::of(
         Verdicts::mutant('src/<img src=x>|@octocat.php:3', '[x](https://evil)', MutatorFamily::None, "@@ @@\n-a ~~~ </details>\n+b\n"),

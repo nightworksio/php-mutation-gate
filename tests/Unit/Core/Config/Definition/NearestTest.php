@@ -14,6 +14,7 @@ it('suggests the known key a misspelt one most likely meant', function (
 })->with([
     'the same key in another case' => ['newcode', 'newCode', 'uncovered', 'newCode', 'trees'],
     'one edit from a short key' => ['tress', 'trees', 'runner', 'trees'],
+    'one edit from a key too short for a third of it' => ['co', 'ci', 'trees', 'ci'],
     'two edits from a six-letter key' => ['abcxyf', 'abcdef', 'abcdef'],
     'a third of a long key away' => ['prePshBdgt', 'prePushBudget', 'watchBudget', 'prePushBudget'],
     'the first of two equally near' => ['max', 'may', 'may', 'mix'],

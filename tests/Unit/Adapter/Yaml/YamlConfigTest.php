@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -82,4 +83,14 @@ it('writes a config as YAML that reads back as the same config', function () use
         ->toBe("runner: pest\n")
         ->and($read($layer instanceof Layer ? new YamlConfig()->render($layer->written(ProjectRoot::origin())) : ''))
         ->toBe($config);
+});
+
+it('writes ten levels of a config as blocks, and only what lies deeper on one line', function (): void {
+    $nested = Json::at(implode('.', array_map(static fn(int $level): string => sprintf('l%d', $level), range(1, 11))), 1);
+    $blocks = implode('', array_map(
+        static fn(int $level): string => sprintf("%sl%d:\n", str_repeat('  ', $level - 1), $level),
+        range(1, 9),
+    ));
+
+    expect(new YamlConfig()->render($nested))->toBe(sprintf("%s%sl10: { l11: 1 }\n", $blocks, str_repeat('  ', 9)));
 });
