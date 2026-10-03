@@ -237,6 +237,15 @@ its parser attributes. Both change when the checkout moves.
      the class after a namespace separator, so a PHPUnit class outside any
      namespace is one it cannot express: a PHPUnit class run by Pest belongs
      in a namespace.
+   - **Where a mutant's file was loaded before the mutant.** Pest puts a
+     mutant in the place of its file through an override that
+     pest-plugin-mutate starts as it boots, so a file PHP loaded before that,
+     such as one Composer's `files` autoload or `tests/Pest.php` loads, runs
+     as it is. The package's plugin reads in each mutant's own process what
+     PHP had loaded when it boots, before it loads anything itself, and
+     records a mutant whose file was among it. Such a mutant is unjudged,
+     whatever Pest made of it, with the reason *`<file>` was loaded before the
+     mutant was in place, so its tests ran the original code*.
    - **A small Pest plugin** ships in this package, listed in its
      `composer.json` under `extra.pest.plugins`, which is how Pest finds
      plugins. It implements Pest's `Bootable`, `TestCaseMethodFilter` and

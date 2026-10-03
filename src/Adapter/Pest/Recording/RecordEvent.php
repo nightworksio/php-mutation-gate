@@ -28,6 +28,9 @@ enum RecordEvent: string
     /** The test files a mutant's own run was narrowed to load, by its mutated copy. */
     case Narrowed = 'narrowed';
 
+    /** A mutant's own process had loaded the original file before Pest put the mutant in its place. */
+    case Preloaded = 'preloaded';
+
     /** A mutant's own process ran out of its memory limit. */
     case Exhausted = 'exhausted';
 

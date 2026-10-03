@@ -18,9 +18,10 @@ use PHPUnit\Event\Facade;
 use PHPUnit\Event\UnknownSubscriberTypeException;
 
 /**
- * What the Pest plugin writes in a mutant's own process: each test that fails
- * or errors there, with the mutated copy Pest serves, one JSON line at a time
- * in the results file the process inherits. Pest stops the process at the
+ * What the Pest plugin writes in a mutant's own process: whether the process
+ * had loaded the original file before the mutant was in its place, and each
+ * test that fails or errors there, with the mutated copy Pest serves, one
+ * JSON line at a time in the results file the process inherits. Pest stops the process at the
  * first, so the first line a mutant has names the test that killed it. It
  * logs PHP's errors in that process to a file of the mutant's own, which the
  * recorder reads for a fatal error Pest's own handling would lose, such as
@@ -33,24 +34,47 @@ final readonly class Killers
     {
     }
 
-    /** Naming killers where this is a mutant's own process of a run the adapter records. */
-    public static function fromEnvironment(): self|Off
+    /**
+     * Naming killers where this is a mutant's own process of a run the
+     * adapter records, given the files it loaded before Pest's override
+     * started.
+     *
+     * @param list<string> $loaded
+     */
+    public static function fromEnvironment(array $loaded): self|Off
     {
-        return self::listening(getenv(GateVariable::Results->value), getenv(Recorder::MUTATED), Facade::instance());
+        return self::listening(
+            getenv(GateVariable::Results->value),
+            getenv(Recorder::MUTATED),
+            Facade::instance(),
+            getenv(Recorder::MUTANT),
+            Loaded::of($loaded),
+        );
     }
 
     /**
      * Naming killers, subscribed to PHPUnit's events, where a results file and
      * a mutated copy are named and PHPUnit still takes subscribers. A mutant
-     * it cannot name a killer for is killed by a test nobody knows.
+     * it cannot name a killer for is killed by a test nobody knows. Where the
+     * process had loaded the original before the override started, which
+     * then cannot put the mutant in its place, it writes that first.
      */
-    public static function listening(string|false $results, string|false $mutated, Facade $events): self|Off
-    {
+    public static function listening(
+        string|false $results,
+        string|false $mutated,
+        Facade $events,
+        string|false $original,
+        Loaded $loaded,
+    ): self|Off {
         if (! is_string($results) || $results === '' || ! is_string($mutated) || $mutated === '') {
             return Off::NamingKillers;
         }
 
         $killers = new self($results, $mutated);
+
+        if (is_string($original) && $loaded->has($original)) {
+            file_put_contents($results, RecordLine::preloaded($mutated), FILE_APPEND | LOCK_EX);
+        }
 
         try {
             $events->registerSubscribers(new OnFailed($killers), new OnErrored($killers));

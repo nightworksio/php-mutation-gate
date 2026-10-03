@@ -34,7 +34,9 @@ use function sprintf;
  * one whose own process ran out of the memory cap says to raise it. A run
  * stopped at its deadline keeps every result it had, and leaves the rest
  * unjudged. So does a covering test Pest's filter cannot select, because Pest
- * would have called that mutant killed or uncovered without running the test.
+ * would have called that mutant killed or uncovered without running the test,
+ * and a mutant whose own process had loaded its file before the mutant was in
+ * place, because its tests ran the original code.
  */
 final readonly class Interpretation
 {
@@ -47,6 +49,8 @@ final readonly class Interpretation
     private const string TOO_LONG = 'Pest cannot pass the filter of the %d tests covering %s:%d. Turn on pest.patch.';
 
     private const string UNSELECTED = "Pest's --filter cannot select %s, so Pest cannot run it against this mutant.";
+
+    private const string PRELOADED = '%s was loaded before the mutant was in place, so its tests ran the original code';
 
     private const string OUT_OF_MEMORY
         = "Pest ran out of the %s memory cap in its own process, so the run did not finish. %s Pest said:\n%s";
@@ -159,11 +163,13 @@ final readonly class Interpretation
     private function mutant(MutantId $gate, PlannedMutant $planned, Records $records, Selection $selection): Mutant
     {
         $unselected = $selection->fits() ? $selection->unselected() : TestIds::none();
-        $judged = count($unselected) === 0;
+        $file = $this->project->relative($planned->file()->value());
+        $ranTheOriginal = $records->runOf($planned)->ranTheOriginal();
+        $judged = count($unselected) === 0 && ! $ranTheOriginal;
         $mutant = Mutant::of(
             $gate,
             $planned->id(),
-            Location::of($this->project->relative($planned->file()->value()), $planned->start(), $planned->end()),
+            Location::of($file, $planned->start(), $planned->end()),
             Mutation::of($planned->mutator(), Families::of($planned->mutator()), Diff::fromPest($planned->diff())),
             $judged ? $this->statusOf($planned, $records) : MutantStatus::Unjudged,
             $records->durationOf($planned),
@@ -179,6 +185,10 @@ final readonly class Interpretation
         };
         $names = array_map(static fn(TestId $test): string => $test->value(), [...$unselected]);
 
-        return $judged ? $limited : $limited->because(Reason::that(sprintf(self::UNSELECTED, implode(', ', $names))));
+        return match (true) {
+            $ranTheOriginal => $limited->because(Reason::that(sprintf(self::PRELOADED, $file->value()))),
+            $judged => $limited,
+            default => $limited->because(Reason::that(sprintf(self::UNSELECTED, implode(', ', $names)))),
+        };
     }
 }

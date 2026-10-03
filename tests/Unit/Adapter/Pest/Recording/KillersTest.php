@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -17,23 +18,23 @@ afterEach(function (): void {
 });
 
 it('names no killer unless the adapter names a results file and Pest a mutated copy', function (): void {
-    expect(Killers::listening(results: false, mutated: '/tmp/m', events: new Facade()))->toBe(Off::NamingKillers)
-        ->and(Killers::listening('', '/tmp/m', new Facade()))->toBe(Off::NamingKillers)
-        ->and(Killers::listening('/r/results.jsonl', mutated: false, events: new Facade()))->toBe(Off::NamingKillers)
-        ->and(Killers::listening('/r/results.jsonl', '', new Facade()))->toBe(Off::NamingKillers)
-        ->and(Killers::fromEnvironment())->toBe(Off::NamingKillers);
+    expect(Killers::listening(results: false, mutated: '/tmp/m', events: new Facade(), original: false, loaded: Loaded::of([])))->toBe(Off::NamingKillers)
+        ->and(Killers::listening('', '/tmp/m', new Facade(), original: false, loaded: Loaded::of([])))->toBe(Off::NamingKillers)
+        ->and(Killers::listening('/r/results.jsonl', mutated: false, events: new Facade(), original: false, loaded: Loaded::of([])))->toBe(Off::NamingKillers)
+        ->and(Killers::listening('/r/results.jsonl', '', new Facade(), original: false, loaded: Loaded::of([])))->toBe(Off::NamingKillers)
+        ->and(Killers::fromEnvironment([]))->toBe(Off::NamingKillers);
 });
 
 it('names no killer where PHPUnit takes no more subscribers', function (): void {
     $sealed = new Facade();
     $sealed->seal();
 
-    expect(Killers::listening('/r/results.jsonl', '/tmp/m', $sealed))->toBe(Off::NamingKillers);
+    expect(Killers::listening('/r/results.jsonl', '/tmp/m', $sealed, original: false, loaded: Loaded::of([])))->toBe(Off::NamingKillers);
 });
 
 it('writes each killer as a line of its own, with the mutated copy it ran on', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
-    $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade());
+    $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]));
 
     if ($killers instanceof Killers) {
         $killers->killedBy('P\Tests\MoneySpec::__pest_evaluable_it_adds');
@@ -46,9 +47,30 @@ it('writes each killer as a line of its own, with the mutated copy it ran on', f
     );
 });
 
+it('writes first that its process had loaded the original before the override, by its real path, and nothing where it had not', function (): void {
+    $directory = Scratch::directory();
+    Scratch::write($directory, 'src/Money.php', '<?php');
+    $original = sprintf('%s/src/Money.php', realpath($directory));
+    $results = sprintf('%s/results.jsonl', $directory);
+    $clean = sprintf('%s/clean.jsonl', $directory);
+
+    $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade(), sprintf('%s/./src/Money.php', $directory), Loaded::of([$original]));
+    Killers::listening($clean, '/tmp/mutations/abc', new Facade(), $original, Loaded::of(['/p/src/Other.php']));
+    Killers::listening($clean, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([$original]));
+
+    if ($killers instanceof Killers) {
+        $killers->killedBy('T::adds');
+    }
+
+    expect(file_get_contents($results))->toBe(
+        "{\"event\":\"preloaded\",\"mutated\":\"/tmp/mutations/abc\"}\n"
+        . "{\"event\":\"killed\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"T::adds\"}\n",
+    )->and(is_file($clean))->toBeFalse();
+});
+
 it('writes a test that errored apart from one that failed, with the mutated copy it ran on', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
-    $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade());
+    $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]));
 
     if ($killers instanceof Killers) {
         $killers->erroredBy('T::adds');
@@ -62,7 +84,7 @@ it('logs its process\'s errors to the mutant\'s own file, emptied of what an ear
     $log = Recorder::errorsBeside($results, '/tmp/mutations/abc');
     file_put_contents($log, "an earlier run's error\n");
 
-    Killers::listening($results, '/tmp/mutations/abc', new Facade());
+    Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]));
     error_log('logged now');
 
     expect((string) file_get_contents($log))->toContain('logged now')
@@ -73,10 +95,10 @@ it('keeps in the mutant\'s log the memory limit its process ran out of, where PH
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $php = new Process([PHP_BINARY, '-d', 'memory_limit=32M', '-d', 'display_errors=0', '-d', 'log_errors=0', '-r', sprintf(<<<'PHP_WRAP'
     require %s;
-    NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers::listening(%s, '/tmp/mutations/abc', new PHPUnit\Event\Facade());
+    NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers::listening(%s, '/tmp/mutations/abc', new PHPUnit\Event\Facade(), original: false, loaded: NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded::of([]));
     register_shutdown_function(static function (): void {
         $held = [];
-        while (true) {
+        for ($megabytes = 0; $megabytes < 64; $megabytes++) {
             $held[] = str_repeat('x', 1048576);
         }
     });
@@ -98,7 +120,7 @@ it('logs nothing to a mutant\'s log it cannot empty', function (): void {
     chmod($directory, 0o555);
 
     try {
-        Killers::listening($results, '/tmp/mutations/abc', new Facade());
+        Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]));
         $logged = ini_get('error_log');
     } finally {
         chmod($directory, 0o755);

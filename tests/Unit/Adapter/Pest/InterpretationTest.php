@@ -235,6 +235,30 @@ it('reads a kill whose own process ran out of exactly the gate\'s cap as out of 
         ), 0));
 });
 
+it('leaves unjudged a mutant whose own process had loaded its file before the mutant was in place, whatever Pest made of it', function () use (
+    $mutant,
+    $plan,
+    $read,
+): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 12 => [0]], []);
+    PestRun::write($results, [
+        $plan($root, 'n1', 'src/Money.php:11', 'ab'),
+        $plan($root, 'n2', 'src/Money.php:12', 'cd'),
+        PestRun::made(2),
+        PestRun::preloaded('n1'),
+        PestRun::finished('n1', PestStatus::Untested, 0.25),
+        PestRun::finished('n2', PestStatus::Untested, 0.25),
+        PestRun::end(),
+    ]);
+    $preloaded = Reason::that('src/Money.php was loaded before the mutant was in place, so its tests ran the original code');
+
+    expect($read($project, Ran::finished(succeeded: true, output: "\n  Mutations: 2 untested\n"), $results))
+        ->toEqual(MutationResult::of(Mutants::of(
+            $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Unjudged, 0.25)->because($preloaded),
+            $mutant('n2', 'src/Money.php:12', 'cd', MutantStatus::Survived, 0.25),
+        ), 0));
+});
+
 it('cannot judge a run whose own process ran out of the gate\'s cap, and says to raise it', function (): void {
     [$project, $results] = interpretedRun([], []);
     PestRun::write($results, []);

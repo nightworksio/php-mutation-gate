@@ -82,6 +82,12 @@ final readonly class PestRun
         return self::line(RecordLine::narrowed(self::mutated($id), $files));
     }
 
+    /** That the own process of the mutant with this native id had loaded its file before the mutant was in place. */
+    public static function preloaded(string $id): string
+    {
+        return self::line(RecordLine::preloaded(self::mutated($id)));
+    }
+
     /** The memory limit the own process of the mutant with this native id ran out of. */
     public static function exhausted(string $id, MemoryCap $limit): string
     {

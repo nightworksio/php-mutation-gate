@@ -5,16 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
 use function file_put_contents;
-use function get_included_files;
 use function getenv;
-use function in_array;
 use function is_string;
 use function json_encode;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
-
-use function realpath;
 
 /**
  * What a run the adapter starts on a mutant of a line that is not executable
@@ -30,23 +26,24 @@ final readonly class Guard
     {
     }
 
-    /** Guarding where the adapter named a file and the override an original, by the files loaded so far. */
-    public static function fromEnvironment(): self|Off
+    /**
+     * Guarding where the adapter named a file and the override an original,
+     * by the files loaded before the override started.
+     *
+     * @param list<string> $loaded
+     */
+    public static function fromEnvironment(array $loaded): self|Off
     {
-        return self::watching(getenv(GateVariable::Guard->value), getenv(Recorder::MUTANT), get_included_files());
+        return self::watching(getenv(GateVariable::Guard->value), getenv(Recorder::MUTANT), Loaded::of($loaded));
     }
 
-    /** @param list<string> $loaded */
-    public static function watching(string|false $file, string|false $original, array $loaded): self|Off
+    public static function watching(string|false $file, string|false $original, Loaded $loaded): self|Off
     {
         if (! is_string($file) || $file === '' || ! is_string($original)) {
             return Off::Guarding;
         }
 
-        $real = realpath($original);
-        $path = is_string($real) ? $real : $original;
-
-        return new self($file, $path, in_array($path, $loaded, strict: true));
+        return new self($file, $original, $loaded->has($original));
     }
 
     /**
@@ -58,7 +55,7 @@ final readonly class Guard
     {
         $seen = [
             'before' => $this->before,
-            'loaded' => in_array($this->original, $loaded, strict: true),
+            'loaded' => Loaded::of($loaded)->has($this->original),
             'opcache' => $opcache->couldServeTheOriginal(),
         ];
 
