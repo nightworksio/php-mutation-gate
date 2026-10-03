@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Git;
 
 use function array_filter;
 use function array_key_exists;
+use function array_map;
 use function fclose;
 use function file_get_contents;
 use function file_put_contents;
@@ -157,6 +158,7 @@ final readonly class Command
      * stream wrapper registered for `file://`, and a wrapper of PHP code,
      * such as the one Pest serves a mutant through in a mutant's own run,
      * has no descriptor to hand a process, so git would never start there.
+     * Git whose files cannot be opened is not started.
      *
      * @param list<string> $arguments
      */
@@ -174,17 +176,9 @@ final readonly class Command
         );
         $printed = $git === false ? false : stream_get_contents($pipes[1]);
         $succeeded = $git !== false && proc_close($git) === 0;
-        $said = match (true) {
-            $reading === false || $writing === false => self::NO_SCRATCH,
-            $git === false => self::NOT_STARTED,
-            default => trim(sprintf('%s', file_get_contents($errors))),
-        };
+        $said = $git === false ? self::NOT_STARTED : trim(sprintf('%s', file_get_contents($errors)));
 
-        foreach ([$reading, $writing] as $handle) {
-            if (is_resource($handle)) {
-                fclose($handle);
-            }
-        }
+        array_map(fclose(...), array_filter([$reading, $writing], is_resource(...)));
 
         return $succeeded && is_string($printed) ? $printed : $this->refused($arguments, $said);
     }
