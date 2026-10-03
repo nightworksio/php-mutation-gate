@@ -175,7 +175,8 @@ Two parts of that do not carry over to a public package.
      never whether its mutants run. A wrong cost makes one runner slower, never
      a verdict wrong.
 
-5. **The CiPlan port renders a plan and says which shard a job is.** `ci.plan`
+5. **The CiPlan port renders a plan and names the definitions that run it;
+   which shard a job is, WhichShard reads on every CI.** `ci.plan`
    chooses the adapter. Where it names none, the plan whose CI the job runs in
    is taken: each plan declares `CiPlan::marker()`, the variable its CI marks
    every job with, set to `true` (`CiMarker::saying`) or to any
@@ -201,9 +202,16 @@ Two parts of that do not carry over to a public package.
    1-based, and `CI_NODE_TOTAL`) and Buildkite's `parallelism`
    (`BUILDKITE_PARALLEL_JOB`, 0-based, and `BUILDKITE_PARALLEL_JOB_COUNT`) are
    served: without `--shard`, `run` reads the first of `SHARD`,
-   `CI_NODE_INDEX`, `BUILDKITE_PARALLEL_JOB` and `CIRCLE_NODE_INDEX` the
-   detected CI sets, adding 1 to the 0-based ones. A CI the built-ins do not
-   cover is an extension (ADR-0001).
+   `CI_NODE_INDEX`, `BUILDKITE_PARALLEL_JOB`, `CIRCLE_NODE_INDEX` and
+   `BITBUCKET_PARALLEL_STEP` the job's environment sets, adding 1 to the
+   0-based ones, whichever plan the job takes. This is `WhichShard`, in the
+   core, and not the port: every CI's job reads its shard the same way, an
+   extension's CI included, which names it with `--shard=<id>` or `SHARD`. A
+   CI the built-ins do not cover is an extension (ADR-0001).
+
+   The port hands the plan to the CI as a publication: the text, the file
+   and whether it is printed, written or appended there. A plan says what and
+   where, and the command writes it.
 
    The CiPlan port also answers three things other decisions rely on: the
    run's ref, which is its proof scope (ADR-0007); whether it is a pull

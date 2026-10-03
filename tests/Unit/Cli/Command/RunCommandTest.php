@@ -17,7 +17,6 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
@@ -55,7 +54,7 @@ $composed = static fn(string $project, float $floor, bool $inCi = false): Compos
     $project,
     ScriptedRunner::fixture(),
     new ProofStoreFake(),
-    $inCi ? new CiPlanFake(ShardId::of(1), RunOn::at(Scope::branch('feature'), Scope::branch('main'))) : Flows::ci(),
+    $inCi ? new CiPlanFake(RunOn::at(Scope::branch('feature'), Scope::branch('main'))) : Flows::ci(),
     Variables::of($inCi ? ['CI' => 'true'] : []),
 );
 
@@ -78,9 +77,16 @@ it('runs the shard it is named, leaves its result, and exits 0 whatever its muta
         ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeFalse();
 });
 
-it('runs the shard the CI names, into the results directory it is named', function () use ($composed): void {
+it('runs the shard the environment names, into the results directory it is named', function () use ($floored): void {
     $project = FlowCommands::project();
-    $composition = $composed($project, 50);
+    $composition = FlowCommands::over(
+        $floored(50),
+        $project,
+        ScriptedRunner::fixture(),
+        new ProofStoreFake(),
+        Flows::ci(),
+        Variables::of(['SHARD' => '1']),
+    );
     FlowCommands::run(PlanCommand::command($composition), '--shards=2');
 
     $ran = FlowCommands::run(RunCommand::command($composition), '--plan=.mutation-gate/plan.json --results=out');

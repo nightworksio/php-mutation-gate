@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function count;
 use function file_get_contents;
-use function file_put_contents;
 use function getenv;
 use function in_array;
 use function is_file;
@@ -15,12 +14,13 @@ use function json_encode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
+use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
-use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -28,10 +28,8 @@ use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
@@ -68,23 +66,25 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     /** The events whose ref is a branch the run may write for: none runs code from a pull request. */
     private const array TRUSTED = ['push', 'schedule', 'workflow_dispatch'];
 
-    private function __construct(private Variables $variables)
+    private function __construct(private CiJob $job)
     {
     }
 
+    /** The plan for a job with these variables, run from the workflow `GITHUB_WORKFLOW_REF` names. */
     public static function in(Variables $variables): self
     {
-        return new self($variables);
+        return new self(CiJob::of($variables, self::workflowIn($variables)));
     }
 
     public static function fromOptions(Options $options): self
     {
-        return new self(Variables::of(getenv()));
+        return self::in(Variables::of(getenv()));
     }
 
-    public function publish(Plan $plan): Written|CannotJudge
+    /** The matrix and the plan, appended to `$GITHUB_OUTPUT` as the step's outputs `shards` and `plan`. */
+    public function publish(Plan $plan): Publication|CannotJudge
     {
-        $output = $this->variables->valueOf(self::OUTPUT);
+        $output = $this->job->variables()->valueOf(self::OUTPUT);
 
         return match (true) {
             count($plan) > self::MOST_JOBS => CannotJudge::because(sprintf(
@@ -96,16 +96,17 @@ final readonly class GitHubPlan implements CiPlan, Configurable
             $output === '' => CannotJudge::because(
                 'GITHUB_OUTPUT is not set, so the plan cannot reach the matrix. Run plan in a GitHub Actions step.',
             ),
-            default => $this->appended(
+            default => Publication::appended(
                 $output,
                 sprintf("shards=%s\nplan=%s\n", $this->matrixOf($plan), PlanListing::inline($plan)),
             ),
         };
     }
 
-    public function shard(Plan $plan): ShardId|CannotJudge
+    /** The workflow `GITHUB_WORKFLOW_REF` names. */
+    public function definitions(): Paths
     {
-        return WhichShard::in($this->variables, $plan);
+        return $this->job->definitions();
     }
 
     /**
@@ -119,26 +120,18 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     {
         $payload = $this->payload();
         $run = $this->runIn($payload, $this->defaultBranchIn($payload));
-        $commit = $this->variables->valueOf('GITHUB_SHA');
+        $commit = $this->job->variables()->valueOf('GITHUB_SHA');
 
         return $run instanceof RunOn && $commit !== '' ? $run->withCommit(Revision::ref($commit)) : $run;
     }
 
-    /** The workflow `GITHUB_WORKFLOW_REF` names. */
-    public function definitions(): Paths
-    {
-        return preg_match(self::WORKFLOW, $this->variables->valueOf('GITHUB_WORKFLOW_REF'), $found) === 1
-            ? Paths::of(Path::of($found['path']))
-            : Paths::none();
-    }
-
-    /** The Actions runtime's token and variables, and the workflow's `GITHUB_TOKEN`. */
     /** GitHub Actions sets `GITHUB_ACTIONS` to `true` in every job. */
     public static function marker(): CiMarker
     {
         return CiMarker::saying(Variables::GITHUB_ACTIONS);
     }
 
+    /** The Actions runtime's token and variables, and the workflow's `GITHUB_TOKEN`. */
     public static function withheld(): Withheld
     {
         return Withheld::of('ACTIONS_*', 'GITHUB_TOKEN');
@@ -148,7 +141,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     {
         $number = $this->pullRequestIn($payload);
         $branch = $this->branch();
-        $trusted = in_array($this->variables->valueOf(self::EVENT), self::TRUSTED, strict: true);
+        $trusted = in_array($this->job->variables()->valueOf(self::EVENT), self::TRUSTED, strict: true);
 
         return match (true) {
             $number instanceof PullRequestNumber => RunOn::pullRequest($number, $defaultBranch),
@@ -163,8 +156,8 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         $number = ($payload instanceof Node ? $payload : Node::decode(Node::NO_KEYS))
             ->field('pull_request')
             ->field('number');
-        $ref = $this->variables->valueOf('GITHUB_REF');
-        $isPullRequest = $this->variables->valueOf(self::EVENT) === 'pull_request';
+        $ref = $this->job->variables()->valueOf('GITHUB_REF');
+        $isPullRequest = $this->job->variables()->valueOf(self::EVENT) === 'pull_request';
 
         try {
             return match (true) {
@@ -181,12 +174,14 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     /** The branch `GITHUB_REF` names; empty for a tag or a pull request's ref. */
     private function branch(): string
     {
-        return preg_match(self::BRANCH, $this->variables->valueOf('GITHUB_REF'), $branch) === 1 ? $branch[1] : '';
+        $ref = $this->job->variables()->valueOf('GITHUB_REF');
+
+        return preg_match(self::BRANCH, $ref, $branch) === 1 ? $branch[1] : '';
     }
 
     private function payload(): Node|CannotTell
     {
-        $event = $this->variables->valueOf('GITHUB_EVENT_PATH');
+        $event = $this->job->variables()->valueOf('GITHUB_EVENT_PATH');
         $payload = is_file($event) ? file_get_contents($event) : false;
 
         return $payload === false
@@ -207,6 +202,14 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         }
     }
 
+    /** The workflow `GITHUB_WORKFLOW_REF` names; none where it names none. */
+    private static function workflowIn(Variables $variables): Paths
+    {
+        return preg_match(self::WORKFLOW, $variables->valueOf('GITHUB_WORKFLOW_REF'), $found) === 1
+            ? Paths::of(Path::of($found['path']))
+            : Paths::none();
+    }
+
     private function matrixOf(Plan $plan): string
     {
         $matrix = [];
@@ -216,10 +219,5 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         }
 
         return json_encode($matrix, JsonText::FLAGS);
-    }
-
-    private function appended(string $file, string $line): Written|CannotJudge
-    {
-        return Written::attempted($file, file_put_contents($file, $line, FILE_APPEND));
     }
 }

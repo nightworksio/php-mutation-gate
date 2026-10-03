@@ -4,18 +4,16 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Fakes;
 
-use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
+use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
-/** A CI whose job was started as one shard of a run it describes, and which keeps the plans handed to it. */
+/** A CI that describes the run it was started in, and keeps the plans handed to it. */
 final class CiPlanFake implements CiPlan
 {
     /** @var list<Plan> */
@@ -23,7 +21,7 @@ final class CiPlanFake implements CiPlan
 
     private Paths $definitions;
 
-    public function __construct(private readonly ShardId $thisJob, private readonly RunOn|CannotTell $run)
+    public function __construct(private readonly RunOn|CannotTell $run)
     {
         $this->definitions = Paths::none();
     }
@@ -36,28 +34,23 @@ final class CiPlanFake implements CiPlan
         return $this;
     }
 
-    public function publish(Plan $plan): Written
+    /** Kept, and printed as nothing. */
+    public function publish(Plan $plan): Publication
     {
         $this->published[] = $plan;
 
-        return Written::to('memory');
+        return Publication::printed('');
     }
 
-    public function shard(Plan $plan): ShardId|CannotJudge
+    /** The definitions `runBy()` named, or none. */
+    public function definitions(): Paths
     {
-        $shard = $plan->shard($this->thisJob);
-
-        return $shard instanceof CannotJudge ? $shard : $shard->id();
+        return $this->definitions;
     }
 
     public function runOn(): RunOn|CannotTell
     {
         return $this->run;
-    }
-
-    public function definitions(): Paths
-    {
-        return $this->definitions;
     }
 
     public static function withheld(): Withheld

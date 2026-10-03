@@ -17,7 +17,6 @@ use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\NeverProved;
@@ -76,7 +75,7 @@ $store = static function () use ($ledger): ProofStoreFake {
 function ledgersOn(RunOn $run, Writing $writing, ProofStore $store): Ledgers
 {
     $standing = Standing::of(
-        new CiPlanFake(ShardId::of(1), $run),
+        new CiPlanFake($run),
         RepositoryFake::onMain(Revision::ref('head')),
         Absent::setting(),
     );

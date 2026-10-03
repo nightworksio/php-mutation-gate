@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function count;
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PublicationFile;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
@@ -13,6 +14,7 @@ use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Written;
@@ -73,7 +75,8 @@ final readonly class PlanCommand
     private static function published(Composed $composed, Plan $plan, OutputInterface $output): int
     {
         $written = LastRun::keep($composed->adapters->project, $plan);
-        $published = $written instanceof Written ? $composed->adapters->ci->publish($plan) : $written;
+        $publication = $written instanceof Written ? $composed->adapters->ci->publish($plan) : $written;
+        $published = $publication instanceof Publication ? PublicationFile::written($publication) : $publication;
 
         if ($published instanceof CannotJudge) {
             return Failed::because($output, $published);

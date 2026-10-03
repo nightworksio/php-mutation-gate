@@ -15,7 +15,6 @@ use NightWorksIO\MutationGate\Config\Tests;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
-use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -46,7 +45,6 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
-use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -69,7 +67,6 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -157,22 +154,18 @@ it('runs the shard it is named, on the commit its plan was made on, and leaves i
         ->and(is_file(sprintf('%s/.mutation-gate/results/2.json', $project)))->toBeFalse();
 });
 
-it('runs the shard the CI names where none is named', function () use ($resultIn): void {
+it('runs the shard the environment names where none is named', function () use ($resultIn): void {
     $project = Flows::project();
-    $ci = new CiPlanFake(ShardId::of(2), RunOn::at(Scope::branch('main'), Scope::branch('main')));
-
-    new Running(Flows::adapters($project, [], $ci), Flows::settings(), Flows::setup())
+    new Running(Flows::adapters($project, ['SHARD' => '2']), Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::twoShards()), Absent::setting(), Workspace::results());
 
     expect($resultIn($project, 2))->toBeInstanceOf(ShardResult::class)
         ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeFalse();
 });
 
-it('refuses a shard the CI names that the plan does not hold', function (): void {
+it('refuses a shard the environment names that the plan does not hold', function (): void {
     $project = Flows::project();
-    $ci = new CiPlanFake(ShardId::of(3), RunOn::at(Scope::branch('main'), Scope::branch('main')));
-
-    $ran = new Running(Flows::adapters($project, [], $ci), Flows::settings(), Flows::setup())
+    $ran = new Running(Flows::adapters($project, ['SHARD' => '3']), Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::twoShards()), Absent::setting(), Workspace::results());
 
     expect($ran)->toEqual(Planned::twoShards()->shard(ShardId::of(3)));

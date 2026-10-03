@@ -28,7 +28,6 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -148,7 +147,7 @@ final readonly class Flows
     /** A push to `main`, whose shard 1 this job runs. */
     public static function ci(): CiPlanFake
     {
-        return new CiPlanFake(ShardId::of(1), RunOn::at(Scope::branch('main'), Scope::branch('main')));
+        return new CiPlanFake(RunOn::at(Scope::branch('main'), Scope::branch('main')));
     }
 
     /**

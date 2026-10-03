@@ -9,6 +9,7 @@ use function array_slice;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
@@ -69,14 +70,14 @@ final readonly class Running
     {
     }
 
-    /** The shard `--shard` names, or the one the CI's environment names where it names none. */
+    /** The shard `--shard` names, or, where it names none, the one the environment's variables name (WhichShard). */
     public function run(Plan $plan, ShardId|Absent $named, Path $results): Written|CannotJudge
     {
         $head = $this->adapters->repository->head();
         $followed = $head instanceof CannotTell
             ? CannotJudge::because(sprintf(self::NO_HEAD, $head->why()))
             : $plan->forCheckout($head);
-        $id = $named instanceof ShardId ? $named : $this->adapters->ci->shard($plan);
+        $id = $named instanceof ShardId ? $named : WhichShard::in($this->adapters->environment, $plan);
 
         return match (true) {
             $followed instanceof CannotJudge => $followed,

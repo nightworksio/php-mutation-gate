@@ -12,7 +12,6 @@ use NightWorksIO\MutationGate\Core\Ci\Unnamed;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
-use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -26,7 +25,7 @@ afterEach(function (): void {
 });
 
 /** A CI that says nothing of the run. */
-$silent = static fn(): CiPlanFake => new CiPlanFake(ShardId::of(1), CannotTell::because('No CI runs this.'));
+$silent = static fn(): CiPlanFake => new CiPlanFake(CannotTell::because('No CI runs this.'));
 
 /** Where a run stands. */
 function standingOf(CiPlanFake $ci, RepositoryFake $repository, string|Absent $configured): Standing
@@ -43,7 +42,7 @@ it('cannot tie a run to a commit where HEAD cannot be read', function () use ($s
 });
 
 it('stands where the CI says, at the commit HEAD is at', function (): void {
-    $ci = new CiPlanFake(ShardId::of(1), RunOn::at(Scope::pullRequest(7), Scope::branch('trunk')));
+    $ci = new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('trunk')));
     $at = standingOf($ci, RepositoryFake::onMain(Revision::ref('head')), Absent::setting());
 
     expect($at->head())->toEqual(Revision::ref('head'))
@@ -56,7 +55,7 @@ it('stands where the CI says, at the commit HEAD is at', function (): void {
 it('gives no scope to a default-branch run whose checkout is not the commit the CI builds', function (): void {
     $run = RunOn::at(Scope::branch('main'), Scope::branch('main'))->withCommit(Revision::ref('built'));
     $at = standingOf(
-        new CiPlanFake(ShardId::of(1), $run),
+        new CiPlanFake($run),
         RepositoryFake::onMain(Revision::ref('head')),
         Absent::setting(),
     );
@@ -79,7 +78,7 @@ it('takes the default branch from the config, then the CI, then git, then main',
     Scope|CannotTell $fromGit,
     Scope $default,
 ): void {
-    $ci = new CiPlanFake(ShardId::of(1), RunOn::at(Scope::branch('feature'), $fromCi));
+    $ci = new CiPlanFake(RunOn::at(Scope::branch('feature'), $fromCi));
     $repository = new RepositoryFake(Revision::ref('head'), Scope::branch('feature'), $fromGit);
     $at = standingOf($ci, $repository, $configured);
 
