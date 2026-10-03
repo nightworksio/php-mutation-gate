@@ -13,6 +13,9 @@ use function count;
 use function in_array;
 use function ksort;
 
+use NightWorksIO\MutationGate\Core\Change\Change;
+use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\Names;
@@ -42,6 +45,10 @@ final readonly class SupportUsers
     /** Why a file that names support and is not a test reaches every unit of the package. */
     private const string ELSEWHERE = '`%s` names the changed support and is no test, so every unit of %s is reached.';
 
+    /** Why support none of whose versions can be read reaches every unit of the package. */
+    private const string UNREAD
+        = '`%s` cannot be read, so what it declares is not known, and every unit of %s is reached.';
+
     /**
      * @param list<array{Path, PhpFile, Role}> $files      every PHP file on disk, read, with what it is to the
      *                                                    tests, at its place
@@ -50,6 +57,23 @@ final readonly class SupportUsers
      */
     private function __construct(private array $files, private array $places, private array $mentioning)
     {
+    }
+
+    /**
+     * The users of the support among these changes. Every PHP file on disk is
+     * read for who uses support only where some of the changes are to support.
+     */
+    public static function ofChanges(Layout $layout, Packages $packages, Sources $sources, Changes $changes): self
+    {
+        foreach ($changes as $change) {
+            $path = $change->path();
+
+            if ($layout->isSupport($path->relativeTo($packages->holding($path)->path()))) {
+                return self::in($layout, $packages, $sources);
+            }
+        }
+
+        return self::in($layout, $packages, Sources::none());
     }
 
     public static function in(Layout $layout, Packages $packages, Sources $sources): self
@@ -83,6 +107,29 @@ final readonly class SupportUsers
         return $running instanceof Path
             ? Reason::that(sprintf(self::RUNS, $running->value(), $package))
             : $this->testsNaming($naming, $names, $package);
+    }
+
+    /**
+     * The files of test cases that use a changed piece of support, by what it
+     * declares on disk and at the base; or why every unit of its package is
+     * reached, where neither version can be read and the tests that use it
+     * cannot be told.
+     */
+    public function ofChanged(Change $change, Sources $sources, string $package): Paths|Reason
+    {
+        $declared = Names::of();
+        $read = false;
+
+        foreach ([$sources->now($change->path()), $sources->before($change->previousPath())] as $version) {
+            if ($version instanceof Contents) {
+                $declared = $declared->merge(PhpFile::read($version)->declares());
+                $read = true;
+            }
+        }
+
+        return $read
+            ? $this->of($change->path(), $declared, $package)
+            : Reason::that(sprintf(self::UNREAD, $change->path()->value(), $package));
     }
 
     /**

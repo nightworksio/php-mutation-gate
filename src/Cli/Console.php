@@ -10,6 +10,7 @@ use function ini_get;
 use function ini_parse_quantity;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Waiting;
 use NightWorksIO\MutationGate\Adapter\Runtime\PhpProbe;
 use NightWorksIO\MutationGate\Cli\Command\BaselineCommand;
 use NightWorksIO\MutationGate\Cli\Command\ConfigSchema;
@@ -27,6 +28,7 @@ use NightWorksIO\MutationGate\Cli\Command\RunCommand;
 use NightWorksIO\MutationGate\Cli\Command\StubCommand;
 use NightWorksIO\MutationGate\Cli\Command\TestsCommand;
 use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
+use NightWorksIO\MutationGate\Cli\Command\WatchCommand;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
@@ -39,6 +41,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
+use NightWorksIO\MutationGate\Core\Watch\Poll;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Console\Application;
@@ -55,7 +58,6 @@ final readonly class Console
     /** The commands the README lists that are not built yet, each of which says so. */
     private const array NOT_BUILT = [
         'triage' => 'Run a file n times and list every mutant whose result varied',
-        'watch' => 'Re-judge what each save reaches',
     ];
 
     /**
@@ -118,6 +120,7 @@ final readonly class Console
         $application->addCommand(CoverageCommand::command($composition));
         $application->addCommand(PreCommitCommand::command($composition));
         $application->addCommand(PrePushCommand::command($composition));
+        $application->addCommand(WatchCommand::command($composition, Waiting::every(Poll::interval())));
         $application->addCommand(ReproduceCommand::command($composition));
         $application->addCommand(ExplainCommand::command($composition));
         $application->addCommand(TestsCommand::command($composition));

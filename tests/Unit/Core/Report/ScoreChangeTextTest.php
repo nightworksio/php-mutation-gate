@@ -38,14 +38,14 @@ it('counts the reached units with no local result and the files with unstaged ch
         $counted,
     ));
 })->with([
-    'one of each' => [1, 1, "1 unit unjudged since your last run: mutation-gate\nThe scores include unstaged changes in 1 file."],
-    'several of each' => [3, 2, "3 units unjudged since your last run: mutation-gate\nThe scores include unstaged changes in 2 files."],
+    'one of each' => [1, 1, "1 unit unjudged since your last run: mutation-gate watch\nThe scores include unstaged changes in 1 file."],
+    'several of each' => [3, 2, "3 units unjudged since your last run: mutation-gate watch\nThe scores include unstaged changes in 2 files."],
     'unstaged files alone' => [0, 2, 'The scores include unstaged changes in 2 files.'],
 ]);
 
 it('says when the change reaches no tree', function (): void {
     expect(ScoreChangeText::of(TreeVerdicts::none(), Paths::none(), 2, 0))
-        ->toBe("The change reaches no tree.\n2 units unjudged since your last run: mutation-gate");
+        ->toBe("The change reaches no tree.\n2 units unjudged since your last run: mutation-gate watch");
 });
 
 it('says why it shows no score without a coverage map', function (): void {

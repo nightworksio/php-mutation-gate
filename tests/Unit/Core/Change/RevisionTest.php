@@ -17,3 +17,10 @@ it('is the working tree as it is on disk', function (): void {
     expect($revision->name())->toBe('the working tree')
         ->and($revision->isWorkingTree())->toBeTrue();
 });
+
+it('is the commit the checkout is at, as git names it', function (): void {
+    $revision = Revision::head();
+
+    expect($revision->name())->toBe('HEAD')
+        ->and($revision->isWorkingTree())->toBeFalse();
+});

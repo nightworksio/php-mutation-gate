@@ -117,6 +117,29 @@ final readonly class FlowCommands
     }
 
     /**
+     * How the command line composes a flow outside CI over the flows' trees,
+     * with these ports in place of the ones the gate would choose, reading
+     * what the working tree holds from this change source.
+     */
+    public static function watching(
+        string $project,
+        Runner $runner,
+        ProofStore $proofs,
+        ChangeSource $changes,
+    ): Composition {
+        return self::reading(
+            Flows::trees(),
+            $project,
+            $runner,
+            $proofs,
+            Flows::ci(),
+            Variables::of([]),
+            RepositoryFake::onMain(Revision::ref(Flows::HEAD)),
+            $changes,
+        );
+    }
+
+    /**
      * How the command line composes a flow as {@see checkedOut()} does,
      * reading what the working tree holds and what changed from this change
      * source.

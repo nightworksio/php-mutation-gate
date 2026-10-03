@@ -27,20 +27,34 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\Runner;
 
 /**
- * A runner that answers every coverage request so, keeping each request it
- * was asked, and answers the rest as another runner does.
+ * A runner that answers every coverage request so, or each run of some test
+ * files as it is told to, keeping each request it was asked, and answers the
+ * rest as another runner does.
  */
 final class CoverageAsked implements Runner
 {
     /** @var list<CoverageRun|CoverageRead> */
     private array $asked = [];
 
+    private CoverageMap|CannotJudge $files;
+
     public function __construct(private readonly Runner $runner, private readonly CoverageMap|CannotJudge $answer)
     {
+        $this->files = $answer;
+    }
+
+    /** This runner, answering each run of some test files so. */
+    public function runningFiles(CoverageMap|CannotJudge $answer): self
+    {
+        $runner = clone $this;
+        $runner->files = $answer;
+
+        return $runner;
     }
 
     /** @return list<CoverageRun|CoverageRead> each coverage request, in the order it was asked */
@@ -77,7 +91,7 @@ final class CoverageAsked implements Runner
     {
         $this->asked[] = $request;
 
-        return $this->answer;
+        return $request instanceof CoverageRun && $request->tests() instanceof TestPaths ? $this->files : $this->answer;
     }
 
     public function testsIn(Paths $files, CoverageMap $map): TestIds|CannotJudge

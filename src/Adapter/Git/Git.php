@@ -53,9 +53,6 @@ use function trim;
  */
 final class Git implements ChangeSource, Repository
 {
-    /** What git names the branch of a detached `HEAD`. */
-    private const string DETACHED = 'HEAD';
-
     /** The ref that names the remote's default branch. */
     private const string ORIGIN_HEAD = 'refs/remotes/origin/HEAD';
 
@@ -206,7 +203,7 @@ final class Git implements ChangeSource, Repository
 
         return match (true) {
             $name instanceof CannotTell => $name,
-            trim($name) === self::DETACHED => Detached::head(),
+            trim($name) === Revision::HEAD => Detached::head(),
             default => RunOn::branchNamed(trim($name)),
         };
     }

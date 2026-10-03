@@ -54,7 +54,7 @@ it('prints each reached tree\'s score change and exits 0', function () use ($pre
     expect([$printed->code, $printed->output, $printed->errors])->toBe([
         0,
         "src scores 40.00%, below its floor of 50.00%. That is ±0.00 against the base.\n"
-        . "2 units unjudged since your last run: mutation-gate\n",
+        . "2 units unjudged since your last run: mutation-gate watch\n",
         '',
     ]);
 });

@@ -97,21 +97,8 @@ final readonly class Reached
         return $layout;
     }
 
-    /** Which test files judge each covered file, as the runner says. */
-    private static function judges(Adapters $adapters, CoverageMap $map): Judges
-    {
-        $judges = Judges::none();
-
-        foreach ($map->files() as $file) {
-            $tests = $adapters->runner->judges($file, $map);
-            $judges = $tests instanceof Paths ? $judges->judging($file, $tests) : $judges;
-        }
-
-        return $judges;
-    }
-
     /** The test files on disk, and each changed file as it is on disk and as it was at the base. */
-    private static function sources(
+    public static function sources(
         Changes|CannotTell $changes,
         Revision $base,
         Adapters $adapters,
@@ -125,6 +112,19 @@ final readonly class Reached
         }
 
         return $sources;
+    }
+
+    /** Which test files judge each covered file, as the runner says. */
+    private static function judges(Adapters $adapters, CoverageMap $map): Judges
+    {
+        $judges = Judges::none();
+
+        foreach ($map->files() as $file) {
+            $tests = $adapters->runner->judges($file, $map);
+            $judges = $tests instanceof Paths ? $judges->judging($file, $tests) : $judges;
+        }
+
+        return $judges;
     }
 
     private static function withLines(Changes $changes): Changes
