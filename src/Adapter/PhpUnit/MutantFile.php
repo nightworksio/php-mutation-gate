@@ -94,10 +94,13 @@ final class MutantFile
     /** @var list<int> the device and the inode of the file it serves, which name it whatever path names it */
     private static array $served = [];
 
-    /** The mutated file served in its place, and the guard file it says so in. */
-    private static string $mutated = '';
+    /**
+     * The mutated file served in its place, and the guard file it says so in:
+     * set where it serves one, and read only then.
+     */
+    private static string $mutated;
 
-    private static string $guard = '';
+    private static string $guard;
 
     /** The file or directory PHP's own wrapper opened. */
     private mixed $handle = null;

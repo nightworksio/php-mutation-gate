@@ -43,6 +43,24 @@ it('reads the extensions, the settings, the php.ini and the drivers installed be
         ->toBe(sprintf('-d memory_limit=1G -r %s', Platform::describing()[1]));
 });
 
+it('offers Xdebug where its extension directory holds it, loaded or not', function (): void {
+    $directory = FakePhp::printing('');
+    Scratch::write($directory, 'extensions/xdebug.so', '');
+    file_put_contents(sprintf('%s/output.txt', $directory), Described::loading(
+        '/etc/php.ini',
+        ['Core' => '8.5.0'],
+        ['extension_dir' => sprintf('%s/extensions', $directory)],
+    ));
+    $php = PhpProbe::of(sprintf('%s/php', $directory), [])->describe(Withheld::standard());
+
+    expect($php instanceof RunnerPhp ? [$php->loads('xdebug'), $php->offers('xdebug'), $php->offers('pcov')] : [])
+        ->toBe([false, true, false]);
+});
+
+it('gives a PHP thirty seconds to describe itself', function (): void {
+    expect(PhpProbe::of('/usr/bin/php', ['A' => 'b']))->toEqual(new PhpProbe('/usr/bin/php', ['A' => 'b'], Seconds::of(30.0)));
+});
+
 it('reads the platform a PHP describes, which is the one the real PHP describes of itself', function (): void {
     $fake = PhpProbe::of(sprintf('%s/php', FakePhp::printing(Described::output())), []);
     $real = PhpProbe::of(PHP_BINARY, [])->platform(Withheld::standard(), '-d', 'precision=7');

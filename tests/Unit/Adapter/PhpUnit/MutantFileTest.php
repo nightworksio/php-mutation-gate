@@ -104,7 +104,20 @@ it('serves the mutant where PHP includes the file it serves, by any path that na
         ->and(require sprintf('%s/../%s/Original.php', $directory, basename($directory)))->toBe('mutant')
         ->and(require sprintf('%s/Linked.php', $directory))->toBe('mutant')
         ->and(require sprintf('%s/through/here/Original.php', $directory))->toBe('mutant')
-        ->and(file_get_contents(sprintf('%s/Original.php', $directory)))->toBe("<?php\n\nreturn 'original';\n");
+        ->and(file_get_contents(sprintf('%s/Original.php', $directory)))->toBe("<?php\n\nreturn 'original';\n")
+        ->and(file_get_contents(sprintf('%s/Original.php', $directory), use_include_path: true))->toBe("<?php\n\nreturn 'original';\n");
+});
+
+it('serves the mutant only where the options mark an include, whatever else they mark', function (): void {
+    $original = sprintf('%s/Original.php', servedIn());
+    $read = static function (int $options) use ($original): string|false {
+        $file = new MutantFile();
+
+        return $file->stream_open($original, 'rb', $options) ? $file->stream_read(64) : false;
+    };
+
+    expect($read(STREAM_USE_PATH | STREAM_REPORT_ERRORS))->toBe("<?php\n\nreturn 'original';\n")
+        ->and($read(0x80))->toBe("<?php\n\nreturn 'mutant';\n");
 });
 
 it('serves the mutant of a file named through a link', function (): void {
@@ -405,6 +418,7 @@ it('answers for nothing it has not opened', function (): void {
     $file = new MutantFile();
 
     expect([
+        $file->stream_eof(),
         $file->stream_read(1),
         $file->stream_write('x'),
         $file->stream_stat(),
@@ -417,7 +431,7 @@ it('answers for nothing it has not opened', function (): void {
         $file->stream_cast(),
         $file->dir_readdir(),
         $file->dir_rewinddir(),
-    ])->toBe([false, false, false, false, false, false, false, false, false, false, false, false])
+    ])->toBe([false, false, false, false, false, false, false, false, false, false, false, false, false])
         ->and($file->dir_closedir())->toBeTrue();
 });
 
