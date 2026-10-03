@@ -333,6 +333,17 @@ it('cannot judge a coverage run that fails, with what PHPUnit said, or one over 
         ->and($untouched->commands())->toBe([]);
 });
 
+it('names the tests of a map whose classes some test files declare', function (): void {
+    $at = infectionProject();
+    $map = CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
+        ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('Tests\HeldTest::holds'));
+    $adapter = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory());
+
+    expect($adapter->testsIn(Paths::of(Path::of('tests/MoneyTest.php')), $map))
+        ->toEqual(TestIds::of(TestId::of('Tests\MoneyTest::adds')));
+});
+
 it('names the files of the test classes whose tests cover a file, and none for a file nothing covers', function (): void {
     $at = infectionProject();
     $map = CoverageMap::empty()

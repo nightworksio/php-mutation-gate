@@ -342,6 +342,17 @@ it('never reads a runner\'s map another job wrote, which is PHP that reading run
     )));
 });
 
+it('names the tests of a map that some test files hold, by the class Pest declares for each', function (): void {
+    $at = adapterProject();
+    Scratch::write($at->root(), 'tests/MoneySpec.php', '<?php');
+    $map = CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(RUN_ADDS))
+        ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('P\Tests\HeldSpec::__pest_evaluable_it_holds'));
+    $pest = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory());
+
+    expect($pest->testsIn(Paths::of(Path::of('tests/MoneySpec.php')), $map))->toEqual(TestIds::of(TestId::of(RUN_ADDS)));
+});
+
 it('names the test files a covering test\'s filter selects, or all when it will not fit', function (): void {
     $at = adapterProject();
     Scratch::write($at->root(), 'tests/MoneySpec.php', '<?php');

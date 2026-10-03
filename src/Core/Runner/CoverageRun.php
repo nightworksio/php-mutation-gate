@@ -7,12 +7,15 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 /**
  * What a runner is asked to run for a coverage map: the whole suite, one
- * group or the tests a filter names, under coverage, across some processes,
- * withholding what the tests may not see, leaving the map in a directory.
+ * group, the tests a filter names, or the tests of some files, which a kept
+ * map is measured again for (ADR-0023, decision 3), under coverage, across
+ * some processes, withholding what the tests may not see, leaving the map in
+ * a directory.
  */
 final readonly class CoverageRun
 {
@@ -20,7 +23,7 @@ final readonly class CoverageRun
     public const string OWN_DIRECTORY = 'coverage';
 
     private function __construct(
-        private WholeSuite|Group|Filter $tests,
+        private WholeSuite|Group|Filter|TestPaths $tests,
         private Path $directory,
         private Processes $processes,
         private Withheld $withheld,
@@ -28,7 +31,7 @@ final readonly class CoverageRun
     }
 
     /** These tests run under coverage in one process, leaving the map in a directory. */
-    public static function of(WholeSuite|Group|Filter $tests, Path $into): self
+    public static function of(WholeSuite|Group|Filter|TestPaths $tests, Path $into): self
     {
         return new self($tests, $into, Processes::single(), Withheld::standard());
     }
@@ -50,7 +53,7 @@ final readonly class CoverageRun
         return $this->withheld;
     }
 
-    public function tests(): WholeSuite|Group|Filter
+    public function tests(): WholeSuite|Group|Filter|TestPaths
     {
         return $this->tests;
     }

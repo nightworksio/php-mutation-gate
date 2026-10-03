@@ -179,6 +179,20 @@ it('measures coverage, reads a map handed on, and names the test files that judg
         ->and($missing)->toBeInstanceOf(CannotJudge::class);
 });
 
+it('names the tests of a map whose classes a test file declares, or that its gone file held', function (): void {
+    $project = phpUnitRunnerProject();
+    $map = CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('Tests\MoneyTest::testAdds'))
+        ->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('Tests\GoneTest::testGoes'))
+        ->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('Tests\TaxTest::testTaxes'));
+    $files = Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/GoneTest.php'));
+
+    expect(phpUnitRunner($project, phpUnitAnswering($project))->testsIn($files, $map))->toEqual(TestIds::of(
+        TestId::of('Tests\MoneyTest::testAdds'),
+        TestId::of('Tests\GoneTest::testGoes'),
+    ));
+});
+
 it('times a run of no test, started as a mutant\'s own run, its mutant the file unchanged', function (): void {
     $project = phpUnitRunnerProject();
     $shell = phpUnitAnswering($project);

@@ -173,6 +173,12 @@ final readonly class Pest implements Runner
         return $file instanceof CannotJudge ? $file : $file->map($this->project);
     }
 
+    /** The map's tests of the classes Pest declares for these test files, or that they declare themselves. */
+    public function testsIn(Paths $files, CoverageMap $map): TestIds
+    {
+        return $this->tests->holding($files, $map->tests());
+    }
+
     /**
      * Every test file whose class a covering test's `<Class>::` selects, or
      * every test file when the filter will not fit and the mutant runs against

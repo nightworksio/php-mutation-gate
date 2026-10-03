@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 /**
@@ -59,7 +60,7 @@ final readonly class Covering
      */
     public function run(
         OwnConfig $config,
-        WholeSuite|Group|Filter $tests,
+        WholeSuite|Group|Filter|TestPaths $tests,
         Withheld $withheld,
         DiskPath $directory,
     ): DiskPath|CannotJudge {

@@ -37,3 +37,27 @@ it('finds the files of the classes some tests are in', function (): void {
 
     expect(TestFiles::declaring($project, $tests)->files())->toEqual(Paths::of(Path::of('tests/Unit/MoneyTest.php')));
 });
+
+it('holds the tests of each class a file declares, and of each class named after a file that is gone', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'tests/Unit/MoneyTest.php', "<?php\nnamespace Tests\\Unit;\nfinal class MoneyTest {}");
+    Scratch::write($root, 'tests/Unit/OtherTest.php', "<?php\nnamespace Tests\\Unit;\nfinal class OtherTest {}");
+    Scratch::write($root, 'tests/Unit/PriceTest.php', "<?php\nnamespace Tests\\Legacy;\nfinal class PriceTest {}");
+    $project = Project::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.gate'));
+    $tests = TestIds::of(
+        TestId::of('Tests\Unit\MoneyTest::testAdds'),
+        TestId::of('Tests\Unit\GoneTest::testGoes'),
+        TestId::of('Tests\Unit\OtherTest::testOther'),
+        TestId::of('Tests\Unit\PriceTest::testRounds'),
+    );
+    $files = Paths::of(
+        Path::of('tests/Unit/MoneyTest.php'),
+        Path::of('tests/Unit/GoneTest.php'),
+        Path::of('tests/Unit/PriceTest.php'),
+    );
+
+    expect(TestFiles::holding($project, $files, $tests))->toEqual(TestIds::of(
+        TestId::of('Tests\Unit\MoneyTest::testAdds'),
+        TestId::of('Tests\Unit\GoneTest::testGoes'),
+    ));
+});

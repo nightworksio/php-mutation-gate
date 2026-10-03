@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestClassFiles;
@@ -90,4 +91,30 @@ it('names each test by its class file and its method, with its data set row, and
         ->and($names->nameOf($adds))->toEqual($test)
         ->and($names->nameOf($row))->toEqual(TestRow::of($test, '#0'))
         ->and($names->nameOf($named))->toEqual(TestRow::of($test, '"one"'));
+});
+
+it('holds the tests of each class a test file declares, or that is named after one that is gone', function (): void {
+    $tests = TestIds::of(
+        TestId::of('Tests\Unit\MoneyTest::adds'),
+        TestId::of('Tests\Unit\MoneyTest::adds#1'),
+        TestId::of('Tests\Unit\HeldTest::doubles'),
+        TestId::of('Tests\Unit\PriceTest::prices'),
+    );
+    $files = Paths::of(
+        Path::of('tests/Unit/MoneyTest.php'),
+        Path::of('tests/Unit/Unwanted.php'),
+        Path::of('tests/Unit/HeldTest.php'),
+    );
+
+    expect(TestClassFiles::held(
+        $tests,
+        $files,
+        static fn(Path $file): Contents|Missing => $file->value() === 'tests/Unit/HeldTest.php'
+            ? testClassCode('Tests\Unit', 'HeldTest')
+            : Missing::at($file),
+    ))->toEqual(TestIds::of(
+        TestId::of('Tests\Unit\MoneyTest::adds'),
+        TestId::of('Tests\Unit\MoneyTest::adds#1'),
+        TestId::of('Tests\Unit\HeldTest::doubles'),
+    ));
 });

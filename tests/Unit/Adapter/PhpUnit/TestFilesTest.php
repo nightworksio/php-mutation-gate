@@ -36,3 +36,23 @@ it('walks the test directories once, however often it is asked', function (): vo
     expect($first)->toEqual(Paths::of(Path::of('tests/MoneyTest.php')))
         ->and($tests->declaring(TestIds::of(TestId::of('Tests\PriceTest::testRounds')))->files())->toEqual(Paths::none());
 });
+
+it('holds the tests whose classes these test files declare, or whose files are gone', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'tests/Unit/MoneyTest.php', "<?php\nnamespace Tests\\Unit;\nfinal class MoneyTest {}");
+    Scratch::write($root, 'tests/Unit/PriceTest.php', "<?php\nnamespace Tests\\Legacy;\nfinal class PriceTest {}");
+    $tests = new TestFiles(Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.gate')));
+    $asked = TestIds::of(
+        TestId::of('Tests\Unit\MoneyTest::testAdds'),
+        TestId::of('Tests\Unit\GoneTest::testGoes'),
+        TestId::of('Tests\Unit\PriceTest::testRounds'),
+    );
+    $files = Paths::of(
+        Path::of('tests/Unit/MoneyTest.php'),
+        Path::of('tests/Unit/GoneTest.php'),
+        Path::of('tests/Unit/PriceTest.php'),
+    );
+
+    expect($tests->holding($files, $asked))
+        ->toEqual(TestIds::of(TestId::of('Tests\Unit\MoneyTest::testAdds'), TestId::of('Tests\Unit\GoneTest::testGoes')));
+});

@@ -7,10 +7,14 @@ namespace NightWorksIO\MutationGate\Core\Test;
 use function array_key_exists;
 use function array_keys;
 use function array_values;
+
+use Closure;
+
 use function mb_strrpos;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\Names;
@@ -76,6 +80,25 @@ final readonly class TestClassFiles
         return new self($this->wanted, $found);
     }
 
+    /**
+     * Those of these tests that these test files hold: the tests of each
+     * class a file declares, by what it holds, and of each class named after
+     * a file that is gone.
+     *
+     * @param Closure(Path): (Contents|Missing) $read what a test file holds, or that it is gone
+     */
+    public static function held(TestIds $tests, Paths $files, Closure $read): TestIds
+    {
+        $classes = self::of($tests);
+
+        foreach ($files as $file) {
+            $code = $read($file);
+            $classes = $code instanceof Contents ? $classes->readIn($file, $code) : $classes->gone($file);
+        }
+
+        return $classes->placed($tests);
+    }
+
     /** @return array<string, Path> the file that declares each class found, by the class */
     public function byClass(): array
     {
@@ -117,5 +140,32 @@ final readonly class TestClassFiles
         }
 
         return $names;
+    }
+
+    /**
+     * These, with each class wanted that is named after a file that is gone
+     * found in it: the file's tests went with it.
+     */
+    private function gone(Path $file): self
+    {
+        $found = $this->found;
+
+        foreach ($this->mayDeclare($file) ? $this->wanted[$file->stem()] : [] as $class) {
+            $found += [$class => $file];
+        }
+
+        return new self($this->wanted, $found);
+    }
+
+    /** Those of these tests whose class is found. */
+    private function placed(TestIds $tests): TestIds
+    {
+        $placed = TestIds::none();
+
+        foreach ($tests as $test) {
+            $placed = array_key_exists(TestMethod::classOf($test), $this->found) ? $placed->with($test) : $placed;
+        }
+
+        return $placed;
     }
 }

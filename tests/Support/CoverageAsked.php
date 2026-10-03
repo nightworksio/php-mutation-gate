@@ -80,6 +80,11 @@ final class CoverageAsked implements Runner
         return $this->answer;
     }
 
+    public function testsIn(Paths $files, CoverageMap $map): TestIds|CannotJudge
+    {
+        return $this->runner->testsIn($files, $map);
+    }
+
     public function judges(Path $file, CoverageMap $map): Paths|CannotJudge
     {
         return $this->runner->judges($file, $map);

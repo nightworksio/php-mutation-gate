@@ -48,12 +48,14 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
+use NightWorksIO\MutationGate\Tests\Support\FilesOfTests;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 use function sprintf;
@@ -140,9 +142,20 @@ final readonly class RunnerFake implements Runner
         return $this->groups;
     }
 
+    /** Its map, or, for a run of some test files, the entries of the tests those files hold alone. */
     public function coverage(CoverageRun|CoverageRead $request): CoverageMap
     {
-        return $this->map;
+        $tests = $request instanceof CoverageRun ? $request->tests() : WholeSuite::tests();
+
+        return $tests instanceof TestPaths
+            ? new FilesOfTests($this->names)->measured($tests->files(), $this->map)
+            : $this->map;
+    }
+
+    /** The map's tests whose names place them in one of these files. */
+    public function testsIn(Paths $files, CoverageMap $map): TestIds
+    {
+        return new FilesOfTests($this->names)->holding($files, $map);
     }
 
     public function judges(Path $file, CoverageMap $map): Paths

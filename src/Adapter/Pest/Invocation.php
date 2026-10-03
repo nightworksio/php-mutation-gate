@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_map;
 use function count;
 use function implode;
 use function is_file;
@@ -21,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JUnitLog;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 use function sprintf;
@@ -85,7 +87,7 @@ final readonly class Invocation
             '--no-tia',
             sprintf('%s=%s/%s', PhpUnitOption::CoveragePhp->value, $directory, self::MAP),
             sprintf('%s=%s/%s', PhpUnitOption::LogJunit->value, $directory, self::JUNIT),
-            ...$this->narrowedTo($request->tests()),
+            ...$this->covering($request->tests()),
         );
     }
 
@@ -179,6 +181,24 @@ final readonly class Invocation
             ...$options,
             ...$files,
         );
+    }
+
+    /**
+     * What narrows a coverage run: a group, a filter, or the test files Pest
+     * runs in place of its suite, as paths from the project's root.
+     *
+     * @return list<string>
+     */
+    private function covering(WholeSuite|Group|Filter|TestPaths $tests): array
+    {
+        if (! $tests instanceof TestPaths) {
+            return $this->narrowedTo($tests);
+        }
+
+        return [
+            ...array_map(static fn(Path $file): string => $file->value(), [...$tests->files()]),
+            PhpUnitOption::DoNotFailOnEmptyTestSuite->value,
+        ];
     }
 
     /**
