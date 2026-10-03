@@ -7,8 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Php;
 /**
  * Where the project reads a value, and whether it may read it where no token
  * says so: through a variable class, a `constant()` of a name that is not
- * written out, reflection, a subclass's own constant, or a chain of
- * declarations too long to follow.
+ * written out, a subclass's own constant, or a chain of declarations too long
+ * to follow.
  */
 final readonly class References
 {

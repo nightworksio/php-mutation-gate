@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Format\Bytes;
 use PhpToken;
 
 use function sprintf;
+use function str_replace;
+use function trim;
 
 /**
  * A PHP file's significant tokens, in order, each with the bracket it stands
@@ -27,6 +29,9 @@ use function sprintf;
  */
 final readonly class Tokens implements Countable
 {
+    /** Where a call's first argument stands, from the name it calls: past the name and its `(`. */
+    public const int ARGUMENT = 2;
+
     /** At no token's index: where a token that no bracket encloses stands, or what is not found. */
     public const int NONE = -1;
 
@@ -127,6 +132,15 @@ final readonly class Tokens implements Countable
     public function text(int $at): string
     {
         return $this->tokens[$at]->text;
+    }
+
+    /**
+     * The text of the string literal at an index without its quotes, each
+     * escaped backslash read as one, as a name written in a string reads.
+     */
+    public function unquoted(int $at): string
+    {
+        return str_replace('\\\\', '\\', trim($this->tokens[$at]->text, '\'"'));
     }
 
     /** The byte the token at an index begins at, from 0. */

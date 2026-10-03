@@ -687,9 +687,12 @@ services:
                     - PREFIX # PHPUnit's prefix of a test method
                 'NightWorksIO\MutationGate\Core\Php\Codebase':
                     - STEPS # declarations followed
-                'NightWorksIO\MutationGate\Core\Php\StaticReads':
+                'NightWorksIO\MutationGate\Core\Php\Tokens':
                     - ARGUMENT # tokens after a call's name
+                'NightWorksIO\MutationGate\Core\Php\StaticReads':
                     - CLOSE # tokens after a call's name
+                'NightWorksIO\MutationGate\Core\Php\Reflections':
+                    - LITERAL # tokens after a class literal's name
                 'NightWorksIO\MutationGate\Adapter\Infection\Setup':
                     - TESTS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\Pest\PestOptions':

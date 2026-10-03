@@ -99,3 +99,13 @@ it('reads a file\'s significant tokens, each with the byte it begins at', functi
         ->and($tokens->offset(0))->toBe(19)
         ->and($tokens->offset(1))->toBe(23);
 });
+
+it('reads a string literal without its quotes, each escaped backslash as one', function () use ($tokens): void {
+    $read = $tokens(<<<'PHP'
+        <?php 'App\\Money'; "\\App\\Base::RATE"; 'plain';
+        PHP);
+
+    expect($read->unquoted(0))->toBe('App\Money')
+        ->and($read->unquoted(2))->toBe('\App\Base::RATE')
+        ->and($read->unquoted(4))->toBe('plain');
+});

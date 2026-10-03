@@ -9,32 +9,20 @@ use function explode;
 use function ltrim;
 use function mb_strtolower;
 use function sprintf;
-use function str_replace;
-use function trim;
 
 /**
  * Where one file reads a class constant or a static property: through the
  * owner's name or a name that reaches it, through `self::`, `static::` and
  * `parent::` in a class that reaches it, and, for a constant, through
- * `constant()` with the name written out. A variable class, a `constant()` of
- * a name not written out, reflection on the owner, and `static::` where a
- * subclass declares the constant anew are reads the scan cannot follow.
+ * `constant()` with the name written out and through a reflection that can
+ * read it (see Reflections). A variable class, a `constant()` of a name not
+ * written out, and `static::` where a subclass declares the constant anew are
+ * reads the scan cannot follow.
  */
 final readonly class StaticReads
 {
-    /** The reflection classes that can read a constant by a name the scan cannot see. */
-    private const array REFLECTION = [
-        'reflectionclass',
-        'reflectionclassconstant',
-        'reflectionenum',
-        'reflectionobject',
-    ];
-
     /** What stands before a `constant` that is not a call of PHP's `constant()`. */
     private const array NOT_A_CALL = [T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION];
-
-    /** Where the name a `constant()` call reads stands, after its `(`. */
-    private const int ARGUMENT = 2;
 
     /** Where a `constant()` call that reads one string closes. */
     private const int CLOSE = 3;
@@ -48,7 +36,7 @@ final readonly class StaticReads
         $reads = new self($symbol, $source, $hierarchy);
 
         return $symbol->kind() === SymbolKind::Constant
-            ? $reads->accesses()->and($reads->lookups())->and($reads->reflection())
+            ? $reads->accesses()->and($reads->lookups())->and(Reflections::of($symbol, $source, $hierarchy))
             : $reads->accesses();
     }
 
@@ -129,30 +117,16 @@ final readonly class StaticReads
     {
         $tokens = $this->source->tokens();
 
-        $argument = $call + self::ARGUMENT;
+        $argument = $call + Tokens::ARGUMENT;
 
         if (! $tokens->is($argument, T_CONSTANT_ENCAPSED_STRING) || ! $tokens->is($call + self::CLOSE, ')')) {
             return References::unknown();
         }
 
-        $parts = explode('::', str_replace('\\\\', '\\', trim($tokens->text($argument), '\'"')));
+        $parts = explode('::', $tokens->unquoted($argument));
         $reads = count($parts) === 2 && $parts[1] === $this->symbol->name();
 
         return $reads ? $this->reachedBy(Names::of(ltrim($parts[0], '\\')), $call) : References::none();
-    }
-
-    /** Unknown where the file names a reflection class and the owner, which reflection could read by any name. */
-    private function reflection(): References
-    {
-        $reflects = false;
-
-        foreach (self::REFLECTION as $class) {
-            $reflects = $reflects || $this->source->namesOf($class) !== [];
-        }
-
-        return $reflects && $this->source->namesOf($this->symbol->owner()) !== []
-            ? References::unknown()
-            : References::none();
     }
 
     /** The name a class between the reader and the owner would shadow: a constant's, and nothing for a property. */
