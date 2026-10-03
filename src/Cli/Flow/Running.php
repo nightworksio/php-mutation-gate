@@ -88,8 +88,16 @@ final readonly class Running
     /** Every shard of a plan, one after another in this process, each leaving its result. */
     public function runAll(Plan $plan, Path $results): Written|CannotJudge
     {
+        return $this->runAllBy($plan, $results, $this->deadline());
+    }
+
+    /**
+     * Every shard of a plan, as {@see runAll()} runs them, stopping at a
+     * deadline set before it, which several runs of one process share.
+     */
+    public function runAllBy(Plan $plan, Path $results, Deadline|Unlimited $deadline): Written|CannotJudge
+    {
         $written = Written::to($results->value());
-        $deadline = $this->deadline();
 
         foreach ($plan as $shard) {
             $ran = $this->ranShard($plan, $shard->id(), $results, $deadline);
@@ -103,7 +111,7 @@ final readonly class Running
     }
 
     /** When this process must stop: its budget from now, or never where it has none (ADR-0008, decision 1). */
-    private function deadline(): Deadline|Unlimited
+    public function deadline(): Deadline|Unlimited
     {
         $budget = $this->settings->triage()->budget();
 

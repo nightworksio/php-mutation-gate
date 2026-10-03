@@ -41,3 +41,14 @@ it('prints problems for an editor, framed by the lines a background matcher wait
         Problems::JUDGED,
     ]);
 });
+
+it('says a line to the console\'s reader, and leaves it out of problems', function (): void {
+    $console = new BufferedOutput();
+    $problems = new BufferedOutput();
+
+    Printing::console()->note('src scores 40.00%.', $console);
+    Printing::of(VerdictOutput::Problems, ProblemsShown::All)->note('src scores 40.00%.', $problems);
+
+    expect($console->fetch())->toBe("src scores 40.00%.\n")
+        ->and($problems->fetch())->toBe('');
+});
