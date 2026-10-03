@@ -60,7 +60,7 @@ $proof = static fn(string $unit, string $base, ProvedKills $kills, Mutants $muta
     Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of($base)),
 )->withInputs($inputs);
 $inputs = Inputs::of(Digest::sha256Of('source'), Digest::sha256Of('mutation'));
-$roles = FileRoles::of(Layout::standard(Paths::none()), Packages::of(Flows::trees()));
+$roles = FileRoles::of(Layout::standard(Paths::none()), Packages::of(Flows::trees()), Paths::none());
 
 it('reads the commit of each result established at another base that holds a kill, each commit once', function () use ($commit, $kill, $killed, $proof, $inputs): void {
     $proofs = Proofs::of(

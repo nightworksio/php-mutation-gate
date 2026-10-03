@@ -67,3 +67,22 @@ it('maps a namespace to a directory below each directory of every prefix that is
         'packages/money/old/Acme',
     ]);
 });
+
+it('lists every file each section loads in every process, spelt from the repository root, in the order listed', function (): void {
+    $locations = ClassLocations::of(
+        Path::of('packages/money'),
+        Node::decode('{"files": ["src/helpers.php", "", "src/functions.php"], "psr-4": {"Acme\\\\": "src/"}}'),
+        Node::decode('{"files": ["tests/helpers.php", "../shared/./functions.php"]}'),
+        Node::decode('{"classmap": ["lib/"]}'),
+        Node::decode('{"files": "lib/boot.php"}'),
+    );
+
+    expect($locations->loadedFiles())->toEqual(Paths::of(
+        Path::of('packages/money/src/helpers.php'),
+        Path::of('packages/money/src/functions.php'),
+        Path::of('packages/money/tests/helpers.php'),
+        Path::of('packages/shared/functions.php'),
+        Path::of('packages/money/lib/boot.php'),
+    ))
+        ->and(ClassLocations::of(Path::root())->loadedFiles())->toEqual(Paths::none());
+});

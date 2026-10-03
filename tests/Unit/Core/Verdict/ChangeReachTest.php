@@ -48,12 +48,17 @@ function reachOf(array $files, array $before, array $changes): ChangeReach
     return ChangeReach::of(Changes::of(...$changes), $then, $now, NamedFiles::read($read), reachRoles());
 }
 
-/** What decides how the gate runs in the project: its tree src, the runner defined in tests/Pest.php, and config/** by reach.everything. */
+/**
+ * What decides how the gate runs in the project: its tree src, the runner
+ * defined in tests/Pest.php, and config/** by reach.everything; and
+ * src/helpers.php, which its composer.json has loaded in every process.
+ */
 function reachRoles(): FileRoles
 {
     return FileRoles::of(
         Layout::standard(Paths::of(Path::of('tests/Pest.php')))->decidedAlsoBy(Glob::of('config/**')),
         Packages::of(Flows::trees()),
+        Paths::of(Path::of('src/helpers.php')),
     );
 }
 
@@ -138,10 +143,10 @@ it('reaches every kill with a change it cannot follow by name, and says why', fu
     'the gate\'s config' => ['mutation-gate.yaml', '', '`mutation-gate.yaml` decides how the gate runs, so nothing judged before it stands.'],
     'the runner\'s definition' => ['tests/Pest.php', "<?php\n", '`tests/Pest.php` decides how the gate runs, so nothing judged before it stands.'],
     'a file reach.everything names' => ['config/services.yaml', '', '`config/services.yaml` decides how the gate runs, so nothing judged before it stands.'],
-    'a PHP file outside the tests, which runs when it is loaded' => [
-        'bootstrap/app.php',
-        "<?php\nreturn ['equals' => true];\n",
-        '`bootstrap/app.php` runs code when it is loaded, so what it changes cannot be followed by name.',
+    'a file composer.json has loaded in every process' => [
+        'src/helpers.php',
+        "<?php\nfunction money(): int\n{\n    return 1;\n}\n",
+        '`src/helpers.php` is loaded in every process by Composer\'s autoloader, so what it changes cannot be followed by name.',
     ],
 ]);
 
@@ -219,3 +224,32 @@ it('follows a test file a change deleted, or renamed, by name, though it ran cod
     'deleted' => [Change::deleted(Path::of('tests/OldTest.php'))],
     'renamed' => [Change::renamed(Path::of('tests/OldTest.php'), Path::of('tests/NewTest.php'), Lines::none())],
 ]);
+
+it('reaches what spells the name of a changed PHP file that runs code when it is loaded, and what declares, but nothing else', function (string $source): void {
+    $files = [
+        'src/Money.php' => "<?php\nnamespace App;\n\nfinal class Money\n{\n    public function rates(): array\n    {\n        return require __DIR__ . '/../resources/exchange-rates.php';\n    }\n}\n",
+        'src/Kernel.php' => "<?php\nnamespace App;\n\nfinal class Kernel\n{\n    public function boot(): void\n    {\n        Booted::now();\n    }\n}\n",
+        'src/Tax.php' => "<?php\nnamespace App;\n\nfinal class Tax\n{\n}\n",
+        'resources/exchange-rates.php' => $source,
+    ];
+    $reach = reachOf($files, ['resources/exchange-rates.php' => "<?php\nreturn ['eur' => 1];\n"], [Change::modified(Path::of('resources/exchange-rates.php'), Lines::none())]);
+
+    expect($reach->everything())->toEqual(Reasons::of())
+        ->and($reach->reaches(Path::of('src/Money.php'), Paths::none()))->toBeTrue()
+        ->and($reach->reaches(Path::of('src/Kernel.php'), Paths::none()))->toBe(str_contains($source, 'Booted'))
+        ->and($reach->reaches(Path::of('src/Tax.php'), Paths::none()))->toBeFalse();
+})->with([
+    'returning a value' => ["<?php\nreturn ['eur' => 2];\n"],
+    'only declaring now, though it ran code before' => ["<?php\nnamespace App;\n\nfinal class Ledger\n{\n}\n"],
+    'declaring a class as it runs' => ["<?php\nnamespace App;\n\nfinal class Booted\n{\n    public static function now(): void\n    {\n    }\n}\n\nreturn ['eur' => 2];\n"],
+]);
+
+it('follows a PHP file that only declares by what it declares, not by the words of its name', function (): void {
+    $files = [
+        'src/Money.php' => "<?php\nnamespace App;\n\nfinal class Money\n{\n    private const string FILE = 'equals';\n}\n",
+        'src/Equals.php' => REACH_EQUALS,
+    ];
+    $reach = reachOf($files, $files, [Change::modified(Path::of('src/Equals.php'), Lines::none())]);
+
+    expect($reach->reaches(Path::of('src/Money.php'), Paths::none()))->toBeFalse();
+});

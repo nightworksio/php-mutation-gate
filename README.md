@@ -1142,13 +1142,15 @@ A run under a budget, as `watch` and `pre-push` are, counts each unit it
 never started by its newest result where that result still stands for the
 code: its survivors always, and a kill proved at an earlier commit where
 nothing that changed since reaches the unit, or a test that killed it, by a
-name the code uses. A change to a file that decides how the gate runs, such
-as `composer.json`, `composer.lock` or the gate's config, carries no kill.
-Following names misses a class wired only in YAML or XML service
-definitions, or that a container builds for a key other than its name, a
-name built by concatenation, a call through `__call` onto a class nothing
-names, and a file read by a path built from pieces or found by listing a
-directory; a full run judges those again. In CI, a kill carries only where
+name the code uses. A file that is not PHP, or a PHP file that runs code
+when it is loaded, is named by the words of its file name. A change to a
+file that decides how the gate runs, such as `composer.json`,
+`composer.lock` or the gate's config, or to a file `autoload.files` lists,
+carries no kill. Following names misses a class wired only in YAML or XML
+service definitions, or that a container builds for a key other than its
+name, a name built by concatenation, a call through `__call` onto a class
+nothing names, and a file read by a path built from pieces or found by
+listing a directory; a full run judges those again. In CI, a kill carries only where
 the clone holds the commit it was proved at, which `fetch-depth: 0` makes
 sure of.
 

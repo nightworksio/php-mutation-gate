@@ -109,12 +109,16 @@ presets for Laravel, Symfony and plain libraries.
        A file that is not PHP is named by the words of its name, so a change
        to it reaches the PHP files whose strings spell one of those words, as
        a test that reads `fixtures/rates.json` spells `rates`, and what names
-       those in turn. A change the gate cannot follow by name reaches every
-       kill: one to a file that decides how the gate runs (ADR-0005, decision 4, rule 1, which names
-       the runner's definitions, each package's `composer.json`, the gate's
-       config, and what the presets and `reach.everything` name), or to a
-       package's `composer.lock`; and one to a PHP file outside the tests that
-       runs code when it is loaded.
+       those in turn. So, besides what it declares, is a PHP file that runs
+       code when it is loaded, as a file that requires `data/rates.php`
+       spells `rates`. A change the gate cannot follow by name reaches every
+       kill: one to a file that decides how the gate runs (ADR-0005,
+       decision 4, rule 1, which names the runner's definitions, each
+       package's `composer.json`, the gate's config, and what the presets and
+       `reach.everything` name), or to a package's `composer.lock`; and one
+       to a file any `composer.json` of the repository lists under `files` in
+       its `autoload` or `autoload-dev`, which Composer's autoloader loads in
+       every process, whatever names it.
 
        A kill is unjudged, and the verdict warns why, where its killer is
        unknown, changed or gone; where its result records no commit, since
@@ -127,9 +131,10 @@ presets for Laravel, Symfony and plain libraries.
        builds for a key other than its name, a name built by concatenation,
        a call through `__call` or `__callStatic` onto a class nothing names,
        a class in the global namespace spelt only in a string, and a file
-       read by a path built from pieces none of which is a word of its name,
-       or found by listing a directory. A kill across such a change stands.
-       A full run judges it again;
+       read or required by a path built from pieces none of which is a word
+       of its name, or found by listing a directory, as a framework finds its
+       config and route files. A kill across such a change stands. A full run
+       judges it again;
      - a timeout or a crash, which can count as a kill but names no test that
        caused it, is unjudged;
      - a kill by static analysis is unjudged, since its result does not

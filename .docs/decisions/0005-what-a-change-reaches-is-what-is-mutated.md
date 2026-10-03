@@ -102,6 +102,12 @@ The same repository has two more needs.
         the repository's root, empty by default. Each of the files above is
         spelt from its package's directory instead.
 
+      A file a `composer.json` lists under `files` in its `autoload` or
+      `autoload-dev` is not one of these, though Composer's autoloader loads it in every
+      process: a change to it changes no other file's code, so it reaches
+      what rules 2 to 5 say of it. It leaves every kill a time budget would
+      carry across it unjudged instead (ADR-0008, decision 1).
+
       A root file reaches every package. The CI definition that runs the gate
       is one of these files: under GitHub Actions the workflow
       `GITHUB_WORKFLOW_REF` names; on GitLab the file `CI_CONFIG_PATH` names

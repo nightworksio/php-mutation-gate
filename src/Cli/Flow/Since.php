@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_push;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
@@ -89,14 +91,14 @@ final readonly class Since
         $read = match (true) {
             $trees instanceof CannotJudge => $trees,
             $files instanceof CannotTell => CannotJudge::because($files->why()),
-            default => $this->graphOf(Suite::read($trees, $files, $this->adapters->project), $trees),
+            default => $this->graphOf(Suite::read($trees, $files, $this->adapters->project), $trees, $files),
         };
 
         return $read instanceof CannotJudge ? CannotJudge::because(sprintf(self::UNREAD, $read->why())) : $read;
     }
 
     /** @return array{NamedFiles, FileRoles}|CannotJudge */
-    private function graphOf(Suite|CannotJudge $suite, Trees $trees): array|CannotJudge
+    private function graphOf(Suite|CannotJudge $suite, Trees $trees, Fingerprints $all): array|CannotJudge
     {
         if ($suite instanceof CannotJudge) {
             return $suite;
@@ -109,13 +111,44 @@ final readonly class Since
         }
 
         $outside = $this->phpOutside($suite->outside());
+        $loaded = $this->loadedBy($all);
 
-        return $outside instanceof CannotJudge
-            ? $outside
-            : [
+        return match (true) {
+            $outside instanceof CannotJudge => $outside,
+            $loaded instanceof CannotJudge => $loaded,
+            default => [
                 NamedFiles::read($files + $outside),
-                FileRoles::of(Reached::layout($this->adapters, $this->settings, $suite), Packages::of($trees)),
-            ];
+                FileRoles::of(Reached::layout($this->adapters, $this->settings, $suite), Packages::of($trees), $loaded),
+            ],
+        };
+    }
+
+    /**
+     * Every file a `composer.json` among these files has Composer's
+     * autoloader load in every process; or why one cannot be read.
+     */
+    private function loadedBy(Fingerprints $files): Paths|CannotJudge
+    {
+        $loaded = [];
+
+        foreach ($files as $file) {
+            $directory = $file->path()->directory();
+
+            if (! $file->path()->equals(Manifest::fileIn($directory))) {
+                continue;
+            }
+
+            $contents = $this->adapters->project->read($file->path());
+            $manifest = $contents instanceof Contents ? Manifest::decode($contents, $directory) : $contents;
+
+            if ($manifest instanceof CannotJudge) {
+                return $manifest;
+            }
+
+            array_push($loaded, ...($manifest instanceof Manifest ? $manifest->classLocations()->loadedFiles() : []));
+        }
+
+        return Paths::of(...$loaded);
     }
 
     /** @return array<string, PhpFile>|CannotJudge every PHP file outside the test directories, by its path */
