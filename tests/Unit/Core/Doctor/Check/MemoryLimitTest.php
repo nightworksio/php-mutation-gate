@@ -39,5 +39,7 @@ it('says a limit in the whole M below it, so it never reads as the need', functi
     expect($said(LedgerMemory::standard()->bytes() - 1))
         ->toBe('The gate\'s own PHP has a memory_limit of 1505M, and could not be given more.')
         ->and($said(1504 * 1_048_576 + 900_000))
-        ->toBe('The gate\'s own PHP has a memory_limit of 1504M, and could not be given more.');
+        ->toBe('The gate\'s own PHP has a memory_limit of 1504M, and could not be given more.')
+        ->and($said(67_108_863))
+        ->toBe('The gate\'s own PHP has a memory_limit of 63M, and could not be given more.');
 });

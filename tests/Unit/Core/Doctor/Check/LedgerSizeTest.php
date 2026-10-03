@@ -30,6 +30,17 @@ it('finds each ledger past the compressed limit a run reads to, which no run rea
     )));
 });
 
+it('says each size in megabytes to one decimal, rounded to the nearer', function () use ($ledger): void {
+    $finding = [...LedgerSize::in(Observations::none()->withLedgers(KeptLedgers::of(
+        $ledger('refs/heads/main', 11_250_001),
+        $ledger('refs/pull/7', 11_249_999),
+    )))][0];
+
+    expect($finding->found())->toBe(
+        '.mutation-gate/ledger/refs/heads/main/ledger.json.gz is 11.3 MB; .mutation-gate/ledger/refs/pull/7/ledger.json.gz is 11.2 MB, compressed.',
+    );
+});
+
 it('finds nothing where every ledger is small enough, or none was read', function () use ($ledger): void {
     expect(LedgerSize::in(Observations::none()->withLedgers(KeptLedgers::of($ledger('refs/heads/main', 1_000)))))->toEqual(Findings::none())
         ->and(LedgerSize::in(Observations::none()))->toEqual(Findings::none());
