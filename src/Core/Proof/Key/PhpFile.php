@@ -11,10 +11,9 @@ use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Php\Names;
+use NightWorksIO\MutationGate\Core\Php\Words;
 use PhpToken;
 
-use function preg_match_all;
-use function str_replace;
 use function trim;
 
 /**
@@ -32,14 +31,8 @@ use function trim;
  */
 final readonly class PhpFile
 {
-    /** The tokens that carry text rather than code. */
-    private const array TEXT_TOKENS = [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE, T_INLINE_HTML];
-
     /** What a reading of the top level passes over. */
     private const array SILENT = [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT, T_OPEN_TAG, T_CLOSE_TAG];
-
-    /** A word, or a run of words joined by hyphens. */
-    private const string WORDS = '/[a-z0-9_]+(?:-[a-z0-9_]+)*/u';
 
     /**
      * @param list<string>        $declares every class, interface, trait, enum, function and constant it
@@ -109,7 +102,9 @@ final readonly class PhpFile
                 continue;
             }
 
-            $names += $token->is(self::TEXT_TOKENS) ? self::wordsIn(mb_strtolower($token->text)) : [];
+            foreach ($token->is(Words::TOKENS) ? Words::in($token->text)->all() : [] as $word) {
+                $names[$word] = $word;
+            }
         }
 
         return $names;
@@ -120,36 +115,5 @@ final readonly class PhpFile
         $segments = explode('\\', $name);
 
         return array_last($segments);
-    }
-
-    /**
-     * Every word in some text, and every hyphenated run of words joined up.
-     *
-     * @return array<string, string>
-     */
-    private static function wordsIn(string $text): array
-    {
-        preg_match_all(self::WORDS, $text, $found);
-        $words = [];
-
-        foreach ($found[0] as $run) {
-            $words += self::named(str_replace('-', '', $run));
-
-            foreach (explode('-', $run) as $word) {
-                $words += self::named($word);
-            }
-        }
-
-        return $words;
-    }
-
-    /**
-     * A name, keyed by itself, so that a name read twice is held once.
-     *
-     * @return array<string, string>
-     */
-    private static function named(string $name): array
-    {
-        return [$name => $name];
     }
 }

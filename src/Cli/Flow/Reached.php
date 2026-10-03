@@ -77,7 +77,12 @@ final readonly class Reached
         return $this->changed;
     }
 
-    private static function layout(Adapters $adapters, Settings $settings, Suite $suite): Layout
+    /**
+     * Where the repository keeps what the reach rules ask about: the files
+     * that decide how the gate runs, among them what `reach.everything` and
+     * the presets name, the CI definitions that run it, and the tests.
+     */
+    public static function layout(Adapters $adapters, Settings $settings, Suite $suite): Layout
     {
         $layout = Layout::standard($adapters->runner->definitions())->testedIn(...$suite->directories());
 

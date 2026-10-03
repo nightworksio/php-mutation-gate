@@ -89,7 +89,9 @@ The pieces already exist in the design:
    does: a mutant a budget left unjudged, or a unit the budget never started
    whose newest result cannot stand for the code on disk, fails the verdict
    (ADR-0008, decision 1). So a push the hook lets through has had every
-   mutant the change reaches judged.
+   mutant the change reaches judged. A kill proved at an earlier commit
+   stands where nothing that changed since reaches it by a name the code
+   uses, so a push waits only on the kills its change can have undone.
    - **The budgets.** Without a configured one, `watch` has a minute,
      `pre-push` five, and `run` none.
    - **The local ledger.** Every run outside CI (`CI` unset), `run` included,

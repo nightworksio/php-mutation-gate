@@ -148,3 +148,16 @@ it('names the last segment of every constant it declares, with const or the glob
 
     expect($file->constants()->all())->toBe(['reach_amount', 'reach_other', 'reach_defined', 'reach_qualified', 'reach_rooted', 'held']);
 });
+
+it('mentions every name a class and a function imported under one alias stand for', function (): void {
+    $file = PhpFile::read(Contents::of("<?php\nnamespace Billing;\n\nuse App\\{Equals};\nuse function Lib\\equals;\n\nfinal class Money\n{\n    use Equals;\n}\n"));
+
+    expect($file->mentions(Names::of('App\Equals')))->toBeTrue()
+        ->and($file->mentions(Names::of('Lib\equals')))->toBeTrue();
+});
+
+it('reads the words its strings and its text outside PHP spell', function (): void {
+    $file = PhpFile::read(Contents::of("<h1>Exchange-Rates</h1>\n<?php\n\$path = 'fixtures/rates.json';\n\$name = \"money{\$kind}tax\";\n// a comment's words\n"));
+
+    expect($file->words()->all())->toBe(['h1', 'exchangerates', 'exchange', 'rates', 'fixtures', 'json', 'money', 'tax']);
+});

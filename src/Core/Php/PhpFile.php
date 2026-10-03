@@ -10,6 +10,7 @@ use function array_map;
 use function array_push;
 use function count;
 use function explode;
+use function implode;
 use function ltrim;
 use function mb_strtolower;
 
@@ -24,9 +25,9 @@ use function strval;
 use function trim;
 
 /**
- * What a PHP file declares, the names it mentions, whether loading it runs
- * anything, and the paths its `#[Holds]` declare held, read from its tokens.
- * Reading it runs none of it.
+ * What a PHP file declares, the names it mentions, the words its strings
+ * spell, whether loading it runs anything, and the paths its `#[Holds]`
+ * declare held, read from its tokens. Reading it runs none of it.
  */
 final readonly class PhpFile
 {
@@ -39,6 +40,7 @@ final readonly class PhpFile
         private Names $mentions,
         private Names $quoted,
         private Names $constants,
+        private Words $words,
         private array $running,
         private HoldsAttributes $holds,
     ) {
@@ -62,6 +64,7 @@ final readonly class PhpFile
             self::mentionedIn($tokens, $scope),
             self::quotedIn($tokens),
             self::constantsIn($tokens),
+            self::wordsIn($tokens),
             $top->running(),
             HoldsReader::mayHold($contents) ? HoldsReader::in(Tokens::of($tokens), $scope) : HoldsAttributes::none(),
         );
@@ -103,6 +106,16 @@ final readonly class PhpFile
     public function constants(): Names
     {
         return $this->constants;
+    }
+
+    /**
+     * Every word the file's strings and the text outside its PHP spell,
+     * which is how a file names one that is not PHP: `'fixtures/rates.json'`
+     * spells `rates`.
+     */
+    public function words(): Words
+    {
+        return $this->words;
     }
 
     /** Whether loading the file only declares, so that it acts on nothing that does not name it. */
@@ -154,6 +167,20 @@ final readonly class PhpFile
         }
 
         return Names::of(...$names);
+    }
+
+    /** @param list<PhpToken> $tokens */
+    private static function wordsIn(array $tokens): Words
+    {
+        $texts = [];
+
+        foreach ($tokens as $token) {
+            if ($token->is(Words::TOKENS)) {
+                $texts[] = $token->text;
+            }
+        }
+
+        return Words::in(implode("\n", $texts));
     }
 
     /**
@@ -220,7 +247,7 @@ final readonly class PhpFile
         $names = [];
 
         foreach (array_keys($spelt) as $name) {
-            $names[] = $scope->resolve(strval($name));
+            $names[] = $scope->resolveAny(strval($name));
         }
 
         return Names::of()->merge(...$names);

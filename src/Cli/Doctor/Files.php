@@ -8,6 +8,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Composer\Disk;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\Infection\Importable;
 use NightWorksIO\MutationGate\Adapter\Infection\OwnConfig;
 use NightWorksIO\MutationGate\Cli\Flow\ProjectMemoryLimit;
@@ -38,17 +39,18 @@ use function str_ends_with;
 /**
  * What `doctor` reads of the project's own files: its `.gitignore`, its
  * Infection config, how its `composer.json` installs its packages, the CI
- * definitions that run the gate, and the baseline the config names.
+ * definitions that run the gate, the baseline the config names, and whether
+ * git cloned it shallow.
  */
 final readonly class Files
 {
-    private function __construct(private Disk $disk, private Directory $project)
+    private function __construct(private Disk $disk, private Directory $project, private Git $git)
     {
     }
 
     public static function in(string $project): self
     {
-        return new self(Disk::at(Root::of($project)), Directory::at($project));
+        return new self(Disk::at(Root::of($project)), Directory::at($project), Git::at($project));
     }
 
     public function of(Settings|Invalid|CannotJudge $settings): ProjectFiles
@@ -62,6 +64,7 @@ final readonly class Files
         $files = $infection instanceof InfectionConfig ? $files->withInfection($infection) : $files;
         $memory = ProjectMemoryLimit::in($this->project, PhpUnitConfig::candidatesIn(Path::root()));
         $files = $memory instanceof PhpUnitMemory ? $files->withPhpUnitMemory($memory) : $files;
+        $files = $this->git->isShallow() === true ? $files->shallow() : $files;
 
         return $settings instanceof Settings
             ? $files->withBaseline($this->baseline($settings->floors()->baseline()))

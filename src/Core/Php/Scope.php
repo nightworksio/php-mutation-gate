@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Php;
 use function array_filter;
 use function array_key_exists;
 use function array_last;
+use function array_map;
 use function array_values;
 use function count;
 use function explode;
@@ -32,7 +33,10 @@ final readonly class Scope
     /** How a name relative to the current namespace begins. */
     private const string RELATIVE = 'namespace\\';
 
-    /** @param array<string, string> $imports each imported name, by the alias it is imported as, in lower case */
+    /**
+     * @param array<string, non-empty-list<string>> $imports every name imported under each alias, in the order
+     *                                                       imported, by the alias in lower case
+     */
     private function __construct(private string $namespace, private array $imports)
     {
     }
@@ -58,7 +62,7 @@ final readonly class Scope
         foreach ($statement as $token) {
             [$prefix, $clause, $imports] = match (true) {
                 $token->is('{') => [$this->prefixIn($clause), [], $imports],
-                $token->is(self::CLAUSE_ENDS) => [$prefix, [], [...$imports, ...$this->importedBy($prefix, $clause)]],
+                $token->is(self::CLAUSE_ENDS) => [$prefix, [], $this->withImport($imports, $prefix, $clause)],
                 default => [$prefix, [...$clause, $token], $imports],
             };
         }
@@ -86,41 +90,62 @@ final readonly class Scope
             return Names::of($this->declared(mb_substr($name, mb_strlen(self::RELATIVE))));
         }
 
-        return $this->imported($name);
+        $imported = $this->importedAs($name);
+
+        return $imported === [] ? Names::of($this->declared($name), $name) : Names::of(array_last($imported));
     }
 
-    private function imported(string $name): Names
+    /**
+     * What a name written here may stand for, of whatever kind it is: where a
+     * class and a function or constant are imported under one alias, each of
+     * them, as PHP keeps the kinds apart.
+     */
+    public function resolveAny(string $name): Names
+    {
+        $imported = $this->importedAs($name);
+
+        return $imported === [] ? $this->resolve($name) : Names::of(...$imported);
+    }
+
+    /**
+     * Every name a name written here stands for through an import, in the
+     * order imported; none where its first segment is not imported.
+     *
+     * @return list<string>
+     */
+    private function importedAs(string $name): array
     {
         $segments = explode('\\', $name, 2);
         $alias = mb_strtolower($segments[0]);
 
-        if (! array_key_exists($alias, $this->imports)) {
-            return Names::of($this->declared($name), $name);
-        }
-
-        $imported = $this->imports[$alias];
-
-        return Names::of(array_key_exists(1, $segments) ? sprintf('%s\\%s', $imported, $segments[1]) : $imported);
+        return array_map(
+            static fn(string $imported): string => array_key_exists(1, $segments)
+                ? sprintf('%s\\%s', $imported, $segments[1])
+                : $imported,
+            array_key_exists($alias, $this->imports) ? $this->imports[$alias] : [],
+        );
     }
 
     /**
-     * The name one clause of a `use` statement imports, by its alias in lower
-     * case; nothing for a clause that names nothing.
+     * These imports, with the name one clause of a `use` statement imports
+     * under its alias; as they are for a clause that names nothing.
      *
-     * @param  list<PhpToken>        $clause
-     * @return array<string, string>
+     * @param  array<string, non-empty-list<string>> $imports
+     * @param  list<PhpToken>                        $clause
+     * @return array<string, non-empty-list<string>>
      */
-    private function importedBy(string $prefix, array $clause): array
+    private function withImport(array $imports, string $prefix, array $clause): array
     {
         $names = $this->namesIn($clause);
 
         if ($names === []) {
-            return [];
+            return $imports;
         }
 
         $name = ltrim(sprintf('%s%s', $prefix, $names[0]->text), '\\');
+        $imports[mb_strtolower(count($names) > 1 ? $names[1]->text : $this->lastSegmentOf($name))][] = $name;
 
-        return [mb_strtolower(count($names) > 1 ? $names[1]->text : $this->lastSegmentOf($name)) => $name];
+        return $imports;
     }
 
     /**

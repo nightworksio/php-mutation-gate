@@ -39,6 +39,9 @@ final readonly class Manifest
     /** The file every project, module and package declares itself in. */
     private const string FILE = 'composer.json';
 
+    /** The file that pins what Composer installs for a project, module or package. */
+    private const string LOCK = 'composer.lock';
+
     /** The keys whose values are the packages a manifest requires to run. */
     private const string REQUIRE = 'require';
 
@@ -58,6 +61,12 @@ final readonly class Manifest
     public static function fileIn(Path $directory): Path
     {
         return $directory->child(Path::of(self::FILE));
+    }
+
+    /** Where the lock file of a directory is. */
+    public static function lockIn(Path $directory): Path
+    {
+        return $directory->child(Path::of(self::LOCK));
     }
 
     /** The manifest of a directory, from its text, or why it cannot be read: text that is not a JSON object. */

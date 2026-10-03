@@ -27,6 +27,13 @@ interface ChangeSource
      */
     public function changesSince(Revision $base): Changes|CannotTell;
 
+    /**
+     * Every path changed from this revision itself to the working tree, with
+     * its added and modified lines, whatever the revision's place in HEAD's
+     * history.
+     */
+    public function changesFrom(Revision $commit): Changes|CannotTell;
+
     /** Every file in the working tree that is not ignored, with the digest of what it holds. */
     public function fingerprints(): Fingerprints|CannotTell;
 

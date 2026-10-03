@@ -85,16 +85,51 @@ presets for Laravel, Symfony and plain libraries.
      - a mutant the score counts as not killed, such as a survivor, stands,
        which can only make the verdict stricter. An uncovered one stands only
        where the run's coverage map shows no test covering its line now;
-     - a kill stands only where the result was established at this run's
-       base, the one its content keys are built on (ADR-0007), every test
-       that killed it is known, and each of their files, with the support it
-       reads, has the digest it had then. A mutated run can reach code the
-       unmutated run never did, so no narrower set of files than the base
-       bounds what a kill depended on. The base leaves out what the key's
-       exceptions leave out, such as `proofs.ignore`'s files, so a kill
-       stands across a change to one of those. A kill whose base
-       differs, whose killer is unknown or whose killer changed or is gone is
-       unjudged;
+     - a kill stands only where every test that killed it is known, each of
+       their files, with the support it reads, has the digest it had then,
+       and either:
+       - the result was established at this run's base, the one its content
+         keys are built on (ADR-0007). The base leaves out what the key's
+         exceptions leave out, such as `proofs.ignore`'s files, so a kill
+         stands across a change to one of those; or
+       - nothing that changed since the commit the result records (ADR-0007,
+         decision 3) reaches the kill's unit or a test that killed it by a
+         name. What changed is git's diff from that commit itself to the
+         working tree, read once for each commit however many results share
+         it. A changed file reaches every file that names a class,
+         interface, trait, enum or function it declares, then or now, by the
+         name PHP resolves in that file's namespace and imports, spelt in
+         code or as a fully qualified name in a string, or a constant it
+         declares, by its last segment; and every file that names what those
+         declare in turn. A `use function` or `use const` imports a name and
+         declares none. A mutated run can reach code the unmutated run never
+         did, so nothing narrower than what the code names bounds what a kill
+         depended on.
+
+       A file that is not PHP is named by the words of its name, so a change
+       to it reaches the PHP files whose strings spell one of those words, as
+       a test that reads `fixtures/rates.json` spells `rates`, and what names
+       those in turn. A change the gate cannot follow by name reaches every
+       kill: one to a file that decides how the gate runs (ADR-0005, decision 4, rule 1, which names
+       the runner's definitions, each package's `composer.json`, the gate's
+       config, and what the presets and `reach.everything` name), or to a
+       package's `composer.lock`; and one to a PHP file outside the tests that
+       runs code when it is loaded.
+
+       A kill is unjudged, and the verdict warns why, where its killer is
+       unknown, changed or gone; where its result records no commit, since
+       the working tree then held more than its commit; where git cannot read
+       that commit, as a shallow clone does not hold it, which `doctor` names
+       too (ADR-0017); and where what changed since reaches it.
+
+       Following names misses code reached with no name on the way: a class
+       wired only in YAML or XML service definitions, or that a container
+       builds for a key other than its name, a name built by concatenation,
+       a call through `__call` or `__callStatic` onto a class nothing names,
+       a class in the global namespace spelt only in a string, and a file
+       read by a path built from pieces none of which is a word of its name,
+       or found by listing a directory. A kill across such a change stands.
+       A full run judges it again;
      - a timeout or a crash, which can count as a kill but names no test that
        caused it, is unjudged;
      - a kill by static analysis is unjudged, since its result does not

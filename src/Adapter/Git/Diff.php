@@ -115,6 +115,19 @@ final readonly class Diff
         return preg_match(self::HIDDEN, $listed) === 1;
     }
 
+    /**
+     * The paths of a `-z` listing, each ended by a NUL.
+     *
+     * @return list<string>
+     */
+    public static function paths(string $listed): array
+    {
+        $paths = explode("\0", $listed);
+        array_pop($paths);
+
+        return $paths;
+    }
+
     /** @param ByPath<Lines> $lines */
     private static function change(string $kind, string $from, Path $path, ByPath $lines): Change
     {

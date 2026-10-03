@@ -14,7 +14,8 @@ use PhpToken;
  * The depth counts every bracket, brace and attribute still open, so a
  * statement is at the top level only while it is zero. The opener is the id
  * of the token that opened the statement being read, and naming says the next
- * bare name is the one a declaration declares.
+ * bare name is the one a declaration declares. A `use` of a function or a
+ * constant imports a name, and declares none.
  */
 final readonly class Reading
 {
@@ -126,7 +127,8 @@ final readonly class Reading
             );
         }
 
-        $names = $token->is(self::NAMING) || ($token->is(',') && $this->opener === T_CONST);
+        $declaring = $token->is(self::NAMING) && $this->opener !== T_USE;
+        $names = $declaring || ($token->is(',') && $this->opener === T_CONST);
 
         return new self(0, $this->atStart, $this->opener, $names || $this->naming, $this->declares, refused: false);
     }

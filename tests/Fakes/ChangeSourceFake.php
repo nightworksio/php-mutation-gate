@@ -36,6 +36,7 @@ final readonly class ChangeSourceFake implements ChangeSource
      * @param array<string, array<string, string>> $files     what each file holds, by revision name and path
      * @param array<string, string>                $changedAt when each committed file last changed, by its path
      * @param list<string>                         $unchanged the revisions nothing changed since, by name
+     * @param list<string>                         $alike     the revisions the same changed since as since the base, by name
      */
     public function __construct(
         private Revision $base,
@@ -43,13 +44,20 @@ final readonly class ChangeSourceFake implements ChangeSource
         private array $files,
         private array $changedAt = [],
         private array $unchanged = [],
+        private array $alike = [],
     ) {
+    }
+
+    /** This repository, where the same changed since this revision as since its base. */
+    public function alsoFrom(Revision $revision): self
+    {
+        return new self($this->base, $this->changes, $this->files, $this->changedAt, $this->unchanged, [...$this->alike, $revision->name()]);
     }
 
     /** This repository, where nothing changed since this revision, as at the commit HEAD is at. */
     public function unchangedSince(Revision $revision): self
     {
-        return new self($this->base, $this->changes, $this->files, $this->changedAt, [...$this->unchanged, $revision->name()]);
+        return new self($this->base, $this->changes, $this->files, $this->changedAt, [...$this->unchanged, $revision->name()], $this->alike);
     }
 
     /** The repository of the contract suite's fixture: a base, and a working tree that changed one line and added a file. */
@@ -72,10 +80,16 @@ final readonly class ChangeSourceFake implements ChangeSource
     public function changesSince(Revision $base): Changes|CannotTell
     {
         return match (true) {
-            $base->name() === $this->base->name() => $this->changes,
+            $base->name() === $this->base->name(), in_array($base->name(), $this->alike, strict: true) => $this->changes,
             in_array($base->name(), $this->unchanged, strict: true) => Changes::none(),
             default => CannotTell::because(sprintf('%s is not a revision this repository has.', $base->name())),
         };
+    }
+
+    /** What changed from a revision itself: from the base, what changed since it, as the fake holds one history. */
+    public function changesFrom(Revision $commit): Changes|CannotTell
+    {
+        return $this->changesSince($commit);
     }
 
     public function fingerprints(): Fingerprints

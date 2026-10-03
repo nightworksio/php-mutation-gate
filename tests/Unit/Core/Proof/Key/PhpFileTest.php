@@ -52,6 +52,32 @@ it('reads a file that only declares, and every name it declares at its top level
         ->and($file->declares())->toBe(['money', 'shape', 'helps', 'kind', 'helper', 'limit', 'other', 'base', 'value']);
 });
 
+it('reads a function or constant a file imports as a name it uses, not one it declares', function () use ($read): void {
+    $file = $read(<<<'PHP_WRAP'
+    <?php
+    
+    namespace Tests\Support;
+    
+    use function count;
+    use function sprintf, strlen;
+    use const PHP_EOL;
+    use const Foo\LIMIT, Foo\OTHER;
+    use Foo\{Bar, function baz, const QUX};
+    
+    final class Money
+    {
+    }
+    
+    function helper(): void {}
+    const MAX = 1;
+    
+    PHP_WRAP);
+
+    expect($file->onlyDeclares())->toBeTrue()
+        ->and($file->declares())->toBe(['money', 'helper', 'max'])
+        ->and($file->names())->toContain('count', 'sprintf', 'php_eol', 'limit', 'baz', 'qux');
+});
+
 it('reads a file that runs something when it is loaded, and declares nothing of it', function (string $source) use ($read): void {
     $file = $read($source);
 

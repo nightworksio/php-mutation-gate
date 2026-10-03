@@ -43,7 +43,8 @@
                             "no-github-repository",
                             "memory-uncapped",
                             "memory-cap-lifted",
-                            "memory-cap-near"
+                            "memory-cap-near",
+                            "shallow-clone"
                         ]
                     },
                     "severity": {

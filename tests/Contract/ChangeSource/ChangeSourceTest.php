@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\ByPath;
@@ -113,3 +114,69 @@ it('reads files as they were at a revision together, each one there or missing',
         ->and($held($source->filesAt($paths, Revision::workingTree())))->toEqual([Contents::of("<?php\nreturn 2;\n"), Contents::of("<?php\n")])
         ->and($source->filesAt($paths, Revision::ref('fixture-base')))->toHaveCount(2);
 })->with($sources);
+
+it('says what changed from a revision, on which lines', function (ChangeSource $source): void {
+    $changes = $source->changesFrom(Revision::ref('fixture-base'));
+    $said = [];
+
+    foreach ($changes instanceof Changes ? $changes : [] as $change) {
+        $said[$change->path()->value()] = [$change->kind()->value, array_map(static fn(Line $line): int => $line->number(), iterator_to_array($change->lines(), preserve_keys: true))];
+    }
+
+    expect($said)->toBe([
+        'src/Money.php' => ['modified', [2]],
+        'src/Limit.php' => ['added', [1]],
+    ])
+        ->and($source->changesFrom(Revision::ref('no-such-revision')))->toBeInstanceOf(CannotTell::class);
+})->with($sources);
+
+it('reads what changed from a revision off HEAD\'s history from that revision itself, not from where the two meet', function (ChangeSource $source): void {
+    $from = $source->changesFrom(Revision::ref('side'));
+    $since = $source->changesSince(Revision::ref('side'));
+    $paths = static fn(Changes|CannotTell $changes): array => array_map(
+        static fn(Change $change): string => sprintf('%s %s', $change->kind()->value, $change->path()->value()),
+        $changes instanceof Changes ? [...$changes] : [],
+    );
+
+    expect($paths($from))->toBe(['modified src/Money.php', 'deleted src/Side.php', 'added src/Limit.php'])
+        ->and($paths($since))->toBe(['modified src/Money.php', 'added src/Limit.php']);
+})->with([
+    'git' => fn(): ChangeSource => Git::at(changeSourceWithSide()->root),
+    'git, with GitHub proving nothing' => fn(): ChangeSource => PassedPullRequests::over(
+        Git::at(changeSourceWithSide()->root),
+        new MockHttpClient(static fn(): MockResponse => new MockResponse('{"message": "Not Found"}', ['http_code' => 404])),
+        ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head'],
+        'mutation / verdict',
+    ),
+]);
+
+it('says a commit a shallow clone does not hold is past its history, and how to read it', function (): void {
+    $origin = Repository::ofTheFixture()->commit('The change.');
+    $first = trim($origin->git('rev-parse', 'fixture-base'));
+    $clone = Scratch::directory();
+    $origin->git('clone', '--quiet', '--depth', '1', sprintf('file://%s', $origin->root), $clone);
+    $changes = Git::at($clone)->changesFrom(Revision::ref($first));
+
+    expect(Git::at($clone)->isShallow())->toBeTrue()
+        ->and(Git::at($origin->root)->isShallow())->toBeFalse()
+        ->and(Git::at(Scratch::directory())->isShallow())->toBeInstanceOf(CannotTell::class)
+        ->and($changes instanceof CannotTell ? $changes->why() : $changes)->toBe(sprintf(
+            "%s is not a revision this repository has: the clone is shallow, so it holds only the newest commits.\n"
+            . 'A clone of the whole history reads it, as `fetch-depth: 0` asks of `actions/checkout`.',
+            $first,
+        ));
+});
+
+/**
+ * The fixture, with a branch `side` off its base that adds src/Side.php,
+ * which HEAD's history does not hold.
+ */
+function changeSourceWithSide(): Repository
+{
+    $repository = Repository::empty()->write('src/Money.php', "<?php\nreturn 1;\n")->commit('The base.');
+    $repository->git('checkout', '--quiet', '-b', 'side');
+    $repository->write('src/Side.php', "<?php\n")->commit('A side.');
+    $repository->git('checkout', '--quiet', 'main');
+
+    return $repository->write('src/Money.php', "<?php\nreturn 2;\n")->write('src/Limit.php', "<?php\n");
+}

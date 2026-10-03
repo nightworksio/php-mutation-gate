@@ -37,4 +37,5 @@ enum Slug: string
     case MemoryUncapped = 'memory-uncapped';
     case MemoryCapLifted = 'memory-cap-lifted';
     case MemoryCapNear = 'memory-cap-near';
+    case ShallowClone = 'shallow-clone';
 }

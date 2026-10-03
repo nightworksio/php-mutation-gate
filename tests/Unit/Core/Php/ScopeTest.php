@@ -100,3 +100,16 @@ it('reads a group with no prefix as names of their own', function () use ($token
     expect($scope->resolve('Money')->meet(Names::of('Money')))->toBeTrue()
         ->and($scope->resolve('Money')->meet(Names::of('App\Money')))->toBeFalse();
 });
+
+it('reads a name that a class and a function are both imported as as the one imported last, or as either of any kind', function () use ($tokens): void {
+    $scope = Scope::global()->inside('Billing')
+        ->importing(...$tokens('use App\Equals;'))
+        ->importing(...$tokens('use function Lib\equals;'));
+
+    expect($scope->resolve('Equals')->all())->toBe(['lib\equals'])
+        ->and($scope->resolveAny('Equals')->all())->toBe(['app\equals', 'lib\equals'])
+        ->and($scope->resolveAny('Equals\Same')->all())->toBe(['app\equals\same', 'lib\equals\same'])
+        ->and($scope->resolveAny('Money')->all())->toBe(['billing\money', 'money'])
+        ->and($scope->resolveAny('\Lib\Money')->all())->toBe(['lib\money'])
+        ->and($scope->importing(...$tokens('use Lib\Clock;'))->resolveAny('Clock')->all())->toBe(['lib\clock']);
+});
