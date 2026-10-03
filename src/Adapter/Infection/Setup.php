@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
@@ -21,8 +22,8 @@ use function sprintf;
 
 /**
  * The options the flows build the Infection adapter with: `timeout`, the
- * seconds each mutant is allowed at most, `timeouts.seconds`, 10 by default as
- * Infection's own; `nativeMarkers`, `refuse` or `allow`, `ignores.native`,
+ * seconds each mutant is allowed at most, which the flows write from
+ * `timeouts.seconds`, and its default where none is written; `nativeMarkers`, `refuse` or `allow`, `ignores.native`,
  * `refuse` by default; `tests`, the directories the tests live in, `tests`
  * by default; and `staticAnalysis`, `infection` or `gate`, who runs static
  * analysis over the mutants, `infection` by default.
@@ -31,7 +32,9 @@ final readonly class Setup
 {
     /** The option that says who runs static analysis over the mutants, which the flows write. */
     public const string STATIC_ANALYSIS = 'staticAnalysis';
-    private const float TIMEOUT = 10.0;
+
+    /** The option that holds the seconds each mutant is allowed at most, which the flows write. */
+    public const string TIMEOUT = 'timeout';
 
     private const string TESTS = 'tests';
 
@@ -48,7 +51,7 @@ final readonly class Setup
     public static function of(Options $options): self|Invalid
     {
         $tests = $options->paths(Key::of(self::TESTS));
-        $timeout = $options->number(Key::of('timeout'));
+        $timeout = $options->number(Key::of(self::TIMEOUT));
         $allowed = self::allowedIn($options->text(Key::of(self::MARKERS)));
         $analysis = self::analysisIn($options->text(Key::of(self::STATIC_ANALYSIS)));
 
@@ -59,7 +62,7 @@ final readonly class Setup
             $analysis instanceof Problem => Invalid::because($analysis),
             default => new self(
                 $tests instanceof Paths && count($tests) > 0 ? $tests : Paths::of(TestsDirectory::conventional()),
-                Seconds::of($timeout instanceof NotGiven ? self::TIMEOUT : $timeout),
+                $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
                 $allowed,
                 $analysis,
             ),

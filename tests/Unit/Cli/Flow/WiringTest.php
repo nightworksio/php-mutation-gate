@@ -390,18 +390,18 @@ it('wires the analyser chosen, handing it staticCheck.config as its config', fun
         ->and($handed)->toEqual([Path::of('config/analyser.neon')]);
 });
 
-it('tells Infection the gate checks its survivors where an analyser is wired, and leaves it alone otherwise', function (): void {
+it('tells Infection each mutant\'s cap, timeouts.seconds, and that the gate checks its survivors only where an analyser is wired', function (): void {
     $registry = wiringRegistry()->withStaticChecker(Name::of('fake'), static fn(): StaticCheckerFake => StaticCheckerFake::findingNothing());
     $wired = static fn(Runner $runner, StaticCheck $static): Adapters|Invalid|CannotJudge => new Wiring($registry, Variables::of([]), wiringDetected())
-        ->adapters(Flows::settings($runner, $static), Directory::at(Flows::project()));
+        ->adapters(Flows::settings($runner, $static, Timeouts::seconds(45)), Directory::at(Flows::project()));
     $checked = $wired(Runner::infection(), StaticCheck::uses('fake'));
     $unchecked = $wired(Runner::infection(), StaticCheck::none());
     $pest = $wired(Runner::pest(), StaticCheck::uses('fake'));
 
     expect($checked instanceof Adapters ? $checked->runner : $checked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate"}'), new CapDirectory()))
+        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 45.0}'), new CapDirectory()))
         ->and($unchecked instanceof Adapters ? $unchecked->runner : $unchecked)
-        ->toEqual(Infection::fromOptions(Configs::options('{}'), new CapDirectory()))
+        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 45.0}'), new CapDirectory()))
         ->and($pest instanceof Adapters ? $pest->runner : $pest)->not->toBeInstanceOf(Infection::class);
 });
 
