@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
@@ -22,9 +23,11 @@ it('names a test that errored in a mutant\'s own process, by its id', function (
 
     PhpUnitEvents::errored($events);
 
-    $line = json_decode((string) file_get_contents($results), associative: true);
+    $records = KillerFile::taken(KillerFile::beside($results, '/tmp/mutations/abc'), '/tmp/mutations/abc');
+    $record = json_decode($records[0] ?? '', associative: true);
 
-    expect($line)->toMatchArray(['event' => 'errored', 'mutated' => '/tmp/mutations/abc'])
-        ->and(is_array($line) ? $line['test'] : '')
+    expect($records)->toHaveCount(1)
+        ->and($record)->toMatchArray(['event' => 'errored', 'mutated' => '/tmp/mutations/abc'])
+        ->and(is_array($record) ? $record['test'] : '')
         ->toStartWith('P\\Tests\\Unit\\Adapter\\Pest\\Recording\\OnErroredTest::__pest_evaluable_it_names_a_test');
 });
