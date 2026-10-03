@@ -14,7 +14,7 @@ it('reads the lines a diff removed and added, past its header', function (): voi
         ->and($change->original())->toBe('<');
 });
 
-it('finds the expression around what changed, as far as a bracket or a statement', function (string $removed, string $added, string $expression): void {
+it('finds the expression around what changed, as far as a bracket, a block, a statement or a weaker operator', function (string $removed, string $added, string $expression): void {
     expect(Change::of(sprintf("@@ @@\n-%s\n+%s\n", $removed, $added))->expression())->toBe($expression);
 })->with([
     'a comparison in a condition' => ['if ($amount < $limit) {', 'if ($amount <= $limit) {', '$amount < $limit'],
@@ -25,7 +25,33 @@ it('finds the expression around what changed, as far as a bracket or a statement
     'an argument among others' => ['f($a, $b < 2, $c);', 'f($a, $b <= 2, $c);', '$b < 2'],
     'a negation added' => ['if ($ready) {', 'if (! $ready) {', '$ready'],
     'an item of an array' => ['$xs = [$a + 1];', '$xs = [$a - 1];', '$a + 1'],
+    'a block opened' => ['if ($ok) { $count++; }', 'if ($ok) { $count--; }', '$count++'],
+    'a block closed' => ['match ($x) { 1 => $a + $b }', 'match ($x) { 1 => $a - $b }', '$a + $b'],
+    'both branches of a ternary' => ['$c = $ok ? $a + $b : $d;', '$c = $ok ? $a - $b : $d;', '$a + $b'],
+    'a key\'s arrow' => ["\$xs = ['total' => \$a + \$b];", "\$xs = ['total' => \$a - \$b];", '$a + $b'],
+    'a disjunction' => ['return $a > 1 || $b;', 'return $a >= 1 || $b;', '$a > 1'],
+    'a spelt conjunction' => ['return $a > 1 and $b;', 'return $a >= 1 and $b;', '$a > 1'],
+    'a spelt disjunction' => ['return $a > 1 or $b;', 'return $a >= 1 or $b;', '$a > 1'],
+    'an exclusive disjunction' => ['return $a > 1 xor $b;', 'return $a >= 1 xor $b;', '$a > 1'],
+    'a fallback' => ['return $cached ?? $a + $b;', 'return $cached ?? $a - $b;', '$a + $b'],
+    'an if without braces' => ['if ($ok) $count++;', 'if ($ok) $count--;', '($ok) $count++'],
+    'an elseif without braces' => ['elseif ($ok) $count++;', 'elseif ($ok) $count--;', '($ok) $count++'],
+    'a while without braces' => ['while ($ok) $count++;', 'while ($ok) $count--;', '($ok) $count++'],
+    'a for without braces' => ['for (;;) $count++;', 'for (;;) $count--;', '(;;) $count++'],
+    'a foreach without braces' => ['foreach ($xs as $x) $count++;', 'foreach ($xs as $x) $count--;', '($xs as $x) $count++'],
+    'a match that follows' => ['return $base + match ($x) {', 'return $base - match ($x) {', '$base +'],
+    'an echo' => ['echo $a + $b;', 'echo $a - $b;', '$a + $b'],
+    'a print' => ['print $a + $b;', 'print $a - $b;', '$a + $b'],
+    'a throw' => ['throw $error ?? $fallback;', 'throw $fallback;', '$error ?? $fallback'],
+    'a yield' => ['yield $a + $b;', 'yield $a - $b;', '$a + $b'],
+    'an object created after it' => ["return \$total + new Number('1');", "return \$total - new Number('1');", '$total +'],
 ]);
+
+it('stops the expression at an assignment that combines', function (string $operator): void {
+    $change = Change::of(sprintf("@@ @@\n-\$sum %s \$a * \$b;\n+\$sum %s \$a / \$b;\n", $operator, $operator));
+
+    expect($change->expression())->toBe('$a * $b');
+})->with(['+=', '-=', '*=', '/=', '.=', '%=', '**=', '&=', '|=', '^=', '<<=', '>>=', '??=']);
 
 it('names what the original calls where it changed', function (string $removed, string $added, string|Nameless $call): void {
     expect(Change::of(sprintf("@@ @@\n-%s\n+%s\n", $removed, $added))->call())->toEqual($call);
