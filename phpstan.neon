@@ -695,6 +695,7 @@ services:
                     - LITERAL # tokens after a class literal's name
                 'NightWorksIO\MutationGate\Adapter\Infection\Setup':
                     - TESTS # a key of the runner's options
+                    - TIMEOUT # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\Pest\PestOptions':
                     - TESTS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions':

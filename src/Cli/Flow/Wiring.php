@@ -124,7 +124,8 @@ final readonly class Wiring
     }
 
     /**
-     * The runner the config chooses: Infection told that the gate checks its
+     * The runner the config chooses: Infection told each mutant's cap,
+     * `timeouts.seconds` (ADR-0008, decision 2), and that the gate checks its
      * survivors, where an analyser does, so it runs no static analysis of its
      * own (ADR-0020, decision 13); and the PHPUnit runner told the cap on
      * each mutant's limit, `timeouts.seconds`, and the mutators it makes its mutants with,
@@ -137,15 +138,20 @@ final readonly class Wiring
     ): Choice {
         $runner = $settings->runner()->choice();
         $use = $runner->use()->value();
-        $gate = Json::object(Member::of(Setup::STATIC_ANALYSIS, StaticAnalysis::Gate->value));
+        $seconds = $settings->triage()->limit()->seconds();
+        $infection = $checker instanceof StaticChecker
+            ? Json::object(
+                Member::of(Setup::TIMEOUT, $seconds),
+                Member::of(Setup::STATIC_ANALYSIS, StaticAnalysis::Gate->value),
+            )
+            : Json::object(Member::of(Setup::TIMEOUT, $seconds));
         $native = Json::object(
-            Member::of(PhpUnitOptions::TIMEOUT, $settings->triage()->limit()->seconds()),
+            Member::of(PhpUnitOptions::TIMEOUT, $seconds),
             Member::of(PhpUnitOptions::MUTATORS, Json::items(...$this->mutators($lookup))),
         );
 
         return match (true) {
-            $checker instanceof StaticChecker && $use === BuiltinRunner::Infection->value
-                => Choice::of($use, $runner->options()->over($gate)),
+            $use === BuiltinRunner::Infection->value => Choice::of($use, $runner->options()->over($infection)),
             $use === BuiltinRunner::PhpUnit->value => Choice::of($use, $runner->options()->over($native)),
             default => $runner,
         };
