@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -24,7 +25,7 @@ it('cannot explain a mutant or a cluster where it cannot tell where the checkout
         Flows::settings(),
         Flows::adapters(Flows::project(), [], Flows::lost()),
         Flows::setup(),
-        new Reporting(new Chosen(new FirstParty()->extend(new Extensions(Origin::of(FirstParty::PACKAGE)))), Variables::of([])),
+        new Reporting(new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))), Variables::of([])),
     );
     $sought = IdPrefix::parse($id);
     $explained = $sought instanceof CannotJudge ? $sought : new Explaining($composed)->explain($sought);
