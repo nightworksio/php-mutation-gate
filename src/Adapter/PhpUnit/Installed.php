@@ -10,6 +10,7 @@ use function ltrim;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as Composer;
+use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Program;
@@ -28,10 +29,9 @@ final readonly class Installed
 {
     /** The lowest PHPUnit with `--test-id-filter-file`, which selects a mutant's tests by their ids. */
     public const string FLOOR = '13.2.0';
-    private const string PHPUNIT = 'phpunit/phpunit';
 
     /** The packages whose versions decide how the runner selects, runs and measures tests. */
-    private const array DRIVEN = [self::PHPUNIT, 'phpunit/php-code-coverage'];
+    private const array DRIVEN = [Package::PhpUnit->value, Package::CodeCoverage->value];
 
     private const string TOO_OLD
         = 'The phpunit runner needs PHPUnit %s or later, for --test-id-filter-file, and %s holds %s.';
@@ -53,7 +53,7 @@ final readonly class Installed
     {
         foreach ($versions as $version) {
             $release = ltrim($version->version(), 'v');
-            $tooOld = $version->package() === self::PHPUNIT
+            $tooOld = $version->package() === Package::PhpUnit->value
                 && $version->isRelease()
                 && version_compare($release, self::FLOOR, '<');
 

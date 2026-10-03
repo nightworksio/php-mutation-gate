@@ -11,6 +11,7 @@ use function array_unique;
 use function array_values;
 use function count;
 use function in_array;
+use function ksort;
 
 /**
  * A class constant holding a value that another class also holds: the
@@ -24,9 +25,10 @@ final readonly class Clash
     }
 
     /**
-     * Every clash among the values a collector gathered, file by file. A
-     * value held in one class only is no clash, an enum case is reported
-     * only as another's home, and a coincidence is left out altogether.
+     * Every clash among the values a collector gathered, file by file, each
+     * value's homes in order of their names. A value held in one class only
+     * is no clash, an enum case is reported only as another's home, and a
+     * coincidence is left out altogether.
      *
      * @param array<string, list<list<array{string, string, int, bool}>>> $collected
      * @param list<string>                                                 $coincidences
@@ -37,7 +39,10 @@ final readonly class Clash
     {
         $clashes = [];
 
-        foreach (self::homesByValue($collected, $coincidences) as $homes) {
+        foreach (self::homesByValue($collected, $coincidences) as $byName) {
+            ksort($byName);
+            $homes = array_values($byName);
+
             if (count(array_unique(array_map(static fn(Home $home): string => $home->class(), $homes))) < 2) {
                 continue;
             }
@@ -51,10 +56,12 @@ final readonly class Clash
     }
 
     /**
+     * The homes of each value, each constant once, however many of its array's items hold the value.
+     *
      * @param array<string, list<list<array{string, string, int, bool}>>> $collected
      * @param list<string>                                                 $coincidences
      *
-     * @return array<list<Home>>
+     * @return array<array<string, Home>>
      */
     private static function homesByValue(array $collected, array $coincidences): array
     {
@@ -63,7 +70,7 @@ final readonly class Clash
         foreach ($collected as $file => $declarations) {
             foreach (array_merge(...$declarations) as [$value, $name, $line, $isCase]) {
                 if (! in_array($name, $coincidences, strict: true)) {
-                    $homes[$value][] = new Home($value, $name, $file, $line, $isCase);
+                    $homes[$value][$name] = new Home($value, $name, $file, $line, $isCase);
                 }
             }
         }

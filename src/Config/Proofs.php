@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Writing;
 
 /** Where proofs are kept, and what they leave out (ADR-0007): `proofs`. */
 final readonly class Proofs implements Setting
@@ -61,13 +62,13 @@ final readonly class Proofs implements Setting
     /** The verdict writes the run's own scope. */
     public static function writing(): self
     {
-        return new self(Json::at('proofs.write', 'auto'));
+        return new self(Json::at('proofs.write', Writing::Auto->value));
     }
 
     /** Nothing is written: the store is read-only. */
     public static function readOnly(): self
     {
-        return new self(Json::at('proofs.write', 'never'));
+        return new self(Json::at('proofs.write', Writing::Never->value));
     }
 
     public function written(): Json

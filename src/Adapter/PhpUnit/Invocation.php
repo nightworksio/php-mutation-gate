@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -42,7 +43,7 @@ final readonly class Invocation
     ): Command {
         return Command::php(
             '-d',
-            'opcache.enable_cli=0',
+            sprintf('%s=0', Opcache::CLI),
             '-d',
             sprintf('auto_prepend_file=%s', $this->override),
             $this->project->phpunit(),

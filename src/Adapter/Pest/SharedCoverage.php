@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use SebastianBergmann\CodeCoverage\Data\ProcessedCodeCoverageData;
 use SebastianBergmann\CodeCoverage\Serialization\Serializer;
@@ -39,7 +40,7 @@ final readonly class SharedCoverage
         'phpCodeCoverage' => [
             'version' => 'as installed',
             'serializationFormat' => Serializer::SERIALIZATION_FORMAT,
-            'driverInformation' => ['name' => 'mutation-gate', 'version' => 'map format 1'],
+            'driverInformation' => ['name' => ThisPackage::NAME, 'version' => 'map format 1'],
         ],
     ];
 

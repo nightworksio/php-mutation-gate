@@ -160,7 +160,7 @@ final readonly class Setup implements Part
     {
         $calls = $this->extensions instanceof Listed && [...$this->extensions] !== []
             ? PhpCalls::onGate(
-                'extensions',
+                GateMethod::Extensions,
                 ...array_map(
                     static fn(string $class): string => sprintf('Load::extension(%s)', PhpCalls::literal($class)),
                     [...$this->extensions],
@@ -168,12 +168,12 @@ final readonly class Setup implements Part
             )
             : PhpCalls::none();
         $calls = $this->presets instanceof Listed && [...$this->presets] !== []
-            ? $calls->and(PhpCalls::onGate('preset', ...array_map($this->preset(...), [...$this->presets])))
+            ? $calls->and(PhpCalls::onGate(GateMethod::Preset, ...array_map($this->preset(...), [...$this->presets])))
             : $calls;
         $calls = $calls->and($this->runner->php());
 
         return $this->treeSource instanceof Choice
-            ? $calls->and(PhpCalls::onGate('treeSource', $this->source($this->sourceFrom($origin))))
+            ? $calls->and(PhpCalls::onGate(GateMethod::TreeSource, $this->source($this->sourceFrom($origin))))
             : $calls;
     }
 
@@ -218,7 +218,7 @@ final readonly class Setup implements Part
                     $fallback instanceof Paths ? [...$fallback] : [],
                 )),
             )
-            : PhpCalls::chosen($source, 'Source', BuiltinTreeSource::Composer->value);
+            : PhpCalls::chosen($source, AdapterBuilder::Source, BuiltinTreeSource::Composer->value);
     }
 
     /**

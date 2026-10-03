@@ -23,17 +23,13 @@ use function sprintf;
  */
 final readonly class Opcache
 {
-    private const string CLI = 'opcache.enable_cli';
-
-    private const string FILE_CACHE = 'opcache.file_cache';
-
     private const string FOUND
-        = 'The PHP the runner runs its tests on, %s, has opcache.enable_cli on or keeps an opcache.file_cache.';
+        = 'The PHP the runner runs its tests on, %s, has %s on or keeps an %s.';
 
     private const string WHY
         = 'OPcache could serve a file\'s original in place of its mutant, so mutants judged by reference go unjudged.';
 
-    private const string FIX = 'Set opcache.enable_cli=0 and opcache.file_cache= in %s.';
+    private const string FIX = 'Set %s=0 and %s= in %s.';
 
     public static function in(Observations $observed): Findings
     {
@@ -46,15 +42,17 @@ final readonly class Opcache
         return Findings::of(Finding::of(
             Slug::OpcacheOnTheCommandLine,
             Severity::WillFail,
-            sprintf(self::FOUND, $php->binary()),
+            sprintf(self::FOUND, $php->binary(), Cache::CLI, Cache::FILE_CACHE),
             self::WHY,
-            sprintf(self::FIX, $php->iniFile()),
+            sprintf(self::FIX, Cache::CLI, Cache::FILE_CACHE, $php->iniFile()),
         ));
     }
 
     private static function cached(RunnerPhp $php): bool
     {
-        return Cache::of(self::switch($php, self::CLI), self::switch($php, self::FILE_CACHE))->couldServeTheOriginal();
+        $cache = Cache::of(self::switch($php, Cache::CLI), self::switch($php, Cache::FILE_CACHE));
+
+        return $cache->couldServeTheOriginal();
     }
 
     /** A setting as `ini_get` answers it: false where the PHP has no such setting. */

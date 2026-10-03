@@ -209,7 +209,9 @@ final readonly class Ci implements Part
     public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
-            ...$this->plan instanceof Choice ? [PhpCalls::chosen($this->plan, 'Ci', ...$this->builtins())] : [],
+            ...$this->plan instanceof Choice
+                ? [PhpCalls::chosen($this->plan, AdapterBuilder::Ci, ...$this->builtins())]
+                : [],
             ...$this->defaultBranch instanceof Absent
                 ? []
                 : [sprintf('Ci::defaultBranch(%s)', PhpCalls::literal($this->defaultBranch))],

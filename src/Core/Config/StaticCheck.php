@@ -80,7 +80,9 @@ final readonly class StaticCheck implements Part
     public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
-            ...$this->tool instanceof Choice ? [PhpCalls::chosen($this->tool, 'StaticCheck', ...$this->builtIn())] : [],
+            ...$this->tool instanceof Choice
+                ? [PhpCalls::chosen($this->tool, AdapterBuilder::StaticCheck, ...$this->builtIn())]
+                : [],
             ...$this->config instanceof Path
                 ? [sprintf('StaticCheck::config(%s)', PhpCalls::literal($origin->written($this->config)))]
                 : [],

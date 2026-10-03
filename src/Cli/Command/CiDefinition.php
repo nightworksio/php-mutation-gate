@@ -10,6 +10,7 @@ use function in_array;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Resources;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Shipped;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -88,7 +89,7 @@ final readonly class CiDefinition
     /** From the templates the package ships under `resources/ci/`. */
     public static function packaged(string $project, Extensions $extensions, GatePin $gate): self
     {
-        return new self($project, $extensions, $gate, Directory::at(Resources::at('ci')));
+        return new self($project, $extensions, $gate, Directory::at(Resources::at(Shipped::Ci)));
     }
 
     /**
@@ -215,7 +216,7 @@ final readonly class CiDefinition
         $manifest = $this->project()->read(Manifest::fileIn(Path::root()));
 
         return TemplateValues::of(
-            PhpVersion::in(Node::decode($manifest instanceof Contents ? $manifest->text() : '{}')),
+            PhpVersion::in(Node::decode($manifest instanceof Contents ? $manifest->text() : Node::NO_KEYS)),
             $this->defaultBranch($settings),
             $this->gate,
             $settings->runner()->choice()->use()->value(),

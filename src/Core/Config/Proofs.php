@@ -168,7 +168,7 @@ final readonly class Proofs implements Part
                     ),
                 ),
             ),
-            default => PhpCalls::chosen($store, 'Proofs'),
+            default => PhpCalls::chosen($store, AdapterBuilder::Proofs),
         };
     }
 }

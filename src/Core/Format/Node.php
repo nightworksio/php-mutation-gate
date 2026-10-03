@@ -28,6 +28,9 @@ use function sprintf;
  */
 final readonly class Node
 {
+    /** A JSON object that holds no key: what a reader decodes where it has no text to read. */
+    public const string NO_KEYS = '{}';
+
     private const string ROOT = 'the file';
 
     /** The path of a config's own keys, which have nothing before them. */

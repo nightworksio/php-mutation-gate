@@ -11,6 +11,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 
@@ -23,9 +24,6 @@ use function sprintf;
  */
 final readonly class Binary
 {
-    /** The Composer package Mago comes in. */
-    public const string PACKAGE = 'carthage-software/mago';
-
     /** Where the package keeps the binary of a version, under the vendor directory. */
     private const string DOWNLOADED = '%1$s/carthage-software/mago/composer/bin/%2$s/mago-%2$s-*/mago';
 
@@ -45,7 +43,7 @@ final readonly class Binary
             return $installed;
         }
 
-        foreach ($installed->versionsOf(self::PACKAGE) as $version) {
+        foreach ($installed->versionsOf(Package::Mago->value) as $version) {
             $found = glob(sprintf(self::DOWNLOADED, $vendor, $version->version()));
 
             return $found === false || $found === []
@@ -53,6 +51,6 @@ final readonly class Binary
                 : $found[0];
         }
 
-        return CannotJudge::because(sprintf(self::NOT_INSTALLED, self::PACKAGE, $file->value()));
+        return CannotJudge::because(sprintf(self::NOT_INSTALLED, Package::Mago->value, $file->value()));
     }
 }

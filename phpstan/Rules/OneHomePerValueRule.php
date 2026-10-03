@@ -62,27 +62,7 @@ final readonly class OneHomePerValueRule implements Rule
                 ->file($clash->home->file)
                 ->line($clash->home->line)
                 ->build(),
-            Clash::among($node->get(ConstantValues::class), [...$this->named($this->coincidences), ...$this->named($this->awaiting)]),
+            Clash::among($node->get(ConstantValues::class), [...ByClass::named($this->coincidences), ...ByClass::named($this->awaiting)]),
         );
-    }
-
-    /**
-     * Constants listed by class, each as `Class::NAME`.
-     *
-     * @param array<string, list<string>> $byClass
-     *
-     * @return list<string>
-     */
-    private function named(array $byClass): array
-    {
-        $named = [];
-
-        foreach ($byClass as $class => $constants) {
-            foreach ($constants as $constant) {
-                $named[] = sprintf('%s::%s', $class, $constant);
-            }
-        }
-
-        return $named;
     }
 }

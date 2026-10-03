@@ -5,23 +5,29 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\PHPStan\Collectors;
 
 use NightWorksIO\MutationGate\PHPStan\Rules\OneHome\Written;
+use NightWorksIO\MutationGate\PHPStan\Rules\OwnSource;
 use PhpParser\Node;
 use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ClassConstFetch;
+use PhpParser\Node\Expr\ConstFetch;
+use PhpParser\Node\Expr\PropertyFetch;
 use PhpParser\Node\Stmt\ClassConst;
 use PhpParser\Node\Stmt\EnumCase;
 use PHPStan\Analyser\Scope;
 use PHPStan\Collectors\Collector;
 
 use function sprintf;
-use function str_contains;
 
 /**
  * D9 — the value of every class constant and backed enum case under `src`,
- * with what declares it and its line, for OneHomePerValueRule to group.
+ * with what declares it and its line, for OneHomePerValueRule to group. An
+ * array constant is collected whole and item by item, at any depth, each item
+ * under the constant's name.
  *
  * A value too plain to have a home is left out (Written::isPlain()), and so is
- * a constant declared as another constant, which refers to that one's home.
+ * a constant or an item written as another constant, which refers to that
+ * one's home.
  *
  * @implements Collector<Node, list<array{string, string, int, bool}>>
  */
@@ -35,7 +41,7 @@ final readonly class ConstantValues implements Collector
     /** @return list<array{string, string, int, bool}> the written value, the declaring constant or case, its line, and whether it is an enum case */
     public function processNode(Node $node, Scope $scope): array
     {
-        if (! str_contains($scope->getFile(), '/src/') || str_contains($scope->getFile(), '/tests/') || ! $scope->isInClass()) {
+        if (! OwnSource::holds($scope->getFile()) || ! $scope->isInClass()) {
             return [];
         }
 
@@ -43,14 +49,40 @@ final readonly class ConstantValues implements Collector
         $found = [];
 
         foreach ($this->valuesDeclaredBy($node) as $name => [$value, $line]) {
-            $type = $scope->getType($value);
-
-            if (! $value instanceof ClassConstFetch && $type->isConstantValue()->yes() && ! Written::isPlain(Written::of($type))) {
-                $found[] = [Written::of($type), sprintf('%s::%s', $class, $name), $line, $node instanceof EnumCase];
+            foreach ($this->spelledOut($value, $scope) as $written) {
+                $found[] = [$written, sprintf('%s::%s', $class, $name), $line, $node instanceof EnumCase];
             }
         }
 
         return $found;
+    }
+
+    /**
+     * What a value spells out itself rather than refers to, as written: the
+     * value, and every item of an array, at any depth.
+     *
+     * @return list<string>
+     */
+    private function spelledOut(Expr $value, Scope $scope): array
+    {
+        $type = $scope->getType($value);
+        $spelled = $this->refersToAHome($value) || ! $type->isConstantValue()->yes() || Written::isPlain(Written::of($type))
+            ? []
+            : [Written::of($type)];
+
+        foreach ($value instanceof Array_ ? $value->items : [] as $item) {
+            $spelled = [...$spelled, ...$this->spelledOut($item->value, $scope)];
+        }
+
+        return $spelled;
+    }
+
+    /** Whether a value is written as another's home: a class or global constant, or an enum case's value. */
+    private function refersToAHome(Expr $value): bool
+    {
+        return $value instanceof ClassConstFetch
+            || $value instanceof ConstFetch
+            || ($value instanceof PropertyFetch && $value->var instanceof ClassConstFetch);
     }
 
     /**

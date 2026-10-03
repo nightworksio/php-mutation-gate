@@ -12,6 +12,9 @@ final readonly class Written
     /** Where a writer writes to print to the command's output. */
     public const string OUTPUT = 'php://output';
 
+    /** Where a report printed on the command's output went, as its line says. */
+    private const string CONSOLE = 'the console';
+
     private const string WROTE = 'Wrote %s.';
 
     private const string UNWRITTEN = '%s could not be written.';
@@ -25,6 +28,12 @@ final readonly class Written
     public static function to(string $where): self
     {
         return new self($where, '');
+    }
+
+    /** Printed on the command's output. */
+    public static function toTheConsole(): self
+    {
+        return new self(self::CONSOLE, '');
     }
 
     /** Written to there where a write answered with the bytes it wrote; why not where it answered `false`. */

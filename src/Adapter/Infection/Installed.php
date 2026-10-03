@@ -9,6 +9,7 @@ use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as Composer;
+use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Program;
@@ -20,7 +21,7 @@ use function sprintf;
 final readonly class Installed
 {
     /** The packages whose versions decide how Infection mutates and judges. */
-    private const array DRIVEN = ['infection/infection', 'phpunit/phpunit', 'phpunit/php-code-coverage'];
+    private const array DRIVEN = [Package::Infection->value, Package::PhpUnit->value, Package::CodeCoverage->value];
 
     /** The versions of the packages Infection always drives, and of these others the project's config names. */
     public static function versionsIn(string $manifest, string ...$also): Versions|CannotJudge

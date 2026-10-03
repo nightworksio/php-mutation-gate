@@ -16,9 +16,12 @@ use function sprintf;
  */
 final readonly class Percentage
 {
+    /** The most percent a share is: all of it. */
+    public const int MOST = 100;
+
     private const int HUNDREDTHS_PER_PERCENT = 100;
 
-    private const int WHOLE = 10_000;
+    private const int WHOLE = self::MOST * self::HUNDREDTHS_PER_PERCENT;
 
     /** Enough decimals to undo binary noise, such as 0.29 × 100 being 28.999…, and none that matter. */
     private const int NOISE = 6;

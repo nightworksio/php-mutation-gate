@@ -76,7 +76,7 @@ final readonly class Composition
 
         $registry = $given->firstPartyOnly
             ? $this->extensions
-            : new Chosen($this->extensions)->withExtensions($settings->extensions(), 'the config file');
+            : new Chosen($this->extensions)->withExtensions($settings->extensions());
         $configFile = ConfigLocation::in($this->project, $given->config);
 
         return match (true) {

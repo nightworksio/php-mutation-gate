@@ -160,7 +160,9 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     /** The pull request's number, from the payload or a `pull_request` event's merge ref, or why neither names one. */
     private function pullRequestIn(Node|CannotTell $payload): PullRequestNumber|CannotTell
     {
-        $number = ($payload instanceof Node ? $payload : Node::decode('{}'))->field('pull_request')->field('number');
+        $number = ($payload instanceof Node ? $payload : Node::decode(Node::NO_KEYS))
+            ->field('pull_request')
+            ->field('number');
         $ref = $this->variables->valueOf('GITHUB_REF');
         $isPullRequest = $this->variables->valueOf(self::EVENT) === 'pull_request';
 

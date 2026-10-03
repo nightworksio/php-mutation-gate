@@ -61,7 +61,7 @@ final readonly class Effective
 
         $registry = $given->firstPartyOnly
             ? $this->extensions
-            : new Chosen($this->extensions)->withExtensions($file->setup()->extensions(), 'the config file');
+            : new Chosen($this->extensions)->withExtensions($file->setup()->extensions());
 
         return $registry instanceof CannotJudge ? $registry : $this->layered($file->over($line), $registry);
     }

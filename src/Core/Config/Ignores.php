@@ -154,7 +154,7 @@ final readonly class Ignores implements Part
     {
         $entries = $this->entries instanceof Listed && [...$this->entries] !== []
             ? PhpCalls::onGate(
-                'ignoring',
+                GateMethod::Ignoring,
                 ...array_map(static fn(Ignored $ignored): string => $ignored->php($origin), [
                     ...$this->entries,
                 ]),

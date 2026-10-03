@@ -40,7 +40,7 @@ final readonly class ClassFiles
 
         $locations = $manifest instanceof Manifest
             ? $manifest->classLocations()
-            : ClassLocations::of(Path::root(), Node::decode('{}'));
+            : ClassLocations::of(Path::root(), Node::decode(Node::NO_KEYS));
 
         return new self($project, $locations);
     }

@@ -21,8 +21,8 @@ use function var_export;
 final readonly class PhpCalls
 {
     /**
-     * @param list<array{string, list<string>}> $gate each method on `Gate`, with its arguments
-     * @param list<string>                      $with
+     * @param list<array{GateMethod, list<string>}> $gate each method on `Gate`, with its arguments
+     * @param list<string>                          $with
      */
     private function __construct(private array $gate, private array $with)
     {
@@ -34,7 +34,7 @@ final readonly class PhpCalls
     }
 
     /** A call on `Gate`, such as `runner(Runner::pest())`: the method, and each argument as PHP writes it. */
-    public static function onGate(string $method, string ...$arguments): self
+    public static function onGate(GateMethod $method, string ...$arguments): self
     {
         return new self([[$method, array_values($arguments)]], []);
     }
@@ -61,13 +61,13 @@ final readonly class PhpCalls
      * An adapter as the builder chooses it: the method of a builder class for a name it has one for, else
      * `uses()` with each option.
      */
-    public static function chosen(Choice $choice, string $class, string ...$named): string
+    public static function chosen(Choice $choice, AdapterBuilder $builder, string ...$named): string
     {
         return $choice->options()->written()->isEmpty() && array_key_exists($choice->use()->value(), array_flip($named))
-            ? sprintf('%s::%s()', $class, $choice->use()->value())
+            ? sprintf('%s::%s()', $builder->value, $choice->use()->value())
             : sprintf(
                 '%s::uses(%s)',
-                $class,
+                $builder->value,
                 implode(
                     ', ',
                     [self::literal($choice->use()->value()), ...PhpOptions::of($choice->options()->written())],
@@ -86,18 +86,18 @@ final readonly class PhpCalls
     {
         $calls = array_map(static fn(array $call): string => self::call($call[0], $call[1]), $this->gate);
 
-        return implode('', $this->with === [] ? $calls : [...$calls, self::call('with', $this->with)]);
+        return implode('', $this->with === [] ? $calls : [...$calls, self::call(GateMethod::With, $this->with)]);
     }
 
     /** @param list<string> $arguments */
-    private static function call(string $method, array $arguments): string
+    private static function call(GateMethod $method, array $arguments): string
     {
         $lines = array_map(static fn(string $argument): string => sprintf("\n        %s,", $argument), $arguments);
 
         return match (count($arguments)) {
-            0 => sprintf("\n    ->%s()", $method),
-            1 => sprintf("\n    ->%s(%s)", $method, $arguments[0]),
-            default => sprintf("\n    ->%s(%s\n    )", $method, implode('', $lines)),
+            0 => sprintf("\n    ->%s()", $method->value),
+            1 => sprintf("\n    ->%s(%s)", $method->value, $arguments[0]),
+            default => sprintf("\n    ->%s(%s\n    )", $method->value, implode('', $lines)),
         };
     }
 }

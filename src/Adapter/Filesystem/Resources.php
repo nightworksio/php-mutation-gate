@@ -13,9 +13,9 @@ final readonly class Resources
     /** How far above this file the package's root is. */
     private const int PACKAGE_ROOT = 3;
 
-    /** A directory or file under `resources/`, on disk. */
-    public static function at(string $path): string
+    /** A directory the package ships under `resources/`, on disk. */
+    public static function at(Shipped $directory): string
     {
-        return sprintf('%s/resources/%s', dirname(__DIR__, self::PACKAGE_ROOT), $path);
+        return sprintf('%s/resources/%s', dirname(__DIR__, self::PACKAGE_ROOT), $directory->value);
     }
 }
