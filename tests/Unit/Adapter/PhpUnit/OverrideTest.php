@@ -16,9 +16,11 @@ afterEach(function (): void {
 
 it('writes the script that registers the wrapper, reading the variables the gate sets, in the adapter\'s own directory', function (): void {
     $project = Project::at(Scratch::directory(), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
+    $before = Override::pathIn($project);
     $script = Override::writtenFor($project);
 
     expect($script)->toBe($project->own('override.php'))
+        ->and($before)->toBe($script)
         ->and((string) file_get_contents(is_string($script) ? $script : ''))->toBe(sprintf(
             "<?php\n\ndeclare(strict_types=1);\n\n%s",
             MutantFile::registering('MUTATION_GATE_MUTANT', 'MUTATION_GATE_MUTATED', 'MUTATION_GATE_GUARD'),

@@ -12,11 +12,15 @@ use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -31,18 +35,29 @@ use function sprintf;
 /**
  * Every mutant of a request's files the gate's own engine makes with the
  * enabled mutators (ADR-0023 decision 8), one after another, each judged by
- * the tests the coverage map says cover its lines. A mutant no test covers is
- * uncovered, without a run. A mutant not reached by the request's deadline is
- * skipped with no record.
+ * the tests the coverage map says cover its lines, and allowed the standard
+ * mutant limit of their time as the map timed it (ADR-0008, decision 2). A
+ * mutant no test covers is uncovered, without a run. A mutant not reached by the request's deadline is
+ * skipped with no record. A run again makes only the mutants it names.
  */
 final readonly class MutationRun
 {
-    public function __construct(private Project $project, private Engine $engine, private MutantRun $run)
-    {
+    public function __construct(
+        private Project $project,
+        private Engine $engine,
+        private MutantRun $run,
+        private MutantIds|NotGiven $only = new NotGiven(),
+    ) {
     }
 
-    /** Each mutant, each of its runs stopped at this limit. */
-    public function of(MutationRequest $request, CoverageMap $map, Seconds $limit): MutationResult|CannotJudge
+    /** This run, making only the mutants with these ids, as a run again does. */
+    public function makingOnly(MutantIds $ids): self
+    {
+        return new self($this->project, $this->engine, $this->run, $ids);
+    }
+
+    /** Each mutant, each of its runs stopped at its limit under this cap. */
+    public function of(MutationRequest $request, CoverageMap $map, Seconds $cap): MutationResult|CannotJudge
     {
         $made = $this->made($request);
 
@@ -58,7 +73,9 @@ final readonly class MutationRun
                 break;
             }
 
-            $judged = $this->judged($mutant, $this->covering($map, $mutant), $request, $limit);
+            $covering = $this->covering($map, $mutant);
+            $limit = MutantLimit::standard()->of(OwnTime::of($map, $covering), $cap);
+            $judged = $this->judged($mutant, $covering, $request, $limit);
 
             if ($judged instanceof CannotJudge) {
                 return $judged;
@@ -114,12 +131,16 @@ final readonly class MutationRun
             : $this->run->judged($mutant, $covering, $request, $limit);
     }
 
-    /** Whether the request asks for the mutant's mutator: it asks for all, or names it. */
+    /**
+     * Whether the run asks for the mutant: the request asks for every mutator
+     * or names its own, and the run names the mutant where it names any.
+     */
     private function isAsked(MutationRequest $request, MadeMutant $mutant): bool
     {
         $named = iterator_to_array($request->mutators(), preserve_keys: false);
+        $mutator = $request->mutators()->isAll() || in_array($mutant->mutation()->mutator(), $named, strict: true);
 
-        return $request->mutators()->isAll() || in_array($mutant->mutation()->mutator(), $named, strict: true);
+        return $mutator && ($this->only instanceof NotGiven || $this->only->has($mutant->id()));
     }
 
     /** Every test that covers a line the mutant changes. */

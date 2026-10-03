@@ -633,9 +633,9 @@ services:
                 'NightWorksIO\MutationGate\Adapter\Pest\PestTimeLimit':
                     - EXTRA_SHARE # a share of Pest's opening time
                     - LEAST_EXTRA # Pest's least extra time
-                'NightWorksIO\MutationGate\Adapter\Infection\Limits':
-                    - BOOTSTRAP # Infection's bootstrap time
-                    - FACTOR # Infection's timeout factor
+                'NightWorksIO\MutationGate\Core\Runner\MutantLimit':
+                    - START_UP # the time a mutant's run allows PHPUnit to start
+                    - FACTOR # a mutant limit's multiple of its tests' time
                 'NightWorksIO\MutationGate\Core\Proof\LedgerRetention':
                     - BASES # bases kept
                     - PROOFS # proofs kept
@@ -694,6 +694,10 @@ services:
                     - TESTS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\Pest\PestOptions':
                     - TESTS # a key of the runner's options
+                'NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions':
+                    - TESTS # a key of the runner's options
+                    - TIMEOUT # a key of the runner's options
+                    - MUTATORS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\Filesystem\ReportPath':
                     - KEY # a key of a report's entry
                 'NightWorksIO\MutationGate\Core\Composer\Manifest':
@@ -742,8 +746,6 @@ services:
                     - API # owner: flows (Api::at() gives GitHub's own)
                 'NightWorksIO\MutationGate\Cli\Console':
                     - NAME # owner: flows (ThisPackage::NAME)
-                'NightWorksIO\MutationGate\Adapter\PhpUnit\Project':
-                    - OWN # owner: phpunit runner (BuiltinRunner::PhpUnit)
         tags:
             - phpstan.rules.rule
     # D12, with the methods whose parameters take prose, a key or an outside

@@ -29,13 +29,12 @@ use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PrematureEnd;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
-use function preg_match;
 use function sprintf;
-use function str_contains;
 use function usort;
 
 /**
@@ -66,13 +65,6 @@ use function usort;
  */
 final readonly class Results
 {
-    /** What PHPUnit prints after any end of its process mid-test: a fatal error, shown or hidden, or `exit`. */
-    private const string ENDED = '/Fatal error: Premature end of PHP process when running [^\n]+\.$/m';
-
-    /** What PHPUnit 12.5 prints instead where `display_errors` was off as the test started. */
-    private const string HIDDEN
-        = "Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message.";
-
     /** The field of a log entry that holds what the mutant's process printed. */
     private const string OUTPUT = 'processOutput';
 
@@ -241,9 +233,9 @@ final readonly class Results
     private static function outOfMemory(string $output, MemoryCap $cap, ErrorDisplay|NotGiven $display): bool
     {
         $configured = $display instanceof ErrorDisplay && $display !== ErrorDisplay::Stdout;
-        $hidden = str_contains($output, self::HIDDEN) || ($configured && preg_match(self::ENDED, $output) === 1);
 
-        return Exhaustion::isOf(Exhaustion::in($output), $cap) || ($cap->caps() && $hidden);
+        return Exhaustion::isOf(Exhaustion::in($output), $cap)
+            || ($cap->caps() && PrematureEnd::hidingIn($output, $configured));
     }
 
     /**

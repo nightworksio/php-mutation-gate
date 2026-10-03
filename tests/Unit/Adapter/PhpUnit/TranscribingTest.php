@@ -1,0 +1,24 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Command;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Transcribing;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
+
+it('keeps what every command printed, in another directory too, and answers as the shell it runs over', function (): void {
+    $shell = new PhpUnitShellFake(static fn(Command $command): Ran => Ran::finished(succeeded: true, output: implode(' ', array_slice($command->arguments(), 1))));
+    $transcribing = Transcribing::over($shell);
+
+    $ran = $transcribing->run(Command::php('first'));
+    $transcribing->in('/project/packages/billing')->run(Command::php('second'));
+
+    expect($ran)->toEqual(Ran::finished(succeeded: true, output: 'first'))
+        ->and($transcribing->printed())->toBe("first\nsecond")
+        ->and($shell->directories())->toBe(['/project/packages/billing']);
+});
+
+it('has printed nothing before it runs anything', function (): void {
+    expect(Transcribing::over(PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: 'unread')))->printed())->toBe('');
+});

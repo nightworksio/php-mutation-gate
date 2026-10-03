@@ -17,13 +17,11 @@ use function fopen;
 use function ftruncate;
 use function fwrite;
 use function getmypid;
-
-use Library\Money;
-
 use function mkdir;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Quirks\Tally;
 
 use function rmdir;
 use function scandir;
@@ -38,7 +36,7 @@ final class FilesSpec extends TestCase
     #[Test]
     public function locksTruncatesTouchesAndListsFiles(): void
     {
-        new Money()->count();
+        new Tally()->count();
         $directory = sprintf('%s/files-spec-%d', sys_get_temp_dir(), getmypid());
         mkdir($directory);
         $file = sprintf('%s/notes.txt', $directory);

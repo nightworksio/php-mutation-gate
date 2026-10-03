@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
-use function count;
-
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -69,19 +68,7 @@ final readonly class TimeoutTriage
     private static function judgingTimeOf(Mutant $mutant, CoverageMap $map): Seconds|Unmeasured
     {
         $location = $mutant->location();
-        $total = 0.0;
-        $tests = $map->testsCovering($location->file(), $location->start());
 
-        foreach ($tests as $test) {
-            $duration = $map->durationOf($test);
-
-            if (! $duration instanceof Seconds) {
-                return $duration;
-            }
-
-            $total += $duration->seconds();
-        }
-
-        return count($tests) > 0 ? Seconds::of($total) : Unmeasured::duration();
+        return OwnTime::of($map, $map->testsCovering($location->file(), $location->start()));
     }
 }

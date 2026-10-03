@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests;
 
-use Library\Money;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Quirks\Tally;
 
 /** A class of tests set aside before any of them runs. */
 final class SkippedBeforeClassSpec extends TestCase
 {
     public static function setUpBeforeClass(): void
     {
-        new Money()->count();
+        new Tally()->count();
 
         self::markTestSkipped('a project skips a whole class');
     }

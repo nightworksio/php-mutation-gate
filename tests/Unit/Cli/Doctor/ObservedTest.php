@@ -183,6 +183,16 @@ it('observes both runners left to choose, and no trees where the config cannot b
         ->and(trim((string) file_get_contents(sprintf('%s/arguments.txt', $php))))->toBe(sprintf('-r %s', Platform::describing()[1]));
 });
 
+it('observes the PHP the PHPUnit runner starts as one whose opcache it turns off, and the others\' as they are', function (): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Library');
+    $php = sprintf('%s/php', FakePhp::printing(Described::output(['pcov' => '1.0.12'], [])));
+    $phpunit = Doctored::observed($project, $php)->of(CommandLine::nothing()->withRunner('phpunit'))->php();
+    $infection = Doctored::observed($project, $php)->of(CommandLine::nothing()->withRunner('infection'))->php();
+
+    expect($phpunit instanceof RunnerPhp && $phpunit->turnsOpcacheOff())->toBeTrue()
+        ->and($infection instanceof RunnerPhp && ! $infection->turnsOpcacheOff())->toBeTrue();
+});
+
 it('observes a runner the command line chooses, and none installed where Composer lists nothing', function (): void {
     $two = Scratch::copy('tests/Fixtures/Projects/TwoRunners');
     $none = Scratch::directory();

@@ -5,8 +5,10 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Command;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ending;
+use NightWorksIO\MutationGate\Core\Runner\Uncapped;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -97,4 +99,27 @@ it('stops a program at its deadline, with every process it started', function ()
     expect($ran->ending())->toBe(Ending::Stopped)
         ->and($ran->duration() instanceof Seconds ? $ran->duration()->seconds() : 99.0)->toBeLessThan(20.0)
         ->and(array_filter($state, static fn(string $line): bool => ! str_starts_with(trim($line), 'Z')))->toBe([]);
+});
+
+it('has a capped command\'s PHP scan the cap\'s directory after those it inherits, or PHP\'s own, and an uncapped one only those', function (): void {
+    $cap = sprintf('%s/cap', Scratch::directory());
+    mkdir($cap);
+    file_put_contents(sprintf('%s/memory-cap.ini', $cap), "memory_limit=64M\n");
+    $own = sprintf('%s/own', Scratch::directory());
+    mkdir($own);
+    file_put_contents(sprintf('%s/own.ini', $own), "precision=7\n");
+    $prints = Command::php('-r', 'echo getenv("PHP_INI_SCAN_DIR"), " ", ini_get("memory_limit"), " ", ini_get("precision");');
+    $capped = $prints->scanning(DiskPath::of($cap));
+
+    $inherited = new ProcessShell(Scratch::directory(), ['PHP_INI_SCAN_DIR' => $own])->run($capped);
+    $phpsOwn = new ProcessShell(Scratch::directory(), [])->run($capped);
+    $uncapped = new ProcessShell(Scratch::directory(), ['PHP_INI_SCAN_DIR' => $own])->run($prints);
+
+    expect($inherited->output())->toBe(sprintf('%s%s%s 64M 7', $own, PATH_SEPARATOR, $cap))
+        ->and($phpsOwn->output())->toStartWith(sprintf('%s%s 64M', PATH_SEPARATOR, $cap))
+        ->and(explode(' ', $uncapped->output()))->toHaveCount(3)
+        ->and(explode(' ', $uncapped->output())[0])->toBe($own)
+        ->and(explode(' ', $uncapped->output())[1])->not->toBe('64M')
+        ->and($capped->scanned())->toEqual(DiskPath::of($cap))
+        ->and($prints->scanned())->toBe(Uncapped::Memory);
 });

@@ -7,10 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 /**
  * A program the gate starts to run a project's tests, named as its own
  * project names it wherever the gate speaks of it: whose coverage run failed,
- * and whose packages Composer does not list. Pest and Infection are also
- * runners a config chooses by name (`BuiltinRunner`). PHPUnit runs
- * Infection's coverage, and the PHPUnit adapter's runs. An analyser is chosen
- * apart, by `BuiltinAnalyser`.
+ * and whose packages Composer does not list. Each is also a runner a config
+ * chooses by name (`BuiltinRunner`), and PHPUnit runs Infection's coverage
+ * too. An analyser is chosen apart, by `BuiltinAnalyser`.
  */
 enum Program
 {

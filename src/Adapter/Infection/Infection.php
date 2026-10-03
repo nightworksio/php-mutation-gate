@@ -35,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitGroups;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
@@ -138,7 +139,7 @@ final readonly class Infection implements Runner
 
         return $config instanceof CannotJudge
             ? $config
-            : Listing::groupsIn(
+            : PhpUnitGroups::listedIn(
                 $this->shell->run(Invocation::listingGroups($this->project, $config)->withholding($withheld)),
             );
     }

@@ -6,13 +6,14 @@ namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function file_get_contents;
 use function is_file;
-use function ltrim;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as Composer;
 use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 
@@ -38,10 +39,7 @@ final readonly class Installed
 
     public static function versionsIn(string $manifest): Versions|CannotJudge
     {
-        $file = Path::of($manifest);
-        $installed = is_file($manifest)
-            ? Composer::decode(Contents::of(sprintf('%s', file_get_contents($manifest))), $file)
-            : Composer::missingAt($file);
+        $installed = self::decoded($manifest);
         $versions = $installed instanceof CannotJudge
             ? $installed
             : $installed->drivenBy(Program::PhpUnit, ...self::DRIVEN);
@@ -49,10 +47,38 @@ final readonly class Installed
         return $versions instanceof Versions ? self::supported($versions, $manifest) : $versions;
     }
 
+    /**
+     * The option that leaves PHPUnit's test run history as it was, as the
+     * PHPUnit installed by this manifest names it.
+     */
+    public static function historyIn(string $manifest): PhpUnitOption
+    {
+        $installed = self::decoded($manifest);
+        $versions = $installed instanceof CannotJudge
+            ? $installed
+            : $installed->drivenBy(Program::PhpUnit, Package::PhpUnit->value);
+        $phpunit = NotGiven::value();
+
+        foreach ($versions instanceof Versions ? $versions : Versions::none() as $version) {
+            $phpunit = $version;
+        }
+
+        return PhpUnitOption::leavingHistoryOf($phpunit);
+    }
+
+    private static function decoded(string $manifest): Composer|CannotJudge
+    {
+        $file = Path::of($manifest);
+
+        return is_file($manifest)
+            ? Composer::decode(Contents::of(sprintf('%s', file_get_contents($manifest))), $file)
+            : Composer::missingAt($file);
+    }
+
     private static function supported(Versions $versions, string $manifest): Versions|CannotJudge
     {
         foreach ($versions as $version) {
-            $release = ltrim($version->version(), 'v');
+            $release = $version->release();
             $tooOld = $version->package() === Package::PhpUnit->value
                 && $version->isRelease()
                 && version_compare($release, self::FLOOR, '<');

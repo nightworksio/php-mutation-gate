@@ -10,7 +10,9 @@ use function array_map;
 use function hrtime;
 use function is_int;
 
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -36,6 +38,9 @@ use function usleep;
  *   another run reaches it, nor any the command withholds, such as a
  *   credential of the CI: the project's tests, and every mutant of its code,
  *   run in it. What the command sets, it gets.
+ * - Where the command scans a memory cap's directory, its PHP processes scan
+ *   it after the directories the inherited `PHP_INI_SCAN_DIR` names, or
+ *   PHP's own where it names none (ADR-0004, decision 9).
  * - At its deadline it is stopped, and so is every process it started.
  * - A process that cannot start, or fails while running, ends as a failure,
  *   with the reason as its output.
@@ -57,7 +62,12 @@ final readonly class ProcessShell implements Shell
         $process = new Process(
             $command->arguments(),
             $this->directory,
-            [...$this->scrubbed($command->withheld()), ...$this->unset(), ...$command->environment()],
+            [
+                ...$this->scrubbed($command->withheld()),
+                ...$this->unset(),
+                ...$command->environment(),
+                ...$this->capped($command),
+            ],
             timeout: null,
         );
 
@@ -107,6 +117,19 @@ final readonly class ProcessShell implements Shell
         $names = array_map(static fn(Variable $variable): string => $variable->value, Variable::cases());
 
         return array_fill_keys([...$names, ...WorkerVariable::names()], value: false);
+    }
+
+    /** @return array<string, string> the directories PHP scans for ini files, where the command is capped */
+    private function capped(Command $command): array
+    {
+        $directory = $command->scanned();
+        $inherited = array_key_exists(MemoryCap::SCAN_DIR, $this->inherited)
+            ? $this->inherited[MemoryCap::SCAN_DIR]
+            : false;
+
+        return $directory instanceof DiskPath
+            ? [MemoryCap::SCAN_DIR => MemoryCap::scanning($inherited, $directory->value())]
+            : [];
     }
 
     private function since(int|float $started): Seconds

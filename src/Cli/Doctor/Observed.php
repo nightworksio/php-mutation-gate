@@ -103,7 +103,8 @@ final readonly class Observed
 
     /**
      * The PHP the chosen runner starts, with the runner's own options, withholding what every run withholds and
-     * every CI's credentials, even where the config cannot be used.
+     * every CI's credentials, even where the config cannot be used. The PHPUnit runner turns opcache off on each
+     * mutant's command line.
      */
     private function phpOf(Settings|Invalid|CannotJudge $settings): RunnerPhp|CannotJudge
     {
@@ -111,11 +112,13 @@ final readonly class Observed
         $withheld = $settings instanceof Settings
             ? $chosen->withheld($settings->ci(), $settings->runner()->withhold())
             : $chosen->withheld(Ci::none(), Withheld::nothing());
-        $infection = $settings instanceof Settings
-            && $settings->runner()->choice()->use()->value() === BuiltinRunner::Infection->value;
-        $own = $infection ? OwnConfig::in($this->infectionProject()) : [];
+        $runner = $settings instanceof Settings ? $settings->runner()->choice()->use()->value() : '';
+        $own = $runner === BuiltinRunner::Infection->value ? OwnConfig::in($this->infectionProject()) : [];
+        $php = $this->php->describe($withheld, ...($own instanceof OwnConfig ? $own->phpOptions() : []));
 
-        return $this->php->describe($withheld, ...($own instanceof OwnConfig ? $own->phpOptions() : []));
+        return $php instanceof RunnerPhp && $runner === BuiltinRunner::PhpUnit->value
+            ? $php->turningOpcacheOff()
+            : $php;
     }
 
     private function trees(Settings $settings): Trees|Invalid|CannotJudge

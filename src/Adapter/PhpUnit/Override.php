@@ -34,13 +34,20 @@ final readonly class Override
      */
     public static function writtenFor(Project $project): string|CannotJudge
     {
+        $path = self::pathIn($project);
         $script = sprintf(
             "<?php\n\ndeclare(strict_types=1);\n\n%s",
             MutantFile::registering(Variable::Mutant->value, Variable::Mutated->value, Variable::Guard->value),
         );
 
-        return preg_match(self::INI_SYNTAX, $project->own(self::SCRIPT)) === 1
-            ? CannotJudge::because(sprintf(self::UNPREPENDABLE, $project->own(self::SCRIPT)))
+        return preg_match(self::INI_SYNTAX, $path) === 1
+            ? CannotJudge::because(sprintf(self::UNPREPENDABLE, $path))
             : $project->written(self::SCRIPT, $script);
+    }
+
+    /** Where the script is, in the adapter's directory of a project, written or not. */
+    public static function pathIn(Project $project): string
+    {
+        return $project->own(self::SCRIPT);
     }
 }

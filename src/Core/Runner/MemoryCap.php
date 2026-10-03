@@ -36,6 +36,12 @@ final readonly class MemoryCap
     /** Where the ini file is written before it is moved into place, whole, beside it. */
     public const string STAGED = 'memory-cap.ini.staged';
 
+    /**
+     * The cap's directory among a runner's own files, by the id of the gate's
+     * process, so two runs in one checkout never share it.
+     */
+    public const string DIRECTORY = 'php/%d';
+
     /** PHP's shorthand for an amount of memory, its unit in either case. */
     private const string SHORTHAND = '/\A(?<number>[1-9]\d*)(?<unit>[KMG]?)\z/i';
 

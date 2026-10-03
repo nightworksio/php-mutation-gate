@@ -55,10 +55,12 @@ use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 // in src/Held.php one held by the group holds:src/Held.php. Each runs against
 // the fake (RunnerFake) and against every adapter whose runner is installed:
 // the Pest adapter (Pest) once the runner contracts job has installed the
-// library, and the Infection adapter (Infection) once its job has installed
-// infection-fixture/, the same code tested by PHPUnit. Each library also
-// holds its runner's own ignore marker in marked/Marked.php. The runs are
-// real, so each request runs once per library.
+// library, the Infection adapter (Infection) once its job has installed
+// infection-fixture/, the same code tested by PHPUnit, and the PHPUnit runner
+// (PhpUnit) once its steps have installed phpunit-fixture/, whose library/
+// holds the same code tested by PHPUnit. The Pest and Infection libraries also
+// hold their runner's own ignore marker in marked/Marked.php; the PHPUnit
+// runner has none. The runs are real, so each request runs once per library.
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -72,6 +74,10 @@ if (Library::isInstalled()) {
 
 if (Library::isInfectionInstalled()) {
     $libraries['infection'] = fn(): Library => Library::infection(Seconds::of(10.0));
+}
+
+if (Library::isPhpUnitInstalled()) {
+    $libraries['phpunit'] = fn(): Library => Library::phpunit();
 }
 
 /**
@@ -163,6 +169,19 @@ it('reports a killed, a survived, an uncovered and a timed-out mutant', function
         ->and($result instanceof MutationResult ? Library::records($result->mutants()) : [])
         ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'));
 })->with($libraries);
+
+// PHPUnit fails a run for an option it deprecates only where the project's
+// config fails on its own deprecations. The phpunit library's does, so a
+// runner that passed one would kill the mutant its tests let survive.
+it('lets a mutant survive in a project that fails on PHPUnit\'s own deprecations', function () use ($money): void {
+    $config = (string) file_get_contents(Tree::at(sprintf('%s/phpunit.xml', Library::PHPUNIT_DIRECTORY)));
+    $library = Library::phpunit();
+    $result = $money($library);
+
+    expect($config)->toContain('failOnPhpunitDeprecation="true"')
+        ->and($result instanceof MutationResult ? Library::records($result->mutants()) : [])
+        ->toContain(...$library->expected('large'));
+})->skip(! Library::isPhpUnitInstalled(), 'the PHPUnit runner contracts steps install its library');
 
 it('measures each mutant it ran, and gives a timed-out one its limit', function (Library $library) use ($money): void {
     $result = $money($library);
@@ -288,7 +307,7 @@ it('reproduces a survivor on its own, matched back by the gate\'s id, with what 
 
     expect($reproduced)->toHaveCount(1)
         ->and($reproduced[0] instanceof Reproduction && $reproduced[0]->mutant() instanceof Mutant ? Library::records(Mutants::of($reproduced[0]->mutant())) : $reproduced)->toBe(Library::records($survivors))
-        ->and($reproduced[0] instanceof Reproduction ? $reproduced[0]->printed() : '')->toContain('src/Money.php');
+        ->and($reproduced[0] instanceof Reproduction ? $reproduced[0]->printed() : '')->toContain($library->prints());
 })->with($libraries);
 
 it('reproduces a mutant by the tests that judged its unit, and says the run made none where it no longer makes it', function (Library $library) use ($money): void {
@@ -369,7 +388,7 @@ it('finds its runner\'s own ignore marker, and none in code without one', functi
         ? array_map(static fn(Marker $marker): string => $marker->where(), iterator_to_array($found, preserve_keys: false))
         : [];
 
-    expect($where)->toBe([Library::MARKER])
+    expect($where)->toBe($library->markers())
         ->and($none instanceof Markers ? count($none) : -1)->toBe(0);
 })->with($libraries);
 

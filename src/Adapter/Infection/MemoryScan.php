@@ -29,9 +29,6 @@ use function sprintf;
  */
 final readonly class MemoryScan
 {
-    /** In Infection's own directory, by the id of the gate's process. */
-    private const string DIRECTORY = 'php/%d';
-
     private function __construct(private DiskPath|Uncapped $directory, private CapFiles $files)
     {
     }
@@ -39,7 +36,7 @@ final readonly class MemoryScan
     /** The directory this process of the gate writes the cap of a run to. */
     public static function directoryIn(Project $project): string
     {
-        return $project->own(sprintf(self::DIRECTORY, getmypid()));
+        return $project->own(sprintf(MemoryCap::DIRECTORY, getmypid()));
     }
 
     /** The cap written into Infection's own directory, or none where it caps nothing; or why it cannot be written. */

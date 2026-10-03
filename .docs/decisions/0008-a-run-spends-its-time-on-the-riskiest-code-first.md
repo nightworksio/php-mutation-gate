@@ -157,6 +157,11 @@ presets for Laravel, Symfony and plain libraries.
      own time, and `timeouts.seconds`: an integer, 10 by default as Infection's
      own, and 30 in the Laravel and Symfony presets. A mutant whose covering
      tests take at least `timeouts.seconds` is skipped, never run.
+   - **The PHPUnit runner's** is the same rule, `Core\Runner\MutantLimit`'s
+     standard one: the smaller of 5 s plus five times the covering tests' own
+     time, as the coverage map timed them, and `timeouts.seconds`. Where the
+     map did not time a covering test, it is `timeouts.seconds`. It skips no
+     mutant.
 
    For every timed-out or skipped mutant the gate works out the limit that
    applied to it, and compares its judging tests' own time with it (ADR-0004,

@@ -16,6 +16,9 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  */
 final readonly class CoverageRun
 {
+    /** The directory, among a runner adapter's own files, that its own coverage run for a mutation run writes to. */
+    public const string OWN_DIRECTORY = 'coverage';
+
     private function __construct(
         private WholeSuite|Group|Filter $tests,
         private Path $directory,
