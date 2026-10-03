@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
+use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
@@ -96,6 +97,22 @@ it('takes the new-code sets, the reach, the warnings and the failures, each with
         ->and($again->failures())->toBe($failures)
         ->and($again->trees())->toEqual(TreeVerdicts::of($passed));
 });
+
+it('shows the trees it does not hold, and fails on its new code and the failures no floor decides', function (
+    NewCodeVerdicts $newCode,
+    Failures $failures,
+    Judgement $whole,
+) use ($failed): void {
+    $verdict = Verdict::of(TreeVerdicts::of($failed), HeldTo::NewCode)->withNewCode($newCode)->withFailures($failures);
+
+    expect($verdict->judgement())->toBe($whole)
+        ->and($verdict->cutShort()->judgement())->toBe($whole)
+        ->and($verdict->trees())->toEqual(TreeVerdicts::of($failed));
+})->with([
+    'its new code passed' => [NewCodeVerdicts::of($newCode(MutantJudgement::Killed)), Failures::none(), Judgement::Passed],
+    'its new code failed' => [NewCodeVerdicts::of($newCode(MutantJudgement::Survived)), Failures::none(), Judgement::Failed],
+    'a failure no floor decides' => [NewCodeVerdicts::none(), Failures::of(Failure::that('A stale ignore.')), Judgement::Failed],
+]);
 
 it('carries a kill matrix, one of first killers with no coverage until the run gives one', function () use ($passed): void {
     $matrix = KillMatrix::of(MatrixKind::Full, CoverageMap::empty());

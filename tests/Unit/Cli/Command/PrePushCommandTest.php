@@ -3,10 +3,15 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Command\PrePushCommand;
+use NightWorksIO\MutationGate\Cli\Command\RunCommand;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Change;
+use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Report\Problems;
@@ -14,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
@@ -117,6 +123,36 @@ it('prints neither the score change nor what judges the rest as problems for an 
         ->and($ran->output)->toStartWith(sprintf("%s\n", Problems::JUDGING))
         ->and($ran->output)->not->toContain('More time judges what the budget left')
         ->and($ran->output)->not->toContain('not measured yet');
+});
+
+it('holds the new code to its floor, as a pull request is held, where a run since the same base is not', function () use (
+    $floored,
+    $pushed,
+): void {
+    $project = FlowCommands::project();
+    $changed = new ChangeSourceFake(
+        Revision::ref('base'),
+        Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(16), Line::of(21)))),
+        [Revision::workingTree()->name() => Flows::FILES, 'base' => Flows::FILES, Flows::MAIN => Flows::FILES],
+    );
+    $composition = FlowCommands::reading(
+        $floored(40.0),
+        $project,
+        ScriptedRunner::fixture(),
+        new ProofStoreFake(),
+        Flows::ci(),
+        Variables::of([]),
+        RepositoryFake::onMain(Revision::ref(Flows::HEAD)),
+        $changed,
+    );
+
+    $pushedRun = FlowCommands::handed(PrePushCommand::command($composition), $pushed());
+    $run = FlowCommands::run(RunCommand::command($composition), '--changed-since=base');
+
+    expect($pushedRun->code)->toBe(1)
+        ->and($pushedRun->output)->toContain("New code\n")
+        ->and($run->code)->toBe(0)
+        ->and($run->output)->not->toContain("New code\n");
 });
 
 it('judges once for each base the pushed refs are read since', function () use ($composed, $pushed): void {

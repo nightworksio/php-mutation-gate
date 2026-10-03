@@ -113,13 +113,31 @@ final readonly class FlowCommands
         Variables $environment,
         Repository $repository,
     ): Composition {
+        return self::reading($trees, $project, $runner, $proofs, $ci, $environment, $repository, Flows::checkout());
+    }
+
+    /**
+     * How the command line composes a flow as {@see checkedOut()} does,
+     * reading what the working tree holds and what changed from this change
+     * source.
+     */
+    public static function reading(
+        Trees $trees,
+        string $project,
+        Runner $runner,
+        ProofStore $proofs,
+        CiPlan $ci,
+        Variables $environment,
+        Repository $repository,
+        ChangeSource $changes,
+    ): Composition {
         $registry = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))
             ->withRunner(Name::of('fake'), static fn(): Runner => $runner)
             ->withTreeSource(Name::of('phpunit'), static fn(): TreeSource => new TreeSourceFake($trees))
             ->withProofStore(Name::of('directory'), static fn(): ProofStore => $proofs)
             ->withCostModel(Name::of('learned'), static fn(): CostModel => new CostModelFake(Seconds::of(1.0)))
             ->withCiPlan(Name::of('json'), static fn(): CiPlan => $ci, Withheld::nothing(), CiMarker::none())
-            ->withChangeSource(Name::of('git'), static fn(): ChangeSource => Flows::checkout())
+            ->withChangeSource(Name::of('git'), static fn(): ChangeSource => $changes)
             ->withRepository(Name::of('git'), static fn(): Repository => $repository);
         $vendor = sprintf('%s/vendor', $project);
         $detected = new Detected(Directory::at($project), Directory::at($vendor));

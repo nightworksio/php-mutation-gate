@@ -16,7 +16,9 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 
 use function sprintf;
 
@@ -73,13 +75,21 @@ final readonly class VerdictCommand
         return $plan instanceof Missing ? CannotJudge::because(sprintf(self::NO_PLAN, $file->value())) : $plan;
     }
 
-    /** A plan's results judged, with what was written, or why they cannot be. */
-    public static function judgedOf(Composed $composed, Plan $plan, Path $results): Judged|Invalid|CannotJudge
-    {
+    /**
+     * A plan's results judged, held to the floors a command names or, where
+     * it names none, to those its run decides, with what was written, or why
+     * they cannot be.
+     */
+    public static function judgedOf(
+        Composed $composed,
+        Plan $plan,
+        Path $results,
+        HeldTo|NotGiven $heldTo = new NotGiven(),
+    ): Judged|Invalid|CannotJudge {
         $read = Results::read($plan, $results, $composed->adapters->project);
 
         return $read instanceof Results
-            ? new Judging($composed->adapters, $composed->settings, $composed->setup, $composed->reporting)
+            ? new Judging($composed->adapters, $composed->settings, $composed->setup, $composed->reporting, $heldTo)
                 ->verdict($plan, $read)
             : $read;
     }
