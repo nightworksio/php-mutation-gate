@@ -204,6 +204,20 @@ it('cannot tell anything outside a repository', function (): void {
         ->and(Git::at($directory)->unstaged())->toBeInstanceOf(CannotTell::class);
 });
 
+it('never counts what the gate keeps in its own workspace as a change', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $repository->git('tag', 'base');
+    $repository->write('.mutation-gate/plan.json', '{}')
+        ->write('.mutation-gate/workflow/src/Gate.php', "<?php\n")
+        ->write('src/B.php', "<?php\n");
+    $git = Git::at($repository->root);
+    $fingerprints = $git->fingerprints();
+
+    expect(array_keys(changesByPath($git->changesSince(Revision::ref('base')))))->toBe(['src/B.php'])
+        ->and($git->unstaged())->toEqual(Paths::of(Path::of('src/B.php')))
+        ->and($fingerprints instanceof Fingerprints ? $fingerprints->count() : 0)->toBe(2);
+});
+
 it('names a staged file as unstaged only once it changes again, and an ignored one never', function (): void {
     $repository = Repository::empty()->write('.gitignore', "ignored.php\n")->write('src/A.php', "<?php\n")->commit('The base.');
     $repository->write('src/A.php', "<?php\n// staged\n")->write('ignored.php', '')->git('add', 'src/A.php');

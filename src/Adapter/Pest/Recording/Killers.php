@@ -20,9 +20,11 @@ use PHPUnit\Event\UnknownSubscriberTypeException;
 /**
  * What the Pest plugin writes in a mutant's own process: whether the process
  * had loaded the original file before the mutant was in its place, and each
- * test that fails or errors there, with the mutated copy Pest serves, one
- * JSON line at a time in the results file the process inherits. Pest stops the process at the
- * first, so the first line a mutant has names the test that killed it. It
+ * test that fails or errors there, one line at a time in the mutant's own
+ * killer file beside the results file the process inherits, which Pest's own
+ * process takes once the mutant has ended (see KillerFile). Pest stops the
+ * process at the first, so the first test a mutant has names the one that
+ * killed it. It
  * logs PHP's errors in that process to a file of the mutant's own, which the
  * recorder reads for a fatal error Pest's own handling would lose, such as
  * running out of memory (ADR-0004, decision 9). A test or config that sets
@@ -73,7 +75,7 @@ final readonly class Killers
         $killers = new self($results, $mutated);
 
         if (is_string($original) && $loaded->has($original)) {
-            file_put_contents($results, RecordLine::preloaded($mutated), FILE_APPEND | LOCK_EX);
+            $killers->append(KillerFile::preloaded());
         }
 
         try {
@@ -90,13 +92,24 @@ final readonly class Killers
     /** Writes a test that failed an assertion, by its id, as the coverage map names it. */
     public function killedBy(string $test): void
     {
-        file_put_contents($this->results, RecordLine::killed($this->mutated, $test), FILE_APPEND | LOCK_EX);
+        $this->write(RecordEvent::Killed, $test);
     }
 
     /** Writes a test that errored, by its id, as the coverage map names it. */
     public function erroredBy(string $test): void
     {
-        file_put_contents($this->results, RecordLine::errored($this->mutated, $test), FILE_APPEND | LOCK_EX);
+        $this->write(RecordEvent::Errored, $test);
+    }
+
+    /** Writes a test to the mutant's killer file, by the record Pest's own process writes for it. */
+    private function write(RecordEvent $event, string $test): void
+    {
+        $this->append(KillerFile::line($event, $test));
+    }
+
+    private function append(string $line): void
+    {
+        file_put_contents(KillerFile::beside($this->results, $this->mutated), $line, FILE_APPEND | LOCK_EX);
     }
 
     /**

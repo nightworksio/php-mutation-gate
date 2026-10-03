@@ -23,8 +23,9 @@ use function str_replace;
 
 /**
  * The environment variables a runner never hands the project's tests, and
- * so never any mutant of them: the CI's credentials, each a name or a glob
- * whose `*` stands for any run of characters. It only ever grows.
+ * so never any mutant of them: the CI's credentials and the secrets the gate
+ * itself reads, each a name or a glob whose `*` stands for any run of
+ * characters. It only ever grows.
  *
  * @implements IteratorAggregate<int, string>
  */
@@ -69,10 +70,13 @@ final readonly class Withheld implements IteratorAggregate
     {
     }
 
-    /** What every run withholds, whatever the CI and the config. */
+    /** What every run withholds, whatever the CI and the config: those, and every secret the gate reads. */
     public static function standard(): self
     {
-        return new self(self::STANDARD);
+        return new self([
+            ...self::STANDARD,
+            ...array_map(static fn(GateSecret $secret): string => $secret->value, GateSecret::cases()),
+        ]);
     }
 
     /**

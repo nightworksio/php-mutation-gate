@@ -1,0 +1,498 @@
+name: mutation-gate
+
+# The sharded gate, called with workflow_call: a plan job, one job per shard, a
+# verdict job, which is the check a branch protects, and on the default branch
+# a job that publishes the badge and trend (ADR-0011, decision 8).
+#
+# The shard jobs run the action from this workflow's own commit, which each
+# checks out at job.workflow_sha, so the workflow and the action are always
+# one version.
+#
+# A calling job grants what its called jobs ask for, or the run does not
+# start: contents: write (publish, which runs on the default branch only),
+# actions: read and pull-requests: write.
+
+on:
+  workflow_call:
+    inputs:
+      config:
+        description: The config file, where the gate should not look for one.
+        type: string
+        default: ''
+      php-version:
+        description: The PHP version to set up.
+        type: string
+        default: '8.5'
+      runner:
+        description: pest, infection or a registered runner's name; the config's, or zero-config's, where empty.
+        type: string
+        default: ''
+      mode:
+        description: auto, full or changed.
+        type: string
+        default: auto
+      changed-since:
+        description: A git ref, or last-passed; where empty, the pull request's base on pull_request, the default branch on another branch, and last-passed on the default branch.
+        type: string
+        default: ''
+      budget:
+        description: How long the run may take, such as 15m or 1h30m.
+        type: string
+        default: ''
+      reports:
+        description: '<name>:<path> lines, each added as --report.'
+        type: string
+        default: ''
+      cache:
+        description: Keep the proof ledger in the Actions cache.
+        type: boolean
+        default: true
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        required: false
+      AWS_SESSION_TOKEN:
+        required: false
+      MUTATION_GATE_SLACK_URL:
+        required: false
+      MUTATION_GATE_DISCORD_URL:
+        required: false
+      MUTATION_GATE_WEBHOOK_URL:
+        required: false
+      MUTATION_GATE_WEBHOOK_SECRET:
+        required: false
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
+    outputs:
+      verdict:
+        description: passed, failed or cannot-judge.
+        value: ${{ jobs.verdict.outputs.verdict }}
+      scores:
+        description: 'JSON: each tree''s score, and the new code''s.'
+        value: ${{ jobs.verdict.outputs.scores }}
+      plan:
+        description: 'JSON: the plan, as plan --ci=json prints it.'
+        value: ${{ jobs.plan.outputs.plan }}
+
+permissions: {}
+
+env:
+  # The directory each job checks this workflow's own repository out into, at
+  # the commit it was called at: under .mutation-gate, which the gate leaves
+  # out of every change and every proof key.
+  GATE_ACTION: .mutation-gate/workflow
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # The GitHub ChangeSource reads workflow runs and pull requests to prove
+    # that a merged pull request's run passed (ADR-0005).
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+      plan: ${{ steps.plan.outputs.plan }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: ${{ env.GATE_ACTION }}
+          persist-credentials: false
+      - name: Refuse an event the gate never runs under
+        run: python3 "${GATE_ACTION}/.github/scripts/gate_action.py" guard
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ inputs.php-version }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - name: Resolve the run
+        id: resolve
+        env:
+          MODE: ${{ inputs.mode }}
+          CHANGED_SINCE: ${{ inputs.changed-since }}
+          CONFIG: ${{ inputs.config }}
+          RUNNER: ${{ inputs.runner }}
+          BUDGET: ${{ inputs.budget }}
+          REPORTS: ${{ inputs.reports }}
+          CACHE: ${{ inputs.cache }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEFAULT_BRANCH}" ]; then
+            DEFAULT_BRANCH="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
+            export DEFAULT_BRANCH
+          fi
+          python3 "${GATE_ACTION}/.github/scripts/gate_action.py" resolve
+      - name: Read the effective config
+        id: config
+        env:
+          GATE: ${{ steps.resolve.outputs.gate }}
+          OPTIONS: ${{ steps.resolve.outputs.options }}
+          CACHE: ${{ inputs.cache }}
+        run: |
+          set -euo pipefail
+          mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          "${GATE}" config:show --format=json "${arguments[@]}" \
+            | python3 "${GATE_ACTION}/.github/scripts/gate_action.py" config
+      - name: Restore this scope's ledger
+        if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.resolve.outputs.own_dir }}
+          key: ${{ steps.resolve.outputs.own_prefix }}${{ github.run_id }}
+          restore-keys: ${{ steps.resolve.outputs.own_prefix }}
+      - name: Restore the default branch's ledger
+        if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.default_dir != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.resolve.outputs.default_dir }}
+          key: ${{ steps.resolve.outputs.default_prefix }}${{ github.run_id }}
+          restore-keys: ${{ steps.resolve.outputs.default_prefix }}
+      # Each secret reaches only the step that uses it, never Composer's
+      # scripts, the config or the project's tests: the plan and the verdict
+      # read the proof store, and the verdict alone traces and alerts.
+      - name: Plan
+        id: plan
+        env:
+          GATE: ${{ steps.resolve.outputs.gate }}
+          OPTIONS: ${{ steps.resolve.outputs.plan_options }}
+          GITHUB_TOKEN: ${{ github.token }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+        run: |
+          set -euo pipefail
+          mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          "${GATE}" plan --ci=github "${arguments[@]}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-gate-plan
+          path: .mutation-gate/plan.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+      # One artifact of the plan's whole coverage map and every shard's: each
+      # shard keeps its own, which holds only the lines of that shard's files,
+      # and the whole map, which its runner reads only to find the tests that
+      # run a line reading a mutated value (ADR-0006). The runner's own files
+      # beside them are this job's, and stay here.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-gate-coverage
+          path: |
+            .mutation-gate/coverage/
+            !.mutation-gate/coverage/*.php
+            !.mutation-gate/coverage/*.xml
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 1
+
+  shard:
+    name: shard ${{ matrix.shard.id }} (${{ matrix.shard.label }})
+    needs: plan
+    if: needs.plan.outputs.shards != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: ${{ env.GATE_ACTION }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: mutation-gate-plan
+          path: .mutation-gate
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: mutation-gate-coverage
+          path: .mutation-gate/coverage
+      - name: Keep only this shard's coverage map and the whole map
+        env:
+          SHARD: ${{ matrix.shard.id }}
+        run: |
+          set -euo pipefail
+          find .mutation-gate/coverage -mindepth 1 -maxdepth 1 -type d ! -name "shard-${SHARD}" -exec rm -rf {} +
+      # The action as this workflow's own commit holds it, checked out above
+      # into the caller's workspace: `$/` would name the caller's repository.
+      - uses: ./.mutation-gate/workflow # zizmor: ignore[self-repository]
+        with:
+          config: ${{ inputs.config }}
+          php-version: ${{ inputs.php-version }}
+          runner: ${{ inputs.runner }}
+          shard: ${{ matrix.shard.id }}
+          mode: ${{ inputs.mode }}
+          changed-since: ${{ inputs.changed-since }}
+          budget: ${{ inputs.budget }}
+          reports: ${{ inputs.reports }}
+          cache: ${{ inputs.cache }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: mutation-gate-result-${{ matrix.shard.id }}
+          path: .mutation-gate/results/${{ matrix.shard.id }}.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # The check a branch protects, shown as `<calling job> / verdict`. It runs
+  # whenever the run was not cancelled, whatever the plan and the shards did:
+  # GitHub passes a required check that was skipped. A plan that could not
+  # judge makes it cannot-judge, and so does a shard that left no result.
+  verdict:
+    name: verdict
+    needs: [plan, shard]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    outputs:
+      verdict: ${{ steps.outputs.outputs.verdict || steps.unplanned.outputs.verdict }}
+      scores: ${{ steps.outputs.outputs.scores }}
+    steps:
+      - name: Refuse a run whose plan could not judge
+        id: unplanned
+        if: needs.plan.result != 'success'
+        env:
+          PLAN: ${{ needs.plan.result }}
+        run: |
+          echo "verdict=cannot-judge" >> "${GITHUB_OUTPUT}"
+          echo "::error::The plan job ended ${PLAN}, so there is nothing to judge: the gate cannot judge this run. See the plan job."
+          exit 2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: ${{ env.GATE_ACTION }}
+          persist-credentials: false
+      - name: Refuse an event the gate never runs under
+        run: python3 "${GATE_ACTION}/.github/scripts/gate_action.py" guard
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ inputs.php-version }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - name: Resolve the run
+        id: resolve
+        env:
+          MODE: ${{ inputs.mode }}
+          CHANGED_SINCE: ${{ inputs.changed-since }}
+          CONFIG: ${{ inputs.config }}
+          RUNNER: ${{ inputs.runner }}
+          BUDGET: ${{ inputs.budget }}
+          REPORTS: ${{ inputs.reports }}
+          CACHE: ${{ inputs.cache }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEFAULT_BRANCH}" ]; then
+            DEFAULT_BRANCH="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
+            export DEFAULT_BRANCH
+          fi
+          python3 "${GATE_ACTION}/.github/scripts/gate_action.py" resolve
+      - name: Read the effective config
+        id: config
+        env:
+          GATE: ${{ steps.resolve.outputs.gate }}
+          OPTIONS: ${{ steps.resolve.outputs.options }}
+          CACHE: ${{ inputs.cache }}
+        run: |
+          set -euo pipefail
+          mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          "${GATE}" config:show --format=json "${arguments[@]}" \
+            | python3 "${GATE_ACTION}/.github/scripts/gate_action.py" config
+      - name: Restore this scope's ledger
+        if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.resolve.outputs.own_dir }}
+          key: ${{ steps.resolve.outputs.own_prefix }}${{ github.run_id }}
+          restore-keys: ${{ steps.resolve.outputs.own_prefix }}
+      - name: Restore the default branch's ledger
+        if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.default_dir != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.resolve.outputs.default_dir }}
+          key: ${{ steps.resolve.outputs.default_prefix }}${{ github.run_id }}
+          restore-keys: ${{ steps.resolve.outputs.default_prefix }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: mutation-gate-plan
+          path: .mutation-gate
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: mutation-gate-result-*
+          path: .mutation-gate/results
+          merge-multiple: true
+      # Every map the plan wrote: the verdict builds the kill matrix over its
+      # own, the lines of every unit the plan considered, and learns each
+      # shard's timings by the map that shard was handed. A plan that wrote
+      # none uploaded none, and the pattern then downloads nothing.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: mutation-gate-coverage
+          path: .mutation-gate/coverage
+          merge-multiple: true
+      # The trend appends to what was published last time (ADR-0009, decision 5).
+      - name: Restore what was published last time
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .mutation-gate/publish
+          for file in badge.json trend.json trend.svg savings.json; do
+            gh api "repos/${GITHUB_REPOSITORY}/contents/${file}?ref=mutation-gate" \
+              -H 'Accept: application/vnd.github.raw' > ".mutation-gate/publish/${file}" 2>/dev/null \
+              || rm -f ".mutation-gate/publish/${file}"
+          done
+      - name: Verdict
+        id: verdict
+        env:
+          GATE: ${{ steps.resolve.outputs.gate }}
+          OPTIONS: ${{ steps.resolve.outputs.options }}
+          GITHUB_TOKEN: ${{ github.token }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          MUTATION_GATE_SLACK_URL: ${{ secrets.MUTATION_GATE_SLACK_URL }}
+          MUTATION_GATE_DISCORD_URL: ${{ secrets.MUTATION_GATE_DISCORD_URL }}
+          MUTATION_GATE_WEBHOOK_URL: ${{ secrets.MUTATION_GATE_WEBHOOK_URL }}
+          MUTATION_GATE_WEBHOOK_SECRET: ${{ secrets.MUTATION_GATE_WEBHOOK_SECRET }}
+          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+        run: |
+          set -uo pipefail
+          code=0
+          mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
+            --report=json:.mutation-gate/action/report.json "${arguments[@]}" || code=$?
+          echo "code=${code}" >> "${GITHUB_OUTPUT}"
+      - name: Save this scope's ledger
+        if: >-
+          steps.resolve.outputs.save == 'true' && steps.config.outputs.default_store == 'true'
+          && steps.verdict.outputs.code != ''
+          && hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir)) != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.resolve.outputs.own_dir }}
+          key: ${{ steps.resolve.outputs.own_prefix }}${{ hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir)) }}
+      - name: Say what the gate decided
+        id: outputs
+        env:
+          EXIT_CODE: ${{ steps.verdict.outputs.code || '2' }}
+          REPORT: .mutation-gate/action/report.json
+          REPORTS: ${{ inputs.reports }}
+          PLAN: ''
+        run: python3 "${GATE_ACTION}/.github/scripts/gate_action.py" outputs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() && steps.outputs.outputs.report_files != '' }}
+        with:
+          name: mutation-gate-reports
+          path: ${{ steps.outputs.outputs.report_files }}
+          include-hidden-files: true
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: mutation-gate-publish
+          path: .mutation-gate/publish
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 1
+      - name: Fail unless the gate passed
+        env:
+          CODE: ${{ steps.verdict.outputs.code || '2' }}
+        run: exit "${CODE}"
+
+  # The badge and the trend, pushed through the contents API to the branch
+  # `mutation-gate` with this job's own token, so GitHub signs each commit. It
+  # runs only for the default branch itself, and it is the only job that may
+  # write (ADR-0009, decision 5).
+  publish:
+    name: publish
+    needs: [plan, verdict]
+    if: >-
+      ${{ !cancelled() && needs.plan.result == 'success' && needs.verdict.outputs.verdict != ''
+      && contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name)
+      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: mutation-gate-publish
+          path: publish
+      # The first publish makes the branch: an orphan commit that holds the
+      # files and nothing else. Every later one puts each changed file through
+      # the contents API.
+      - name: Publish the badge and the trend
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(publish/*)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "The verdict wrote nothing to publish."
+            exit 0
+          fi
+          repository="repos/${GITHUB_REPOSITORY}"
+          if ! gh api "${repository}/branches/mutation-gate" --silent 2>/dev/null; then
+            for path in "${files[@]}"; do
+              jq -n --arg path "$(basename "${path}")" --rawfile content "${path}" \
+                '{path: $path, mode: "100644", type: "blob", content: $content}'
+            done | jq -s '{tree: .}' > "${RUNNER_TEMP}/tree.json"
+            tree="$(gh api "${repository}/git/trees" --input "${RUNNER_TEMP}/tree.json" --jq .sha)"
+            commit="$(jq -n --arg tree "${tree}" '{message: "chore: publish the mutation score", tree: $tree, parents: []}' \
+              | gh api "${repository}/git/commits" --input - --jq .sha)"
+            gh api "${repository}/git/refs" -f ref=refs/heads/mutation-gate -f sha="${commit}" --silent
+            exit 0
+          fi
+          for path in "${files[@]}"; do
+            file="$(basename "${path}")"
+            published="$(gh api "${repository}/contents/${file}?ref=mutation-gate" --jq .sha 2>/dev/null || true)"
+            if [ "${published}" = "$(git hash-object "${path}")" ]; then
+              continue
+            fi
+            sha=()
+            if [ -n "${published}" ]; then sha=(-f "sha=${published}"); fi
+            gh api --method PUT "${repository}/contents/${file}" \
+              -f message="chore: publish the mutation score" \
+              -f branch=mutation-gate \
+              -f content="$(base64 -w0 "${path}")" \
+              "${sha[@]}" --silent
+          done

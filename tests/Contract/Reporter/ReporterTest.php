@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -67,7 +68,7 @@ $alerting = static fn(Channel $channel): Reporter => AlertReporter::to(
     Delivery::over(new MockHttpClient([new MockResponse('ok')]), new StoppedClock('2026-09-30T12:00:00Z'), Pause::for(...)),
     new StoppedClock('2026-09-30T12:00:00Z'),
     $channel->urlEnv(),
-    AlertReporter::SECRET_ENV,
+    GateSecret::WebhookSecret->value,
 );
 
 $reporters = [

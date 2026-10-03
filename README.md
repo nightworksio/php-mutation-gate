@@ -9,7 +9,7 @@
 > **In development, not yet released.** This README describes what the
 > decisions in [`.docs/decisions`](.docs/decisions/README.md) settle, and
 > nothing more. Nothing is tagged until every feature below is built, tested
-> and gated at 100%, and the first release is 1.0.0.
+> and gated at 100%, and the first release is 0.1.0.
 
 mutation-gate turns mutation testing into a CI gate for PHP projects. It
 decides:
@@ -619,7 +619,9 @@ Two things the setup relies on:
 - **The optional Pest patches.** For sharded Pest runs, enabling them
   (`pest.patch: true`, plus `@php vendor/bin/mutation-gate pest:patch` in
   `post-install-cmd` and `post-update-cmd`) lets every shard reuse the planning
-  job's coverage instead of running the whole suite again.
+  job's coverage instead of running the whole suite again. The action and the
+  reusable workflow apply the patches in their own jobs, so on GitHub the
+  Composer hook is needed only for local runs.
 
 The proof ledger's trust boundary is the store's access control. On GitHub,
 cache scoping keeps a pull request from writing what the default branch reads.
@@ -712,8 +714,9 @@ require approval before outside contributors' workflows run
 ### Use it in GitHub Actions
 
 The repository is also a GitHub Action. Pin it to a full commit SHA, with its
-tag in a comment. A release workflow moves the major tag (`v1`) to each new
-release.
+tag in a comment. Each release has its own tag, such as `v0.1.0`, and a
+release workflow moves the tag of its line, `v0.1`, to each new release of
+0.1.
 
 **One step, for most projects.** The action sets up PHP, installs your
 dependencies, keeps the proof ledger in the Actions cache and runs the whole
@@ -735,7 +738,7 @@ permissions:
 
 jobs:
   mutation:
-    name: mutation testing
+    name: mutation / verdict # the check ci.check names by default
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -746,7 +749,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: nightworksio/php-mutation-gate@<sha> # v1.0.0
+      - uses: nightworksio/php-mutation-gate@<sha> # v0.1.0
         with:
           php-version: '8.5'
 ```
@@ -758,7 +761,7 @@ jobs:
 | `runner` | the config's, or the one installed |
 | `shard` | none: the whole gate runs |
 | `mode` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed` |
-| `changed-since` | the pull request's base on `pull_request`, `last-passed` on a push to the default branch; used when the mode is change-scoped |
+| `changed-since` | the pull request's base on `pull_request`, the default branch on any other branch, `last-passed` on the default branch; used when the mode is change-scoped |
 | `budget` | none |
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
 | `cache` | `true`: keep the ledger in the Actions cache |
@@ -788,7 +791,7 @@ permissions:
 
 jobs:
   mutation:
-    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@<sha> # v1.0.0
+    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@<sha> # v0.1.0
     permissions:
       contents: write        # used only by the default-branch publish job
       actions: read
@@ -802,16 +805,26 @@ It takes the action's inputs less `shard`, and the optional secrets
 proof store, `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`,
 `MUTATION_GATE_WEBHOOK_URL` and `MUTATION_GATE_WEBHOOK_SECRET` for chat alerts,
 and `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` for
-OpenTelemetry. Its outputs are `verdict`, `scores` and `plan`, and it uploads the
-reports as the artifact `mutation-gate-reports`, and a baseline measured for
-trees with no floor as `mutation-gate-baseline`.
+OpenTelemetry. Each reaches only the step that uses it: the store's keys the
+plan and the verdict, the others the verdict. Its outputs are `verdict`,
+`scores` and `plan`, and it uploads the reports as the artifact
+`mutation-gate-reports`.
+
+The reusable workflow reaches S3 with those key secrets only. To assume an AWS
+role through OIDC instead, call the one-step action in a job of your own: give
+that job `id-token: write`, add `aws-actions/configure-aws-credentials` before
+the action, and trust the role as described above: an environment only the
+default branch may deploy to, or the job's `job_workflow_ref`.
 
 Here is what the examples rely on:
 
-- **Branch protection** should require the verdict's check. In the one-step
-  example it is `mutation testing`. With the reusable workflow it is the
-  `verdict` job, shown as `mutation / verdict`. The verdict says *cannot
-  judge* (exit code 2) when any planned shard left no result.
+- **Branch protection** should require the verdict's check, `mutation /
+  verdict` in both examples: the one-step job is named so, and the reusable
+  workflow's `verdict` job shows as `<calling job> / verdict`. It is also
+  `ci.check`'s default, the check through which a merged pull request's
+  verdict proves its commit; a job named otherwise needs `ci.check` set to its
+  name. The verdict says *cannot judge* (exit code 2) when the plan could not
+  judge, or when any planned shard left no result.
 - **The schedule** is the full run, twice a week.
 - **The badge and trend** are published to a `mutation-gate` branch:
 
