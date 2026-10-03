@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
+use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -54,7 +55,7 @@ final readonly class Stubbing
     }
 
     /** The stub for the mutant or cluster an id names, in the style asked for or followed; or why there is none. */
-    public function stub(IdPrefix $sought, AssertionStyle|Absent $asked): Stub|NoRecord|Ambiguous|CannotJudge
+    public function stub(IdPrefix|ClusterId $sought, AssertionStyle|Absent $asked): Stub|NoRecord|Ambiguous|CannotJudge
     {
         $explained = new Explaining($this->composed)->explain($sought);
 

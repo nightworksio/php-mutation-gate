@@ -12,9 +12,9 @@ use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Stubbing;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Proof\Ambiguous;
 use NightWorksIO\MutationGate\Core\Proof\NoRecord;
 use NightWorksIO\MutationGate\Core\Stub\Stub;
@@ -63,7 +63,7 @@ final readonly class StubCommand
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $composed = $composition->compose($input);
                 $id = $input->getArgument('id');
-                $sought = IdPrefix::parse(is_string($id) ? $id : '');
+                $sought = ClusterId::orMutant(is_string($id) ? $id : '');
                 $style = self::style($input);
 
                 return match (true) {
