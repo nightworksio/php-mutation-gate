@@ -503,6 +503,7 @@ services:
                 - src/Cli/CommandLine.php
                 - src/Adapter/Infection/RelaxedJson.php
                 - tests/Support/Bucket.php
+                - tests/Support/Cloud.php # Symfony's MockHttpClient hands a responder request options untyped
                 - tests/Support/Commands.php
                 - tests/Support/CountingClient.php # Symfony's HttpClientInterface takes request options untyped
                 - tests/Support/PhpstanNeon.php

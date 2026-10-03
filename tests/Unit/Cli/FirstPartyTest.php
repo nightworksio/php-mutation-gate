@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
+use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\BitbucketPlan;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
@@ -18,6 +19,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
+use NightWorksIO\MutationGate\Adapter\Gcs\BucketLedger as GcsBucket;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
@@ -78,6 +80,22 @@ it('is named in this package\'s own composer.json', function (): void {
 
     expect($manifest)->toMatchArray(['name' => ThisPackage::COMPOSER])
         ->toHaveKey('extra.mutation-gate.extensions.0', FirstParty::class);
+});
+
+it('registers the Cloud Storage and Azure proof stores, each read-only in a job without its credentials', function () use (
+    $registry,
+): void {
+    $stores = Builtins::stores(ProjectRoot::origin());
+    $gcs = static fn(Extensions $registered): object => Lookup::in($registered)
+        ->proofStore(Name::of('gcs'), Configs::builtin($stores, 'gcs', '{"bucket": "acme"}'));
+    $azure = static fn(Extensions $registered): object => Lookup::in($registered)
+        ->proofStore(Name::of('azure'), Configs::builtin($stores, 'azure', '{"account": "acme", "container": "ledgers"}'));
+    $tokenless = ['GOOGLE_APPLICATION_CREDENTIALS' => null, 'MUTATION_GATE_GCS_TOKEN' => null, 'MUTATION_GATE_AZURE_TOKEN' => null, 'ACTIONS_ID_TOKEN_REQUEST_URL' => null];
+
+    expect($gcs(Environment::during([...$tokenless, 'MUTATION_GATE_GCS_TOKEN' => 'ya29'], $registry)))->toBeInstanceOf(GcsBucket::class)
+        ->and($gcs(Environment::during($tokenless, $registry)))->toBeInstanceOf(PublicLedger::class)
+        ->and($azure(Environment::during([...$tokenless, 'MUTATION_GATE_AZURE_TOKEN' => 'eyJ'], $registry)))->toBeInstanceOf(ContainerLedger::class)
+        ->and($azure(Environment::during($tokenless, $registry)))->toBeInstanceOf(PublicLedger::class);
 });
 
 it('registers the directory and the bucket proof stores, the bucket read-only in a job without its keys', function () use (

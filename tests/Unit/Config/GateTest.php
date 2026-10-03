@@ -363,3 +363,27 @@ it('writes a value given empty, for the config to refuse, rather than leave it o
         'reports[0].path: expected a path, got ""',
     ]);
 });
+
+it('configures the gcs and azure stores, each option left out taking its default', function (Gate $gate, array $config): void {
+    expect(Configs::written($gate))->toBe($config);
+})->with([
+    'gcs with its defaults' => [Gate::configure()->with(Proofs::gcs('acme')), ['proofs' => ['store' => ['use' => 'gcs', 'with' => ['bucket' => 'acme']]]]],
+    'gcs with every option' => [
+        Gate::configure()->with(Proofs::gcs('acme', 'gate', 'https://storage.googleapis.com/acme')),
+        ['proofs' => ['store' => ['use' => 'gcs', 'with' => ['bucket' => 'acme', 'prefix' => 'gate', 'publicUrl' => 'https://storage.googleapis.com/acme']]]],
+    ],
+    'azure with its defaults' => [
+        Gate::configure()->with(Proofs::azure('acme', 'ledgers')),
+        ['proofs' => ['store' => ['use' => 'azure', 'with' => ['account' => 'acme', 'container' => 'ledgers']]]],
+    ],
+    'azure with every option' => [
+        Gate::configure()->with(Proofs::azure('acme', 'ledgers', 'gate', 'public', 'https://acme.blob.core.windows.net/public')),
+        ['proofs' => ['store' => ['use' => 'azure', 'with' => [
+            'account' => 'acme',
+            'container' => 'ledgers',
+            'prefix' => 'gate',
+            'publicContainer' => 'public',
+            'publicUrl' => 'https://acme.blob.core.windows.net/public',
+        ]]]],
+    ],
+]);

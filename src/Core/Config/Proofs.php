@@ -137,7 +137,7 @@ final readonly class Proofs implements Part
             : $store;
     }
 
-    /** The proof store, by `Proofs::directory()` or `Proofs::s3()` for the built-in ones. */
+    /** The proof store, by `Proofs::directory()`, `::s3()`, `::gcs()` or `::azure()` for the built-in ones. */
     private function storeCall(Choice $store): string
     {
         $options = $store->options();
@@ -153,8 +153,9 @@ final readonly class Proofs implements Part
                 'Proofs::directory(%s)',
                 PhpCalls::literals(...array_values($texts)),
             ),
-            BuiltinStore::S3->value => sprintf(
-                'Proofs::s3(%s)',
+            BuiltinStore::S3->value, BuiltinStore::Gcs->value, BuiltinStore::Azure->value => sprintf(
+                'Proofs::%s(%s)',
+                $store->use()->value(),
                 implode(
                     ', ',
                     array_map(

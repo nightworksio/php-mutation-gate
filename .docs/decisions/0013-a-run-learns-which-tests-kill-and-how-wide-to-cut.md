@@ -258,7 +258,11 @@ decides are accepted for that release too.
       store's credentials fetches `<prefix>/<scope>/ledger.json.gz` from it
       with an anonymous GET, each segment percent-encoded as S3 encodes a
       key. For S3 the credentials are `AWS_ACCESS_KEY_ID` and
-      `AWS_SECRET_ACCESS_KEY`, both set; each store declares its own. A run
+      `AWS_SECRET_ACCESS_KEY`, both set; for `gcs`,
+      `GOOGLE_APPLICATION_CREDENTIALS` or `MUTATION_GATE_GCS_TOKEN`; for
+      `azure`, GitHub's OIDC request variables with `AZURE_TENANT_ID` and
+      `AZURE_CLIENT_ID`, or `MUTATION_GATE_AZURE_TOKEN`. Each store declares
+      its own. A run
       without them sends the store no request. Without `publicUrl`, it reads
       nothing.
     - **The default branch's scope alone.** It reads the default branch's
@@ -305,7 +309,11 @@ decides are accepted for that release too.
       only for itself; library code changes no setting. Where PHP does not
       let it, `doctor` reports `memory-limit-low`.
     - **The bucket policy.** The README gives it: public `GetObject` on
-      `<prefix>/refs/heads/<default branch>/*` and nothing else.
+      `<prefix>/refs/heads/<default branch>/*` and nothing else. On Cloud
+      Storage, a managed folder at that prefix that `allUsers` may read does
+      the same; on Azure Blob Storage, the store writes the default branch's
+      scope to a container of its own at the `Blob` access level (ADR-0028
+      decision 4).
     - **Writing.** Writing still needs the credentials only default-branch
       runs hold (ADR-0007 decision 5).
 
@@ -318,7 +326,8 @@ decides are accepted for that release too.
 
 15. **A fork cannot plant a proof that anyone else trusts.** It cannot write
     the default branch's scope on any store: GitHub's cache refuses it, and
-    S3 needs credentials a fork never gets. It cannot write another pull
+    S3, Cloud Storage and Azure Blob Storage need credentials a fork never
+    gets. It cannot write another pull
     request's scope either. It can influence only its own verdict, which it
     could do anyway under `pull_request`, whose workflow comes from the pull
     request's own merge commit. A fork's verdict is therefore as trustworthy

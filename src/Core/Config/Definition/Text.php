@@ -34,6 +34,12 @@ final readonly class Text implements Shape
         return new self($what, self::ANY);
     }
 
+    /** Text this pattern matches whole, such as a name a cloud allows. */
+    public static function matching(string $what, string $pattern): self
+    {
+        return new self($what, $pattern);
+    }
+
     /** A word, such as a group name, which whitespace would split. */
     public static function word(string $what): self
     {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
@@ -35,6 +36,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
@@ -154,7 +156,8 @@ final readonly class Wiring
 
     /**
      * The store the config names; opened read-only, the default branch's scope alone, which is all a public URL
-     * serves (ADR-0013 decision 13), whether or not the CI and the repository can name that branch.
+     * serves (ADR-0013 decision 13), whether or not the CI and the repository can name that branch; an Azure
+     * container told which scope is the default branch's, which its public container keeps (ADR-0028 decision 4).
      */
     private function configured(
         Settings $settings,
@@ -169,9 +172,13 @@ final readonly class Wiring
             ...$repository instanceof Repository ? [$repository->defaultBranch()] : [],
         ];
 
-        return $store instanceof PublicLedger
-            ? $store->onlyReading(DefaultBranch::of($settings->ci()->defaultBranch(), ...$detected))
-            : $store;
+        $default = static fn(): Scope => DefaultBranch::of($settings->ci()->defaultBranch(), ...$detected);
+
+        return match (true) {
+            $store instanceof PublicLedger => $store->onlyReading($default()),
+            $store instanceof ContainerLedger => $store->forDefaultBranch($default()),
+            default => $store,
+        };
     }
 
     /**

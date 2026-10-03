@@ -1066,3 +1066,40 @@ it('hands on a name in a map that reads as a number as text, to the cost model a
         ->and($php)->toContain("Badge::colour('12', 50)")
         ->and($php)->toContain("Option::nested('colors', Option::of('12', 50))");
 });
+
+it('reads the gcs and azure stores with their defaults, and refuses names their clouds do not allow, or a key', function (
+    array $store,
+    array $problems,
+): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'proofs' => ['store' => $store]])))->toBe($problems);
+})->with([
+    'a bucket' => [['use' => 'gcs', 'with' => ['bucket' => 'acme-ledgers.example', 'publicUrl' => 'https://storage.googleapis.com/acme-ledgers']], []],
+    'a container' => [['use' => 'azure', 'with' => ['account' => 'acme01', 'container' => 'ledgers-1', 'publicContainer' => 'pub']], []],
+    'no bucket' => [['use' => 'gcs'], ['proofs.store.with.bucket: expected a Cloud Storage bucket name, got nothing']],
+    'a bucket that leaves its path' => [
+        ['use' => 'gcs', 'with' => ['bucket' => '../other?x']],
+        ['proofs.store.with.bucket: expected a Cloud Storage bucket name, got "../other?x"'],
+    ],
+    'an account that leaves its host' => [
+        ['use' => 'azure', 'with' => ['account' => 'evil.example/x', 'container' => 'ledgers']],
+        ['proofs.store.with.account: expected a storage account name, got "evil.example/x"'],
+    ],
+    'a container Azure does not allow' => [
+        ['use' => 'azure', 'with' => ['account' => 'acme', 'container' => 'ledgers--', 'publicContainer' => 'A']],
+        [
+            'proofs.store.with.container: expected a container name, got "ledgers--"',
+            'proofs.store.with.publicContainer: expected a container name, got "A"',
+        ],
+    ],
+    'an account key' => [
+        ['use' => 'azure', 'with' => ['account' => 'acme', 'container' => 'ledgers', 'accountKey' => 'abc==']],
+        ['proofs.store.with.accountKey: unknown key, did you mean account?'],
+    ],
+]);
+
+it('defaults the gcs and azure stores\' prefix to the gate\'s name', function (): void {
+    expect(Configs::shown(Configs::settings(['runner' => 'pest', 'proofs' => ['store' => ['use' => 'gcs', 'with' => ['bucket' => 'acme']]]]), 'proofs', 'store', 'with', 'prefix'))
+        ->toBe('mutation-gate')
+        ->and(Configs::shown(Configs::settings(['runner' => 'pest', 'proofs' => ['store' => ['use' => 'azure', 'with' => ['account' => 'acme', 'container' => 'c1c']]]]), 'proofs', 'store', 'with', 'prefix'))
+        ->toBe('mutation-gate');
+});

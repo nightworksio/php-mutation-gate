@@ -6,15 +6,23 @@ namespace NightWorksIO\MutationGate\Cli\Doctor;
 
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Azure\ContainerOptions;
+use NightWorksIO\MutationGate\Adapter\Azure\PublicAccess;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\Api;
 use NightWorksIO\MutationGate\Adapter\GitHub\RepositoryName;
 use NightWorksIO\MutationGate\Adapter\GitHub\RepositorySettings;
+use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
+use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Doctor\AnonymousReadsRefused;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function parse_url;
 
@@ -54,7 +62,26 @@ final readonly class Online
             ? RepositorySettings::of($this->api(), $repository)->read($this->workflows($observed))
             : $repository;
 
-        return $observed->withAsked($observed->asked()->withGitHub($settings));
+        $asked = $observed->asked()->withGitHub($settings);
+        $refused = $this->anonymousReads($observed);
+
+        return $observed->withAsked(
+            $refused instanceof AnonymousReadsRefused ? $asked->withAnonymousReadsRefused($refused) : $asked,
+        );
+    }
+
+    /** The Azure account that refuses anonymous reads, where the config keeps its proofs in an `azure` store. */
+    private function anonymousReads(Observations $observed): AnonymousReadsRefused|NotGiven
+    {
+        $settings = $observed->settings();
+        $store = $settings instanceof Settings ? $settings->proofs()->store() : NotGiven::value();
+        $azure = $store instanceof Choice && $store->use()->value() === BuiltinStore::Azure->value
+            ? ContainerOptions::read($store->options())
+            : NotGiven::value();
+
+        return $azure instanceof ContainerOptions
+            ? PublicAccess::refused(HttpExchange::over($this->client), $azure)
+            : NotGiven::value();
     }
 
     private function repository(): RepositoryName|CannotTell

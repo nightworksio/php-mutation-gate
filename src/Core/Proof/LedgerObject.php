@@ -46,9 +46,15 @@ final readonly class LedgerObject
     /** The key of a scope's ledger as a URL's path, each segment percent-encoded; why there is none. */
     public function path(Scope $scope): string|CannotJudge
     {
-        $segments = $this->segments($scope);
+        $key = $this->of($scope);
 
-        return $segments instanceof CannotJudge ? $segments : implode('/', array_map(rawurlencode(...), $segments));
+        return $key instanceof CannotJudge ? $key : self::encoded($key);
+    }
+
+    /** A key as a URL's path, each of its segments percent-encoded. */
+    public static function encoded(string $key): string
+    {
+        return implode('/', array_map(rawurlencode(...), explode('/', $key)));
     }
 
     /** @return list<string>|CannotJudge */

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Config;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
+use NightWorksIO\MutationGate\Core\Config\StoreOption;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -34,11 +35,41 @@ final readonly class Proofs implements Setting
         string|NotGiven $publicUrl = new NotGiven(),
     ): self {
         return self::store(BuiltinStore::S3->value, [
-            'bucket' => $bucket,
-            'prefix' => $prefix,
-            'region' => $region,
-            'endpoint' => $endpoint,
-            'publicUrl' => $publicUrl,
+            StoreOption::Bucket->value => $bucket,
+            StoreOption::Prefix->value => $prefix,
+            StoreOption::Region->value => $region,
+            StoreOption::Endpoint->value => $endpoint,
+            StoreOption::PublicUrl->value => $publicUrl,
+        ]);
+    }
+
+    /** A Google Cloud Storage bucket; an option left out takes its default. */
+    public static function gcs(
+        string $bucket,
+        string|NotGiven $prefix = new NotGiven(),
+        string|NotGiven $publicUrl = new NotGiven(),
+    ): self {
+        return self::store(BuiltinStore::Gcs->value, [
+            StoreOption::Bucket->value => $bucket,
+            StoreOption::Prefix->value => $prefix,
+            StoreOption::PublicUrl->value => $publicUrl,
+        ]);
+    }
+
+    /** A container of an Azure storage account; an option left out takes its default. */
+    public static function azure(
+        string $account,
+        string $container,
+        string|NotGiven $prefix = new NotGiven(),
+        string|NotGiven $publicContainer = new NotGiven(),
+        string|NotGiven $publicUrl = new NotGiven(),
+    ): self {
+        return self::store(BuiltinStore::Azure->value, [
+            StoreOption::Account->value => $account,
+            StoreOption::Container->value => $container,
+            StoreOption::Prefix->value => $prefix,
+            StoreOption::PublicContainer->value => $publicContainer,
+            StoreOption::PublicUrl->value => $publicUrl,
         ]);
     }
 

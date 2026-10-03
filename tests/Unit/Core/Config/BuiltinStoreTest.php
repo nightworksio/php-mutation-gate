@@ -25,3 +25,27 @@ it('reads the access key\'s id and secret, then a session token and a role, for 
         ->toBe(['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN', 'AWS_ROLE_ARN'])
         ->and([...BuiltinStore::Directory->variables()])->toBe([]);
 });
+
+it('needs the external-account file or a ready token to write Cloud Storage', function (): void {
+    $credentials = BuiltinStore::Gcs->credentials();
+
+    expect($credentials->heldIn(Variables::of(['GOOGLE_APPLICATION_CREDENTIALS' => '/creds.json'])))->toBeTrue()
+        ->and($credentials->heldIn(Variables::of(['MUTATION_GATE_GCS_TOKEN' => 'ya29'])))->toBeTrue()
+        ->and($credentials->heldIn(Variables::of(['ACTIONS_ID_TOKEN_REQUEST_URL' => 'https://token'])))->toBeFalse()
+        ->and([...BuiltinStore::Gcs->variables()])->toBe(['GOOGLE_APPLICATION_CREDENTIALS', 'MUTATION_GATE_GCS_TOKEN']);
+});
+
+it('needs GitHub\'s OIDC request and the tenant and client, or a ready token, to write Azure', function (): void {
+    $github = [
+        'ACTIONS_ID_TOKEN_REQUEST_URL' => 'https://token',
+        'ACTIONS_ID_TOKEN_REQUEST_TOKEN' => 'request',
+        'AZURE_TENANT_ID' => 'tenant',
+        'AZURE_CLIENT_ID' => 'client',
+    ];
+    $credentials = BuiltinStore::Azure->credentials();
+
+    expect($credentials->heldIn(Variables::of($github)))->toBeTrue()
+        ->and($credentials->heldIn(Variables::of(['MUTATION_GATE_AZURE_TOKEN' => 'eyJ'])))->toBeTrue()
+        ->and($credentials->heldIn(Variables::of([...$github, 'AZURE_CLIENT_ID' => ''])))->toBeFalse()
+        ->and([...BuiltinStore::Azure->variables()])->toBe([...array_keys($github), 'MUTATION_GATE_AZURE_TOKEN']);
+});

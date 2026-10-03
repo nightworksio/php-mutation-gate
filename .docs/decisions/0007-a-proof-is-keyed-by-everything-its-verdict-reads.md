@@ -332,13 +332,15 @@ has to bring its result with it.
      results. `proofs.write` is `auto` by default, which writes the run's own
      scope, or `never`, which makes the store read-only.
    - **Which store.** `proofs.store` chooses it (ADR-0002): `directory`, the
-     default, or `s3`, or an extension's.
+     default, or `s3`, `gcs` or `azure` (ADR-0028), or an extension's.
 
    | Backend | What it is |
    |---------|------------|
    | **Directory** (`directory`) | One file per scope, `<path>/<scope>/ledger.json.gz`, where `path` is `.mutation-gate/ledger` by default (`proofs.store: {use: directory, with: {path: …}}`). The default locally, and the base of every CI cache: GitLab's `cache:`, Buildkite's cache plugins and CircleCI's `save_cache` keep the directory. |
    | **GitHub Actions cache** | The directory store, kept by the action and the reusable workflow (ADR-0011) when their `cache` input is `true`, as it is by default. The cache service is reachable only from inside an action, so PHP never calls it. Before the run, `actions/cache/restore` restores two entries, each into its scope's directory: the newest under the prefix `mutation-gate-ledger-<SHA-256 of the ref>-`, and the newest under `mutation-gate-ledger-<SHA-256 of the default branch's ref>-`. After the verdict, `actions/cache/save` saves the run's own scope as `mutation-gate-ledger-<SHA-256 of the ref>-<SHA-256 of its ledger>`, so an unchanged ledger is not saved twice. Digests of the refs keep one scope's prefix from being a prefix of another's. |
    | **S3-compatible** (`s3`: AWS S3, Cloudflare R2, MinIO) | One object per scope, `<prefix>/<scope>/ledger.json.gz`, through `async-aws/s3`, which is in `suggest`. Its options are `bucket` (required), `prefix` (`mutation-gate` by default), `region` (`us-east-1` by default; R2 takes `auto`), `endpoint` (AWS's own by default; R2's is `https://<account>.r2.cloudflarestorage.com`) and `publicUrl` (none by default: an `https://` base a run without credentials reads from, ADR-0013). Credentials come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and, when set, `AWS_SESSION_TOKEN`, and from nowhere else: no `~/.aws` file, instance, container or web identity role is read, so a self-hosted runner never lends the store its host's role. With `AWS_ROLE_ARN` set, those keys assume that role. |
+   | **Google Cloud Storage** (`gcs`) | One object per scope, `<prefix>/<scope>/ledger.json.gz`, read and written over the XML API through `symfony/http-client`. Its options are `bucket` (required), `prefix` (`mutation-gate` by default) and `publicUrl` (none by default). Its token comes from the `external_account` file `GOOGLE_APPLICATION_CREDENTIALS` names, exchanged at Google's STS and, where the file says, for a service account's token, or from `MUTATION_GATE_GCS_TOKEN`. A service-account key is refused (ADR-0028). |
+   | **Azure Blob Storage** (`azure`) | One block blob per scope, `<prefix>/<scope>/ledger.json.gz`, through `symfony/http-client`. Its options are `account` and `container` (both required), `prefix` (`mutation-gate` by default), `publicContainer`, which keeps the default branch's scope where it is set, and `publicUrl` (none by default). Its token is GitHub's OIDC token exchanged at Microsoft Entra ID for the tenant and client `AZURE_TENANT_ID` and `AZURE_CLIENT_ID` name, or `MUTATION_GATE_AZURE_TOKEN`. No account key or shared access signature is read (ADR-0028). |
 
    When two verdicts write one scope at the same time, the last write wins. The
    proofs it drops cost a run later, never a verdict.
@@ -356,6 +358,12 @@ has to bring its result with it.
      store read-only and reads the default branch's ledger from
      `publicUrl`, where the bucket policy makes only that prefix public
      (ADR-0013, decisions 13 to 15).
+   - **On Cloud Storage and Azure Blob Storage**, the same holds for the
+     identity a federation hands the store: it trusts a GitHub environment
+     restricted to the default branch, or the verdict workflow's
+     `job_workflow_ref`, never a bare `ref`. A run without a token reads the
+     default branch's ledger from a managed folder `allUsers` may read on
+     Cloud Storage, or from the public container on Azure (ADR-0028).
    - **On GitLab**, separate caches for protected branches keep a merge
      request's pipeline from writing the default branch's cache. They also
      keep it from reading that cache, so a merge request carries nothing from
@@ -408,6 +416,7 @@ signed, and the README says where the boundary lies for each store.
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): timings, and the verdict that writes the ledger
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): why budget-cut and flaky units are never recorded
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): `tests.order` in the key, the killer history and opening runs in the ledger, and forks reading the S3 store
+- [ADR-0028](0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md): the `gcs` and `azure` stores
 - [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): `killedBy` in the proof
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): `trees[].exclude` in the key
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the per-item digests `doctor` reads

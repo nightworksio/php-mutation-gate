@@ -11,9 +11,9 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\Required;
+use NightWorksIO\MutationGate\Core\Config\StoreOption;
 use NightWorksIO\MutationGate\Core\NotGiven;
-
-use function sprintf;
 
 /**
  * What the `s3` store's options say, as the definition reads them with their
@@ -24,16 +24,6 @@ use function sprintf;
  */
 final readonly class BucketOptions
 {
-    private const string BUCKET = 'bucket';
-
-    private const string PREFIX = 'prefix';
-
-    private const string REGION = 'region';
-
-    private const string ENDPOINT = 'endpoint';
-
-    private const string PUBLIC_URL = 'publicUrl';
-
     private function __construct(
         private string $bucket,
         private string $prefix,
@@ -45,11 +35,11 @@ final readonly class BucketOptions
 
     public static function read(Options $options): self|Invalid
     {
-        $bucket = self::required($options, self::BUCKET);
-        $prefix = self::required($options, self::PREFIX);
-        $region = self::required($options, self::REGION);
-        $endpoint = $options->text(Key::of(self::ENDPOINT));
-        $publicUrl = $options->text(Key::of(self::PUBLIC_URL));
+        $bucket = Required::text($options, StoreOption::Bucket->value);
+        $prefix = Required::text($options, StoreOption::Prefix->value);
+        $region = Required::text($options, StoreOption::Region->value);
+        $endpoint = $options->text(Key::of(StoreOption::Endpoint->value));
+        $publicUrl = $options->text(Key::of(StoreOption::PublicUrl->value));
 
         if ($bucket instanceof Problem || $prefix instanceof Problem || $region instanceof Problem) {
             return Invalid::because(...self::problemsIn($bucket, $prefix, $region, $endpoint, $publicUrl));
@@ -88,9 +78,9 @@ final readonly class BucketOptions
     public function configuration(): array
     {
         return [
-            self::REGION => $this->region,
+            StoreOption::Region->value => $this->region,
             ...$this->endpoint instanceof Endpoint
-                ? [self::ENDPOINT => $this->endpoint->url(), 'pathStyleEndpoint' => 'true']
+                ? [StoreOption::Endpoint->value => $this->endpoint->url(), 'pathStyleEndpoint' => 'true']
                 : [],
         ];
     }
@@ -102,14 +92,5 @@ final readonly class BucketOptions
             $answers,
             static fn(string|Problem|NotGiven $answer): bool => $answer instanceof Problem,
         ));
-    }
-
-    private static function required(Options $options, string $option): string|Problem
-    {
-        $value = $options->text(Key::of($option));
-
-        return $value instanceof NotGiven
-            ? Problem::at($option, sprintf('expected the %s, got nothing', $option))
-            : $value;
     }
 }

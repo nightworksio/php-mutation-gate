@@ -701,12 +701,95 @@
                             "type": "object",
                             "properties": {
                                 "use": {
+                                    "const": "gcs"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "properties": {
+                                        "bucket": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "pattern": "^[a-z0-9][a-z0-9_.-]{1,220}[a-z0-9]$"
+                                        },
+                                        "prefix": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "default": "mutation-gate"
+                                        },
+                                        "publicUrl": {
+                                            "type": "string",
+                                            "pattern": "^https://[^/?\\x23@\\s]+(/[^?\\x23\\s]*)?$"
+                                        }
+                                    },
+                                    "required": [
+                                        "bucket"
+                                    ],
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "azure"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "properties": {
+                                        "account": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "pattern": "^[a-z0-9]{3,24}$"
+                                        },
+                                        "container": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "pattern": "^[a-z0-9](?:[a-z0-9]|-(?=[a-z0-9])){2,62}$"
+                                        },
+                                        "prefix": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "default": "mutation-gate"
+                                        },
+                                        "publicContainer": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "pattern": "^[a-z0-9](?:[a-z0-9]|-(?=[a-z0-9])){2,62}$"
+                                        },
+                                        "publicUrl": {
+                                            "type": "string",
+                                            "pattern": "^https://[^/?\\x23@\\s]+(/[^?\\x23\\s]*)?$"
+                                        }
+                                    },
+                                    "required": [
+                                        "account",
+                                        "container"
+                                    ],
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
                                     "type": "string",
                                     "minLength": 1,
                                     "not": {
                                         "enum": [
                                             "directory",
-                                            "s3"
+                                            "s3",
+                                            "gcs",
+                                            "azure"
                                         ]
                                     }
                                 },

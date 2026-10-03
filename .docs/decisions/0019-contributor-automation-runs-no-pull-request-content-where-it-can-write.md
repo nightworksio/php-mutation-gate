@@ -334,7 +334,8 @@ by probes on 2026-09-30:
 
 16. **An OIDC role that can write a ledger never trusts a bare `ref`.**
     - Where the ledger's store is reached through an OIDC role (S3, as the
-      approved S1 setup does), the role that can write the default branch's
+      approved S1 setup does, and the `gcs` and `azure` stores, whose only
+      credential is a federated one: ADR-0028 decision 3), the role that can write the default branch's
       prefix trusts either:
       - a GitHub environment whose deployment-branch policy allows the
         default branch only, and which only the verdict job uses; or

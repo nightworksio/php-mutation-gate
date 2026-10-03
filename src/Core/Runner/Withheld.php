@@ -14,6 +14,7 @@ use function implode;
 
 use Iterator;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Proof\StoreVariable;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 
 use function preg_quote;
@@ -29,8 +30,24 @@ use function str_replace;
  */
 final readonly class Withheld implements IteratorAggregate
 {
-    /** AWS's credentials, the Actions runtime's, GitHub's token and SonarCloud's. */
-    private const array STANDARD = ['AWS_*', 'ACTIONS_*', 'GITHUB_TOKEN', 'SONAR_TOKEN'];
+    /**
+     * AWS's credentials, the Actions runtime's, GitHub's token and
+     * SonarCloud's, and the Cloud Storage and Azure stores': the credentials
+     * file `google-github-actions/auth` writes, under each name it exports
+     * it by, Azure's variables, and each store's ready token.
+     */
+    private const array STANDARD = [
+        'AWS_*',
+        'ACTIONS_*',
+        'GITHUB_TOKEN',
+        'SONAR_TOKEN',
+        StoreVariable::GoogleCredentials->value,
+        'GOOGLE_GHA_CREDS_PATH',
+        'CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE',
+        'AZURE_*',
+        StoreVariable::GcsToken->value,
+        StoreVariable::AzureToken->value,
+    ];
 
     /**
      * What makes a process a worker or a mutant's run of another run, or has
