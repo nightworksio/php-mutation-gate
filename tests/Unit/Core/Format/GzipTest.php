@@ -67,3 +67,24 @@ it('cannot unpack within a limit what is not a whole gzip stream', function (str
     'the magic alone' => ["\x1f\x8b"],
     'a stream with a broken body' => [substr_replace(Gzip::pack(str_repeat('abc', 20_000)), str_repeat("\xff", 64), 20, 64)],
 ]);
+
+it('leaves what follows a stream unread, within a limit or not, wherever the stream ends', function (string $after): void {
+    $ends = [];
+    $unpacked = [];
+    $expected = [];
+
+    foreach (range(4_060, 4_090) as $length) {
+        $text = substr(gzipNoise(), 0, $length);
+        $packed = Gzip::pack($text);
+        $ends[] = strlen($packed);
+        $followed = sprintf('%s%s', $packed, $after);
+        $unpacked[] = [Gzip::unpackAtMost($followed, 'the ledger', 1_000_000), Gzip::unpack($followed, 'the ledger')];
+        $expected[] = [$text, $text];
+    }
+
+    expect($ends)->toContain(4_095, 4_096, 4_097)
+        ->and($unpacked)->toBe($expected);
+})->with([
+    'bytes that are not gzip' => ['xyz'],
+    'a second stream' => [Gzip::pack('more')],
+]);

@@ -23,7 +23,8 @@ use function str_starts_with;
 /**
  * Text as a file the gate writes compressed holds it: gzip, which every
  * store and every CI cache keeps as it is. Unpacking reads a whole gzip
- * stream and refuses anything else, a stream cut short among it.
+ * stream and refuses anything else, a stream cut short among it, and leaves
+ * whatever follows the stream's end unread.
  */
 final readonly class Gzip
 {
@@ -72,7 +73,10 @@ final readonly class Gzip
             : CannotJudge::because(sprintf(self::NOT_GZIP, $named));
     }
 
-    /** The text a gzip stream inflates to, a step at a time, stopping once it is past the most it may be. */
+    /**
+     * The text a gzip stream inflates to, a step at a time, stopping once it is past the most it may be or the
+     * stream has ended, wherever in a step it ends.
+     */
     private static function inflated(
         InflateContext $inflating,
         string $bytes,
@@ -83,7 +87,12 @@ final readonly class Gzip
         $text = '';
         $offset = 0;
 
-        while ($whole && $offset < Bytes::length($bytes) && Bytes::length($text) <= $most) {
+        while (
+            $whole
+            && $offset < Bytes::length($bytes)
+            && Bytes::length($text) <= $most
+            && inflate_get_status($inflating) !== ZLIB_STREAM_END
+        ) {
             $step = self::added($inflating, Bytes::slice($bytes, $offset, self::STEP));
             $whole = is_string($step);
             $text .= is_string($step) ? $step : '';
