@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -64,7 +65,7 @@ final readonly class ProcessShell implements Shell
             usleep(Polling::interval()->microseconds());
         }
 
-        return Ran::finished(succeeded: $process->isSuccessful(), output: $this->outputOf($process))
+        return Ran::exited($process->getExitCode() ?? NotGiven::value(), $this->outputOf($process))
             ->took($this->since($started));
     }
 

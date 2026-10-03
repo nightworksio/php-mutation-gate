@@ -19,11 +19,21 @@ use function trim;
  * fit, then how many were left out, so no message a chat refuses is sent.
  * Text from outside, such as what a service answered or the name a
  * project gave a test, is made one plain line first, so it can start no
- * command in a CI's log.
+ * command in a CI's log. A long list of names shows its first few and how
+ * many more it holds.
  */
 final readonly class Fit
 {
+    /** How many names a shortened list shows. */
+    public const int SHOWN = 3;
+
     private const string MORE = 'And %d more.';
+
+    /** The names a list shows, then how many more it holds. */
+    private const string NAMED_MORE = '%s and %d more';
+
+    /** What parts one shown name from the next. */
+    private const string COMMA = ', ';
 
     /** What is added to a text that is cut, as `…`. */
     private const string CUT = '…';
@@ -77,6 +87,20 @@ final readonly class Fit
         $spaced = preg_replace(self::SPACE, ' ', mb_scrub($text, 'UTF-8')) ?? '';
 
         return trim(preg_replace(self::CONTROL, '', $spaced) ?? '');
+    }
+
+    /**
+     * The first few of these names, parted by commas, then how many more
+     * there are: `a, b, c and 5 more`.
+     *
+     * @param list<string> $names
+     */
+    public static function named(array $names): string
+    {
+        $named = implode(self::COMMA, array_slice($names, 0, self::SHOWN));
+        $more = count($names) - self::SHOWN;
+
+        return $more > 0 ? sprintf(self::NAMED_MORE, $named, $more) : $named;
     }
 
     /** One line cut to this many characters, ending in `…` where it was cut. */

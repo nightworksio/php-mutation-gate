@@ -133,23 +133,23 @@ it('runs the tests that read the value, then the fallback\'s others where the mu
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['internal']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php']));
-    $judging = Invocation::installedIn(Path::of('vendor'));
+    $log = sprintf('--log-junit=%s/.mutation-gate/pest/junit.xml', $at->root());
+    $alone = static fn(string $spec): Command => Invocation::installedIn(Path::of('vendor'))
+        ->judging(Paths::of(Path::of(sprintf('tests/%s.php', $spec))), WholeSuite::tests(), Withheld::standard(), $log)
+        ->within(Seconds::of(6.0));
     $copy = Recorder::mutantBeside($results, 'internal');
-    $override = static fn(string $spec): Command => $judging
-        ->judging(Paths::of(Path::of(sprintf('tests/%s.php', $spec))), WholeSuite::tests(), Withheld::standard())
-        ->within(Seconds::of(6.0))
-        ->with([
-            'PEST_MUTATION_TESTING' => sprintf('%s/src/Money.php', $at->root()),
-            'PEST_MUTATION_FILE' => $copy,
-            'MUTATION_GATE_GUARD' => sprintf('%s/.mutation-gate/pest/guard.json', $at->root()),
-        ]);
+    $override = static fn(string $spec): Command => $alone($spec)->with([
+        'PEST_MUTATION_TESTING' => sprintf('%s/src/Money.php', $at->root()),
+        'PEST_MUTATION_FILE' => $copy,
+        'MUTATION_GATE_GUARD' => sprintf('%s/.mutation-gate/pest/guard.json', $at->root()),
+    ]);
 
     new Judging($at, $shell, new CapDirectory())->of(judgingResult('internal'), $money, $results, judgingCoverage($results));
 
     expect($shell->commands())->toEqual([
-        $judging->judging(Paths::of(Path::of('tests/InternalSpec.php')), WholeSuite::tests(), Withheld::standard())->within(Seconds::of(6.0)),
+        $alone('InternalSpec'),
         $override('InternalSpec'),
-        $judging->judging(Paths::of(Path::of('tests/OtherSpec.php')), WholeSuite::tests(), Withheld::standard())->within(Seconds::of(6.0)),
+        $alone('OtherSpec'),
         $override('OtherSpec'),
     ]);
 });

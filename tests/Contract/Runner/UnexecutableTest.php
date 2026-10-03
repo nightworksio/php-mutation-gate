@@ -50,11 +50,26 @@ const UNEXECUTABLE_JUDGED = [
 
 /**
  * Each mutant a library's runner reports for these files, tests and mutator, by
- * where it is: its status and reason.
+ * where it is: its status and reason, less what a run that judged nothing
+ * said of itself in brackets.
  *
  * @return array<string, string>
  */
 function unexecutableJudged(Library $library, Paths $files, WholeSuite|Group $tests, string $mutator): array
+{
+    return array_map(
+        static fn(string $judged): string => (string) preg_replace('/ \(.*\)$/s', '', $judged),
+        unexecutableSaid($library, $files, $tests, $mutator),
+    );
+}
+
+/**
+ * Each mutant a library's runner reports for these files, tests and mutator, by
+ * where it is: its status and its whole reason.
+ *
+ * @return array<string, string>
+ */
+function unexecutableSaid(Library $library, Paths $files, WholeSuite|Group $tests, string $mutator): array
 {
     $request = MutationRequest::of($files, $tests)->narrowedTo($files, Mutators::named($mutator));
     $result = $library->runner()->mutate($request);
@@ -85,6 +100,15 @@ it('judges each kind of value on a line that is not executable by the tests that
     $judged = unexecutableJudged($library, unexecutableFiles(), WholeSuite::tests(), IncrementInteger::class);
 
     expect($judged)->toEqualCanonicalizing(UNEXECUTABLE_JUDGED);
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+it('says what a run that judged nothing did: its exit code, any test that failed, and the files it ran', function (): void {
+    $files = Paths::of(Path::of('src/Unexecutable/Early.php'));
+
+    $said = unexecutableSaid(Library::pest(Patching::off()), $files, WholeSuite::tests(), IncrementInteger::class);
+
+    expect($said['src/Unexecutable/Early.php:10'] ?? '')
+        ->toMatch('/^unjudged loaded before the override \(exit code \d+; (first failing test .+; )?ran tests\/.+\.php.*\)$/');
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('judges the same through a project root that is a symbolic link', function (): void {

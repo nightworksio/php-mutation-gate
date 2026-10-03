@@ -598,7 +598,9 @@ its parser attributes. Both change when the checkout moves.
        contract test proves both.
    - **Which tests judge it.** A scan of tokens, with names resolved through
      namespaces, imports and aliases, finds every reference to the symbol:
-     - in test files, the test files themselves;
+     - in test files, the test files themselves, where the coverage map
+       names a test of theirs: another file under the test directories, such
+       as a helper or a fixture, is no test file Pest runs;
      - in source files, the test files that cover the line of each reference,
        read from the coverage map. So a constant read through `self::RATE`
        inside a covered method is judged by that method's tests. References
@@ -672,6 +674,15 @@ its parser attributes. Both change when the checkout moves.
        original could be served instead of the mutant;
      - no guard written at all: *the run wrote no guard, so the gate cannot
        tell the mutated file ran*.
+   - **What a run that judges nothing says.** Each run writes PHPUnit's
+     JUnit log beside the guard (`--log-junit`). A mutant left unjudged by a
+     run, on its own or with the override, carries after its reason, in
+     brackets: the exit code, or the limit the run was stopped at; the first
+     test the log names as failed or errored, by its file and description,
+     with the first line PHPUnit said of it, or, where none did and the run
+     failed, the last line the run printed; and the test files it ran, the
+     first three and how many more. Each line from the run is one plain line
+     of at most 200 characters.
    - **Costs.** Each run's time goes into the cost model like any other
      mutant's (ADR-0006).
    - **Contract tests**, one per kind of symbol:

@@ -10,6 +10,7 @@ use function array_map;
 use function hrtime;
 use function is_int;
 
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -70,7 +71,7 @@ final readonly class ProcessShell implements Shell
         }
 
         $said = sprintf('%s%s', $process->getOutput(), $process->getErrorOutput());
-        $ran = $stopped ? Ran::stopped($said) : Ran::finished(succeeded: $process->isSuccessful(), output: $said);
+        $ran = $stopped ? Ran::stopped($said) : Ran::exited($process->getExitCode() ?? NotGiven::value(), $said);
 
         return $ran->took($this->since($started));
     }

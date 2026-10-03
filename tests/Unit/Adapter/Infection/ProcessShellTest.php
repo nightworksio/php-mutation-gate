@@ -32,7 +32,7 @@ it('runs a script in its directory, and keeps both of its outputs', function ():
     $directory = (string) realpath(Scratch::directory());
     $ran = new ProcessShell($directory, ['PATH' => '/usr/bin'])->run(Command::php('-r', 'echo getcwd(); fwrite(STDERR, "!");'));
 
-    expect($ran)->toEqual(Ran::finished(succeeded: true, output: sprintf('%s!', $directory))->took(Measured::of($ran)));
+    expect($ran)->toEqual(Ran::exited(0, sprintf('%s!', $directory))->took(Measured::of($ran)));
 });
 
 it('runs a script in another directory once moved there, on the PATH it had', function (): void {
@@ -40,9 +40,9 @@ it('runs a script in another directory once moved there, on the PATH it had', fu
     $ran = new ProcessShell('/', ['PATH' => '/usr/bin'])->in($directory)
         ->run(Command::php('-r', 'echo getcwd(), " ", getenv("PATH");'));
 
-    expect($ran)->toEqual(Ran::finished(
-        succeeded: true,
-        output: sprintf('%s %s%s/usr/bin', $directory, dirname(PHP_BINARY), PATH_SEPARATOR),
+    expect($ran)->toEqual(Ran::exited(
+        0,
+        sprintf('%s %s%s/usr/bin', $directory, dirname(PHP_BINARY), PATH_SEPARATOR),
     )->took(Measured::of($ran)));
 });
 
@@ -81,10 +81,10 @@ it('withholds every variable the command withholds', function (): void {
     expect($ran->output())->toContain("\nKEPT_PROBE=false\n");
 });
 
-it('says a script that exits with a failure did not succeed', function (): void {
+it('says a script that exits with a failure did not succeed, and its exit code', function (): void {
     $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'echo "no"; exit(3);'));
 
-    expect($ran)->toEqual(Ran::finished(succeeded: false, output: 'no')->took(Measured::of($ran)));
+    expect($ran)->toEqual(Ran::exited(3, 'no')->took(Measured::of($ran)));
 });
 
 it('answers a process that cannot start as a failure, with the reason', function (): void {
@@ -133,7 +133,7 @@ it('measures a deadline on the system\'s clock', function (): void {
 it('waits for a script that ends before its deadline', function (): void {
     $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'echo "done";')->within(Seconds::of(10.0)));
 
-    expect($ran)->toEqual(Ran::finished(succeeded: true, output: 'done')->took(Measured::of($ran)));
+    expect($ran)->toEqual(Ran::exited(0, 'done')->took(Measured::of($ran)));
 });
 
 it('measures how long a script ran on its clock, from its start to its end', function (): void {
