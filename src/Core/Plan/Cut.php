@@ -34,11 +34,12 @@ use function sprintf;
  */
 final readonly class Cut
 {
-    /** The size of a shard where the count is fixed, which the workload decides rather than the config. */
-    private const float UNSIZED = 0.0;
-
+    /**
+     * @param Seconds|Absent $size   the size of a shard, where the config sets it; none where the workload decides
+     * @param Seconds|Absent $target the wall time the shards are cut to fit, where the config asks for one
+     */
     private function __construct(
-        private float $seconds,
+        private Seconds|Absent $size,
         private int $most,
         private bool $exact,
         private Seconds|Absent $target,
@@ -49,19 +50,25 @@ final readonly class Cut
     /** Shards of about `shards.seconds` each, at most `shards.max` of them. */
     public static function bySize(int $seconds, int $most): self
     {
-        return new self($seconds, $most, exact: false, target: Absent::setting(), overhead: Seconds::of(0.0));
+        return new self(
+            Seconds::of($seconds),
+            $most,
+            exact: false,
+            target: Absent::setting(),
+            overhead: Seconds::of(0.0),
+        );
     }
 
     /** As many shards as fit a shard's setup and share of the cost into a target wall time, at most `shards.max`. */
     public static function toTarget(Seconds $target, Seconds $setup, int $most): self
     {
-        return new self(self::UNSIZED, $most, exact: false, target: $target, overhead: $setup);
+        return new self(Absent::setting(), $most, exact: false, target: $target, overhead: $setup);
     }
 
     /** Exactly this many shards, as `--shards=<n>` asks. */
     public static function exactly(int $count): self
     {
-        return new self(self::UNSIZED, $count, exact: true, target: Absent::setting(), overhead: Seconds::of(0.0));
+        return new self(Absent::setting(), $count, exact: true, target: Absent::setting(), overhead: Seconds::of(0.0));
     }
 
     /** This cut, where each shard's runner first spends this long on its opening run. */
@@ -105,9 +112,9 @@ final readonly class Cut
     private function countsFor(array $packages): array
     {
         $size = match (true) {
-            $this->exact => $this->costOf($packages) / $this->most,
+            $this->size instanceof Seconds => $this->size->seconds(),
             $this->target instanceof Seconds => $this->sizeToFit($this->target, $this->costOf($packages)),
-            default => $this->seconds,
+            default => $this->costOf($packages) / $this->most,
         };
         $counts = $this->countsAt($packages, $size);
 
