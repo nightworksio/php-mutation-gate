@@ -76,7 +76,11 @@ The pieces already exist in the design:
    git uses, which honours `core.hooksPath`. The hook calls
    `vendor/bin/mutation-gate pre-push "$@"`. If a hook it did not write is
    already there, it changes nothing and prints the one line to add to that
-   hook. `mutation-gate hook uninstall` removes only a hook it wrote. The
+   hook. A hooks directory outside the repository, as a `core.hooksPath`
+   that other repositories share can name, gets no hook either: the hook
+   would run in those repositories too, so the command prints the line to add
+   to a hook there. `mutation-gate hook uninstall` removes only a hook it
+   wrote, and names only the hooks it removes. The
    command is an ordinary executable, so CaptainHook, GrumPHP or a Composer
    script can call it instead. `hook install --pre-commit` also writes a
    `pre-commit` hook, by the same rules, which calls

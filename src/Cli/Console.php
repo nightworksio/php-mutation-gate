@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Cli\Command\ConfigShow;
 use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
 use NightWorksIO\MutationGate\Cli\Command\Doctor;
 use NightWorksIO\MutationGate\Cli\Command\ExplainCommand;
+use NightWorksIO\MutationGate\Cli\Command\HookCommand;
 use NightWorksIO\MutationGate\Cli\Command\Init;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Cli\Command\PreCommitCommand;
@@ -55,7 +56,6 @@ final readonly class Console
     private const array NOT_BUILT = [
         'triage' => 'Run a file n times and list every mutant whose result varied',
         'watch' => 'Re-judge what each save reaches',
-        'hook' => 'Add or remove the pre-push hook: hook install, hook uninstall',
     ];
 
     /**
@@ -105,6 +105,7 @@ final readonly class Console
         }
 
         $application->addCommand(PestPatch::command(ComposerVendor::on($project)));
+        $application->addCommand(HookCommand::command($project));
 
         $detected = new Detected(Directory::at($project), Directory::at($vendor));
         $now = $clock->now();

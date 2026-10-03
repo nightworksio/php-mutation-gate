@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Hook\Hook;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Push\Pushes;
@@ -48,8 +49,6 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class PrePushCommand
 {
-    private const string NAME = 'pre-push';
-
     private const string REMOTE = 'remote';
 
     private const string URL = 'url';
@@ -70,7 +69,7 @@ final readonly class PrePushCommand
 
     public static function command(Composition $composition): Command
     {
-        return FlowOptions::editing(new Command(self::NAME))
+        return FlowOptions::editing(new Command(Hook::PrePush->value))
             ->setDescription(
                 'Judge the commits being pushed, as CI will, after printing each reached tree\'s score change',
             )

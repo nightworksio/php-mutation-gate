@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\ScoreChanging;
+use NightWorksIO\MutationGate\Core\Hook\Hook;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -23,7 +24,7 @@ final readonly class PreCommitCommand
 {
     public static function command(Composition $composition): Command
     {
-        return new Command('pre-commit')
+        return new Command(Hook::PreCommit->value)
             ->setDescription('Show the score change of what is about to be committed; it runs nothing and never blocks')
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $composed = $composition->compose($input);

@@ -40,10 +40,16 @@ it('knows the name it declares, and is said as its file without one', function (
 });
 
 it('installs its packages where config.vendor-dir says, or in vendor', function (): void {
-    expect(aManifest('{"config": {"vendor-dir": "lib/vendor"}}')->vendorDirectory())->toEqual(Path::of('lib/vendor'))
-        ->and(aManifest('{"config": {"vendor-dir": ""}}')->vendorDirectory())->toEqual(Path::of('vendor'))
-        ->and(aManifest('{"config": {"vendor-dir": 1}}')->vendorDirectory())->toEqual(Path::of('vendor'))
-        ->and(aManifest('{}')->vendorDirectory())->toEqual(Path::of('vendor'));
+    expect(aManifest('{"config": {"vendor-dir": "lib/vendor"}}')->directories()->vendor())->toEqual(Path::of('lib/vendor'))
+        ->and(aManifest('{"config": {"vendor-dir": ""}}')->directories()->vendor())->toEqual(Path::of('vendor'))
+        ->and(aManifest('{"config": {"vendor-dir": 1}}')->directories()->vendor())->toEqual(Path::of('vendor'))
+        ->and(aManifest('{}')->directories()->vendor())->toEqual(Path::of('vendor'));
+});
+
+it('links commands where config.bin-dir says, and names nothing where it says nothing', function (): void {
+    expect(aManifest('{"config": {"bin-dir": "{$vendor-dir}/../bin"}}')->directories()->bin())->toBe('{$vendor-dir}/../bin')
+        ->and(aManifest('{"config": {"bin-dir": 1}}')->directories()->bin())->toBe('')
+        ->and(aManifest('{}')->directories()->bin())->toBe('');
 });
 
 it('names every path its autoload names, spelt from the repository root, in its order', function (): void {

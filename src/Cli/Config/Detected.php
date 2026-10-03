@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Config;
 use function array_any;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
@@ -30,9 +31,6 @@ use function sprintf;
  */
 final readonly class Detected
 {
-    /** Where Composer links each installed package's commands, in the vendor directory, by its default bin-dir. */
-    private const string BIN = 'bin';
-
     /** The package that says each preset fits, in the order they are asked about (ADR-0008). */
     private const array PRESETS = [
         Package::Laravel->value => BuiltinPreset::Laravel,
@@ -125,7 +123,7 @@ final readonly class Detected
     /** Whether Composer linked this command into the vendor directory. */
     private function installs(string $command): bool
     {
-        return $this->vendor->read(Path::of(self::BIN)->child(Path::of($command))) instanceof Contents;
+        return $this->vendor->read(Path::of(ComposerVendor::BIN)->child(Path::of($command))) instanceof Contents;
     }
 
     /** Whether the project's root has any of these files. */
